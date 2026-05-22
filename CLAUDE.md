@@ -32,15 +32,15 @@ Any change that spans two or more repos (API contract changes, schema changes, s
 
 ## Document Locations
 
-| Document type | Location |
-|---------------|----------|
-| System architecture | `docs/architecture.md` |
-| Cross-repo work plan | `docs/plan.md` |
-| Architectural decisions (ADRs) | `docs/decisions/` |
-| SQS message formats | `docs/contracts/` |
-| Service-to-service API contracts | `docs/contracts/` |
-| Git workflow and conventions | `docs/conventions/git.md` |
-| Service-specific guides | Each repo's `CLAUDE.md` |
+| Document type                    | Location                  |
+| -------------------------------- | ------------------------- |
+| System architecture              | `docs/architecture.md`    |
+| Cross-repo work plan             | `docs/plan.md`            |
+| Architectural decisions (ADRs)   | `docs/decisions/`         |
+| SQS message formats              | `docs/contracts/`         |
+| Service-to-service API contracts | `docs/contracts/`         |
+| Git workflow and conventions     | `docs/conventions/git.md` |
+| Service-specific guides          | Each repo's `CLAUDE.md`   |
 
 ## Git Workflow
 
@@ -54,6 +54,7 @@ See `docs/conventions/git.md` for commit format, branch naming, and PR flow.
 - If you discover changes needed outside the stated scope, stop and report. Do not silently expand scope.
 - See `docs/conventions/git.md` for commit message format and PR flow.
 - See `docs/decisions/` for architectural decision records.
+- Never claim "fixed" / "works" / "done" without running the verification command in this session. State the evidence (test output, command result) explicitly.
 
 ## Hard Rules
 
@@ -61,3 +62,16 @@ See `docs/conventions/git.md` for commit format, branch naming, and PR flow.
 - **Never run a rollback migration directly against RDS** — migrations must go through each repo's migration tooling; rollbacks require human review and manual approval.
 - **Never add a synchronous Spotify API call to the user-facing search path** — `/search/unified` must remain DB-only. Spotify calls go through the async path only: `candidates` → SQS → Worker.
 - **Never commit `.env` files** — no `.env`, `.env.local`, or `.env.*` in any repo. Secrets are managed via AWS Secrets Manager or GitHub Actions Secrets.
+
+## Agent Delegation
+
+Subagents preserve main context. Use them proactively:
+
+- **explorer**: When understanding a cross-repo flow requires reading 3+ files. Especially for tracing SQS message paths across repos.
+- **planner**: For any change touching 2+ repos. Output goes into `docs/plan.md`.
+- **debugger**: When a bug isn't isolated within ~15 min. Hand off the failing test or error.
+- **test-engineer**: When writing pytest cases or fixing flaky tests.
+- **/code-review**: After pushing a PR branch. Runs 4 parallel agents (CLAUDE.md compliance ×2, bug detection, git blame context), scores each issue 0–100, posts GitHub comment with issues ≥80 confidence.
+- **frontend-design plugin**: Auto-applied when working in `myblog_front`. No explicit invocation needed — enhances frontend output with production-grade aesthetics automatically.
+
+Do not handle multi-repo investigation in the main context — delegate to explorer.

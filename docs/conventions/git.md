@@ -158,10 +158,27 @@ If the human significantly rewrote AI output, omit the trailer.
 4. **Commit** — human runs `git commit` with Conventional Commits format; add AI trailers when applicable.
 5. **Push** — `git push -u origin <branch>`.
 6. **Open PR** — `gh pr create` targeting `main` (or `develop`); fill in summary and test plan.
-7. **Review** — invoke the `reviewer` agent; address all findings before merge.
+7. **Review** — run `/code-review`; address all findings before merge.
 8. **Squash merge** — squash into the target branch; the squash commit title must follow Conventional Commits format.
 9. **Delete branch** — `git push origin --delete <branch>`.
 10. **Update plan** — mark the corresponding entry in `docs/plan.md` as `✅ Done (date, SHA: <7-char>)`.
+
+### `/code-review` — automated PR review
+
+Run after opening a PR:
+
+```
+/code-review
+```
+
+What it does:
+- Launches 4 agents in parallel: CLAUDE.md compliance (×2), bug detection, git blame context analysis
+- Scores each issue 0–100 for confidence; filters out anything below 80
+- Posts a GitHub PR comment with only high-confidence, actionable issues
+
+Use `/security-review` in addition for PRs that touch auth, secrets, or input handling (PR-8, PR-4, etc.).
+
+---
 
 ### `gh pr create` template
 

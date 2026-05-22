@@ -2,177 +2,173 @@
 
 ---
 
-## 1. 컨텍스트
+## 1. Context
 
-myblog_music 초기 코드 리뷰(2026-05-20) 결과, 프로덕션 투입 전 반드시 처리해야 할 런타임 버그·보안 구멍·디버그 코드 잔재가 발견되었다. 이 계획은 해당 항목을 우선순위에 따라 처리 순서를 정의한다.
+Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, security gaps, and debug code that must be resolved before production. This section defines the work order by priority.
 
-- 입력 출처: `docs/reviews/2026-05-20-myblog-music-initial.md` (코드 직접 분석)
-- 작성일: 2026-05-20
-- 최종 수정: 2026-05-20 (결정사항 반영)
+- Source: `docs/reviews/2026-05-20-myblog-music-initial.md`
+- Created: 2026-05-20
+- Last updated: 2026-05-20
 
 ---
 
-## 2. 항목 분류
+## 2. Issue Classification
 
-### 빠른 격리 (오늘 안에 처리 가능, 위험 낮음)
+### Quick isolation (low risk, completable same day)
 
-| ID | 항목 | 위치 |
+| ID | Item | Location |
+|----|------|----------|
+| DEBT-2 | Move inline `import` statements out of class body in `album_repo.py` | `app/repositories/album_repo.py` L128–129 |
+| DEBT-3 | Fix filename typo: `cadidate_search_service.py` → `candidate_search_service.py` | `app/services/`, `app/api/routers/search.py` |
+| DESIGN-2 | Remove dead code `singleflight.py` — absorbed into PR-1, confirmed for deletion | `app/core/singleflight.py` |
+
+### Correctness bugs (this week, clear fixes)
+
+| ID | Item | Location | Symptom |
+|----|------|----------|---------|
+| BUG-1 | `schema.sql` artists table has duplicate `);` — DDL fails to execute | `db/schema.sql` L90–91 | DB init error on fresh environment |
+| BUG-2 | `album_service.py` `get_primary_artist_map` — delete service method, reuse `AlbumRepository` method | `app/services/album_service.py` L29–30 | `NameError` on call |
+| BUG-3 | `Track` model missing `spotify_id unique=True` (out of sync with schema) | `app/domain/models.py` L197 | Duplicate track inserts possible |
+| DEBT-1 | Remove production `print()` calls (`album_repo`, `sqs_client`, `candidate_search_service`) | Multiple files | CloudWatch cost + secret exposure in logs |
+| DEBT-4 | Remove timing/debug code from `get_existing_spotify_ids`; remove forced `db.connection()` acquisition | `app/repositories/album_repo.py` L131–170 | Unnecessary overhead on every request |
+
+### Design decisions needed (agree with Jack before proceeding)
+
+| ID | Item | Decision needed |
+|----|------|-----------------|
+| DESIGN-1 | Auth method for `/candidates` endpoint | Depends on whether a user system will be introduced. See `docs/tracks/auth-design.md` |
+| INFRA-1 | CI test gate scope | Confirm unit test gate. Integration tests run locally or on schedule. IaC migration goal tracked in `docs/tracks/iac-migration.md` |
+
+### Tracked separately
+
+| ID | Item | Note |
 |----|------|------|
-| DEBT-2 | album_repo.py 클래스 본문 내 import 문 정리 | `app/repositories/album_repo.py` L128-129 |
-| DEBT-3 | cadidate_search_service.py 파일명 오타 수정 (`cadidate` → `candidate`) | `app/services/`, `app/api/routers/search.py` |
-| DESIGN-2 | singleflight.py 데드 코드 제거 — PR-1에 흡수, 파일 삭제 확정 | `app/core/singleflight.py` |
-
-### 정확성 버그 (이번 주, 명확한 수정)
-
-| ID | 항목 | 위치 | 증상 |
-|----|------|------|------|
-| BUG-1 | schema.sql artists 테이블 `);\n);` 중복 괄호 — DDL 실행 불가 | `db/schema.sql` L90-91 | 신규 환경 DB 초기화 오류 |
-| BUG-2 | album_service.py get_primary_artist_map — 서비스 메서드 삭제, AlbumRepository 메서드 재사용으로 확정 | `app/services/album_service.py` L29-30 | 호출 시 NameError |
-| BUG-3 | Track 모델 spotify_id unique=True 누락 (스키마와 불일치) | `app/domain/models.py` L197 | 중복 트랙 삽입 가능 |
-| DEBT-1 | 프로덕션 print 제거 (album_repo, sqs_client, candidate_search_service) | 여러 파일 | CloudWatch 비용 + 시크릿 로그 노출 |
-| DEBT-4 | get_existing_spotify_ids 타이밍/디버그 코드 제거, db.connection() 강제 획득 제거 | `app/repositories/album_repo.py` L131-170 | 매 요청마다 불필요한 오버헤드 |
-
-### 설계 결정 필요 (계획 추가 작업 전 Jack과 합의)
-
-| ID | 항목 | 결정 필요 내용 |
-|----|------|----------------|
-| DESIGN-1 | /candidates 엔드포인트 인증 방식 | 회원 시스템 도입 여부에 따라 방식 결정 필요. `docs/tracks/auth-design.md` 참조 |
-| INFRA-1 | CI 테스트 게이트 범위 | 단위 테스트 gate 확정. 통합 테스트는 로컬/스케줄 실행으로 분리. IaC 전환 상위 목표는 `docs/tracks/iac-migration.md` 참조 |
-
-### 별도 추적
-
-| ID | 항목 | 비고 |
-|----|------|------|
-| BUG-3 마이그레이션 | Track.spotify_id UNIQUE 제약을 기존 DB에 추가 | `CREATE UNIQUE INDEX CONCURRENTLY` 무중단 방식으로 확정. 점검 시간 별도 불필요. 기존 데이터 중복 확인 선행 필요. |
+| BUG-3 migration | Add UNIQUE constraint on `tracks.spotify_id` in existing DB | `CREATE UNIQUE INDEX CONCURRENTLY` (zero-downtime). Check for duplicate data first. |
 
 ---
 
-## 3. PR 묶음 제안
+## 3. PR Bundles
 
-### PR-1: 즉시 격리 — 오타·데드코드·import 정리
+### PR-1: Quick isolation — typo, dead code, import cleanup
 
-- **제목**: `fix: 오타 수정, 데드 코드 제거, import 정리 (myblog_music)`
-- **포함 항목**: DEBT-2, DEBT-3, DESIGN-2
-  - `app/repositories/album_repo.py` 상단으로 import 이동
-  - `app/services/cadidate_search_service.py` → `candidate_search_service.py` 파일명 변경
-  - `app/api/routers/search.py` import 경로 업데이트
-  - `app/core/singleflight.py` 파일 삭제 (사용처 없음, 삭제 확정)
-- **영향 레포**: `myblog_music`
-- **수락 기준**: Lambda 핸들러(`handler = Mangum(app)`)가 import 오류 없이 로드됨. 파일명 변경 후 라우터 동작 확인.
-- **예상 소요 시간**: 1시간 이내
-- **선행 조건**: 없음
+- **Title**: `fix: rename typo, remove dead code, move imports (myblog_music)`
+- **Covers**: DEBT-2, DEBT-3, DESIGN-2
+  - Move `import` statements to module top in `album_repo.py`
+  - Rename `cadidate_search_service.py` → `candidate_search_service.py`
+  - Update import path in `app/api/routers/search.py`
+  - Delete `app/core/singleflight.py` (no references, confirmed unused)
+- **Affected repo**: `myblog_music`
+- **Acceptance**: Lambda handler (`handler = Mangum(app)`) loads without import errors. Router works after rename.
+- **Estimated time**: < 1h
+- **Prerequisite**: None
 
-> ✅ 완료 (2026-05-21, SHA: <머지 커밋 7자리>)
-
----
-
-### PR-2: 런타임 버그 수정 — schema + NameError + 모델 불일치
-
-- **제목**: `fix: schema.sql 괄호 오류, album_service NameError, Track 모델 unique 누락`
-- **포함 항목**: BUG-1, BUG-2, BUG-3 (모델 선언만, DB 마이그레이션은 별도)
-  - `db/schema.sql` artists 테이블 중복 `)` 제거
-  - `app/services/album_service.py` get_primary_artist_map 메서드 삭제, AlbumRepository 메서드 재사용으로 교체
-  - `app/domain/models.py` Track.spotify_id에 `unique=True` 추가
-- **영향 레포**: `myblog_music`
-- **수락 기준**:
-  - `db/schema.sql`을 빈 PostgreSQL 인스턴스에 실행했을 때 오류 없이 완료됨
-  - `GET /api/music/albums/{id}` 호출 시 500 없이 정상 응답
-  - Track 모델 Unit 테스트에서 동일 spotify_id 중복 삽입 시 IntegrityError 발생 확인
-  - PR 작업 전 `album_service.get_primary_artist_map` 호출자 grep 결과 0건 확인
-- **예상 소요 시간**: 2~3시간
-- **선행 조건**: PR-1 병합 후 (파일명 변경으로 import 경로 안정화 이후)
-
-메모: PR-2 내부 항목(BUG-1/BUG-2/BUG-3)은 사실상 독립이나 리뷰 오버헤드를 고려해 단일 PR 유지.
-
-> 추가 처리됨 (2026-05-21): `app/repositories/album_repo.py` `get_by_spotify_id` 중복 정의 제거. eager load(`selectinload`) 포함 버전(L25) 유지, 단순 조회 버전(구 L231) 삭제. (2026-05-20 초기 리뷰 Critical #1 누락분)
-> 추가 처리됨 (2026-05-21): `app/services/album_service.py` `get_album_detail_by_spotify` 임시 주석 제거.
-
-> ✅ 완료 (2026-05-21, SHA: fae9397)
+> ✅ Done (2026-05-21, SHA: <merge commit>)
 
 ---
 
-### DEBT-5: AlbumOut.external_url 누락 (별도 추적)
+### PR-2: Runtime bug fixes — schema + NameError + model mismatch
 
-- **발견**: PR-2 리뷰 중 발견. DB 조회 경로(`/albums/:id`, `/albums/by-spotify/:id`)의 `AlbumOut` 생성자에 `external_url` 필드가 전달되지 않아 응답에서 항상 `null`.
-- **위치**: `app/services/album_service.py` `get_album_detail` 내 `AlbumOut(...)` 생성자
-- **영향**: Spotify URL 정보가 DB-first 검색 응답에서 유실. `/candidates` 응답에는 포함됨 (별도 경로).
-- **결정 필요**: 의도적 생략인가 (DB에 spotify_url 컬럼 없음?), 아니면 추가해야 하는가. Album 모델에 `spotify_url` 컬럼이 없으면 `ext_refs`에서 추출하거나 스키마 추가 필요.
-- **우선순위**: PR-3 이후, 설계 확인 후 처리.
+- **Title**: `fix: schema.sql bracket error, album_service NameError, Track model unique missing`
+- **Covers**: BUG-1, BUG-2, BUG-3 (model declaration only; DB migration is separate)
+  - Remove duplicate `)` in `db/schema.sql` artists table
+  - Delete `get_primary_artist_map` from `album_service.py`; replace callers with `AlbumRepository` method
+  - Add `unique=True` to `Track.spotify_id` in `app/domain/models.py`
+- **Affected repo**: `myblog_music`
+- **Acceptance**:
+  - `db/schema.sql` runs against a blank PostgreSQL instance without error
+  - `GET /api/music/albums/{id}` returns 200 without 500
+  - Unit test confirms `IntegrityError` on duplicate `spotify_id` insert
+  - `grep` for `album_service.get_primary_artist_map` callers returns 0 results before starting
+- **Estimated time**: 2–3h
+- **Prerequisite**: PR-1 merged
 
----
+> Also addressed (2026-05-21): removed duplicate `get_by_spotify_id` definition in `album_repo.py`; kept the eager-load version (L25), deleted the plain one (old L231).
+> Also addressed (2026-05-21): removed temporary comment in `album_service.py` `get_album_detail_by_spotify`.
 
-### PR-3: 디버그 코드 제거 — print 및 타이밍 코드 정리
-
-- **제목**: `chore: 프로덕션 print/타이밍 코드 제거, 구조적 로깅으로 교체 (myblog_music)`
-- **포함 항목**: DEBT-1, DEBT-4
-  - `app/repositories/album_repo.py` get_existing_spotify_ids — print 전부 제거, `time.perf_counter` 제거, `db.connection()` 강제 획득 제거, 정상 로직만 유지
-  - `app/clients/sqs_client.py` — SQS URL·메시지 본문 print 제거. 에러만 `logging.error` 로 교체
-  - `app/services/candidate_search_service.py` — album_ids 목록 print 제거
-  - 추측: Python 표준 `logging` 모듈로 교체 시 Lambda에서 CloudWatch 구조적 로그로 바로 연결됨
-- **영향 레포**: `myblog_music`
-- **수락 기준**: Lambda 실행 로그에 album_ids 리스트·SQS URL이 평문으로 출력되지 않음. 에러 발생 시에는 로그가 남음.
-- **예상 소요 시간**: 2시간
-- **선행 조건**: 없음 (PR-1과 병렬 진행 가능. 다른 파일을 건드리므로 충돌 없음.)
-
-> ✅ 완료 (2026-05-21, SHA: f4a5308)
+> ✅ Done (2026-05-21, SHA: fae9397)
 
 ---
 
-### PR-4: 보안 — /candidates 인증 추가 (auth-design.md 결정 이후 진행)
+### DEBT-5: `AlbumOut.external_url` missing (tracked separately)
 
-- **선행 조건**: `docs/tracks/auth-design.md`의 미결 질문 합의 완료. PR-2, PR-3 병합 이후.
-
----
-
-### PR-5: CI 단위 테스트 게이트 추가 ⏸️
-
-> ⏸️ 보류 — 설계 검증(architect) 결과 이후 재평가. `docs/decisions/0002-paused-pr5-pr6.md` 참조
-
-- **제목**: `ci: deploy 전 단위 테스트 게이트 추가 (myblog_music)`
-- **포함 항목**: INFRA-1 (단위 테스트 gate만)
-  - `.github/workflows/deploy.yml`에 단위 테스트 job 추가
-  - 통합 테스트(`tests/test_candidates_localstack.py`)는 CI gate에서 제외. 로컬 또는 스케줄 실행으로 분리.
-- **영향 레포**: `myblog_music`
-- **수락 기준**: 단위 테스트 실패 시 Lambda 배포가 차단됨. localstack 의존 테스트는 CI gate에 포함되지 않음.
-- **예상 소요 시간**: 1~2시간
-- **선행 조건**: PR-1~3 병합 이후.
+- **Found**: During PR-2 review. `AlbumOut` constructor in DB-read paths (`/albums/:id`, `/albums/by-spotify/:id`) never receives `external_url`, so the field is always `null` in responses.
+- **Location**: `app/services/album_service.py` `get_album_detail` — `AlbumOut(...)` constructor
+- **Impact**: Spotify URL lost in DB-first search responses. `/candidates` path is unaffected (separate flow).
+- **Decision needed**: Intentional omission (no `spotify_url` column in DB?), or should it be added? If Album model has no `spotify_url`, must extract from `ext_refs` or add the column.
+- **Priority**: After PR-3, pending design confirmation.
 
 ---
 
-### PR-6: DB 마이그레이션 — Track spotify_id UNIQUE 제약 추가 (별도 트래킹) ⏸️
+### PR-3: Debug code removal — print and timing cleanup
 
-> ⏸️ 보류 — 설계 검증(architect) 결과 이후 재평가. `docs/decisions/0002-paused-pr5-pr6.md` 참조
+- **Title**: `chore: remove production print/timing code, replace with structured logging (myblog_music)`
+- **Covers**: DEBT-1, DEBT-4
+  - `album_repo.py` `get_existing_spotify_ids` — remove all `print()`, remove `time.perf_counter`, remove forced `db.connection()` acquisition
+  - `sqs_client.py` — remove SQS URL and message body prints; replace error cases with `logging.error`
+  - `candidate_search_service.py` — remove `album_ids` list print
+- **Affected repo**: `myblog_music`
+- **Acceptance**: Lambda execution logs contain no plain-text `album_ids` list or SQS URL. Error cases still produce log output.
+- **Estimated time**: 2h
+- **Prerequisite**: None (can run in parallel with PR-1; touches different files)
 
-- **제목**: `db: tracks.spotify_id UNIQUE 제약 추가 마이그레이션`
-- **포함 항목**: BUG-3 마이그레이션 파트
-  - 기존 데이터 중복 spotify_id 확인 및 정리 스크립트
-  - `CREATE UNIQUE INDEX CONCURRENTLY ON tracks (spotify_id);` (무중단 방식)
-- **영향 레포**: `myblog_music` (공유 RDS이므로 `myblog_worker`도 영향 확인 필요)
-- **수락 기준**: 마이그레이션 완료 후 `\d tracks`에서 UNIQUE 제약 확인. Worker의 upsert가 IntegrityError 없이 동작. 기존 트래픽 차단 없이 마이그레이션 완료 확인.
-- **예상 소요 시간**: 1~2시간 (데이터 정리 시간 별도)
-- **선행 조건**: PR-2 병합. 기존 DB 중복 데이터 확인 및 Jack 승인.
+> ✅ Done (2026-05-21, SHA: f4a5308)
 
 ---
 
-## 4. 의존성 그래프
+### PR-4: Security — add `/candidates` auth (after auth-design.md decision)
+
+- **Prerequisite**: Open questions in `docs/tracks/auth-design.md` resolved. PR-2 and PR-3 merged.
+
+---
+
+### PR-5: CI unit test gate ⏸️
+
+> ⏸️ On hold — re-evaluate after architect review. See `docs/decisions/0002-paused-pr5-pr6.md`
+
+- **Title**: `ci: add unit test gate before deploy (myblog_music)`
+- **Covers**: INFRA-1 (unit test gate only)
+  - Add unit test job to `.github/workflows/deploy.yml`
+  - Integration tests (`tests/test_candidates_localstack.py`) excluded from CI gate; run locally or on schedule
+- **Affected repo**: `myblog_music`
+- **Acceptance**: Lambda deploy is blocked when unit tests fail. Localstack-dependent tests are not part of the gate.
+- **Estimated time**: 1–2h
+- **Prerequisite**: PR-1–3 merged
+
+---
+
+### PR-6: DB migration — add UNIQUE constraint on `tracks.spotify_id` ⏸️
+
+> ⏸️ On hold — re-evaluate after architect review. See `docs/decisions/0002-paused-pr5-pr6.md`
+
+- **Title**: `db: add UNIQUE constraint on tracks.spotify_id`
+- **Covers**: BUG-3 migration part
+  - Script to detect and clean duplicate `spotify_id` values in existing data
+  - `CREATE UNIQUE INDEX CONCURRENTLY ON tracks (spotify_id);` (zero-downtime)
+- **Affected repo**: `myblog_music` (shared RDS — verify `myblog_worker` upserts are unaffected)
+- **Acceptance**: `\d tracks` shows UNIQUE constraint after migration. Worker upsert runs without `IntegrityError`. No traffic interruption during migration.
+- **Estimated time**: 1–2h (plus data cleanup time)
+- **Prerequisite**: PR-2 merged. Duplicate data check completed. Jack approval.
+
+---
+
+## 4. Dependency Graph
 
 ```
-PR-1 (오타·import·singleflight 삭제)    PR-3 (print 제거)
-  └─→ PR-2 (런타임 버그)               ↑ 병렬 진행 가능 (다른 파일)
-        └─→ PR-5 (CI 단위 테스트 gate) ← PR-1~3 이후
-        └─→ PR-4 (인증)                ← auth-design.md 합의 이후
+PR-1 (typo · import · singleflight)    PR-3 (print removal)
+  └─→ PR-2 (runtime bugs)              ↑ parallel OK (different files)
+        └─→ PR-5 (CI unit test gate)   ← after PR-1–3
+        └─→ PR-4 (auth)                ← after auth-design.md decision
 
-PR-2 병합 + Jack 승인
-  └─→ PR-6 (DB 마이그레이션) ← 독립 트랙, 별도 일정
+PR-2 merged + Jack approval
+  └─→ PR-6 (DB migration) ← independent track, separate schedule
 ```
 
 ---
 
-## 5. 미결정 / 질문 사항
+## 5. Open Questions
 
-1. **DESIGN-1 인증 방식**: `/candidates` 인증 설계 → `docs/tracks/auth-design.md` 참조
-
-2. **INFRA-1 IaC 전환 상위 목표**: CI 게이트 이후 Terraform 전환 계획 → `docs/tracks/iac-migration.md` 참조
+1. **DESIGN-1**: `/candidates` auth method → see `docs/tracks/auth-design.md`
+2. **INFRA-1**: IaC migration goal after CI gate → see `docs/tracks/iac-migration.md`
 
 ---
 
