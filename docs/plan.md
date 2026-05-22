@@ -136,6 +136,8 @@ Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, secu
 - **Estimated time**: 1–2h
 - **Prerequisite**: PR-1–3 merged
 
+> ✅ Done (2026-05-23) — CI test job gates deploy; 5 unit tests for auth bypass; integration test marked and excluded
+
 ---
 
 ### PR-6: DB migration — add UNIQUE constraint on `tracks.spotify_id` ⏸️
@@ -150,6 +152,8 @@ Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, secu
 - **Acceptance**: `\d tracks` shows UNIQUE constraint after migration. Worker upsert runs without `IntegrityError`. No traffic interruption during migration.
 - **Estimated time**: 1–2h (plus data cleanup time)
 - **Prerequisite**: PR-2 merged. Duplicate data check completed. Jack approval.
+
+> ✅ Done (2026-05-23) — migration script at `db/migrations/001_tracks_spotify_id_unique.sql`; run manually against RDS following the 5-step instructions in the file
 
 ---
 
