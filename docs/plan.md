@@ -305,6 +305,8 @@ PR-2 merged + Jack approval
 - **Content per file**: service responsibility, local dev setup, key invariants (hard rules), test commands
 - **Prerequisite**: None — can be done independently
 
+> ✅ Done (2026-05-23) — merged to main in all 5 repos
+
 ---
 
 ### ARCH-1: Schema single source of truth
