@@ -1,0 +1,23 @@
+# Subordinate repos managed independently
+myblog_front/
+myblog_backend/
+myblog_music/
+myblog_worker/
+myblog_publish/
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Env / secrets
+.env
+.env.local
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/
