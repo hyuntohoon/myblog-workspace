@@ -319,6 +319,8 @@ PR-2 merged + Jack approval
   - Document drift policy: schema changes must update `docs/contracts/schema.sql` first
 - **Prerequisite**: Team agreement on canonical location
 
+> ✅ Done (2026-05-23) — canonical DDL at `docs/contracts/schema.sql`; ADR at `docs/decisions/ADR-001-schema-canonical.md`; worker `ext_refs` upsert fixed; `aliases` added to music schema
+
 ---
 
 ## Dependency Graph
