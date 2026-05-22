@@ -227,7 +227,7 @@ PR-2 merged + Jack approval
 
 ## PR Bundles
 
-### PR-7: Worker — SQS error handling + AttributeError + logging
+### PR-7: Worker — SQS error handling + AttributeError + logging ✅ Done (2026-05-23, SHA: a156cfb)
 
 - **Title**: `fix: SQS error handling, sync_album_by_spotify AttributeError, print→logging (myblog_worker)`
 - **Covers**: SEC-3, BUG-4, DEBT-7
@@ -241,7 +241,7 @@ PR-2 merged + Jack approval
 
 ---
 
-### PR-8: Publish — auth + CORS hardening
+### PR-8: Publish — auth + CORS hardening ✅ Done (2026-05-23, SHA: 7866864)
 
 - **Title**: `fix: add edge-secret auth, restrict CORS, remove unconditional dotenv (myblog_publish)`
 - **Covers**: SEC-1, SEC-2, REFACTOR-3
