@@ -29,6 +29,15 @@
 
 ---
 
+## Decision (2026-05-23)
+
+Cognito JWT validation only for now. Larger architecture questions (user system, API Gateway authorizer, token proxy) deferred.
+
+- `/candidates` validates a Cognito Bearer token via JWKS (RS256).
+- `COGNITO_USER_POOL_ID` empty → auth bypassed in `local`/`dev`.
+- `ENV=prod` with `COGNITO_USER_POOL_ID` set → full validation enforced.
+- Caller: admin/owner only for now. General-user access deferred.
+
 ## 연관 PR
 
-- PR-4: `/candidates` 인증 게이트 추가 — 이 문서의 질문이 합의된 이후 진행
+- PR-4: `/candidates` 인증 게이트 추가 ✅ Done (2026-05-23)

@@ -119,6 +119,8 @@ Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, secu
 
 - **Prerequisite**: Open questions in `docs/tracks/auth-design.md` resolved. PR-2 and PR-3 merged.
 
+> ✅ Done (2026-05-23) — Cognito JWT validation via JWKS; bypassed when `COGNITO_USER_POOL_ID` unset
+
 ---
 
 ### PR-5: CI unit test gate ⏸️
