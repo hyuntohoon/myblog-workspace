@@ -267,6 +267,8 @@ PR-2 merged + Jack approval
 - **Estimated time**: 2h
 - **Prerequisite**: None
 
+> ✅ Done (2026-05-23, SHA: f16ecd7)
+
 ---
 
 ### PR-10: Frontend — API path + rating schema fixes
@@ -281,6 +283,8 @@ PR-2 merged + Jack approval
 - **Acceptance**: Category creation succeeds via the write UI. A post with `rating_scale=10` and `rating=8` round-trips correctly through publish.
 - **Estimated time**: 1h
 - **Prerequisite**: None
+
+> ✅ Done (2026-05-23, SHA: 4a618f2)
 
 ---
 
