@@ -296,11 +296,21 @@ PR-2 merged + Jack approval
 
 ### DOC-1: SQS contract document
 
-- **Title**: `docs: add SQS album-sync message contract`
-- **Covers**: ARCH-3
-- **File**: `docs/contracts/sqs-album-sync.md`
-- **Content**: message schema (JSON), field definitions, producer (`myblog_music`), consumer (`myblog_worker`), retry/DLQ policy
-- **Prerequisite**: PR-7 merged (finalize the format after error-handling is correct)
+> ✅ Done (2026-05-23) — `docs/contracts/sqs-album-sync.md` 작성 완료
+
+---
+
+### P1-E: Secrets Manager 마이그레이션
+
+> ✅ Done (2026-05-24)
+
+- 4개 AWS Secrets Manager 시크릿 생성: `myblog/backend`, `myblog/worker`, `myblog/music`, `myblog/publish`
+- Terraform IAM 정책 4개 적용 (`terraform apply`) — `infra/secrets.tf`
+- 4개 repo 코드 수정 (`SECRETS_ARN` 패턴, `get_settings()` + `lru_cache`) — PR 머지 + CI 배포 완료
+- 모든 Lambda 평문 시크릿 제거 (`DATABASE_URL`, `SPOTIFY_CLIENT_ID/SECRET`, `EDGE_SECRET`, `GITHUB_TOKEN`)
+
+**후속 권고 (code review 발견, 2026-05-24)**:
+- `myblog_worker` / `myblog_music`: `SPOTIFY_CLIENT_ID`, `DATABASE_URL` 등이 `str = ""`로 변경됨 — Secrets Manager 로딩 실패 시 빈 문자열로 Lambda가 기동되어 런타임에서야 오류 발생. 시작 시 유효성 검사(`if not s.SPOTIFY_CLIENT_ID: raise ValueError(...)`) 추가 권장.
 
 ---
 

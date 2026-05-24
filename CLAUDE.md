@@ -1,81 +1,58 @@
 # MyBlog + Music Review — Workspace
 
-## Purpose
+Meta-management layer for 5 microservice repos. Each service's code lives in its own repo with its own CLAUDE.md; this workspace owns cross-repo planning, contracts, and architecture.
 
-This workspace is the **meta-management layer** for five microservice repos. Individual service code lives in each repo; this workspace manages cross-repo planning, contracts, architecture documentation, and decision records.
+## Layout
 
 ```
 myblog-workspace/
-├── myblog_backend/    ← each repo has its own CLAUDE.md (or will)
-├── myblog_front/
-├── myblog_music/
-├── myblog_publish/
-├── myblog_worker/
+├── myblog_backend/   ← user-facing API
+├── myblog_front/     ← Next.js client
+├── myblog_music/     ← music review service
+├── myblog_publish/   ← publishing pipeline
+├── myblog_worker/    ← async SQS consumer (Spotify fetches live here)
 └── docs/
-    ├── architecture.md       ← system-wide architecture
-    ├── plan.md               ← cross-repo work plan (start here)
-    ├── conventions/          ← coding and workflow standards
-    ├── decisions/            ← architectural decision records (ADRs)
-    └── contracts/            ← SQS message formats, API contracts
+    ├── architecture.md, plan.md
+    ├── contracts/    ← SQS messages, service-to-service APIs
+    ├── decisions/    ← ADRs
+    ├── conventions/  ← git.md and other workflow standards
+    └── agents.md     ← subagent + slash command catalog
 ```
 
-## Per-Repo CLAUDE.md
+When working inside one repo, that repo's CLAUDE.md takes precedence over this file.
 
-Each repo (`myblog_backend`, `myblog_front`, `myblog_music`, `myblog_publish`, `myblog_worker`) has or will have its own CLAUDE.md with service-specific guidance. When working inside a single repo, defer to that repo's CLAUDE.md first.
+## How to work here
 
-## Cross-Repo Work
+- **Cross-repo change (≥2 repos)**: write/update `docs/plan.md` _before_ code. For contract changes, write the new contract in `docs/contracts/` first, then propagate.
+- **Single-repo change**: defer to the repo's CLAUDE.md.
+- **Conventions, git flow, agents**: see `docs/conventions/` and `docs/agents.md`. Read them when relevant; don't load preemptively.
 
-Any change that spans two or more repos (API contract changes, schema changes, shared infrastructure) must go through `docs/plan.md`.
+## Hard rules (never violate)
 
-- Before starting: record scope, order, and rollback approach in `docs/plan.md`.
-- For contract changes: write the new/updated contract in `docs/contracts/` first, then propagate to each repo.
+- **Never work on `main`.** First command of any session: `git checkout -b <type>/<plan-id>-<desc>`. Branch/commit format in `docs/conventions/git.md`.
+- **Never make `/search/unified` synchronously call Spotify.** That path is DB-only. Spotify access goes `candidates` → SQS → `myblog_worker`.
+- **Never run a rollback migration against RDS directly.** Use each repo's migration tooling; rollbacks require human approval.
+- **Never write secrets to any file in the repo** — no `.env`, `.env.*`, `secrets.yaml`, `config.local.json`, etc. Secrets go through AWS Secrets Manager or GitHub Actions Secrets only.
 
-## Document Locations
+## Working rules
 
-| Document type                    | Location                  |
-| -------------------------------- | ------------------------- |
-| System architecture              | `docs/architecture.md`    |
-| Cross-repo work plan             | `docs/plan.md`            |
-| Architectural decisions (ADRs)   | `docs/decisions/`         |
-| SQS message formats              | `docs/contracts/`         |
-| Service-to-service API contracts | `docs/contracts/`         |
-| Git workflow and conventions     | `docs/conventions/git.md` |
-| Service-specific guides          | Each repo's `CLAUDE.md`   |
+- AI may run `git add` and `git commit`. AI must wait for explicit human approval (e.g. "push" or "ok push") before `git push` or `git merge` — implicit agreement does not count.
+- If scope expansion is needed, **stop and report**; do not silently expand.
+- Never claim "fixed" / "works" / "done" without running a verification command _in this session_ and quoting the result.
+- For any investigation spanning 3+ files or 2+ repos, delegate to a subagent instead of pulling everything into main context.
+- Before delegating to any subagent, read `docs/agents.md` for triggers and the agent catalog.
 
-## Git Workflow
+## Plan format
 
-See `docs/conventions/git.md` for commit format, branch naming, and PR flow.
+`docs/plan.md` entries use this structure:
 
-## Work Rules
+```
+## PLAN-042: Add explicit_filter to /search/unified
+- Scope: myblog_backend, myblog_front
+- Order: backend contract → frontend consumer
+- Rollback: feature flag, default off
+- Verification: pytest tests/search/test_explicit_filter.py
+- Status: in-progress
+```
 
-- Always create a new branch before any code change: `git checkout -b <type>/<plan-id>-<desc>`
-- The AI may run `git add` and `git commit`. The AI must ask for explicit approval before running `git push` or `git merge`.
-- During multi-file work, report changes one line per file as you complete each.
-- If you discover changes needed outside the stated scope, stop and report. Do not silently expand scope.
-- See `docs/conventions/git.md` for commit message format and PR flow.
-- See `docs/decisions/` for architectural decision records.
-- Never claim "fixed" / "works" / "done" without running the verification command in this session. State the evidence (test output, command result) explicitly.
-
-## Hard Rules
-
-- **Never work directly on `main`** — all changes go on a branch. The first command of any work session must be `git checkout -b <type>/<plan-id>-<short-desc>`. See `docs/conventions/git.md` for naming rules.
-- **Never run a rollback migration directly against RDS** — migrations must go through each repo's migration tooling; rollbacks require human review and manual approval.
-- **Never add a synchronous Spotify API call to the user-facing search path** — `/search/unified` must remain DB-only. Spotify calls go through the async path only: `candidates` → SQS → Worker.
-- **Never commit `.env` files** — no `.env`, `.env.local`, or `.env.*` in any repo. Secrets are managed via AWS Secrets Manager or GitHub Actions Secrets.
-
-## Agent Delegation
-
-Subagents preserve main context. Use them proactively:
-
-- **explorer**: When understanding a cross-repo flow requires reading 3+ files. Especially for tracing SQS message paths across repos.
-- **planner**: For any change touching 2+ repos. Output goes into `docs/plan.md`.
-- **debugger**: When a bug isn't isolated within ~15 min. Hand off the failing test or error.
-- **test-engineer**: When writing pytest cases or fixing flaky tests.
-- **reviewer**: Before pushing a PR branch. Runs myblog-specific checklist (contract violations, idempotency, secret leaks, conventions). Fix issues found here, then push.
-- **architect**: For system-level structural evaluation — module boundaries, dependency direction, responsibility separation across the 5-repo system. Writes to `docs/architecture-review.md`. Use when adding a new service or making a cross-repo design decision.
-- **/code-review**: After pushing a PR branch. Runs 4 parallel agents (CLAUDE.md compliance ×2, bug detection, git blame context), scores each issue 0–100, posts GitHub comment with issues ≥80 confidence.
-- **frontend-design plugin**: Auto-applied when working in `myblog_front`. No explicit invocation needed — enhances frontend output with production-grade aesthetics automatically.
-
-**reviewer vs /code-review**: `reviewer` runs *before* push (fix locally), `/code-review` runs *after* push (GitHub comment). Use both in sequence for important PRs.
-
-Do not handle multi-repo investigation in the main context — delegate to explorer.
+`<plan-id>` from this file is also the branch name component: `feat/PLAN-042-explicit-filter`.
