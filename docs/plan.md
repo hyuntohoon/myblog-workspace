@@ -398,10 +398,10 @@ settings = get_settings()        # core/config.py top-level — second redundant
 
 Lambda reuses the module across invocations, so the Secrets Manager call only happens once per container lifetime — but two separate config systems (`main.py` inline + `core/config.py`) exist simultaneously and it is not obvious which one wins for a given value. This should be one system, lazily initialized.
 
-**5. Frontend has no type contract with the backend**
+**5. Frontend has no type contract with the backend** ✅ Fixed (2026-05-25)
 
-`write/api.ts` `PostPayload`, backend `WritePostRequest`, and publish `CreatePostReq` are three independent type definitions for what is effectively the same data shape. They are already diverging (`rating` max value, missing `rating_scale`). FastAPI generates an OpenAPI spec automatically — using it to generate TypeScript types (via `openapi-typescript` or similar) would eliminate this class of drift entirely.
+`PostPayload` now derived from generated `WritePostRequest` type. `pnpm generate:types` regenerates from `docs/contracts/openapi-backend.json`. myblog_front PR #5.
 
-**6. Gemini alias generation is coupled to the main sync transaction lifecycle**
+**6. Gemini alias generation is coupled to the main sync transaction lifecycle** ✅ Fixed (2026-05-25)
 
-`generate_and_save_aliases` runs after the main transaction commits but still holds a DB connection while making a 10-second external HTTP call to Gemini. Under load this occupies a connection slot unnecessarily. This work should be decoupled — either a separate SQS message type, an EventBridge scheduled rule, or a second Lambda trigger — so the main sync path is not affected by Gemini latency or failures.
+Removed from SQS sync path. Now runs on EventBridge `rate(15 min)` schedule. LIMIT reduced 20→10 to fit 120s timeout. myblog_worker PR #10.
