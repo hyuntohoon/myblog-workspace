@@ -71,7 +71,11 @@ Subagents preserve main context. Use them proactively:
 - **planner**: For any change touching 2+ repos. Output goes into `docs/plan.md`.
 - **debugger**: When a bug isn't isolated within ~15 min. Hand off the failing test or error.
 - **test-engineer**: When writing pytest cases or fixing flaky tests.
+- **reviewer**: Before pushing a PR branch. Runs myblog-specific checklist (contract violations, idempotency, secret leaks, conventions). Fix issues found here, then push.
+- **architect**: For system-level structural evaluation — module boundaries, dependency direction, responsibility separation across the 5-repo system. Writes to `docs/architecture-review.md`. Use when adding a new service or making a cross-repo design decision.
 - **/code-review**: After pushing a PR branch. Runs 4 parallel agents (CLAUDE.md compliance ×2, bug detection, git blame context), scores each issue 0–100, posts GitHub comment with issues ≥80 confidence.
 - **frontend-design plugin**: Auto-applied when working in `myblog_front`. No explicit invocation needed — enhances frontend output with production-grade aesthetics automatically.
+
+**reviewer vs /code-review**: `reviewer` runs *before* push (fix locally), `/code-review` runs *after* push (GitHub comment). Use both in sequence for important PRs.
 
 Do not handle multi-repo investigation in the main context — delegate to explorer.
