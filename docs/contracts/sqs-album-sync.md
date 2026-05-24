@@ -1,10 +1,12 @@
 # SQS Contract: Album Sync
 
-**Queue**: `album-sync-queue` (prod) / `test-queue` (local/dev)  
+**Queue**: `blogSQS` (prod) / `test-queue` (local/dev)  
 **Region**: `ap-northeast-2`  
-**Type**: Standard queue (FIFO variant supported — suffix `.fifo`)  
-**Producer**: `myblog_music` (`app/clients/sqs_client.py`)  
-**Consumer**: `myblog_worker` (`worker/handler.py` — Lambda trigger)
+**Account**: `338183196042`  
+**Type**: Standard queue  
+**DLQ**: 미설정 (P1 작업 예정)  
+**Producer**: `myblog_music` (`app/clients/sqs_client.py`, Lambda: `musicApi`)  
+**Consumer**: `myblog_worker` (`worker/handler.py`, Lambda: `blogWorkerLambda`)
 
 ---
 
@@ -96,7 +98,7 @@ The worker receives the standard AWS Lambda SQS event. Each record follows this 
       "messageAttributes": {},
       "md5OfBody": "...",
       "eventSource": "aws:sqs",
-      "eventSourceARN": "arn:aws:sqs:ap-northeast-2:123456789012:album-sync-queue",
+      "eventSourceARN": "arn:aws:sqs:ap-northeast-2:338183196042:blogSQS",
       "awsRegion": "ap-northeast-2"
     }
   ]
