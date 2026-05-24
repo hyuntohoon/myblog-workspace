@@ -405,3 +405,37 @@ Lambda reuses the module across invocations, so the Secrets Manager call only ha
 **6. Gemini alias generation is coupled to the main sync transaction lifecycle** ✅ Fixed (2026-05-25)
 
 Removed from SQS sync path. Now runs on EventBridge `rate(15 min)` schedule. LIMIT reduced 20→10 to fit 120s timeout. myblog_worker PR #10.
+
+---
+
+## CICD-1: Frontend CI/CD fix
+
+- **Scope**: myblog_front
+- **Branch**: `fix/CICD-1-frontend-cicd`
+- **Status**: done — myblog_front PR #6, merged 2026-05-25
+
+### Problems
+
+1. **pnpm version mismatch** — workflow uses `pnpm/action-setup@v3` with `version: 9` but `package.json` declares `"packageManager": "pnpm@10.6.3"`. pnpm@9 cannot read a pnpm@10 lockfile; CI silently regenerates it, meaning the lockfile is never actually verified.
+
+2. **No quality gate before deploy** — `pnpm build` runs directly with no prior `pnpm lint` or `pnpm exec astro check`. Type errors and lint failures are invisible until they manifest at runtime.
+
+3. **Cache-Control is wrong for all assets** — `aws s3 cp --cache-control "no-cache, no-store"` is applied to everything including `_astro/**` (content-hashed filenames). Hashed assets should be `max-age=31536000, immutable`; only HTML/XML/JSON should be `no-cache`.
+
+4. **No dependency cache** — every run does a full `pnpm install` with no `actions/cache`. On pnpm@10, the store lives at `~/.local/share/pnpm/store`; caching it would save ~30–60s per run.
+
+### Planned fixes
+
+- `pnpm/action-setup` → `version: 10` (match `packageManager` field)
+- Split into two jobs: `check` (lint + astro check) → `deploy` (build + S3 sync), `deploy` needs `check` to pass
+- S3 sync: use separate `aws s3 cp` calls per path pattern with correct `--cache-control` values:
+  - `_astro/**` → `max-age=31536000, immutable`
+  - `*.html`, `sitemap*.xml`, `rss.xml` → `no-cache, no-store, must-revalidate`
+  - `pagefind/**` → `max-age=3600`
+- Add `actions/cache@v4` keyed on `pnpm-lock.yaml` hash for `~/.local/share/pnpm/store`
+
+### Verification
+
+```
+CI green on a no-op commit; `astro check` failure blocks deploy; S3 object metadata shows correct Cache-Control per file type
+```
