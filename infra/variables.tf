@@ -12,3 +12,9 @@ variable "domain_name" {
   type    = string
   default = "www.ratemymusic.blog"
 }
+
+variable "edge_secret" {
+  type        = string
+  description = "X-Origin-Verify header value shared between CloudFront and Lambda"
+  sensitive   = true
+}
