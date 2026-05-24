@@ -8,13 +8,13 @@ A personal blog combined with a music review feature. Blog authoring, music sear
 
 ## Services
 
-| Service | Responsibility | Deployment |
-|---------|----------------|------------|
-| `myblog_front` | Static site + admin authoring UI | S3 + CloudFront |
-| `myblog_backend` | Blog post and category CRUD + auth | Lambda + API Gateway |
-| `myblog_music` | DB-first music search + sync trigger | Lambda + API Gateway |
-| `myblog_worker` | SQS consumer + Spotify sync | Lambda (SQS event source) |
-| `myblog_publish` | Static site publishing pipeline | Lambda + API Gateway |
+| Service | Responsibility | Lambda 함수명 | Deployment |
+|---------|----------------|--------------|------------|
+| `myblog_front` | Static site + admin authoring UI | — | S3 + CloudFront |
+| `myblog_backend` | Blog post and category CRUD + auth | `ratemymusic-api` | Lambda + API Gateway (`lambdaAPI`) |
+| `myblog_music` | DB-first music search + sync trigger | `musicApi` | Lambda + API Gateway (`lambdaAPI`) |
+| `myblog_worker` | SQS consumer + Spotify sync | `blogWorkerLambda` | Lambda (SQS: `blogSQS`) |
+| `myblog_publish` | Static site publishing pipeline | `publisher-github` | Lambda + API Gateway (`lambdaAPI`) |
 
 ---
 
@@ -46,7 +46,7 @@ A personal blog combined with a music review feature. Blog authoring, music sear
   └───────┬───────┘ └───────┬────────┘ └────────┬─────────┘
           │                 │                    │
           ▼           ┌─────┴──────┐             ▼
-         RDS      DB search    SQS enqueue   GitHub API
+        Neon      DB search    SQS enqueue   GitHub API
     (PostgreSQL)  (unified)    (candidates)      │
                       │            │             ▼
                       ▼            ▼        GitHub Actions
@@ -61,7 +61,7 @@ A personal blog combined with a music review feature. Blog authoring, music sear
                                      │
                           ┌──────────┴──────────┐
                           ▼                     ▼
-                     Spotify API              RDS
+                     Spotify API             Neon
                      (batch fetch)       (PostgreSQL)
                                            upsert
 ```
@@ -178,14 +178,14 @@ Front → POST /publish
 
 ## Shared Infrastructure
 
-| Infrastructure | Used by |
-|----------------|---------|
-| Amazon RDS (PostgreSQL) | `myblog_backend`, `myblog_music`, `myblog_worker` |
-| Amazon SQS | `myblog_music` (enqueue), `myblog_worker` (consume) |
-| AWS Cognito | `myblog_backend` (JWT validation), `myblog_front` (login) |
-| S3 + CloudFront | `myblog_front` (static serving), `myblog_publish` (deploy target) |
-| Spotify Web API | `myblog_music` (search), `myblog_worker` (data collection) |
-| GitHub API / Actions | `myblog_publish` (MDX commits, build trigger) |
+| Infrastructure | Used by | Notes |
+|----------------|---------|-------|
+| **Neon PostgreSQL** (ap-southeast-1) | `myblog_backend`, `myblog_music`, `myblog_worker` | Serverless Postgres; connection via pooler URL |
+| Amazon SQS (`blogSQS`) | `myblog_music` (enqueue), `myblog_worker` (consume) | Standard queue, ap-northeast-2 |
+| AWS Cognito (`MyBlogAdminPool`) | `myblog_backend` (JWT validation), `myblog_front` (login) | Pool ID: ap-northeast-2_54vEJKEU5 |
+| S3 (`myblog-prod-web`) + CloudFront | `myblog_front` (static serving), `myblog_publish` (deploy target) | CF: d2y4n52sgjlrz6.cloudfront.net |
+| Spotify Web API | `myblog_music` (search), `myblog_worker` (data collection) | |
+| GitHub API / Actions | `myblog_publish` (MDX commits, build trigger) | |
 
 ---
 
