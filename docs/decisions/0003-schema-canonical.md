@@ -1,4 +1,4 @@
-# ADR-001: Single Canonical Database Schema
+# ADR-0003: Single Canonical Database Schema
 
 **Status**: Accepted  
 **Date**: 2026-05-23  

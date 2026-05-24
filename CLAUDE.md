@@ -7,7 +7,7 @@ Meta-management layer for 5 microservice repos. Each service's code lives in its
 ```
 myblog-workspace/
 ├── myblog_backend/   ← user-facing API
-├── myblog_front/     ← Next.js client
+├── myblog_front/     ← Astro 5 + React 19 client
 ├── myblog_music/     ← music review service
 ├── myblog_publish/   ← publishing pipeline
 ├── myblog_worker/    ← async SQS consumer (Spotify fetches live here)
@@ -47,7 +47,7 @@ When working inside one repo, that repo's CLAUDE.md takes precedence over this f
 `docs/plan.md` entries use this structure:
 
 ```
-## PLAN-042: Add explicit_filter to /search/unified
+## PR-11: Add explicit_filter to /search/unified
 - Scope: myblog_backend, myblog_front
 - Order: backend contract → frontend consumer
 - Rollback: feature flag, default off
@@ -55,4 +55,4 @@ When working inside one repo, that repo's CLAUDE.md takes precedence over this f
 - Status: in-progress
 ```
 
-`<plan-id>` from this file is also the branch name component: `feat/PLAN-042-explicit-filter`.
+`<plan-id>` uses a categorical prefix + number (e.g. `PR-11`, `P0-2`, `BUG-4`, `ARCH-1`) and is also the branch name component: `feat/PR-11-explicit-filter`.

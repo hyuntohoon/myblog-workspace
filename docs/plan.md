@@ -97,6 +97,8 @@ Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, secu
 - **Decision needed**: Intentional omission (no `spotify_url` column in DB?), or should it be added? If Album model has no `spotify_url`, must extract from `ext_refs` or add the column.
 - **Priority**: After PR-3, pending design confirmation.
 
+> ✅ Done (2026-05-25) — `ext_refs['spotify_url']` → `AlbumOut.external_url`; PR #11 (myblog_music), 3 unit tests
+
 ---
 
 ### PR-3: Debug code removal — print and timing cleanup
@@ -309,8 +311,8 @@ PR-2 merged + Jack approval
 - 4개 repo 코드 수정 (`SECRETS_ARN` 패턴, `get_settings()` + `lru_cache`) — PR 머지 + CI 배포 완료
 - 모든 Lambda 평문 시크릿 제거 (`DATABASE_URL`, `SPOTIFY_CLIENT_ID/SECRET`, `EDGE_SECRET`, `GITHUB_TOKEN`)
 
-**후속 권고 (code review 발견, 2026-05-24)**:
-- `myblog_worker` / `myblog_music`: `SPOTIFY_CLIENT_ID`, `DATABASE_URL` 등이 `str = ""`로 변경됨 — Secrets Manager 로딩 실패 시 빈 문자열로 Lambda가 기동되어 런타임에서야 오류 발생. 시작 시 유효성 검사(`if not s.SPOTIFY_CLIENT_ID: raise ValueError(...)`) 추가 권장.
+**후속 권고 → ✅ Done (2026-05-25)**:
+- `myblog_worker`: `DATABASE_URL` missing 체크 추가 + `infra/db.py` lazy init, `myblog_music`: 이미 완료 상태 확인 — PR #9 (worker), 7 unit tests
 
 ---
 
@@ -335,7 +337,7 @@ PR-2 merged + Jack approval
   - Document drift policy: schema changes must update `docs/contracts/schema.sql` first
 - **Prerequisite**: Team agreement on canonical location
 
-> ✅ Done (2026-05-23) — canonical DDL at `docs/contracts/schema.sql`; ADR at `docs/decisions/ADR-001-schema-canonical.md`; worker `ext_refs` upsert fixed; `aliases` added to music schema
+> ✅ Done (2026-05-23) — canonical DDL at `docs/contracts/schema.sql`; ADR at `docs/decisions/0003-schema-canonical.md`; worker `ext_refs` upsert fixed; `aliases` added to music schema
 
 ---
 
@@ -356,7 +358,7 @@ ARCH-1 (schema consolidation) ← requires team decision on canonical location
 ## Open Questions
 
 1. **SEC-2 / PR-8**: Does `myblog_publish` need full Cognito JWT validation (same as backend write endpoints), or is `x-origin-verify` edge-secret sufficient given the Lambda is behind CloudFront?
-2. **ARCH-2 (Spotify client)**: Extract to a shared internal package (`myblog_shared`) or accept duplication and keep repos independent?
+2. **ARCH-2 (Spotify client)**: ✅ Resolved (2026-05-25) — accept duplication; cross-ref comments added to both files. See `docs/decisions/0004-spotify-client-duplication.md`.
 3. **ARCH-1 (Schema)**: Which file becomes the canonical DDL — `myblog_music/db/schema.sql` (most complete) or a new `docs/contracts/schema.sql`?
 
 ---
@@ -396,10 +398,10 @@ settings = get_settings()        # core/config.py top-level — second redundant
 
 Lambda reuses the module across invocations, so the Secrets Manager call only happens once per container lifetime — but two separate config systems (`main.py` inline + `core/config.py`) exist simultaneously and it is not obvious which one wins for a given value. This should be one system, lazily initialized.
 
-**5. Frontend has no type contract with the backend**
+**5. Frontend has no type contract with the backend** ✅ Fixed (2026-05-25)
 
-`write/api.ts` `PostPayload`, backend `WritePostRequest`, and publish `CreatePostReq` are three independent type definitions for what is effectively the same data shape. They are already diverging (`rating` max value, missing `rating_scale`). FastAPI generates an OpenAPI spec automatically — using it to generate TypeScript types (via `openapi-typescript` or similar) would eliminate this class of drift entirely.
+`PostPayload` now derived from generated `WritePostRequest` type. `pnpm generate:types` regenerates from `docs/contracts/openapi-backend.json`. myblog_front PR #5.
 
-**6. Gemini alias generation is coupled to the main sync transaction lifecycle**
+**6. Gemini alias generation is coupled to the main sync transaction lifecycle** ✅ Fixed (2026-05-25)
 
-`generate_and_save_aliases` runs after the main transaction commits but still holds a DB connection while making a 10-second external HTTP call to Gemini. Under load this occupies a connection slot unnecessarily. This work should be decoupled — either a separate SQS message type, an EventBridge scheduled rule, or a second Lambda trigger — so the main sync path is not affected by Gemini latency or failures.
+Removed from SQS sync path. Now runs on EventBridge `rate(15 min)` schedule. LIMIT reduced 20→10 to fit 120s timeout. myblog_worker PR #10.
