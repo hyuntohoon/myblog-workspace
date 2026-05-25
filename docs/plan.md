@@ -137,9 +137,7 @@ Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, secu
 
 ---
 
-### PR-5: CI unit test gate ⏸️
-
-> ⏸️ On hold — re-evaluate after architect review. See `docs/decisions/0002-paused-pr5-pr6.md`
+### PR-5: CI unit test gate
 
 - **Title**: `ci: add unit test gate before deploy (myblog_music)`
 - **Covers**: INFRA-1 (unit test gate only)
@@ -151,6 +149,7 @@ Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, secu
 - **Prerequisite**: PR-1–3 merged
 
 > ✅ Done (2026-05-23) — CI test job gates deploy; 5 unit tests for auth bypass; integration test marked and excluded
+> ✅ Exit-5 workaround removed (2026-05-25, myblog_music PR #14) — 8 unit tests confirmed; gate now enforces real test pass
 
 ---
 
