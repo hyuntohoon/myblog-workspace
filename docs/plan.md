@@ -439,3 +439,81 @@ Removed from SQS sync path. Now runs on EventBridge `rate(15 min)` schedule. LIM
 ```
 CI green on a no-op commit; `astro check` failure blocks deploy; S3 object metadata shows correct Cache-Control per file type
 ```
+
+---
+
+## IAC-1: SAM → Terraform 전체 마이그레이션
+
+- **Scope**: `infra/` (workspace) + 후속으로 4개 service repo의 SAM 템플릿 제거
+- **Branch**: `infra/IAC-1-terraform-migration`
+- **Status**: core applied ✅ (2026-05-25) — `Apply complete! 21 imported, 12 added, 9 changed, 0 destroyed`. 검증: timeout 교정 확인, 사이트/음악검색 HTTP 200 무중단. 후속: EventBridge(권한 확장 후), 4 repo SAM 템플릿 제거.
+- **Source**: `docs/tracks/iac-migration.md`
+- **Decisions (2026-05-25)**:
+  - Lambda 설정은 import하며 **올바른 값으로 교정** (timeout, musicApi Cognito)
+  - EventBridge는 **IAM 권한 확장 후 포함** (Gemini 스케줄)
+  - Terraform state는 **로컬 유지** (`infra/terraform.tfstate`)
+
+### 배경
+
+- SAM은 실제 배포에 사용되지 않음. `blog-backend` CloudFormation 스택은 드리프트(Lambda 삭제됨) 상태로 방치.
+- 실제 운영: Lambda는 CI의 `aws lambda update-function-code`로 코드만, 나머지 인프라(API GW, IAM 역할)는 콘솔 수동.
+- Terraform(`infra/`)이 이미 21개 리소스 관리 중: S3, CloudFront, Cognito, SQS(redrive 포함), Secrets IAM.
+
+### 마이그레이션 대상 (Terraform으로 흡수)
+
+| 리소스 | 방식 | 비고 |
+|--------|------|------|
+| Lambda 함수 4개 | import + `ignore_changes`(코드) | 설정 교정: worker timeout 10→120, api/publish 3→15, music 10→15. (musicApi COGNITO는 보류 — 아래 참고) |
+| API Gateway `lambdaAPI` | import | api + 3 integration + 6 route + JWT authorizer + $default stage |
+| Lambda invoke 권한 | 신규(consolidated) | 기존 per-route 권한은 레거시로 잔존, 수동 정리 |
+| SQS 이벤트소스 매핑 | import | `ReportBatchItemFailures` 활성화 (PR-7 코드 대응) |
+| CloudWatch 로그그룹 4개 | import | retention None→14일 |
+| CloudWatch 알람 | 신규 | Lambda 에러/쓰로틀 + DLQ 알람 |
+| EventBridge (Gemini) | 신규 ✅ | rule rate(15min) + target(worker) + 권한 생성 (2026-05-25). ⚠️ myblog/worker 시크릿에 GEMINI_API_KEY 추가 전까지 alias 생성은 no-op(clean skip) |
+
+### 범위 제외 (의도적)
+
+- **IAM 실행 역할 4개**: 그대로 이름 참조 유지 (secrets.tf가 이미 그렇게 동작). 역할이 복잡·비일관(예: `LambdaRDSControlRole`에 불필요한 `AmazonRDSFullAccess`)하여 faithful import는 고위험. 정리/import는 별도 후속.
+- **CloudFront `handler` 함수**: ARN 참조로 안정 동작 중, 코드 fetch 필요하여 제외.
+- **DB**: Neon 유지, AWS RDS 미사용 → IaC 범위 외.
+
+### Order
+
+1. `.tf` 작성 + import 블록 (lambda, apigateway, monitoring)
+2. `terraform plan` — import는 no-op, 교정 항목만 변경으로 표시되는지 검증
+3. **사용자 승인 후 `terraform apply`** (프로덕션 변경)
+4. 운영 검증
+5. (후속) IAM 권한 확장 → EventBridge 추가
+6. (후속) 4개 repo SAM 템플릿 제거
+
+### Rollback
+
+- `terraform plan` 단계는 읽기 전용 — apply 전까지 무위험.
+- apply 후 문제 시 해당 리소스 설정을 이전 값으로 되돌려 재apply (timeout 등은 즉시 가역).
+- state는 로컬 + `terraform.tfstate.backup` 자동 백업 존재.
+
+### Verification
+
+```
+terraform plan  # import no-op + 교정만 표시 확인
+terraform apply
+# apply 후:
+aws lambda get-function-configuration --function-name blogWorkerLambda --query Timeout  # 120
+aws apigatewayv2 get-routes --api-id ld8pjw3mx4  # 6 routes 유지
+curl https://www.ratemymusic.blog/api/...  # 골든패스 무중단 확인
+```
+
+### 보류 / 후속 보안 항목
+
+- **musicApi COGNITO_USER_POOL_ID — 보류 확정**. 프론트 `searchBar.client.ts`의 `getJSON`이 인증 헤더 없이 `/candidates`를 호출함을 확인. COGNITO를 켜면 sync 버튼이 401로 깨짐. 프론트가 Cognito 토큰을 보내도록 고치는 별도 PR 이후 재활성화.
+- **publisher-github 공개 Function URL** 발견 (`FunctionURLAllowPublicAccess`, AuthType NONE) → API GW/JWT 우회 가능. 본 마이그레이션 범위 외이나 보안 검토 권고.
+
+### 최종 plan 결과 (2026-05-25)
+
+```
+Plan: 21 to import, 12 to add, 9 to change, 0 to destroy.
+```
+- import 21: Lambda 4, 이벤트소스 1, API GW 12, 로그그룹 4 (전부 현 상태와 일치하는 no-op import)
+- add 12: 알람 9 + Lambda invoke 권한 3 (additive)
+- change 9: 로그그룹 retention 0→14 ×4, 이벤트소스 +ReportBatchItemFailures, Lambda timeout ×4
+- **destroy/replace 0** — 무중단
