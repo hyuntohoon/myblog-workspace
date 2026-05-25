@@ -18,3 +18,9 @@ variable "edge_secret" {
   description = "X-Origin-Verify header value shared between CloudFront and Lambda"
   sensitive   = true
 }
+
+variable "alert_email" {
+  type        = string
+  description = "Email address to receive CloudWatch alarm notifications"
+  default     = "zlxlgus123@gmail.com"
+}
