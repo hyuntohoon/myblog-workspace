@@ -10,7 +10,7 @@
   2. `myblog_front/src/scripts/searchBarDb.client.ts` — replace `getJSON(url)` with auth-header fetch for `/candidates` call → PR + deploy
 - **Rollback**: Remove env var from musicApi Lambda (검증 즉시 우회됨), revert frontend PR
 - **Verification**: 로그인 상태에서 Sync 버튼 → `/candidates` 200; 미로그인 → 401
-- **Status**: in-progress
+- **Status**: ✅ Done (2026-05-25) — infra PR #18 (COGNITO_USER_POOL_ID TF 적용), myblog_front PR #7 (searchBarDb auth 헤더 추가)
 
 ---
 
