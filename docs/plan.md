@@ -536,3 +536,82 @@ Plan: 21 to import, 12 to add, 9 to change, 0 to destroy.
 - add 12: 알람 9 + Lambda invoke 권한 3 (additive)
 - change 9: 로그그룹 retention 0→14 ×4, 이벤트소스 +ReportBatchItemFailures, Lambda timeout ×4
 - **destroy/replace 0** — 무중단
+
+---
+
+## FRONT-1~5: Pitchfork-style 프론트엔드 전면 리디자인
+
+- **Scope**: `myblog_front`
+- **Branch**: 각 Phase별 feat/FRONT-N 브랜치 → main 머지
+- **Status**: ✅ Done (2026-05-25) — 전 Phase main 반영
+
+| Phase | 내용 | PR |
+|-------|------|----|
+| Phase 0 | 디자인 시스템 (global.css, Newsreader 폰트, 색상 토큰) | front #6 일부 |
+| Phase 1 | 네비게이션 (header.astro, sticky + editorial 스타일) | front #6 일부 |
+| Phase 2 | 메인 페이지 (hero-review, best-new-music, review-grid) | front #8 일부 |
+| Phase 3 | 리뷰 상세 (review-hero.astro, [slug].astro) | front #8 일부 |
+| Phase 4 | 글 작성 (write.astro 2-panel 레이아웃) | front #8 일부 |
+| Phase 5 | BNM 뱃지 + drafts.astro | front #8 일부 |
+
+**디자인 언어**: Lowfreq Magazine editorial (Newsreader italic serif, cream palette, Pitchfork-style 평점 레이아웃)
+**ESLint 수정**: front PR #9 — Phase 2-5 컴포넌트 84개 에러 수정 (HTML comment in JSX, no-alert, unused vars)
+
+---
+
+## CICD-2: code-review 워크플로 + pyright CI
+
+- **Scope**: `myblog_front`, `myblog_backend`, `myblog_music`
+- **Status**: ✅ Done (2026-05-25)
+
+| 항목 | 레포/PR | 내용 |
+|------|---------|------|
+| code-review.yml | front #8, #9 | Claude Code PR 자동 리뷰 워크플로 추가. `-p` 플래그 non-interactive, API key 없으면 스킵 |
+| pyright CI | backend #10 | `pyrightconfig.json` baseline + deploy.yml `check` job 추가 |
+| pyright CI | music #15 | 동일 패턴 적용 |
+| /write 404 수정 | CloudFront | 함수 `uri + '.html'` → `uri + '/index.html'` (Astro directory format 대응), LIVE publish + 캐시 무효화 |
+
+**pyright baseline 방침**: SQLAlchemy ORM 속성 false positive → `reportAttributeAccessIssue: none`, boto3 런타임 dep → `reportMissingImports: none`. 실제 버그 범주(`reportReturnType`, `reportUndefinedVariable` 등)는 `warning` 유지.
+
+---
+
+## FEAT-W2: writer 검색 — DB 검색 / Spotify 싱크 버튼 분리
+
+- **Scope**: `myblog_front` (`src/components/writer/SubjectBlock.tsx`, `types.ts`, `styles/writer.css`)
+- **Branch**: `fix/FEAT-W1-design-fidelity` → main (front PR #11)
+- **Status**: ✅ Done (2026-05-25)
+
+### 배경
+
+React island 리디자인(FEAT-W1) 때 레거시 `searchBarDb.client.ts`의 **2버튼 설계**(DB 검색 + Spotify Sync)가 단일 debounce 자동검색으로 합쳐지며 사라짐. 사용자 요청으로 원래 2버튼 UX 복구.
+
+### 변경
+
+| 버튼 | 엔드포인트 | 비고 |
+|------|-----------|------|
+| **검색** | `/api/music/search/unified` | DB-only, 공개(인증無), Enter 키 지원 |
+| **Spotify 싱크** | `/api/music/search/candidates` | `apiFetch`(Cognito 인증), SQS 동기화 트리거, 3초 쿨다운 |
+
+- 결과 타일에 `DB` / `SPOTIFY` 출처 뱃지
+- status 메시지: DB 결과 0건 시 "Spotify 싱크를 눌러보세요" 유도
+- `AlbumSearchResult.source?: 'db' | 'spotify'` 타입 추가
+- debounce 자동검색 제거 → 명시적 버튼 클릭 방식
+
+### Verification
+
+- `pnpm build` 성공, `astro check` 에러 0
+- dev 서버 `/write/` 렌더링: 두 버튼 모두 출력, 빈 쿼리 시 `disabled` 확인
+
+---
+
+## 다음 기능 개발 (미착수)
+
+피치포크 스타일 리뷰 블로그 완성을 위한 남은 기능:
+
+| 항목 | 현황 | 선행 조건 |
+|------|------|----------|
+| rating 스케일 통일 | front 0-10 ↔ back `le=5` 불일치 | docs/contracts/ 계약 먼저 |
+| 리뷰 대상 타입 `album\|track\|artist` | 현재 앨범만 지원 | 계약 설계 + 백/프론트 동시 변경 |
+| 트랙 리뷰 페이지 | 없음 | 타입 확장 후 |
+| 아티스트 프로필/리뷰 페이지 | 없음 | 타입 확장 후 |
+| ANTHROPIC_API_KEY 시크릿 등록 | GitHub → myblog_front Settings → Secrets | code-review 워크플로 실제 실행 전제 |
