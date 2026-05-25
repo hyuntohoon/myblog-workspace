@@ -2,6 +2,15 @@
 
 ---
 
+## BUG-8: musicApi /candidates 500 — SQS producer IAM 누락
+
+- **Scope**: `infra/iam_roles.tf`
+- **원인**: IAC-2에서 `AmazonSQSFullAccess` 제거 시 프로듀서 권한 함께 소실. `AWSLambdaSQSQueueExecutionRole`은 컨슈머 전용(ReceiveMessage, DeleteMessage)으로 `GetQueueUrl` 없음.
+- **수정**: `LambdaRDSControlRole`에 `sqs:GetQueueUrl`, `sqs:SendMessage`, `sqs:SendMessageBatch` 인라인 정책 추가 → terraform apply
+- **Status**: ✅ Done (2026-05-25) — infra workspace PR #22, terraform apply 완료. 사이트 정상 동작 확인.
+
+---
+
 ## COGNITO-1: Activate JWT validation on /candidates
 
 - **Scope**: `infra/` (musicApi env var), `myblog_front` (searchBarDb auth header)
