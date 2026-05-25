@@ -469,7 +469,7 @@ CI green on a no-op commit; `astro check` failure blocks deploy; S3 object metad
 | SQS 이벤트소스 매핑 | import | `ReportBatchItemFailures` 활성화 (PR-7 코드 대응) |
 | CloudWatch 로그그룹 4개 | import | retention None→14일 |
 | CloudWatch 알람 | 신규 | Lambda 에러/쓰로틀 + DLQ 알람 |
-| EventBridge (Gemini) | 후속 | IAM 권한(events:*/scheduler:*) 확장 후 |
+| EventBridge (Gemini) | 신규 ✅ | rule rate(15min) + target(worker) + 권한 생성 (2026-05-25). ⚠️ myblog/worker 시크릿에 GEMINI_API_KEY 추가 전까지 alias 생성은 no-op(clean skip) |
 
 ### 범위 제외 (의도적)
 
