@@ -48,14 +48,10 @@ resource "aws_lambda_function" "music" {
 
   environment {
     variables = {
-      FASTAPI_ROOT_PATH = "/api"
-      QUEUE_NAME        = "blogSQS"
-      SECRETS_ARN       = data.aws_secretsmanager_secret.music.arn
-      # NOTE: COGNITO_USER_POOL_ID intentionally NOT set. Enabling it turns on
-      # /candidates JWT validation (PR-4), but the frontend sync button calls
-      # the endpoint without an Authorization header (getJSON in
-      # searchBar.client.ts), so enabling it now would 401 the sync feature.
-      # Re-enable only after the frontend sends a Cognito token.
+      FASTAPI_ROOT_PATH    = "/api"
+      QUEUE_NAME           = "blogSQS"
+      SECRETS_ARN          = data.aws_secretsmanager_secret.music.arn
+      COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
     }
   }
 

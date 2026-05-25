@@ -2,6 +2,18 @@
 
 ---
 
+## COGNITO-1: Activate JWT validation on /candidates
+
+- **Scope**: `infra/` (musicApi env var), `myblog_front` (searchBarDb auth header)
+- **Order**:
+  1. `infra/lambda.tf` — add `COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id` to musicApi env vars → terraform apply
+  2. `myblog_front/src/scripts/searchBarDb.client.ts` — replace `getJSON(url)` with auth-header fetch for `/candidates` call → PR + deploy
+- **Rollback**: Remove env var from musicApi Lambda (검증 즉시 우회됨), revert frontend PR
+- **Verification**: 로그인 상태에서 Sync 버튼 → `/candidates` 200; 미로그인 → 401
+- **Status**: in-progress
+
+---
+
 ## 1. Context
 
 Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, security gaps, and debug code that must be resolved before production. This section defines the work order by priority.
