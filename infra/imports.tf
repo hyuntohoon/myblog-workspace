@@ -45,3 +45,101 @@ import {
   to = aws_cloudfront_distribution.myblog
   id = "E2Q2JH5EAYVU1O"
 }
+
+# ── IAC-1: Lambda + API Gateway + log groups ────────────────────────────────
+
+# Lambda functions
+import {
+  to = aws_lambda_function.backend
+  id = "ratemymusic-api"
+}
+import {
+  to = aws_lambda_function.music
+  id = "musicApi"
+}
+import {
+  to = aws_lambda_function.worker
+  id = "blogWorkerLambda"
+}
+import {
+  to = aws_lambda_function.publish
+  id = "publisher-github"
+}
+
+# SQS event source mapping (blogSQS -> worker)
+import {
+  to = aws_lambda_event_source_mapping.worker_sqs
+  id = "811e2036-efde-404f-aee2-78de6da178b2"
+}
+
+# API Gateway HTTP API
+import {
+  to = aws_apigatewayv2_api.lambda_api
+  id = "ld8pjw3mx4"
+}
+import {
+  to = aws_apigatewayv2_stage.default
+  id = "ld8pjw3mx4/$default"
+}
+import {
+  to = aws_apigatewayv2_authorizer.cognito
+  id = "ld8pjw3mx4/6eia7l"
+}
+
+# Integrations
+import {
+  to = aws_apigatewayv2_integration.backend
+  id = "ld8pjw3mx4/0woghr4"
+}
+import {
+  to = aws_apigatewayv2_integration.music
+  id = "ld8pjw3mx4/judcqxt"
+}
+import {
+  to = aws_apigatewayv2_integration.publish
+  id = "ld8pjw3mx4/ij4cpp6"
+}
+
+# Routes
+import {
+  to = aws_apigatewayv2_route.music_proxy
+  id = "ld8pjw3mx4/5s66rz7"
+}
+import {
+  to = aws_apigatewayv2_route.music_root
+  id = "ld8pjw3mx4/mh2gfao"
+}
+import {
+  to = aws_apigatewayv2_route.api_get_proxy
+  id = "ld8pjw3mx4/l40j69f"
+}
+import {
+  to = aws_apigatewayv2_route.categories_post
+  id = "ld8pjw3mx4/ibw7jrt"
+}
+import {
+  to = aws_apigatewayv2_route.posts_post
+  id = "ld8pjw3mx4/w0t3k4r"
+}
+import {
+  to = aws_apigatewayv2_route.publish_post
+  id = "ld8pjw3mx4/edjry19"
+}
+
+# CloudWatch log groups
+import {
+  to = aws_cloudwatch_log_group.lambda["backend"]
+  id = "/aws/lambda/ratemymusic-api"
+}
+import {
+  to = aws_cloudwatch_log_group.lambda["music"]
+  id = "/aws/lambda/musicApi"
+}
+import {
+  to = aws_cloudwatch_log_group.lambda["worker"]
+  id = "/aws/lambda/blogWorkerLambda"
+}
+import {
+  to = aws_cloudwatch_log_group.lambda["publish"]
+  id = "/aws/lambda/publisher-github"
+}
