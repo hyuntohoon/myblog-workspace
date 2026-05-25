@@ -153,9 +153,7 @@ Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, secu
 
 ---
 
-### PR-6: DB migration — add UNIQUE constraint on `tracks.spotify_id` ⏸️
-
-> ⏸️ On hold — re-evaluate after architect review. See `docs/decisions/0002-paused-pr5-pr6.md`
+### PR-6: DB migration — add UNIQUE constraint on `tracks.spotify_id`
 
 - **Title**: `db: add UNIQUE constraint on tracks.spotify_id`
 - **Covers**: BUG-3 migration part
@@ -166,7 +164,8 @@ Initial code review of `myblog_music` (2026-05-20) identified runtime bugs, secu
 - **Estimated time**: 1–2h (plus data cleanup time)
 - **Prerequisite**: PR-2 merged. Duplicate data check completed. Jack approval.
 
-> ✅ Done (2026-05-23) — migration script at `db/migrations/001_tracks_spotify_id_unique.sql`; run manually against RDS following the 5-step instructions in the file
+> ✅ Done (2026-05-23) — migration script at `db/migrations/001_tracks_spotify_id_unique.sql`
+> ✅ Executed against Neon DB (2026-05-25) — 0 duplicates found; `uq_tracks_spotify_id` UNIQUE constraint applied (CONCURRENTLY, zero-downtime)
 
 ---
 
