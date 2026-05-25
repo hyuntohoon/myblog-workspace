@@ -1,3 +1,14 @@
+# --- SNS topic for CloudWatch alarm notifications ---
+resource "aws_sns_topic" "alerts" {
+  name = "myblog-alerts"
+}
+
+resource "aws_sns_topic_subscription" "alerts_email" {
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
 locals {
   # logical name -> actual Lambda function name
   lambda_functions = {
@@ -15,9 +26,7 @@ resource "aws_cloudwatch_log_group" "lambda" {
   retention_in_days = 14
 }
 
-# --- Lambda error / throttle alarms (new) ---
-# No alarm_actions yet — SNS notification wiring is a follow-up. Alarms are
-# still visible in the console and queryable via the CloudWatch API.
+# --- Lambda error / throttle alarms ---
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   for_each            = local.lambda_functions
   alarm_name          = "${each.value}-errors"
@@ -30,6 +39,8 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
 
   dimensions = {
     FunctionName = each.value
@@ -48,6 +59,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
   threshold           = 5
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
 
   dimensions = {
     FunctionName = each.value
@@ -66,6 +78,7 @@ resource "aws_cloudwatch_metric_alarm" "dlq_messages" {
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
 
   dimensions = {
     QueueName = aws_sqs_queue.album_sync_dlq.name
