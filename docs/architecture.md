@@ -93,17 +93,24 @@ Astro-based static site hosted on S3 and served through CloudFront. GitHub Actio
 
 Core blog API. Owns the post and category domain and is fully isolated from music sync.
 
-**Endpoints**
+**Endpoints** (2026-05-26 기준 실제 라우트)
 
-| Method | Path | Auth |
-|--------|------|------|
-| `GET` | `/posts`, `/posts/:id` | None |
-| `POST` | `/posts` | Cognito JWT |
-| `PUT` | `/posts/:id` | Cognito JWT |
-| `GET` | `/categories` | None |
-| `POST` | `/categories` | Cognito JWT |
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| `POST` | `/api/posts` | Cognito JWT | 작성·수정 (현재 단일 엔드포인트) |
+| `GET` | `/api/categories` | None | 카테고리 목록 |
+| `POST` | `/api/categories` | Cognito JWT | 카테고리 생성 |
+| `POST` | `/api/metrics/batch` | None | 좋아요·댓글 수 배치 조회 |
+| `GET` | `/health`, `/api/db/ping` | None | 헬스체크 |
 
-**Design rationale** — Spotify outages must not affect post reads or writes. Keeping Cognito JWT validation inside this service narrows the auth surface area.
+**상태 (2026-05-26)** — `GET /api/posts*`, `PUT /api/posts/{id}`, `DELETE /api/posts/{id}` **미구현**. 프론트 `drafts.astro`가 호출하는 `GET /api/posts?status=draft`, `DELETE /api/posts/{id}`는 404로 깨져 있다. FEAT-POST-1(M1)에서 추가 예정. 자세한 격차는 `docs/plan.md` REVIEW-1 참조.
+
+**리뷰 데이터의 정적·동적 이중 트랙**
+
+- **정적 (공개 읽기)** — 발행 후 `myblog_publish`가 GitHub에 MDX 커밋 → Astro 빌드 → S3/CloudFront. 모든 공개 블로그 리스트·상세는 이 경로(정적 콘텐츠).
+- **동적 (작성·임시저장·편집)** — 백엔드 `posts` 테이블. 작성 중인 글, 드래프트, 발행 메타데이터(rating, post_id) 보관. **현재 CRUD 미완성** (B1 격차).
+
+**Design rationale** — Spotify outages must not affect post reads or writes. Keeping Cognito JWT validation inside this service narrows the auth surface area. 공개 읽기는 CDN으로 처리해 Lambda 호출 비용·지연을 줄인다.
 
 ---
 
@@ -123,14 +130,19 @@ Handles music search and Spotify sync triggers. The core design principle is **"
   → ② batch-enqueue album IDs to SQS (up to 20 per message)
 ```
 
-**Endpoints**
+**Endpoints** (2026-05-26 기준 실제 라우트)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/music/search/unified` | DB-first unified search |
-| `GET` | `/api/music/search/candidates` | Spotify candidates + SQS enqueue |
-| `GET` | `/api/music/albums/:id` | Album detail (DB-only) |
-| `GET` | `/api/music/albums/by-spotify/:spotify_id` | Album lookup by Spotify ID (DB-only) |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/music/search/unified` | None | DB-only 통합 검색 (artists/albums/tracks) |
+| `GET` | `/api/music/search/` | None | DB 기본 검색 |
+| `GET` | `/api/music/search/candidates` | Cognito JWT | Spotify 후보 + SQS enqueue |
+| `GET` | `/api/music/albums/{id}` | None | 앨범 상세 (DB-only) |
+| `GET` | `/api/music/albums/by-spotify/{spotify_album_id}` | None | Spotify ID로 앨범 상세 (DB-only) |
+| `GET` | `/api/music/artists/{artist_id}/albums` | None | 아티스트 디스코그라피 |
+| `GET` | `/api/music/artists/spotify/{spotify_id}/albums` | None | Spotify ID로 디스코그라피 |
+
+**아티스트 상세 (`GET /api/music/artists/{id}`)는 미구현** — 디스코그라피 엔드포인트만 존재. FEAT-ARTIST-1(M2)에서 추가 예정 (이름·aliases·photo_url 메타 포함).
 
 ---
 

@@ -604,14 +604,125 @@ React island 리디자인(FEAT-W1) 때 레거시 `searchBarDb.client.ts`의 **2�
 
 ---
 
-## 다음 기능 개발 (미착수)
+## REVIEW-1: 전체 MD 점검 + 프론트/백 격차 정합성 검토 (2026-05-26)
 
-피치포크 스타일 리뷰 블로그 완성을 위한 남은 기능:
+워크스페이스 + 5개 service repo의 모든 `.md` 문서와 실제 코드(프론트 페이지 → 백엔드/music API)를 대조한 결과. [[project-feature-roadmap]] 음반 단위 리뷰만/평점 0-5 결정을 반영.
 
-| 항목 | 현황 | 선행 조건 |
-|------|------|----------|
-| rating 스케일 통일 | front 0-10 ↔ back `le=5` 불일치 | docs/contracts/ 계약 먼저 |
-| 리뷰 대상 타입 `album\|track\|artist` | 현재 앨범만 지원 | 계약 설계 + 백/프론트 동시 변경 |
-| 트랙 리뷰 페이지 | 없음 | 타입 확장 후 |
-| 아티스트 프로필/리뷰 페이지 | 없음 | 타입 확장 후 |
-| ANTHROPIC_API_KEY 시크릿 등록 | GitHub → myblog_front Settings → Secrets | code-review 워크플로 실제 실행 전제 |
+### Findings A — 문서 드리프트 (코드와 불일치)
+
+| # | 문서 | 명시된 내용 | 실제 코드 |
+|---|------|-----------|----------|
+| A1 | `docs/architecture.md` 백엔드 표 | `GET /posts`, `GET /posts/:id`, `PUT /posts/:id` | 존재하지 않음. 실제: `POST /api/posts` 단 하나 (+ categories, metrics, health, db/ping) |
+| A2 | `myblog_backend/CLAUDE.md` | `GET /api/posts/{slug}` | 존재하지 않음 |
+| A3 | `myblog_music/CLAUDE.md` | `GET /api/music/artists/{id}`, `POST /api/music/candidates` | 실제: `GET /api/music/artists/{id}/albums`, `GET /api/music/artists/spotify/{id}/albums`, `GET /api/music/search/candidates`, `GET /api/music/albums/by-spotify/{id}`, `GET /api/music/search/` |
+| A4 | `docs/architecture.md` music 표 | `GET /api/music/artists/:id` | 존재하지 않음 (`/artists/{id}/albums`만 있음) |
+
+### Findings B — 프론트 ↔ 백엔드 기능 격차
+
+#### B1. 백엔드 post 라이프사이클 CRUD 부재 ⚠️ **M1 차단**
+
+- 백엔드: `POST /api/posts`만 존재
+- 프론트 `drafts.astro`가 `GET /api/posts?status=draft` (L273), `DELETE /api/posts/{id}` (L245) 호출 → **404**
+- `WriterApp.savePost`는 `status: 'published'` 고정 — draft 저장 미지원
+- localStorage에 `lowfreq-draft` 단일 슬롯만 임시저장 — 멀티 드래프트 불가능
+
+#### B2. 평점 스케일 불일치
+
+- 백엔드: `rating: ge=0 le=5`, `rating_scale: int default 5 (1-10)`
+- 프론트 content schema (`content.config.ts`): `Rating.value min 0 max 10`, `scale: literal(10)`
+- WriterApp UI: 0-5/0.5단위 (사용자 결정과 일치)
+- publishToGit MDX 프론트매터: `ratingScale: 5` 발행
+- 결과: 정적 빌드 시 zod schema는 0-10인데 실제 데이터는 0-5 → 일관성만 깨짐 (런타임 오류는 없음)
+
+#### B3. 아티스트 허브 부재
+
+- 프론트: `/artist*` 페이지 없음
+- music: 아티스트 **상세 메타** 엔드포인트 없음 (디스코그라피 `/artists/{id}/albums`만)
+- 스키마 `aliases JSONB` 컬럼은 추가됐으나(ARCH-1) API 응답 미노출
+- `SubjectBlock`에서 아티스트 검색 결과 클릭 시 동작 없음
+
+#### B4. 발행 부분 실패 UX 미흡
+
+- `WriterApp.onPublish`: `savePost` 성공 → `publishToGit` 호출 → 실패 시 토스트 한 줄
+- DB 저장 ✓ / Git 발행 ✗ 상태가 사용자에게 불명확, 재시도 경로 없음
+
+#### B5. 리뷰 데이터의 정적·동적 이중 트랙이 문서화 안 됨
+
+- 공개 리스트/상세: 정적 MDX (Astro Content Collection, GitHub publish 산출물)
+- 작성·임시저장·편집: 백엔드 DB 경로 (B1 부재로 깨짐)
+- architecture.md에 이 두 경로 분리 설명 없음
+
+---
+
+### PR 계획
+
+#### DOC-3: 워크스페이스/각 repo 라우트 표 정합화
+
+- **Scope**: workspace `docs/architecture.md` + per-repo `CLAUDE.md` (backend/music)
+- **변경**:
+  - `docs/architecture.md` 백엔드 표: `POST /api/posts`, `GET/POST /api/categories`, `POST /api/metrics/batch`로 수정
+  - `docs/architecture.md` music 표: 실제 라우트로 갱신 (`/search/`, `/search/candidates`, `/albums/by-spotify/{id}`, `/artists/{id}/albums`, `/artists/spotify/{id}/albums`)
+  - `architecture.md`에 "리뷰 데이터의 정적·동적 이중 트랙" 섹션 추가
+  - `myblog_backend/CLAUDE.md`: `GET /api/posts/{slug}` 항목 제거
+  - `myblog_music/CLAUDE.md`: 라우트 표 전체 갱신
+- **우선순위**: 즉시 (의존성 없음)
+- **참고**: workspace 변경분은 본 PR에서 같이 수정. 각 repo CLAUDE.md는 per-repo PR.
+
+#### FEAT-RATING-1: 평점 스케일 0-5 통일
+
+- **Scope**: `myblog_front` (`content.config.ts`)
+- **변경**: `Rating.value` max 10→5, `Rating.scale: literal(10)`→`literal(5)`, Track `rating` max 10→5
+- **검증**: `pnpm build` 통과 — 기존 모든 MDX 콘텐츠가 0-5 범위(`rating_scale: 5`) 발행되어 zod 통과
+- **선행**: 없음
+- **우선순위**: 즉시
+
+#### FEAT-POST-1: 백엔드 post 라이프사이클 CRUD ⭐ M1
+
+- **Scope**: `myblog_backend`, `myblog_front`
+- **변경**:
+  - 백엔드: `posts.status` 컬럼(`draft|published`) 보장, 다음 엔드포인트 추가
+    - `GET /api/posts?status=&limit=&offset=` — 인증, 목록
+    - `GET /api/posts/{id}` — 인증, 단건
+    - `PUT /api/posts/{id}` — 인증, 수정 + status 전환
+    - `DELETE /api/posts/{id}` — 인증, 삭제
+  - `POST /api/posts` 응답에 `id`, `status` 포함 + default `status='draft'`
+  - 프론트 `WriterApp` 흐름 변경:
+    - 첫 저장 = `POST` (status=draft) → `id` 보관
+    - 이후 자동저장 = `PUT /api/posts/{id}` (localStorage가 아닌 DB)
+    - 발행 = `PUT status=published` → `publishToGit`
+  - 프론트 `drafts.astro` — 실제 API 응답 연결
+  - `pnpm generate:types` 재실행으로 OpenAPI 타입 갱신
+- **검증**:
+  - `drafts.astro` 200, 목록·삭제 동작
+  - draft 저장 후 페이지 재방문 시 복원
+  - 발행 후 status=published, MDX 정상 발행
+- **선행**: DOC-3 권장
+- **우선순위**: M1 (다음 작업)
+
+#### FEAT-ARTIST-1: 아티스트 허브 페이지 ⭐ M2
+
+- **Scope**: `myblog_music`, `myblog_front`
+- **변경**:
+  - music: `GET /api/music/artists/{id}` (이름·aliases·photo_url·external_url) — DB-only
+  - music: 선택 `GET /api/music/artists/by-spotify/{spotify_id}`
+  - 프론트: `/artist/[id].astro` — 아티스트 정보 + 디스코그라피 그리드 + 해당 아티스트의 리뷰 집계(정적 MDX `artistIds` 필터)
+  - `SubjectBlock` 아티스트 클릭 시 허브로 라우팅
+- **선행**: FEAT-POST-1 머지 (리뷰 집계의 정확성)
+- **우선순위**: M2
+
+#### FEAT-PUBLISH-1: 발행 부분 실패 UX 개선
+
+- **Scope**: `myblog_front` (`WriterApp.tsx`)
+- **변경**:
+  - savePost OK + publishToGit 실패 시 "Git 발행 실패 — 재시도" 액션 노출
+  - 백엔드 `posts.publish_status`(또는 `last_publish_error`) 컬럼 노출 가능 (선택)
+- **선행**: FEAT-POST-1 (status 컬럼)
+- **우선순위**: M1 이후
+
+---
+
+### 운영 메모
+
+- `ANTHROPIC_API_KEY` GitHub Secret 미등록 → `code-review` 워크플로는 현재 스킵 상태
+- 메모리 [[feedback-front-lint-before-commit]] — `myblog_front` 편집 후 커밋 전 `pnpm lint` 필수 (CI lint 게이트 실패 방지)
+- 메모리 [[feedback-frontend-design-plugin]] — UI 작업 시 frontend-design 스킬 호출
