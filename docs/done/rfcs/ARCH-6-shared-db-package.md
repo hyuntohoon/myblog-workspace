@@ -1,6 +1,6 @@
 # ARCH-6: Shared DB Models Package
 
-- **Status**: in-progress (Step 1)
+- **Status**: done
 - **Owner**: TBD
 - **Created**: 2026-05-26
 - **Plan row**: `plan.md` → ARCH-6
@@ -246,3 +246,9 @@ _(to be filled as steps execute)_
 |------|----------|------|
 | 2026-05-26 | Distribution method: private GitHub repo + git URL (option A). Rejected: CodeArtifact, submodule, monorepo. | Pre-Step 1 |
 | 2026-05-26 | Step 1 complete. Repo `hyuntohoon/myblog_shared_db` created (private), tagged `v0.0.1`. Verified: `from myblog_shared_db.models import Base` → `<class 'myblog_shared_db.models.Base'>`. `requires-python = ">=3.12"` confirmed against Lambda runtime. | Step 1 |
+| 2026-05-26 | Step 2 complete. Canonical models committed on `feat/step2-models`, PR merged. Tagged `v0.1.0`. Drift gate passed: `post_albums_table`, `post_recommended_tracks_table` aligned to canonical schema. `artist.followers` BigInteger, `DateTime(timezone=True)`. `_generated_schema.sql` committed. | Step 2 |
+| 2026-05-26 | Step 2.5 complete. GitHub Actions CI in myblog_shared_db wired (`SHARED_DB_PAT` secret, `gh auth token`). Schema parity test passes (stack-based paren counter to handle `gen_random_uuid()` in canonical SQL). | Step 2.5 |
+| 2026-05-26 | Step 3 complete. `myblog_music`: `app/domain/models.py` deleted; 3 repository files updated to import from `myblog_shared_db.models`. `requirements.txt` + CI git-auth step added. PR merged. | Step 3 |
+| 2026-05-26 | Step 4 complete. `myblog_backend`: `app/models/` directory (6 files) deleted; post_service, post_repo, category_repo updated to import from `myblog_shared_db.models` (association tables aliased to preserve call-site names). `myblog_worker`: `worker/infra/tables.py` deleted (was orphaned — sync_service.py uses raw `text()` directly). Both `requirements.txt` + CI git-auth steps added. PRs merged. | Step 4 |
+| 2026-05-26 | Step 5 complete. `tests/test_schema_parity.py` in `myblog_shared_db`: two tests — generated schema freshness check + modeled columns present in canonical. CI passes. | Step 5 |
+| 2026-05-26 | Step 6 complete. `myblog_backend` and `myblog_worker` CLAUDE.md updated. Workspace `docs/architecture.md` Schema Contract section updated. ADR `0005-shared-db-package.md` written. RFC moved to `docs/done/rfcs/`. ARCH-6 row cut from `plan.md`. | Step 6 |
