@@ -14,12 +14,6 @@ _(none — IAC-1 core applied; follow-ups tracked under "Upcoming" below)_
 
 ## Upcoming — RFC-backed (high impact, multi-step)
 
-### ARCH-6: Shared DB models package
-
-- **RFC**: `docs/rfcs/ARCH-6-shared-db-package.md`
-- **Scope**: new repo `myblog_shared_db` + `myblog_backend`, `myblog_music`, `myblog_worker`
-- **Status**: in-progress (Step 1 done — Step 2 next)
-
 ### ARCH-11: Absorb `myblog_publish` into `myblog_backend`
 
 - **RFC**: `docs/rfcs/ARCH-11-absorb-publish-into-backend.md`
@@ -87,6 +81,5 @@ Workspace-level open questions only. RFC-internal questions stay in their RFC.
 - _(none currently at workspace level)_
 
 In-flight RFC questions (for awareness; resolved inside each RFC):
-- **ARCH-6**: schema parity CI source-of-truth resolution, SQLAlchemy version alignment, migrations ownership
 - **ARCH-11**: API Gateway routing during cutover, GitHub token rotation timing
 - **ARCH-12**: cross-repo trigger mechanism (Step 4), namespace prefix in merged spec, GitHub App vs PAT

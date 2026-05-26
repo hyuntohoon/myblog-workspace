@@ -4,17 +4,21 @@
 
 A personal blog combined with a music review feature. Blog authoring, music search and sync, and static site publishing are each owned by an independent service.
 
+> Concrete resource IDs (pool IDs, distribution IDs, ARNs, queue URLs) live in `docs/infrastructure.md`, not here. This document describes intent and structure; that one describes what currently exists.
+
 ---
 
 ## Services
 
-| Service | Responsibility | Lambda 함수명 | Deployment |
-|---------|----------------|--------------|------------|
+| Service | Responsibility | Lambda function | Deployment |
+|---------|----------------|-----------------|------------|
 | `myblog_front` | Static site + admin authoring UI | — | S3 + CloudFront |
-| `myblog_backend` | Blog post and category CRUD + auth | `ratemymusic-api` | Lambda + API Gateway (`lambdaAPI`) |
-| `myblog_music` | DB-first music search + sync trigger | `musicApi` | Lambda + API Gateway (`lambdaAPI`) |
-| `myblog_worker` | SQS consumer + Spotify sync | `blogWorkerLambda` | Lambda (SQS: `blogSQS`) |
-| `myblog_publish` | Static site publishing pipeline | `publisher-github` | Lambda + API Gateway (`lambdaAPI`) |
+| `myblog_backend` | Blog post and category CRUD + auth | `ratemymusic-api` | Lambda + API Gateway |
+| `myblog_music` | DB-first music search + sync trigger | `musicApi` | Lambda + API Gateway |
+| `myblog_worker` | SQS consumer + Spotify sync + scheduled alias generation | `blogWorkerLambda` | Lambda (SQS + EventBridge) |
+| `myblog_publish` | Static site publishing pipeline | `publisher-github` | Lambda + API Gateway |
+
+All AWS resources are managed by Terraform in `infra/` (IAC-1, 2026-05-25). The four service repos no longer carry SAM templates; CI deploys Lambda code only via `aws lambda update-function-code`.
 
 ---
 
@@ -47,23 +51,23 @@ A personal blog combined with a music review feature. Blog authoring, music sear
           │                 │                    │
           ▼           ┌─────┴──────┐             ▼
         Neon      DB search    SQS enqueue   GitHub API
-    (PostgreSQL)  (unified)    (candidates)      │
-                      │            │             ▼
+   (Serverless    (unified)    (candidates)      │
+    PostgreSQL)       │            │             ▼
                       ▼            ▼        GitHub Actions
                     Spotify      SQS Queue  ├── Astro build
                     Web API          │      ├── S3 upload
                                      │      └── CF invalidation
                                      ▼
-                             ┌───────────────┐
-                             │ myblog_worker │
-                             │ (Lambda)      │
+                             ┌───────────────┐       EventBridge
+                             │ myblog_worker │ ◄──── rate(15 min)
+                             │ (Lambda)      │       (alias generation)
                              └───────┬───────┘
                                      │
                           ┌──────────┴──────────┐
                           ▼                     ▼
                      Spotify API             Neon
-                     (batch fetch)       (PostgreSQL)
-                                           upsert
+                     (batch fetch)        (PostgreSQL)
+                                            upsert
 ```
 
 ---
@@ -87,30 +91,25 @@ Astro-based static site hosted on S3 and served through CloudFront. GitHub Actio
 | `myblog_music` | Unified music search / Spotify candidate search |
 | `myblog_publish` | Publish trigger after post save |
 
+Type contract with backend is generated from `docs/contracts/openapi-backend.json` via `pnpm generate:types`. `PostPayload` is derived from `WritePostRequest`; do not hand-edit.
+
 ---
 
 ### myblog_backend
 
 Core blog API. Owns the post and category domain and is fully isolated from music sync.
 
-**Endpoints** (2026-05-26 기준 실제 라우트)
+**Endpoints**
 
-| Method | Path | Auth | Notes |
-|--------|------|------|-------|
-| `POST` | `/api/posts` | Cognito JWT | 작성·수정 (현재 단일 엔드포인트) |
-| `GET` | `/api/categories` | None | 카테고리 목록 |
-| `POST` | `/api/categories` | Cognito JWT | 카테고리 생성 |
-| `POST` | `/api/metrics/batch` | None | 좋아요·댓글 수 배치 조회 |
-| `GET` | `/health`, `/api/db/ping` | None | 헬스체크 |
+| Method | Path | Auth |
+|--------|------|------|
+| `GET` | `/posts`, `/posts/:id` | None |
+| `POST` | `/posts` | Cognito JWT |
+| `PUT` | `/posts/:id` | Cognito JWT |
+| `GET` | `/categories` | None |
+| `POST` | `/categories` | Cognito JWT |
 
-**상태 (2026-05-26)** — `GET /api/posts*`, `PUT /api/posts/{id}`, `DELETE /api/posts/{id}` **미구현**. 프론트 `drafts.astro`가 호출하는 `GET /api/posts?status=draft`, `DELETE /api/posts/{id}`는 404로 깨져 있다. FEAT-POST-1(M1)에서 추가 예정. 자세한 격차는 `docs/plan.md` REVIEW-1 참조.
-
-**리뷰 데이터의 정적·동적 이중 트랙**
-
-- **정적 (공개 읽기)** — 발행 후 `myblog_publish`가 GitHub에 MDX 커밋 → Astro 빌드 → S3/CloudFront. 모든 공개 블로그 리스트·상세는 이 경로(정적 콘텐츠).
-- **동적 (작성·임시저장·편집)** — 백엔드 `posts` 테이블. 작성 중인 글, 드래프트, 발행 메타데이터(rating, post_id) 보관. **현재 CRUD 미완성** (B1 격차).
-
-**Design rationale** — Spotify outages must not affect post reads or writes. Keeping Cognito JWT validation inside this service narrows the auth surface area. 공개 읽기는 CDN으로 처리해 Lambda 호출 비용·지연을 줄인다.
+**Design rationale** — Spotify outages must not affect post reads or writes. Keeping Cognito JWT validation inside this service narrows the auth surface area.
 
 ---
 
@@ -122,49 +121,55 @@ Handles music search and Spotify sync triggers. The core design principle is **"
 
 ```
 [Basic search]  GET /search/unified
-  → DB ILIKE query → return results (no Spotify call)
+  → DB ILIKE query → return results (no Spotify call — hard rule)
 
 [Sync button]   GET /search/candidates
+  → Cognito JWT required
   → Spotify API search
   → ① return candidates immediately
   → ② batch-enqueue album IDs to SQS (up to 20 per message)
 ```
 
-**Endpoints** (2026-05-26 기준 실제 라우트)
+**Endpoints**
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/music/search/unified` | None | DB-only 통합 검색 (artists/albums/tracks) |
-| `GET` | `/api/music/search/` | None | DB 기본 검색 |
-| `GET` | `/api/music/search/candidates` | Cognito JWT | Spotify 후보 + SQS enqueue |
-| `GET` | `/api/music/albums/{id}` | None | 앨범 상세 (DB-only) |
-| `GET` | `/api/music/albums/by-spotify/{spotify_album_id}` | None | Spotify ID로 앨범 상세 (DB-only) |
-| `GET` | `/api/music/artists/{artist_id}/albums` | None | 아티스트 디스코그라피 |
-| `GET` | `/api/music/artists/spotify/{spotify_id}/albums` | None | Spotify ID로 디스코그라피 |
-
-**아티스트 상세 (`GET /api/music/artists/{id}`)는 미구현** — 디스코그라피 엔드포인트만 존재. FEAT-ARTIST-1(M2)에서 추가 예정 (이름·aliases·photo_url 메타 포함).
+| `GET` | `/api/music/search/unified` | None | DB-first unified search |
+| `GET` | `/api/music/search/candidates` | Cognito JWT | Spotify candidates + SQS enqueue |
+| `GET` | `/api/music/albums/:id` | None | Album detail (DB-only) |
+| `GET` | `/api/music/albums/by-spotify/:spotify_id` | None | Album lookup by Spotify ID (DB-only) |
 
 ---
 
 ### myblog_worker
 
-Background service that consumes SQS messages and syncs Spotify data into the DB. Fully decoupled from the request-response path.
+Background service. Two trigger paths:
 
-**Processing flow**
+**1. SQS-driven Spotify sync** (primary)
 
 ```
 Receive SQS message (up to 20 album spotify_ids)
   → Spotify GET /albums?ids=... (batch call)
   → Artist / Album / Track upsert (idempotent on spotify_id)
   → Link album_artists and track_artists relations
-  → Delete SQS message
+  → SQS deletes message on Lambda success; failures re-raise → DLQ
 ```
+
+**2. EventBridge-scheduled alias generation** (decoupled from sync)
+
+```
+EventBridge rate(15 min) → worker (alias mode)
+  → SELECT artists missing aliases LIMIT 10
+  → Gemini generate → UPDATE artists.aliases
+```
+
+Separated from the SQS path so Gemini latency cannot block album sync, and so a Gemini outage cannot fail SQS messages.
 
 **Key design points**
 
 - **Batch processing** — groups of up to 20 reduce Spotify API calls to ⌈N/20⌉
-- **Idempotency** — `INSERT ON CONFLICT UPDATE` keyed on `spotify_id`; safe to reprocess
-- **Failure isolation** — worker delays or failures have no impact on user search UX; SQS handles retries
+- **Idempotency** — `INSERT ON CONFLICT DO UPDATE` keyed on `spotify_id`; safe to reprocess. The upsert updates `ext_refs` (ARCH-1) so Spotify URL changes persist.
+- **Failure isolation** — worker delays or failures have no impact on user search UX; SQS handles retries with `ReportBatchItemFailures`.
 
 ---
 
@@ -172,10 +177,12 @@ Receive SQS message (up to 20 album spotify_ids)
 
 Publishing-only service that updates the static site after an admin saves a post.
 
+**Auth**: `x-origin-verify` edge secret header (CloudFront → Lambda). Direct invocation returns 403.
+
 **Publish flow**
 
 ```
-Front → POST /publish
+Front → POST /publish (with edge secret via CloudFront)
   → Create/commit MDX file via GitHub API
   → Triggers GitHub Actions workflow
       → Astro build → S3 upload → CloudFront invalidation
@@ -190,14 +197,39 @@ Front → POST /publish
 
 ## Shared Infrastructure
 
+Concrete IDs/ARNs in `docs/infrastructure.md`.
+
 | Infrastructure | Used by | Notes |
 |----------------|---------|-------|
-| **Neon PostgreSQL** (ap-southeast-1) | `myblog_backend`, `myblog_music`, `myblog_worker` | Serverless Postgres; connection via pooler URL |
-| Amazon SQS (`blogSQS`) | `myblog_music` (enqueue), `myblog_worker` (consume) | Standard queue, ap-northeast-2 |
-| AWS Cognito (`MyBlogAdminPool`) | `myblog_backend` (JWT validation), `myblog_front` (login) | Pool ID: ap-northeast-2_54vEJKEU5 |
-| S3 (`myblog-prod-web`) + CloudFront | `myblog_front` (static serving), `myblog_publish` (deploy target) | CF: d2y4n52sgjlrz6.cloudfront.net |
-| Spotify Web API | `myblog_music` (search), `myblog_worker` (data collection) | |
-| GitHub API / Actions | `myblog_publish` (MDX commits, build trigger) | |
+| **Neon PostgreSQL** | `myblog_backend`, `myblog_music`, `myblog_worker` | Serverless Postgres; connection via pooler URL. Not AWS RDS. |
+| **Amazon SQS** | `myblog_music` (enqueue), `myblog_worker` (consume) | Standard queue with DLQ + `ReportBatchItemFailures` |
+| **AWS Cognito** | `myblog_backend` and `myblog_music` (JWT validation), `myblog_front` (login) | JWKS-based validation; bypassed when `COGNITO_USER_POOL_ID` unset (dev) |
+| **AWS Secrets Manager** | All four Lambdas | One secret per service, loaded once per cold start via `@lru_cache` |
+| **AWS EventBridge** | `myblog_worker` (alias generation schedule) | `rate(15 min)` |
+| **S3 + CloudFront** | `myblog_front` (static serving), `myblog_publish` (deploy target) | CloudFront function rewrites `uri` → `uri + '/index.html'` for Astro directory format |
+| **Spotify Web API** | `myblog_music` (search), `myblog_worker` (data collection) | Two separate clients by design — see ADR 0004 |
+| **GitHub API / Actions** | `myblog_publish` (MDX commits, build trigger) | |
+
+---
+
+## Schema Contract
+
+Canonical DDL: `docs/contracts/schema.sql` (ARCH-1, ADR 0003).
+
+SQLAlchemy models are owned by `myblog_shared_db` (ARCH-6, ADR 0005) — a private Python package installed via git URL pin:
+```
+myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.1.0
+```
+
+Three services import from it:
+- `myblog_backend` — `from myblog_shared_db.models import Post, Category, Album, …`
+- `myblog_music` — `from myblog_shared_db.models import Album, Artist, Track, …`
+- `myblog_worker` — imports `myblog_shared_db.tables` Core Table objects; uses raw SQL for bulk upserts
+
+Schema changes must:
+1. Update `docs/contracts/schema.sql` first
+2. Update `myblog_shared_db/models.py` and regenerate `_generated_schema.sql`
+3. Tag a new version; update pin in each consumer's `requirements.txt`
 
 ---
 
@@ -208,5 +240,6 @@ Front → POST /publish
 | Spotify failure isolation — blog core must not be affected by external API failures | `myblog_backend` vs `myblog_music` |
 | Latency vs stability — short-timeout API Lambda vs long-timeout Worker Lambda | `myblog_music` vs `myblog_worker` |
 | Transaction vs external integration — DB save and GitHub/S3 deploy have different failure units | `myblog_backend` vs `myblog_publish` |
-| Security boundary — GitHub tokens in publish only; Cognito validation in backend only | `myblog_publish`, `myblog_backend` |
+| Security boundary — GitHub tokens in publish only; Cognito validation in backend + music only | `myblog_publish`, `myblog_backend`, `myblog_music` |
 | CDN for read traffic — static site handles most reads without Lambda invocations | `myblog_front` |
+| Sync path vs scheduled enrichment — Gemini latency and outages must not affect SQS sync | `myblog_worker` (SQS path vs EventBridge path) |
