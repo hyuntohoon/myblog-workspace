@@ -6,12 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **PR-12 — type `/api/music/search/candidates` response (replace `Dict[str, Any]` + `{}` contract).**
-  Scope: music (`app/domain/schemas.py` new `CandidateSearchResult` + nested item/pagination models, wire `response_model=` on `routers/search.py:search_candidates`) → workspace (regen `docs/contracts/openapi.json` via `scripts/merge_openapi.py`) → front (regen `src/lib/api.gen.ts`, replace local `CandidateSearchResponse` in `src/scripts/types/search.ts` with `components['schemas']['Music_CandidateSearchResult']`, drop `TODO(PR-12)` markers).
-  Order: music PR first (pytest covers response shape); workspace merges contract once music deploys; front PR consumes generated types.
-  Verification: music `pytest` + local `/candidates` request shape inspection; workspace `python3 scripts/merge_openapi.py` + diff review; front `pnpm lint` + `pnpm exec astro check`; prod smoke regression-free (`scripts/smoke.sh prod` — no new positive coverage required because `/candidates` already exercised by writer page sync flow).
-  Rollback: `git revert` per repo; contract regen is idempotent.
-  Status: drafted 2026-05-28 from `docs/contracts/audit-2026-05-28.md` finding M-1. Picks up `TODO(PR-12)` marker left by `CHORE-front-typing` (workspace #66 / front #27).
+_(none — PR-12 wrapped 2026-05-28 with music #23 / workspace #68 / front #28. Prod smoke 22/22 + direct `/candidates` shape check (exclude_none keys, all 8 typed album fields populated).)_
 
 ---
 
