@@ -28,6 +28,7 @@ When working inside one repo, that repo's CLAUDE.md takes precedence over this f
 ## How to work here
 
 - **Cross-repo change (≥2 repos)**: write/update `docs/plan.md` _before_ code. For contract changes, write the new contract in `docs/contracts/` first, then propagate.
+- **Any backend/music API change**: run `python scripts/export_openapi.py` (or `make export-openapi`) in the affected service repo and commit `openapi.json` in the same PR. The workspace merge tool (`tools/merge_openapi.py`) regenerates `docs/contracts/openapi.json` automatically when the service PR merges. Frontend types are derived from the merged spec — CI fails on drift.
 - **Multi-step migration (2+ repos OR multi-day OR ordered PRs)**: write an RFC in `docs/rfcs/` first; `plan.md` row is a one-line pointer. See `docs/rfcs/README.md` for the format, Status lifecycle (`draft` → `accepted` → `in-progress (Step N)` → `done`), and Claude Code usage patterns.
 - **Single-repo change**: defer to the repo's CLAUDE.md.
 - **Looking up a completed PR**: check `docs/done/YYYY-MM.md` or git log; do not search plan.md for history.

@@ -103,7 +103,7 @@ Astro-based static site hosted on S3 and served through CloudFront. GitHub Actio
 | `myblog_backend` | Post and category CRUD + publish trigger |
 | `myblog_music` | Unified music search / Spotify candidate search |
 
-Type contract with backend is generated from `docs/contracts/openapi-backend.json` via `pnpm generate:types`. `PostPayload` is derived from `WritePostRequest`; do not hand-edit.
+Type contract with backend and music is generated from `docs/contracts/openapi.json` (merged spec, ARCH-12) via `pnpm generate:types` → `src/lib/api.gen.ts`. `PostPayload` is derived from `Backend_WritePostRequest`; do not hand-edit. CI fails if the committed `api.gen.ts` drifts from the spec.
 
 ---
 
