@@ -25,8 +25,13 @@ resource "aws_lambda_function" "backend" {
 
   environment {
     variables = {
-      APP_ENV     = "prod"
-      SECRETS_ARN = data.aws_secretsmanager_secret.backend.arn
+      ENV                = "prod"
+      APP_ENV            = "prod"
+      SECRETS_ARN        = data.aws_secretsmanager_secret.backend.arn
+      GITHUB_REPO_OWNER  = "hyuntohoon"
+      GITHUB_REPO_NAME   = "myblog_front"
+      GITHUB_REPO_BRANCH = "main"
+      CONTENT_DIR        = "content/blog"
     }
   }
 
