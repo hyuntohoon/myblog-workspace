@@ -192,6 +192,17 @@ def run_authed_tests(host: dict[str, str], token: str | None) -> None:
                         method="PUT", body={"title": "SMOKE updated"}, token=token)
     check("PUT /api/posts/{id} returns 200", s == 200, f"status={s}")
 
+    # BUG-10 regression guard: PUT with category must actually persist. Prior
+    # to the fix, UpdatePostRequest dropped the field silently and the user's
+    # category edit was lost.
+    s, _ = request_json(host["backend_authed"] + f"/api/posts/{post_id}",
+                        method="PUT", body={"category": "smoke-bug10"}, token=token)
+    check("PUT with category change returns 200", s == 200, f"status={s}")
+    s, b = request_json(host["backend_authed"] + f"/api/posts/{post_id}", token=token)
+    check("GET after category PUT reflects new category",
+          b is not None and b.get("category") == "smoke-bug10",
+          f"got category={b.get('category') if b else None}")
+
     s, _ = request_json(host["backend_authed"] + f"/api/posts/{post_id}",
                         method="DELETE", token=token)
     # urllib raises HTTPError for 204 (no body); request_json catches that and returns 204 with None
