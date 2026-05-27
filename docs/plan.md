@@ -6,15 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### BUG-9: Duplicate publish silently creates `-2` slug suffix
-
-- Scope: `myblog_backend` (slug uniqueness enforcement), `myblog_front` (publish/draft flow), workspace (openapi regen)
-- Decision: **hard block** on duplicate — backend returns 409 instead of auto-appending suffix. Applied to both draft save and publish (consistency: catch conflict early).
-- Sub-fix discovered: `WriterApp.onPublish` always calls `savePost` (POST = new row) even when `dbPostId` exists, so draft→publish currently creates 2 rows. Switching to `updatePost` when `dbPostId` is set.
-- Order: backend (409 + service exception) → frontend (updatePost on publish + 409 toast) → workspace openapi regen
-- Verification: backend pytest 409 case + frontend lint/astro check + local smoke; prod smoke post-merge
-- Rollback: revert `fix/BUG-9-publish-duplicate-slug-warning` branch (single PR per repo)
-- Status: in-progress (branch: `fix/BUG-9-publish-duplicate-slug-warning`)
+_(none — BUG-9 wrapped 2026-05-28 with backend #23 / front #25 / workspace #59. Prod smoke 20/20 + direct 409 round-trip verified.)_
 
 ---
 
