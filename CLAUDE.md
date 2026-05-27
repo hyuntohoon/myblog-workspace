@@ -31,14 +31,16 @@ myblog-workspace/
 
 ## Hard rules
 
-1. Never work on `main`. First command: `git checkout -b <type>/<plan-id>-<desc>`.
-2. Never commit secrets. Use AWS Secrets Manager / GitHub Actions Secrets.
+Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.claude/hooks/` (gitignored, local). The rest are convention only — Claude must self-police.
+
+1. 🔒 Never work on `main`. First command: `git checkout -b <type>/<plan-id>-<desc>`.
+2. 🔒 Never commit secrets. Use AWS Secrets Manager / GitHub Actions Secrets.
 3. Never run rollback migrations against prod directly — human approval required.
 4. Never run >1 RFC step per session unless RFC says parallel is OK.
-5. Never self-promote RFC Status. `draft` → `accepted` is human-only.
-6. Never `terraform apply -target=...` without explicit go-ahead. Always run full plan; stop on unexpected drift.
-7. Never push or merge without explicit "push" / "ok push". `git add` + `commit` are fine.
-8. Never skip git hooks (`--no-verify`, `--no-gpg-sign`) unless user says so.
+5. 🔒 Never self-promote RFC Status. `draft` → `accepted` is human-only.
+6. 🔒 Never `terraform apply -target=...` without explicit go-ahead. Always run full plan; stop on unexpected drift.
+7. 🔒 (partial — force-push to main) Never push or merge without explicit "push" / "ok push". `git add` + `commit` are fine.
+8. 🔒 Never skip git hooks (`--no-verify`, `--no-gpg-sign`) unless user says so.
 9. Never add a synchronous Spotify call to a user-facing endpoint.
 
 ## Code conventions

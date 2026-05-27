@@ -77,21 +77,23 @@ All three RFCs are complete, all three have matching ADRs (0005 / 0006 / 0007). 
 
 **Process implication:** the rule *"RFC Status must match plan.md row"* was not the broken link — the README Index was a third state nobody was syncing. Going forward there are now only two places to keep aligned (RFC file's `Status:` line + plan.md), and the Index serves as a breadcrumb register, not as a source of truth.
 
-### 3.2 Hooks cover 3 of 9 hard rules — 3 more are cheap
+### 3.2 Hook coverage — UPDATED
 
-| Hard rule | Currently enforced by hook? | Suggested |
+Three more hooks added in `chore/hard-rule-hooks`. Current state: **6 of 9 hard rules auto-enforced** (was 3).
+
+| Hard rule | Hook | Script |
 |---|---|---|
-| #1 no main commit | ✅ |  |
-| #2 no secrets in repo files | ✅ (filename match) |  |
+| #1 no main commit | ✅ | `block-main-commit.sh` |
+| #2 no secrets in repo files | ✅ | `block-secret-files.sh` |
 | #3 no rollback migrations on prod | ❌ | low priority — destructive command lives outside Claude's typical shell |
 | #4 ≤1 RFC step / session | ❌ | hard to enforce mechanically — leave to convention |
-| #5 no self-promoting RFC status | ❌ | Edit hook on `docs/rfcs/*.md` that denies `Status:` line edits to `accepted`. **Cheap and high-value.** |
-| #6 no `terraform apply -target=...` | ❌ | PreToolUse(Bash) hook denying that exact pattern. **Trivial.** |
-| #7 no push/merge without "ok push" | ⚠️ partial (force-push only) | the spirit is "never push without confirmation"; could deny `git push` outright until session-scoped approval flag is set. Heavier — likely overkill. |
-| #8 no `--no-verify` / `--no-gpg-sign` | ❌ | PreToolUse(Bash) deny on those flags. **Trivial.** |
-| #9 no sync Spotify on user-facing endpoint | ❌ | static — needs a script, not a hook. Could be a reviewer-agent check (already implied). |
+| #5 no self-promoting RFC status | ✅ | `block-rfc-self-promote.sh` (denies Edit/Write that introduces `Status: accepted/in-progress` to `docs/rfcs/*.md`; README/TEMPLATE exempt) |
+| #6 no `terraform apply -target=...` | ✅ | `block-terraform-target.sh` |
+| #7 no push/merge without "ok push" | ⚠️ partial | `guard-force-push.sh` covers force-push only. Full enforcement would need a session-scoped approval flag — likely overkill. |
+| #8 no `--no-verify` / `--no-gpg-sign` | ✅ | `block-skip-hooks-flag.sh` |
+| #9 no sync Spotify on user-facing endpoint | ❌ | static check, needs a grep-style review script — reviewer agent already implies it |
 
-Recommended next: add hooks for #5, #6, #8. All three are ~15-line bash scripts mirroring the existing ones.
+All three new hooks were validated with synthetic STDIN payloads (deny + pass paths). `.claude/hooks/` is gitignored, so the scripts live locally; `CLAUDE.md` now annotates each rule with 🔒 when a hook backs it.
 
 ### 3.3 `settings.local.json` allow-list bloat
 
@@ -160,8 +162,8 @@ The current format gives the impression skills only matter for frontend work —
 
 Ordered by leverage / effort ratio.
 
-1. ~~**Reconcile RFC status** (§3.1)~~ — done in this branch.
-2. **Add hooks for hard rules #5, #6, #8** (§3.2). ~30 min total, all in `.claude/hooks/`.
+1. ~~**Reconcile RFC status** (§3.1)~~ — done.
+2. ~~**Add hooks for hard rules #5, #6, #8** (§3.2)~~ — done.
 3. **Prune `settings.local.json`** (§3.3). Run `/fewer-permission-prompts` skill, then manually drop `myblog_publish` and one-off entries. ~15 min.
 4. **Clarify reviewer vs. code-review** in CLAUDE.md (§3.5). One sentence. ~2 min.
 5. **Tighten subagent trigger thresholds** (§4.2). "Substantial PR" → concrete heuristic. ~2 min.
