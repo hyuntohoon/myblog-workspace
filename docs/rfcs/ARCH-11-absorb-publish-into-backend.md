@@ -1,6 +1,6 @@
 # ARCH-11: Absorb `myblog_publish` into `myblog_backend`
 
-- **Status**: accepted
+- **Status**: in-progress (Step 1)
 - **Owner**: TBD
 - **Created**: 2026-05-26
 - **Plan row**: `plan.md` → ARCH-11
@@ -164,8 +164,7 @@ If at any point this trade-off feels wrong, the alternative — frontend-direct 
 
 ## Decisions log
 
-_(to be filled as steps execute)_
-
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-05-26 | Auth on new route: Cognito JWT (not edge-secret). Rationale in RFC body. | Pre-Step 1 |
+| 2026-05-27 | Step 1 complete: route added, 6/6 tests pass, GITHUB_TOKEN added to myblog/backend secret. myblog_backend SHA: 5d33bd2. `myblog_publish` still live. | Step 1 |
