@@ -6,43 +6,14 @@ Phases are sequential — finish Phase N before starting Phase N+1. Inside a pha
 
 ---
 
-## Phase 0 — Cleanup (in-progress)
+## Phase 0 — Cleanup (✅ done 2026-05-27)
 
-Reduce surface area so subsequent work has fewer places to drift.
+Surface-area reduction so subsequent work had fewer places to drift. All four cleanup items finished — see "Recent Done" for merge refs.
 
-### CLEANUP-0a: Delete per-repo CLAUDE.md files
-
-- Scope: `myblog_backend`, `myblog_front`, `myblog_music`, `myblog_worker`
-- Order: 4 parallel PRs (`chore/remove-claude-md` in each)
-- Verification:
-  - local: `ls <repo>/CLAUDE.md` → not found
-  - prod: n/a (docs change)
-- Status: in-progress
-
-### CLEANUP-0b: Consolidate workspace docs into single CLAUDE.md
-
-- Scope: workspace
-- Action: merge `docs/architecture.md`, `docs/infrastructure.md`, `docs/agents.md`, `docs/conventions/git.md` content into root `CLAUDE.md`; move everything else under `docs/` (except `plan.md`, `contracts/`, `rfcs/`) into `docs/archive/`.
-- Verification:
-  - local: `ls docs/` → only `plan.md`, `contracts/`, `rfcs/`, `archive/`
-  - prod: n/a
-- Status: in-progress
-
-### CLEANUP-0c: Archive myblog_publish
-
-- Scope: workspace local + GitHub repo
-- Action: rename local `myblog_publish/` → `_archive_myblog_publish/`; archive the GitHub repo (`gh repo archive`).
-- Verification:
-  - local: `ls myblog-workspace/` shows `_archive_myblog_publish/`, no `myblog_publish/`
-  - GitHub: repo shows "archived" badge
-- Status: not started
-
-### CLEANUP-0d: Clean memory snapshots
-
-- Scope: `.claude/projects/.../memory/`
-- Action: delete completed-project snapshot memories (`project-arch12.md`, `project-cicd1-frontend.md`, `project-iac1-terraform.md`, `project-infra-improvement.md`, `project-frontend-redesign.md`). Keep only rules/preferences and active feature roadmap.
-- Verification: `MEMORY.md` index updated; only active entries remain.
-- Status: not started
+- **CLEANUP-0a** — per-repo CLAUDE.md files deleted across 4 repos.
+- **CLEANUP-0b** — workspace docs consolidated into single root `CLAUDE.md`; legacy files moved under `docs/archive/`.
+- **CLEANUP-0c** — local `myblog_publish/` renamed to `_archive_myblog_publish/`; GitHub repo `hyuntohoon/myblog_publish` archived.
+- **CLEANUP-0d** — completed-project snapshot memories removed; only rules/preferences + active feature roadmap remain in `MEMORY.md`.
 
 ---
 
@@ -105,18 +76,11 @@ Each fix:
     - `type=artist` → artists=1, others=0
     - `type=track` → tracks=3, others=0
     - `type=album,artist,track` → 1+3+3
-- BUG-2 frontend: pending prod deploy + click-through.
-- BUG-4: pending alias-populated artist click-through (requires user with `aliases` column data).
+- BUG-6 click-through: user logged in + published end-to-end 2026-05-27. Implicitly exercises BUG-2 frontend on prod. BUG-4 alias path only triggers for artists with populated `aliases` — defer until such data exists.
 
 ### Closed bugs — see git log + PR descriptions for full context
 
-BUG-3, BUG-2, BUG-4, BUG-5 fully resolved 2026-05-27. Repro/fix detail preserved in the merge commits and PR bodies. See "Recent Done" section at the end of this file.
-
-### BUG-6: Cognito flow — verify user-clickable end-to-end
-
-- Scope: `myblog_front` + Cognito
-- Status: Cognito config + `logout_urls` reverted to origin values earlier in the session; OAuth `authorize` endpoint returns 200 → login form. **User-facing flow not yet clicked end-to-end after the fix.** Needs a manual click-through (or wait for Phase 2 dev-bypass).
-- Status: needs user verification
+BUG-3, BUG-2, BUG-4, BUG-5, BUG-6, BUG-7, BUG-8 fully resolved 2026-05-27. Repro/fix detail preserved in the merge commits and PR bodies. See "Recent Done" section at the end of this file.
 
 ---
 
