@@ -8,16 +8,7 @@ Format defined in `CLAUDE.md` → "Plan format". `Rollback` is optional for low-
 
 ## In Progress
 
-### PR-12: Post CRUD — drafts 목록/삭제/수정 엔드포인트 신설
-
-- **Scope**: `myblog_backend`, `myblog_front`
-- **Order**: backend 엔드포인트 + openapi.json 재출력 → workspace merge → frontend types 재생성 + drafts.astro / write flow 수정
-- **Endpoints to add**:
-  - `GET /api/posts?status=draft|published|archived` — 목록 (Cognito 필요)
-  - `DELETE /api/posts/{id}` — 삭제 (Cognito 필요)
-  - `PUT /api/posts/{id}` — 업데이트 (Cognito 필요)
-- **Verification**: `pytest tests/` (backend); `pnpm lint` + `astro check` (frontend); openapi types-in-sync CI gate
-- **Status**: in-progress
+_(none)_
 
 ---
 
