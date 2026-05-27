@@ -8,11 +8,7 @@ Format defined in `CLAUDE.md` → "Plan format". `Rollback` is optional for low-
 
 ## In Progress
 
-### PR-13: Replace Gemini alias generation with MusicBrainz in myblog_worker
-- Scope: `myblog_worker`, `myblog_shared_db`
-- Order: schema migration (musicbrainz_id column) → shared DB ORM → worker client + service → remove Gemini
-- Verification: `python -c "from worker.handler import lambda_handler; print('import ok')" && pytest --tb=short`
-- Status: in-progress
+_(none — IAC-1 core applied; follow-ups tracked under "Upcoming" below)_
 
 ---
 
