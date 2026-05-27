@@ -82,33 +82,6 @@ resource "aws_lambda_function" "worker" {
   }
 }
 
-# --- publisher-github (myblog_publish) ---
-resource "aws_lambda_function" "publish" {
-  function_name = "publisher-github"
-  role          = "${local.lambda_role_prefix}/service-role/publisherRole"
-  handler       = "app.main.handler"
-  runtime       = "python3.12"
-  architectures = ["arm64"]
-  timeout       = 15 # corrected from 3
-  memory_size   = 256
-  filename      = "placeholder.zip"
-
-  environment {
-    variables = {
-      APP_ENV            = "prod"
-      CONTENT_DIR        = "content/blog"
-      GITHUB_REPO_OWNER  = "hyuntohoon"
-      GITHUB_REPO_NAME   = "myblog_front"
-      GITHUB_REPO_BRANCH = "main"
-      SECRETS_ARN        = data.aws_secretsmanager_secret.publish.arn
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [filename, source_code_hash, layers]
-  }
-}
-
 # --- SQS event source: blogSQS -> worker ---
 # ReportBatchItemFailures lets the worker fail individual records (PR-7);
 # only failed records are retried instead of the whole batch.

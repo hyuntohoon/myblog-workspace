@@ -101,5 +101,5 @@ When a step completes:
 | Plan ID | Title | Status |
 |---------|-------|--------|
 | ARCH-6 | Shared DB models package | accepted |
-| ARCH-11 | Absorb myblog_publish into myblog_backend | accepted |
+| ARCH-11 | Absorb myblog_publish into myblog_backend | done (→ docs/done/rfcs/) |
 | ARCH-12 | Contract-first workflow with strict OpenAPI enforcement | accepted |

@@ -20,7 +20,6 @@ Concrete resource identifiers used across the system. Update this file whenever 
 | `ratemymusic-api` | Python | 15s | API Gateway |
 | `musicApi` | Python | 15s | API Gateway |
 | `blogWorkerLambda` | Python | 120s | SQS + EventBridge |
-| `publisher-github` | Python | 15s | API Gateway |
 | `handler` (CloudFront function) | JS | — | CloudFront viewer-request |
 
 All settings managed by Terraform. To inspect:
@@ -34,7 +33,7 @@ aws lambda get-function-configuration --function-name <name>
 ## API Gateway
 
 - HTTP API: `lambdaAPI` (ID: `ld8pjw3mx4`)
-- Routes: 6 (posts CRUD, categories, music search, publish)
+- Routes: 5 (posts CRUD, categories, music search, publish via backend)
 - JWT authorizer: Cognito-backed
 
 ---
@@ -80,7 +79,6 @@ aws lambda get-function-configuration --function-name <name>
 | `myblog/backend` | `ratemymusic-api` |
 | `myblog/music` | `musicApi` |
 | `myblog/worker` | `blogWorkerLambda` |
-| `myblog/publish` | `publisher-github` |
 
 Each Lambda receives `SECRETS_ARN` as an env var; `get_settings()` fetches once per cold start via `@lru_cache`. No plaintext secrets in Lambda environment variables.
 
@@ -105,6 +103,5 @@ Each Lambda receives `SECRETS_ARN` as an env var; `get_settings()` fetches once 
 
 These exist in AWS but are not managed by Terraform yet. Track in `plan.md` if remediation is planned.
 
-- **IAM execution roles** (4 Lambdas) — referenced by name in Terraform but defined manually. `LambdaRDSControlRole` carries unused `AmazonRDSFullAccess` (legacy, predates Neon migration).
-- **`publisher-github` Function URL** — public, `AuthType: NONE`. Bypasses API Gateway / JWT. Security review pending.
+- **IAM execution roles** (3 Lambdas) — referenced by name in Terraform but defined manually. `LambdaRDSControlRole` carries unused `AmazonRDSFullAccess` (legacy, predates Neon migration).
 - **CloudFront `handler` function** — code defined in console, not Terraform.

@@ -1,15 +1,14 @@
 # MyBlog + Music Review — Workspace
 
-Meta-management layer for 5 microservice repos. Each service's code lives in its own repo with its own CLAUDE.md; this workspace owns cross-repo planning, contracts, and architecture.
+Meta-management layer for 4 microservice repos. Each service's code lives in its own repo with its own CLAUDE.md; this workspace owns cross-repo planning, contracts, and architecture.
 
 ## Layout
 
 ```
 myblog-workspace/
-├── myblog_backend/   ← user-facing API
+├── myblog_backend/   ← user-facing API + publishing (absorbed from myblog_publish, ARCH-11)
 ├── myblog_front/     ← Astro 5 + React 19 client
 ├── myblog_music/     ← music review service
-├── myblog_publish/   ← publishing pipeline (deprecated; see ARCH-11)
 ├── myblog_worker/    ← async SQS consumer (Spotify fetches live here)
 └── docs/
     ├── architecture.md      ← service responsibilities + flow (stable)
