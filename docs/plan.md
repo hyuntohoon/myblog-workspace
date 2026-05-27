@@ -1,6 +1,6 @@
 # Plan — Hotfix Cycle (2026-05-27)
 
-This is the **operational tracker** for the current stabilization cycle. The goal: stop shipping broken features by establishing visibility (Phase 1) and a local-first test loop (Phase 2). Format defined in `CLAUDE.md` → "Plan format".
+This is the **operational tracker** for the current stabilization cycle. The goal: stop shipping broken features by establishing visibility (Phase 1) and a local-first test loop (Phase 2). Each row carries `Scope / Order (if multi-repo) / Verification (local + prod smoke) / Rollback / Status`; RFC-backed entries collapse to a one-line pointer at `docs/rfcs/<id>-<slug>.md`. When a row reaches `Status: done`, cut it and append to `docs/archive/done/YYYY-MM.md`.
 
 Phases are sequential — finish Phase N before starting Phase N+1. Inside a phase, items can run in parallel.
 
