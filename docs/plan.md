@@ -108,64 +108,33 @@ Each fix:
 
 ### Priority
 
-| # | Bug | Severity | Notes |
-|---|-----|----------|-------|
-| BUG-3 | SubjectBlock parses `/albums/{id}` response wrong | **P0** — blocks publish | One-line fix, highest leverage |
-| BUG-2 | Search filter broken (DB unified ignores type, frontend drops artists/tracks) | **P0** — core feature visibly broken | Music API + frontend, ~half-day |
-| BUG-5 | Tile rendering only fits albums | **P1** — needed once BUG-2 fixed | Frontend only |
-| BUG-4 | MusicBrainz aliases written but never read | **P1** — feature absent, not visibly broken | Music API search query change |
-| BUG-6 | Cognito error pages still possible if user has stale Cognito session | **P2** — workaround: clear cookies | Verify, may already be self-healing |
+| # | Bug | Status | Merge SHAs |
+|---|-----|--------|------------|
+| BUG-3 | SubjectBlock parses `/albums/{id}` response wrong + spotify_id routed to wrong endpoint (500) | ✅ done | `myblog_front` #20 (`1de9773`) |
+| BUG-2 | Search filter broken (DB unified ignores type, frontend drops artists/tracks) | ✅ done | `myblog_music` #22 (`5097803`) + `myblog_front` #21 (`ed75a27`) |
+| BUG-4 | MusicBrainz aliases written but never read | ✅ done (with BUG-2) | `myblog_music` #22 (`5097803`) |
+| BUG-5 | Tile rendering only fits albums | ✅ done (with BUG-2 frontend) | `myblog_front` #21 (`ed75a27`) |
+| BUG-6 | Cognito flow needs user click-through | needs user | — |
 
-### BUG-3: SubjectBlock crashes on album select; publish sends `album_ids: [undefined]`
+### Verification quoted in PRs
 
-- Scope: `myblog_front` (`src/components/writer/SubjectBlock.tsx`)
-- Symptom (deduced from code + prod API responses, not user-clicked):
-  - User searches album → picks one → SubjectBlock calls `GET /api/music/albums/{id}`.
-  - Backend returns `AlbumDetail = {album: {…}, artists: […], tracks: […], meta: {…}}` (Pydantic wrapper, verified against prod: `{"album": {...}, "artists": [...], "tracks": [...], "meta": {...}}`).
-  - Frontend casts as `AlbumDetail = {id, title, cover_url, release_date, artists}` (flat). After cast: `subject.id`, `subject.title`, `subject.cover_url` are all `undefined`; only `subject.artists` is correct.
-  - Display: `subject.title[0]` (cover fallback) throws if cover_url is also undefined. `<img src={undefined}>` shows broken image.
-  - Publish payload: `album_ids: [a.id]` → `[undefined]` → JSON serialized as `[null]` → backend 422.
-  - User-reported "artist_ids 누락": likely the publish actually fails on `album_ids` validation; `artist_ids` derivation itself is correct (subject.artists has proper IDs).
-- Fix direction:
-  - Option A: change frontend to unwrap (`detail.album.id`, `detail.album.title`, etc.) and merge with `detail.artists`.
-  - Option B: change backend `/api/music/albums/{id}` to return a flat shape matching what frontend expects.
-  - Decide during Phase 3 — Option B may also touch `myblog_front` types because `tracks` is part of the response and may already be consumed.
-- Status: not started
+- BUG-3 prod smoke: created post + published to GitHub with album+artists from real Radiohead album → MDX shows `artistIds: ["94ba19ef-…"]` (non-empty), `albumIds: ["9fd6f454-…"]`, `albumCover` populated.
+- BUG-2 backend prod smoke: `/api/music/search/unified?q=radiohead&type=<filt>` returns only the requested section:
+    - `type=album` → albums=3, others=0
+    - `type=artist` → artists=1, others=0
+    - `type=track` → tracks=3, others=0
+    - `type=album,artist,track` → 1+3+3
+- BUG-2 frontend: pending prod deploy + click-through.
+- BUG-4: pending alias-populated artist click-through (requires user with `aliases` column data).
 
-### BUG-2: Search filter does not work for artist/track in DB search
+### Closed bugs — see git log + PR descriptions for full context
 
-- Scope: `myblog_music` (search router + service), `myblog_front` (`SubjectBlock.runDBSearch`)
-- Symptom (verified against prod):
-  - `GET /api/music/search/unified?q=letty` returns `{artists: [Letty Morgan], albums: [], tracks: []}` — endpoint correctly includes all three sections.
-  - `runDBSearch` does `data.albums.map(...)` and discards `data.artists` and `data.tracks` entirely.
-  - The endpoint does **not** accept a `type` parameter — the filter UI selection has no effect on DB search (only on Spotify sync via `/candidates`).
-- Fix direction:
-  - Add `type` parameter to `/api/music/search/unified` (default `album,artist,track`, comma-separated, validate against `ALLOWED_TYPES`).
-  - In `SearchService.unified_search`, skip repos for unselected types.
-  - In frontend `runDBSearch`, pass `filterToType(filter)` as `type`; for filter=`all`, render all three with type-aware tiles; for filter=specific, only render that section.
-- Status: not started
-
-### BUG-5: Result tile rendering only fits albums
-
-- Scope: `myblog_front` (`SubjectBlock.tsx`)
-- Symptom: tile expects `title`, `artist_name`, `cover_url`, `release_date`, `source`. Tracks and artists have different shapes (no `release_date` for artists; tracks have album info).
-- Dependency: BUG-2 must be fixed first so non-album results actually arrive.
-- Fix direction: introduce a `kind: 'album' | 'artist' | 'track'` discriminator on each result; render three tile variants. Picking an artist or track may need a different `onSubjectSelect` path (currently `subject` is `AlbumDetail`-typed only).
-- Status: blocked by BUG-2
-
-### BUG-4: MusicBrainz aliases populated but never queried
-
-- Scope: `myblog_music` (`app/repositories/artist_repo.py`, `search_service.py`)
-- Symptom (verified by grep):
-  - Worker `generate_and_save_aliases` writes `artists.aliases` via MusicBrainz lookup.
-  - Music service search uses `Artist.name.ilike('%q%')` only — `aliases` column is never read.
-- Fix direction: extend `search_by_name` to also match where `aliases` JSON/array contains a case-insensitive substring of `q`. Decide on shape (Postgres JSONB ops vs ARRAY ops depending on the column type — verify in `myblog_shared_db` model).
-- Status: not started
+BUG-3, BUG-2, BUG-4, BUG-5 fully resolved 2026-05-27. Repro/fix detail preserved in the merge commits and PR bodies. See "Recent Done" section at the end of this file.
 
 ### BUG-6: Cognito flow — verify user-clickable end-to-end
 
 - Scope: `myblog_front` + Cognito
-- Status: Cognito config + logout_urls fixed earlier; OAuth `authorize` endpoint returns 200 → login form. **User flow not yet clicked end-to-end after the fix.** Needs a manual click-through (or Phase 2 dev-bypass).
+- Status: Cognito config + `logout_urls` reverted to origin values earlier in the session; OAuth `authorize` endpoint returns 200 → login form. **User-facing flow not yet clicked end-to-end after the fix.** Needs a manual click-through (or wait for Phase 2 dev-bypass).
 - Status: needs user verification
 
 ---
@@ -180,8 +149,10 @@ Each fix:
 
 ## Recent Done
 
-- **Phase 0** (2026-05-27): single-file CLAUDE.md, 4 repo CLAUDE.md removed (PR #22/#19/#21/#17), docs archived, myblog_publish marked archived (`_archive_myblog_publish/`, GitHub repo archived).
+- **BUG-2 / BUG-4 / BUG-5** (2026-05-27): search filter `type` on `/search/unified` + `aliases` JSONB search + frontend filter passes type + discriminated tile rendering. `myblog_music` PR #22 (`5097803`), `myblog_front` PR #21 (`ed75a27`).
+- **BUG-3** (2026-05-27, `myblog_front` PR #20 `1de9773`): unwrap `/api/music/albums/{id}` wrapper response + route spotify_id → `/by-spotify`. Fixes publish payload `album_ids: [undefined]` + empty `artist_ids`.
 - **Phase 1** (2026-05-27): diagnostic sweep — 5 bugs inventoried (BUG-2 through BUG-6).
+- **Phase 0** (2026-05-27): single-file CLAUDE.md, 4 repo CLAUDE.md removed (PR #22/#19/#21/#17), docs archived, myblog_publish archived (`_archive_myblog_publish/`, GitHub repo archived).
 - **BUG-1** (2026-05-27, SHA `85c30cf`): API Gateway PUT/DELETE /api/posts routes added; Cognito logout_urls reverted to origin values (SHA `ba35b0e`).
 - **PR-12** (2026-05-27): Post CRUD endpoints + drafts UI.
 - **PR-11** (2026-05-27): rating scale 0–5 unification.
