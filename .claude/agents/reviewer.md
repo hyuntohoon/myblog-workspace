@@ -36,8 +36,9 @@ Read changed files and identify problems. Do not modify code directly. Fixes are
 
 ### 5. Conventions
 
-- Does this violate any rule in the repo's `CLAUDE.md`?
+- Does this violate any rule in the workspace `CLAUDE.md` (Hard rules / Code conventions)? Per-repo CLAUDE.md no longer exists — workspace doc is authoritative.
 - Is `async`/`await` usage consistent (especially FastAPI handlers)?
+- `settings.*` (pydantic-settings) instead of `os.getenv()`; `logging.getLogger(__name__)` instead of `print`; frontend authed requests via `apiFetch`; backend/music URLs prefixed `/api`.
 
 ## Output Format
 

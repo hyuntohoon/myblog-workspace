@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Write
 model: opus
 ---
 
-You are the architect for the hyuntohoon/myblog system (5 repos: myblog_front, myblog_backend, myblog_music, myblog_worker, myblog_publish).
+You are the architect for the hyuntohoon/myblog system: 4 service repos (myblog_front, myblog_backend, myblog_music, myblog_worker) + myblog_shared_db (git-pinned models package, ARCH-6) + workspace (infra/, docs/, scripts/). myblog_publish was absorbed into myblog_backend (ARCH-11 done) — do not treat it as an active repo.
 
 ## Role
 
