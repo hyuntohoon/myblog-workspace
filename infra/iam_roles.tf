@@ -128,22 +128,3 @@ resource "aws_iam_role_policy_attachment" "worker_basic_exec" {
   role       = aws_iam_role.worker.name
   policy_arn = "arn:aws:iam::${var.account_id}:policy/service-role/AWSLambdaBasicExecutionRole-976d757e-0149-4c67-a106-158db3a5cd8f"
 }
-
-# --- publisher: publisherRole ---
-resource "aws_iam_role" "publish" {
-  name = "publisherRole"
-  path = "/service-role/"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = ["lambda.amazonaws.com", "edgelambda.amazonaws.com"] }
-      Action    = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "publish_edge_exec" {
-  role       = aws_iam_role.publish.name
-  policy_arn = "arn:aws:iam::${var.account_id}:policy/service-role/AWSLambdaEdgeExecutionRole-dadca81e-0e10-4f2d-b645-94efe023ab93"
-}

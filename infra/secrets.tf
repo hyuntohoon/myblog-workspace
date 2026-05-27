@@ -10,9 +10,6 @@ data "aws_secretsmanager_secret" "music" {
   name = "myblog/music"
 }
 
-data "aws_secretsmanager_secret" "publish" {
-  name = "myblog/publish"
-}
 
 resource "aws_iam_policy" "backend_secrets_read" {
   name        = "myblog-backend-secrets-read"
@@ -56,20 +53,6 @@ resource "aws_iam_policy" "music_secrets_read" {
   })
 }
 
-resource "aws_iam_policy" "publish_secrets_read" {
-  name        = "myblog-publish-secrets-read"
-  description = "Allow publisher-github to read its Secrets Manager secret"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
-      Resource = [data.aws_secretsmanager_secret.publish.arn]
-    }]
-  })
-}
-
 resource "aws_iam_role_policy_attachment" "backend_secrets" {
   role       = "myblog-prod-lambda-role"
   policy_arn = aws_iam_policy.backend_secrets_read.arn
@@ -85,7 +68,3 @@ resource "aws_iam_role_policy_attachment" "music_secrets" {
   policy_arn = aws_iam_policy.music_secrets_read.arn
 }
 
-resource "aws_iam_role_policy_attachment" "publish_secrets" {
-  role       = "publisherRole"
-  policy_arn = aws_iam_policy.publish_secrets_read.arn
-}

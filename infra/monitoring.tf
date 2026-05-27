@@ -15,7 +15,6 @@ locals {
     backend = "ratemymusic-api"
     music   = "musicApi"
     worker  = "blogWorkerLambda"
-    publish = "publisher-github"
   }
 }
 

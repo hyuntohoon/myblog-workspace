@@ -53,14 +53,6 @@ resource "aws_apigatewayv2_integration" "music" {
   timeout_milliseconds   = 30000
 }
 
-resource "aws_apigatewayv2_integration" "publish" {
-  api_id                 = aws_apigatewayv2_api.lambda_api.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.publish.arn
-  integration_method     = "POST"
-  payload_format_version = "2.0"
-  timeout_milliseconds   = 30000
-}
 
 # --- Routes ---
 resource "aws_apigatewayv2_route" "music_proxy" {
@@ -95,13 +87,6 @@ resource "aws_apigatewayv2_route" "posts_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
-resource "aws_apigatewayv2_route" "publish_post" {
-  api_id             = aws_apigatewayv2_api.lambda_api.id
-  route_key          = "POST /api/publish"
-  target             = "integrations/${aws_apigatewayv2_integration.publish.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
-}
 
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
@@ -123,10 +108,3 @@ resource "aws_lambda_permission" "apigw_music" {
   source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/*/*"
 }
 
-resource "aws_lambda_permission" "apigw_publish" {
-  statement_id  = "AllowInvokeFromHttpApi"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.publish.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/*/*"
-}

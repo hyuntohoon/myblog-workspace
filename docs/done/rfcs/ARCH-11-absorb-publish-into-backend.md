@@ -1,6 +1,6 @@
 # ARCH-11: Absorb `myblog_publish` into `myblog_backend`
 
-- **Status**: in-progress (Step 1)
+- **Status**: done
 - **Owner**: TBD
 - **Created**: 2026-05-26
 - **Plan row**: `plan.md` → ARCH-11

@@ -61,10 +61,6 @@ import {
   to = aws_lambda_function.worker
   id = "blogWorkerLambda"
 }
-import {
-  to = aws_lambda_function.publish
-  id = "publisher-github"
-}
 
 # SQS event source mapping (blogSQS -> worker)
 import {
@@ -95,10 +91,6 @@ import {
   to = aws_apigatewayv2_integration.music
   id = "ld8pjw3mx4/judcqxt"
 }
-import {
-  to = aws_apigatewayv2_integration.publish
-  id = "ld8pjw3mx4/ij4cpp6"
-}
 
 # Routes
 import {
@@ -121,10 +113,6 @@ import {
   to = aws_apigatewayv2_route.posts_post
   id = "ld8pjw3mx4/w0t3k4r"
 }
-import {
-  to = aws_apigatewayv2_route.publish_post
-  id = "ld8pjw3mx4/edjry19"
-}
 
 # CloudWatch log groups
 import {
@@ -138,8 +126,4 @@ import {
 import {
   to = aws_cloudwatch_log_group.lambda["worker"]
   id = "/aws/lambda/blogWorkerLambda"
-}
-import {
-  to = aws_cloudwatch_log_group.lambda["publish"]
-  id = "/aws/lambda/publisher-github"
 }
