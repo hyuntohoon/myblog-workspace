@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Use when a bug isn't solved within ~15 minutes of investigation, or when error/failure is unclear. Performs root-cause analysis with isolated context.
+description: Use when a bug is still unresolved after 2 fix attempts, or when the error/failure mode is unclear. Performs root-cause analysis with isolated context.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
