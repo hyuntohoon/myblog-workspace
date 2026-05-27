@@ -1,6 +1,6 @@
 # ARCH-12: Contract-first workflow with strict OpenAPI enforcement
 
-- **Status**: in-progress (Step 3)
+- **Status**: in-progress (Step 4)
 - **Owner**: TBD
 - **Created**: 2026-05-26
 - **Plan row**: `plan.md` → ARCH-12
@@ -233,6 +233,8 @@ Rejected because:
 |------|----------|------|
 | 2026-05-26 | Single merged OpenAPI spec, not per-service. Rationale in RFC body. | Pre-Step 1 |
 | 2026-05-26 | Frontend CI fails on type drift, not warns. Rationale in RFC body. | Pre-Step 5 |
+| 2026-05-27 | Schema namespace prefix: `Backend_` / `Music_`. Two collisions (HTTPValidationError, ValidationError) make prefixing necessary; prefix matches service boundary. | Step 3 |
+| 2026-05-27 | Cross-repo trigger: Method A (service opens workspace PR via `repository_dispatch`). More deterministic than cron poll; no added lag. Reuses `WORKSPACE_GITHUB_TOKEN` PAT pattern (same as `SHARED_DB_PAT`). | Step 4 |
 
 ## Relationship to other RFCs
 
