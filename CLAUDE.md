@@ -78,19 +78,23 @@ Post-merge (block claiming "done" if unchecked):
 
 Never claim "done" before the post-merge items are green. If any item is unchecked, say so explicitly.
 
-## Subagent triggers
+## Subagent + skill triggers
 
-| Trigger                               | Subagent                |
-| ------------------------------------- | ----------------------- |
-| Flow across 3+ files or 2+ repos      | `explorer`              |
-| Change touches 2+ repos, needs plan   | `planner`               |
-| Bug not isolated after 2 fix attempts | `debugger`              |
-| Pytest cases / flaky tests            | `test-engineer`         |
-| New service or cross-repo design      | `architect`             |
-| Before pushing substantial PR         | `reviewer`              |
-| UI change in `myblog_front`           | `frontend-design` skill |
+Subagents (local, myblog-specific) and skills (cross-project Anthropic plugins) overlap in places. Use the local subagent when the work needs project-specific context (sync-Spotify rule, SQS contract, service boundaries); use the skill for generic correctness or design help.
 
-Subagents producing code must run that repo's verification and quote the result.
+| Trigger                                                | Use                       |
+| ------------------------------------------------------ | ------------------------- |
+| Flow across 3+ files or 2+ repos                       | `explorer` subagent       |
+| Change touches 2+ repos, needs plan                    | `planner` subagent        |
+| Bug still unresolved after 2 fix attempts              | `debugger` subagent       |
+| Pytest cases / flaky tests                             | `test-engineer` subagent  |
+| New service or cross-repo structural design            | `architect` subagent      |
+| ≥3 files in a service repo OR any contract/infra touch | `reviewer` subagent (myblog-specific contract / boundary checks) |
+| Generic correctness review (any change)                | `code-review` skill       |
+| UI change in `myblog_front`                            | `frontend-design` skill   |
+| Security-sensitive change (auth, secrets, input)       | `security-review` skill   |
+
+Subagents that produce code must run that repo's verification and quote the result.
 
 ## Pointers
 

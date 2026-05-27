@@ -123,20 +123,13 @@ DoD says: *"Never claim 'done' before the post-merge items are green."* But noth
 
 Default to (b); revisit if a prod-affecting PR ever gets marked done without a smoke quote.
 
-### 3.5 Skill vs. agent overlap
+### 3.5 / 3.6 Skill vs. agent overlap + trigger table — RESOLVED
 
-Both `reviewer` agent and `code-review` skill exist. They overlap. The `code-review` plugin is a generic Anthropic skill; the local `reviewer` agent is myblog-specific (knows about sync Spotify rule, SQS contract). The CLAUDE.md table only mentions the agent — fine, but worth a one-line note about which to invoke for what.
+Section retitled to "Subagent + skill triggers" with a one-line preamble distinguishing the two:
 
-Suggested phrasing in CLAUDE.md:
-> *Use the local `reviewer` subagent for myblog-specific contract / boundary checks. The `code-review` skill is for generic correctness review and runs separately.*
+> *Subagents (local, myblog-specific) and skills (cross-project Anthropic plugins) overlap in places. Use the local subagent when the work needs project-specific context (sync-Spotify rule, SQS contract, service boundaries); use the skill for generic correctness or design help.*
 
-### 3.6 Subagent triggers table mixes agents and skills without flagging
-
-The table lists `frontend-design skill` in the last row but no other skill. Either:
-- Add the `code-review` skill / `security-review` skill / `simplify` skill explicitly (they are user-invokable today),
-- Or move skills out of the agent table into a separate "Skills" row.
-
-The current format gives the impression skills only matter for frontend work — they do not.
+Skills explicitly listed in the trigger table now: `frontend-design` (UI), `code-review` (generic correctness), `security-review` (auth/secrets/input). The `reviewer` subagent trigger also tightened from the vague "before pushing substantial PR" to a concrete heuristic — see §4.2-resolved below.
 
 ---
 
@@ -149,11 +142,11 @@ The current format gives the impression skills only matter for frontend work —
 - **plan.md kept tiny** (currently 1 backlog row) — the discipline of dropping rows post-merge has held since #52.
 - **RFC ↔ plan.md pointer pattern** keeps long-form migration docs out of the small, hot plan.
 
-### 4.2 Friction points
+### 4.2 Friction points — partially resolved
 
-- **"Substantial PR" threshold for reviewer agent is undefined.** A diff-size or files-changed heuristic would remove ambiguity (e.g., "≥3 files changed in a service repo, or any contract/infra touch").
-- **Cross-repo order** is described in prose (*"update `docs/plan.md` before code"*) but not encoded. For 2-repo PRs this is fine; for 3+ a small RFC-style sequence is safer than freehand planning.
-- **`debugger` agent is opus** — correct for hard bugs, but the 15-minute gate is vague. Consider rephrasing as "after 2 failed fix attempts" (which is also how the agent description itself frames it). The two phrasings already disagree subtly.
+- ~~"Substantial PR" threshold for reviewer agent is undefined~~ — fixed: trigger is now "≥3 files in a service repo OR any contract/infra touch."
+- ~~`debugger` 15-min vs. 2-attempts phrasing mismatch~~ — fixed: both CLAUDE.md and the agent description now say "still unresolved after 2 fix attempts."
+- **Cross-repo order** is still prose-only (*"update `docs/plan.md` before code"*). For 2-repo PRs this is fine; for 3+ a small RFC-style sequence is safer than freehand planning. Not addressed; will surface naturally next time it bites.
 - **No agent for ops/deploy verification.** After merge, prod smoke is human-driven. If smoke ever grows past `smoke.sh prod`, a dedicated agent could compress the loop. Not urgent.
 
 ### 4.3 Things the current setup does **not** need
@@ -171,8 +164,10 @@ Ordered by leverage / effort ratio.
 1. ~~**Reconcile RFC status** (§3.1)~~ — done.
 2. ~~**Add hooks for hard rules #5, #6, #8** (§3.2)~~ — done.
 3. ~~**Prune `settings.local.json`** (§3.3)~~ — done (136 → 28 entries).
-4. **Clarify reviewer vs. code-review** in CLAUDE.md (§3.5). One sentence. ~2 min.
-5. **Tighten subagent trigger thresholds** (§4.2). "Substantial PR" → concrete heuristic. ~2 min.
+4. ~~**Clarify reviewer vs. code-review** (§3.5/3.6)~~ — done.
+5. ~~**Tighten subagent trigger thresholds** (§4.2)~~ — done.
+
+All §5 polish items closed. Remaining open from §3 and §4: rule #3 (rollback migrations), rule #4 (≤1 RFC step / session), rule #9 (sync Spotify check), and the cross-repo ordering / ops-agent items — all explicitly deferred as low priority.
 
 Nothing here is blocking. The system runs; these are polish.
 
