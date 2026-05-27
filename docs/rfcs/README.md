@@ -48,7 +48,7 @@ RFCs go through four states. Both the RFC's own `Status:` line and the matching 
 | `in-progress (Step N)` | Step N is the next step to execute. (Not "currently running" — "next up".) | After a step's verification passes and the merge SHA is recorded, bump N. |
 | `done` | All steps complete, ADR (if any) merged, file ready to archive. | Final step verification + cleanup pass complete. |
 
-Once `done`, the RFC is moved to `docs/done/rfcs/<PLAN_ID>-*.md`.
+Once `done`, the RFC is moved to `docs/archive/done/rfcs/<PLAN_ID>-*.md`.
 
 ## Required sections
 
@@ -94,12 +94,14 @@ When a step completes:
 1. Bump the RFC `Status` line (e.g. `in-progress (Step 2)` → `in-progress (Step 3)`).
 2. Add a one-liner under the completed step: `> ✅ Done <date>, SHA: <merge sha>`.
 3. If a decision was made mid-step, log it in the Decisions log table.
-4. Do **not** delete completed steps from the RFC — they are part of the migration's history. Only when the entire RFC is `done` does the file get archived to `docs/done/rfcs/`.
+4. Do **not** delete completed steps from the RFC — they are part of the migration's history. Only when the entire RFC is `done` does the file get archived to `docs/archive/done/rfcs/`.
 
 ## Index
 
+In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcrumb to the archive, then gets dropped — `git log` and `docs/archive/done/rfcs/` are authoritative for history.
+
 | Plan ID | Title | Status |
 |---------|-------|--------|
-| ARCH-6 | Shared DB models package | accepted |
-| ARCH-11 | Absorb myblog_publish into myblog_backend | done (→ docs/done/rfcs/) |
-| ARCH-12 | Contract-first workflow with strict OpenAPI enforcement | accepted |
+| _(none — pick up here when a new RFC is drafted)_ | | |
+
+Recently archived: ARCH-6 (shared DB package, ADR 0005), ARCH-11 (absorb publish, ADR 0006), ARCH-12 (contract-first OpenAPI, ADR 0007) — all in `docs/archive/done/rfcs/`.

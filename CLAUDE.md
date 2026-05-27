@@ -6,11 +6,12 @@ Per-repo CLAUDE.md removed — repo specifics live in code + each repo's README.
 ## Layout
 
 myblog-workspace/
-├── myblog_backend/ ← posts/categories/publish API → Lambda ratemymusic-api
-├── myblog_front/ ← Astro 5 + React 19 → S3 + CloudFront
-├── myblog_music/ ← DB-first music search → Lambda musicApi
-├── myblog_worker/ ← SQS + EventBridge consumer → Lambda blogWorkerLambda
-├── infra/ ← Terraform (canonical AWS state; see infra/README.md for identifiers)
+├── myblog_backend/   ← posts/categories/publish API → Lambda ratemymusic-api
+├── myblog_front/     ← Astro 5 + React 19 → S3 + CloudFront
+├── myblog_music/     ← DB-first music search → Lambda musicApi
+├── myblog_worker/    ← SQS + EventBridge consumer → Lambda blogWorkerLambda
+├── myblog_shared_db/ ← shared SQLAlchemy models (git-pinned by each service, ARCH-6)
+├── infra/            ← Terraform (canonical AWS state; see infra/README.md for identifiers)
 ├── docs/{plan.md,contracts/,rfcs/,archive/}
 └── scripts/{smoke.sh,merge_openapi.py}
 
