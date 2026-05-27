@@ -8,7 +8,12 @@ Format defined in `CLAUDE.md` → "Plan format". `Rollback` is optional for low-
 
 ## In Progress
 
-_(none — IAC-1 core applied; follow-ups tracked under "Upcoming" below)_
+### PR-11: Rating scale 통일 (0–5, 0.5 step)
+
+- **Scope**: `myblog_backend`, `myblog_front`
+- **Order**: backend contract (`rating_scale` 제거, `openapi.json` 재출력) → workspace merge → frontend consumer 수정
+- **Verification**: `pytest tests/` (backend); `pnpm lint` + `astro check` (frontend); openapi types-in-sync CI gate
+- **Status**: in-progress
 
 ---
 
