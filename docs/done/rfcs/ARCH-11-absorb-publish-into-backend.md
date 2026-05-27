@@ -159,8 +159,18 @@ If at any point this trade-off feels wrong, the alternative — frontend-direct 
 
 ## Open questions
 
-1. **API Gateway routing during cutover**. Both Lambdas would briefly have `/api/publish` routes. The current API Gateway is `lambdaAPI` — confirm whether both routes can coexist on different integrations or if Step 1 needs a temporary alternate path (e.g. `/api/publish-v2`) until Step 2 completes.
-2. **GitHub token rotation**. After Step 1 adds the token to `myblog/backend`, should we rotate it (since the publish secret will be deleted)? Probably yes, but coordinate with whatever GH Actions workflow consumes it.
+1. **API Gateway routing during cutover**. ✅ Resolved: both routes coexisted briefly; old `publish_post` route deleted before new `publish_backend` route applied. No conflict.
+2. **GitHub token rotation**. Left for a future PR; token is scoped to `contents:write` on `myblog_front` only — rotation is low-urgency.
+
+## Post-implementation bugs found (2026-05-27)
+
+Three bugs surfaced during verification that were not part of ARCH-11 scope but had to be fixed to get the path working:
+
+1. **`myblog/backend` secret malformed JSON** — secret stored as `{KEY: value}` (unquoted), so `json.loads()` always failed; `EDGE_SECRET`, `DATABASE_URL`, `GITHUB_TOKEN` never loaded. Fixed by rewriting the secret as valid JSON via `aws secretsmanager put-secret-value`.
+
+2. **`edge_guard` blocked API Gateway requests** — `edge_guard` checks for `x-origin-verify` header (CloudFront adds it); API Gateway does not. After setting `ENV=prod` on the Lambda (needed to activate auth), all `/api/*` requests through API Gateway got 403. Fixed in `myblog_backend` PR #15: skip the header check for requests carrying `Authorization: Bearer` (API Gateway already validated the Cognito JWT at ingress).
+
+3. **Lambda env vars missing** — `ENV`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`, `GITHUB_REPO_BRANCH`, `CONTENT_DIR` were not set; settings defaulted to `local`/empty. Set via AWS CLI during debugging; recorded in Terraform in workspace PR #34.
 
 ## Decisions log
 
@@ -168,3 +178,7 @@ If at any point this trade-off feels wrong, the alternative — frontend-direct 
 |------|----------|------|
 | 2026-05-26 | Auth on new route: Cognito JWT (not edge-secret). Rationale in RFC body. | Pre-Step 1 |
 | 2026-05-27 | Step 1 complete: route added, 6/6 tests pass, GITHUB_TOKEN added to myblog/backend secret. myblog_backend SHA: 5d33bd2. `myblog_publish` still live. | Step 1 |
+| 2026-05-27 | Step 2 complete: frontend cutover merged. `publishToGit()` now uses `apiFetch` → `myblog_backend`. myblog_front PR #13. | Step 2 |
+| 2026-05-27 | Step 3 complete: `publisher-github` deleted (`ResourceNotFoundException` confirmed), `myblog/publish` secret deleted (7-day recovery window), API GW route rerouted to backend integration. Verification: `POST /api/publish` → HTTP 200 `{"ok":true,"slug":"arch-11-smoke-test"}` via direct curl with Cognito access token. CloudWatch `ratemymusic-api` shows clean invocation. | Step 3 |
+| 2026-05-27 | Step 4 complete: `docs/architecture.md`, `docs/infrastructure.md`, `CLAUDE.md`, `plan.md`, ADR 0006, RFC archived. workspace PR #33. | Step 4 |
+| 2026-05-27 | Post-verification fixes: malformed secret JSON, `edge_guard` Bearer bypass, Lambda env vars. myblog_backend PR #15, workspace PR #34. All steps verified. RFC status: done. | Verification |
