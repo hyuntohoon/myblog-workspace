@@ -173,6 +173,22 @@ Nothing here is blocking. The system runs; these are polish.
 
 ---
 
+## 5b. Rule-calibration follow-up
+
+A post-audit reflection raised the question of whether the trigger rules themselves are calibrated for efficiency. Three rule changes applied in `chore/refine-subagent-rules`:
+
+- **`explorer` trigger rewritten from count-based to signal-based.** Was: "3+ files or 2+ repos". Now: "open-ended mapping of unfamiliar territory (layout not yet known)". The count-based form fired on almost any non-trivial task, including ones the main agent already had loaded — which led to silent bypass and rule/behavior drift. The new wording aligns with the actual cost model: subagent value is "load context I don't have", not "read more than 3 files."
+- **`planner` trigger tightened** to "cross-repo plan with sequencing / dependencies between PRs" — earlier wording ("2+ repos, needs plan") was too eager. Most 2-repo work is small enough that the main agent writes the plan.md row faster than delegating.
+- **`code-review` skill row removed** from the trigger table. The local `reviewer` subagent covers all myblog code review; the generic skill was functionally dead-weight in the table.
+- **Trigger bypass rule added** explicitly: if the main agent already has the relevant files loaded, do not spawn a subagent just to satisfy a trigger. Bypasses should be acknowledged briefly so they remain visible.
+
+Not addressed in this PR:
+- Bash hook dispatcher consolidation (4 hooks → 1) — engineering work, not rule change. Saves ~150ms per Bash call but carries breakage risk; deferred until a session noticeably stalls on hook latency.
+- `pyright-lsp` / `security-guidance` plugin value-check — user-side validation, no Claude-actionable change.
+- `simplify` skill never used — no trigger added; leave as ad-hoc invocation.
+
+---
+
 ## 6. References
 
 - `CLAUDE.md` — workspace conventions (~100 lines, post-#52 lean)

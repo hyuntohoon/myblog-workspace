@@ -82,19 +82,22 @@ Never claim "done" before the post-merge items are green. If any item is uncheck
 
 Subagents (local, myblog-specific) and skills (cross-project Anthropic plugins) overlap in places. Use the local subagent when the work needs project-specific context (sync-Spotify rule, SQS contract, service boundaries); use the skill for generic correctness or design help.
 
-| Trigger                                                | Use                       |
-| ------------------------------------------------------ | ------------------------- |
-| Flow across 3+ files or 2+ repos                       | `explorer` subagent       |
-| Change touches 2+ repos, needs plan                    | `planner` subagent        |
-| Bug still unresolved after 2 fix attempts              | `debugger` subagent       |
-| Pytest cases / flaky tests                             | `test-engineer` subagent  |
-| New service or cross-repo structural design            | `architect` subagent      |
-| ≥3 files in a service repo OR any contract/infra touch | `reviewer` subagent (myblog-specific contract / boundary checks) |
-| Generic correctness review (any change)                | `code-review` skill       |
-| UI change in `myblog_front`                            | `frontend-design` skill   |
-| Security-sensitive change (auth, secrets, input)       | `security-review` skill   |
+Triggers are **signals for when delegation is likely cheaper than direct work** — not mandatory escalations. See the bypass rule below the table.
+
+| Trigger                                                            | Use                       |
+| ------------------------------------------------------------------ | ------------------------- |
+| Open-ended mapping of unfamiliar territory (layout not yet known)  | `explorer` subagent       |
+| Cross-repo plan with sequencing / dependencies between PRs         | `planner` subagent        |
+| Bug still unresolved after 2 fix attempts                          | `debugger` subagent       |
+| Pytest cases / flaky tests                                         | `test-engineer` subagent  |
+| New service or cross-repo structural design                        | `architect` subagent      |
+| ≥3 files in a service repo OR any contract/infra touch             | `reviewer` subagent (myblog-specific contract / boundary checks) |
+| UI change in `myblog_front`                                        | `frontend-design` skill   |
+| Security-sensitive change (auth, secrets, input)                   | `security-review` skill   |
 
 Subagents that produce code must run that repo's verification and quote the result.
+
+**Trigger bypass rule.** If the main agent already has the relevant files loaded in context, do not spawn a subagent solely to satisfy a trigger — subagents exist to load context the main agent lacks, not to mirror context it already has. Bypassed triggers should be acknowledged briefly ("explorer trigger matched but files already loaded — handling directly") so the bypass is visible, not hidden.
 
 ## Pointers
 
