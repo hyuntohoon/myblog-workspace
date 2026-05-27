@@ -4,6 +4,11 @@ myblog_backend/
 myblog_music/
 myblog_worker/
 myblog_publish/
+myblog_shared_db/
+
+# Terraform
+infra/tfplan
+infra/*.tfplan
 
 # OS
 .DS_Store
