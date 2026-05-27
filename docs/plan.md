@@ -14,12 +14,7 @@ _(none — IAC-1 core applied; follow-ups tracked under "Upcoming" below)_
 
 ## Upcoming — RFC-backed (high impact, multi-step)
 
-### ARCH-12: Contract-first workflow with strict OpenAPI enforcement
-
-- **RFC**: `docs/rfcs/ARCH-12-contract-first-openapi.md`
-- **Scope**: `myblog_backend`, `myblog_music`, `myblog_front`, workspace (`docs/contracts/`, `tools/`)
-- **Status**: accepted (ready for Step 1)
-- **Note**: prerequisite for all Feature Backlog items below.
+_(none — ARCH-12 done)_
 
 ---
 
@@ -51,13 +46,13 @@ Pitchfork-style review blog feature work. Each item needs a contract design pass
 
 | Item | Current state | Prerequisite |
 |------|---------------|--------------|
-| Rating scale unification | front `0-10` ↔ backend `le=5` mismatch | Contract first: pick a single scale, update `docs/contracts/openapi-backend.json` |
+| Rating scale unification | front `0-10` ↔ backend `le=5` mismatch | Update backend Pydantic model → re-export `openapi.json` → update `docs/contracts/openapi.json` → fix frontend consumer |
 | Review subject type: `album \| track \| artist` | Album-only | Type extension in contract, then backend + frontend in lockstep |
 | Track review page | Does not exist | Subject type extension |
 | Artist profile + review page | Does not exist | Subject type extension |
 | `ANTHROPIC_API_KEY` for code-review workflow | Not registered | GitHub → `myblog_front` Settings → Secrets |
 
-> Feature backlog items are blocked on **ARCH-12** (contract-first OpenAPI). ARCH-6 reduces schema-change cost but doesn't address API drift; ARCH-12 is the actual prerequisite for the rating/subject-type work below. Don't start any Feature Backlog item until ARCH-12 Step 5 lands.
+> ARCH-12 is complete. Feature backlog items are now unblocked — API changes follow the contract-first workflow (export → merge → frontend types-in-sync CI gate).
 
 ---
 
