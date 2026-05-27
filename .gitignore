@@ -3,8 +3,10 @@ myblog_front/
 myblog_backend/
 myblog_music/
 myblog_worker/
-myblog_publish/
 myblog_shared_db/
+
+# Archived (absorbed into myblog_backend via ARCH-11, GitHub repo archived 2026-05-27)
+_archive_myblog_publish/
 
 # Terraform
 infra/tfplan
