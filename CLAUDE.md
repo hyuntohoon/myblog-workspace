@@ -46,23 +46,34 @@ Use `settings.*` (pydantic-settings), not `os.getenv()`. Use `logging.getLogger(
 
 ## Workflow
 
-**Branch**: `<type>/<plan-id>-<desc>` — type ∈ feat|fix|chore|refactor|docs|test|ci|db; plan-id from `docs/plan.md`; desc kebab-case 3–5 words.
+**Branch**: `<type>/<plan-id>-<desc>` — type ∈ feat|fix|chore|refactor|docs|test|ci|db; plan-id from `docs/plan.md` (PR-N/BUG-N/ARCH-N); desc kebab-case 3–5 words. Plan-id can be omitted for ad-hoc docs/chore work not tracked in plan.md (e.g. `docs/claude-md-cleanup`).
 
-**Commit**: Conventional Commits, lowercase imperative subject ≤72 chars. `Co-Authored-By: Claude` trailer when AI authored.
+**Commit**: Conventional Commits, lowercase imperative subject ≤72 chars. `Co-Authored-By: Claude` trailer when AI-authored.
 
 **Cross-repo (≥2 repos)**: update `docs/plan.md` before code. API contract change → export `openapi.json` in service repo, commit in same PR; workspace merge regenerates `docs/contracts/openapi.json`; frontend types derived from merged spec (CI fails on drift).
 
 **Multi-step migration**: write RFC in `docs/rfcs/`; plan.md row is one-line pointer.
 
-**Definition of Done** (none optional — if unchecked, say so, don't claim success):
+**Flow**: branch → implement → local smoke → push + open PR (CI runs lint/typecheck/openapi-verify) → wait for explicit "push"/"ok push" → squash merge to `main` → deploy auto-triggers on push-to-main → prod smoke → quote prod smoke result in PR comment + update plan.md.
+
+Deploy timing means prod smoke is **only possible post-merge**. Treat merge as mid-flow, not end-of-flow.
+
+**Definition of Done** — split by when each item can be checked.
+
+Pre-merge (block merge if unchecked):
 
 - Tests pass (`pytest`, `pnpm lint`, `pnpm exec astro check`)
 - `terraform plan` clean for affected stacks
 - New/removed backend route → matching `infra/apigateway.tf` entry
 - Contract change → `openapi.json` regenerated + committed
-- **Local smoke + prod smoke both pass, results quoted in PR**
+- Local smoke passes, result quoted in PR body
 
-DoD beats rule 7: don't ask for push approval before DoD is green.
+Post-merge (block claiming "done" if unchecked):
+
+- Prod smoke passes after auto-deploy, result quoted in PR comment
+- plan.md row dropped (history lives in `git log` + `docs/archive/done/`)
+
+Never claim "done" before the post-merge items are green. If any item is unchecked, say so explicitly.
 
 ## Subagent triggers
 
