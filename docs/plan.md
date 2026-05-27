@@ -63,37 +63,15 @@ DIAG-1e/1f are marked "code/API verified, not user-clicked". Sign off after loca
 
 ---
 
-## Phase 2 — Local test loop (after Phase 1)
+## Phase 2 — Local test loop (✅ done 2026-05-27)
 
-Build a local environment so bugs are caught before merge, not after deploy. Today's biggest design constraint: must be runnable without poking prod.
+- **LOCAL-2a** (no code change): backend/music already bypass Cognito JWT validation on `ENV=local` (`app/core/auth.py:33`).
+- **LOCAL-2b**: frontend now treats localhost/127.0.0.1/*.local as logged-in with a dummy `'local-dev'` token (`myblog_front` PR #24 `2038718`).
+- **LOCAL-2c**: `scripts/smoke.sh` (+ `smoke.py`) runs 20 end-to-end checks in ~7s. Hits health, search filter (BUG-2 guard), album-detail wrapper (BUG-3 guard), post CRUD (BUG-1/BUG-7 guard). Works against `prod` and `local`.
 
-### LOCAL-2a: Local backend with dev-auth bypass
+Local-dev quickstart and smoke usage are documented in `CLAUDE.md` → "Local development".
 
-- Scope: `myblog_backend`, `myblog_music`
-- Action:
-  - `ENV=local` → `require_cognito_token` accepts a fixed dev token (e.g. `Authorization: Bearer dev-local`) and returns a stub claim.
-  - `ENV=local` → `edge_guard` already bypassed (current behavior, keep).
-  - Backend can target either prod Neon DB (read-only) or a local Postgres snapshot. Decide during DIAG sweep.
-- Verification:
-  - local: `ENV=local uvicorn app.main:app` boots; `curl -H "Authorization: Bearer dev-local" localhost:8000/api/db/ping` → 200.
-- Status: not started
-
-### LOCAL-2b: Frontend pointed at local backend
-
-- Scope: `myblog_front`
-- Action: `.env.local` with `PUBLIC_BACKEND_API_URL=http://localhost:8000`, `PUBLIC_API_URL=http://localhost:8001`. Dev-mode injects `Authorization: Bearer dev-local` so Cognito flow is bypassed locally.
-- Verification:
-  - local: `pnpm dev` shows `/drafts` populated from local backend.
-- Status: not started
-
-### LOCAL-2c: scripts/smoke.sh
-
-- Scope: workspace
-- Action: shell script that takes `local` or `prod` argument; hits the critical paths (search each filter, publish round-trip, draft CRUD) and asserts response shapes. Designed to be runnable in <60s.
-- Verification: `./scripts/smoke.sh local` passes against a running local stack.
-- Status: not started
-
-**After Phase 2, no PR ships without `local && prod smoke` results quoted.**
+**Definition of Done now strictly requires a prod smoke result quoted in every PR.**
 
 ---
 

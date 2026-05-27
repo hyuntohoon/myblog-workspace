@@ -211,6 +211,63 @@ Source of truth: `infra/terraform.tfstate`. The values below are a human-readabl
 
 ---
 
+## Local development
+
+Backend, music, and worker all bypass Cognito JWT validation when `ENV=local` or `ENV=dev` (see `app/core/auth.py:33` in each service). The frontend matches this: when served from `localhost`, `getAccessToken()` returns the dummy token `'local-dev'` and `isLoggedIn()` returns true, so you can write/edit posts without logging in.
+
+### Backend (`myblog_backend`)
+
+```bash
+cd myblog_backend
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export DATABASE_URL='postgresql+psycopg://...neon.tech/...'   # from myblog/backend secret
+export ENV=local
+uvicorn app.main:app --reload --port 8000
+```
+
+### Music (`myblog_music`)
+
+```bash
+cd myblog_music
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export DATABASE_URL='...'           # from myblog/music secret
+export SPOTIFY_CLIENT_ID='...'      # only if testing /candidates
+export SPOTIFY_CLIENT_SECRET='...'
+export ENV=local
+uvicorn app.main:app --reload --port 8001
+```
+
+### Frontend (`myblog_front`)
+
+```bash
+cd myblog_front
+pnpm install
+pnpm dev    # http://localhost:4321 → talks to backend:8000 + music:8001
+```
+
+`.env` defaults to `PUBLIC_BACKEND_API_URL=http://localhost:8000` and `PUBLIC_API_URL=http://localhost:8001`. Override per-shell if needed.
+
+### Smoke tests — `scripts/smoke.sh`
+
+End-to-end smoke runs against either `prod` or `local`. 20 checks across health, search filter, album-detail wrapper, and post CRUD.
+
+```bash
+# Prod
+export MYBLOG_SMOKE_PASSWORD='<test user password>'
+./scripts/smoke.sh prod
+
+# Local (services must be running on :8000 + :8001)
+./scripts/smoke.sh local
+```
+
+Test user: `test@ratemymusic.blog` (Cognito). Password rotation: `aws cognito-idp admin-set-user-password ...`.
+
+**Quote the smoke result in every PR.** Definition of Done above is not optional.
+
+---
+
 ## Subagent triggers
 
 Only delegate when the trigger matches; otherwise solve inline.
