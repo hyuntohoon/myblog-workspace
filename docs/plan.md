@@ -6,15 +6,18 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(none — the 2026-05-27 stabilization cycle wrapped with PRs #46–#52. Pick up from Backlog when starting next cycle.)_
+### BUG-9: Duplicate publish silently creates `-2` slug suffix
+
+- Scope: `myblog_backend` (slug uniqueness enforcement), `myblog_front` (publish/draft flow), workspace (openapi regen)
+- Decision: **hard block** on duplicate — backend returns 409 instead of auto-appending suffix. Applied to both draft save and publish (consistency: catch conflict early).
+- Sub-fix discovered: `WriterApp.onPublish` always calls `savePost` (POST = new row) even when `dbPostId` exists, so draft→publish currently creates 2 rows. Switching to `updatePost` when `dbPostId` is set.
+- Order: backend (409 + service exception) → frontend (updatePost on publish + 409 toast) → workspace openapi regen
+- Verification: backend pytest 409 case + frontend lint/astro check + local smoke; prod smoke post-merge
+- Rollback: revert `fix/BUG-9-publish-duplicate-slug-warning` branch (single PR per repo)
+- Status: in-progress (branch: `fix/BUG-9-publish-duplicate-slug-warning`)
 
 ---
 
 ## Backlog
 
-### BUG-9: Duplicate publish silently creates `-2` slug suffix
-
-- Scope: `myblog_front` (publish flow); may need backend slug-generation change
-- Repro: publish a draft titled "X" → slug `x`; publish another draft titled "X" → slug `x-2` with no warning. User loses track of which slug is canonical.
-- Acceptance: warn before publishing a duplicate title, or surface the appended suffix in the UI before commit
-- Priority: low — no data loss, pure UX. Promote to Active when next feature cycle starts.
+_(empty — promote next item here when picking up a new cycle.)_

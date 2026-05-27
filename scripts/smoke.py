@@ -160,8 +160,12 @@ def run_unauth_tests(host: dict[str, str]) -> None:
 def run_authed_tests(host: dict[str, str], token: str | None) -> None:
     # In local mode, token can be None — backend bypasses on ENV=local.
     print("\n[post CRUD round-trip]")
+    # Title must be unique per run: backend now hard-rejects duplicate slugs
+    # with 409 (BUG-9), so re-runs after a previous run leaked a row would
+    # otherwise collide.
+    unique_title = f"SMOKE test {int(time.time())} — do not keep"
     payload = {
-        "title": "SMOKE test — do not keep",
+        "title": unique_title,
         "description": "smoke",
         "body_mdx": "# smoke",
         "posted_date": str(datetime.date.today()),
