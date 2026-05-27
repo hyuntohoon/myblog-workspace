@@ -95,17 +95,23 @@ Three more hooks added in `chore/hard-rule-hooks`. Current state: **6 of 9 hard 
 
 All three new hooks were validated with synthetic STDIN payloads (deny + pass paths). `.claude/hooks/` is gitignored, so the scripts live locally; `CLAUDE.md` now annotates each rule with 🔒 when a hook backs it.
 
-### 3.3 `settings.local.json` allow-list bloat
+### 3.3 `settings.local.json` allow-list bloat — RESOLVED
 
-120+ entries, mostly accreted from debugging sessions. Issues:
+Hand-pruned in `chore/prune-settings-local`. **136 → 28 entries** (79% reduction). A backup of the original (`settings.local.json.bak.2026-05-28`) sits next to the file in case anything breaks.
 
-- **`Bash(git *)` wildcard** (line ~12) supersedes ~12 specific `git -C ...` entries above it — they can all be deleted.
-- **`myblog_publish` references** (gh run / workflow lookups) — the repo is archived. Dead entries.
-- **One-off bash incantations** like the `awk '/aws_lambda_event_source_mapping.worker_sqs ...` patterns from a specific tfplan inspection. These will never match again.
-- **`tar -xOf -` / `gunzip` cache paths** from a `frontend-design` plugin download — single-use.
-- **Duplicates**: `pytest tests/test_handler.py -v` and `pytest tests/test_handler.py -v -p no:allure` could collapse to `pytest *`.
+What was dropped:
+- All `git -C /path/...` and `git -C /path checkout ...` entries — superseded by `Bash(git *)`.
+- All `myblog_publish` references (archived repo) — dead.
+- One-off `awk '/aws_lambda_event_source_mapping.../'` tfplan patterns from a specific debug session — single-use.
+- `tar -xOf -` / `gunzip /Users/.../webfetch-cache.bin` paths from a single `frontend-design` plugin download — single-use.
+- Specific `pytest tests/test_handler.py -v ...` and `pytest tests/test_unit.py -v` variants — folded into `Bash(pytest *)`.
+- `aws SERVICE *` granularity (14 entries) — folded into `Bash(aws *)` since the user already had broad AWS access in practice.
+- `pip cache *`, `pip show *`, `pip3 show *`, `pip install *` — folded into `Bash(pip *)` / `Bash(pip3 *)`.
+- One-off `DATABASE_URL=... python3 -c '...'` debug strings (4 variants), `curl -s -o ... <specific-url>` (4 variants superseded by `curl *`), `mkdir -p /tmp/...`, `cp <bundle>`, `chmod +x <specific-script>`, `zip -q placeholder.zip`, `xxd`, `wait`, `jobs -l`, `xargs cat`, etc.
 
-Recommended action: run the `/fewer-permission-prompts` skill on a fresh transcript, or hand-prune. Target shape: ~25–35 entries, with broad wildcards for tooling families (`git *`, `gh *`, `pytest *`, `terraform *`, `aws * *`) and the small set of specific reads/writes that fall outside those families.
+What was kept (28 entries): broad wildcards for the tooling families actually used — `git *`, `gh *`, `python(3) *`, `pip(3) *`, `pytest *`, `npx/npm/pnpm *`, `nvm use *`, `aws *`, `terraform *`, `sam validate *`, `psql *`, `brew *`, `curl *`, `claude *`; both Skills currently used; two WebFetch domains; six Read paths.
+
+The hooks block (Write|Edit and Bash PreToolUse hooks for hard rules #1/#2/#5/#6/#7-partial/#8) was preserved unchanged.
 
 ### 3.4 Prod smoke is unenforced
 
@@ -164,7 +170,7 @@ Ordered by leverage / effort ratio.
 
 1. ~~**Reconcile RFC status** (§3.1)~~ — done.
 2. ~~**Add hooks for hard rules #5, #6, #8** (§3.2)~~ — done.
-3. **Prune `settings.local.json`** (§3.3). Run `/fewer-permission-prompts` skill, then manually drop `myblog_publish` and one-off entries. ~15 min.
+3. ~~**Prune `settings.local.json`** (§3.3)~~ — done (136 → 28 entries).
 4. **Clarify reviewer vs. code-review** in CLAUDE.md (§3.5). One sentence. ~2 min.
 5. **Tighten subagent trigger thresholds** (§4.2). "Substantial PR" → concrete heuristic. ~2 min.
 
