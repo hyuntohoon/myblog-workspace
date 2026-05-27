@@ -101,8 +101,8 @@ resource "aws_cognito_user_pool_client" "spa_client" {
     "https://www.ratemymusic.blog/admin/callback/",
   ]
   logout_urls = [
-    "http://localhost:4321/admin",
-    "https://www.ratemymusic.blog/admin/",
+    "http://localhost:4321",
+    "https://www.ratemymusic.blog",
   ]
 
   supported_identity_providers = ["COGNITO"]
