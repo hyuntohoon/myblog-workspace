@@ -114,7 +114,10 @@ Each fix:
 | BUG-2 | Search filter broken (DB unified ignores type, frontend drops artists/tracks) | ✅ done | `myblog_music` #22 (`5097803`) + `myblog_front` #21 (`ed75a27`) |
 | BUG-4 | MusicBrainz aliases written but never read | ✅ done (with BUG-2) | `myblog_music` #22 (`5097803`) |
 | BUG-5 | Tile rendering only fits albums | ✅ done (with BUG-2 frontend) | `myblog_front` #21 (`ed75a27`) |
-| BUG-6 | Cognito flow needs user click-through | needs user | — |
+| BUG-6 | Cognito flow needs user click-through | ✅ verified by user 2026-05-27 (login → publish succeeded) | — |
+| BUG-7 | access_token (60min) expired → no refresh → silent 401 loop on savePost/updatePost | ✅ done | `myblog_front` #22 (`802afce`) |
+| BUG-8 | onPublish auto-redirects to /blog/{slug} which 404s until Astro rebuilds (3–5 min) | ✅ done (with BUG-7) | `myblog_front` #22 (`802afce`) |
+| BUG-9 | Duplicate publish on same title creates `-2` suffix silently — no UX warning | not started — low pri | — |
 
 ### Verification quoted in PRs
 
@@ -149,6 +152,7 @@ BUG-3, BUG-2, BUG-4, BUG-5 fully resolved 2026-05-27. Repro/fix detail preserved
 
 ## Recent Done
 
+- **BUG-7 / BUG-8** (2026-05-27, `myblog_front` PR #22 `802afce`): refresh_token retry on 401 in apiFetch + savePost/updatePost/fetchPostById; remove premature post-publish redirect that 404'd before Astro rebuild.
 - **BUG-2 / BUG-4 / BUG-5** (2026-05-27): search filter `type` on `/search/unified` + `aliases` JSONB search + frontend filter passes type + discriminated tile rendering. `myblog_music` PR #22 (`5097803`), `myblog_front` PR #21 (`ed75a27`).
 - **BUG-3** (2026-05-27, `myblog_front` PR #20 `1de9773`): unwrap `/api/music/albums/{id}` wrapper response + route spotify_id → `/by-spotify`. Fixes publish payload `album_ids: [undefined]` + empty `artist_ids`.
 - **Phase 1** (2026-05-27): diagnostic sweep — 5 bugs inventoried (BUG-2 through BUG-6).
