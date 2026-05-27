@@ -87,6 +87,22 @@ resource "aws_apigatewayv2_route" "posts_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "posts_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/posts/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "posts_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/posts/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "publish_backend" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "POST /api/publish"
