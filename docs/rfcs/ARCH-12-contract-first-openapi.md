@@ -1,6 +1,6 @@
 # ARCH-12: Contract-first workflow with strict OpenAPI enforcement
 
-- **Status**: accepted
+- **Status**: in-progress (Step 1)
 - **Owner**: TBD
 - **Created**: 2026-05-26
 - **Plan row**: `plan.md` → ARCH-12
