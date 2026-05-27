@@ -8,7 +8,7 @@ Format defined in `CLAUDE.md` → "Plan format". `Rollback` is optional for low-
 
 ## In Progress
 
-_(none — IAC-1 core applied; follow-ups tracked under "Upcoming" below)_
+_(none)_
 
 ---
 
