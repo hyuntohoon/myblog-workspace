@@ -6,12 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **BUG-10 — PUT /api/posts/{id} silently drops category / album_ids / artist_ids.**
-  Scope: backend (`schemas.py` UpdatePostRequest + post_service.update / post_repository.update for M2M handling) → workspace (regen openapi.json) → front (regen api.gen.ts, re-test WriterApp draft edit).
-  Order: backend PR first (with pytest covering POST→PUT(category swap)→GET); workspace merges contract; front PR consumes new types.
-  Verification: local pytest in backend; `pnpm exec astro check` + `pnpm lint` in front; prod smoke extended with update-category step (`scripts/smoke.sh`).
-  Rollback: `git revert` per repo; OpenAPI re-merge is idempotent.
-  Status: drafted 2026-05-28 from `docs/contracts/audit-2026-05-28.md` finding H-1.
+_(none — BUG-10 wrapped 2026-05-28 with backend #24 / workspace #63 / front #26 / smoke #64. Prod smoke 22/22 incl. new PUT-category round-trip guard.)_
 
 ---
 
