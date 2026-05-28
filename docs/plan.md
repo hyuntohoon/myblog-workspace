@@ -6,10 +6,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **PR-metrics-real** — backend #25 swaps `InMemoryMetricsRepository` → `SqlMetricsRepository` reading `post_metrics.likes/comments_count` joined on `posts.slug`. API shape unchanged, no contract regen. Scope: backend only. Verification: 23/23 pytest + prod smoke `POST /api/metrics/batch` against a known published slug. Rollback: revert single PR (no data change). Status: PR open, awaiting CI + merge.
+- **PR-metrics-real** — backend swap merged (backend #25, workspace #77). Prod smoke blocked: `POST /api/metrics/batch` never wired in `infra/apigateway.tf` → always 404 in prod, frontend falls back silently. Infra fix in workspace #78 (terraform plan clean: 1 add, pre-existing cognito drift to resolve separately). Status: pending human terraform apply.
 
 ---
 
 ## Backlog
 
-- **PR-metrics-real** — replace `InMemoryMetricsRepository` with a real backing store before exposing like/comment counters publicly. Audit finding M-3.
+- **PR-reviews-polymorphic** — see `docs/rfcs/PR-reviews-polymorphic-track-rating.md`. Per-track ratings (0–10/0.5) via `post_reviews`, 6 steps across `myblog_shared_db` / `myblog_backend` / `infra` / `myblog_front`. Status: draft RFC, 4 open questions (rating_scale, unique constraint, FK on track delete, batch atomicity).
