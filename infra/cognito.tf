@@ -48,15 +48,12 @@ resource "aws_cognito_user_pool_client" "admin_client" {
   name         = "MyBlogAdminClient"
   user_pool_id = aws_cognito_user_pool.myblog_admin.id
 
+  # OAuth hosted UI는 spa_client 전용 — admin_client에 OAuth 필드 추가 금지.
   explicit_auth_flows = [
     "ALLOW_REFRESH_TOKEN_AUTH",
     "ALLOW_USER_AUTH",
     "ALLOW_USER_SRP_AUTH",
   ]
-
-  allowed_oauth_flows                  = ["code"]
-  allowed_oauth_scopes                 = ["email", "openid", "phone"]
-  allowed_oauth_flows_user_pool_client = true
 
   access_token_validity  = 60
   id_token_validity      = 60
@@ -67,9 +64,6 @@ resource "aws_cognito_user_pool_client" "admin_client" {
     id_token      = "minutes"
     refresh_token = "days"
   }
-
-  callback_urls                = ["https://d84l1y8p4kdic.cloudfront.net"]
-  supported_identity_providers = ["COGNITO"]
 }
 
 resource "aws_cognito_user_pool_client" "spa_client" {
