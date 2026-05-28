@@ -1,6 +1,6 @@
 # PR-reviews-polymorphic: per-track rating via post_reviews
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-05-28
 - **Plan row**: `plan.md` → PR-reviews-polymorphic
