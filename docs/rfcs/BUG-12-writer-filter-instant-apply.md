@@ -1,6 +1,6 @@
 # BUG-12: Writer page filter buttons — instant client-side apply
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-05-28
 - **Plan row**: `plan.md` → BUG-12
