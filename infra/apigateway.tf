@@ -109,6 +109,14 @@ resource "aws_apigatewayv2_route" "posts_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "posts_restore_patch" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PATCH /api/posts/{id}/restore"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "publish_backend" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "POST /api/publish"

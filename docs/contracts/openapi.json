@@ -2298,6 +2298,16 @@
               ],
               "title": "Status"
             }
+          },
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -2387,11 +2397,32 @@
               "title": "Post Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "hard",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Hard",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Soft-archived (status='archived'); body echoes new status."
+          },
           "204": {
-            "description": "Successful Response"
+            "description": "Hard-deleted; no body."
+          },
+          "404": {
+            "description": "Post not found"
           },
           "422": {
             "content": {
@@ -2510,6 +2541,51 @@
           }
         ],
         "summary": "Update Post",
+        "tags": [
+          "posts"
+        ]
+      }
+    },
+    "/api/posts/{post_id}/restore": {
+      "patch": {
+        "operationId": "restore_post_api_posts__post_id__restore_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "post_id",
+            "required": true,
+            "schema": {
+              "title": "Post Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Restore Post",
         "tags": [
           "posts"
         ]
