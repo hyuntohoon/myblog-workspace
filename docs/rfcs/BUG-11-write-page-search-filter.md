@@ -1,6 +1,6 @@
 # BUG-11: Writer page music search — album/track/artist filter not working correctly
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-05-28
 - **Plan row**: `plan.md` → BUG-11
