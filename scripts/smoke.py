@@ -203,10 +203,20 @@ def run_authed_tests(host: dict[str, str], token: str | None) -> None:
           b is not None and b.get("category") == "smoke-bug10",
           f"got category={b.get('category') if b else None}")
 
-    s, _ = request_json(host["backend_authed"] + f"/api/posts/{post_id}",
+    # FEAT-writer-cleanup PR-1: default DELETE is a soft archive (200 + body),
+    # hard delete needs ?hard=true (204). Exercise both branches.
+    s, b = request_json(host["backend_authed"] + f"/api/posts/{post_id}",
                         method="DELETE", token=token)
-    # urllib raises HTTPError for 204 (no body); request_json catches that and returns 204 with None
-    check("DELETE /api/posts/{id} returns 204", s == 204, f"status={s}")
+    check("DELETE /api/posts/{id} (default) soft-archives → 200",
+          s == 200, f"status={s}, body={b}")
+    check("DELETE default echoes status='archived'",
+          isinstance(b, dict) and b.get("status") == "archived",
+          f"body={b}")
+
+    # Hard-delete the archived row to clean up. ?hard=true still returns 204.
+    s, _ = request_json(host["backend_authed"] + f"/api/posts/{post_id}?hard=true",
+                        method="DELETE", token=token)
+    check("DELETE /api/posts/{id}?hard=true → 204", s == 204, f"status={s}")
 
 
 # ---------- Entry point -----------------------------------------------------

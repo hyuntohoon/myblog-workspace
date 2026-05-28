@@ -16,23 +16,13 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 - Rollback: 단일 revert. CSS 변경 위주라 안전
 - Status: 🟡 active (RFC draft 작성)
 
-### FEAT-writer-cleanup: Writer 발행 폼 dead 필드 제거 + 삭제 플로우 (archive + hard) — P1
-
-- Scope: `myblog_backend` (POST/PUT/DELETE posts + status 필터) + `myblog_front` (WriterApp 필드 제거 + 삭제 UI)
-- RFC: `docs/rfcs/FEAT-writer-cleanup.md`
-- 묶음 근거: 2026-05-29 회의 v2. tags/bestNew/genre/author/authorRole 전체 제거 확정. archive + hard delete 두 갈래 유지.
-- Sequencing: PR-1 백엔드(archive 분기 + ?hard=true + restore) → PR-2 프론트 dead 필드 제거 → PR-3 프론트 삭제 UI + 보관함
-- Verification: 로컬 pytest + pnpm lint + astro check + dev server UI click-through; 머지 후 prod smoke 인용
-- Rollback: 각 PR 독립 revert. archive 동작은 enum 활용이라 schema 변경 없음
-- Status: 🟡 active (RFC draft 작성)
-
 ---
 
 ## Backlog
 
 ### FEAT-write-ux-bundle: 추천 트랙 UI + 앨범 상세 확장 — P2
 
-- 트리거: FEAT-writer-cleanup 전체 머지 후
+- 트리거: FEAT-writer-cleanup 머지 완료 (2026-05-29). 진행 OK 받으면 시작
 - Scope: 다음 묶음. F (추천 트랙 UI — 백엔드 완성, UI 만) + D (TrackOut 확장 — duration/피처링/label)
 - Sequencing: PR-1 F → PR-2 D
 - Status: ⚪ backlog
@@ -40,7 +30,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 ### CHORE-health-script: 운영 가시성 스크립트 — P3
 
 - Scope: `scripts/health.sh` 에 aliases 빈배열 비율 + MBID_NOT_FOUND 비율 + post_metrics 신선도 SQL 추가
-- 곁다리 PR. FEAT-writer-cleanup PR-1 머지 후 사이에 끼워넣기
 - Status: ⚪ backlog
 
 ### BUG-14: MusicBrainz search 가 한글 artist name 을 못 잡음 — P2
