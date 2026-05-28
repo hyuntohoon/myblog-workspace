@@ -187,13 +187,11 @@ Receive SQS message (up to 20 album spotify_ids)
 ```
 EventBridge rate(15 minutes) → worker (event['source'] == 'aws.events')
   → generate_and_save_aliases:
-      ① MusicBrainz lookup for artists with musicbrainz_id IS NULL
-         → UPDATE artists.musicbrainz_id + aliases (or MBID_NOT_FOUND sentinel)
-      ② Gemini fill for artists still missing aliases
-         → UPDATE artists.aliases
+      MusicBrainz lookup for artists with musicbrainz_id IS NULL (LIMIT 10/tick)
+        → UPDATE artists.musicbrainz_id + aliases (or MBID_NOT_FOUND sentinel)
 ```
 
-Separated from the SQS path so MusicBrainz/Gemini latency cannot block album sync, and so an outage in either external service cannot fail SQS messages. The MBID_NOT_FOUND sentinel prevents repeat lookups for artists MusicBrainz doesn't know about.
+Separated from the SQS path so MusicBrainz latency cannot block album sync, and so an outage in MusicBrainz cannot fail SQS messages. The MBID_NOT_FOUND sentinel prevents repeat lookups for artists MusicBrainz doesn't know about. (A Gemini fallback was originally planned but is **not implemented** — non-English artists without an MBID match currently keep an empty `aliases` array; alias coverage improvement is tracked separately.)
 
 **Key design points**
 
@@ -214,11 +212,10 @@ Concrete IDs/ARNs in `infra/README.md`.
 | **Amazon SQS** | `myblog_music` (enqueue), `myblog_worker` (consume) | FIFO queue (`album-sync.fifo`) with DLQ + `ReportBatchItemFailures` |
 | **AWS Cognito** | `myblog_backend` and `myblog_music` (JWT validation), `myblog_front` (login) | JWKS-based validation; bypassed when `ENV=local\|dev` or `COGNITO_USER_POOL_ID` unset |
 | **AWS Secrets Manager** | All four Lambdas | One secret per service, loaded once per cold start via `@lru_cache` |
-| **AWS EventBridge** | `myblog_worker` (alias generation schedule) | `rate(15 minutes)` — triggers `generate_and_save_aliases` (MusicBrainz + Gemini) |
+| **AWS EventBridge** | `myblog_worker` (alias generation schedule) | `rate(15 minutes)` — triggers `generate_and_save_aliases` (MusicBrainz only) |
 | **S3 + CloudFront** | `myblog_front` (static serving) | CloudFront function rewrites `uri` → `uri + '/index.html'` for Astro directory format |
 | **Spotify Web API** | `myblog_music` (search), `myblog_worker` (data collection) | Two separate clients by design — see ADR 0004 |
-| **MusicBrainz API** | `myblog_worker` (alias generation) | Looks up `musicbrainz_id` + aliases for artists; sentinel `MBID_NOT_FOUND` prevents repeat lookups |
-| **Gemini API** | `myblog_worker` (alias generation fallback) | Fills aliases for artists MusicBrainz didn't resolve |
+| **MusicBrainz API** | `myblog_worker` (alias generation) | Looks up `musicbrainz_id` + aliases for artists; sentinel `MBID_NOT_FOUND` prevents repeat lookups. Score threshold 90 + 1 req/sec rate limit |
 | **GitHub API / Actions** | `myblog_backend` (MDX commits via `/api/publish`, build trigger) | `GITHUB_TOKEN` in `myblog/backend` secret (ARCH-11) |
 
 ---
