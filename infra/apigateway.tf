@@ -117,32 +117,6 @@ resource "aws_apigatewayv2_route" "publish_backend" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
-# GET /api/posts/{post_id}/reviews flows through `api_get_proxy` (GET /api/{proxy+}).
-# Only the mutating routes need explicit JWT-authorized entries.
-resource "aws_apigatewayv2_route" "reviews_track_put" {
-  api_id             = aws_apigatewayv2_api.lambda_api.id
-  route_key          = "PUT /api/posts/{post_id}/reviews/tracks/{track_id}"
-  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
-}
-
-resource "aws_apigatewayv2_route" "reviews_track_delete" {
-  api_id             = aws_apigatewayv2_api.lambda_api.id
-  route_key          = "DELETE /api/posts/{post_id}/reviews/tracks/{track_id}"
-  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
-}
-
-resource "aws_apigatewayv2_route" "reviews_track_batch" {
-  api_id             = aws_apigatewayv2_api.lambda_api.id
-  route_key          = "POST /api/posts/{post_id}/reviews/tracks/batch"
-  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
-}
-
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;
