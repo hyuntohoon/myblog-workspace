@@ -102,6 +102,6 @@ In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcr
 
 | Plan ID | Title | Status |
 |---------|-------|--------|
-| _(none — pick up here when a new RFC is drafted)_ | | |
+| BUG-15 | MusicBrainz false-match — Spotify-genre cross-check filter | draft |
 
 Recently archived: ARCH-6 (shared DB package, ADR 0005), ARCH-11 (absorb publish, ADR 0006), ARCH-12 (contract-first OpenAPI, ADR 0007) — all in `docs/archive/done/rfcs/`.
