@@ -37,6 +37,12 @@ _(no active rows — both 2026-05-29 priorities merged)_
 
 - RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` (Status: accepted)
 
+### BUG-18: alias_fill fetch 단 MBID uniqueness pre-check — P2
+
+- RFC: `docs/rfcs/BUG-18-mbid-uniqueness-pre-check.md` (Status: draft)
+- 묶음 근거: BUG-15 follow-up 회의록 (Decisions §1) — 매 사이클 동일 false-match MBID 받아 stuck 인 3행 (`j-hope` / `Kim Tae Hoon` / `dj friz`) 의 본질 해결. BUG-15 Step 2 reset 은 본 RFC 머지 + Korean hint widening 후에 의미가 생기는 후행.
+- Status: 🔵 awaiting RFC content feedback round
+
 ### BUG-16: tests/conftest.py 에 Neon test branch DB 비번 평문 — P3
 
 - Scope: `myblog_worker` (`tests/conftest.py`)
