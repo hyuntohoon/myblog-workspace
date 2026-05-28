@@ -23,4 +23,4 @@ _(none)_
 
 ### BUG-15: MusicBrainz search false-match — P2
 
-- RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` (Status: draft)
+- RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` (Status: accepted)
