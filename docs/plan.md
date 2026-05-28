@@ -6,17 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### BUG-13: alias_fill UNIQUE violation on `musicbrainz_id='not_found'` — 🟡 active
-
-- Scope: `myblog_shared_db` (schema) + `myblog_worker` (git-pin bump)
-- 증상: EventBridge `worker-musicbrainz-alias-generation` 매 15분 tick → `psycopg.errors.UniqueViolation: Key (musicbrainz_id)=(not_found) already exists` → 트랜잭션 ROLLBACK. MB lookup 성공한 행의 aliases 도 같이 날아감.
-- 원인: `generate_and_save_aliases` ([myblog_worker/worker/service/sync_service.py](../myblog_worker/worker/service/sync_service.py):286) 가 lookup 실패한 여러 행에 `musicbrainz_id='not_found'` sentinel 을 batch UPDATE 하는데, `idx_artists_musicbrainz_id` UNIQUE 제약과 충돌. 2026-05-27 (`089aab2 docs(schema): sync artists.musicbrainz_id`) 즈음 schema/index 정리되며 노출.
-- 결정: **(a) 채택** — UNIQUE 를 partial index 로 좁혀 `musicbrainz_id IS NOT NULL AND musicbrainz_id <> 'not_found'` 행에만 적용. sentinel 정책/컬럼 추가 없이 schema 1줄 + worker 코드 0줄. (b)/(c) 는 코드 변경 폭이 크고 sentinel 의미를 바꿔야 해서 보류.
-- Order: (1) `myblog_shared_db` V3 마이그레이션 PR — partial UNIQUE 로 교체 + canonical/generated schema 동기화 → (2) `myblog_worker` git-pin bump PR (코드 0줄).
-- 우선순위: P1 — alias-fill 잡이 매 tick 무의미 ROLLBACK 으로 존재 의미 상실 + ERROR 로그 noise 누적. 데이터 손상은 없으나 silent rot.
-- Verification: shared_db parity test 통과 + worker pytest + 다음 15분 tick 의 `/aws/lambda/blogWorkerLambda` 에 UniqueViolation 없음 + artists 테이블에 실제 `musicbrainz_id` 값이 박히는지 확인 + prod smoke (`scripts/smoke.sh`).
-- Rollback: V3 down migration (DROP partial INDEX → 원래 full UNIQUE 재생성). worker PR 은 pin 되돌리기.
-- Status: 🟡 active
+_(none)_
 
 ---
 
