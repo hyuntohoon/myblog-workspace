@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **PR-metrics-real** — backend swap + IaC route merged (backend #25, workspace #77 plan row, workspace #78 `aws_apigatewayv2_route.metrics_batch_post`). Cognito `admin_client` drift cleared in workspace #81 (코드를 라이브 상태에 맞춤). `terraform plan` 결과 이제 `1 to add, 0 to change, 0 to destroy` — `metrics_batch_post` 단독. Prod smoke (`POST /api/metrics/batch` against a known slug returning non-mock counters) verifies after apply. Status: pending human `terraform apply`.
+_(none)_
 
 ---
 
