@@ -6,15 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### FEAT-search-grid-fix: 검색 결과 그리드 수정 (카드 크기 불균일 + 가로 스크롤) — P0
-
-- Scope: `myblog_front` (대부분) + 선조사 결과에 따라 `myblog_worker` (커버 인덱스)
-- RFC: `docs/rfcs/FEAT-search-grid-fix.md`
-- 묶음 근거: 2026-05-29 회의 v2. 스크린샷 진단으로 B(스크롤)+C(이미지 크기) 통합 1건 버그. 지금 바로 단독 PR.
-- Sequencing: 선조사 30분 → CSS 1순위 (`aspect-ratio: 1; object-fit: cover` + 반응형 grid) → (조건부) 워커 커버 인덱스 고정
-- Verification: dev server 검색 → 다건 결과 시각 확인 + 모바일 viewport
-- Rollback: 단일 revert. CSS 변경 위주라 안전
-- Status: 🟡 active (RFC draft 작성)
+_(no active rows — both 2026-05-29 priorities merged)_
 
 ---
 
