@@ -65,6 +65,17 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 - 방향(미확정): (1) fallback default 제거 → env 미설정 시 `pytest.skip` collection-time, (2) Neon URL 을 AWS Secrets Manager + GHA secret 으로 옮기고 conftest 는 env 만 읽기, (3) test branch 비번 rotate.
 - Status: ⚪ backlog
 
+### BUG-17: alias_fill executemany 배치가 첫 UniqueViolation 에서 통째 롤백 — P1
+
+- Scope: `myblog_worker` (`worker/service/sync_service.py:generate_and_save_aliases`)
+- RFC: `docs/rfcs/BUG-17-alias-fill-batch-failure.md`
+- 트리거: BUG-15 Step 1 post-merge verification (2026-05-28T16:07Z CloudWatch) 에서 발견. Kim Gwang-Jin → MBID `4b462375-...` (Kim Wilde UK) 충돌, 같은 MBID 가 이미 Kim Chang-Wan 에 박힘.
+- 증상: MB lookup 한 행이 기존 MBID 와 충돌하면 `psycopg.errors.UniqueViolation`, `executemany` 배치 전체 (10행) 롤백. SELECT 가 같은 10행을 매 사이클 재공급 → 24h 95건 ERROR, alias_fill 진척 = 0.
+- 영향: 데이터 부패는 UNIQUE (BUG-13) 가 막고 있어 user-facing 영향 없음. `musicbrainz_id NOT NULL` 행 13개에서 정체, alias_fill 사실상 정지. CloudWatch ERROR 노이즈.
+- 방향: per-row UPDATE + `IntegrityError` 캐치 → 충돌행만 WARNING 흘리고 skip, 나머지 9행 persist. sentinel 강제 박지 않음.
+- BUG-15 와 관계: 별 관심사. BUG-17 은 batch failure mode, BUG-15 는 false-match 방지. BUG-15 Step 2 (known-bad row reset) 는 BUG-17 머지 후 재개. BUG-15 `_COUNTRY_HINTS` 한국어 토큰 확장은 별도 follow-up (BUG-17 RFC Open Q1 참조).
+- Status: 🟡 active (RFC draft 작성)
+
 ---
 
 ## Later (트리거 대기)
