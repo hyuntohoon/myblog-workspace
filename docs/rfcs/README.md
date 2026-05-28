@@ -102,6 +102,6 @@ In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcr
 
 | Plan ID | Title | Status |
 |---------|-------|--------|
-| PR-reviews-polymorphic | per-track rating via post_reviews | draft |
+| _(none — pick up here when a new RFC is drafted)_ | | |
 
 Recently archived: ARCH-6 (shared DB package, ADR 0005), ARCH-11 (absorb publish, ADR 0006), ARCH-12 (contract-first OpenAPI, ADR 0007) — all in `docs/archive/done/rfcs/`.
