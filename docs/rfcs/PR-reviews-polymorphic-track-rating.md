@@ -9,7 +9,7 @@
 
 ## Goal
 
-A published blog post about an album can carry an unlimited number of per-track ratings (0–5 in 0.5 steps, matching the album scale), persisted in `post_reviews` and rendered on the post page alongside the album rating. The legacy single-column `posts.rating` stays as the album-level score; `post_reviews` carries per-track scores keyed by `track_id`.
+A published blog post about an album can carry an unlimited number of per-track ratings (0–10 in 0.5 steps), persisted in `post_reviews` and rendered on the post page alongside the album rating. The legacy single-column `posts.rating` stays as the album-level score; `post_reviews` carries per-track scores keyed by `track_id`.
 
 ## Non-goals
 
@@ -33,12 +33,12 @@ A published blog post about an album can carry an unlimited number of per-track 
 - **ORM**: `myblog_shared_db` v0.2.0 publishes a `PostReview` mapper bound to `post_reviews`, with FK relationships to `Post`, `Album`, `Track`. Each consumer service (`myblog_backend`, `myblog_worker`) bumps the pinned version.
 - **Backend API** (`myblog_backend/app/api/routes/reviews.py`):
   - `GET /api/posts/{post_id}/reviews` → `{album: {rating, scale} | null, tracks: [{track_id, rating, scale, notes}]}`. Public, CloudFront-direct.
-  - `PUT /api/posts/{post_id}/reviews/tracks/{track_id}` → upsert one track review. Body `{rating: number, scale: number=5, notes?: string}`. Cognito JWT via API Gateway.
+  - `PUT /api/posts/{post_id}/reviews/tracks/{track_id}` → upsert one track review. Body `{rating: number, scale: number=10, notes?: string}`. Cognito JWT via API Gateway.
   - `DELETE /api/posts/{post_id}/reviews/tracks/{track_id}` → delete one. Cognito JWT.
   - `POST /api/posts/{post_id}/reviews/tracks/batch` → batch upsert (max 200 tracks). Cognito JWT. Use this from the writer to commit all per-track ratings in a single round-trip on save.
 - **Infra**: 3 new API Gateway routes added to `infra/apigateway.tf` (the GET goes through `GET /api/{proxy+}` already; the mutating routes need explicit JWT-authorized entries).
 - **OpenAPI contract**: backend `openapi.json` carries `PostReviewTrack`, `PostReviewBundle`, `TrackReviewUpsert` schemas. Workspace merge regenerates `docs/contracts/openapi.json`. Frontend `pnpm generate:types` picks up `components['schemas']['PostReviewTrack']` etc.
-- **Frontend writer** (`SubjectBlock.tsx` + new `TrackRatingList.tsx`): once an album is selected, fetch its tracks (`GET /api/music/albums/{id}`, which already returns the track list) and render a list of `[track title — rating slider (0–5, 0.5 step) — notes input]` rows. On save, the writer collects non-null ratings into the batch endpoint payload alongside the existing `updatePost`. Edits are loaded via `GET /api/posts/{post_id}/reviews` and merged into the same UI state.
+- **Frontend writer** (`SubjectBlock.tsx` + new `TrackRatingList.tsx`): once an album is selected, fetch its tracks (`GET /api/music/albums/{id}`, which already returns the track list) and render a list of `[track title — rating slider (0–10, 0.5 step) — notes input]` rows. On save, the writer collects non-null ratings into the batch endpoint payload alongside the existing `updatePost`. Edits are loaded via `GET /api/posts/{post_id}/reviews` and merged into the same UI state.
 - **Frontend post view**: post detail page (album review) renders a "트랙 평가" section listing tracks with their per-track score and notes.
 - **Roadmap memory** `project-feature-roadmap` updated: line about `post_reviews` being dead schema replaced with "Step 1 (track ratings) shipped; artist rating deferred to a follow-up RFC."
 
@@ -46,11 +46,11 @@ A published blog post about an album can carry an unlimited number of per-track 
 
 Each step is independently mergeable. Steps 2 and 5 cannot run in parallel with anything else because they're contract / type-gen turning points.
 
-### Step 0 — verify prod schema state + decided migrations
+### Step 0 — verify prod schema state
 
-Confirm `post_reviews` table + `review_subject` enum + the three indexes exist in Neon prod. They are in `schema_v0.sql` but never explicitly migration-tracked, so prod state is unknown. Then apply two decided migrations on top.
+Confirm `post_reviews` table + `review_subject` enum + the three indexes exist in Neon prod. They are in `schema_v0.sql` but never explicitly migration-tracked, so prod state is unknown.
 
-**Verification (current state)**:
+**Verification**:
 
 ```
 psql "$DATABASE_URL" -c "\d post_reviews" \
@@ -58,33 +58,7 @@ psql "$DATABASE_URL" -c "\d post_reviews" \
   && psql "$DATABASE_URL" -c "select indexname from pg_indexes where tablename='post_reviews';"
 ```
 
-**Migration A — partial UNIQUE on `(post_id, track_id)`** (decision 2026-05-28):
-
-```sql
-CREATE UNIQUE INDEX CONCURRENTLY uq_post_reviews_post_track
-  ON post_reviews(post_id, track_id)
-  WHERE track_id IS NOT NULL;
-```
-
-Partial 인덱스로 두는 이유: `subject='album'` row 는 `track_id IS NULL` 이라 일반 UNIQUE 는 안 됨. 같이 도입할 `subject='album'` 측 유일 제약은 본 RFC scope 밖이라 미적용.
-
-**Migration B — FK `track_id` → `ON DELETE CASCADE`** (decision 2026-05-28):
-
-```sql
-ALTER TABLE post_reviews DROP CONSTRAINT post_reviews_track_id_fkey;
-ALTER TABLE post_reviews
-  ADD CONSTRAINT post_reviews_track_id_fkey
-  FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE;
-```
-
-`chk_post_reviews_target` (album_id XOR track_id 보장) 와 충돌 방지: track 행 삭제 시 해당 트랙 평점 행도 함께 제거되므로 orphan row 가 남지 않음.
-
-위 두 마이그레이션은 `docs/contracts/schema.sql` 과 `myblog_backend/.../schema_v0.sql` 양쪽에도 반영해서 다음 fresh DB 구축 시 재현되게 함.
-
-**Rollback**:
-- Migration A: `DROP INDEX uq_post_reviews_post_track;`
-- Migration B: FK 를 다시 `ON DELETE SET NULL` 로 ALTER. 단 cascade 동작을 가정한 후속 PR 이 머지된 뒤라면 worker / writer 영향 재검증 필요.
-- Table/enum 자체가 없으면: `schema_v0.sql:13-16,115-133` 을 forward-only 로 적용 (idempotent `IF NOT EXISTS`).
+**Rollback**: if missing, apply `schema_v0.sql:13-16,115-133` as a forward-only migration. No rollback needed (idempotent `IF NOT EXISTS`).
 
 ---
 
@@ -182,11 +156,15 @@ Add a "트랙 평가" section to the published post template. Fetches via the sa
 
 ---
 
+## Open questions
+
+1. **rating_scale: 10 or 5?** Roadmap memory says "음반 단위 0-5/0.5". Track ratings could match (consistent) or use the schema default 10 (more granularity for tracks specifically). **Blocks Step 5 UX and Step 2 default in the Pydantic schema.** Suggested default: 10 to match the schema; UI can present "/10" with 0.5 step.
+2. **Multiple track reviews per post per track — duplicates allowed?** Schema currently has no unique constraint on `(post_id, track_id)`. Plan assumes "one review per (post, track)" via UPSERT; either enforce in code (Step 2) or add a unique index (Step 0 follow-up). **Blocks Step 2 upsert SQL.**
+3. **What happens when a referenced track is deleted from the music catalogue?** Current FK is `ON DELETE SET NULL` for `track_id` — that would violate `chk_post_reviews_target` (track row would have neither album_id nor track_id). Need either `ON DELETE CASCADE` or row-level deletion in worker. **Blocks Step 0 if a migration is required.**
+4. **Batch endpoint atomicity** — all-or-nothing vs partial-success-with-error-list? Plan assumes all-or-nothing (one transaction). **Blocks Step 2 implementation.**
+
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
-| 2026-05-28 | **rating_scale = 5** (0–5 / 0.5 step, 앨범 척도와 통일). Pydantic schema default `scale: int = 5`, Frontend slider `min=0 max=5 step=0.5`. | Step 2, Step 5 |
-| 2026-05-28 | **`(post_id, track_id)` 유일 제약 = DB partial UNIQUE index** (`WHERE track_id IS NOT NULL`). 동시 요청에서도 row 1개 보장. UPSERT 는 `ON CONFLICT (post_id, track_id) WHERE track_id IS NOT NULL DO UPDATE`. | Step 0 (Migration A), Step 2 |
-| 2026-05-28 | **Track 삭제 시 = FK `ON DELETE CASCADE`**. `chk_post_reviews_target` 위반 방지를 위해 worker 코드가 아닌 DB 측에서 처리. | Step 0 (Migration B) |
-| 2026-05-28 | **Batch upsert = all-or-nothing (단일 트랜잭션)**. 하나라도 실패 시 전부 rollback, 4xx 응답에 첫 실패 사유 명시. Partial-success 응답 형식 미채택. | Step 2 |
+| | | |
