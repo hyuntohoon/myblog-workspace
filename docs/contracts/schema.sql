@@ -116,22 +116,25 @@ CREATE TABLE IF NOT EXISTS post_likes (
 -- Music Catalog — Artists
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS artists (
-  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  name        TEXT        NOT NULL,
-  spotify_id  TEXT        NOT NULL UNIQUE,
-  genres      JSONB       NOT NULL DEFAULT '[]'::jsonb,
-  aliases     JSONB       NOT NULL DEFAULT '[]'::jsonb,   -- Korean/alternate name aliases (Gemini-generated)
-  photo_url   TEXT,
-  popularity  INTEGER,
-  followers   BIGINT,
-  spotify_url TEXT,
-  views       INTEGER     NOT NULL DEFAULT 0,
-  ext_refs    JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            TEXT        NOT NULL,
+  spotify_id      TEXT        NOT NULL UNIQUE,
+  musicbrainz_id  TEXT,                                    -- nullable; UNIQUE only when present (see partial index below). 'MBID_NOT_FOUND' sentinel = lookup attempted and failed.
+  genres          JSONB       NOT NULL DEFAULT '[]'::jsonb,
+  aliases         JSONB       NOT NULL DEFAULT '[]'::jsonb, -- Korean/alternate name aliases (MusicBrainz-generated; PR-13)
+  photo_url       TEXT,
+  popularity      INTEGER,
+  followers       BIGINT,
+  spotify_url     TEXT,
+  views           INTEGER     NOT NULL DEFAULT 0,
+  ext_refs        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_artists_views_nonneg CHECK (views >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_artists_spotify_id ON artists(spotify_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_musicbrainz_id
+  ON artists(musicbrainz_id) WHERE musicbrainz_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_artists_popularity_followers_views
   ON artists(popularity DESC, followers DESC, views DESC);
 
