@@ -12,6 +12,8 @@
 
 `myblog_worker/worker/clients/musicbrainz_client.py:fetch_artist_mbid_and_aliases` 가 후보 채택 직전 **DB 에 같은 `musicbrainz_id` 가 이미 존재하면 그 후보를 거절** 하도록 한다. 결과: BUG-17 + BUG-15 머지 후에도 alias_fill 매 사이클 stuck 인 `j-hope` / `Kim Tae Hoon` / `dj friz` 3행이 다음 후보 (혹은 `MBID_NOT_FOUND` sentinel) 으로 자연 해소되어 WARNING 로그가 멎고 alias_fill 의 평균 진척이 사이클당 ≥1행 유지된다.
 
+**예상 outcome**: 3행의 1st 후보가 모두 이미 DB 점유 + 2nd 후보의 score 는 `_MIN_SCORE` 미통과 가능성이 높음 (MB 한국어 alias 인덱싱 빈약, [[plan.md#BUG-14]]) → 3행 전부 `'not_found'` sentinel 박힐 확률이 가장 높음. 이는 실패가 아니며, BUG-13 의 partial UNIQUE 가 `'not_found'` 를 인덱스에서 제외하지만 컬럼 자체는 NOT NULL 상태가 됨 → 다음 사이클 `WHERE musicbrainz_id IS NULL` 셀렉트에서 자연 제외되어 head 가 비워짐 (= eviction). 따라서 "head 자리 자연 해소" 의 본질 기전은 **partial UNIQUE 가 아니라 NULL→NOT NULL 전환에 의한 row pool 축소** 임.
+
 ## Non-goals
 
 - BUG-15 의 cross-check 자체 변경 (Spotify-genre country hint 는 그대로 보존).
@@ -90,6 +92,7 @@ UNIQUE 가 데이터 corruption 은 막지만 **fetch 단에서 거절 못 함**
 
 **Race**:
 - SELECT then UPDATE 사이 다른 row 가 같은 MBID 박을 가능성: alias_fill 은 단일 Lambda 인스턴스 + EventBridge cron → 동시 실행 없음. 만약 일어나도 UNIQUE 가 받아냄 (BUG-17 의 IntegrityError 경로).
+- **Self-MBID 회피**: `_is_mbid_taken(candidate.id)` 가 자기 자신의 MBID 도 잡는 시나리오 — 현 `generate_and_save_aliases` 는 `WHERE musicbrainz_id IS NULL` 행만 처리하므로 자기 행은 MBID 가 NULL 이라 self-collision 불가. 추후 refresh/retry 잡이 추가될 경우 (`musicbrainz_id IS NOT NULL` 도 처리하는 루프) `WHERE musicbrainz_id IS NULL OR musicbrainz_id != candidate.id` 형태로 가드 필요 — 현 PR scope 외, 본 RFC 의 assumption 으로 명시.
 - pre-check 는 **best-effort 최적화** 지 safety net 이 아님 — UNIQUE 가 safety.
 
 ## Steps
@@ -115,18 +118,25 @@ UNIQUE 가 데이터 corruption 은 막지만 **fetch 단에서 거절 못 함**
   - mock 3행: 1행 정상, 1행 pre-check 거절 후 다음 후보 정상, 1행 모든 후보 거절 → `MBID_NOT_FOUND`.
   - DB session.execute 의 SELECT 패치 (이미 있을 가능성 — conftest 확인 후 결정).
   - 결과: `succeeded=2`, `skipped_precheck=1`, `skipped_collision=0`, `MB lookup done` INFO 1줄.
+- `tests/integration/test_alias_fill_session_lifecycle.py` (**신설**, [[feedback-sa-session-lifecycle-mock-blind]] 의무):
+  - 실 SA engine (`TEST_DB_URL` 또는 conftest 의 in-memory Neon test branch). mock SELECT 가 잡지 못하는 connection / autocommit / SAVEPOINT 경계 검증.
+  - 케이스: 3행 처리 — row1 정상 commit → row2 pre-check (SELECT) → row2 reject → row3 정상 commit. row2 의 SELECT 가 row1 commit 후 새 transaction 에서 정상 동작하는지, 그리고 row3 commit 시 stale connection handle 사용 안 하는지 검증 (BUG-17 PR #21 의 root cause 재발 차단).
+  - assertion: `succeeded=2`, `skipped_precheck=1`, 그리고 DB 의 row2 가 NULL → 'not_found' 로 정상 UPDATE 됐는지 직접 SELECT.
 
 **Verification**:
 
 ```
-cd myblog_worker && pytest tests/test_musicbrainz_client.py tests/test_sync_service.py -v
+cd myblog_worker && pytest tests/test_musicbrainz_client.py tests/test_sync_service.py tests/integration/test_alias_fill_session_lifecycle.py -v
 ruff check worker/
 ```
+
+`tests/integration/` 는 `TEST_DB_URL` 미설정 시 `pytest.skip` collection-time ([[feedback-local-db-smoke-fallback]] 패턴). CI 는 항상 실행, 로컬은 사용자 env 에 따라.
 
 [[feedback-local-db-smoke-fallback]] — 실DB 미세팅이면 pytest + ruff 그린이면 충분, prod smoke 로 최종 검증.
 
 **Prod smoke** (post-merge, EventBridge 1주기 ≈ 15 min):
 
+0. **전제 — Lambda env `LOG_LEVEL=INFO` 임시 설정** (현 prod 필터가 WARNING+ 만 잡음, [[project-alias-fill-collision-followup]]). 1 사이클 관측 후 INFO → WARNING 원복. 항시 가시화는 별도 ops 개선 (BUG-18 scope 외).
 1. CloudWatch `/aws/lambda/blogWorkerLambda` 필터 `"MB pre-check reject"` — 3 known stuck artist 이름이 로그에 나타나는지.
 2. CloudWatch 필터 `"MB lookup done"` — `skipped_precheck` ≥ 1 + `Alias update failed` ERROR 미발생.
 3. DB ([[reference-database-url-psql]]):
@@ -161,3 +171,4 @@ ruff check worker/
 | 2026-05-29 | callback 주입 (vs DB engine 직접) — client 순수성 + 단위 테스트 단순성 우선.          | 1    |
 | 2026-05-29 | pre-check 는 best-effort 최적화. safety net 은 UNIQUE (BUG-13) + IntegrityError catch (BUG-17) 유지. | 1 |
 | 2026-05-29 | session lifecycle 회귀 ([[feedback-sa-session-lifecycle-mock-blind]]) 차단용 실엔진 통합 테스트 1개 의무. | 1 |
+| 2026-05-29 | feedback round (A) Verification 블록에 통합 테스트 파일 명시. (B) prod smoke 0단계 `LOG_LEVEL=INFO` 임시 설정 + 원복. (C) Goal 에 expected outcome=sentinel + (D) eviction 본질이 NULL→NOT NULL 전환임을 명문화. (E) self-MBID assumption 명시. | 1 |
