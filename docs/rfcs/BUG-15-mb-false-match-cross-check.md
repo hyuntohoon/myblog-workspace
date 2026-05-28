@@ -1,6 +1,6 @@
 # BUG-15: MusicBrainz false-match — Spotify-genre cross-check filter
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-05-29
 - **Plan row**: `plan.md` → BUG-15
