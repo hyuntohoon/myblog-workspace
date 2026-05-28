@@ -6,17 +6,22 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(no active rows — both 2026-05-29 priorities merged)_
+### FEAT-write-ux-bundle PR-1: 추천 트랙 UI (F) — P2
+
+- Scope: cross-repo (백엔드 + 워크스페이스 contract + 프론트). 사전 plan 의 "백엔드 완성, UI 만" 전제가 실측에서 깨짐 — `WritePostRequest` 에는 `recommended_tracks` 있으나 `UpdatePostRequest` + `PostDetailResponse` 누락 → edit/load 무음 드롭. 단일 일관 UX 위해 cross-repo 로 동시 처리.
+- Sequencing: PR-1a (myblog_backend) `UpdatePostRequest` + `PostDetailResponse` + service.update/get_by_id 의 recommended_tracks 처리 + tests + openapi.json export → PR-1b (workspace) `docs/contracts/openapi.json` regen → PR-1c (myblog_front) `api.gen.ts` regen + SubjectBlock 아래 트랙 선택 UI (최대 5곡, 선택 순서=position, optional note) + 발행 payload.
+- Verification: PR-1a 백엔드 pytest + openapi-verify CI / PR-1c 프론트 dev click-through (글 생성→발행→재진입에서 recommended_tracks 유지) + pnpm lint + astro check. prod smoke 는 PR-1c 머지 후 click-through 1회.
+- Rollback: PR 역순 revert. `post_recommended_tracks` 테이블은 이미 prod 존재 (스키마 변경 없음).
+- Status: 🟡 in progress (PR-1a 백엔드부터)
 
 ---
 
 ## Backlog
 
-### FEAT-write-ux-bundle: 추천 트랙 UI + 앨범 상세 확장 — P2
+### FEAT-write-ux-bundle PR-2: 앨범 상세 확장 (D) — P2
 
-- 트리거: FEAT-writer-cleanup 머지 완료 (2026-05-29). 진행 OK 받으면 시작
-- Scope: 다음 묶음. F (추천 트랙 UI — 백엔드 완성, UI 만) + D (TrackOut 확장 — duration/피처링/label)
-- Sequencing: PR-1 F → PR-2 D
+- 트리거: PR-1 완료 후
+- Scope: `myblog_music` (TrackOut 에 duration_sec/feat_artist_names, AlbumOut 에 label/release_country — Spotify 응답 있을 경우) + `myblog_front` (트랙 행 `mm:ss` + 피처링; 앨범 메타)
 - Status: ⚪ backlog
 
 ### CHORE-health-script: 운영 가시성 스크립트 — P3
