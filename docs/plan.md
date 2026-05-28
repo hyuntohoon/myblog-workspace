@@ -6,12 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **CHORE-search-orphans — sweep remaining search-related orphans surfaced after PR-13.**
-  Scope: music (`app/api/routers/artists.py` drop `get_spotify_artist_albums`; `app/services/artist_service.py` drop `list_albums_by_spotify_artist`; regen openapi.json) → workspace (auto-merged contract refresh) → front (delete `src/scripts/searchBarSpotify.client.ts`; regen `api.gen.ts`).
-  Order: music PR → workspace contract auto-merge → front PR.
-  Verification: music `pytest`; front `pnpm lint` + `pnpm exec astro check`; prod smoke `scripts/smoke.sh prod` (22/22 unchanged) + curl `GET /api/music/artists/spotify/{any}/albums` → 404 after deploy.
-  Rollback: `git revert` per repo; contract regen idempotent.
-  Status: drafted 2026-05-28 post-PR-13. The route had a single live caller (`searchBarSpotify.client.ts`), which itself is fully orphan — no astro page/component imported it. `external_candidates()` / `AlbumCandidateMapper` already gone with PR-13's basic_search sweep.
+_(none — CHORE-search-orphans wrapped 2026-05-28 with music #25 / workspace #74 / front #30. Prod smoke 22/22; `GET /api/music/artists/spotify/{any}/albums` → 404 confirmed in prod. Also closed stale auto-PRs #60 #62.)_
 
 ---
 
