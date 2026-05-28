@@ -6,11 +6,42 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(none)_
+### FEAT-search-grid-fix: 검색 결과 그리드 수정 (카드 크기 불균일 + 가로 스크롤) — P0
+
+- Scope: `myblog_front` (대부분) + 선조사 결과에 따라 `myblog_worker` (커버 인덱스)
+- RFC: `docs/rfcs/FEAT-search-grid-fix.md`
+- 묶음 근거: 2026-05-29 회의 v2. 스크린샷 진단으로 B(스크롤)+C(이미지 크기) 통합 1건 버그. 지금 바로 단독 PR.
+- Sequencing: 선조사 30분 → CSS 1순위 (`aspect-ratio: 1; object-fit: cover` + 반응형 grid) → (조건부) 워커 커버 인덱스 고정
+- Verification: dev server 검색 → 다건 결과 시각 확인 + 모바일 viewport
+- Rollback: 단일 revert. CSS 변경 위주라 안전
+- Status: 🟡 active (RFC draft 작성)
+
+### FEAT-writer-cleanup: Writer 발행 폼 dead 필드 제거 + 삭제 플로우 (archive + hard) — P1
+
+- Scope: `myblog_backend` (POST/PUT/DELETE posts + status 필터) + `myblog_front` (WriterApp 필드 제거 + 삭제 UI)
+- RFC: `docs/rfcs/FEAT-writer-cleanup.md`
+- 묶음 근거: 2026-05-29 회의 v2. tags/bestNew/genre/author/authorRole 전체 제거 확정. archive + hard delete 두 갈래 유지.
+- Sequencing: PR-1 백엔드(archive 분기 + ?hard=true + restore) → PR-2 프론트 dead 필드 제거 → PR-3 프론트 삭제 UI + 보관함
+- Verification: 로컬 pytest + pnpm lint + astro check + dev server UI click-through; 머지 후 prod smoke 인용
+- Rollback: 각 PR 독립 revert. archive 동작은 enum 활용이라 schema 변경 없음
+- Status: 🟡 active (RFC draft 작성)
 
 ---
 
 ## Backlog
+
+### FEAT-write-ux-bundle: 추천 트랙 UI + 앨범 상세 확장 — P2
+
+- 트리거: FEAT-writer-cleanup 전체 머지 후
+- Scope: 다음 묶음. F (추천 트랙 UI — 백엔드 완성, UI 만) + D (TrackOut 확장 — duration/피처링/label)
+- Sequencing: PR-1 F → PR-2 D
+- Status: ⚪ backlog
+
+### CHORE-health-script: 운영 가시성 스크립트 — P3
+
+- Scope: `scripts/health.sh` 에 aliases 빈배열 비율 + MBID_NOT_FOUND 비율 + post_metrics 신선도 SQL 추가
+- 곁다리 PR. FEAT-writer-cleanup PR-1 머지 후 사이에 끼워넣기
+- Status: ⚪ backlog
 
 ### BUG-14: MusicBrainz search 가 한글 artist name 을 못 잡음 — P2
 
@@ -33,3 +64,29 @@ _(none)_
 - 영향: Neon test branch 자체는 prod schema 와 분리지만 (a) 같은 organization 이라 lateral 공격 표면, (b) 향후 prod URL 도 같은 패턴으로 새어들 위험. test branch credential rotation 도 필요.
 - 방향(미확정): (1) fallback default 제거 → env 미설정 시 `pytest.skip` collection-time, (2) Neon URL 을 AWS Secrets Manager + GHA secret 으로 옮기고 conftest 는 env 만 읽기, (3) test branch 비번 rotate.
 - Status: ⚪ backlog
+
+---
+
+## Later (트리거 대기)
+
+### FEAT-view-redesign: View 페이지 디자인 개편 — 트리거 대기
+
+- 트리거: 사용자 디자인 예시(스크린샷/URL/Figma/손그림) 도착
+- 즉시 실행 계획: `~/.claude/plans/soft-hatching-raccoon.md` "G. View 디자인" 절 (Phase 1~4)
+- Status: 🔵 awaiting trigger
+
+### CHORE-seo-audit: 블로그 read 경로 OG/sitemap/structured data 조사 — 의향 대기
+
+- 트리거: 사용자 진행 OK
+- Step 0 (조사 30분): `src/pages/blog/[slug].astro` + 메인 OG meta, sitemap.xml, JSON-LD 현황
+- Step 1: 누락 있으면 `FEAT-seo-essentials` RFC; 의도된 상태면 닫기
+- Status: 🔵 awaiting decision
+
+---
+
+## Frozen (아이디어만, RFC 없음)
+
+확장 기능 후보. 의향 생기면 그때 RFC 시작. 지금 아무것도 안 함.
+
+- **FEAT-spotify-personalize-light** (K) — 1인용 약식: OAuth 1회 → refresh token → Secrets → EventBridge 주기 fetch → `/api/music/recommendations/my-top` → write 사이드바
+- **FEAT-new-release-feed** (L) — EventBridge 주기 → 본인 review artist 의 최근 앨범 fetch → `artist_new_releases` → `/api/music/feed/new-releases` → 메인 카드
