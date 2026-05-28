@@ -12,4 +12,4 @@ _(none)_
 
 ## Backlog
 
-- **PR-reviews-polymorphic** — see `docs/rfcs/PR-reviews-polymorphic-track-rating.md`. Per-track ratings (0–10/0.5) via `post_reviews`, 6 steps across `myblog_shared_db` / `myblog_backend` / `infra` / `myblog_front`. Status: draft RFC, 4 open questions (rating_scale, unique constraint, FK on track delete, batch atomicity).
+- **PR-reviews-polymorphic** — see `docs/rfcs/PR-reviews-polymorphic-track-rating.md`. Per-track ratings (0–5/0.5, 앨범 척도와 통일) via `post_reviews`, 6 steps across `myblog_shared_db` / `myblog_backend` / `infra` / `myblog_front`. 4 결정 확정 (Decisions log: scale=5, partial UNIQUE `(post_id, track_id)`, FK `ON DELETE CASCADE`, batch all-or-nothing). Status: draft RFC — 사용자가 `accepted` 로 promote 후 Step 0 (Neon prod schema verify + 2 migrations) 부터.
