@@ -36,7 +36,7 @@ Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.cla
 1. 🔒 Never work on `main`. First command: `git checkout -b <type>/<plan-id>-<desc>`.
 2. 🔒 Never commit secrets. Use AWS Secrets Manager / GitHub Actions Secrets.
 3. Never run rollback migrations against prod directly — human approval required.
-4. Never run >1 RFC step per session unless RFC says parallel is OK.
+4. Never run >1 RFC step per session — unless (a) RFC marks steps as `parallel`/`additive` or declares 단일 PR 머지, or (b) 사용자가 step 사이에 명시적으로 "다음 step" / "go" / "ㄱㄱ" 등으로 동의. 이유: 각 step 사이에 prod 관찰 + 방향 재확인 게이트를 강제하기 위함 (PR-reviews-polymorphic 사례 — 4 step prod 도달 후 전체 revert).
 5. 🔒 Never self-promote RFC Status. `draft` → `accepted` is human-only.
 6. 🔒 Never `terraform apply -target=...` without explicit go-ahead. Always run full plan; stop on unexpected drift.
 7. 🔒 (partial — force-push to main) Never push or merge without explicit "push" / "ok push". `git add` + `commit` are fine.
