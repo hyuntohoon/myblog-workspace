@@ -36,10 +36,10 @@ Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.cla
 1. 🔒 Never work on `main`. First command: `git checkout -b <type>/<plan-id>-<desc>`.
 2. 🔒 Never commit secrets. Use AWS Secrets Manager / GitHub Actions Secrets.
 3. Never run rollback migrations against prod directly — human approval required.
-4. Never run >1 RFC step per session — unless (a) RFC marks steps as `parallel`/`additive` or declares 단일 PR 머지, or (b) 사용자가 step 사이에 명시적으로 "다음 step" / "go" / "ㄱㄱ" 등으로 동의. 이유: 각 step 사이에 prod 관찰 + 방향 재확인 게이트를 강제하기 위함 (PR-reviews-polymorphic 사례 — 4 step prod 도달 후 전체 revert).
+4. Never run >1 RFC step per session — unless (a) the RFC marks steps as `parallel`/`additive` or declares a single-PR merge, or (b) the user explicitly OKs the next step (e.g. "next step", "go", "gogo"). Reason: each gap enforces a prod-observe + direction-recheck gate (see PR-reviews-polymorphic — 4 steps reached prod before full revert).
 5. 🔒 Never self-promote RFC Status. `draft` → `accepted` is human-only.
 6. 🔒 Never `terraform apply -target=...` without explicit go-ahead. Always run full plan; stop on unexpected drift.
-7. 🔒 (partial — force-push to main) Never push or merge without explicit "push" / "ok push". `git add` + `commit` are fine.
+7. 🔒 (partial — force-push to main) Never push or merge without explicit go-ahead. An explicit push approval covers PR open + CI pass + squash merge + branch delete as a single flow (stop and report on CI fail / merge conflict / unexpected drift). User can opt out per request with "push only" to halt at PR open. `git add` + `commit` need no approval.
 8. 🔒 Never skip git hooks (`--no-verify`, `--no-gpg-sign`) unless user says so.
 9. Never add a synchronous Spotify call to a user-facing endpoint.
 
@@ -70,7 +70,7 @@ Pre-merge (block merge if unchecked):
 - New/removed backend route → matching `infra/apigateway.tf` entry
 - Contract change → `openapi.json` regenerated + committed
 - Local smoke passes, result quoted in PR body
-- Frontend UI change → 실제 브라우저에서 변경된 UI 클릭으로 확인 (lint + `astro check` 만으로는 렌더링/이벤트 회귀를 못 잡음 — BUG-11→12 회귀 사례)
+- Frontend UI change → click through the change in a real browser (lint + `astro check` alone miss render/event regressions — see BUG-11 → BUG-12)
 
 Post-merge (block claiming "done" if unchecked):
 
