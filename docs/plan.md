@@ -6,13 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### BUG-11: Writer page music search filter — album/track/artist 동작 불일치
-
-- **Scope**: `myblog_front` only (SubjectBlock + types). 백엔드/계약/인프라 변경 없음.
-- **Verification**: pre-merge `pnpm lint` + `pnpm exec astro check`; post-merge prod smoke (4 필터 × 2 버튼 매트릭스 + 트랙 클릭 라우팅).
-- **Rollback**: 단일 PR revert.
-- **Status**: draft — RFC 작성 완료, 구현 대기.
-- **RFC**: [docs/rfcs/BUG-11-write-page-search-filter.md](rfcs/BUG-11-write-page-search-filter.md)
+_(none)_
 
 ---
 
