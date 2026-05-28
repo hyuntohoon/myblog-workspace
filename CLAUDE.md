@@ -26,7 +26,7 @@ myblog-workspace/
 ## Auth — two entry points
 
 - **CloudFront → backend** (most routes): `edge_guard` checks `x-origin-verify: <EDGE_SECRET>`. Bypassed when `ENV=local|dev`. Bearer tokens skip this check.
-- **API Gateway → backend** (`POST/PUT/DELETE /api/posts/*`, `POST /api/publish`): Cognito JWT at authorizer `6eia7l` before Lambda.
+- **API Gateway → backend** (`POST/PUT/DELETE /api/posts/*`, `POST /api/publish`): Cognito JWT validated at the API Gateway authorizer before Lambda (authorizer ID → `infra/README.md`).
 - **Local**: backend/music/worker bypass JWT when `ENV=local|dev`. Frontend on `localhost` uses dummy token `'local-dev'`; `isLoggedIn()` returns true.
 
 ## Hard rules
@@ -70,6 +70,7 @@ Pre-merge (block merge if unchecked):
 - New/removed backend route → matching `infra/apigateway.tf` entry
 - Contract change → `openapi.json` regenerated + committed
 - Local smoke passes, result quoted in PR body
+- Frontend UI change → 실제 브라우저에서 변경된 UI 클릭으로 확인 (lint + `astro check` 만으로는 렌더링/이벤트 회귀를 못 잡음 — BUG-11→12 회귀 사례)
 
 Post-merge (block claiming "done" if unchecked):
 
@@ -97,7 +98,7 @@ Triggers are **signals for when delegation is likely cheaper than direct work** 
 
 Subagents that produce code must run that repo's verification and quote the result.
 
-**Trigger bypass rule.** If the main agent already has the relevant files loaded in context, do not spawn a subagent solely to satisfy a trigger — subagents exist to load context the main agent lacks, not to mirror context it already has. Bypassed triggers should be acknowledged briefly ("explorer trigger matched but files already loaded — handling directly") so the bypass is visible, not hidden.
+**Trigger bypass rule.** If the main agent already has the relevant files loaded in context, do not spawn a subagent solely to satisfy a trigger — subagents exist to load context the main agent lacks, not to mirror context it already has. When bypassing a trigger, say so out loud (e.g. "explorer trigger matched but files already loaded — handling directly"). Invisible bypass = no bypass.
 
 ## Pointers
 
