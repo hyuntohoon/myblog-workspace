@@ -204,7 +204,8 @@ def run_authed_tests(host: dict[str, str], token: str | None) -> None:
           f"got category={b.get('category') if b else None}")
 
     # FEAT-writer-cleanup PR-1: default DELETE is a soft archive (200 + body),
-    # hard delete needs ?hard=true (204). Exercise both branches.
+    # PATCH /restore flips back to 'published', ?hard=true CASCADE-deletes (204).
+    # Exercise all three branches in order: archive → restore → re-archive → hard.
     s, b = request_json(host["backend_authed"] + f"/api/posts/{post_id}",
                         method="DELETE", token=token)
     check("DELETE /api/posts/{id} (default) soft-archives → 200",
@@ -212,6 +213,19 @@ def run_authed_tests(host: dict[str, str], token: str | None) -> None:
     check("DELETE default echoes status='archived'",
           isinstance(b, dict) and b.get("status") == "archived",
           f"body={b}")
+
+    # Restore the archived row → status should flip back to 'published'.
+    s, b = request_json(host["backend_authed"] + f"/api/posts/{post_id}/restore",
+                        method="PATCH", token=token)
+    check("PATCH /api/posts/{id}/restore returns 200", s == 200, f"status={s}, body={b}")
+    check("PATCH /restore echoes status='published'",
+          isinstance(b, dict) and b.get("status") == "published",
+          f"body={b}")
+
+    # Re-archive so the row ends up in a consistent state before hard-delete.
+    s, _ = request_json(host["backend_authed"] + f"/api/posts/{post_id}",
+                        method="DELETE", token=token)
+    check("DELETE again after restore → 200", s == 200, f"status={s}")
 
     # Hard-delete the archived row to clean up. ?hard=true still returns 204.
     s, _ = request_json(host["backend_authed"] + f"/api/posts/{post_id}?hard=true",
