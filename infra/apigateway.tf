@@ -79,6 +79,12 @@ resource "aws_apigatewayv2_route" "categories_post" {
   target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
 }
 
+resource "aws_apigatewayv2_route" "metrics_batch_post" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "POST /api/metrics/batch"
+  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
+}
+
 resource "aws_apigatewayv2_route" "posts_post" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "POST /api/posts"
