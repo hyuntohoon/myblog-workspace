@@ -20,7 +20,7 @@ myblog-workspace/
 ## Service boundaries
 
 - `/api/music/search/unified` is **DB-only**. Spotify access goes `candidates` → SQS → worker.
-- Gemini/MusicBrainz alias fill runs from EventBridge, not SQS. Their outage must not block album sync.
+- MusicBrainz alias fill runs from EventBridge, not SQS. Its outage must not block album sync.
 - Backend ↔ music split exists so Spotify outage can't affect posts.
 
 ## Auth — two entry points
