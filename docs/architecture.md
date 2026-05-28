@@ -130,7 +130,7 @@ Core blog API. Owns the post and category domain and is fully isolated from musi
 
 **Publishing subsystem** — `POST /api/publish` receives the post payload, generates an MDX file, and commits it to the blog content repo via the GitHub API. GitHub Actions picks it up from there (Astro build → S3 → CloudFront). `GITHUB_TOKEN` is loaded from `myblog/backend` Secrets Manager at cold start.
 
-**Metrics subsystem** — `POST /api/metrics/batch` returns like/comment counters for blog posts. Backed by an in-memory mock today (`InMemoryMetricsRepository`); a real backing store is tracked as **PR-metrics-real** in `docs/plan.md`. The handler shape already matches the published contract, so swapping the repository is a single-file change.
+**Metrics subsystem** — `POST /api/metrics/batch` returns like/comment counters for blog posts. Backed by `SqlMetricsRepository`, which reads `likes` / `comments_count` from `post_metrics` joined on `posts.slug` (PR-metrics-real, 2026-05-28). `InMemoryMetricsRepository` is retained as a test/local fallback; `app/di.py` wires the SQL implementation by default.
 
 **Design rationale** — Spotify outages must not affect post reads or writes. Keeping Cognito JWT validation inside this service narrows the auth surface area. Publishing absorbed from `myblog_publish` (ARCH-11) — auth is now Cognito JWT rather than edge secret, which is strictly stronger.
 
