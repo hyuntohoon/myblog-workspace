@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **PR-metrics-real** — backend swap merged (backend #25, workspace #77). Prod smoke blocked: `POST /api/metrics/batch` never wired in `infra/apigateway.tf` → always 404 in prod, frontend falls back silently. Infra fix in workspace #78 (terraform plan clean: 1 add, pre-existing cognito drift to resolve separately). Status: pending human terraform apply.
+- **PR-metrics-real** — backend swap + IaC route merged (backend #25, workspace #77 plan row, workspace #78 `aws_apigatewayv2_route.metrics_batch_post`). `terraform apply` not run yet — plan was clean for the new route (1 add) but flagged unrelated pre-existing `aws_cognito_user_pool_client.admin_client` drift; gated on human per Hard rule #6 (2026-05-27 Cognito incident precedent). Prod smoke (`POST /api/metrics/batch` against a known slug returning non-mock counters) verifies after apply. Status: pending human terraform apply.
 
 ---
 
