@@ -4,7 +4,7 @@
 
 A personal blog combined with a music review feature. Blog authoring, music search and sync, and static site publishing are each owned by an independent service.
 
-> Concrete resource IDs (pool IDs, distribution IDs, ARNs, queue URLs) live in `docs/infrastructure.md`, not here. This document describes intent and structure; that one describes what currently exists.
+> Concrete resource IDs (pool IDs, distribution IDs, ARNs, queue URLs) live in `infra/README.md`, not here. This document describes intent and structure; that one describes what currently exists.
 
 ---
 
@@ -105,6 +105,8 @@ Astro-based static site hosted on S3 and served through CloudFront. GitHub Actio
 
 Type contract with backend and music is generated from `docs/contracts/openapi.json` (merged spec, ARCH-12) via `pnpm generate:types` → `src/lib/api.gen.ts`. `PostPayload` is derived from `Backend_WritePostRequest`; do not hand-edit. CI fails if the committed `api.gen.ts` drifts from the spec.
 
+The merged spec is regenerated automatically: each service repo publishes its own `openapi.json`; on push-to-main a `repository_dispatch` notifies the workspace, which runs `scripts/merge_openapi.py` and opens an auto-PR (`chore: update merged OpenAPI spec`). Stale auto-PRs that were superseded by manual contract refreshes should be closed.
+
 ---
 
 ### myblog_backend
@@ -115,14 +117,20 @@ Core blog API. Owns the post and category domain and is fully isolated from musi
 
 | Method | Path | Auth |
 |--------|------|------|
-| `GET` | `/posts`, `/posts/:id` | None |
-| `POST` | `/posts` | Cognito JWT |
-| `PUT` | `/posts/:id` | Cognito JWT |
-| `GET` | `/categories` | None |
-| `POST` | `/categories` | Cognito JWT |
+| `GET` | `/api/posts`, `/api/posts/:id` | None |
+| `POST` | `/api/posts` | Cognito JWT |
+| `PUT` | `/api/posts/:id` | Cognito JWT |
+| `DELETE` | `/api/posts/:id` | Cognito JWT |
+| `GET` | `/api/categories` | None |
+| `POST` | `/api/categories` | Cognito JWT |
 | `POST` | `/api/publish` | Cognito JWT |
+| `POST` | `/api/metrics/batch` | None |
+
+`POST/PUT/DELETE /api/posts/*` and `POST /api/publish` flow through the API Gateway Cognito authorizer (`6eia7l`); other routes go through CloudFront with the `x-origin-verify` edge guard (CLAUDE.md "Auth — two entry points").
 
 **Publishing subsystem** — `POST /api/publish` receives the post payload, generates an MDX file, and commits it to the blog content repo via the GitHub API. GitHub Actions picks it up from there (Astro build → S3 → CloudFront). `GITHUB_TOKEN` is loaded from `myblog/backend` Secrets Manager at cold start.
+
+**Metrics subsystem** — `POST /api/metrics/batch` returns like/comment counters for blog posts. Backed by an in-memory mock today (`InMemoryMetricsRepository`); a real backing store is tracked as **PR-metrics-real** in `docs/plan.md`. The handler shape already matches the published contract, so swapping the repository is a single-file change.
 
 **Design rationale** — Spotify outages must not affect post reads or writes. Keeping Cognito JWT validation inside this service narrows the auth surface area. Publishing absorbed from `myblog_publish` (ARCH-11) — auth is now Cognito JWT rather than edge secret, which is strictly stronger.
 
@@ -136,12 +144,13 @@ Handles music search and Spotify sync triggers. The core design principle is **"
 
 ```
 [Basic search]  GET /search/unified
-  → DB ILIKE query → return results (no Spotify call — hard rule)
+  → DB ILIKE query → return UnifiedSearchResult (no Spotify call — hard rule)
 
 [Sync button]   GET /search/candidates
   → Cognito JWT required
   → Spotify API search
-  → ① return candidates immediately
+  → ① return CandidateSearchResult immediately (response_model_exclude_none=True
+       — only requested types appear in the response)
   → ② batch-enqueue album IDs to SQS (up to 20 per message)
 ```
 
@@ -149,10 +158,13 @@ Handles music search and Spotify sync triggers. The core design principle is **"
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/music/search/unified` | None | DB-first unified search |
-| `GET` | `/api/music/search/candidates` | Cognito JWT | Spotify candidates + SQS enqueue |
-| `GET` | `/api/music/albums/:id` | None | Album detail (DB-only) |
-| `GET` | `/api/music/albums/by-spotify/:spotify_id` | None | Album lookup by Spotify ID (DB-only) |
+| `GET` | `/api/music/search/unified` | None | DB-first unified search (`UnifiedSearchResult`) |
+| `GET` | `/api/music/search/candidates` | Cognito JWT | Spotify candidates + SQS enqueue (`CandidateSearchResult`, PR-12) |
+| `GET` | `/api/music/albums/:id` | None | Album detail by DB UUID (`AlbumDetail`, DB-only) |
+| `GET` | `/api/music/albums/by-spotify/:spotify_id` | None | Album lookup by Spotify ID (`AlbumDetail`, DB-only — returns 404 until worker syncs) |
+| `GET` | `/api/music/artists/:artist_id/albums` | None | Album list for a DB artist (`SearchResult`) |
+
+The legacy `GET /api/music/search?mode=` (`basic_search`) was removed in PR-13 (2026-05-28) along with its only caller; the legacy `GET /api/music/artists/spotify/:spotify_id/albums` was removed shortly after in CHORE-search-orphans for the same reason. Both moves are reversible from git history.
 
 ---
 
@@ -173,12 +185,15 @@ Receive SQS message (up to 20 album spotify_ids)
 **2. EventBridge-scheduled alias generation** (decoupled from sync)
 
 ```
-EventBridge rate(15 min) → worker (alias mode)
-  → SELECT artists missing aliases LIMIT 10
-  → Gemini generate → UPDATE artists.aliases
+EventBridge rate(15 minutes) → worker (event['source'] == 'aws.events')
+  → generate_and_save_aliases:
+      ① MusicBrainz lookup for artists with musicbrainz_id IS NULL
+         → UPDATE artists.musicbrainz_id + aliases (or MBID_NOT_FOUND sentinel)
+      ② Gemini fill for artists still missing aliases
+         → UPDATE artists.aliases
 ```
 
-Separated from the SQS path so Gemini latency cannot block album sync, and so a Gemini outage cannot fail SQS messages.
+Separated from the SQS path so MusicBrainz/Gemini latency cannot block album sync, and so an outage in either external service cannot fail SQS messages. The MBID_NOT_FOUND sentinel prevents repeat lookups for artists MusicBrainz doesn't know about.
 
 **Key design points**
 
@@ -191,17 +206,19 @@ Separated from the SQS path so Gemini latency cannot block album sync, and so a 
 
 ## Shared Infrastructure
 
-Concrete IDs/ARNs in `docs/infrastructure.md`.
+Concrete IDs/ARNs in `infra/README.md`.
 
 | Infrastructure | Used by | Notes |
 |----------------|---------|-------|
 | **Neon PostgreSQL** | `myblog_backend`, `myblog_music`, `myblog_worker` | Serverless Postgres; connection via pooler URL. Not AWS RDS. |
-| **Amazon SQS** | `myblog_music` (enqueue), `myblog_worker` (consume) | Standard queue with DLQ + `ReportBatchItemFailures` |
-| **AWS Cognito** | `myblog_backend` and `myblog_music` (JWT validation), `myblog_front` (login) | JWKS-based validation; bypassed when `COGNITO_USER_POOL_ID` unset (dev) |
+| **Amazon SQS** | `myblog_music` (enqueue), `myblog_worker` (consume) | FIFO queue (`album-sync.fifo`) with DLQ + `ReportBatchItemFailures` |
+| **AWS Cognito** | `myblog_backend` and `myblog_music` (JWT validation), `myblog_front` (login) | JWKS-based validation; bypassed when `ENV=local\|dev` or `COGNITO_USER_POOL_ID` unset |
 | **AWS Secrets Manager** | All four Lambdas | One secret per service, loaded once per cold start via `@lru_cache` |
-| **AWS EventBridge** | `myblog_worker` (alias generation schedule) | `rate(15 min)` |
+| **AWS EventBridge** | `myblog_worker` (alias generation schedule) | `rate(15 minutes)` — triggers `generate_and_save_aliases` (MusicBrainz + Gemini) |
 | **S3 + CloudFront** | `myblog_front` (static serving) | CloudFront function rewrites `uri` → `uri + '/index.html'` for Astro directory format |
 | **Spotify Web API** | `myblog_music` (search), `myblog_worker` (data collection) | Two separate clients by design — see ADR 0004 |
+| **MusicBrainz API** | `myblog_worker` (alias generation) | Looks up `musicbrainz_id` + aliases for artists; sentinel `MBID_NOT_FOUND` prevents repeat lookups |
+| **Gemini API** | `myblog_worker` (alias generation fallback) | Fills aliases for artists MusicBrainz didn't resolve |
 | **GitHub API / Actions** | `myblog_backend` (MDX commits via `/api/publish`, build trigger) | `GITHUB_TOKEN` in `myblog/backend` secret (ARCH-11) |
 
 ---
