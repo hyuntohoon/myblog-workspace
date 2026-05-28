@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(none — CHORE-search-orphans wrapped 2026-05-28 with music #25 / workspace #74 / front #30. Prod smoke 22/22; `GET /api/music/artists/spotify/{any}/albums` → 404 confirmed in prod. Also closed stale auto-PRs #60 #62.)_
+- **PR-metrics-real** — backend #25 swaps `InMemoryMetricsRepository` → `SqlMetricsRepository` reading `post_metrics.likes/comments_count` joined on `posts.slug`. API shape unchanged, no contract regen. Scope: backend only. Verification: 23/23 pytest + prod smoke `POST /api/metrics/batch` against a known published slug. Rollback: revert single PR (no data change). Status: PR open, awaiting CI + merge.
 
 ---
 
