@@ -25,10 +25,6 @@ _(no active rows — FEAT-write-ux-bundle PR-2 shipped 2026-05-29, see git log)_
 
 - RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` (Status: accepted)
 
-### BUG-19: writer 음악 검색 — feat 아티스트 누락 + artist→album/track 확장 부재 — P2
-
-- RFC: `docs/rfcs/BUG-19-writer-music-search-context.md` (Status: draft)
-
 ### BUG-16: tests/conftest.py 에 Neon test branch DB 비번 평문 — P3
 
 - Scope: `myblog_worker` (`tests/conftest.py`)
