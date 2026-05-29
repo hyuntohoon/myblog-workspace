@@ -6,7 +6,14 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(no active rows — BUG-15 Step 5 reverted 2026-05-29, BUG-15 종료)_
+### FEAT-write-ux-bundle PR-2: 앨범 상세 확장 (D)
+
+- Scope: `myblog_music` (`AlbumOut.label` 노출 + `TrackOut.feat_artist_names` 도출) + workspace (plan + merged contract) + `myblog_front` (앨범 상세 헤더 메타 + 트랙 컬럼 mm:ss/feat)
+- Order: music → workspace contract → front (CI api.gen.ts drift gate)
+- `release_country` 는 PR-2 스코프 OUT — Spotify album 응답에 단일 country 필드 없음, 후속 RFC 로 분리
+- Verification: music `pytest tests/test_unit.py` ; front `pnpm lint` + `astro check` + 브라우저 매트릭스 (label 있음/없음 × feat 있음/없음) ; prod smoke 후 GET /api/music/albums/{id} 응답에 label/feat_artist_names key 확인
+- Rollback: 3 PR revert (`feat_artist_names` 는 default `[]`, `label` 은 Optional — FE 가 새 필드 사용 전까지 backward-compatible)
+- Status: 🟢 in_progress (PRs: music hyuntohoon/myblog_music#26, workspace #pending, front #pending)
 
 ---
 
