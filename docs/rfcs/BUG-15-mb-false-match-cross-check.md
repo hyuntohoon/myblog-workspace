@@ -144,9 +144,9 @@ cd myblog_worker && pytest tests/test_musicbrainz_client.py -v
 
 ---
 
-### Step 4 — country=NULL pass-through tiebreaker (draft, 2026-05-29 Step 2 reset 후속)
+### Step 4 — country=NULL pass-through tiebreaker (2026-05-29 Step 2 reset 후속)
 
-**Status**: draft — 사용자 accept 필요. [[feedback-brainstorm-iterate-before-commit]] 1라운드 완료, accept 후 plan.md row 등록.
+**Status**: accepted (사용자 OK 2026-05-29).
 
 **배경**: Step 2 reset +1h31m 표본 점검 (86행 중 ~6 사이클 처리분) 에서, hint=KR + candidate.country=NULL 조합의 sticky false-match 가 ≥6행 관찰됨.
 
