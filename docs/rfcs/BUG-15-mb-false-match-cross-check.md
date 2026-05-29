@@ -295,6 +295,180 @@ SELECT spotify_id, name, musicbrainz_id, aliases
 
 ---
 
+### Step 5 — surname-token gate (2026-05-29 Step 4 mini-reset borderline 후속)
+
+**Status**: draft.
+
+**관통 원칙**: 본 Step 의 1순위 방어 대상은 **정상 매치의 과잉 거절**. Step 5 가 설계 단계에서 단순 surname-substring (algorithm C) 을 부결한 이유도 동일 (측정 SQL 의 ~60% false-positive 가 한국 가수 영문 stage ↔ 한글 alias 패턴을 정상 매치까지 거절시키는 실패 모드). 본 RFC 의 **모든 수치 임계값 (길이 캡 10, surname 최소 길이 2, 토큰 분기 기준) 은 잠정값** — Step 5 배포 후 더 큰 라벨셋으로 재검토 대상.
+
+**배경**: Step 4 mini-reset (PR #133) prod 검증에서 6 대상 중 5 명확 개선, 1 borderline 잔존:
+
+- `Suh Young Eun` (Spotify) → MB `Young Eun Lee` (`3864ea50...`, KR Person). candidate.country=KR + alias 한글 보유로 Step 4 까지 통과하지만 사람이 다름. 신호: Spotify name 의 surname-token (`Suh`) 이 candidate primary name + aliases 어디에도 substring 으로 등장 X.
+
+**Prod 측정** (2026-05-29 측정 SQL `/tmp/bug15-step5-measure.sql`):
+
+| 분모 / 의심 | 값 |
+|---|---|
+| KR 후보 전체 (musicbrainz_id non-sentinel + KR-genres) | 73 |
+| 측정 분모 (aliases 비어있지 않음) | 46 |
+| surname-substring 미매치 카운트 | 34 (74% of measurable) |
+| 표본 10 사람 라벨링 | likely false-match 3, borderline 1, 정상 6 |
+
+→ 의심율 74% 중 ~60% 는 측정 false-positive. 한국 가수 영문 stage name ↔ 한글 alias 패턴 (B.I/CL/GooseBumps/MILLHAM/PEEJAY 류) 이 측정 SQL 에 잘못 걸림. 원인: `artists.aliases` 에 MB primary name 미저장이라 측정만으론 정확 신호 못 잡음. 실제 worker 알고리즘은 `candidate.name` 들고 있어 더 정확. **실제 false-match 추정 ~30-40% (4-18 / 46행).**
+
+표본 likely false-match — **본 게이트가 의도적으로 잡는 대상** (Step 5 mini-reset 대상):
+
+- `Dragon Pony` → MB `Vylet Pony` (영문 alias 만, surname 무신호)
+- `Lil Moshpit` → MB `이휘민` (Suh Young Eun 와 같은 패턴)
+- `Suh Young Eun` (Step 4 잔존)
+
+표본 별도 이슈 — **본 게이트가 의도적으로 잡는 대상 아님**, mini-reset 제외:
+
+- `IU&Kim Yuna` → MB `YUNA` 단일 인물. Spotify 가 `IU + Kim Yuna` 콜라보를 한 행으로 표기 → MB 단일 인물 매칭 시스템의 구조적 한계로 한 인물에 매칭됨. surname-gate 가 우연히 거절 (토큰화 `["IU&Kim", "Yuna"]` → surname `iu&kim` 이 haystack 미매치) 하지만 이는 의도된 신호 아님. mini-reset 대상 제외, **별도 이슈 (콜라보/feat 행 매칭 전반)** 로 분리. 측정 집계에서도 surname-gate 효과로 카운트하지 않음.
+
+**Non-goals**:
+
+- BUG-14 (한글 name 의 MB 검색 자체 실패) — MB primary name + aliases 가 모두 한글만이고 라티나이즈 alias 자체 없는 진짜 KR artist 가 latinized Spotify name 으로 들어오면 false-negative. BUG-14 영역.
+- JP/CN region 확장 — Step 4 §Open Q3 의 "Step 5 (JP/CN hint widening)" 라벨은 placeholder. 본 Step 5 는 KR 한정 surname-token gate 로 scope 변경. JP/CN 은 별도 step 또는 RFC.
+- Step 4 mini-reset 의 sentinel `not_found` 5 행 (V.I/JA$/Jimmy Paige/SUGA/Rocky L) — sentinel 은 EventBridge 가 안 건드림.
+- 콜라보 / feat 행 매칭 (`IU&Kim Yuna` 류, Spotify 가 다수 인물을 한 행으로 표기) — MB 단일 인물 매칭 시스템의 구조적 한계. surname-gate 가 우연히 거절할 수는 있지만 의도된 신호 아님. **별도 이슈**.
+- ILLSON 류 1-토큰 borderline (1-토큰 면제 룰 안에서 통과되지만 실제 false-match 의심) — 본 게이트 신호 부재. MB 후보 직접 확인 후 진짜 오매칭이면 **별도 작은 PR 로 deny-list** 처리 (이번 PR 미포함).
+
+**파일**: `myblog_worker/worker/clients/musicbrainz_client.py`
+
+**변경 안**:
+
+1. 신규 helper `_spotify_name_matches_candidate(spotify_name, candidate_name, raw_aliases) -> bool`:
+
+   ```python
+   def _spotify_name_matches_candidate(
+       spotify_name: str,
+       candidate_name: str,
+       raw_aliases: list[dict],
+   ) -> bool:
+       tokens = [t for t in (spotify_name or "").split() if t]
+       # 핵심 면제 신호 = 토큰 수 == 1 (= 본명 아님, 무대명). 한국 가수 영문
+       # 짧은 무대명 (B.I/CL/BewhY/GooseBumps/PEEJAY) 은 MB 가 한글 alias 만
+       # 들고 있는 정상 패턴이라 surname-substring 으로 못 잡음 → 면제 안 하면
+       # 정상 매치를 폭증 거절. 길이 ≤ 10 캡은 잠정 안전장치 (prod 표본
+       # 최댓값 GooseBumps=10) — 11+ 1-토큰 무대명이 false-match 로 관찰되면
+       # 임계 조정 또는 별도 신호 추가. 본문 §Open Q1 참조.
+       if len(tokens) == 1 and len(spotify_name or "") <= 10:
+           return True
+       surname = tokens[0].lower() if tokens else ""
+       if len(surname) < 2:
+           return True  # 1글자 라티나이즈 토큰은 substring 신호 약함
+       haystack = " ".join(
+           [candidate_name or ""] + [a.get("alias", "") for a in raw_aliases]
+       ).lower()
+       return surname in haystack
+   ```
+
+2. **호출자 변경** (`fetch_artist_mbid_and_aliases`) — Step 4 hangul-tiebreak 분기 이후, accept 직전:
+
+   ```python
+   # Step 4 (existing) — country=NULL pass-through hangul tiebreaker
+   if hint == "KR" and not candidate.get("country"):
+       if not _aliases_have_hangul(raw_aliases):
+           logger.info("MB hangul-tiebreak reject: ...")
+           continue
+
+   # BUG-15 Step 5 — surname-token gate (hint=KR 한정, country=KR 도 포함)
+   if hint == "KR":
+       if not _spotify_name_matches_candidate(
+           name, candidate.get("name", ""), raw_aliases
+       ):
+           logger.info(
+               "MB surname-gate reject: name=%s candidate=%s mbid=%s",
+               name, candidate.get("name"), mbid,
+           )
+           continue
+
+   aliases = [...]  # 기존 추출
+   return mbid, aliases
+   ```
+
+3. **추가 MB API call 0** — `candidate.name` 은 `search_artists` 응답에 이미 포함, `raw_aliases` 는 Step 4 가 이미 가져옴. pure CPU.
+
+4. **로깅**: `"MB surname-gate reject"` 분리 — Step 1 `"MB cross-check reject"`, Step 4 `"MB hangul-tiebreak reject"` 와 CloudWatch 필터 따로 추적. [[reference-prod-lambda-loglevel]] 동일 제약.
+
+**Suh Young Eun 검증** (예상):
+
+- tokens=`["Suh","Young","Eun"]`, len=13 → 단일 토큰 면제 X.
+- surname="suh", haystack=`"young eun lee 이영은 ..."` → `"suh" not in` → **reject** ✓.
+
+**정상 한국식 본명 검증** (예: `Choi Jae Seong` → MB primary `최재성`, aliases `["Choi Jae Seong", ...]`):
+
+- surname="choi", haystack 에 `"choi"` (alias 내) → **accept** ✓.
+- MB primary name + aliases 모두 한글만이고 라티나이즈 alias 자체 없으면 → reject (BUG-14 영역, false-negative 인정).
+
+**짧은 stage name 면제 검증** (prod 표본 적용):
+
+| Spotify name | tokens, len | 분기 | 결과 |
+|---|---|---|---|
+| B.I | 1, 3 | 면제 | accept (정상) ✓ |
+| CL | 1, 2 | 면제 | accept (정상) ✓ |
+| BewhY | 1, 5 | 면제 | accept (정상) ✓ |
+| PEEJAY | 1, 6 | 면제 | accept (정상) ✓ |
+| MILLHAM | 1, 7 | 면제 | accept (정상) ✓ |
+| GooseBumps | 1, 10 | 면제 | accept (정상) ✓ |
+| ILLSON | 1, 6 | 면제 | accept (borderline; deny-list 영역) |
+| Dragon Pony | 2, 11 | gate, surname="dragon" | reject ✓ (의도) |
+| IU&Kim Yuna | 2, 11 | gate, surname="iu&kim" (split 공백 기준 `["IU&Kim", "Yuna"]`) | reject — **콜라보 구조적 한계, 의도 아님** |
+| Lil Moshpit | 2, 11 | gate, surname="lil" | reject ✓ (의도) |
+| Suh Young Eun | 3, 13 | gate, surname="suh" | reject ✓ (의도) |
+
+**테스트** (`tests/test_musicbrainz_client.py`):
+
+- `_spotify_name_matches_candidate` parametrize:
+  - 면제 그룹: `("B.I", "B.I", [{"alias": "비아이"}])` → True, `("CL", "CL", [{"alias": "이채린"}])` → True, `("GooseBumps", "GooseBumps", [{"alias": "구스범스"}])` → True (length=10 경계).
+  - 다토큰 surname 매치: `("Choi Jae Seong", "최재성", [{"alias": "Choi Jae Seong"}])` → True (alias 내), `("Choi Jae Seong", "Choi Jae Seong", [{"alias": "최재성"}])` → True (primary name 내).
+  - 다토큰 surname 미매치: `("Suh Young Eun", "Young Eun Lee", [{"alias": "이영은"}])` → False, `("Lil Moshpit", "이휘민", [{"alias": "이휘민"}])` → False, `("Dragon Pony", "Vylet Pony", [{"alias": "Pony!"}])` → False.
+  - 가드: `("", "Foo", [])` → True (빈 이름은 차단 안 함), `("X Y", "Z", [])` → True (1글자 surname).
+- `fetch_artist_mbid_and_aliases` 통합:
+  - hint=KR + Step 1/4 통과 + surname-gate fail → 다음 후보 (다음 후보 없으면 `MBID_NOT_FOUND`).
+  - hint=KR + Step 1/4 통과 + surname-gate pass → accept.
+  - hint=None → surname-gate 비활성 (현행 행동 보존).
+- fixture: `tests/fixtures/mb_suh_young_eun_search.json` (Spotify "Suh Young Eun" 입력에 대한 search 응답 sanitized), `mb_suh_young_eun_detail.json` (alias-list 응답).
+
+**Verification (local)**:
+
+```
+cd myblog_worker && pytest tests/test_musicbrainz_client.py -v
+ruff check worker/
+```
+
+Local smoke (DB optional): pytest + ruff + 신규 surname-gate 단위 테스트 그린 ([[feedback-local-db-smoke-fallback]]).
+
+**Prod smoke** (post-merge, EventBridge 1주기):
+
+- CloudWatch 필터 `"MB surname-gate reject"` — prod LOG_LEVEL=WARNING ([[reference-prod-lambda-loglevel]]) 이면 INFO 안 잡힘. DB 증거로 우회.
+- DB 사후 점검 — mini-reset 후 다음 EventBridge 사이클에서 3 표본 행이 sentinel `not_found` 또는 진짜 KR Person MBID 로 전환됐는지 (IU&Kim Yuna 는 콜라보 별도 이슈로 제외):
+
+  ```sql
+  SELECT spotify_id, name, musicbrainz_id, aliases
+    FROM artists
+   WHERE spotify_id IN (
+     '1uQ8BQhLtGMfK8PS3UAdNX', -- Suh Young Eun (Step 4 잔존)
+     '0tVSrjQ0NpDlecsJwGmrMy', -- Lil Moshpit
+     '2aRhzujDfJ1mVe2XdddXYL'  -- Dragon Pony
+   );
+  ```
+
+**Step 4 패턴 동일 mini-reset 의존성**: Step 5 머지 후 위 3 spotify_id mini-reset 필요 — `scripts/bug15-step5-mini-reset.sql` 별도 PR. 사전 SELECT 백업 캡처 의무. **IU&Kim Yuna 는 콜라보 매칭 별도 이슈로 분리, 본 reset 미포함**.
+
+**Rollback**: PR revert. helper 1개 + 호출자 분기 추가만이라 데이터 mutation 없음. mini-reset 은 백업 CSV 로 원본 복구.
+
+**Open questions**:
+
+1. **단일 토큰 stage name 길이 임계** — 핵심 면제 신호는 **토큰 수 == 1** (본명 아님 = 무대명). 길이 캡 ≤ 10 은 잠정 안전장치 수준 — prod 표본 최댓값 (GooseBumps=10) 에 맞춘 과적합 값이라 라벨셋 커지면 재검토 필요. 안전장치를 조이지 않는 (= 7~8 로 낮추지 않는) 이유는 정상 매치 (GooseBumps/MILLHAM 등) 가 도리어 거절되는 실패 모드가 1순위 방어 대상이기 때문. **잠정**: 10, 배포 후 라벨셋 ≥30 시점에 재검토.
+2. **surname-token = 첫 토큰 vs 마지막 토큰** — 한국식 라티나이즈는 성-first ("Suh Young Eun") 또는 이름-first reverse ("Young-Eun Suh") 둘 다 가능. substring 검사가 양방향 보호 (alias 토큰 순서 무관). 첫 토큰만 검사해도 alias 가 reverse 형태 라티나이즈 됐다면 통과. **잠정**: 첫 토큰만 (배포 후 재검토).
+3. **artists.aliases 에 MB primary name 같이 저장?** — 측정 SQL false-positive 60% 가 이걸로 해결되지만 schema 변경 + BUG-15 scope 밖. **결정**: 안 함. 측정 한계는 인정.
+4. **hint=None (영어권 / 일본) 후보에도 surname-gate 적용?** — **결정: 본 RFC 에서 안 함, BUG-15 는 KR 한정으로 닫음**. 영어권 무대명은 성씨 구조를 안 따르고 (Dragon Pony 류, "X feat. Y" 표기 다양), 게이트 적용 시 정상 매치 대량 거절 위험 — 이번에 algorithm C 단독 부결한 실패 모드와 동일. EN/JP prod 측정도 전무 → "별도 티켓, prod 측정 → 표본 라벨링 먼저" 규율로 미룸. KR 만으로 닫는 이유는 한국 가수의 성-first 라티나이즈 관습 + ko-KR genres 신호가 게이트 트리거 키로 안정적이기 때문.
+5. **ILLSON 류 borderline (1-토큰 + 길이 ≤10 면제 통과 + 실제 false-match 의심)** — surname-gate 신호 부재. **결정: Step 5 PR 미포함**. 이유 (a) borderline 라 증거 불충분, (b) 알고리즘 PR 에 수동 데이터 패치 (deny-list) 섞으면 측정/롤백이 더러워짐 (algorithm 효과와 manual hardcode 효과가 한 PR 안에 섞임). 후속: ILLSON 의 진짜 MB 후보를 사람이 직접 확인 → 진짜 오매칭 확인되면 **별도 작은 PR 로 deny-list** (`musicbrainz_id = 'not_found'` 수동 박기) 처리.
+
+---
+
 ## Open questions
 
 1. **`_COUNTRY_HINTS` 초기 매핑 범위** — K-pop / J-pop / British / American 4종으로 시작하고 prod 로그 보며 늘릴지, 시작부터 더 넓게 잡을지. (Step 1 영향. 좁게 시작 추천 — false-negative 줄이기 우선.) **2026-05-29 결정**: 좁게 시작이 prod 에서 부정 효과 (한국 아티스트의 ko-KR localized genres → cross-check 비활성 → false-match 통과). Step 3 (Korean hint widening) 으로 추가. [[project-prod-artists-genres-korean]] 확인.
@@ -313,3 +487,5 @@ SELECT spotify_id, name, musicbrainz_id, aliases
 | 2026-05-29 | Step 3 (Korean hint widening) 추가 — BUG-18 prod smoke (01:06 UTC) 의 false-match 누적 가속화 부작용으로 우선순위 P1. needle 추가: `"한국"` / `"케이팝"` / `"k-발라드"` → KR. JP/CN 등은 다음 라운드. | 3 |
 | 2026-05-29 | Step 2 (known-bad row reset) 활성화 — Step 3 머지 + 1 사이클 관찰 후. 대상은 K* genres + musicbrainz_id NOT NULL && != 'not_found'. 사전 SELECT 캡처 의무. | 2 |
 | 2026-05-29 | Step 4 (country=NULL pass-through tiebreaker) draft 추가 — Step 2 reset +1h31m prod 표본에서 V.I/JA$/SUGA 류 sticky false-match (≥6행) 관찰. candidate alias 의 한글 존재 여부가 결정적 신호. Option A (추가 MB API 호출로 alias hangul 체크) 채택, B (이름 시그널만) 와 E (score 가중치) 는 효과/임계 튜닝 이슈로 부결. | 4 |
+| 2026-05-29 | Step 5 (surname-token gate) draft 추가 — Step 4 mini-reset 후 borderline 잔존 (Suh Young Eun → "Young Eun Lee") + prod 측정 (46 measurable, 의심 34, 실제 false-match 추정 30-40%) 대응. 알고리즘 C' = 1-토큰 stage name 면제 (length ≤ 10) + 다토큰 surname-token substring on `candidate.name + aliases`. 단순 C (surname substring 단독) 는 측정 SQL 의 60% false-positive 가 한국 가수 영문 stage ↔ 한글 alias 패턴 (B.I/CL/GooseBumps 등) 미보호로 그대로 prod 적용 시 정상 매치 폭증 거절. hint=KR 한정, country=KR / country=NULL hangul-pass 양쪽 모두 추가 게이트. | 5 |
+| 2026-05-29 | Step 5 검토 라운드 결정 (관통 원칙: 정상 매치 과잉 거절 1순위 방어, 모든 수치 임계 잠정). (a) 길이 임계 10 유지 — prod 표본 최댓값 (GooseBumps) 과적합값임을 본문에 명시, 핵심 면제 신호는 토큰 수==1, 길이 캡은 안전장치 수준 (조이지 않음), 라벨셋 ≥30 시점 재검토. (b) mini-reset 4→3 (IU&Kim Yuna 제외) — 콜라보 행은 MB 단일 인물 매칭 시스템 구조적 한계로 별도 이슈 분리, 토큰화 동작 (`["IU&Kim", "Yuna"]`) 본문 명시 + 게이트 우연 reject 와 의도 reject 구분으로 측정 집계 오염 방지. (c) ILLSON deny-list 본 PR 미포함 — borderline 증거 불충분 + 알고리즘 PR 에 수동 데이터 패치 섞으면 측정/롤백 오염, MB 후보 직접 확인 후 진짜 오매칭이면 별도 작은 PR. (d) hint=None (EN/JP) surname-gate 확장 안 함 — 영어권 무대명 성씨 구조 미사용 → 게이트 적용 시 정상 매치 거절 위험이 algorithm C 단독 부결한 실패 모드와 동일, EN/JP prod 측정 전무, "별도 티켓, prod 측정 + 표본 라벨링 먼저" 규율로 미룸 → **BUG-15 는 KR 한정으로 닫음**. | 5 |
