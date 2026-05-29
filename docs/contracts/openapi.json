@@ -1704,6 +1704,13 @@
             ],
             "title": "Duration Sec"
           },
+          "feat_artist_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Feat Artist Names",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "string"
