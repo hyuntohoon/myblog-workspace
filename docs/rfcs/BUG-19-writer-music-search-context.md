@@ -1,155 +1,165 @@
-# BUG-19: writer 음악 검색 — feat 아티스트 누락 + artist→album/track 확장 부재
+# BUG-19: writer music search — 1-hop cross-expansion + full participating artist display
 
 - **Status**: draft
 - **Owner**: TBD
-- **Created**: 2026-05-29
+- **Created**: 2026-05-29 (redesigned 2026-05-30)
 - **Plan row**: `plan.md` → BUG-19
 
 ---
 
 ## Goal
 
-글쓰기 페이지 (`myblog_front/src/components/writer/SubjectBlock.tsx`) 와 전역 검색바 (`myblog_front/src/scripts/searchBarDb.client.ts`) 의 음악 검색 결과에서, 한 트랙에 참여한 모든 아티스트가 곡 제목 텍스트에 "feat. X" 가 박혀있는지와 무관하게 표시된다. DB · worker sync 는 이미 `track_artists` N:N 으로 모든 참여 아티스트를 정상 저장하고 있고, 같은 백엔드의 `AlbumDetail.TrackOut.feat_artist_names` 가 이미 list 로 노출 중인 비대칭만 해소한다.
-
-artist 이름으로 검색했을 때 그 artist 의 album/track 까지 함께 나오게 하는 "related search" 는 **본 RFC 의 Step 1 범위 밖**이고, Step 1 prod 관찰 후 별도 결정한다 (Step 2 placeholder 참조).
+On any music-search query in the writer page (`myblog_front/src/components/writer/SubjectBlock.tsx`) and the global search bar (`myblog_front/src/scripts/searchBarDb.client.ts`), the unified DB endpoint performs literal matching across artist / album / track, then **expands one hop** along the existing relations, then buckets, dedups, ranks, and returns all three buckets in a single response. Track rows display every participating artist — `${primary} (feat. Y, Z)` — irrespective of whether the track title text already contains "feat. X". The two symptoms previously framed as separate work items (feat-artist display + artist → album / track related search) are one feature with one mechanism.
 
 ## Non-goals
 
-- artist match → 그 artist 의 album/track 자동 보강 (related search). Step 2 의 사전 결정 대상.
-- ranking / cross-bucket dedup / 새 endpoint 설계. Step 2 가 필요할 때 결정.
-- Spotify sync 의 track-artist 저장 로직 변경. 이미 정상 (`myblog_worker/worker/service/sync_service.py:105-110, 186-198`).
-- MusicBrainz alias 기반 검색 정교화. BUG-14 영역.
-- `AlbumDetail.TrackOut` 의 기존 `feat_artist_names` 구성 규칙 변경. album_service 는 그대로.
-- 곡 제목 텍스트의 "feat. X" 정규화/제거. Spotify 가 그렇게 주는 그대로 유지.
+- **Track popularity** schema / sync / backfill. Tracks have no `popularity` column today. The track bucket uses path-dependent ranking (see Target state). When a future schema batch adds `Track.popularity`, only the expansion-path sort key is swapped — out of scope here.
+- **Multi-hop expansion.** An album match expands to its artist, but **not** to that artist's *other* albums. "Other albums by this artist" lives behind tapping the artist (artist-detail), not in the first search response.
+- **"Similar albums" recommendation** (genre / popularity similarity). Separate project, separate RFC if it ever lands.
+- **Image re-download on filter switch.** Real bug but a separate frontend rendering / caching issue (likely remount / unstable `key` / cache-busting querystring). File separately; do not fold into this RFC.
+- **MusicBrainz alias refinement** (BUG-14). Independent track.
+- **Track-title "feat. X" normalization.** Leave the Spotify-supplied title as-is; do not strip or rewrite.
+- **Spotify-sync changes.** The worker already stores every participating artist of every track in `track_artists` as a pure N:N (`myblog_worker/worker/service/sync_service.py`). Do not touch.
+- **`AlbumDetail.TrackOut.feat_artist_names` rule.** The album-detail service uses `if ta.id not in album_artist_ids` because it has album-artist metadata to compare against. The unified-search `TrackItem.feat_artist_names` uses `if a.name != primary` because the search response carries no album-artist metadata. The two rules differ intentionally; do not unify.
 
 ## Current state
 
-**DB / sync (정상)**:
-- `myblog_shared_db/src/myblog_shared_db/models.py:170-193` — `Track` 에 `artist_id` FK 없음. `track ↔ artist` 는 순수 N:N (`track_artists` 조인 테이블, line 46-51).
-- `myblog_worker/worker/service/sync_service.py:105-110, 186-198` — Spotify `t["artists"]` 전체 루프 후 `track_artists` 에 모두 INSERT.
+**DB / sync — unchanged baseline**
 
-**백엔드 검색 응답 (병목 #1)**:
-- `myblog_music/app/api/routers/search.py:20-37` + `app/services/search_service.py:27-47` — artist/album/track 완전 병렬 독립 검색.
-- `app/repositories/track_repo.py:29-41` — `search_by_title` 이 `selectinload(Track.album).selectinload(Album.artists)` + `selectinload(Track.artists)` 둘 다 eager-load. **N+1 위험 없음**.
-- `app/mappers/track_mapper.py:14-21` — `track.artists[0].name` 첫 1명만 뽑아 `artist_name` 에 채움. album_artists fallback.
-- `app/domain/schemas.py:36-51` — `TrackItem.artist_name: Optional[str]` **단일 필드**. feat list 없음.
-- 비대칭: `schemas.py:67-73` 의 `TrackOut.feat_artist_names: List[str]` 은 이미 list 로 노출. 구성 규칙은 `app/services/album_service.py:46-49`:
-  ```python
-  feat_artist_names=sorted(
-      ta.name for ta in (t.artists or [])
-      if ta.id not in album_artist_ids and ta.name
-  )
-  ```
+- `myblog_shared_db/src/myblog_shared_db/models.py:46-51` — `track_artists` is a pure N:N (`track_id`, `artist_id`, `role`). No `position` column; main artists and featured artists are stored as identical rows.
+- `myblog_shared_db/src/myblog_shared_db/models.py:39-44` — `album_artists` likewise. No `position` column.
+- `myblog_shared_db/src/myblog_shared_db/models.py:128-133, 159-161, 190-192` — `Track.artists` / `Album.artists` / `Artist.tracks` / `Artist.albums` relationships have **no `order_by`**. Postgres returns rows in physical order, which is implementation-defined.
+- `myblog_shared_db/src/myblog_shared_db/models.py:119-122` — `Artist.popularity` and `Artist.followers` exist. `Album.popularity` (line 152) exists. `Track` has **no `popularity` column**.
+- `myblog_worker/worker/service/sync_service.py` already writes every participating artist for every track. No change needed.
 
-**프론트 (병목 #2)**:
-- `myblog_front/src/components/writer/SubjectBlock.tsx:76-106` — `TrackSearchResult.artist_name: string | null` 단일 필드만 매핑. feat list 받을 그릇 없음.
-- 렌더링 (`SubjectBlock.tsx:414-415`): `${r.artist_name} · ${r.album_title}` — feat 표시 미지원.
-- `myblog_front/src/scripts/searchBarDb.client.ts:10, 103-104` — `mapDBTracksUnified` 가 같은 패턴으로 `Music_TrackItem` 의 `artist_name` 만 사용.
-- `myblog_front/src/lib/api.gen.ts:658-681` — generated `Music_TrackItem` 의 `artist_name?: string | null` 단일.
+**Search response — partial baseline (the prior Step 1 of this RFC shipped via PRs #141 / #142 / #143)**
 
-→ DB 엔 모두 있는데 검색 응답이 첫 1명만 노출, 프론트도 그것만 받음. 사용자가 "feat 가 곡 제목에 들어있을 때만 보인다" 고 느끼는 증상의 원인.
+- `myblog_music/app/api/routers/search.py:20-37` — `/api/music/search/unified` already returns all three buckets in one call (default `type=album,artist,track`, single `offset` / `limit`).
+- `myblog_music/app/services/search_service.py:27-47` — runs three independent literal matches in parallel. **No expansion. No cross-bucket dedup. No path-dependent ranking.**
+- `myblog_music/app/repositories/track_repo.py:29-41` — `search_by_title` eager-loads `selectinload(Track.album).selectinload(Album.artists)` + `selectinload(Track.artists)`. N+1-safe today; the same discipline must extend to expansion queries.
+- `myblog_music/app/repositories/album_repo.py:38-48` — `search_by_title` eager-loads `selectinload(Album.artists)` and orders by `Album.popularity DESC NULLS LAST`.
+- `myblog_music/app/repositories/artist_repo.py:24-47` — `search_by_name` matches `Artist.name ILIKE` OR an element of the `aliases` JSONB array ILIKE; orders by `popularity DESC, followers DESC, views DESC`.
+- `myblog_music/app/domain/schemas.py:36-52` — `TrackItem` already exposes `feat_artist_names: List[str]` (additive, default empty). `artist_name: Optional[str]` retained for backward compat.
+- `myblog_music/app/mappers/track_mapper.py` — primary chosen as `track_artists[0].name`; `feat_artist_names` built as `sorted({a.name for a in track_artists if a.name and a.name != primary})`. Display plumbing in place but **primary pick is non-deterministic** because of the missing `order_by` above.
+- `myblog_music/app/repositories/album_repo.py:111-127` — `get_primary_artist_map` joins `album_artists` without `ORDER BY` and keeps the first row seen → same non-determinism on album rows.
+- `myblog_music/app/services/album_service.py:46-49` — `AlbumDetail.TrackOut.feat_artist_names` rule differs intentionally (see Non-goals).
+
+**Frontend — partial baseline**
+
+- `myblog_front/src/lib/api.gen.ts` already carries `feat_artist_names?: string[]` on `Music_TrackItem`.
+- `myblog_front/src/components/writer/SubjectBlock.tsx:418-422` already renders `${artist_name} (feat. ${feat_artist_names.join(', ')}) · ${album_title}`.
+- `myblog_front/src/scripts/searchBarDb.client.ts:104-119` `mapDBTracksUnified` carries `feat_artist_names` through.
+- `SubjectBlock.tsx:185-188` confirms filter tabs (전체 / 앨범 / 트랙 / 아티스트) are **client-side post-filter only** — they narrow `results` with `useMemo` and do not re-hit the API.
+- No per-bucket "load more" exists in either surface today; both call `/unified` once with `limit=20, offset=0` and that is the entire result set.
+- `searchBarDb.client.ts:318-327` does a separate fetch on artist *click* to load that artist's albums (`/api/music/artists/{id}/albums`) — correct as a click action but does not address the in-line expansion this RFC introduces.
+
+→ Net: feat display is mechanically wired but the primary pick is unstable; artist / album / track searches return their own bucket only; "artist → tracks" needs an extra click; per-bucket pagination is absent.
 
 ## Target state
 
-**백엔드** (`myblog_music`):
-- `app/domain/schemas.py` 의 `TrackItem` 에 `feat_artist_names: List[str] = Field(default_factory=list)` 추가. 기존 `artist_name: Optional[str]` 유지.
-- `app/mappers/track_mapper.py` 가 `artist_name` (대표 1명) 외 나머지 track artists 를 알파벳순 정렬해 `feat_artist_names` 로 노출.
-- 변형 규칙: album_service 와 달리 **representative `artist_name` 자체를 제외**. 이유는 검색 응답에는 `album.artists` 메타가 없어 클라이언트가 album primary 를 가르킬 수 없고, UI 는 `${artist_name} (feat. ${feat...})` 로 표시하므로 representative 중복만 막으면 자연스러움. (compilation album, 예: `album.artists=[Various Artists]`, `track.artists=[BTS, Halsey]` 케이스에서 album_service 규칙을 그대로 복사하면 "BTS (feat. BTS, Halsey)" 중복.)
+**Unified search (DB)** — single endpoint, single response, three buckets:
 
-**프론트** (`myblog_front`):
-- `pnpm generate:types` 로 `api.gen.ts` 재생성 — `Music_TrackItem.feat_artist_names?: string[]` 노출.
-- `SubjectBlock.tsx` 의 `TrackSearchResult` 타입 + 매핑 + 렌더링에 feat list 반영. 표시 패턴 잠정: `${artist_name}${feat?.length ? ` (feat. ${feat.join(', ')})` : ''} · ${album_title}` (Open Q1).
-- `searchBarDb.client.ts:103-104` `mapDBTracksUnified` 도 동일 패턴.
+1. **Match phase** — literal substring / alias match per bucket, unchanged:
+   - artist: `name ILIKE` OR `aliases` JSONB element ILIKE.
+   - album: `title ILIKE`.
+   - track: `title ILIKE`.
 
-기존 `artist_name` 단일 필드는 유지 — 기존 consumer 코드 호환성 유지.
+2. **Expansion phase** — exactly one hop along the existing relations:
+   - **artist match → that artist's albums + that artist's tracks.** Tracks expand via `track_artists`, which is symmetric N:N with no main/feat distinction, so featured tracks are inherently included — there is no separate feat code path.
+   - **album match → that album's tracks + that album's artists.**
+   - **track match → that track's album + that track's artists.**
+
+   Hop depth is **strictly 1**. An album match must not expand into "other albums by this album's artists" — that is multi-hop and belongs behind artist-detail.
+
+3. **Merge / dedup phase** — keyed by `track_id` / `album_id` / `artist_id`. The same entity arriving via literal match AND via expansion collapses to one row. The merged row **retains its strongest entry path** (literal > expansion), because the ranking key is path-dependent (see Rank phase).
+
+4. **Rank phase**:
+   - **artist bucket**: literal match → match similarity to the query, then `Artist.popularity DESC`. Expansion-only artists (arrived solely because their album/track matched) → `Artist.popularity DESC`.
+   - **album bucket**: literal match → similarity, then `Album.popularity DESC`. Expansion-only albums → `Album.popularity DESC`.
+   - **track bucket** — path-dependent, because there is no `Track.popularity`:
+     - **literal title match** → match similarity to the query.
+     - **arrived via artist or album expansion** → `Album.release_date DESC` (newest first). All such tracks share an artist or album, so similarity and popularity cannot differentiate them; recency is the user-expected default.
+
+5. **Trim / page phase**: initial bucket sizes — tracks 10, albums 10, artists 5 (tunable). Per-bucket "load more" via offset (see Open Q3 for the API shape). The artist → track expansion is the one path that must be bounded: a prolific artist with hundreds of tracks must not fan out unbounded. Album → track and track → album/artist are naturally small.
+
+**Display rule (frontend)** — every track row, whether literal-matched or expanded-in, displays all participating artists:
+
+```
+${primary}${feat.length ? ` (feat. ${feat.join(', ')})` : ''} · ${album_title}
+```
+
+`feat_artist_names` is built mapper-side as `sorted(set(a.name for a in track_artists if a.name and a.name != primary))`. The `set()` step is **mandatory** so two artists with the same display name, or data-level duplicates, collapse — we never render `X (feat. X)`. If `track_artists` is empty and the mapper falls back to `album_artists` for the primary, `feat_artist_names = []`.
+
+**Backward compatibility**
+
+- `TrackItem.artist_name` retained.
+- `TrackItem.feat_artist_names` already present (additive field carried over from prior work).
+- Pagination param shape decided by Open Q3 — backward compat preferred.
+
+**Filters** — `SubjectBlock.tsx` filter tabs (전체 / 앨범 / 트랙 / 아티스트) stay client-side; the single unified response feeds all tabs; switching tabs triggers no network request. Only "load more" hits the API.
 
 ## Steps
 
-### Step 1 — TrackItem 에 feat_artist_names 추가 (single PR, contract change)
+### Step 1 — single bundled change (one PR per repo, shipped together)
 
-`myblog_music` + workspace contract regen + `myblog_front` 를 한 PR 에 묶는다 (분리 머지하면 contract drift 또는 frontend 가 백엔드 새 필드 무시).
+This RFC ships in **one PR per repo, sequenced on the same day** to avoid contract drift:
 
-**`myblog_music` 변경**:
+1. `myblog_music` PR — expansion + dedup + path-dependent ranking in `search_service.unified_search`; new expansion methods on `artist_repo` / `album_repo`; ordering stabilization (per Open Q1); per-bucket pagination param shape (per Open Q3); regen `openapi.json` in the service repo.
+2. workspace PR — `python scripts/merge_openapi.py` → `docs/contracts/openapi.json`; `pnpm --filter myblog_front generate:types` → `src/lib/api.gen.ts`; `SubjectBlock.tsx` + `searchBarDb.client.ts` per-bucket "load more" UI; drop this plan row when prod smoke passes.
 
-- `app/domain/schemas.py:36-51` `TrackItem` 클래스:
-  - `feat_artist_names: List[str] = Field(default_factory=list)` 한 줄 추가.
-- `app/mappers/track_mapper.py:14-21`:
-  - `artist_name` 결정 로직은 유지.
-  - 결정된 `artist_name` 을 제외한 `track.artists` 의 나머지 이름들을 알파벳순 정렬해 `feat_artist_names` 로 채움.
-  - `track.artists` 가 비어 album_artists fallback 으로 갔다면 `feat_artist_names = []`.
-  - 의사 코드:
-    ```python
-    primary = artist_name
-    feat = sorted(
-        a.name for a in (track_artists or [])
-        if a.name and a.name != primary
-    )
-    ```
-- openapi 재생성:
-  - `cd myblog_music && pytest tests/ -k openapi` (또는 해당 레포 spec 빌드 명령) 으로 `openapi.json` regen + commit.
-- 단위 테스트 (`tests/test_track_mapper.py` 신설 또는 기존 파일에 추가):
-  - track.artists=`[A, B]`, artist_name=A → `feat_artist_names=[B]`.
-  - track.artists=`[A]` (단일) → `feat_artist_names=[]`.
-  - track.artists=`[]`, album_artists=`[X]` → `artist_name=X`, `feat_artist_names=[]`.
-  - track.artists=`[BTS, BTS]` (중복 가능성, 데이터 보호) → primary BTS 제외 후 빈 list.
-  - track.artists=`[A, B, A]` (drop primary 후 잔여 중복) → `[A]` 잠재 아님 — 정렬+제거. (Open Q3 참조)
+**Do not split-merge**: the contract regen and frontend types must reach `main` in the same workspace PR as the UI; otherwise the deploy CI guard or contract-drift gate trips (see `feedback-frontend-api-gen-sync`, `reference-workspace-contract-merge-order`).
 
-**Workspace contract regen**:
+**Verification (pre-merge)**
 
-- `python scripts/merge_openapi.py` 로 `docs/contracts/openapi.json` regen + commit.
-
-**`myblog_front` 변경**:
-
-- `pnpm --filter myblog_front generate:types` 로 `src/lib/api.gen.ts` 재생성 + commit ([[feedback-frontend-api-gen-sync]]).
-- `src/components/writer/SubjectBlock.tsx`:
-  - line 76-106 의 `tracks` 매핑에 `feat_artist_names: t.feat_artist_names ?? []` 추가.
-  - `TrackSearchResult` 타입 정의 (`src/scripts/types/search.ts` 또는 동일 파일) 에 `feat_artist_names?: string[]` 추가.
-  - line 414 표시 패턴: `${r.artist_name}${r.feat_artist_names?.length ? ` (feat. ${r.feat_artist_names.join(', ')})` : ''} · ${r.album_title}`.
-- `src/scripts/searchBarDb.client.ts:103-104` `mapDBTracksUnified` 도 동일 패턴.
-
-**Verification (local)**:
-
+`myblog_music`:
 ```
-cd myblog_music && pytest tests/test_track_mapper.py -v
+cd myblog_music && pytest tests/ -v
 cd myblog_music && ruff check app/
+```
+- Unit tests: dedup retains the strongest path; per-bucket ranking respects the path-dependent rule; mapper builds `feat_artist_names` with `sorted(set(...))`; primary pick is deterministic across repeated calls.
+- **Real-engine integration test** (mandatory per `feedback-sa-session-lifecycle-mock-blind`): seed a real Postgres with one artist + 2 albums + ≥1 feat track + ≥1 main track, run `unified_search` on the artist's name, assert all three buckets populated, the feat track appears in the artist's track expansion, and query count stays bounded (no N+1) via an SA event listener.
+
+workspace:
+```
 cd myblog_front && pnpm lint && pnpm exec astro check
 ```
+- Browser click-through (mandatory per `feedback-browser-verify-ui-changes`): launch the dev server, drive both surfaces (writer page + global search bar) for an artist query, an album query, and a track query — confirm all three buckets render, filter tabs narrow without a network call, "load more" issues exactly one bucketed request.
 
-Local smoke (DB optional, [[feedback-local-db-smoke-fallback]]): pytest + lint + astro check + 신규 mapper 단위 테스트 그린이면 충분 — 검색 API 자체는 prod smoke 로 최종 확인. UI 변경 있으므로 dev server 띄워 SubjectBlock + 전역 검색바 양쪽 브라우저 클릭 검증 ([[feedback-browser-verify-ui-changes]]).
+**Prod smoke** (post-merge)
 
-**Prod smoke** (post-merge):
+- `GET /api/music/search/unified?q=<artist with feat tracks>` — assert all three buckets non-empty, the artist's feat tracks appear in `tracks[]`, no duplicates, `feat_artist_names` deduped.
+- `GET /api/music/search/unified?q=<album title>` — assert `albums[]` includes the album, `tracks[]` includes its tracks, `artists[]` includes its artists, and `tracks[]` does **not** include tracks from other albums by the same artists (1-hop guard).
+- `GET /api/music/search/unified?q=<track title>` — assert symmetric.
+- Quote prod-smoke output in the workspace PR comment (per `feedback-prod-smoke-required`).
 
-- prod `/api/music/search/unified?q=<feat 있는 곡>&type=track&limit=10` → 응답 JSON 에 `feat_artist_names` 가 list 로 노출되는지 + representative 가 list 에 중복 안 되는지 확인.
-- 글쓰기 페이지 prod 에서 같은 q 로 검색 → UI 에 ` (feat. ...)` 표시되는지 + 곡 제목 텍스트의 "feat. X" 와 중복 표시 안 되는지 (Open Q2).
-- compilation album 표본 (있다면) 도 같이 — `album.artists=[Various Artists]` 패턴에서 representative 가 BTS 같은 진짜 primary 로 잡히고 list 에 중복 없는지.
-
-**Rollback**: PR revert. 스키마는 optional list 추가 + 단일 필드 유지라 기존 consumer 깨짐 없음. 데이터 mutation 없음.
-
----
-
-### Step 2 — artist→album/track 확장 (Step 1 prod 관찰 후 별도 결정)
-
-**Status**: deferred. Step 1 prod 검증 후 사용자가 "feat 보여도 흐름은 여전히 끊긴다" 고 판단할 때 본 Step 의 방향을 결정.
-
-후보:
-- **A. unified search 에 related search 추가** — artist match → 그 artist 의 album/track 보강. ranking / cross-bucket dedup / grouping 스키마 신설 필요. 함정: BUG-15 sentinel 게이트 / SA session lifecycle 같은 회귀 위험. 별도 RFC 로 ranking 규칙 사전 못박고, 실엔진 통합 테스트로 conn-pool/N+1 영향 확인 의무.
-- **B. artist 선택 → 별도 endpoint + 클릭 흐름 분리** — 새 라우터 (`/api/music/artists/<id>/discography` 같은) + 프론트 클릭 시 추가 fetch. 현재 `SubjectBlock.tsx:264-266` 이 artist 클릭 시 query 교체 + filter='album' 재검색을 사용자에게 떠넘기는 구조라 B 는 자연스럽지만 구현 자체는 작지 않음.
-
-방향 결정 시 별도 RFC 분리. 본 RFC 는 Step 1 만으로 닫고, Step 2 가 결정되면 BUG-19-step2 또는 새 RFC 로 이어감.
+**Rollback**: PR revert in both repos. Schema is additive (no DDL change in this step unless Open Q1 lands option (b); see that question's rollback note). No data mutation. Rollback risk is contained.
 
 ---
 
 ## Open questions
 
-1. **UI 표시 패턴 — `${artist_name} (feat. ${feat_artist_names.join(', ')}) · ${album_title}` 가 곡 제목에 이미 "feat. X" 가 박혀있는 케이스와 중복되지 않는가** — 잠정: 백엔드는 raw 데이터만 노출, 표시는 그대로. 곡 제목 텍스트의 "feat. X" 와 응답의 `feat_artist_names` 중복 표시는 prod smoke 후 빈도 보고 판단. 잠재 후속: mapper 에서 `track.title` substring 검사로 list 항목 제거? 결정은 prod 표본 후. (Step 1 영향, 표시만 영향).
-2. **representative 중복 케이스 빈도** — compilation album (`album.artists=[Various Artists]`) 또는 representative 가 `track.artists[0]` 이 아니라 album_artists fallback 으로 잡힌 경우의 prod 빈도. mapper 의 `if a.name != primary` 가드는 이름 같음 기준이라 이름이 같은 다른 artist 있으면 false-negative (정상 표시 안 됨). prod 표본 분포 보고 ID 기준 비교로 바꿀지 결정. (Step 1 영향).
-3. **`feat_artist_names` 정렬 기준** — album_service 는 알파벳순 (`sorted(...)`). 본 RFC Step 1 도 동일 적용. UI 일관성 우선. 만약 prod 에서 "원래 등장 순서" 표시 선호가 나오면 별도 결정. (Step 1 영향, 잠정 결정: 알파벳순).
-4. **Step 2 방향** — A vs B 는 Step 1 prod 관찰 후 사용자가 판단. 본 RFC 안에서 결정하지 않음. (Step 2 영향).
+1. **Primary-artist ordering stabilization** — `Track.artists` and `Album.artists` lack a deterministic `order_by`, and the join tables lack a `position` column. The primary pick can flip between page loads (`X (feat. Y)` ↔ `Y (feat. X)`). Three candidates:
+   - (a) In-mapper heuristic: sort `track_artists` by `(-Artist.popularity, Artist.name)` so the most-popular participant becomes "main". `get_primary_artist_map` adds an equivalent SQL `ORDER BY`. Music-repo-only change; no DDL.
+   - (b) Schema fix: add `position smallint` to `track_artists` + `album_artists`, worker writes Spotify's array index, backfill existing rows, relationships use `order_by="position"`. Spotify-authoritative; scope expansion across `myblog_shared_db` + worker + a music shared_db pin bump; rollback adds a DDL revert.
+   - (c) Accept the flicker. Document as a known pre-existing bug and file a follow-up.
+
+   Blocks: Step 1 display correctness.
+
+2. **Artist → track fan-out cap** — Spotify artists with very deep catalogues must not flood the bucket. Proposed default: initial page 10, max page 50, ranked by `Album.release_date DESC`. Confirm cap value and ranking key.
+
+   Blocks: Step 1 bounded expansion.
+
+3. **Pagination API shape** — `/unified` accepts a single `offset` today. Per-bucket "load more" needs three independent offsets. Two shapes:
+   - (a) Additive: keep `offset` as a fallback applied to all buckets when no per-bucket value is given; add `artist_offset`, `album_offset`, `track_offset` overrides. Backward-compatible.
+   - (b) Replace: drop `offset`, expose only per-bucket offsets. Cleaner; breaks any caller mid-rollout (the frontend is the only known caller today).
+
+   Blocks: Step 1 API surface.
 
 ## Decisions log
 
-| Date       | Decision                                                                                                                                                                                                              | Step |
-|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|
-| 2026-05-29 | 두 증상 (artist→album/track 미확장 / feat 누락) 은 서로 다른 문제로 분리. Step 1 = feat 응답 보강 only. Step 2 (related search) 는 deferred 후 prod 관찰 후 재결정.                                                    | 1, 2 |
-| 2026-05-29 | mapper 변형 규칙 — album_service 의 `if ta.id not in album_artist_ids` 가 아니라 검색 응답에서는 `if a.name != primary`. 이유: 검색 응답에 album.artists 메타 없음 + UI 가 `${artist_name} (feat. ...)` 로 표시하므로 representative 중복만 제거하면 됨. | 1    |
-| 2026-05-29 | 기존 `artist_name: Optional[str]` 필드 유지. 새 `feat_artist_names: List[str]` 만 추가. 양쪽 호환성 깨짐 없음.                                                                                                          | 1    |
+| Date | Decision | Step |
+|------|----------|------|
+| 2026-05-29 | The two symptoms (artist → album / track expansion missing; feat artists missing in display) were initially scoped as separate Steps — Step 1 = feat-display field; Step 2 = related search, deferred for post-prod observation. *(superseded 2026-05-30 — see below.)* | (superseded) |
+| 2026-05-29 | Mapper rule for the unified-search `TrackItem.feat_artist_names`: exclude by **name equality** to the chosen `primary`, not by `album_artist_ids`. The search response carries no album-artist metadata, and the UI renders `${primary} (feat. ${feat}…)` — only the representative needs removal from the feat list. The album-detail service's rule (`if ta.id not in album_artist_ids`) is intentionally different and must remain. | 1 |
+| 2026-05-29 | Keep `TrackItem.artist_name: Optional[str]` for backward compat; add `feat_artist_names: List[str]` additively. No breaking schema change. | 1 |
+| 2026-05-30 | **Supersedes the Step 1 / Step 2 split above.** The two symptoms are one problem with one mechanism: 1-hop cross-expansion along the existing relations. Feat display is demoted from a separate step to a display rule applied to the resulting track rows (literal-matched or expanded-in); the previously-shipped `feat_artist_names` field already carries that rule. The RFC now describes a single Step that bundles backend + workspace contract regen + frontend in coordinated PRs to avoid contract drift. Track popularity, multi-hop expansion, similar-album recommendation, and the image-cache rerender bug are explicitly out of scope and recorded as Non-goals. Open questions retained: ordering stabilization (Open Q1), fan-out cap (Open Q2), pagination API shape (Open Q3). | all |
