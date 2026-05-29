@@ -6,24 +6,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### FEAT-write-ux-bundle PR-2: 앨범 상세 확장 (D)
-
-- Scope: `myblog_music` (`AlbumOut.label` 노출 + `TrackOut.feat_artist_names` 도출) + workspace (plan + merged contract) + `myblog_front` (앨범 상세 헤더 메타 + 트랙 컬럼 mm:ss/feat)
-- Order: music → workspace contract → front (CI api.gen.ts drift gate)
-- `release_country` 는 PR-2 스코프 OUT — Spotify album 응답에 단일 country 필드 없음, 후속 RFC 로 분리
-- Verification: music `pytest tests/test_unit.py` ; front `pnpm lint` + `astro check` + 브라우저 매트릭스 (label 있음/없음 × feat 있음/없음) ; prod smoke 후 GET /api/music/albums/{id} 응답에 label/feat_artist_names key 확인
-- Rollback: 3 PR revert (`feat_artist_names` 는 default `[]`, `label` 은 Optional — FE 가 새 필드 사용 전까지 backward-compatible)
-- Status: 🟢 in_progress (PRs: music hyuntohoon/myblog_music#26, workspace #pending, front #pending)
+_(no active rows — FEAT-write-ux-bundle PR-2 shipped 2026-05-29, see git log)_
 
 ---
 
 ## Backlog
-
-### FEAT-write-ux-bundle PR-2: 앨범 상세 확장 (D) — P2
-
-- 트리거: PR-1 완료 후 (2026-05-29 완료) — 사용자 진행 OK 받으면 시작
-- Scope: `myblog_music` (TrackOut 에 duration_sec/feat_artist_names, AlbumOut 에 label/release_country — Spotify 응답 있을 경우) + `myblog_front` (트랙 행 `mm:ss` + 피처링; 앨범 메타)
-- Status: ⚪ backlog
 
 ### BUG-14: MusicBrainz search 가 한글 artist name 을 못 잡음 — P2
 
