@@ -92,7 +92,59 @@ Local smoke (DB optional): `pytest` + `ruff` 통과 + cross-check 로직 단위 
 
 ---
 
-### Step 2 — known false-match 행 reset (Step 1 머지 + prod 관찰 후)
+### Step 3 — Korean hint widening (2026-05-29 BUG-18 prod smoke 후속, 우선순위 상승)
+
+**배경**: BUG-18 Step 1 머지 후 prod EventBridge 1 사이클 (2026-05-29 01:06 UTC) 결과, stuck 3행 (`j-hope` / `Kim Tae Hoon` / `dj friz`) 이 sentinel 이 아니라 또 다른 false-match MBID 로 교체됨. 원인 = 한국 아티스트의 `artists.genres` 가 ko-KR localized → `_COUNTRY_HINTS` 영문 needle (`"k-pop"`, `"korean"`) 이 안 잡힘 → `_country_hint_from_genres` None 반환 → cross-check 비활성 → MB top-N 통과. BUG-18 의 pre-check 가 UNIQUE collision 가드를 우회시킨 부작용으로 데이터 정확성 악화.
+
+이 Step 은 원래 RFC §Open Q1 의 "prod 로그 보며 늘림" 결정에 따라 미뤄둔 후행 작업. BUG-18 prod 데이터 도착으로 트리거됨.
+
+**파일**: `myblog_worker/worker/clients/musicbrainz_client.py`
+
+**prod 빈도 분석** (`SELECT g.token, count(*) FROM artists, jsonb_array_elements_text(genres) AS g(token) WHERE g.token ~ '[가-힣]' GROUP BY g.token`):
+
+| 한국어 토큰 | 빈도 | 추정 hint |
+|---|---|---|
+| 한국 랩 | 253 | KR |
+| K-발라드 | 91 | KR |
+| 케이팝 | 49 | KR |
+| 한국 록 | 35 | KR |
+| 일본 vgm | 3 | JP (보류) |
+| 시부야계 | 2 | JP (보류) |
+
+K + R 카테고리만 1차 — 428행 영향. JP / CN / 기타는 다음 라운드 (false-positive 위험 평가 후).
+
+**변경**: `_COUNTRY_HINTS` 에 한국어 needle 3개 추가 (모두 KR):
+- `("한국", "KR")` — substring 매치로 "한국 랩" / "한국 록" 둘 다 잡음 (288행)
+- `("케이팝", "KR")` — 49행
+- `("k-발라드", "KR")` — 91행 (영문 prefix + 한국어 mix, 별도 needle 필요)
+
+`_country_hint_from_genres` 의 기존 로직 변경 없음 (`for ... in genres: for needle, code in _COUNTRY_HINTS: if needle in gl: return code`). 단순 needle 추가.
+
+**테스트** (`tests/test_musicbrainz_client.py`):
+- `_country_hint_from_genres` parametrize 에 추가: `(["한국 랩"], "KR")`, `(["케이팝"], "KR")`, `(["K-발라드"], "KR")`, `(["한국 록", "K-발라드"], "KR")`, `(["일본 vgm"], None)` (JP 는 아직 미추가).
+- 기존 영문 케이스 회귀 보호.
+
+**Verification**:
+```
+cd myblog_worker && pytest tests/test_musicbrainz_client.py -v
+```
+
+**Prod smoke** (post-merge, EventBridge 1주기):
+- CloudWatch 필터 `"MB cross-check reject"` 가 한국어 토큰 행에서 발화 (LOG_LEVEL=INFO 필요 — BUG-18 §Prod smoke step 0 와 같은 전제).
+- DB:
+  ```sql
+  -- 다음 사이클 처리 행 중 한국어 genres 가 있고 cross-check 작동했는지
+  SELECT spotify_id, name, musicbrainz_id, genres
+    FROM artists
+   WHERE genres @> '["한국 랩"]'::jsonb OR genres @> '["케이팝"]'::jsonb
+   ORDER BY name LIMIT 30;
+  ```
+
+**Rollback**: PR revert. needle 3개 추가만이라 데이터 mutation 없음 (단, Step 2 reset 은 별도).
+
+---
+
+### Step 2 — known false-match 행 reset (Step 3 머지 + prod 관찰 후)
 
 prod 에서 Step 1 의 cross-check reject 로그가 정상 작동함을 확인한 다음에만 실행. EventBridge alias_fill 은 `musicbrainz_id IS NULL` 만 처리하므로 known bad 행은 NULL 로 되돌려야 재시도.
 
@@ -131,7 +183,7 @@ SELECT spotify_id, name, musicbrainz_id, aliases
 
 ## Open questions
 
-1. **`_COUNTRY_HINTS` 초기 매핑 범위** — K-pop / J-pop / British / American 4종으로 시작하고 prod 로그 보며 늘릴지, 시작부터 더 넓게 잡을지. (Step 1 영향. 좁게 시작 추천 — false-negative 줄이기 우선.)
+1. **`_COUNTRY_HINTS` 초기 매핑 범위** — K-pop / J-pop / British / American 4종으로 시작하고 prod 로그 보며 늘릴지, 시작부터 더 넓게 잡을지. (Step 1 영향. 좁게 시작 추천 — false-negative 줄이기 우선.) **2026-05-29 결정**: 좁게 시작이 prod 에서 부정 효과 (한국 아티스트의 ko-KR localized genres → cross-check 비활성 → false-match 통과). Step 3 (Korean hint widening) 으로 추가. [[project-prod-artists-genres-korean]] 확인.
 2. **cross-check 거절 시 sentinel `MBID_NOT_FOUND` 박기 vs NULL 유지** — 현재 RFC 안은 sentinel 박음 (rate limit 보호). NULL 유지 시 다음 EventBridge 사이클에서 재query 하지만 결과 동일 → 무한 재query. **결정: sentinel 박음.** 단점은 향후 매핑 늘려도 자동 재시도 안 됨 → Step 2 와 동일하게 수동 reset 필요. (Step 1 영향.)
 3. **`_MIN_SCORE` 유지 여부** — cross-check 통과면 score floor 낮춰도 안전한가? **잠정 결정: 유지.** cross-check 는 추가 게이트일 뿐 score 신뢰는 변하지 않음. (Step 1 영향.)
 4. **Step 2 의 자동 sweep vs known case only** — 위 RFC 는 known case 만. 자동 sweep 은 false-positive (정상 매치까지 NULL 화) 위험 → SELECT 로 표본 점검 단계 의무화. (Step 2 영향.)
@@ -144,3 +196,5 @@ SELECT spotify_id, name, musicbrainz_id, aliases
 | 2026-05-29 | Cross-check 1차 신호로 Spotify genres → country hint 매핑 채택 (Spotify 가 artist-level country 미제공이라). | 1    |
 | 2026-05-29 | Tag/disambiguation 가중치는 1차 범위에서 제외 (false-negative 위험 + 매핑 룰 폭발).                          | 1    |
 | 2026-05-29 | limit=1 → 10. 1 API call 로 동일하므로 rate limit 영향 없음.                                                | 1    |
+| 2026-05-29 | Step 3 (Korean hint widening) 추가 — BUG-18 prod smoke (01:06 UTC) 의 false-match 누적 가속화 부작용으로 우선순위 P1. needle 추가: `"한국"` / `"케이팝"` / `"k-발라드"` → KR. JP/CN 등은 다음 라운드. | 3 |
+| 2026-05-29 | Step 2 (known-bad row reset) 활성화 — Step 3 머지 + 1 사이클 관찰 후. 대상은 K* genres + musicbrainz_id NOT NULL && != 'not_found'. 사전 SELECT 캡처 의무. | 2 |
