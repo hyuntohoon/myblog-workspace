@@ -27,7 +27,7 @@ _(no active rows — FEAT-write-ux-bundle PR-2 shipped 2026-05-29, see git log)_
 
 ### BUG-19: writer music search — 1-hop cross-expansion + full participating artist display — P2
 
-- RFC: `docs/rfcs/BUG-19-writer-music-search-context.md` (Status: draft)
+- RFC: `docs/rfcs/BUG-19-writer-music-search-context.md` (Status: accepted)
 
 ### BUG-16: tests/conftest.py 에 Neon test branch DB 비번 평문 — P3
 
