@@ -297,7 +297,7 @@ SELECT spotify_id, name, musicbrainz_id, aliases
 
 ### Step 5 — surname-token gate (2026-05-29 Step 4 mini-reset borderline 후속)
 
-**Status**: accepted (사용자 OK 2026-05-29).
+**Status**: reverted (2026-05-29 prod 검증 + 사용자 spirit 충돌, worker PR #27 으로 코드 revert).
 
 **관통 원칙**: 본 Step 의 1순위 방어 대상은 **정상 매치의 과잉 거절**. Step 5 가 설계 단계에서 단순 surname-substring (algorithm C) 을 부결한 이유도 동일 (측정 SQL 의 ~60% false-positive 가 한국 가수 영문 stage ↔ 한글 alias 패턴을 정상 매치까지 거절시키는 실패 모드). 본 RFC 의 **모든 수치 임계값 (길이 캡 10, surname 최소 길이 2, 토큰 분기 기준) 은 잠정값** — Step 5 배포 후 더 큰 라벨셋으로 재검토 대상.
 
@@ -467,6 +467,31 @@ Local smoke (DB optional): pytest + ruff + 신규 surname-gate 단위 테스트 
 4. **hint=None (영어권 / 일본) 후보에도 surname-gate 적용?** — **결정: 본 RFC 에서 안 함, BUG-15 는 KR 한정으로 닫음**. 영어권 무대명은 성씨 구조를 안 따르고 (Dragon Pony 류, "X feat. Y" 표기 다양), 게이트 적용 시 정상 매치 대량 거절 위험 — 이번에 algorithm C 단독 부결한 실패 모드와 동일. EN/JP prod 측정도 전무 → "별도 티켓, prod 측정 → 표본 라벨링 먼저" 규율로 미룸. KR 만으로 닫는 이유는 한국 가수의 성-first 라티나이즈 관습 + ko-KR genres 신호가 게이트 트리거 키로 안정적이기 때문.
 5. **ILLSON 류 borderline (1-토큰 + 길이 ≤10 면제 통과 + 실제 false-match 의심)** — surname-gate 신호 부재. **결정: Step 5 PR 미포함**. 이유 (a) borderline 라 증거 불충분, (b) 알고리즘 PR 에 수동 데이터 패치 (deny-list) 섞으면 측정/롤백이 더러워짐 (algorithm 효과와 manual hardcode 효과가 한 PR 안에 섞임). 후속: ILLSON 의 진짜 MB 후보를 사람이 직접 확인 → 진짜 오매칭 확인되면 **별도 작은 PR 로 deny-list** (`musicbrainz_id = 'not_found'` 수동 박기) 처리.
 
+**Outcome (2026-05-29 prod 검증 후 revert)**:
+
+worker PR #26 (Step 5 코드 적용) 머지 + mini-reset 3 spotify_id + EventBridge 1 사이클 결과:
+
+- **Lil Moshpit**: 같은 MBID 재박힘. MB API 확인 결과 primary name 자체가 `Lil Moshpit` (country=KR) + alias `이휘민` (legal name, Lee Hwi-min). PR #134 의 표본 라벨링 ("확실 false-match") 이 **over-aggressive** 였음. surname-gate 가 raw alias 안의 `Lil Moshpit` 잡고 정상 통과 → algorithm 자체는 의도대로 작동.
+- **Suh Young Eun**: sentinel `not_found` 박힘. surname `suh` 가 MB candidate `Young Eun Lee` + alias 어디에도 substring 미매치 → reject → 다음 후보 없음 → sentinel. algorithm 의도대로 작동.
+- **Dragon Pony**: candidate.country=`US` (`Vylet Pony`, brony musician) — Step 1 cross-check 가 잡는 영역, Step 5 와 무관.
+
+**사용자 spirit (결정적 신호)**: "별칭에 대해서는 보수적으로 하지마 검색에만 쓰이잖아". alias 가 약간 다른 사람 거여도 검색용이라 들어가는 게 sentinel-on-reject 보다 낫다. Step 5 의 sentinel 패턴이 이 spirit 과 정면 충돌 — Suh Young Eun sentinel = "이영은" / "Lee Youngeun" 검색 시 영원히 누락.
+
+**결정**: Step 5 전체 revert.
+
+- worker PR #27 으로 코드 revert (helper + 분기 + 21 테스트 제거, 202 lines deleted)
+- prod `Suh Young Eun` row 수동 복구 (`3864ea50-df4d-4615-943c-9778b598102b` + `["Lee Youngeun"]`)
+- 본 workspace cleanup PR 으로 plan.md row drop + `scripts/bug15-step5-mini-reset.sql` 삭제 + 본 outcome 기록
+- prod `Lil Moshpit` 은 그대로 (정상 매치 박힘), `Dragon Pony` 는 Step 1 영역으로 다음 cycle 처리 (sentinel 예상)
+
+**교훈**:
+
+1. **라벨링 단계 검증 의무** — mini-reset 대상 후보를 사람 라벨링만으로 정하지 말고 **MB API 직접 호출** 해서 candidate primary name + alias-list 확인. Lil Moshpit 의 경우 MB primary 자체가 영문 stage 였고 라벨링이 잘못 잡은 케이스. 향후 RFC 의 표본 라벨링 단계에 "MB API 호출로 candidate metadata 사전 확인" 게이트 추가.
+2. **게이트 추가 시 검색 가용성 영향 평가** — alias 가 검색 인덱스에만 쓰일 때, 게이트가 sentinel 박는 결과는 검색 누락 → 데이터 정확성보다 검색 가용성이 사용자 가치에서 우선. Step 1/3/4 같은 region mismatch 게이트는 region 자체가 다르면 검색 노이즈 (한국 검색에 영문 brony) 라 sentinel OK 지만, Step 5 같은 "같은 region 안에서 다른 인물" 게이트는 alias 가 검색에 도움될 가능성 큼.
+3. **algorithm 보강 ≠ 데이터 정확성 보강** — Step 1/3/4 는 region mismatch 같은 명확한 false-match 영역. Step 5 의 surname-gate 는 같은 region 안에서 "혹시 다른 사람일까" 의심에 sentinel 박는 게이트 — 검색 가용성 영역. 두 차원을 같은 RFC 안에 섞은 게 설계 실수.
+
+**BUG-15 종료**: Step 1/3/2/4 유지. Step 5 reverted. JP/CN 확장 또는 ILLSON deny-list 등 향후 작업은 [[feedback-brainstorm-iterate-before-commit]] + 사용자 spirit (검색 가용성 vs 정확성) 확인 후 별도 RFC.
+
 ---
 
 ## Open questions
@@ -489,3 +514,4 @@ Local smoke (DB optional): pytest + ruff + 신규 surname-gate 단위 테스트 
 | 2026-05-29 | Step 4 (country=NULL pass-through tiebreaker) draft 추가 — Step 2 reset +1h31m prod 표본에서 V.I/JA$/SUGA 류 sticky false-match (≥6행) 관찰. candidate alias 의 한글 존재 여부가 결정적 신호. Option A (추가 MB API 호출로 alias hangul 체크) 채택, B (이름 시그널만) 와 E (score 가중치) 는 효과/임계 튜닝 이슈로 부결. | 4 |
 | 2026-05-29 | Step 5 (surname-token gate) draft 추가 — Step 4 mini-reset 후 borderline 잔존 (Suh Young Eun → "Young Eun Lee") + prod 측정 (46 measurable, 의심 34, 실제 false-match 추정 30-40%) 대응. 알고리즘 C' = 1-토큰 stage name 면제 (length ≤ 10) + 다토큰 surname-token substring on `candidate.name + aliases`. 단순 C (surname substring 단독) 는 측정 SQL 의 60% false-positive 가 한국 가수 영문 stage ↔ 한글 alias 패턴 (B.I/CL/GooseBumps 등) 미보호로 그대로 prod 적용 시 정상 매치 폭증 거절. hint=KR 한정, country=KR / country=NULL hangul-pass 양쪽 모두 추가 게이트. | 5 |
 | 2026-05-29 | Step 5 검토 라운드 결정 (관통 원칙: 정상 매치 과잉 거절 1순위 방어, 모든 수치 임계 잠정). (a) 길이 임계 10 유지 — prod 표본 최댓값 (GooseBumps) 과적합값임을 본문에 명시, 핵심 면제 신호는 토큰 수==1, 길이 캡은 안전장치 수준 (조이지 않음), 라벨셋 ≥30 시점 재검토. (b) mini-reset 4→3 (IU&Kim Yuna 제외) — 콜라보 행은 MB 단일 인물 매칭 시스템 구조적 한계로 별도 이슈 분리, 토큰화 동작 (`["IU&Kim", "Yuna"]`) 본문 명시 + 게이트 우연 reject 와 의도 reject 구분으로 측정 집계 오염 방지. (c) ILLSON deny-list 본 PR 미포함 — borderline 증거 불충분 + 알고리즘 PR 에 수동 데이터 패치 섞으면 측정/롤백 오염, MB 후보 직접 확인 후 진짜 오매칭이면 별도 작은 PR. (d) hint=None (EN/JP) surname-gate 확장 안 함 — 영어권 무대명 성씨 구조 미사용 → 게이트 적용 시 정상 매치 거절 위험이 algorithm C 단독 부결한 실패 모드와 동일, EN/JP prod 측정 전무, "별도 티켓, prod 측정 + 표본 라벨링 먼저" 규율로 미룸 → **BUG-15 는 KR 한정으로 닫음**. | 5 |
+| 2026-05-29 | Step 5 reverted — prod 검증 결과 (1) Lil Moshpit 정상 매치 (MB primary 자체가 `Lil Moshpit` + alias `이휘민` legal name) 로 표본 라벨링이 over-aggressive 였음, (2) Suh Young Eun sentinel 박힘이 algorithm 의도대로 작동했으나 **사용자 spirit ("별칭은 검색에만 쓰여 보수적 X")** 과 정면 충돌 (sentinel = 검색 영원 누락). worker PR #27 으로 코드 revert + Suh Young Eun row 수동 복구 + 본 cleanup PR 으로 plan/SQL 정리. 교훈: 라벨링 단계에 MB API 사전 확인 의무 + 게이트 추가 시 검색 가용성 영향 평가 + algorithm 보강과 데이터 정확성/검색 가용성 차원 분리. BUG-15 는 Step 1/3/2/4 까지 유지 후 종료. | 5 |

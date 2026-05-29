@@ -6,14 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### BUG-15 Step 5: surname-token gate — P2
-
-- RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` §Step 5 (Status: accepted)
-- Scope: `myblog_worker` (musicbrainz_client + tests) + `myblog-workspace/scripts/bug15-step5-mini-reset.sql` (3 spotify_id NULL 화, post-deploy 실행)
-- Order: workspace RFC accept + plan row + mini-reset SQL (이 PR 류) → worker code PR → worker deploy → EventBridge 1 사이클 + `"MB surname-gate reject"` 발화 확인 (LOG_LEVEL=WARNING 이면 DB 증거 우회) → mini-reset SQL → 3행 검증
-- Verification: 단위 테스트 (worker `pytest tests/test_musicbrainz_client.py`) + prod 3행 (Suh Young Eun / Lil Moshpit / Dragon Pony) sentinel 또는 surname-matched KR Person 신규 MBID. IU&Kim Yuna 는 콜라보 별도 이슈, 본 row 제외.
-- Rollback: worker PR revert + 사전 SELECT 백업 (mini-reset 첫 SELECT 캡처) 의 3행 `(musicbrainz_id, aliases)` UPDATE 복구
-- Status: 🟡 in progress
+_(no active rows — BUG-15 Step 5 reverted 2026-05-29, BUG-15 종료)_
 
 ---
 
