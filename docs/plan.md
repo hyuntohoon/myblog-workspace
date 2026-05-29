@@ -6,7 +6,14 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(no active rows — BUG-18 Step 1 + BUG-15 Step 3 + Step 2 reset 2026-05-29 종료)_
+### BUG-15 Step 4: country=NULL pass-through hangul tiebreaker — P1
+
+- RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` §Step 4 (Status: accepted)
+- Scope: `myblog_worker` (musicbrainz_client + tests) + `myblog-workspace/scripts/bug15-step4-mini-reset.sql` (6 spotify_id NULL 화, post-deploy 실행)
+- Order: workspace RFC accept (이 row) → worker code PR → worker deploy → EventBridge 1 사이클 → mini-reset SQL → 6행 검증
+- Verification: 단위 테스트 (worker `pytest tests/test_musicbrainz_client.py`) + prod 6행 (V.I/JA$/SUGA/Jimmy Paige/Rocky L/Suh Young Eun) sentinel 또는 한글 alias 신규 MBID
+- Rollback: worker PR revert + 백업 CSV `/tmp/bug15-step2-reset-backup-20260529-105923.csv` 의 6행 UPDATE 복구
+- Status: 🟡 in progress
 
 ---
 
