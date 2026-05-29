@@ -1,6 +1,6 @@
 # BUG-18: alias_fill fetch 단 MBID uniqueness pre-check
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-05-29
 - **Plan row**: `plan.md` → BUG-18
