@@ -144,6 +144,120 @@ cd myblog_worker && pytest tests/test_musicbrainz_client.py -v
 
 ---
 
+### Step 4 — country=NULL pass-through tiebreaker (draft, 2026-05-29 Step 2 reset 후속)
+
+**Status**: draft — 사용자 accept 필요. [[feedback-brainstorm-iterate-before-commit]] 1라운드 완료, accept 후 plan.md row 등록.
+
+**배경**: Step 2 reset +1h31m 표본 점검 (86행 중 ~6 사이클 처리분) 에서, hint=KR + candidate.country=NULL 조합의 sticky false-match 가 ≥6행 관찰됨.
+
+| Spotify | Spotify genres | 잔존 alias | 진짜 가리키는 인물 |
+|---|---|---|---|
+| V.I | `["케이팝"]` | "Shizzy Sixx", "Suicide Sixx" | Big Bang 승리 (별도 row 정상 매치) |
+| JA$ | `["한국 랩"]` | "Jah", "Jeffrey Atkins" | Ja Rule (US) |
+| SUGA | `["한국 랩"]` | "Dajuan L. Walker" | BTS 슈가 |
+| Jimmy Paige | `["한국 랩"]` | "J Kaleth" | (mismatched) |
+| Rocky L | KR token | "Kevin Hiatt" | (mismatched) |
+| Suh Young Eun | KR token | "Lee Youngeun" | (mismatched) |
+
+공통 패턴: Step 1 의 `_is_plausible_match` 에서 `candidate.country is None → True` (false-negative 회피) 룰이 발동. 정상 매치 ~30행 (최엘비/리쌍/DOK2/CL/Tiger JK 등) 도 같은 country=NULL 경로로 통과하지만, **그쪽은 MB 가 한글 alias 를 갖고 있음** (최재성 / Leessang / 도끼 / 씨엘 / 타이거 JK 등).
+
+→ candidate alias 의 hangul 존재 여부가 정상/false-match 를 가르는 결정적 신호.
+
+**Non-goals**:
+- BUG-14 (한글 name 자체가 MB 에서 안 잡힘) 와의 통합 — Step 4 는 search 결과에 후보가 있다는 전제 위에서만 동작.
+- hint 가 없는 (None) artist 에 추가 reject (false-negative 위험 변동 없음).
+- candidate.country 가 명시된 케이스 (Step 1 이 이미 처리).
+
+**파일**: `myblog_worker/worker/clients/musicbrainz_client.py`
+
+**변경 안**:
+
+1. `_is_plausible_match(candidate, spotify_genres) -> bool` 시그니처는 유지하되, 호출자 흐름 안에서 hint=KR + country=NULL 인 후보에 대해서만 **상위 호출자 (`fetch_artist_mbid_and_aliases`) 에서 추가 게이트**.
+
+2. 신규 helper `_has_hangul(s: str) -> bool` — `re.search(r"[가-힣]", s)`.
+
+3. 신규 helper `_candidate_aliases_have_hangul(mbid: str) -> bool`:
+   - `musicbrainzngs.get_artist_by_id(mbid, includes=["aliases"])` 호출.
+   - 응답의 `artist["alias-list"]` (없을 수도 있음) 의 각 alias `name` 에 대해 `_has_hangul`.
+   - 1건 이상 hangul 이면 True. 호출 실패 또는 alias 없음 → False (보수적).
+
+4. **호출자 변경** (`fetch_artist_mbid_and_aliases`):
+   ```python
+   for candidate in candidates_sorted_by_score:
+       if int(candidate.get("ext:score", 0)) < _MIN_SCORE:
+           break
+       if not _is_plausible_match(candidate, spotify_genres):
+           logger.info("MB cross-check reject: ...")
+           continue
+       # Step 4 tiebreaker — country=NULL pass-through 사각지대 보호
+       hint = _country_hint_from_genres(spotify_genres or [])
+       if hint == "KR" and not candidate.get("country"):
+           mbid = candidate["id"]
+           if not _candidate_aliases_have_hangul(mbid):
+               logger.info(
+                   "MB hangul-tiebreak reject: name=%s candidate=%s mbid=%s",
+                   ..., candidate.get("name"), mbid,
+               )
+               continue
+       # accept
+       return mbid, _extract_aliases(candidate or fetch_detail(mbid))
+   return MBID_NOT_FOUND, []
+   ```
+
+5. **API call budget**: hint=KR + country=NULL 후보당 +1 호출. Worst-case 한 row 당 9 호출 (limit=10 의 모든 후보가 hint=KR + country=NULL), 평균 2-3. MB rate limit 1 req/sec 한도 + worker 사이클당 10 row 처리 → 추가 ~20-30 req/cycle, 여유 안.
+
+6. **로깅**: `"MB hangul-tiebreak reject"` 분리 — Step 1 의 `"MB cross-check reject"` 와 CloudWatch 필터로 따로 추적.
+
+**테스트** (`tests/test_musicbrainz_client.py`):
+
+- `_has_hangul`: parametrize 로 한글 / 영문 / 일문 / mixed / 빈 string.
+- `_candidate_aliases_have_hangul`: mock `musicbrainzngs.get_artist_by_id` 응답으로 alias-list 한글 포함 / 미포함 / 빈 list / 키 자체 누락 / API 예외.
+- `fetch_artist_mbid_and_aliases` 통합:
+  - 후보 1: country=NULL, alias 한글 없음 → reject
+  - 후보 2: country=KR → accept
+  - 후보 3: country=NULL, alias 한글 있음 → accept (후보 1 거절 시 fallback)
+  - hint=None: tiebreaker 비활성 (Step 1 행동 동일)
+  - hint=KR + 모든 후보 country 명시 (KR 아님): Step 1 이 먼저 reject → tiebreaker 도달 안 함
+- fixture: `tests/fixtures/mb_va_country_null_no_hangul.json` (V.I 류 응답 sanitized), `mb_dok2_country_null_with_hangul.json` (정상 매치 응답).
+
+**Verification (local)**:
+
+```
+cd myblog_worker && pytest tests/test_musicbrainz_client.py -v
+ruff check worker/
+```
+
+Local smoke (DB optional): pytest + ruff + 신규 tiebreaker 단위 테스트 그린 ([[feedback-local-db-smoke-fallback]]).
+
+**Prod smoke** (post-merge, EventBridge 1주기):
+
+- CloudWatch 필터 `"MB hangul-tiebreak reject"` 가 V.I/JA$/SUGA 류 row 처리 시 발화.
+- DB 사후 점검 — Step 2 reset 백업 CSV (`/tmp/bug15-step2-reset-backup-20260529-105923.csv`) 의 6개 의심 spotify_id 가 sentinel `not_found` 또는 한글 alias 보유 새 MBID 로 전환됐는지:
+  ```sql
+  SELECT spotify_id, name, musicbrainz_id, aliases
+    FROM artists
+   WHERE spotify_id IN (
+     '0boGn8zBcxCZIT8N4wNpjD', -- V.I
+     '0QGm4hjuiDqfRorb2tewU1', -- JA$
+     '0ebNdVaOfp6N0oZ1guIxM8', -- SUGA
+     '0lb59tIBwWrDfP6X956pkK', -- Jimmy Paige
+     '0sVdt9nuNGEwrX3dPXRhwJ', -- Rocky L
+     '1uQ8BQhLtGMfK8PS3UAdNX'  -- Suh Young Eun
+   );
+  ```
+
+**Step 2 재실행 의존성**: Step 4 머지 후 위 6 spotify_id 만 별도 mini-reset SQL (musicbrainz_id NULL 화) 필요 — `not_found` sentinel 행은 EventBridge 가 안 건드림. 별도 `scripts/bug15-step4-mini-reset.sql` 작성 (Step 4 PR 에 포함).
+
+**Rollback**: PR revert. helper 2개 + 호출자 분기 추가만이라 데이터 mutation 없음. mini-reset 은 백업 CSV 로 원본 복구.
+
+**Open questions**:
+
+1. **alias-list 누락 시 conservative (reject) vs permissive (accept)** — RFC 안은 reject (정상 false-match 잡기 우선). 단점은 MB 가 alias 안 가진 진짜 KR artist 행 (예: empty aliases 의 BLAY/Microdot/PATEKO 등 ~20행) 의 false-negative 가능. **잠정 결정: reject** — 정상 매치는 Step 1 의 country 명시 또는 alias 한글로 통과 가능. country=NULL + alias 없는 진짜 KR artist 는 BUG-14 영역.
+2. **추가 호출의 caching** — 같은 mbid 가 사이클 안에서 반복될 수 있음. lru_cache 추가? **잠정: 안 함** — 사이클당 10 row, 후보 mbid 중복 가능성 낮음. 필요 시 별도.
+3. **hint=KR 이외에도 적용 (JP/CN 확장 후)** — Step 5 (JP/CN hint widening) 머지 시점에 동일 hangul → kana/kanji/한자 체크로 확장. Step 4 는 KR 한정으로 시작.
+
+---
+
 ### Step 2 — known false-match 행 reset (Step 3 머지 + prod 관찰 후)
 
 prod 에서 Step 1 의 cross-check reject 로그가 정상 작동함을 확인한 다음에만 실행. EventBridge alias_fill 은 `musicbrainz_id IS NULL` 만 처리하므로 known bad 행은 NULL 로 되돌려야 재시도.
@@ -198,3 +312,4 @@ SELECT spotify_id, name, musicbrainz_id, aliases
 | 2026-05-29 | limit=1 → 10. 1 API call 로 동일하므로 rate limit 영향 없음.                                                | 1    |
 | 2026-05-29 | Step 3 (Korean hint widening) 추가 — BUG-18 prod smoke (01:06 UTC) 의 false-match 누적 가속화 부작용으로 우선순위 P1. needle 추가: `"한국"` / `"케이팝"` / `"k-발라드"` → KR. JP/CN 등은 다음 라운드. | 3 |
 | 2026-05-29 | Step 2 (known-bad row reset) 활성화 — Step 3 머지 + 1 사이클 관찰 후. 대상은 K* genres + musicbrainz_id NOT NULL && != 'not_found'. 사전 SELECT 캡처 의무. | 2 |
+| 2026-05-29 | Step 4 (country=NULL pass-through tiebreaker) draft 추가 — Step 2 reset +1h31m prod 표본에서 V.I/JA$/SUGA 류 sticky false-match (≥6행) 관찰. candidate alias 의 한글 존재 여부가 결정적 신호. Option A (추가 MB API 호출로 alias hangul 체크) 채택, B (이름 시그널만) 와 E (score 가중치) 는 효과/임계 튜닝 이슈로 부결. | 4 |
