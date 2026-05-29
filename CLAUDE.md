@@ -47,6 +47,10 @@ Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.cla
 
 Use `settings.*` (pydantic-settings), not `os.getenv()`. Use `logging.getLogger(__name__)`, not `print()`. Frontend authed requests go through `apiFetch` from `src/lib/api.ts`. Backend/music URLs always prefixed `/api`. Never log `GITHUB_TOKEN`, `DATABASE_URL`, `EDGE_SECRET`, Spotify creds.
 
+## Doc language
+
+Plan/spec markdown — `docs/plan.md`, `docs/rfcs/`, `docs/contracts/`, `docs/archive/`, PR bodies — always in English. Token-efficient context loading; conversation/chat can stay in Korean.
+
 ## Workflow
 
 **Branch**: `<type>/<plan-id>-<desc>` — type ∈ feat|fix|chore|refactor|docs|test|ci|db; plan-id from `docs/plan.md` (PR-N/BUG-N/ARCH-N); desc kebab-case 3–5 words. Plan-id can be omitted for ad-hoc docs/chore work not tracked in plan.md (e.g. `docs/claude-md-cleanup`).
