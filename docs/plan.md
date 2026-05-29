@@ -6,7 +6,14 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(no active rows — FEAT-write-ux-bundle PR-1 + CHORE-health-script 머지 2026-05-29)_
+### BUG-18 Step 1: alias_fill fetch 단 MBID pre-check callback — P2
+
+- RFC: `docs/rfcs/BUG-18-mbid-uniqueness-pre-check.md` (Status: accepted — 2026-05-29 사용자 승격)
+- Scope: `myblog_worker` 단독 (musicbrainz_client.py + sync_service.py + tests). cross-check 와 동일한 구조 — Step 1 단일 PR.
+- Verification: `pytest tests/test_musicbrainz_client.py tests/test_sync_service.py tests/integration/test_alias_fill_session_lifecycle.py -v` + `ruff check worker/`. 통합 테스트는 `TEST_DB_URL` 미설정 시 skip ([[feedback-local-db-smoke-fallback]]).
+- Prod smoke: post-merge EventBridge 1주기 (≈15 min). 절차는 RFC §Prod smoke. 전제로 `LOG_LEVEL=INFO` 임시 설정 후 원복.
+- Rollback: PR revert. callback default `None` → 현행 동작. 데이터 mutation 없음.
+- Status: 🟡 in progress
 
 ---
 
@@ -30,12 +37,6 @@ _(no active rows — FEAT-write-ux-bundle PR-1 + CHORE-health-script 머지 2026
 ### BUG-15: MusicBrainz search false-match — P2
 
 - RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` (Status: accepted)
-
-### BUG-18: alias_fill fetch 단 MBID uniqueness pre-check — P2
-
-- RFC: `docs/rfcs/BUG-18-mbid-uniqueness-pre-check.md` (Status: draft)
-- 묶음 근거: BUG-15 follow-up 회의록 (Decisions §1) — 매 사이클 동일 false-match MBID 받아 stuck 인 3행 (`j-hope` / `Kim Tae Hoon` / `dj friz`) 의 본질 해결. BUG-15 Step 2 reset 은 본 RFC 머지 + Korean hint widening 후에 의미가 생기는 후행.
-- Status: 🔵 awaiting human accept (feedback round 적용 2026-05-29)
 
 ### BUG-16: tests/conftest.py 에 Neon test branch DB 비번 평문 — P3
 
