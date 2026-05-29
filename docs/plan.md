@@ -6,14 +6,27 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### BUG-18 Step 1: alias_fill fetch 단 MBID pre-check callback — P2
+### BUG-15 follow-up: Korean hint widening + Step 2 reset — P1 ⚠ 긴급
 
-- RFC: `docs/rfcs/BUG-18-mbid-uniqueness-pre-check.md` (Status: accepted — 2026-05-29 사용자 승격)
-- Scope: `myblog_worker` 단독 (musicbrainz_client.py + sync_service.py + tests). cross-check 와 동일한 구조 — Step 1 단일 PR.
-- Verification: `pytest tests/test_musicbrainz_client.py tests/test_sync_service.py tests/integration/test_alias_fill_session_lifecycle.py -v` + `ruff check worker/`. 통합 테스트는 `TEST_DB_URL` 미설정 시 skip ([[feedback-local-db-smoke-fallback]]).
-- Prod smoke: post-merge EventBridge 1주기 (≈15 min). 절차는 RFC §Prod smoke. 전제로 `LOG_LEVEL=INFO` 임시 설정 후 원복.
-- Rollback: PR revert. callback default `None` → 현행 동작. 데이터 mutation 없음.
-- Status: 🟡 in progress
+- RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` (Status: accepted)
+- 트리거: BUG-18 Step 1 prod smoke (2026-05-29 01:06 UTC) 에서 stuck 3행이 sentinel 이 아닌 **또 다른 false-match MBID 로 교체**됨이 확인됨. 한국 아티스트의 `genres` 가 ko-KR localized (`"한국 랩"` / `"케이팝"` / `"k-발라드"` 등) 라 BUG-15 의 `_COUNTRY_HINTS` 영문 needle 이 안 잡힘. Step 1 의 pre-check 가 UNIQUE collision 가드 (= "false-match 같은 MBID 누적" 방어막) 를 우회시킨 부작용으로 **데이터 정확성 악화 + false-match 누적 가속화**.
+- Scope:
+  - **PR-A** (`myblog_worker`): `_COUNTRY_HINTS` 에 한국어 needle 3개 추가 (`"한국"` → KR / `"케이팝"` → KR / `"k-발라드"` → KR — prod artists.genres 빈도 분석 기반: 한국 랩 253, K-발라드 91, 케이팝 49, 한국 록 35 = 428행 영향).
+  - **PR-B** (prod DB reset, **사용자 명시 OK 필요**): BUG-15 RFC Step 2. K* genres 행 중 musicbrainz_id NOT NULL && != 'not_found' 인 행을 NULL 로 reset (PR-A 머지 + 1 사이클 prod 동작 확인 후). 사전 SELECT 표본 점검 의무.
+- Sequencing: PR-A → 1 사이클 prod 관찰 (한국어 토큰 → cross-check reject 로그) → PR-B.
+- Verification: PR-A 는 worker pytest + 새 단위 케이스. PR-B 는 사전 SELECT 캡처 + UPDATE + 다음 사이클 후 재SELECT.
+- Rollback: PR-A revert. PR-B 는 reset 전 SELECT 캡처본으로 UPDATE 복구.
+- Status: 🟡 PR-A 시작
+
+### BUG-18 Step 1: alias_fill fetch 단 MBID pre-check callback — 종료 대기 (PR-1 prod smoke 통과)
+
+- RFC: `docs/rfcs/BUG-18-mbid-uniqueness-pre-check.md` (Status: accepted)
+- Prod smoke 결과 (2026-05-29 01:06 UTC):
+  - ✅ WARNING 0건 (이전 사이클 3-9건 → 0)
+  - ✅ Duration 22.6초 (이전 51-64초 절반, `get_artist_by_id` 호출 절약)
+  - ✅ 사이클당 진척 20행 (NULL 549→529, sentinel 54→56, 차이 18행은 진짜 MBID)
+  - ⚠ 단, 박힌 MBID 가 또 다른 false-match (위 BUG-15 follow-up 영역)
+- Status: 🟢 Step 1 기술 목표 달성. plan row drop 은 BUG-15 follow-up PR-A 와 묶어 처리.
 
 ---
 
