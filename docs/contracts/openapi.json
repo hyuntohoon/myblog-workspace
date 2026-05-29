@@ -954,6 +954,17 @@
             "title": "Id",
             "type": "string"
           },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "release_date": {
             "anyOf": [
               {
@@ -1755,6 +1766,13 @@
               }
             ],
             "title": "Duration Sec"
+          },
+          "feat_artist_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Feat Artist Names",
+            "type": "array"
           },
           "id": {
             "title": "Id",
