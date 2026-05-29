@@ -297,7 +297,7 @@ SELECT spotify_id, name, musicbrainz_id, aliases
 
 ### Step 5 — surname-token gate (2026-05-29 Step 4 mini-reset borderline 후속)
 
-**Status**: draft.
+**Status**: accepted (사용자 OK 2026-05-29).
 
 **관통 원칙**: 본 Step 의 1순위 방어 대상은 **정상 매치의 과잉 거절**. Step 5 가 설계 단계에서 단순 surname-substring (algorithm C) 을 부결한 이유도 동일 (측정 SQL 의 ~60% false-positive 가 한국 가수 영문 stage ↔ 한글 alias 패턴을 정상 매치까지 거절시키는 실패 모드). 본 RFC 의 **모든 수치 임계값 (길이 캡 10, surname 최소 길이 2, 토큰 분기 기준) 은 잠정값** — Step 5 배포 후 더 큰 라벨셋으로 재검토 대상.
 
