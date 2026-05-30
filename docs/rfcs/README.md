@@ -71,13 +71,13 @@ These RFCs are written assuming Claude Code is the executor. Two usage patterns:
 
 **Pattern A — full RFC, let Claude pick the next step:**
 ```
-Read docs/rfcs/ARCH-6-shared-db-package.md. Tell me the current Status,
+Read docs/rfcs/<PLAN_ID>-<slug>.md. Tell me the current Status,
 then propose the next step's plan before touching code.
 ```
 
 **Pattern B — pin to a specific step:**
 ```
-Read docs/rfcs/ARCH-6-shared-db-package.md. Execute Step 2 only.
+Read docs/rfcs/<PLAN_ID>-<slug>.md. Execute Step 2 only.
 Stop after Verification and report results.
 ```
 
@@ -100,9 +100,6 @@ When a step completes:
 
 In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcrumb to the archive, then gets dropped — `git log` and `docs/archive/done/rfcs/` are authoritative for history.
 
-| Plan ID | Title | Status |
-|---------|-------|--------|
-| BUG-15 | MusicBrainz false-match — Spotify-genre cross-check filter | accepted |
-| BUG-19 | writer music search — 1-hop cross-expansion + full participating artist display | draft |
+_(no in-flight RFCs)_
 
-Recently archived: ARCH-6 (shared DB package, ADR 0005), ARCH-11 (absorb publish, ADR 0006), ARCH-12 (contract-first OpenAPI, ADR 0007) — all in `docs/archive/done/rfcs/`.
+Recently archived (2026-05): BUG-11/12 (writer search filter), BUG-14 (MB hangul alias), BUG-15 (MB false-match cross-check), BUG-17 (alias_fill per-row UPDATE), BUG-18 (MBID uniqueness pre-check), BUG-19 (writer music search cross-expansion), FEAT-search-grid-fix, FEAT-writer-cleanup. Earlier: ARCH-6 (shared DB, ADR 0005), ARCH-11 (absorb publish, ADR 0006), ARCH-12 (contract-first OpenAPI, ADR 0007). All in `docs/archive/done/rfcs/`.
