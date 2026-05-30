@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(aws secretsmanager get-secret-value:*)",
+      "Bash(aws logs get-log-events:*)",
+      "Bash(aws logs filter-log-events:*)",
+      "Bash(aws logs describe-log-streams:*)",
+      "Bash(aws logs describe-log-groups:*)",
+      "Bash(gh run watch:*)",
+      "Bash(git fetch:*)"
+    ]
+  }
+}
