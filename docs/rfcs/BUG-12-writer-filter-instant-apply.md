@@ -1,9 +1,9 @@
 # BUG-12: Writer page filter buttons — instant client-side apply
 
-- **Status**: accepted
+- **Status**: closed (shipped 2026-05-28 — see `docs/archive/done/2026-05.md`)
 - **Owner**: TBD
 - **Created**: 2026-05-28
-- **Plan row**: `plan.md` → BUG-12
+- **Plan row**: dropped 2026-05-28
 
 ---
 

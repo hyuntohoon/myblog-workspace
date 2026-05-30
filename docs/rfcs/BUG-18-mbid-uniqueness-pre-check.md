@@ -1,9 +1,9 @@
 # BUG-18: alias_fill fetch 단 MBID uniqueness pre-check
 
-- **Status**: accepted
+- **Status**: closed (shipped via worker #22 + #23, 2026-05-29 — see `docs/archive/done/2026-05.md`)
 - **Owner**: TBD
 - **Created**: 2026-05-29
-- **Plan row**: `plan.md` → BUG-18
+- **Plan row**: dropped 2026-05-29
 - **Motivation**: `~/.claude/plans/bug-15-step2-korean-widening-bundle.md` (Decisions §1) — 3행 stuck 본질 해결의 owner 가 BUG-18 으로 확정됨.
 
 ---
