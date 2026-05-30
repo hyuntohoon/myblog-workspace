@@ -56,6 +56,8 @@ Steps 1 / 2 are frontend-only and independent (any order). Step 3 must land befo
 
 ### Step 1 — Preview polish + body toolbar refinement (frontend-only)
 
+**Status**: ✅ shipped 2026-05-31 (myblog_front#48, merge `e3810ec`). On audit, the drop-cap rule, `.prev-quote`, and the refined `.bubble-toolbar` geometry had already bulk-imported with writer.css at FEAT-W1 (`4b0779b`, 2026-05-25) — the RFC's "Current state: no drop-cap, basic blockquote" was inaccurate. Only real gap was the empty-state placeholder triggering the drop-cap selector, plus `text-wrap: pretty` on `.prev-body`. PR ships exactly that delta.
+
 `myblog_front` only. CSS-only changes plus a small structural tweak in `PreviewView.tsx`.
 
 - Add `.prev-body p:first-of-type::first-letter` drop-cap rule (accent color, ~4em float-left). Skip when the first paragraph is the placeholder empty state.
