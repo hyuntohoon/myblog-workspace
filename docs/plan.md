@@ -16,10 +16,6 @@ _(no active rows — FEAT-write-ux-bundle PR-2 shipped 2026-05-29, see git log)_
 
 - RFC: `docs/rfcs/BUG-14-mb-hangul-alias.md` (Status: draft)
 
-### BUG-15: MusicBrainz search false-match — P2
-
-- RFC: `docs/rfcs/BUG-15-mb-false-match-cross-check.md` (Status: accepted)
-
 ### BUG-16: tests/conftest.py 에 Neon test branch DB 비번 평문 — P3
 
 - Scope: `myblog_worker` (`tests/conftest.py`)
