@@ -12,12 +12,7 @@ _(no active rows — BUG-20 shipped 2026-05-30, see git log)_
 
 ## Backlog
 
-### BUG-16: tests/conftest.py Neon test branch credential 잔존 (history) — P3
-
-- Scope: `myblog_worker` + Neon console
-- Step 1 (2026-05-30 shipped, worker PR #28): fallback default 제거 + URL 을 AWS Secrets Manager `myblog/test-db` 로 이관 + conftest 는 env 만 읽기. git history 의 credential 은 여전히 잔존.
-- Step 2 (pending): Neon test branch `neondb_owner` 비번 rotate (Neon 콘솔) → Secrets Manager `myblog/test-db` 및 GHA `secrets.TEST_DB_URL` 새 값으로 동기 업데이트 → history 의 leaked credential 사용 불가화. 사용자 수동 액션.
-- Status: ⏳ Step 2 pending — sequential, rotate 후 행 드롭
+_(none — BUG-16 Step 2 closed 2026-05-30: Neon test-db credential rotated via Neon API, stores synced, leaked credential dead. See git log + docs/archive/done/2026-05.md)_
 
 ---
 
