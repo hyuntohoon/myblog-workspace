@@ -12,10 +12,6 @@ _(no active rows — FEAT-write-ux-bundle PR-2 shipped 2026-05-29, see git log)_
 
 ## Backlog
 
-### BUG-14: MusicBrainz hangul alias coverage — P2
-
-- RFC: `docs/rfcs/BUG-14-mb-hangul-alias.md` (Status: draft)
-
 ### BUG-16: tests/conftest.py Neon test branch credential 잔존 (history) — P3
 
 - Scope: `myblog_worker` + Neon console
