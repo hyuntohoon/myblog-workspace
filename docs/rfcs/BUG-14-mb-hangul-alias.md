@@ -1,9 +1,9 @@
 # BUG-14: MusicBrainz hangul alias coverage — switch artist search to Lucene `query=`
 
-- **Status**: draft
+- **Status**: closed (shipped 2026-05-30, Step 1+2 complete + Step 3 종료 판단 — see `docs/archive/done/2026-05.md`)
 - **Owner**: TBD
 - **Created**: 2026-05-30
-- **Plan row**: `plan.md` → BUG-14
+- **Plan row**: dropped 2026-05-30
 
 ---
 

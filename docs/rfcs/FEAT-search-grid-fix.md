@@ -1,9 +1,9 @@
 # FEAT-search-grid-fix: 검색 결과 그리드 수정 (카드 크기 불균일 + 가로 스크롤)
 
-- **Status**: draft
+- **Status**: closed (shipped 2026-05-29, Step 1 only; Step 2 deferred — see `docs/archive/done/2026-05.md`)
 - **Owner**: TBD
 - **Created**: 2026-05-29
-- **Plan row**: `plan.md` → FEAT-search-grid-fix
+- **Plan row**: dropped 2026-05-29 (workspace #121)
 - **회의록 출처**: `~/.claude/plans/soft-hatching-raccoon.md` (2026-05-29 v2, B+C 통합)
 
 ---

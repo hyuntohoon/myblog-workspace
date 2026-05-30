@@ -1,9 +1,9 @@
 # BUG-19: writer music search — 1-hop cross-expansion + full participating artist display
 
-- **Status**: accepted
+- **Status**: closed (shipped 2026-05-30, plan row dropped via workspace #150 — see `docs/archive/done/2026-05.md`)
 - **Owner**: TBD
 - **Created**: 2026-05-29 (redesigned 2026-05-30)
-- **Plan row**: `plan.md` → BUG-19
+- **Plan row**: dropped 2026-05-30
 
 ---
 

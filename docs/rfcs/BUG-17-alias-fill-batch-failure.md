@@ -1,9 +1,9 @@
 # BUG-17: alias_fill `executemany` 배치가 첫 UniqueViolation 에서 통째로 롤백
 
-- **Status**: draft
+- **Status**: closed (shipped via worker #20 + hotfix #21, 2026-05-29 — see `docs/archive/done/2026-05.md`)
 - **Owner**: TBD
 - **Created**: 2026-05-29
-- **Plan row**: `plan.md` → BUG-17
+- **Plan row**: dropped 2026-05-29 (workspace #119)
 - **Discovered**: BUG-15 Step 1 post-merge verification (2026-05-28T16:07Z CloudWatch)
 
 ---

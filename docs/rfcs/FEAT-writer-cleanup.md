@@ -1,9 +1,9 @@
 # FEAT-writer-cleanup: Writer 발행 폼 정리 + 삭제 플로우 (status=archived)
 
-- **Status**: draft
+- **Status**: closed (shipped 2026-05-29, 3-PR sequence + 1 infra companion — see `docs/archive/done/2026-05.md`)
 - **Owner**: TBD
 - **Created**: 2026-05-29
-- **Plan row**: `plan.md` → FEAT-writer-cleanup
+- **Plan row**: dropped 2026-05-29 (workspace #118)
 - **회의록 출처**: `/Users/park_hyun/.claude/plans/soft-hatching-raccoon.md` (2026-05-29 브레인스토밍, 점수 28)
 
 ---
