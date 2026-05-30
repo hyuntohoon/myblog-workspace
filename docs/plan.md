@@ -16,14 +16,12 @@ _(no active rows — FEAT-write-ux-bundle PR-2 shipped 2026-05-29, see git log)_
 
 - RFC: `docs/rfcs/BUG-14-mb-hangul-alias.md` (Status: draft)
 
-### BUG-16: tests/conftest.py 에 Neon test branch DB 비번 평문 — P3
+### BUG-16: tests/conftest.py Neon test branch credential 잔존 (history) — P3
 
-- Scope: `myblog_worker` (`tests/conftest.py`)
-- 증상: `TEST_DB_URL` env var 미설정 시 fallback default 에 Neon connection string (계정/비번 포함) 이 박혀있고 git 에 push 됨 (`conftest.py:14-17`).
-- 추정 원인: 초기 통합테스트 셋업 시 편의 목적의 default fallback 을 그대로 남겨둠. Secrets Manager / GHA Secret 경로 미수립.
-- 영향: Neon test branch 자체는 prod schema 와 분리지만 (a) 같은 organization 이라 lateral 공격 표면, (b) 향후 prod URL 도 같은 패턴으로 새어들 위험. test branch credential rotation 도 필요.
-- 방향(미확정): (1) fallback default 제거 → env 미설정 시 `pytest.skip` collection-time, (2) Neon URL 을 AWS Secrets Manager + GHA secret 으로 옮기고 conftest 는 env 만 읽기, (3) test branch 비번 rotate.
-- Status: ⚪ backlog
+- Scope: `myblog_worker` + Neon console
+- Step 1 (2026-05-30 shipped, worker PR #28): fallback default 제거 + URL 을 AWS Secrets Manager `myblog/test-db` 로 이관 + conftest 는 env 만 읽기. git history 의 credential 은 여전히 잔존.
+- Step 2 (pending): Neon test branch `neondb_owner` 비번 rotate (Neon 콘솔) → Secrets Manager `myblog/test-db` 및 GHA `secrets.TEST_DB_URL` 새 값으로 동기 업데이트 → history 의 leaked credential 사용 불가화. 사용자 수동 액션.
+- Status: ⏳ Step 2 pending — sequential, rotate 후 행 드롭
 
 ---
 
