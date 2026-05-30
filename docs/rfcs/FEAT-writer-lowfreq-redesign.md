@@ -25,7 +25,7 @@ Bring the live `/write` page (`myblog_front/src/components/writer/*`) to parity 
 `myblog_front/src/pages/write.astro` mounts `WriterApp` (`src/components/writer/WriterApp.tsx`) as a client-load React island inside `write-layout.astro`. Component tree:
 
 - `WriterChrome.tsx` — sticky top bar (back / Lowfreq logo / save / publish / view-toggle / status).
-- `SubjectBlock.tsx` (~20 KB) — search panel with **two separate buttons** for DB search vs Spotify sync, 3-column tile grid, filled `hdr-card` (cover + title + stars + numeric score). Artist tiles **select the artist directly as the subject** — no drill-in.
+- `SubjectBlock.tsx` (~20 KB) — search panel with **two separate buttons** for DB search vs Spotify sync, 3-column tile grid, filled `hdr-card` (cover + title + stars + numeric score). Artist tiles **refine the query to the artist's name and prompt re-search** — they do not select the artist as the subject and there is no drill-in. (Step 2 audit, 2026-05-31: RFC initially claimed "select the artist directly"; corrected here so Step 4 replaces the right path.)
 - `RecommendedTracksBlock.tsx` — rendered between subject and title (writer-only addition; not in the design).
 - `BodyArea.tsx` — `<textarea>` + floating bubble toolbar (B / I / " / blockquote) — already present.
 - `SettingsPanel.tsx` — right-side slide-in: section + publish date + checklist + save-draft + publish.
@@ -76,6 +76,8 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 ---
 
 ### Step 2 — Source toggle redesign (frontend-only)
+
+**Status**: ✅ shipped 2026-05-31 (myblog_front#49, merge `a65b04f`). CSS audit found the prototype's `hdr-source-row` / `hdr-source-btn` / `hdr-spinner` / `hdr-tile-badge` / `hdr-tile.is-spotify` rules were NOT bulk-imported at FEAT-W1 (only Step 1's drop-cap was) — added inline with markup. Toggle behavior decided in review: click-with-query auto-fires search through new source, empty-query is a color-only flip (DB has no "browse all"; Spotify candidates with empty `q` would enqueue junk). Spotify cooldown preserved.
 
 `myblog_front` only. Refactor the search panel header inside `SubjectBlock.tsx`.
 
