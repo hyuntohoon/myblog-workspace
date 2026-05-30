@@ -152,6 +152,7 @@ CREATE TABLE IF NOT EXISTS albums (
   label        TEXT,
   popularity   INTEGER,
   views        INTEGER     NOT NULL DEFAULT 0,
+  best_new     BOOLEAN     NOT NULL DEFAULT FALSE,
   ext_refs     JSONB       NOT NULL DEFAULT '{}'::jsonb,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_albums_views_nonneg CHECK (views >= 0)
@@ -160,6 +161,8 @@ CREATE TABLE IF NOT EXISTS albums (
 CREATE INDEX IF NOT EXISTS idx_albums_spotify_id ON albums(spotify_id);
 CREATE INDEX IF NOT EXISTS idx_albums_popularity_views
   ON albums(popularity DESC, views DESC);
+CREATE INDEX IF NOT EXISTS idx_albums_best_new
+  ON albums(best_new) WHERE best_new = true;
 
 -- =============================================================================
 -- Music Catalog — Album ↔ Artist (M:N)
