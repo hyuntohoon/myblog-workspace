@@ -1,10 +1,10 @@
 # FEAT-view-redesign: Article read page → Lowfreq parity + rating / search / writer fixes
 
-- **Status**: accepted
+- **Status**: closed (shipped 2026-05-31, all 6 active steps end-to-end; Step 7 remains a deferred pointer for a future RFC)
 - **Owner**: TBD
 - **Created**: 2026-05-31
-- **Plan row**: `plan.md` → FEAT-view-redesign
-- **Design source**: Claude Design bundle "Lowfreq Article.html" (`fitchpork-style-magazine-website/project/`), handed off from `https://api.anthropic.com/v1/design/h/9grq0ReGcaS6KDk7CkuFCw`. Extracted reference at `/tmp/lowfreq_design/` during drafting; the prototype is not checked in. Sibling of the closed `FEAT-writer-lowfreq-redesign` (writer side) — this RFC is the reader side plus the adjacent fixes the user batched in the same round.
+- **Closed**: 2026-05-31 — plan row dropped in the same workspace PR that moved this file under `docs/archive/done/rfcs/`. Per-step merges live in `git log` across `myblog_front`, `myblog_backend`, and `myblog_shared_db`; summary entry added to `docs/archive/done/2026-05.md`.
+- **Design source**: Claude Design bundle "Lowfreq Article.html" (`fitchpork-style-magazine-website/project/`), handed off from `https://api.anthropic.com/v1/design/h/9grq0ReGcaS6KDk7CkuFCw`. Extracted reference at `/tmp/lowfreq_design/` during drafting; the prototype is not checked in. Sibling of the closed `FEAT-writer-lowfreq-redesign` (writer side) — this RFC was the reader side plus the adjacent fixes the user batched in the same round.
 
 ---
 

@@ -6,13 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### FEAT-view-redesign: Article read page → Lowfreq parity + rating / search / writer fixes
-
-- RFC: `docs/rfcs/FEAT-view-redesign.md` (Status: draft — awaiting human accept, rule #5)
-- Trigger fired 2026-05-31: Lowfreq Article design bundle arrived (sibling of closed FEAT-writer-lowfreq-redesign)
-- Scope: search sectioning (front) · recommended → ★ pick model (front+backend, contract) · continuous rating `Numeric(3,2)` (shared_db→backend→front) · publish-checklist removal (front) · Lowfreq Article read page (front) · accent picker (additive) · "Appears On" (deferred)
-- Order: Steps 1/2 independent (front-only); Step 3 + Step 4 before Step 5; Step 4 cross-repo strict order (migration→prod apply→backend pin); one step per session (rule #4)
-- Status: 🟡 RFC draft written, awaiting accept
+_(none — FEAT-view-redesign closed 2026-05-31, all 6 active steps shipped end-to-end across `myblog_front`, `myblog_backend`, `myblog_shared_db`. Step 7 ("Appears On") stays deferred as a pointer for a future RFC. See `docs/archive/done/rfcs/FEAT-view-redesign.md` or `git log` for per-step merges.)_
 
 _(FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end. See `docs/rfcs/FEAT-writer-lowfreq-redesign.md` or `git log` for merge commits across all repos.)_
 
