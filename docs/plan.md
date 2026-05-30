@@ -6,10 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-### FEAT-writer-lowfreq-redesign: Writer 페이지 → Lowfreq 디자인 패리티
-
-- See `docs/rfcs/FEAT-writer-lowfreq-redesign.md` (6 steps, separate PRs; Step 1/2 frontend-only, Step 3→4 backend before front, Step 5→6 same)
-- Status: Step 1 ✅ shipped 2026-05-31 (myblog_front#48). Step 2 ✅ shipped 2026-05-31 (myblog_front#49). Awaiting Step 3 (backend artist-hero + top-tracks + by-spotify lookup).
+_(none — FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end. See `docs/rfcs/FEAT-writer-lowfreq-redesign.md` for the per-step status blocks, or `git log` for the merge commits across `myblog_shared_db`, `myblog_music`, `myblog_backend`, `myblog_front`, and workspace.)_
 
 ---
 

@@ -1,8 +1,9 @@
 # FEAT-writer-lowfreq-redesign: Writer page → Lowfreq design parity
 
-- **Status**: draft
+- **Status**: ✅ shipped (all 6 steps done 2026-05-31)
 - **Owner**: TBD
 - **Created**: 2026-05-31
+- **Completed**: 2026-05-31
 - **Plan row**: `plan.md` → FEAT-writer-lowfreq-redesign
 - **Design source**: Claude Design bundle "Lowfreq Writer.html" (`fitchpork-style-magazine-website/project/`). Extracted reference at `/tmp/lowfreq-design/` during drafting; the prototype itself is not checked in.
 
@@ -97,7 +98,9 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ### Step 3 — Backend: artist-hero + top-tracks + spotify-id lookup
 
-`myblog_music` (route+service) → `infra/apigateway.tf` entries → `openapi.json` regen. Single PR.
+**Status**: ✅ shipped 2026-05-31 (myblog_music#29, merge `9c352cf` + workspace#168 contract merge). Audit found three RFC drifts: (a) Pydantic naming was `*Out` not `Music_*Out`; (b) no `candidate_jobs` / absorb-tracking table exists, so by-spotify collapses to 200-or-404 (frontend polls 404); (c) `infra/apigateway.tf` uses `ANY /api/music/{proxy+}` catch-all, so no new TF entries were needed. Reviewer caught a `nullsfirst()` → `nullslast()` bug on the `track_no` tie-breaker before merge; an integration test in `tests/integration/test_artist_top_tracks.py` now exercises the full 4-column ORDER BY against a real engine per [[feedback-sa-session-lifecycle-mock-blind]].
+
+`myblog_music` (route+service) → `openapi.json` regen. Single PR. (No `infra/apigateway.tf` change — proxy catch-all covers it; original RFC text saying "3 entries" was wrong.)
 
 Three new endpoints (DB-only; no synchronous Spotify call — rule #9). All go in `app/api/routers/artists.py` (file already exists).
 
@@ -142,6 +145,8 @@ cd myblog_music && uv run pytest tests/api/test_artists.py -q
 
 ### Step 4 — Frontend: artist drill-in with pending poll (depends on Step 3 contract)
 
+**Status**: ✅ shipped 2026-05-31 (myblog_front#50, merge `1330d02`). Artist click now opens a Spotify-like drill-in panel with hero + top tracks + discography; tracks/albums in the panel select the parent album as the subject. Spotify-cold artists poll `by-spotify` 404 every 2 s (max 30 s) until the worker absorbs the row, then transition to full detail. Artist-as-subject ("이 아티스트를 리뷰 →") added `AlbumDetail.kind?: 'album' | 'artist'` discriminator; WriterApp branches on `kind === 'artist'` to send `album_ids=[]` + `artist_ids=[id]`.
+
 `myblog_front` only. Depends on Step 3's contract being merged into `docs/contracts/openapi.json` and `api.gen.ts` regenerated ([[reference-workspace-contract-merge-order]] — workspace first, service notify becomes a no-op).
 
 - New `src/components/writer/ArtistDetail.tsx` — hero (cover circle, name, kicker "장르 · 팔로워 N"), `art-tracks` ordered list, `art-albums` 3-column grid. Each row/tile takes an `onPick(item)` callback. **Pending variant**: a single skeleton row with a small spinner and "Spotify에서 가져오는 중…" text — same component, branch on `status`.
@@ -167,7 +172,9 @@ git diff --exit-code src/lib/api.gen.ts   # regenerated types match what code ty
 
 ### Step 5 — Backend: `albums.best_new` column + payload pass-through
 
-Cross-repo: `myblog_shared_db` (Alembic migration) → `myblog_music` (`Music_AlbumOut` / `Music_AlbumItem` schemas) → `myblog_backend` (publish payload pass-through) → `openapi.json` regen for both services. No `infra/apigateway.tf` change (no new paths).
+**Status**: ✅ shipped 2026-05-31 across 4 repos: shared_db v0.3.0 (myblog_shared_db#7, `migrations/V4`), V4 applied to Neon prod + test, music AlbumOut/AlbumItem (myblog_music#30), backend WritePostRequest.subject_best_new + same-txn UPDATE + PostOut + publish frontmatter (myblog_backend#32), workspace schema.sql + contract merge (myblog-workspace#170, #171). Note: shared_db uses plain SQL migrations (`V1__/V2__/…`), not Alembic — RFC originally said Alembic. Cross-service prod smoke confirmed: POST `subject_best_new=true` flips `albums.best_new`, GET music album reflects it, PUT false clears it. End-to-end auth + same-txn write verified live.
+
+Cross-repo: `myblog_shared_db` (SQL migration V4) → `myblog_music` (`AlbumOut` / `AlbumItem` schemas) → `myblog_backend` (publish payload pass-through) → `openapi.json` regen for both services. No `infra/apigateway.tf` change (no new paths).
 
 **Why album-level, not post-level**: BEST NEW is a property of the album itself, not of any single review of it. Multiple posts can reference one album; the badge belongs to the album. Editorial workflow (Step 6's writer toggle) sets it manually at publish time.
 
@@ -202,6 +209,8 @@ cd myblog_shared_db && alembic upgrade head   # local DB; or skip per [[feedback
 ---
 
 ### Step 6 — Frontend: BEST NEW toggle + preview banner (depends on Step 5)
+
+**Status**: ✅ shipped 2026-05-31 (myblog_front#51, merge `add6405`). `.hdr-bnm` pill in the filled subject card (hidden for artist subjects), `.prev-bnm` banner above the headline in preview. `subjectBestNew` state seeds 3 ways: localStorage draft on mount, `next.best_new` on subject pick, `post.subject_best_new` on `?id=` edit load. Prod artifact check confirmed both classes + the `subject_best_new` / `subjectBestNew` symbol strings shipped in the WriterApp chunk.
 
 `myblog_front` only. Depends on Step 5's contract.
 
