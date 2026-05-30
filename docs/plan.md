@@ -6,7 +6,15 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(none — FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end. See `docs/rfcs/FEAT-writer-lowfreq-redesign.md` for the per-step status blocks, or `git log` for the merge commits across `myblog_shared_db`, `myblog_music`, `myblog_backend`, `myblog_front`, and workspace.)_
+### FEAT-view-redesign: Article read page → Lowfreq parity + rating / search / writer fixes
+
+- RFC: `docs/rfcs/FEAT-view-redesign.md` (Status: draft — awaiting human accept, rule #5)
+- Trigger fired 2026-05-31: Lowfreq Article design bundle arrived (sibling of closed FEAT-writer-lowfreq-redesign)
+- Scope: search sectioning (front) · recommended → ★ pick model (front+backend, contract) · continuous rating `Numeric(3,2)` (shared_db→backend→front) · publish-checklist removal (front) · Lowfreq Article read page (front) · accent picker (additive) · "Appears On" (deferred)
+- Order: Steps 1/2 independent (front-only); Step 3 + Step 4 before Step 5; Step 4 cross-repo strict order (migration→prod apply→backend pin); one step per session (rule #4)
+- Status: 🟡 RFC draft written, awaiting accept
+
+_(FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end. See `docs/rfcs/FEAT-writer-lowfreq-redesign.md` or `git log` for merge commits across all repos.)_
 
 ---
 
@@ -18,11 +26,7 @@ _(none — BUG-16 Step 2 closed 2026-05-30: Neon test-db credential rotated via 
 
 ## Later (트리거 대기)
 
-### FEAT-view-redesign: View 페이지 디자인 개편 — 트리거 대기
-
-- 트리거: 사용자 디자인 예시(스크린샷/URL/Figma/손그림) 도착
-- 즉시 실행 계획: `~/.claude/plans/soft-hatching-raccoon.md` "G. View 디자인" 절 (Phase 1~4)
-- Status: 🔵 awaiting trigger
+_(none — FEAT-view-redesign trigger fired 2026-05-31, promoted to Active.)_
 
 ---
 
