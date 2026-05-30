@@ -145,14 +145,15 @@ Step 2 1-2 사이클 후:
 
 ## Open questions
 
-1. **Lucene boolean keyword 충돌** — artist name 이 정확히 `AND` / `OR` / `NOT` (대문자 전부) 인 케이스가 prod 에 있나? — 점검 SQL: `SELECT id, name FROM artists WHERE name IN ('AND','OR','NOT');`. 있으면 escape 추가, 없으면 무시. **Blocks Step 1 verification 설계만, 머지 안 막음** — 실측 후 결정.
+1. **Lucene boolean keyword 충돌** — ~~artist name 이 정확히 `AND` / `OR` / `NOT` (대문자 전부) 인 케이스가 prod 에 있나?~~ — **Resolved (2026-05-30)**: 점검 SQL `SELECT id, name FROM artists WHERE name IN ('AND','OR','NOT');` prod 실행 결과 0행. boolean keyword 충돌 없음, `_escape_lucene` 은 특수문자만 처리하면 충분.
 
-2. **EventBridge alias_fill 주기** — Step 2 사이클 관찰 시 1 사이클이 몇 분/시간인지 확인 (`infra/eventbridge.tf`). Step 2 Verification 의 측정 타이밍에 영향.
+2. **EventBridge alias_fill 주기** — **Resolved (2026-05-30)**: `infra/eventbridge.tf:15` 의 `rate(15 minutes)`. Step 2 reset 후 1-2 사이클 = 15–30 분 후 측정.
 
-3. **통합 테스트 opt-in flag 이름** — 기존 worker 테스트에 live MB 호출 패턴 있나? 있으면 동일 flag 재사용. Step 1 PR 작성 시 확인.
+3. **통합 테스트 opt-in flag 이름** — **Resolved (2026-05-30)**: 기존 worker `tests/integration/test_alias_fill_session_lifecycle.py:33-38` 가 `TEST_DB_URL` env + `pytest.mark.skipif` 패턴. live MB 테스트는 동일 패턴으로 `MB_LIVE_TEST=1` env + skipif 채택. MB rate-limit (1 req/s) 은 client 가 이미 설정.
 
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-05-30 | RFC 시작 — backlog 방향 (2) MB `alias:` 채택. 근거: 5/5 sample 의 직접 MB API 호출에서 `alias:` 가 score=100 hit, 현재 `artist:` 는 count=0. (1) latinized fallback 은 Spotify API 가 인공 latinized form 안 줘 transliteration 별도 필요, (3) 매핑 테이블은 운영 비용 큼. 둘 다 잔존 분석 (Step 3) 후 결정. [[feedback-alias-search-availability]] 와 정합 — query union 은 strictly more candidates 라 검색 가용성 ↑. | 0 |
+| 2026-05-30 | Open Q1/Q2/Q3 resolved — Q1 prod 0행 (boolean keyword 충돌 없음), Q2 rate(15 minutes), Q3 `MB_LIVE_TEST` env + skipif. Step 1 PR 진행. | 1 |
