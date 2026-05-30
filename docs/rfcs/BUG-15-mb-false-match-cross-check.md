@@ -1,9 +1,9 @@
 # BUG-15: MusicBrainz false-match — Spotify-genre cross-check filter
 
-- **Status**: accepted
+- **Status**: closed (Step 1/3/2/4 shipped; Step 5 reverted 2026-05-29 — see Decisions log)
 - **Owner**: TBD
 - **Created**: 2026-05-29
-- **Plan row**: `plan.md` → BUG-15
+- **Plan row**: dropped 2026-05-30 (BUG-15 종료, history in git log + this RFC's Decisions log)
 
 ---
 
