@@ -8,8 +8,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ### FEAT-writer-lowfreq-redesign: Writer 페이지 → Lowfreq 디자인 패리티
 
-- See `docs/rfcs/FEAT-writer-lowfreq-redesign.md` (7 steps, separate PRs; Step 1/2/7 frontend-only, Step 3→4 backend before front, Step 5→6 same)
-- Status: 📋 draft RFC (2026-05-31), awaiting Step 1 kickoff
+- See `docs/rfcs/FEAT-writer-lowfreq-redesign.md` (6 steps, separate PRs; Step 1/2 frontend-only, Step 3→4 backend before front, Step 5→6 same)
+- Status: Step 1 ✅ shipped 2026-05-31 (myblog_front#48). Awaiting Step 2 kickoff.
 
 ---
 
