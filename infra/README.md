@@ -5,7 +5,7 @@ Source of truth: `infra/terraform.tfstate`. The values below are a human-readabl
 | Resource | Identifier |
 |----------|------------|
 | AWS region | `ap-northeast-2` (Seoul); Neon in `ap-southeast-1` (separate by design — Neon Free-tier availability) |
-| API Gateway | `lambdaAPI` (HTTP API ID: `ld8pjw3mx4`) — 9 routes (see `infra/apigateway.tf`); Cognito-backed JWT authorizer |
+| API Gateway | `lambdaAPI` (HTTP API ID: `ld8pjw3mx4`) — 10 routes (see `infra/apigateway.tf`); Cognito-backed JWT authorizer |
 | Cognito | `MyBlogAdminPool` (Pool ID: `ap-northeast-2_54vEJKEU5`, SPA Client ID: `68ccmcanfbvla9qbovnb9b18bt`) |
 | Cognito hosted UI domain | `ap-northeast-254vejkeu5.auth.ap-northeast-2.amazoncognito.com` |
 | SQS | `blogSQS` + DLQ via redrive policy; consumer uses `ReportBatchItemFailures` |
@@ -40,5 +40,6 @@ Inspect any config: `aws lambda get-function-configuration --function-name <name
 
 These exist in AWS but are not managed by Terraform yet. Track in `plan.md` if remediation is planned.
 
-- **IAM execution roles** (3 Lambdas) — referenced by name in Terraform but defined manually. `LambdaRDSControlRole` carries unused `AmazonRDSFullAccess` (legacy, predates Neon migration).
 - **CloudFront `handler` function** — code defined in console, not Terraform.
+
+> The 3 Lambda execution roles (backend/music/worker) are now managed in `infra/iam_roles.tf` (no longer manual), and `AmazonRDSFullAccess` was dropped. Residual dead grant: `music_rds_ctrl` still allows `rds:Start/Stop/DescribeDBInstances` on `db:blogdb` — a phantom AWS RDS instance that doesn't exist (Neon is the DB). Safe to remove in a future `iam_roles.tf` change (needs `terraform apply`).
