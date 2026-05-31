@@ -6,6 +6,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+- **FEAT-reviews-redesign** — Pitchfork-style `/reviews` index (masthead + featured + filter/sort/search + grid/list) in `myblog_front`, **stars-only site-wide** (home cards unified). Frontend-only, additive; 4 steps (Step 4 parallel). RFC: `docs/rfcs/FEAT-reviews-redesign.md`. Status: draft (awaiting accept). Verify: `pnpm lint && astro check && build` + browser click-through per step. Rollback: per-step revert (no shared-state/contract change).
+
 _(none — FEAT-view-redesign closed 2026-05-31, all 6 active steps shipped end-to-end across `myblog_front`, `myblog_backend`, `myblog_shared_db`. Step 7 ("Appears On") stays deferred as a pointer for a future RFC. See `docs/archive/done/rfcs/FEAT-view-redesign.md` or `git log` for per-step merges.)_
 
 _(FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end. See `docs/archive/done/rfcs/FEAT-writer-lowfreq-redesign.md` or `git log` for merge commits across all repos.)_
@@ -14,7 +16,7 @@ _(FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end
 
 ## Backlog
 
-_(none — BUG-16 Step 2 closed 2026-05-30: Neon test-db credential rotated via Neon API, stores synced, leaked credential dead. See git log + docs/archive/done/2026-05.md)_
+- **FEAT-genre-taxonomy** — genre as first-class **multi-valued, managed** taxonomy. Scope: (1) multi-genre on write (write page can attach several genres per post), (2) **genre management API** — create/rename/merge/delete like categories (backend, likely shared_db `genres`/`post_genres`), (3) cross-cutting genre **filtering** reused in music search + review search, (4) unified "browse by genre" view, (5) edit genres on published posts (rides with the future post edit/delete logic). **Cross-repo** (backend + music + shared_db + front) + contract change → needs `architect` (structure) + `planner` (sequencing) before steps. No RFC yet. FEAT-reviews-redesign's `/reviews` genre filter is already array-aware so it slots in without rework.
 
 ---
 
