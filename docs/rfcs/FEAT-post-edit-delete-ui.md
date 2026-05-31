@@ -86,28 +86,42 @@ pnpm lint && pnpm exec astro check
 
 ---
 
-### Step 3 — un-publish removes the static MDX (gated on Q1)
+### Step 3 — un-publish removes the static MDX, restore re-publishes it (backend-only)
 
-Make "delete/unpublish a published post" also remove the published MDX so the static page disappears. Exact shape depends on Q1: either (a) extend the backend delete/archive path to delete the GitHub content file via the existing publish/GitHub client (cross-repo: backend + contract), or (b) add a frontend `unpublishFromGit` call mirroring `publishToGit`. Whichever, the static site must rebuild without the page.
+Resolved per Q1 → **backend owns it**, and per the NEW symmetry decision → **archive↔restore stay symmetric**. Backend-only; **no contract change** (DELETE/restore signatures unchanged).
+
+- Add `github_delete_file(owner, repo, branch, path, token)` to `publish_service.py` (GET sha → DELETE; **404 on the GET is an idempotent no-op** so deleting a never-published draft is safe).
+- Add a `publish_post_from_row(db, post)` helper that re-derives every `publish_to_github` input from the `Post` row (title/slug/description/posted_date/body_mdx/album_cover_url/rating from columns; category/album_ids/artist_ids/recommended_track_ids from relations; `best_new`/`music_review` from the single subject album — same derivation as the publish route, extracted for reuse).
+- Wire `DELETE /api/posts/{id}` (both `hard=true` and the soft archive) to compute `path = {CONTENT_DIR}/{posted_date}--{slug}/index.mdx` and call `github_delete_file` after the DB op. Capture slug+date **before** a hard delete removes the row.
+- Wire `PATCH /api/posts/{id}/restore` to call `publish_post_from_row` after flipping status back to `published`.
+- GitHub failures surface as `502` (mirrors the publish route) but never roll back the DB op — log + report; the file op is best-effort cleanup.
 
 **Verification**:
 
 ```
-# delete a published post → its /blog/<slug>/ returns 404 after rebuild; content file gone from the repo
+pytest  # unit: github_delete_file builds the right path + idempotent 404; restore re-publish derivation
+# local smoke (no GitHub creds): pytest + lint stand in; full path verified in prod smoke
+# prod smoke: 발행 취소 a published post → /blog/<slug>/ 404s after rebuild + content file gone;
+#             복구 it → file reappears, /blog/<slug>/ renders again after rebuild
 ```
 
-**Rollback**: restore the content file + `PATCH /restore`; non-trivial because it spans DB + content repo — document the manual restore in the PR.
+**Rollback**: revert the PR; `복구`(restore) re-publishes, so no manual content-repo surgery needed for archived posts. Hard-deleted posts are unrecoverable by design (unchanged from today).
 
 ---
 
 ## Open questions
 
-1. **Should un-publish/delete remove the MDX, and where does that logic live?** — `PostService.delete` is DB-only today. Options: (a) backend owns it (delete the content file in the same path the publish flow writes, ARCH-11 absorbed publish into backend) — cleanest, single source of truth, but cross-repo (backend + contract); (b) frontend issues a separate `unpublishFromGit` after the DELETE — simpler, but splits the publish/unpublish logic across tiers. **Blocks Step 3.** Recommendation: (a).
-2. **Archive vs hard-delete as the default destructive action for a published post.** Archive (recoverable, unpublish MDX, keep DB row) is safer and matches the existing `보관함` model; hard-delete stays an explicit secondary action. **Blocks Step 1 wording.** Recommendation: archive-as-default.
-3. **Edit semantics: does re-publishing an edited post overwrite the same slug/MDX, or create a new file?** WriterApp's update path keeps the same `dbPostId`; confirm the publish flow overwrites the existing slug's MDX rather than orphaning the old file on a title/slug change. **Blocks Step 2 acceptance** (a slug change on edit could strand the old static page — same class of problem as Step 3).
+_All resolved 2026-06-01 — see Decisions log._
+
+1. ~~Should un-publish/delete remove the MDX, and where does that logic live?~~ → **(a) backend owns it.** Decisive factor: `GITHUB_TOKEN` is a backend-only secret (Secrets Manager `myblog/backend`, `settings.GITHUB_TOKEN`); the frontend **physically cannot** delete the content file, so option (b) "frontend `unpublishFromGit`" would still require a new backend endpoint — no simplicity win. Backend already owns publish (ARCH-11) and has every input on the `Post` row (`posted_date` + `slug`) plus settings (`GITHUB_REPO_OWNER/NAME/BRANCH`, `CONTENT_DIR`). MDX removal becomes a side-effect of the existing `DELETE /api/posts/{id}` — **no contract change** (signature unchanged).
+2. ~~Archive vs hard-delete default for a published post.~~ → **archive-as-default.** `발행됨` tab actions: `편집` / `발행 취소`(archive, soft) / `완전 삭제`(hard, secondary).
+3. ~~Edit semantics: overwrite same slug or orphan?~~ → **overwrites; no orphan.** Verified: `PostService.update` never recomputes the slug (slugify runs only in `create`), and WriterApp re-publishes with the DB's stable `json.slug`. Path `{CONTENT_DIR}/{posted_date}--{slug}/index.mdx` is stable across a title edit. **Residual edge case (out of scope):** editing the *publish date* changes the path → orphans the old file (same class as Step 3); flagged for a future follow-up.
 
 ## Decisions log
 
-| Date | Decision | Step |
-| ---- | -------- | ---- |
-|      |          |      |
+| Date       | Decision                                                                                                                                                              | Step |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| 2026-06-01 | Q1 → **backend** owns MDX removal (GitHub token is backend-only; frontend can't delete). Side-effect of `DELETE`; no contract change.                                 | 3    |
+| 2026-06-01 | Q2 → **archive-as-default** for published posts (`발행 취소`=archive, `완전 삭제`=hard).                                                                                | 1    |
+| 2026-06-01 | Q3 → re-publish **overwrites** same slug/path (slug immutable on update); no orphan. Publish-date-change orphan deferred.                                             | 2    |
+| 2026-06-01 | **NEW** — archive↔restore must stay **symmetric**: `발행 취소`(archive) removes the MDX, so `복구`(restore) must **re-publish** it (else restore leaves a 404'd live post). Restore re-derives the MDX from the `Post` row (same `best_new`/`music_review` derivation as the publish route). Backend-only; expands Step 3. | 3    |
