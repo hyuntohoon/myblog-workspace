@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-reviews-redesign** — Pitchfork-style `/reviews` index (masthead + featured + filter/sort/search + grid/list) in `myblog_front`, **stars-only site-wide** (home cards unified). Frontend-only, additive; 4 steps (Step 4 parallel). RFC: `docs/rfcs/FEAT-reviews-redesign.md`. Status: draft (awaiting accept). Verify: `pnpm lint && astro check && build` + browser click-through per step. Rollback: per-step revert (no shared-state/contract change).
+_(FEAT-reviews-redesign closed 2026-05-31 — Pitchfork `/reviews` index + interactive filter island + site-wide stars-only home cards shipped in one PR (all 4 steps, frontend-only) via myblog_front#59. Prod smoke green on https://www.ratemymusic.blog. See `docs/archive/done/rfcs/FEAT-reviews-redesign.md` or `git log` for the merge.)_
 
 _(none — FEAT-view-redesign closed 2026-05-31, all 6 active steps shipped end-to-end across `myblog_front`, `myblog_backend`, `myblog_shared_db`. Step 7 ("Appears On") stays deferred as a pointer for a future RFC. See `docs/archive/done/rfcs/FEAT-view-redesign.md` or `git log` for per-step merges.)_
 
