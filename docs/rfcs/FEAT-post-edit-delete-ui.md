@@ -1,6 +1,6 @@
 # FEAT-post-edit-delete-ui: Author-facing edit / delete for published posts
 
-- **Status**: draft
+- **Status**: accept
 - **Owner**: TBD
 - **Created**: 2026-06-01
 - **Plan row**: `plan.md` → FEAT-post-edit-delete-ui
@@ -24,19 +24,23 @@ After this RFC, the logged-in author can **edit** and **remove** an already-**pu
 Concrete, verified 2026-06-01:
 
 **Backend (done, JWT-gated at API Gateway + in-Lambda after the recent auth fix):**
+
 - `PUT /api/posts/{id}` — `myblog_backend/app/api/routes/posts.py` `update_post`.
 - `DELETE /api/posts/{id}?hard=<bool>` — `delete_post`: `hard=false` soft-archives (`status='archived'`, 200), `hard=true` hard-deletes (204). **`PostService.delete` touches the DB only — it does NOT remove the published MDX from GitHub.**
 - `PATCH /api/posts/{id}/restore` — `restore_post`.
 
 **Frontend editor (`myblog_front/src/components/writer/WriterApp.tsx`):**
+
 - `?id=` in the URL loads a post from the DB for editing (`WriterApp.tsx:136-143`, `fetchPostById`).
-- Publish flow (`:264-305`): when `dbPostId` is set it calls `updatePost(dbPostId, {status:'published'})` **then `publishToGit`** (re-writes the MDX). So editing a published post and re-publishing already works — *if* the user can reach the editor with `?id=`.
+- Publish flow (`:264-305`): when `dbPostId` is set it calls `updatePost(dbPostId, {status:'published'})` **then `publishToGit`** (re-writes the MDX). So editing a published post and re-publishing already works — _if_ the user can reach the editor with `?id=`.
 
 **Frontend list (`myblog_front/src/pages/drafts.astro`):**
+
 - Two tabs only: `초안` (status=draft) and `보관함` (status=archived). Published posts are **not listed**.
 - Per-row actions already implemented: `편집` (→ `/write?id=`), archive, restore, hard-delete (confirm modal).
 
 **The gaps:**
+
 1. A **published** post appears in no author list (`/drafts` excludes `published`), and `/blog/[slug]` has no author affordance — so there is no entry point to edit or delete it.
 2. Deleting a published post (archive or hard) leaves the **static MDX page live** (the content file is never removed / the site never rebuilds the removal).
 
@@ -55,6 +59,7 @@ Steps 1 and 2 are frontend-only and independently mergeable. Step 3 is gated on 
 Add a third view tab (`published`) to `drafts.astro` + its client script, filtering `GET /api/posts?status=published`. Reuse the existing row renderer and action handlers; map the primary destructive action to `발행 취소` (archive) and keep `완전 삭제` (hard). `편집` already routes to `/write?id=`.
 
 **Verification**:
+
 ```
 # local: log in, publish a post, open /drafts → 발행됨 tab lists it; 편집 opens /write?id=; archive moves it to 보관함
 pnpm lint && pnpm exec astro check
@@ -70,6 +75,7 @@ pnpm lint && pnpm exec astro check
 In `myblog_front/src/pages/blog/[slug].astro`, render an author-only `편집` link (gated on `isLoggedIn()`, client-side) that points to `/write?id=<post-id>`. Post id is already available on the page (currently emitted as hidden data).
 
 **Verification**:
+
 ```
 pnpm lint && pnpm exec astro check
 # local: logged in → 편집 link visible on a post page and opens the editor pre-loaded; logged out → link absent
@@ -85,6 +91,7 @@ pnpm lint && pnpm exec astro check
 Make "delete/unpublish a published post" also remove the published MDX so the static page disappears. Exact shape depends on Q1: either (a) extend the backend delete/archive path to delete the GitHub content file via the existing publish/GitHub client (cross-repo: backend + contract), or (b) add a frontend `unpublishFromGit` call mirroring `publishToGit`. Whichever, the static site must rebuild without the page.
 
 **Verification**:
+
 ```
 # delete a published post → its /blog/<slug>/ returns 404 after rebuild; content file gone from the repo
 ```
@@ -102,5 +109,5 @@ Make "delete/unpublish a published post" also remove the published MDX so the st
 ## Decisions log
 
 | Date | Decision | Step |
-|------|----------|------|
-| | | |
+| ---- | -------- | ---- |
+|      |          |      |
