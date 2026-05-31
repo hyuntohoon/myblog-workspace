@@ -8,7 +8,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 _(none — FEAT-view-redesign closed 2026-05-31, all 6 active steps shipped end-to-end across `myblog_front`, `myblog_backend`, `myblog_shared_db`. Step 7 ("Appears On") stays deferred as a pointer for a future RFC. See `docs/archive/done/rfcs/FEAT-view-redesign.md` or `git log` for per-step merges.)_
 
-_(FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end. See `docs/rfcs/FEAT-writer-lowfreq-redesign.md` or `git log` for merge commits across all repos.)_
+_(FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end. See `docs/archive/done/rfcs/FEAT-writer-lowfreq-redesign.md` or `git log` for merge commits across all repos.)_
 
 ---
 
