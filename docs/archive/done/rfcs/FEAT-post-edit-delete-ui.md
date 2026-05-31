@@ -1,9 +1,22 @@
 # FEAT-post-edit-delete-ui: Author-facing edit / delete for published posts
 
-- **Status**: accept
+- **Status**: shipped (2026-06-01)
 - **Owner**: TBD
 - **Created**: 2026-06-01
-- **Plan row**: `plan.md` → FEAT-post-edit-delete-ui
+- **Plan row**: dropped on close
+
+---
+
+## Closeout (2026-06-01)
+
+All three steps shipped end-to-end, prod smoke green.
+
+- **Step 1+2** (frontend) — `myblog_front#62`: `/drafts` `발행됨` tab + `/blog/[slug]` author edit link (`postId` added to the content schema). Prod: deployed HTML/JS chunks carry the tab + handler + the hidden edit link with its `isLoggedIn` unhide gate.
+- **Step 3** (backend) — `myblog_backend#39`: un-publish removes the MDX, restore re-publishes it (archive ↔ restore symmetric); shared `content_sync`. Prod smoke `27/0`, full lifecycle, content repo left clean.
+- **Follow-up fix** — `myblog_backend#40`: restore of a rating-less post emitted `rating: null` which fails the content schema → omit the line. Caught by prod smoke (transient republish build failed), fixed + re-verified green.
+- **Decisions** recorded in `myblog-workspace#186`.
+
+History lives in `git log`. Unblocks FEAT-genre-taxonomy item (5).
 
 ---
 
