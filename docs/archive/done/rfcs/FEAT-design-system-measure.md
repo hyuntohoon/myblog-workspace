@@ -1,6 +1,6 @@
 # FEAT-design-system-measure: Design token scale completion + content measure unify
 
-- **Status**: draft
+- **Status**: done
 - **Owner**: park_hyun
 - **Created**: 2026-06-01
 - **Plan row**: `plan.md` → FEAT-design-system-measure
