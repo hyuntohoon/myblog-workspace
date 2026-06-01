@@ -6,9 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-| ID | Scope | Verification | Rollback | Status |
-| -- | ----- | ------------ | -------- | ------ |
-| FEAT-design-system-measure | `myblog_front` — token scale completion (z/space/radius/spotify) + content measure unify 720/760→**800px** w/ break-out hero + daisyUI removal + writer.css split. Single-PR (4 steps). → [RFC](rfcs/FEAT-design-system-measure.md) | `pnpm lint` + `astro check` + `pnpm build` + browser matrix (light/dark) + prod smoke (chunk curl+grep for auth-gated `/write`) | `git revert` per commit (frontend-only, no contract/infra/migration) | in-progress (Step 1) |
+_(FEAT-design-system-measure closed 2026-06-01 — design token scale completion (z/space/radius/spotify/measure) + content measure unify 720/760→800px with Pitchfork-style break-out hero + daisyUI removal + writer.css split, all 4 steps in one PR (frontend-only) via myblog_front#64 + workspace#189. Prod smoke green on https://www.ratemymusic.blog. See `docs/archive/done/rfcs/FEAT-design-system-measure.md` or `git log` for the merge.)_
 
 _(FEAT-reviews-redesign closed 2026-05-31 — Pitchfork `/reviews` index + interactive filter island + site-wide stars-only home cards shipped in one PR (all 4 steps, frontend-only) via myblog_front#59. Prod smoke green on https://www.ratemymusic.blog. See `docs/archive/done/rfcs/FEAT-reviews-redesign.md` or `git log` for the merge.)_
 
