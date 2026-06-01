@@ -120,13 +120,14 @@ Core blog API. Owns the post and category domain and is fully isolated from musi
 | `GET` | `/api/posts`, `/api/posts/:id` | None |
 | `POST` | `/api/posts` | Cognito JWT |
 | `PUT` | `/api/posts/:id` | Cognito JWT |
+| `PATCH` | `/api/posts/:id/restore` | Cognito JWT |
 | `DELETE` | `/api/posts/:id` | Cognito JWT |
 | `GET` | `/api/categories` | None |
 | `POST` | `/api/categories` | Cognito JWT |
 | `POST` | `/api/publish` | Cognito JWT |
 | `POST` | `/api/metrics/batch` | None |
 
-`POST/PUT/DELETE /api/posts/*` and `POST /api/publish` flow through the API Gateway Cognito authorizer (`6eia7l`); other routes go through CloudFront with the `x-origin-verify` edge guard (CLAUDE.md "Auth — two entry points").
+`POST/PUT/PATCH/DELETE /api/posts/*` and `POST /api/publish` flow through the API Gateway Cognito authorizer (`6eia7l`); other routes go through CloudFront with the `x-origin-verify` edge guard (CLAUDE.md "Auth — two entry points").
 
 **Publishing subsystem** — `POST /api/publish` receives the post payload, generates an MDX file, and commits it to the blog content repo via the GitHub API. GitHub Actions picks it up from there (Astro build → S3 → CloudFront). `GITHUB_TOKEN` is loaded from `myblog/backend` Secrets Manager at cold start.
 
@@ -162,7 +163,9 @@ Handles music search and Spotify sync triggers. The core design principle is **"
 | `GET` | `/api/music/search/candidates` | Cognito JWT | Spotify candidates + SQS enqueue (`CandidateSearchResult`, PR-12) |
 | `GET` | `/api/music/albums/:id` | None | Album detail by DB UUID (`AlbumDetail`, DB-only) |
 | `GET` | `/api/music/albums/by-spotify/:spotify_id` | None | Album lookup by Spotify ID (`AlbumDetail`, DB-only — returns 404 until worker syncs) |
+| `GET` | `/api/music/artists/:artist_id` | None | Artist hero detail (followers, genres, popularity) |
 | `GET` | `/api/music/artists/:artist_id/albums` | None | Album list for a DB artist (`SearchResult`) |
+| `GET` | `/api/music/artists/:artist_id/top-tracks` | None | Top tracks for a DB artist |
 
 The legacy `GET /api/music/search?mode=` (`basic_search`) was removed in PR-13 (2026-05-28) along with its only caller; the legacy `GET /api/music/artists/spotify/:spotify_id/albums` was removed shortly after in CHORE-search-orphans for the same reason. Both moves are reversible from git history.
 
@@ -224,9 +227,14 @@ Concrete IDs/ARNs in `infra/README.md`.
 
 Canonical DDL: `docs/contracts/schema.sql` (ARCH-1, ADR 0003).
 
-SQLAlchemy models are owned by `myblog_shared_db` (ARCH-6, ADR 0005) — a private Python package installed via git URL pin:
+SQLAlchemy models are owned by `myblog_shared_db` (ARCH-6, ADR 0005) — a private Python package installed via git URL pin. Each consumer pins its own version (different services may lag the latest tag if they don't need the newest columns):
 ```
-myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.1.0
+# myblog_backend/requirements.txt
+myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.4.0
+# myblog_music/requirements.txt
+myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.3.0
+# myblog_worker/requirements.txt
+myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.2.2
 ```
 
 Three services import from it:
