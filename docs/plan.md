@@ -6,13 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(FEAT-design-system-measure closed 2026-06-01 — design token scale completion (z/space/radius/spotify/measure) + content measure unify 720/760→800px with Pitchfork-style break-out hero + daisyUI removal + writer.css split, all 4 steps in one PR (frontend-only) via myblog_front#64 + workspace#189. Prod smoke green on https://www.ratemymusic.blog. See `docs/archive/done/rfcs/FEAT-design-system-measure.md` or `git log` for the merge.)_
-
-_(FEAT-reviews-redesign closed 2026-05-31 — Pitchfork `/reviews` index + interactive filter island + site-wide stars-only home cards shipped in one PR (all 4 steps, frontend-only) via myblog_front#59. Prod smoke green on https://www.ratemymusic.blog. See `docs/archive/done/rfcs/FEAT-reviews-redesign.md` or `git log` for the merge.)_
-
-_(none — FEAT-view-redesign closed 2026-05-31, all 6 active steps shipped end-to-end across `myblog_front`, `myblog_backend`, `myblog_shared_db`. Step 7 ("Appears On") stays deferred as a pointer for a future RFC. See `docs/archive/done/rfcs/FEAT-view-redesign.md` or `git log` for per-step merges.)_
-
-_(FEAT-writer-lowfreq-redesign closed 2026-05-31, all 6 steps shipped end-to-end. See `docs/archive/done/rfcs/FEAT-writer-lowfreq-redesign.md` or `git log` for merge commits across all repos.)_
+_(none — 직전 사이클의 FEAT-design-system-measure, FEAT-reviews-redesign, FEAT-view-redesign, FEAT-writer-lowfreq-redesign, FEAT-post-edit-delete-ui 모두 마감. 이력은 `git log` + `docs/archive/done/rfcs/` + `docs/archive/done/YYYY-MM.md`.)_
 
 ---
 

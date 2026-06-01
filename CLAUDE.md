@@ -15,8 +15,6 @@ myblog-workspace/
 ├── docs/{plan.md,contracts/,rfcs/,archive/}
 └── scripts/{smoke.sh,merge_openapi.py}
 
-`_archive_myblog_publish/` — do not edit, do not deploy (absorbed into backend, ARCH-11).
-
 ## Service boundaries
 
 - `/api/music/search/unified` is **DB-only**. Spotify access goes `candidates` → SQS → worker.
