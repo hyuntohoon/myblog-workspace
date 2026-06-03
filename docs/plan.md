@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(none — 직전 사이클의 FEAT-design-system-measure, FEAT-reviews-redesign, FEAT-view-redesign, FEAT-writer-lowfreq-redesign, FEAT-post-edit-delete-ui 모두 마감. 이력은 `git log` + `docs/archive/done/rfcs/` + `docs/archive/done/YYYY-MM.md`.)_
+- **FEAT-review-bucket-board** — 평론 버킷 보드: 리뷰할 앨범을 사용자 생성 칸반 버킷에 담아 드래그앤드롭 우선순위 + 클릭 상세 + 인라인 작성/발행. **Cross-repo** (shared_db + backend + workspace contract + front), 백엔드 테이블 처음부터. RFC → `docs/rfcs/FEAT-review-bucket-board.md` (Status: draft). 5 steps (shared_db V6 → backend API → contract → front 보드 → front 인라인 드로어).
 
 ---
 
