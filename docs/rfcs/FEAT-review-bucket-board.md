@@ -158,6 +158,8 @@ python tools/merge_openapi.py && git diff --stat docs/contracts/openapi.json
 
 `pnpm generate:types`, `reviews/queue.astro` (`/reviews/queue`) + `BucketBoard`/`BucketColumn`/`AlbumCard`/`AddAlbumModal`/`AlbumDetailPanel`, `@dnd-kit` 도입. 버킷 CRUD(+"작성 완료" 토글)·담기·드래그·상세 동작.
 
+참조 디자인 - https://claude.ai/design/p/d93dee98-c359-49e0-9794-d6307a16bfda?file=Lowfreq+Bucket.html&via=shares
+
 **Verification**:
 
 ```
