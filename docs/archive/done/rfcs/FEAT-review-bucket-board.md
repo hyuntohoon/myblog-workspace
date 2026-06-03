@@ -1,9 +1,10 @@
 # FEAT-review-bucket-board: 평론 버킷 보드
 
-- **Status**: accepted
+- **Status**: closed (shipped 2026-06-03, all 5 steps end-to-end)
 - **Owner**: 박지훈
 - **Created**: 2026-06-03
-- **Plan row**: `plan.md` → FEAT-review-bucket-board
+- **Closed**: 2026-06-03 — plan row dropped in the same workspace PR that moved this file under `docs/archive/done/rfcs/`. Per-step merges live in `git log` across `myblog_shared_db` (#13), `myblog_backend` (#44), workspace (#194 infra, #195 contract), and `myblog_front` (#70 board, #71 drawer); summary entry added to `docs/archive/done/2026-06.md`. Step 5 verified with a live inline-publish e2e against prod (16/16, isolated bucket + full cleanup) — see front PR #71 comment.
+- **Plan row**: dropped on close
 
 ---
 
