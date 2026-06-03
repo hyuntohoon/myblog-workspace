@@ -46,6 +46,7 @@ review_buckets
   name        TEXT NOT NULL          -- 사용자가 지정 (예: "꼭", "신보", "보류")
   position    INT  NOT NULL          -- 칼럼 좌→우 순서
   color       TEXT NULL              -- 라벨 색 (선택)
+  is_done     BOOLEAN DEFAULT false  -- "작성 완료" 버킷 표시. 발행 시 아이템이 여기로 이동. 최대 1개
   created_at  TIMESTAMPTZ
   updated_at  TIMESTAMPTZ
 
@@ -79,7 +80,7 @@ review_bucket_items
 | PUT | `/api/buckets/reorder` | 드래그 결과 일괄 반영 `{buckets:[{id, item_ids:[...]}]}` | Cognito JWT |
 
 - **`PUT /api/buckets/reorder`** 가 DnD 영속화 핵심: 영향받은 버킷의 정렬된 item_id 리스트를 통째로 받아 멱등하게 position 재할당.
-- **자동 추천(`BucketService`)**: 담을 때 `score = w_recency·recency(release_date) + w_pop·(popularity/100) + w_bnm·best_new` 로 초기 position 결정, `rec_reason` 기록. 이후엔 드래그가 진실.
+- **자동 추천(`BucketService`)**: 담을 때 `score = w_recency·recency(release_date) + w_pop·(popularity/100)` 로 초기 position 결정, `rec_reason`("신보"/"인기") 기록. 초기엔 **발매순 + 인기순** 두 시그널만 (best_new 등은 추후). 이후엔 드래그가 진실. 미래 확장은 아래 "Future enhancements" 참조.
 - **중복 가드**: 담으려는 앨범이 이미 `post_albums` 에 있으면 응답에 `already_reviewed: true` → 프론트 배지.
 - 변경 라우트는 `infra/apigateway.tf` 에 엔트리 추가.
 
@@ -89,10 +90,11 @@ backend `openapi.json` regen → `tools/merge_openapi.py` → `docs/contracts/op
 
 ### 프론트엔드 (myblog_front)
 
-- 페이지 `src/pages/queue.astro` → `<BucketBoard client:load />`, `/write` 처럼 auth 가드.
+- 페이지 `src/pages/reviews/queue.astro` (경로 `/reviews/queue`) → `<BucketBoard client:load />`, `/write` 처럼 auth 가드.
 - 신규 `src/components/queue/`: `BucketBoard.tsx`(`@dnd-kit` DndContext + reorder 영속), `BucketColumn.tsx`, `AlbumCard.tsx`(Cover/Stars 재사용 + status/already_reviewed 배지 + rec_reason 칩), `AddAlbumModal.tsx`(SubjectBlock 검색 재사용), `AlbumDetailPanel.tsx`(`/api/music/albums/{id}`), `ReviewDrawer.tsx`(인라인 작성·발행 + "/write 로 열기").
 - 신규 라이브러리 `@dnd-kit/core` + `@dnd-kit/sortable`.
-- **드로어 localStorage 충돌 주의**: `WriterApp` 의 `'lowfreq-draft'` 단일 키를 덮어쓰지 않게, 드로어는 아이템별 키 또는 백엔드 `status=drafting` 으로 분리.
+- **인라인 draft 는 프론트 localStorage**(아이템별 키 `bucket-draft:{item_id}`). `WriterApp` 의 `'lowfreq-draft'` 단일 키를 덮어쓰지 않게 분리 (백엔드 drafting status 안 씀).
+- **발행 시 "작성 완료" 버킷으로 이동**: 발행 성공하면 아이템 `status=published` + `post_id` 세팅 후, `is_done=true` 버킷이 있으면 그 버킷으로 이동 (없으면 제자리에서 배지만). done 버킷은 사용자가 만들고 "작성 완료" 토글로 지정.
 
 ## Steps
 
@@ -151,7 +153,7 @@ python tools/merge_openapi.py && git diff --stat docs/contracts/openapi.json
 
 ### Step 4 — frontend 보드 UI
 
-`pnpm generate:types`, `queue.astro` + `BucketBoard`/`BucketColumn`/`AlbumCard`/`AddAlbumModal`/`AlbumDetailPanel`, `@dnd-kit` 도입. 버킷 CRUD·담기·드래그·상세 동작.
+`pnpm generate:types`, `reviews/queue.astro` (`/reviews/queue`) + `BucketBoard`/`BucketColumn`/`AlbumCard`/`AddAlbumModal`/`AlbumDetailPanel`, `@dnd-kit` 도입. 버킷 CRUD(+"작성 완료" 토글)·담기·드래그·상세 동작.
 
 **Verification**:
 ```
@@ -166,7 +168,7 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ### Step 5 — frontend 인라인 작성 드로어
 
-`ReviewDrawer` 저장(draft)·발행(`POST /api/posts`/`publish`), `/write?album=` 프리필 이동(WriterApp 소폭 확장), 발행 성공 시 아이템 `status=published`/`post_id` 갱신.
+`ReviewDrawer` 저장(draft → 프론트 localStorage `bucket-draft:{item_id}`)·발행(`POST /api/posts`/`publish`), `/write?album=` 프리필 이동(WriterApp 소폭 확장), 발행 성공 시 아이템 `status=published`/`post_id` 갱신 + "작성 완료"(`is_done`) 버킷으로 이동.
 
 **Verification**:
 ```
@@ -178,12 +180,19 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ---
 
+## Future enhancements (이번 RFC 범위 밖, 추후 마이그레이션)
+
+- **Spotify 청취 내역 기반 추천 시그널** — 자동추천에 "최근에 들은"/"자주 들은" 앨범을 우선순위로 반영.
+  - 기술적 가능 여부: **가능**. Spotify Web API `GET /me/player/recently-played`(최근 50곡)와
+    `GET /me/top/tracks`·`GET /me/top/artists`(`time_range=short/medium/long_term`) 제공.
+    단 사용자 OAuth(refresh token) 1회 인증 필요 — all-time 정확 카운트는 불가, top API 의 기간별 랭킹으로 근사.
+  - 인프라는 plan.md `Frozen` 의 **FEAT-spotify-personalize-light**(OAuth→refresh→Secrets→EventBridge 주기 fetch)가
+    이미 상정. 그 기능이 생기면 청취 신호를 `review_bucket_items.rec_reason`/score 에 추가 시그널로 합산.
+  - 그때 마이그레이션: 청취 스냅샷 테이블(또는 albums ext_refs) + `BucketService` 점수식에 `w_recent_play`/`w_top_play` 항 추가.
+
 ## Open questions
 
-1. **페이지 경로** — `/queue` vs `/reviews/queue`, 네비 노출 여부. Step 4 블록.
-2. **자동추천 가중치** — `w_recency`/`w_pop`/`w_bnm` 초기값과 recency 정규화 방식. Step 2 블록.
-3. **발행 후 아이템 처리** — published 배지로 유지 vs 자동 아카이브/제거. Step 5 블록.
-4. **인라인 draft 저장 위치** — 백엔드 `status=drafting` vs 프론트 아이템별 localStorage 키. Step 5 블록.
+_(모두 해소 — Decisions log 참조)_
 
 ## Decisions log
 
@@ -193,3 +202,8 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-03 | 레이아웃: 사용자 생성 칸반 버킷 + 버킷 간/내 드래그 — 사용자 결정 | 0 |
 | 2026-06-03 | 우선순위: 자동추천 초기값 + 수동 드래그 override — 사용자 결정 | 0 |
 | 2026-06-03 | 평론 작성: 인라인 드로어(저장·발행) + /write 이동 둘 다 — 사용자 결정 | 0 |
+| 2026-06-03 | 페이지 경로: `/reviews/queue` — 사용자 결정 | 4 |
+| 2026-06-03 | 자동추천 초기 시그널: 발매순(recency) + 인기순(popularity) 두 개만, best_new 등은 추후 — 사용자 결정 | 2 |
+| 2026-06-03 | 발행 후: "작성 완료"(`is_done`) 버킷 신설, 발행 시 그 버킷으로 이동 — 사용자 결정 | 5 |
+| 2026-06-03 | 인라인 draft: 프론트 localStorage 아이템별 키 (백엔드 drafting status 안 씀) — 사용자 결정 | 5 |
+| 2026-06-03 | Spotify 청취 내역 추천은 Future enhancement 로 기록 (FEAT-spotify-personalize-light 연계) — 사용자 요청 | — |
