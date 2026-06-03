@@ -1,6 +1,6 @@
 # FEAT-review-bucket-board: 평론 버킷 보드
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-06-03
 - **Plan row**: `plan.md` → FEAT-review-bucket-board
@@ -68,16 +68,16 @@ review_bucket_items
 
 새 라우터 `myblog_backend/app/api/routes/buckets.py` + `BucketService`. albums 는 shared_db 로 읽음.
 
-| 메서드 | 경로 | 용도 | auth |
-|--------|------|------|------|
-| GET | `/api/buckets` | 전 버킷+아이템(앨범 조인, 정렬) | edge_guard |
-| POST | `/api/buckets` | 버킷 생성 `{name, color?}` | Cognito JWT |
-| PATCH | `/api/buckets/{id}` | 이름/색/칼럼 position 변경 | Cognito JWT |
-| DELETE | `/api/buckets/{id}` | 버킷 삭제 (아이템 cascade) | Cognito JWT |
-| POST | `/api/buckets/{id}/items` | 앨범 담기 `{album_id, note?}` → 자동 position | Cognito JWT |
-| PATCH | `/api/buckets/{id}/items/{item_id}` | note/status 수정 | Cognito JWT |
-| DELETE | `/api/buckets/{id}/items/{item_id}` | 아이템 제거 | Cognito JWT |
-| PUT | `/api/buckets/reorder` | 드래그 결과 일괄 반영 `{buckets:[{id, item_ids:[...]}]}` | Cognito JWT |
+| 메서드 | 경로                                | 용도                                                     | auth        |
+| ------ | ----------------------------------- | -------------------------------------------------------- | ----------- |
+| GET    | `/api/buckets`                      | 전 버킷+아이템(앨범 조인, 정렬)                          | edge_guard  |
+| POST   | `/api/buckets`                      | 버킷 생성 `{name, color?}`                               | Cognito JWT |
+| PATCH  | `/api/buckets/{id}`                 | 이름/색/칼럼 position 변경                               | Cognito JWT |
+| DELETE | `/api/buckets/{id}`                 | 버킷 삭제 (아이템 cascade)                               | Cognito JWT |
+| POST   | `/api/buckets/{id}/items`           | 앨범 담기 `{album_id, note?}` → 자동 position            | Cognito JWT |
+| PATCH  | `/api/buckets/{id}/items/{item_id}` | note/status 수정                                         | Cognito JWT |
+| DELETE | `/api/buckets/{id}/items/{item_id}` | 아이템 제거                                              | Cognito JWT |
+| PUT    | `/api/buckets/reorder`              | 드래그 결과 일괄 반영 `{buckets:[{id, item_ids:[...]}]}` | Cognito JWT |
 
 - **`PUT /api/buckets/reorder`** 가 DnD 영속화 핵심: 영향받은 버킷의 정렬된 item_id 리스트를 통째로 받아 멱등하게 position 재할당.
 - **자동 추천(`BucketService`)**: 담을 때 `score = w_recency·recency(release_date) + w_pop·(popularity/100)` 로 초기 position 결정, `rec_reason`("신보"/"인기") 기록. 초기엔 **발매순 + 인기순** 두 시그널만 (best_new 등은 추후). 이후엔 드래그가 진실. 미래 확장은 아래 "Future enhancements" 참조.
@@ -113,6 +113,7 @@ backend `openapi.json` regen → `tools/merge_openapi.py` → `docs/contracts/op
 `migrations/V6__review_buckets.sql`(두 테이블 + enum), `models.py` 모델 2개, `_generated_schema.sql` regen, `pyproject.toml` 버전 bump + 태그.
 
 **Verification**:
+
 ```
 cd myblog_shared_db && pytest          # 모델 ↔ _generated_schema.sql 일치
 # V6 가 test-db 에 클린 적용되는지 (reference-test-db-url-source)
@@ -129,6 +130,7 @@ cd myblog_shared_db && pytest          # 모델 ↔ _generated_schema.sql 일치
 `BucketService` + `routes/buckets.py`(CRUD + items + reorder + 자동추천 + 중복가드), shared_db pin bump, `infra/apigateway.tf` 변경 라우트 엔트리, backend `openapi.json` regen, pytest.
 
 **Verification**:
+
 ```
 cd myblog_backend && pytest
 # 로컬 cURL: 버킷 생성 → 앨범 담기(자동 position 확인) → reorder → 삭제
@@ -145,6 +147,7 @@ cd infra && terraform plan             # apigateway 클린
 `tools/merge_openapi.py` → `docs/contracts/openapi.json` 재생성·커밋. reference-openapi-pydantic-version-drift 주의.
 
 **Verification**:
+
 ```
 python tools/merge_openapi.py && git diff --stat docs/contracts/openapi.json
 ```
@@ -156,6 +159,7 @@ python tools/merge_openapi.py && git diff --stat docs/contracts/openapi.json
 `pnpm generate:types`, `reviews/queue.astro` (`/reviews/queue`) + `BucketBoard`/`BucketColumn`/`AlbumCard`/`AddAlbumModal`/`AlbumDetailPanel`, `@dnd-kit` 도입. 버킷 CRUD(+"작성 완료" 토글)·담기·드래그·상세 동작.
 
 **Verification**:
+
 ```
 cd myblog_front && pnpm lint && pnpm exec astro check
 # dev server: 버킷 N개 생성/이름변경 → 검색→담기 → 버킷 간/내 드래그 → 새로고침 영속 → 카드 클릭 상세
@@ -171,6 +175,7 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 `ReviewDrawer` 저장(draft → 프론트 localStorage `bucket-draft:{item_id}`)·발행(`POST /api/posts`/`publish`), `/write?album=` 프리필 이동(WriterApp 소폭 확장), 발행 성공 시 아이템 `status=published`/`post_id` 갱신 + "작성 완료"(`is_done`) 버킷으로 이동.
 
 **Verification**:
+
 ```
 cd myblog_front && pnpm lint && pnpm exec astro check
 # dev server: 드로어 인라인 발행 → published 배지 + post 링크 → "전체 편집기로 열기" 이동
@@ -196,14 +201,14 @@ _(모두 해소 — Decisions log 참조)_
 
 ## Decisions log
 
-| Date | Decision | Step |
-|------|----------|------|
-| 2026-06-03 | 저장: 백엔드 테이블 처음부터 (localStorage MVP 아님) — 사용자 결정 | 0 |
-| 2026-06-03 | 레이아웃: 사용자 생성 칸반 버킷 + 버킷 간/내 드래그 — 사용자 결정 | 0 |
-| 2026-06-03 | 우선순위: 자동추천 초기값 + 수동 드래그 override — 사용자 결정 | 0 |
-| 2026-06-03 | 평론 작성: 인라인 드로어(저장·발행) + /write 이동 둘 다 — 사용자 결정 | 0 |
-| 2026-06-03 | 페이지 경로: `/reviews/queue` — 사용자 결정 | 4 |
-| 2026-06-03 | 자동추천 초기 시그널: 발매순(recency) + 인기순(popularity) 두 개만, best_new 등은 추후 — 사용자 결정 | 2 |
-| 2026-06-03 | 발행 후: "작성 완료"(`is_done`) 버킷 신설, 발행 시 그 버킷으로 이동 — 사용자 결정 | 5 |
-| 2026-06-03 | 인라인 draft: 프론트 localStorage 아이템별 키 (백엔드 drafting status 안 씀) — 사용자 결정 | 5 |
-| 2026-06-03 | Spotify 청취 내역 추천은 Future enhancement 로 기록 (FEAT-spotify-personalize-light 연계) — 사용자 요청 | — |
+| Date       | Decision                                                                                                | Step |
+| ---------- | ------------------------------------------------------------------------------------------------------- | ---- |
+| 2026-06-03 | 저장: 백엔드 테이블 처음부터 (localStorage MVP 아님) — 사용자 결정                                      | 0    |
+| 2026-06-03 | 레이아웃: 사용자 생성 칸반 버킷 + 버킷 간/내 드래그 — 사용자 결정                                       | 0    |
+| 2026-06-03 | 우선순위: 자동추천 초기값 + 수동 드래그 override — 사용자 결정                                          | 0    |
+| 2026-06-03 | 평론 작성: 인라인 드로어(저장·발행) + /write 이동 둘 다 — 사용자 결정                                   | 0    |
+| 2026-06-03 | 페이지 경로: `/reviews/queue` — 사용자 결정                                                             | 4    |
+| 2026-06-03 | 자동추천 초기 시그널: 발매순(recency) + 인기순(popularity) 두 개만, best_new 등은 추후 — 사용자 결정    | 2    |
+| 2026-06-03 | 발행 후: "작성 완료"(`is_done`) 버킷 신설, 발행 시 그 버킷으로 이동 — 사용자 결정                       | 5    |
+| 2026-06-03 | 인라인 draft: 프론트 localStorage 아이템별 키 (백엔드 drafting status 안 씀) — 사용자 결정              | 5    |
+| 2026-06-03 | Spotify 청취 내역 추천은 Future enhancement 로 기록 (FEAT-spotify-personalize-light 연계) — 사용자 요청 | —    |
