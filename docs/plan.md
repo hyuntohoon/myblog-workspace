@@ -6,13 +6,13 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(none — FEAT-review-bucket-board shipped 2026-06-03, all 5 steps; archived to `docs/archive/done/rfcs/` + summary in `docs/archive/done/2026-06.md`.)_
+- **FEAT-member-dashboard** (draft) — 회원 대시보드 (`/profile`). Auth-gated member page (개요·평론·평론 버킷·라이브러리·통계). RFC → `docs/rfcs/FEAT-member-dashboard.md`. Built in vertical slices. **Step 1 = frontend shell** (myblog_front only): real reviews + derived stats, sample-labeled placeholders behind one adapter (`src/lib/member.ts`), nested bucket board on localStorage. Later steps add backend (library status → listening history → genre/artist agg → nested-bucket backend → multi-user). Verify: `pnpm lint` + `astro check` + browser click-through; prod smoke = deployed chunk grep (auth-gated). Not yet accepted.
 
 ---
 
 ## Backlog
 
-- **FEAT-genre-taxonomy** — genre as first-class **multi-valued, managed** taxonomy. Scope: (1) multi-genre on write (write page can attach several genres per post), (2) **genre management API** — create/rename/merge/delete like categories (backend, likely shared_db `genres`/`post_genres`), (3) cross-cutting genre **filtering** reused in music search + review search, (4) unified "browse by genre" view, (5) edit genres on published posts (rides with the future post edit/delete logic). **Cross-repo** (backend + music + shared_db + front) + contract change → needs `architect` (structure) + `planner` (sequencing) before steps. No RFC yet. FEAT-reviews-redesign's `/reviews` genre filter is already array-aware so it slots in without rework.
+- **FEAT-genre-taxonomy** (draft) — genre branch-authoring v1 (2-tier single-parent tree, create + assign-parent only; seeded from prod `artists.genres`). RFC → `docs/rfcs/FEAT-genre-taxonomy.md`. v2+ (album↔genre linkage, multi-genre on write, cross-cutting filter, browse-by-genre view, rename/merge/delete) tracked in that RFC's Non-goals. Cross-repo (shared_db V7 → seed → backend API → contract → front). Not yet accepted.
 
 ---
 
