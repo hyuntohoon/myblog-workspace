@@ -274,12 +274,11 @@ back per-PR (drop V10 `spotify_play_events`; restore `progress_ms`/`duration_ms`
 
 ---
 
-### Step 4 — Genre / artist distribution _(depends on FEAT-genre-taxonomy)_
+### Step 4 — Genre / artist distribution
 
-Aggregation for the 통계 charts. Genre distribution needs first-class genres, so this **depends on
-FEAT-genre-taxonomy** (plan.md Backlog). Artist/listen distribution comes from review counts **+
-the `spotify_play_events` history accumulated since Step 3** (D29) — which is why that table is
-seeded now rather than at Step 4 (the rolling-window snapshot keeps no history to count).
+**Carved out → `docs/rfcs/FEAT-genre-artist-distribution.md`** (draft, plan.md Backlog).
+Aggregation for the 통계 charts; depends on `FEAT-genre-taxonomy` (genre) + the
+`spotify_play_events` history seeded here in Step 3 (D29, listen counts).
 
 ---
 
@@ -331,10 +330,10 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ---
 
-### Step 6 — Multi-user accounts _(large, separate; may graduate to its own RFC)_
+### Step 6 — Multi-user accounts
 
-User/profile model, public `/members/[handle]`, followers/following/lists. Un-hides the social
-stats. Likely its own RFC by the time we reach it.
+**Carved out → `docs/rfcs/FEAT-multi-user-accounts.md`** (draft, plan.md Backlog).
+User/profile model, public `/members/[handle]`, social graph; un-hides the social stats.
 
 ---
 
