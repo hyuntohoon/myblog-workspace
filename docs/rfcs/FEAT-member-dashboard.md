@@ -152,8 +152,10 @@ API does **not** expose a complete listening history — only `GET /me/player/re
 > D31 shipped 2026-06-04** (D28: workspace #211 / front #77 / backend #49; D31: worker #34 /
 > workspace #213 / backend #50 / front #78; D29: shared_db #18 v0.9.0 / Neon V10 / worker #35),
 > and **D30 shipped 2026-06-04** (worker #36 / workspace #216+#217 / backend #51 / front #79 —
-> all prod smoke green); the remaining review fixes (retry/backoff + symmetric isolation,
-> real-album panel, cron alarms) are **not yet in prod**.
+> all prod smoke green). The **final review fixes also shipped 2026-06-04**: retry/backoff +
+> symmetric isolation (worker #37), the real-album panel (front #80), and the cron
+> `FailedInvocations` alarm (workspace #220, `terraform apply`-ed; cache-staleness deferred).
+> **Step 5** (nested-bucket backend) is the only remaining open work.
 
 Pulls data per the **hybrid sync model (D5)**:
 - **EventBridge cron, 1h**: worker reads `/me/player/recently-played`, then (a) upserts the
@@ -247,7 +249,18 @@ follow-ups ship as normal cross-repo PRs; ordering notes:
    `{connected:true, needs_reauth:false, last_successful_refresh_at:…}`; deployed ProfileApp chunk
    ships all three states. The `needs_reauth` path is unit + browser verified (the live token was
    not revoked).
-5. Cron `FailedInvocations` + cache-staleness alarms are additive infra (`terraform apply`).
+5. ✅ **Shipped 2026-06-04** (workspace #220, `terraform apply`: 2 add / 0 change / 0 destroy, no
+   drift). Cron `FailedInvocations` alarm on **both** worker EventBridge crons (Spotify listening +
+   MusicBrainz alias), namespace `AWS/Events` → existing `myblog-alerts` SNS topic; both alarms live
+   (INSUFFICIENT_DATA = no failures yet). **Cache-staleness deferred** — not a native CloudWatch
+   metric (would need a custom-metric canary).
+6. ✅ **Shipped 2026-06-04** (worker #37 / front #80). Retry/backoff helper (3 tries, honour
+   `Retry-After` on 429, 5xx + transport backoff; non-transient incl. token `invalid_grant` pass
+   through) + **symmetric isolation** (recent-albums + now-playing both wrapped — a recent failure no
+   longer aborts the tick). Real-album detail panel: a real 최근 들은 앨범 click now opens a real
+   cover + metadata panel (no 샘플 badge, no fabricated tracklist; sample path unchanged). prod smoke
+   green (worker invoke → cache `synced_at` advanced 10:13, 26 recent rows; front `ProfileApp` chunk
+   ships the real panel + local-browser click-through). **Completes the follow-up rollout.**
 
 **Verification** (baseline is prod-smoke-green per #209; the below cover the D28–D31 follow-ups +
 regression):
