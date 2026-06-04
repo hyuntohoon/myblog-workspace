@@ -18,9 +18,16 @@ out of scope here and is tracked as an open question.
 
 This RFC is the executable form of a brainstorm that was challenged by
 three review agents (architect / reviewer / general-purpose) before being
-written. The recommended direction below already reflects that critique —
-notably, pg_trgm's Korean claim was wrong and has been replaced with a
-pg_bigm PoC gate.
+written. The recommended direction below already reflects that critique.
+
+**2026-06-05 empirical correction (OQ2 resolved):** the brainstorm picked
+pg_bigm over pg_trgm for Korean. Live probing of the actual prod engine
+(Neon Postgres 17) inverted both halves of that premise — pg_bigm is **not
+installable on Neon** (not in `neon.allowed_extensions`; `pg_search`/ParadeDB
+is deprecated too), and pg_trgm **does work on Korean** on this build:
+`show_trgm('방탄소년단')` yields 6 syllable-level trigrams and
+`similarity('방탄','방탄소년단') = 0.286`. The matching extension is therefore
+**pg_trgm**, no external engine needed. See the Decisions log for scores.
 
 ## Non-goals
 
@@ -101,7 +108,9 @@ After all steps below complete:
   in `myblog_music`. A single pytest integration test asserts Hit@5 ≥ 0.9
   and Hit@1 ≥ 0.6 against it.
 - `/api/music/search/unified` matches against Hangul + Latin queries with
-  a CJK-capable Postgres extension (pg_bigm preferred). Multi-token
+  pg_trgm (GIN trigram index accelerating the existing ILIKE substring
+  match + `similarity()` for fuzzy ranking / typo tolerance). pg_bigm was
+  the brainstorm pick but is unavailable on Neon (OQ2). Multi-token
   queries (artist + album/track combined) return results.
 - `album_aliases` + `track_aliases` tables exist in shared_db; worker
   populates them from MusicBrainz release/recording aliases.
@@ -157,46 +166,48 @@ cd myblog_music && pytest tests/integration/test_search_recall_gate.py -v
 
 ---
 
-### Step 3 — A1 PoC: pg_bigm on Neon
+### Step 3 — A1 PoC: extension selection on Neon ✅ DONE (2026-06-05)
 
-Verify that pg_bigm is installable on the Neon prod DB and that it
-handles Korean queries with usable similarity scores.
+**Resolved.** Probed the prod engine (Neon PG17) directly via `$TEST_DB_URL`:
 
-Local check first (test branch):
-```
-psql "$TEST_DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pg_bigm;"
-# Run a short script: insert 10 KO seed rows, query similarity for
-# '방탄' → '방탄소년단', '봄날' → '봄날', etc. Capture scores.
-```
+- `pg_bigm`: **not available** — not in `pg_available_extensions`; `CREATE
+  EXTENSION pg_bigm` → "not in the allowed extensions list".
+- `pg_search` (ParadeDB BM25): **deprecated, not allowed**.
+- `pg_trgm`: **available and working on Korean** — `similarity('방탄',
+  '방탄소년단') = 0.286`, `'소년단'↔'방탄소년단' = 0.25`,
+  `show_trgm('방탄소년단')` = 6 syllable trigrams, `show_trgm('봄날')` = 3.
+- Also available if ever needed: `rum`, `vector` (pgvector). External engine
+  (Meilisearch) **not** needed.
 
-If Neon does not support pg_bigm, this step pivots: try `pg_trgm` on the
-same set and accept its (limited) Korean behavior, OR escalate to a
-Meilisearch reconsideration as a side RFC. **Either branch is recorded
-in the Decisions log; further steps do not start until this branch is
-chosen.**
+**Decision: pg_trgm.** Caveat captured for Step 4 — the default
+`pg_trgm.similarity_threshold` is 0.3, and `'방탄'↔'방탄소년단'` scores
+0.286, *below* it. So the `%` operator alone would miss it. The plan is
+therefore to keep ILIKE substring semantics (accelerated by a
+`gin_trgm_ops` index) and use `similarity()` only for ranking/typo, rather
+than swapping ILIKE for the `%` operator wholesale.
 
-**Verification**: the Decisions log gets an entry stating "pg_bigm
-available: yes/no" + scores on the KO probe queries.
-
-**Rollback**: drop extension on the test branch.
+**Rollback**: n/a — probe extensions were dropped, test branch restored.
 
 ---
 
 ### Step 4 — A1 implementation (shared_db V11 + music repos)
 
-Contingent on Step 3 outcome.
+Per Step 3, the extension is **pg_trgm**.
 
-- shared_db V11: `CREATE EXTENSION pg_bigm` + GIN indexes on
-  `artists.name`, `albums.title`, `tracks.title`. (If Step 3 forced
-  pg_trgm, the migration is the trgm equivalent.)
+- shared_db V11: `CREATE EXTENSION pg_trgm` + `gin_trgm_ops` GIN indexes on
+  `artists.name`, `albums.title`, `tracks.title`.
 - bump shared_db version; apply to prod Neon BEFORE service pin bumps
   (`reference-shared-db-cross-repo-rollout`).
 - pin bump in `myblog_music`, `myblog_backend`, `myblog_worker` to keep
   schema consistent (extensions are global to the database; even
   services that don't query the search columns must reference the new
   pin).
-- replace `ILIKE '%q%'` in the three search repos with the extension's
-  operator + similarity-ordered `LIMIT N`.
+- **keep** `ILIKE '%q%'` substring semantics (now index-accelerated by the
+  trgm GIN index) and add `similarity()` to the ORDER BY for fuzzy / typo
+  ranking. Do NOT swap ILIKE for the `%` operator — the default 0.3
+  threshold drops valid prefix matches (Step 3 caveat: `'방탄'` = 0.286).
+  If a fuzzy-only path is wanted for true typos, use a lowered
+  `set_limit()` / `word_similarity` explicitly, measured against the gate.
 - track ranking: do not blindly replace `views DESC, created_at DESC` —
   consider a hybrid score (`similarity × log1p(views)`) so cold catalog
   items do not displace engagement-strong ones.
@@ -278,29 +289,36 @@ curl '<music-prod>/api/music/search/unified?q=...&explain=1' | jq '.debug'
 
 ## Open questions
 
-1. **Spotify fallback boundary** — C1 (manual, status quo) / C4
-   (proactive empty-state CTA) / C2 (separate `/unified_with_fallback`
-   route). Blocks any future step that wants to soften the DB-only
-   boundary. C3 (always parallel DB + Spotify on `/unified`) is rejected
-   here as a direct rule #9 violation.
-2. **pg_bigm availability on Neon** — Blocks Step 3 onward. Practical
-   check: `CREATE EXTENSION pg_bigm` on the test branch. If unavailable,
-   Step 3 branches to pg_trgm-with-known-limits or to a side RFC for
-   Meilisearch reconsideration.
-3. **A1 rollout: feature flag vs UI release window** — Step 4 currently
-   defaults to a feature flag. If the writer is fine with an immediate
-   ranking shift, flag can be removed.
+1. ~~**Spotify fallback boundary**~~ — **RESOLVED 2026-06-05: C1 (manual,
+   status quo).** `/unified` stays DB-only with the existing manual toggle;
+   no fallback work in this RFC. C4 (empty-state CTA) / C2 (separate route)
+   deferred to a future RFC if writer demand appears. C3 stays rejected
+   (rule #9).
+2. ~~**pg_bigm availability on Neon**~~ — **RESOLVED 2026-06-05.** pg_bigm
+   not allowed on Neon; pg_trgm available and works on Korean (syllable
+   trigrams). Direction = pg_trgm, no external engine. See Step 3 + Decisions.
+3. ~~**A1 rollout: feature flag vs UI release window**~~ — **RESOLVED
+   2026-06-05: feature flag** (`SEARCH_USE_PG_TRGM`) for one deploy cycle,
+   A/B'd via the fixture gate, off-switch on regression. Step 4 keeps the
+   flag as written.
 4. **`search_misses` table** — Deferred to post-baseline. The decision
    is: after Step 2's baseline + Step 4/5 lifts, do we still need a
    table to surface real-world queries that fall outside the fixture,
    or is that question answerable from CloudWatch + fixture review? V10
    precedent says a table is in-bounds if the question is real.
-5. **Writer persona vs future reader-facing search** — assumed
-   writer-only here. If reader search ships later, B-series ranking
-   polish (Top result card, popularity damp) gets reweighted.
+5. ~~**Writer persona vs future reader-facing search**~~ — **RESOLVED
+   2026-06-05: keep reader in mind.** Execution stays writer-only (scope
+   unchanged), but ranking choices in Step 4/6 should avoid writer-only
+   assumptions that would block a later reader-facing surface — i.e.
+   prefer readable, popularity-aware ordering over raw-similarity ordering
+   where the two diverge. A dedicated reader-search RFC still owns the
+   B-series polish (Top result card, popularity damp).
 
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
-|      |          |      |
+| 2026-06-05 | OQ2 resolved by live probe of Neon PG17 (`$TEST_DB_URL`): **pg_bigm not installable** (not in `neon.allowed_extensions`), `pg_search` deprecated → **pg_trgm chosen**. pg_trgm works on Korean: `similarity('방탄','방탄소년단')=0.286`, `'소년단'↔'방탄소년단'=0.25`, `show_trgm('방탄소년단')`=6 trigrams. Caveat: 0.286 < default 0.3 threshold → keep ILIKE (trgm-GIN-accelerated) + similarity for ranking, don't swap to `%` operator. Probe extensions dropped, test branch restored. | 3 |
+| 2026-06-05 | OQ1 = **C1 (status quo)**: `/unified` stays DB-only + manual toggle; Spotify fallback (C4/C2) deferred to a later RFC. | — |
+| 2026-06-05 | OQ3 = **feature flag** (`SEARCH_USE_PG_TRGM`) for one deploy cycle, A/B'd via fixture gate. | 4 |
+| 2026-06-05 | OQ5 = **keep reader in mind**: execution writer-only, but prefer readable/popularity-aware ordering over raw-similarity where they diverge; reader-search RFC owns B-series polish. | 4/6 |
