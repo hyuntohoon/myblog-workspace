@@ -5,7 +5,7 @@
 User / profile model, public `/members/[handle]`, followers / following / lists.
 Un-hides the social stats currently hidden on `/profile`. Carved out of
 `FEAT-member-dashboard` (was its "Step 6", always flagged "large, separate; may graduate
-to its own RFC").
+to its own RFC"; closed/archived at `docs/archive/done/rfcs/FEAT-member-dashboard.md`).
 
 ## Scope
 

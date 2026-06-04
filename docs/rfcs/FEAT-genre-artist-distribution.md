@@ -25,7 +25,7 @@ large enough to track independently and is gated on a separate dependency
 
 ## Origin
 
-Originated as `FEAT-member-dashboard` Step 4; see that RFC's decision log (**D29**) for the
+Originated as `FEAT-member-dashboard` Step 4 (closed; archived at `docs/archive/done/rfcs/FEAT-member-dashboard.md`); see that RFC's decision log (**D29**) for the
 events-table rationale. Not yet scoped beyond this carve — promote to a full RFC body
 (aggregation queries, `/api` chart endpoints, contract, front chart wiring) when
 `FEAT-genre-taxonomy` lands and this is picked up.

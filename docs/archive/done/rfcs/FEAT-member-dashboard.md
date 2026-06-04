@@ -1,9 +1,10 @@
 # FEAT-member-dashboard: 회원 대시보드 (`/profile`)
 
-- **Status**: accepted
+- **Status**: closed (shipped 2026-06-04, Steps 1–5 + D28–D31 follow-ups end-to-end)
 - **Owner**: TBD
 - **Created**: 2026-06-04
-- **Plan row**: `plan.md` → FEAT-member-dashboard
+- **Closed**: 2026-06-04 — plan row dropped in the same workspace PR that moved this file under `docs/archive/done/rfcs/`. Per-step merges live in `git log` across `myblog_shared_db` (v0.7.0–v0.10.0 / Neon V8–V11; #17, #18), `myblog_backend` (#48–#52), `myblog_worker` (#33–#37), `myblog_front` (#72, #76–#81), and workspace (#208, #210, #211, #213, #216, #217, #220, #223, #224, #225); summary entry added to `docs/archive/done/2026-06.md`. Step 5 verified with backend e2e 18/18 + integration 20/20 real-engine and front `/reviews/queue`→404 (prod smoke green). Follow-up **not** done: flat `PUT /api/buckets/reorder` kept live — cross-bucket album moves still depend on it; retirement is gated on first adding a nested-tree-aware item-move route (see §Step 5 retire note).
+- **Plan row**: dropped on close
 
 ---
 
