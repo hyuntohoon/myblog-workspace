@@ -300,13 +300,20 @@ Aggregation for the 통계 charts; depends on `FEAT-genre-taxonomy` (genre) + th
 The two bucket implementations collapse to one — the nested `/profile→bucket` board with a
 real backend. The flat `/reviews/queue` page is **retired** (D1), not unified.
 
-> **Progress (2026-06-04): 5.1 shared_db shipped.** `review_buckets.parent_id` (migration V11)
-> is ROLLBACK-validated + applied to **prod Neon main**, and shared_db is tagged **v0.10.0**
-> (PR #19). Prod is safe: the column is unused and the deployed backend still pins v0.8.0. The
-> **backend** (nested tree + `move` + D22 cleanup, pin v0.10.0), **workspace contract**, **infra
-> apigateway** `move` route, and **frontend** (DnD board + retire `/reviews/queue`) remain — a
-> single coupled landing for a focused next pass (the `BucketResponse` contract change couples
-> backend↔front through the front api.gen drift gate, so 5.3 + 5.5 must land together).
+> **Shipped 2026-06-04 (full Step 5).** 5.1 (shared_db `review_buckets.parent_id`, V11/**v0.10.0**,
+> PR #19) plus the coupled landing: **backend #52** (nested-tree `GET /api/buckets` + `PUT
+> /api/buckets/{id}/move` with app-layer cycle prevention and both source+dest sibling groups
+> renumbered + D22 hard-delete cleanup of `review_bucket_items` (same-tx, app-layer — FK kept
+> `SET NULL`, no migration) + pin v0.10.0), **workspace #224** (additive contract regen + infra
+> `move` route, `terraform apply` 1-add/no-drift), **front #81** (`/profile` board on the API via
+> `src/lib/buckets.ts`, `AddAlbumModal` relocated to `components/member/` + its `qb-*` styles ported
+> into `member.css`, `/reviews/queue` retired). **GET decision:** kept the full nested `children[]`
+> tree (RFC-literal) — safe through the deploy window because existing buckets are all roots, so the
+> nested GET lists them flat-at-top with empty children and the still-live old flat board ignores the
+> extra field. Verified: unit **121 pass**, integration **20 pass** (real Neon engine — nest/move/both
+> cycle rejections/source-compaction + D22 cascade & soft-delete-keeps-item), prod smoke **18/18**
+> (self-cleaning e2e: move nest/un-nest, cycle→400, D22 cascade) + front deployed-chunk grep
+> (`/reviews/queue`→404, ProfileApp ships the API board + modal styles, D22 confirm copy live).
 
 - **shared_db** ✅ **shipped (v0.10.0 / V11, prod Neon)**: added `parent_id UUID NULL FK →
   review_buckets(id) ON DELETE CASCADE` + `idx_review_buckets_parent_id`. No max depth (Q10,
