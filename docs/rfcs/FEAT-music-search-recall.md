@@ -190,11 +190,11 @@ than swapping ILIKE for the `%` operator wholesale.
 
 ---
 
-### Step 4 — A1 implementation (shared_db V11 + music repos)
+### Step 4 — A1 implementation (shared_db V12 + music repos)
 
 Per Step 3, the extension is **pg_trgm**.
 
-- shared_db V11: `CREATE EXTENSION pg_trgm` + `gin_trgm_ops` GIN indexes on
+- shared_db V12: `CREATE EXTENSION pg_trgm` + `gin_trgm_ops` GIN indexes on
   `artists.name`, `albums.title`, `tracks.title`.
 - bump shared_db version; apply to prod Neon BEFORE service pin bumps
   (`reference-shared-db-cross-repo-rollout`).
@@ -211,7 +211,7 @@ Per Step 3, the extension is **pg_trgm**.
 - track ranking: do not blindly replace `views DESC, created_at DESC` —
   consider a hybrid score (`similarity × log1p(views)`) so cold catalog
   items do not displace engagement-strong ones.
-- ship behind a feature flag (`SEARCH_USE_PG_BIGM=true`) for one
+- ship behind a feature flag (`SEARCH_USE_PG_TRGM=true`) for one
   deployment cycle to allow A/B comparison via the fixture gate.
 
 **Verification**:
@@ -231,7 +231,7 @@ migration. The extension itself can stay.
 
 ### Step 5 — A3: album/track aliases
 
-- shared_db V12: `album_aliases (album_id, alias)` +
+- shared_db V13: `album_aliases (album_id, alias)` +
   `track_aliases (track_id, alias)` with `(target_id, alias)` unique.
 - Worker (`myblog_worker`): extend the existing MB fetch path that fills
   `artists.aliases` to also persist `release.aliases[]` and

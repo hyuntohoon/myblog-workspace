@@ -1,9 +1,13 @@
 # FEAT-bucket-board-redesign: Bucket album cards — cover-forward tiles, enriched detail, drag-to-trash delete
 
-- **Status**: draft
+- **Status**: done
 - **Owner**: TBD
 - **Created**: 2026-06-04
-- **Plan row**: `plan.md` → FEAT-bucket-board-redesign
+- **Plan row**: dropped 2026-06-04 (shipped, #229)
+- **Shipped**: 2026-06-04 — 3 additive steps in `myblog_front` PR #84 (merge `3acb463`):
+  cover-forward album tiles, enriched detail slide-over, single-album delete. Prod deploy
+  succeeded; smoke verified the new literals in the deployed CSS/JS chunks. Frontend-only —
+  no backend/contract/infra/shared_db change. Archived to `docs/archive/done/rfcs/` 2026-06-05.
 
 ---
 

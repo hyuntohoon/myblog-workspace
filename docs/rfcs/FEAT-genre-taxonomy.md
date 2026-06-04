@@ -41,15 +41,15 @@
 - 캐노니컬 장르 목록/계층/dedup 전무 ("indie rock" vs "indie-rock" 공존).
 - `/reviews` 인덱스만 `genres[]` 배열 인식 필터 보유(`myblog_front/src/lib/reviews.ts`); music search 엔
   장르 필터 없음.
-- shared_db 최신 마이그레이션 **V6**(review_buckets), 버전 **0.5.0**. backend pin `@v0.5.0`.
+- shared_db 최신 마이그레이션 **V11**(review_buckets_parent_id), 버전 **0.10.0**. backend pin `@v0.10.0`.
 - 관리형 admin write 의 정착 패턴: backend 의 Cognito-JWT 라우트(`posts`/`publish`/`buckets`).
   단일 사용자(주인장) — user 테이블·author_id 없음.
 
 ## Target state
 
-### 데이터 모델 (shared_db, V7)
+### 데이터 모델 (shared_db, V12)
 
-`migrations/V7__genres.sql` + `models.py` `Genre` 모델. 단일 사용자 → `user_id` 없음.
+`migrations/V12__genres.sql` + `models.py` `Genre` 모델. 단일 사용자 → `user_id` 없음.
 
 ```sql
 CREATE TABLE IF NOT EXISTS genres (
@@ -119,19 +119,19 @@ backend `openapi.json` regen → `tools/merge_openapi.py` → `docs/contracts/op
 
 ---
 
-### Step 1 — shared_db V7 마이그레이션 + Genre 모델
+### Step 1 — shared_db V12 마이그레이션 + Genre 모델
 
-`migrations/V7__genres.sql`(위 DDL), `models.py` `Genre`(self-ref `parent`/`children` + 2단 다운그레이드
-주석), `_generated_schema.sql` regen, `pyproject.toml` `0.5.0`→`0.6.0` + 태그 `v0.6.0`,
+`migrations/V12__genres.sql`(위 DDL), `models.py` `Genre`(self-ref `parent`/`children` + 2단 다운그레이드
+주석), `_generated_schema.sql` regen, `pyproject.toml` `0.10.0`→`0.11.0` + 태그 `v0.11.0`,
 canonical `docs/contracts/schema.sql` 동기.
 
-**롤아웃 (CRITICAL — `reference-shared-db-cross-repo-rollout`)**: V7 을 **prod Neon 에 머지 *전* 적용**
+**롤아웃 (CRITICAL — `reference-shared-db-cross-repo-rollout`)**: V12 를 **prod Neon 에 머지 *전* 적용**
 → `\dt genres` 확인 → shared_db PR 머지 → 태그. 순서 틀리면 Step 3 backend 가 unknown-table 500.
 
 **Verification**:
 ```
 cd myblog_shared_db && pytest        # 모델 ↔ _generated_schema.sql 일치
-psql "$TEST_DB_URL" -f migrations/V7__genres.sql -v ON_ERROR_STOP=1   # 클린 적용
+psql "$TEST_DB_URL" -f migrations/V12__genres.sql -v ON_ERROR_STOP=1   # 클린 적용
 # top G1 → child G2(parent=G1) OK; grandchild G3(parent=G2) → 앱레이어 거부(Step 3), DELETE G1 while child → RESTRICT
 ```
 **Rollback**: `DROP TABLE genres;` (참조 FK 없음, 순수 additive). prod DROP 은 사람 승인(룰 #3).
@@ -164,7 +164,7 @@ psql "$DATABASE_URL" -c "SELECT slug,label_en,label_ko,source FROM genres ORDER 
 
 `app/api/routes/genres.py`(GET tree + POST create, 2단 거부), `app/services/genre_service.py`
 (bucket_service 스타일), `app/api/schemas.py`(GenreNode/Tree/CreateReq/Resp), `app/main.py` include,
-`requirements.txt` pin `@v0.6.0`, `infra/apigateway.tf` `genres_post`(JWT, **buckets_post 복사**),
+`requirements.txt` pin `@v0.11.0`, `infra/apigateway.tf` `genres_post`(JWT, **buckets_post 복사**),
 `openapi.json` regen, `tests/test_genres.py`.
 
 **Verification**:
