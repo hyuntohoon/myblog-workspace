@@ -33,7 +33,8 @@ already ours — Step 1 is a faithful React/TS port, not a redesign.
   (FEAT-review-bucket-board, #193–197) stays live alongside Step 1's localStorage nested
   board; Step 5 retires that page (D1).
 - **No Spotify write actions in this RFC.** Save-album / playlist-export / library-modify are
-  deferred to a later RFC (D11). Step 3's Spotify read scope is `user-read-recently-played` only.
+  deferred to a later RFC (D11). Step 3's Spotify read scopes are `user-read-recently-played` and
+  `user-read-currently-playing` only.
 
 ## Current state
 
@@ -141,14 +142,48 @@ API does **not** expose a complete listening history — only `GET /me/player/re
 (50-item rolling cap) and top items. So this source is honestly labeled "최근 들은 앨범"
 (D26), built from recently-played's distinct album set, cached server-side.
 
+> **Status — shipped baseline + adopted follow-ups.** The **baseline** below shipped end-to-end
+> and is live in prod (shared_db #17 / worker #33 / backend #48 / front #76 / workspace #208;
+> marked shipped in #209, prod smoke green: 5 real recently-listened rows, `connected:true`).
+> Decisions **D28–D31** and the review fixes (drop `progress_ms`/`duration_ms` + idle
+> `updated_at`, append-only events table, retry/backoff + symmetric isolation, server debounce +
+> `last_synced_at` poll, token write-back, real-album panel, cron alarms) were adopted **after**
+> ship and are **not yet in prod** — they land as **post-ship follow-up PRs** (the "Follow-up
+> rollout" block below). Bullets tagged D28–D31 describe that follow-up target, not the baseline.
+
 Pulls data per the **hybrid sync model (D5)**:
-- **EventBridge cron, 1h**: worker reads `/me/player/recently-played`, upserts to a
-  `spotify_recent_albums` cache table (album_id, last_played_at, source='spotify').
+- **EventBridge cron, 1h**: worker reads `/me/player/recently-played`, then (a) upserts the
+  distinct album set to the `spotify_recent_albums` snapshot cache (album_id, last_played_at,
+  source='spotify') and prunes albums that fell out of the 50-item window, and (b) appends each
+  individual play to an **append-only `spotify_play_events` table** (album_id, played_at) — a
+  **new migration V10** (V9 already shipped to prod, so this can't fold into it); the durable
+  history Step 4's listen-count distribution aggregates over. The snapshot alone only ever knows
+  the current rolling window, so without the events table Step 4 has nothing to count (**D29**). Player/token reads go through a shared retry/backoff helper (3 tries, honour
+  `Retry-After` on 429); the recent-albums and now-playing syncs are isolated symmetrically so
+  either can fail without aborting the other.
 - **Manual "지금 새로고침" button** on the /profile 라이브러리 tab: triggers an async refresh
-  via SQS (rule #9 — never a synchronous Spotify call from the user-facing endpoint).
-- Backend: `GET /api/library/recently-listened` reads the cache table.
-- Now-playing banner: same EventBridge tick pulls `/me/player/currently-playing` (if scope
-  granted); UI displays from cache only.
+  via SQS (rule #9 — never a synchronous Spotify call from the user-facing endpoint). The worker
+  **debounces** (skips the Spotify reads when the cache `synced_at`/`updated_at` is < ~60s old),
+  which also dedups the standard SQS queue and serialises the non-commutative prune (**D31**).
+- Albums in the window not yet in our catalog are best-effort enqueued to the
+  `candidates → SQS` catalog sync (re-enqueued each tick until cataloged) and surface in
+  최근 들은 앨범 on a **subsequent** tick — eventually consistent, up-to-1h lag.
+- Backend: `GET /api/library/recently-listened` reads the snapshot cache; `POST
+  /api/library/refresh-recent` returns `202` and the UI **polls** recently-listened until
+  `last_synced_at` advances past the request time (no fixed-delay guess). `last_synced_at` is
+  added to the response (**D31**).
+- Now-playing banner: the same EventBridge tick pulls `/me/player/currently-playing` (both read
+  scopes are minted unconditionally at bootstrap; a missing-scope 403 isolates now-playing
+  without losing the recent sync). UI displays from cache only.
+
+**Privacy posture (D28).** The listening GETs (`recently-listened`, `now-playing`,
+`spotify-connection`) ride the CloudFront edge_guard GET proxy and are **intentionally public**
+single-admin vanity reads (edge_guard proves CloudFront transit, not identity — it cannot gate
+by login). To avoid leaking fine-grained real-time activity, `now-playing` **omits
+`progress_ms`/`duration_ms`**, exposing only track/artist/album/album_id/`updated_at`; dropping
+those also removes the misleading frozen progress bar (a ≤1h-stale snapshot can't advance one).
+The **idle** response still carries `updated_at`, so the UI shows "동기화 N분 전" rather than
+asserting liveness. Only `POST /api/library/refresh-recent` is Cognito-JWT gated.
 
 **Spotify 연동 UI** lives in a new `/profile → 연동 tab` (Q16). The one-time
 authorization-code consent that mints the refresh token is taken **out-of-band** via an admin
@@ -159,28 +194,60 @@ in-app `start`/`callback` endpoints come in a follow-up RFC. Refresh token store
 Manager `myblog/spotify` (Q17) — **not** in DB. Scopes: `user-read-recently-played`,
 `user-read-currently-playing` only (write scopes deferred per D11).
 
-This step **unfreezes** `plan.md` Frozen `FEAT-spotify-personalize-light`: that frozen
-line's OAuth → refresh → Secrets → cron pipeline is exactly this step's track. On Step 3
-ship, delete the Frozen line.
+**Token rotation (D30).** Spotify may return a rotated `refresh_token` on a refresh exchange;
+the worker **writes it back** to `myblog/spotify` when present, and records
+`last_successful_refresh_at`. Connection status therefore reflects token **validity**, not mere
+presence: after a revoke/expire the 연동 tab shows "재인증 필요" instead of a stale "연결됨".
+Recovery is a one-liner documented in the `spotify_bootstrap_token.py` header (re-run with
+`--write`).
 
-**Verification**:
+This step **absorbs** `plan.md`'s former Frozen `FEAT-spotify-personalize-light` — its
+OAuth → refresh → Secrets → cron pipeline is exactly this step's track. That Frozen line was
+deleted in #208 (Step 3 infra landing).
+
+**Follow-up rollout (post-ship).** The baseline already rolled out (secret created → V9 applied →
+IAM/cron/JWT route via #208 `terraform apply` → refresh token bootstrapped). The D28–D31
+follow-ups ship as normal cross-repo PRs; ordering notes:
+
+1. `spotify_play_events` is a **new migration V10** — V9 is immutable in prod, so it can't fold
+   in. Apply V10 to Neon (rule #3) **before** the worker deploy that appends to it.
+2. Dropping `progress_ms`/`duration_ms` (D28) is a **contract change** → regen `openapi.json` +
+   front types in the same flow.
+3. Token write-back (D30) needs `secretsmanager:PutSecretValue` on `myblog/spotify` added to the
+   worker IAM (`secrets.tf` grants only `GetSecretValue` today).
+4. Cron `FailedInvocations` + cache-staleness alarms are additive infra (`terraform apply`).
+
+**Verification** (baseline is prod-smoke-green per #209; the below cover the D28–D31 follow-ups +
+regression):
 
 ```
-# OAuth round-trip in local: /profile → 연동 → Spotify consent → callback → token in Secrets
-cd myblog_worker && pytest tests/test_recently_played.py
-# EventBridge: aws events put-events (test cron tick) → verify cache row
-# Manual refresh button: click → SQS message → worker → cache → UI re-fetch
+cd myblog_shared_db && pytest                              # V9 model ↔ canonical_schema parity (3 tables)
+cd myblog_worker && pytest tests/test_listening_sync.py    # prune/upsert/event-append + symmetric isolation
+cd myblog_worker && TEST_DB_URL=... pytest tests/integration/test_listening_sync_db.py  # live-engine: ON CONFLICT / =ANY(:keep) / CAST timestamptz (unit mocks blind)
+cd myblog_backend && pytest tests/api/test_library.py      # recently-listened / now-playing / refresh-recent
+cd myblog_front && pnpm lint && pnpm exec astro check      # Node 20 (.nvmrc 20.19.5)
+# Token bootstrap (out-of-band, D27): python scripts/spotify_bootstrap_token.py --write → verify
+#   myblog/spotify holds refresh_token; /profile → 연동 shows 연결됨 (thin status-only tab).
+# EventBridge: aws events put-events (test cron tick) → verify spotify_recent_albums + event rows.
+# Manual refresh: click 지금 새로고침 → SQS → worker → cache; UI polls last_synced_at until it advances.
+# browser: real 최근 들은 앨범 click opens a REAL panel (cover_url, no 샘플 badge), not the sample slide-over.
+# Prod smoke (post-deploy): DB-row evidence for the cache (LOG_LEVEL=WARNING) + deployed chunk grep (auth-gated /profile).
 ```
 
-**Rollback**: revert worker handler + drop `spotify_recent_albums`; recent section returns
-to sample.
+**Rollback**: the baseline is live, so a baseline rollback is an **emergency** revert of the
+shipped PRs (front → backend reads → worker, in that order so the deployed backend never queries a
+dropped table) + (rule #3 human approval) drop the V9 tables `spotify_recent_albums` +
+`spotify_now_playing`; the recent section + now-playing return to sample/idle. Follow-ups roll
+back per-PR (drop V10 `spotify_play_events`; restore `progress_ms`/`duration_ms`).
 
 ---
 
 ### Step 4 — Genre / artist distribution _(depends on FEAT-genre-taxonomy)_
 
 Aggregation for the 통계 charts. Genre distribution needs first-class genres, so this **depends on
-FEAT-genre-taxonomy** (plan.md Backlog). Artist distribution can come from review/listen counts.
+FEAT-genre-taxonomy** (plan.md Backlog). Artist/listen distribution comes from review counts **+
+the `spotify_play_events` history accumulated since Step 3** (D29) — which is why that table is
+seeded now rather than at Step 4 (the rolling-window snapshot keeps no history to count).
 
 ---
 
@@ -208,7 +275,10 @@ real backend. The flat `/reviews/queue` page is **retired** (D1), not unified.
     `status` badge + `rec_reason` chip kept as overlay badges; `note` shown in album-detail
     panel only (not on tile).
   - **Retire**: `src/pages/reviews/queue.astro`, `src/components/queue/*` (BucketBoard,
-    BucketColumn, AlbumCard, AddAlbumModal, AlbumDetailPanel, ReviewDrawer, queue.css).
+    BucketColumn, AlbumCard, AlbumDetailPanel, ReviewDrawer) + `src/styles/queue.css`,
+    **except `AddAlbumModal.tsx`** — relocate it to `src/components/member/` first: the shipped
+    Step 2 `LibraryTab.tsx` still imports it (with its `AddOutcome` type) and renders it, so a
+    blind delete breaks the live Library tab's add-album flow and fails the front build.
     `queue.guard.ts` removed. Backend `/api/buckets/reorder` flat-list endpoint kept as
     compat for one release, then removed in a follow-up.
 - **infra**: register `move` endpoint in `apigateway.tf` (JWT, copy `buckets_post` pattern).
@@ -278,3 +348,7 @@ Step 5.
 | 2026-06-04 | **Q16**: Spotify 연동 UI = `/profile → 연동` new tab (no separate settings page) | 3 |
 | 2026-06-04 | **Q17**: Spotify refresh token in Secrets Manager `myblog/spotify`, not in DB | 3 |
 | 2026-06-04 | **D27**: 연동 tab is thin (status only); the 1-time refresh-token consent is taken out-of-band via `scripts/spotify_bootstrap_token.py`. In-app PKCE start/callback endpoints deferred to a follow-up RFC (single-admin, single long-lived token doesn't justify a self-service OAuth UI now). | 3 |
+| 2026-06-04 | **D28**: Listening GETs (`recently-listened`/`now-playing`/`spotify-connection`) are **intentionally public** single-admin vanity reads (edge_guard can't gate by login). `now-playing` drops `progress_ms`/`duration_ms` (fine-grained activity leak + frozen progress bar); idle response keeps `updated_at` so the UI shows "동기화 N분 전". | 3 |
+| 2026-06-04 | **D29**: Add an append-only `spotify_play_events` table (post-ship **migration V10** — V9 already in prod; snapshot reader unchanged) so Step 4's listen-count distribution has durable history — the rolling-window snapshot would otherwise leave Step 4 nothing to aggregate. | 3/4 |
+| 2026-06-04 | **D30**: Worker writes back a Spotify-rotated `refresh_token` to `myblog/spotify` + records `last_successful_refresh_at`; connection status reflects token **validity** (shows "재인증 필요" after revoke), not mere presence. Re-auth runbook lives in the bootstrap-script header. | 3 |
+| 2026-06-04 | **D31**: Manual refresh is debounced server-side (worker skips Spotify reads when cache < ~60s old) so spam can't burst Spotify into 429/DLQ and the non-commutative prune stays serialised; `last_synced_at` added to the recently-listened response and the UI polls it (replacing the blind 4s `setTimeout`). | 3 |
