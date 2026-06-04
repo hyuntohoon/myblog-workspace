@@ -6,8 +6,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-bucket-board-redesign** (draft) — `/profile` 평론 버킷: cover-forward album tiles (「평론한 앨범」 grammar) in a bigger bucket card, enriched detail slide-over (tracklist/label/popularity/artist via existing `GET /api/music/albums/{id}`), single-album delete via hover ✕ + 휴지통 drag drop → confirm modal (existing `DELETE .../items/{item_id}`). Fixes vertical-text chip defect. RFC → `docs/rfcs/FEAT-bucket-board-redesign.md`. **Frontend-only (myblog_front)** — no backend/contract/infra/shared_db change. 3 additive steps (card → detail → delete); browser click-through is the gating verification. Not yet accepted.
-
 ---
 
 ## Backlog
