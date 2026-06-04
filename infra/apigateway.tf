@@ -185,21 +185,30 @@ resource "aws_apigatewayv2_route" "buckets_items_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
-# --- Member library (FEAT-member-dashboard Step 2) ---
-# GET /api/library is served by the catch-all `api_get_proxy` route above
-# (edge_guard at the Lambda). Both mutations are Cognito-JWT gated here.
+# --- Member library: to-listen queue (FEAT-member-dashboard Step 2, D18) ---
+# GET /api/library/to-listen and GET /api/library/reviewed are served by the
+# catch-all `api_get_proxy` route above (edge_guard at the Lambda). The to-listen
+# mutations are Cognito-JWT gated here. (/reorder is its own literal route.)
 
-resource "aws_apigatewayv2_route" "library_put" {
+resource "aws_apigatewayv2_route" "library_to_listen_post" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
-  route_key          = "PUT /api/library/{album_id}"
+  route_key          = "POST /api/library/to-listen"
   target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
-resource "aws_apigatewayv2_route" "library_delete" {
+resource "aws_apigatewayv2_route" "library_to_listen_reorder_put" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
-  route_key          = "DELETE /api/library/{album_id}"
+  route_key          = "PUT /api/library/to-listen/reorder"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "library_to_listen_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/library/to-listen/{item_id}"
   target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
