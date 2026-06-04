@@ -148,11 +148,12 @@ API does **not** expose a complete listening history — only `GET /me/player/re
 > Decisions **D28–D31** and the review fixes (drop `progress_ms`/`duration_ms` + idle
 > `updated_at`, append-only events table, retry/backoff + symmetric isolation, server debounce +
 > `last_synced_at` poll, token write-back, real-album panel, cron alarms) were adopted **after**
-> ship and land as **post-ship follow-up PRs** (the "Follow-up rollout" block below). **D28 +
+> ship and land as **post-ship follow-up PRs** (the "Follow-up rollout" block below). **D28, D29 +
 > D31 shipped 2026-06-04** (D28: workspace #211 / front #77 / backend #49; D31: worker #34 /
-> workspace #213 / backend #50 / front #78 — both prod smoke green); D29, D30 + the remaining
-> review fixes (retry/backoff + symmetric isolation, real-album panel, cron alarms) are **not yet
-> in prod**. Bullets tagged D29/D30 describe that follow-up target, not the baseline.
+> workspace #213 / backend #50 / front #78; D29: shared_db #18 v0.9.0 / Neon V10 / worker #35 —
+> all prod smoke green); **D30** + the remaining review fixes (retry/backoff + symmetric isolation,
+> real-album panel, cron alarms) are **not yet in prod**. Bullets tagged D30 describe that follow-up
+> target, not the baseline.
 
 Pulls data per the **hybrid sync model (D5)**:
 - **EventBridge cron, 1h**: worker reads `/me/player/recently-played`, then (a) upserts the
@@ -212,8 +213,14 @@ deleted in #208 (Step 3 infra landing).
 IAM/cron/JWT route via #208 `terraform apply` → refresh token bootstrapped). The D28–D31
 follow-ups ship as normal cross-repo PRs; ordering notes:
 
-1. `spotify_play_events` is a **new migration V10** — V9 is immutable in prod, so it can't fold
-   in. Apply V10 to Neon (rule #3) **before** the worker deploy that appends to it.
+1. ✅ **Shipped 2026-06-04** (shared_db #18 v0.9.0 → Neon **V10** applied → worker #35). The
+   append-only `spotify_play_events` table (D29) is a **new migration V10** — V9 is immutable in
+   prod, so it couldn't fold in. V10 applied to Neon (rule #3, psql + `ON_ERROR_STOP`) **before**
+   the worker deploy that appends to it (the append shares the snapshot tx, so a missing table
+   would fail the whole sync). Worker appends every play with `ON CONFLICT (album_id, played_at)
+   DO NOTHING` (rolling-window re-read is a no-op); worker pin **not** bumped (raw SQL — only the
+   migration must be live). prod smoke: append SQL ROLLBACK-validated on prod (`INSERT 0 1` /
+   `INSERT 0 0`); manual refresh → table 0→50 rows. Backend pins v0.9.0 only at Step 4.
 2. ✅ **Shipped 2026-06-04** (workspace #211 → front #77 → backend #49). Dropping
    `progress_ms`/`duration_ms` (D28) was a **contract change** → regen `openapi.json` + front
    types; the idle response now also carries `updated_at`. Merge order workspace→front→backend
