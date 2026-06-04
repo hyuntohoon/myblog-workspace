@@ -33,7 +33,8 @@ already ours — Step 1 is a faithful React/TS port, not a redesign.
   (FEAT-review-bucket-board, #193–197) stays live alongside Step 1's localStorage nested
   board; Step 5 retires that page (D1).
 - **No Spotify write actions in this RFC.** Save-album / playlist-export / library-modify are
-  deferred to a later RFC (D11). Step 3's Spotify read scope is `user-read-recently-played` only.
+  deferred to a later RFC (D11). Step 3's Spotify read scopes are `user-read-recently-played` and
+  `user-read-currently-playing` only.
 
 ## Current state
 
@@ -268,7 +269,10 @@ real backend. The flat `/reviews/queue` page is **retired** (D1), not unified.
     `status` badge + `rec_reason` chip kept as overlay badges; `note` shown in album-detail
     panel only (not on tile).
   - **Retire**: `src/pages/reviews/queue.astro`, `src/components/queue/*` (BucketBoard,
-    BucketColumn, AlbumCard, AddAlbumModal, AlbumDetailPanel, ReviewDrawer, queue.css).
+    BucketColumn, AlbumCard, AlbumDetailPanel, ReviewDrawer) + `src/styles/queue.css`,
+    **except `AddAlbumModal.tsx`** — relocate it to `src/components/member/` first: the shipped
+    Step 2 `LibraryTab.tsx` still imports it (with its `AddOutcome` type) and renders it, so a
+    blind delete breaks the live Library tab's add-album flow and fails the front build.
     `queue.guard.ts` removed. Backend `/api/buckets/reorder` flat-list endpoint kept as
     compat for one release, then removed in a follow-up.
 - **infra**: register `move` endpoint in `apigateway.tf` (JWT, copy `buckets_post` pattern).
