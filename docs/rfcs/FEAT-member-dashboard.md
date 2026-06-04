@@ -148,8 +148,10 @@ API does **not** expose a complete listening history — only `GET /me/player/re
 > Decisions **D28–D31** and the review fixes (drop `progress_ms`/`duration_ms` + idle
 > `updated_at`, append-only events table, retry/backoff + symmetric isolation, server debounce +
 > `last_synced_at` poll, token write-back, real-album panel, cron alarms) were adopted **after**
-> ship and are **not yet in prod** — they land as **post-ship follow-up PRs** (the "Follow-up
-> rollout" block below). Bullets tagged D28–D31 describe that follow-up target, not the baseline.
+> ship and land as **post-ship follow-up PRs** (the "Follow-up rollout" block below). **D28
+> shipped 2026-06-04** (workspace #211 / front #77 / backend #49, prod smoke green); D29–D31 +
+> the remaining review fixes are **not yet in prod**. Bullets tagged D29–D31 describe that
+> follow-up target, not the baseline.
 
 Pulls data per the **hybrid sync model (D5)**:
 - **EventBridge cron, 1h**: worker reads `/me/player/recently-played`, then (a) upserts the
@@ -211,8 +213,10 @@ follow-ups ship as normal cross-repo PRs; ordering notes:
 
 1. `spotify_play_events` is a **new migration V10** — V9 is immutable in prod, so it can't fold
    in. Apply V10 to Neon (rule #3) **before** the worker deploy that appends to it.
-2. Dropping `progress_ms`/`duration_ms` (D28) is a **contract change** → regen `openapi.json` +
-   front types in the same flow.
+2. ✅ **Shipped 2026-06-04** (workspace #211 → front #77 → backend #49). Dropping
+   `progress_ms`/`duration_ms` (D28) was a **contract change** → regen `openapi.json` + front
+   types; the idle response now also carries `updated_at`. Merge order workspace→front→backend
+   kept the front api.gen.ts drift gate green and gave a zero cosmetic window.
 3. Token write-back (D30) needs `secretsmanager:PutSecretValue` on `myblog/spotify` added to the
    worker IAM (`secrets.tf` grants only `GetSecretValue` today).
 4. Cron `FailedInvocations` + cache-staleness alarms are additive infra (`terraform apply`).
