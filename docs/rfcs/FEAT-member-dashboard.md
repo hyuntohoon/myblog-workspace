@@ -300,9 +300,17 @@ Aggregation for the 통계 charts; depends on `FEAT-genre-taxonomy` (genre) + th
 The two bucket implementations collapse to one — the nested `/profile→bucket` board with a
 real backend. The flat `/reviews/queue` page is **retired** (D1), not unified.
 
-- **shared_db**: add `parent_id UUID NULL FK → review_buckets(id) ON DELETE CASCADE` to
-  `review_buckets`. No max depth (Q10, outliner standard). Migration is additive; existing
-  flat buckets remain valid with `parent_id IS NULL`.
+> **Progress (2026-06-04): 5.1 shared_db shipped.** `review_buckets.parent_id` (migration V11)
+> is ROLLBACK-validated + applied to **prod Neon main**, and shared_db is tagged **v0.10.0**
+> (PR #19). Prod is safe: the column is unused and the deployed backend still pins v0.8.0. The
+> **backend** (nested tree + `move` + D22 cleanup, pin v0.10.0), **workspace contract**, **infra
+> apigateway** `move` route, and **frontend** (DnD board + retire `/reviews/queue`) remain — a
+> single coupled landing for a focused next pass (the `BucketResponse` contract change couples
+> backend↔front through the front api.gen drift gate, so 5.3 + 5.5 must land together).
+
+- **shared_db** ✅ **shipped (v0.10.0 / V11, prod Neon)**: added `parent_id UUID NULL FK →
+  review_buckets(id) ON DELETE CASCADE` + `idx_review_buckets_parent_id`. No max depth (Q10,
+  outliner standard). Additive; existing flat buckets remain valid with `parent_id IS NULL`.
 - **backend**:
   - Extend `GET /api/buckets` to return the recursive tree (parent-child shape).
   - New `PUT /api/buckets/{id}/move` — body `{parent_id?, position}` for DnD
