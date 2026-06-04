@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-member-dashboard** (draft) — 회원 대시보드 (`/profile`). Auth-gated member page (개요·평론·평론 버킷·라이브러리·통계). RFC → `docs/rfcs/FEAT-member-dashboard.md`. Built in vertical slices. **Step 1 = frontend shell** (myblog_front only): real reviews + derived stats, sample-labeled placeholders behind one adapter (`src/lib/member.ts`), nested bucket board on localStorage. Later steps add backend (library status → listening history → genre/artist agg → nested-bucket backend → multi-user). Verify: `pnpm lint` + `astro check` + browser click-through; prod smoke = deployed chunk grep (auth-gated). Not yet accepted.
+- **FEAT-member-dashboard** (accepted) — 회원 대시보드 (`/profile`). Auth-gated member page (개요·평론·평론 버킷·라이브러리·통계). RFC → `docs/rfcs/FEAT-member-dashboard.md`. Built in vertical slices. **Step 1 = frontend shell** shipped (#72): real reviews + derived stats, sample-labeled placeholders behind one adapter (`src/lib/member.ts`), nested bucket board on localStorage. **Step 2 = library status** (cross-repo: shared_db V7 `library_items` → backend `GET/PUT/DELETE /api/library` → contract → front adapter) in progress. Later steps: listening history → genre/artist agg → nested-bucket backend → multi-user. Verify: `pnpm lint` + `astro check` + browser click-through; prod smoke = deployed chunk grep (auth-gated).
 
 ---
 
