@@ -194,6 +194,12 @@ than swapping ILIKE for the `%` operator wholesale.
 
 Per Step 3, the extension is **pg_trgm**.
 
+> **Migration numbering (2026-06-05 deconfliction)**: V12 (pg_trgm, this step)
+> + V13 (album/track aliases, Step 5) are this RFC's. `FEAT-genre-taxonomy`'s
+> genres migration was renumbered V12 → **V14** to avoid the collision; its V14
+> applies after this RFC's V12/V13 (hand-numbered `V{N}__` must apply
+> contiguously — `reference-shared-db-cross-repo-rollout`).
+
 - shared_db V12: `CREATE EXTENSION pg_trgm` + `gin_trgm_ops` GIN indexes on
   `artists.name`, `albums.title`, `tracks.title`.
 - bump shared_db version; apply to prod Neon BEFORE service pin bumps
@@ -322,3 +328,4 @@ curl '<music-prod>/api/music/search/unified?q=...&explain=1' | jq '.debug'
 | 2026-06-05 | OQ1 = **C1 (status quo)**: `/unified` stays DB-only + manual toggle; Spotify fallback (C4/C2) deferred to a later RFC. | — |
 | 2026-06-05 | OQ3 = **feature flag** (`SEARCH_USE_PG_TRGM`) for one deploy cycle, A/B'd via fixture gate. | 4 |
 | 2026-06-05 | OQ5 = **keep reader in mind**: execution writer-only, but prefer readable/popularity-aware ordering over raw-similarity where they diverge; reader-search RFC owns B-series polish. | 4/6 |
+| 2026-06-05 | shared_db migration V12 collision with `FEAT-genre-taxonomy` resolved: this RFC keeps **V12** (pg_trgm) + **V13** (aliases, plan.md reservation); genre-taxonomy renumbers genres → V14. | 4 |
