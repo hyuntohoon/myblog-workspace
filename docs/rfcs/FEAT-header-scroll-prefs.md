@@ -3,7 +3,11 @@
 - **Status**: draft
 - **Owner**: TBD
 - **Created**: 2026-06-04
-- **Plan row**: `plan.md` → FEAT-header-scroll-prefs
+- **Plan row**: dropped 2026-06-04 (shipped)
+- **Shipped**: 2026-06-04 — Steps 1 + 2 in one PR (myblog_front#82, squash `73d1471`).
+  Prod smoke 14/14 on https://www.ratemymusic.blog (3 modes + reduced-motion +
+  focus-reveal + live footer `<select>`). Status left `draft`: formal accept→close
+  is human-only (Hard rule #5) — flip Status + move to `docs/archive/done/rfcs/` when ready.
 
 ---
 
@@ -100,3 +104,8 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-04 | 사이트 전역 일관 (페이지별 다른 거동 X) — Q5 권장 | 1 |
 | 2026-06-04 | 모바일 햄버거 본 RFC 범위 밖 — Q6 권장 | — |
 | 2026-06-04 | prefs 저장 = `localStorage`, key `lf:header-scroll-mode` (백엔드 unused, 단일 사용자) | 1 |
+| 2026-06-04 | **구현 시정**: key = `atmb-header-scroll` (RFC의 `lf:` 아님) — 기존 `atmb-theme`/`atmb-accent` 컨벤션 일치 | 1 |
+| 2026-06-04 | **구현 시정**: prefs UI = footer `<select>` (RFC의 `/profile SettingsMenu`는 미존재) — theme/accent 옆, 동일 custom-element 패턴 | 2 |
+| 2026-06-04 | threshold N = 80px, threshold reveal-delta = 20px; 라이브 변경은 `atmb:header-scroll-change` window event | 1/2 |
+| 2026-06-04 | a11y: focus-reveal 유지 (리뷰의 `inert` 제안 거절 — 스크롤 중 헤더가 키보드/스크린리더에서 도달 불가해지는 퇴행) | 1 |
+| 2026-06-04 | FOUC: 첫 적용은 `.is-priming`으로 transition 억제 (pre-scrolled 로드 시 입장 애니메이션 플래시 방지) | 1 |
