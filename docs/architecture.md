@@ -230,7 +230,7 @@ Canonical DDL: `docs/contracts/schema.sql` (ARCH-1, ADR 0003).
 SQLAlchemy models are owned by `myblog_shared_db` (ARCH-6, ADR 0005) — a private Python package installed via git URL pin. Each consumer pins its own version (different services may lag the latest tag if they don't need the newest columns):
 ```
 # myblog_backend/requirements.txt
-myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.4.0
+myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.5.0
 # myblog_music/requirements.txt
 myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.3.0
 # myblog_worker/requirements.txt
