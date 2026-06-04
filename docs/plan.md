@@ -14,6 +14,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **FEAT-genre-taxonomy** (draft) — genre branch-authoring v1 (2-tier single-parent tree, create + assign-parent only; seeded from prod `artists.genres`). RFC → `docs/rfcs/FEAT-genre-taxonomy.md`. v2+ (album↔genre linkage, multi-genre on write, cross-cutting filter, browse-by-genre view, rename/merge/delete) tracked in that RFC's Non-goals. Cross-repo (shared_db V7 → seed → backend API → contract → front). Not yet accepted.
 - **FEAT-header-scroll-prefs** (draft) — site-wide header scroll behavior with three user-selectable modes (hide-on-scroll-down / compact-on-scroll / threshold-hide), default = hide-on-scroll-down. RFC → `docs/rfcs/FEAT-header-scroll-prefs.md`. Frontend-only single repo. Not yet accepted.
+- **FEAT-music-search-recall** (draft) — writer-facing music search recall re-assessment; goal Hit@5 ≥ 0.9 / Hit@1 ≥ 0.6 on a 30-query fixture covering multi-token / KO / common-word / typo / alias cases. RFC → `docs/rfcs/FEAT-music-search-recall.md`. Cross-repo (front IME → music fixture+gate → shared_db V11 pg_bigm PoC → music repos + flag → shared_db V12 album/track aliases + worker MB extend → music query decomposition → music ?explain=1). Brainstorm went through 3-agent critique (architect/reviewer/general-purpose) before draft — pg_trgm KO claim rejected, A3 promoted ahead of A2, §4 debug-storage reframed to V10 precedent (`spotify_play_events`). Not yet accepted.
 
 ---
 
