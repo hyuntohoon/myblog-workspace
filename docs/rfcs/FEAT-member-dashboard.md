@@ -150,10 +150,10 @@ API does **not** expose a complete listening history — only `GET /me/player/re
 > `last_synced_at` poll, token write-back, real-album panel, cron alarms) were adopted **after**
 > ship and land as **post-ship follow-up PRs** (the "Follow-up rollout" block below). **D28, D29 +
 > D31 shipped 2026-06-04** (D28: workspace #211 / front #77 / backend #49; D31: worker #34 /
-> workspace #213 / backend #50 / front #78; D29: shared_db #18 v0.9.0 / Neon V10 / worker #35 —
-> all prod smoke green); **D30** + the remaining review fixes (retry/backoff + symmetric isolation,
-> real-album panel, cron alarms) are **not yet in prod**. Bullets tagged D30 describe that follow-up
-> target, not the baseline.
+> workspace #213 / backend #50 / front #78; D29: shared_db #18 v0.9.0 / Neon V10 / worker #35),
+> and **D30 shipped 2026-06-04** (worker #36 / workspace #216+#217 / backend #51 / front #79 —
+> all prod smoke green); the remaining review fixes (retry/backoff + symmetric isolation,
+> real-album panel, cron alarms) are **not yet in prod**.
 
 Pulls data per the **hybrid sync model (D5)**:
 - **EventBridge cron, 1h**: worker reads `/me/player/recently-played`, then (a) upserts the
@@ -234,8 +234,19 @@ follow-ups ship as normal cross-repo PRs; ordering notes:
    order worker→workspace→backend→front (worker is contract-independent; workspace before front for
    the drift gate). prod smoke: refresh ×2 → only the 1st advanced `synced_at` (06:57→07:21), 2nd
    debounced. The debounce SELECT was also validated read-only against prod Postgres pre-merge.
-4. Token write-back (D30) needs `secretsmanager:PutSecretValue` on `myblog/spotify` added to the
-   worker IAM (`secrets.tf` grants only `GetSecretValue` today).
+4. ✅ **Shipped 2026-06-04** (workspace #217 infra+#216 contract → worker #36 → backend #51 →
+   front #79). Token write-back (D30): a worker-only `secretsmanager:PutSecretValue` on
+   `myblog/spotify` (separate policy — backend stays read-only) was `terraform apply`-ed (2 add / 0
+   change / 0 destroy, no drift) **before** the worker deploy. The worker persists a rotated
+   `refresh_token` + `last_successful_refresh_at` and flips `needs_reauth` on a 400 `invalid_grant`
+   (transient 5xx never trips it); write-back is best-effort (non-fatal, never logs the token).
+   `spotify-connection` exposes `needs_reauth` + `last_successful_refresh_at`; the 연동 tab shows
+   연결됨 / 재인증 필요 / 연결 안 됨 with a last-refresh stamp. Recovery = re-run
+   `spotify_bootstrap_token.py --write` (clears `needs_reauth`, stamps a fresh timestamp). prod
+   smoke: worker cron invoke → secret gained `last_successful_refresh_at` → endpoint returned
+   `{connected:true, needs_reauth:false, last_successful_refresh_at:…}`; deployed ProfileApp chunk
+   ships all three states. The `needs_reauth` path is unit + browser verified (the live token was
+   not revoked).
 5. Cron `FailedInvocations` + cache-staleness alarms are additive infra (`terraform apply`).
 
 **Verification** (baseline is prod-smoke-green per #209; the below cover the D28–D31 follow-ups +
