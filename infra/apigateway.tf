@@ -161,6 +161,16 @@ resource "aws_apigatewayv2_route" "buckets_reorder_put" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# Nested-board indent/outdent/reorder (FEAT-member-dashboard Step 5). Sets a
+# bucket's parent_id + sibling position; cycle prevention lives in the app layer.
+resource "aws_apigatewayv2_route" "buckets_move_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/buckets/{id}/move"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "buckets_items_post" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "POST /api/buckets/{id}/items"
