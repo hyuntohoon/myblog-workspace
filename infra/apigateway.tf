@@ -214,6 +214,18 @@ resource "aws_apigatewayv2_route" "library_to_listen_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Member listening: manual "지금 새로고침" (FEAT-member-dashboard Step 3, D5) ---
+# GET /api/library/recently-listened, /now-playing, /spotify-connection are served
+# by the catch-all `api_get_proxy` (edge_guard). Only this POST trigger is Cognito-
+# JWT gated. The handler just enqueues an SQS job (rule #9 — no sync Spotify call).
+resource "aws_apigatewayv2_route" "library_refresh_recent_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/library/refresh-recent"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;

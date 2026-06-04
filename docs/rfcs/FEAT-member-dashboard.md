@@ -150,11 +150,14 @@ Pulls data per the **hybrid sync model (D5)**:
 - Now-playing banner: same EventBridge tick pulls `/me/player/currently-playing` (if scope
   granted); UI displays from cache only.
 
-**Spotify 연동 UI** lives in a new `/profile → 연동 tab` (Q16). One-time OAuth (PKCE,
-authorization-code flow), single-user blog so Dev Mode 5-user cap is fine. Refresh token
-stored in Secrets Manager `myblog/spotify` (Q17) — **not** in DB. Initial scopes:
-`user-read-recently-played`, `user-read-currently-playing` only (write scopes deferred per
-D11).
+**Spotify 연동 UI** lives in a new `/profile → 연동 tab` (Q16). The one-time
+authorization-code consent that mints the refresh token is taken **out-of-band** via an admin
+script (`scripts/spotify_bootstrap_token.py`), not an in-app PKCE flow — building a self-service
+OAuth UI to acquire a single long-lived, single-admin token is deferred (**D27**). So the 연동
+tab is **thin**: it shows connection status only (`GET /api/library/spotify-connection`); the
+in-app `start`/`callback` endpoints come in a follow-up RFC. Refresh token stored in Secrets
+Manager `myblog/spotify` (Q17) — **not** in DB. Scopes: `user-read-recently-played`,
+`user-read-currently-playing` only (write scopes deferred per D11).
 
 This step **unfreezes** `plan.md` Frozen `FEAT-spotify-personalize-light`: that frozen
 line's OAuth → refresh → Secrets → cron pipeline is exactly this step's track. On Step 3
@@ -274,3 +277,4 @@ Step 5.
 | 2026-06-04 | **Q11**: Bucket card grid = Library tile pattern (`repeat(auto-fill, minmax(160px,1fr))`); status/rec_reason badges; note in detail panel | 5 |
 | 2026-06-04 | **Q16**: Spotify 연동 UI = `/profile → 연동` new tab (no separate settings page) | 3 |
 | 2026-06-04 | **Q17**: Spotify refresh token in Secrets Manager `myblog/spotify`, not in DB | 3 |
+| 2026-06-04 | **D27**: 연동 tab is thin (status only); the 1-time refresh-token consent is taken out-of-band via `scripts/spotify_bootstrap_token.py`. In-app PKCE start/callback endpoints deferred to a follow-up RFC (single-admin, single long-lived token doesn't justify a self-service OAuth UI now). | 3 |
