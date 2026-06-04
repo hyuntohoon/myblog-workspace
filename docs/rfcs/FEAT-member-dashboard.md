@@ -1,6 +1,6 @@
 # FEAT-member-dashboard: 회원 대시보드 (`/profile`)
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-06-04
 - **Plan row**: `plan.md` → FEAT-member-dashboard
@@ -60,7 +60,7 @@ usable, honest (sample-labeled) page; each later step turns one sample surface r
 
 > Rule #4: one step per session unless the user OKs the next. Each step is independently mergeable.
 
-### Step 1 — Frontend shell (`/profile`) *(frontend-only)*
+### Step 1 — Frontend shell (`/profile`) _(frontend-only)_
 
 Port the prototype (React 18 UMD + `window.LF` globals) to **React 19 + TS islands** under
 `myblog_front/src/components/member/`. New route `src/pages/profile.astro` (guarded copy of the
@@ -68,7 +68,7 @@ Port the prototype (React 18 UMD + `window.LF` globals) to **React 19 + TS islan
 logged-in-only `#profile-link` in the header.
 
 - **Real**: review list (build-time from `getCollection('blog')`, derived type album/track/column)
-  + profile stats (review count, album count, avg rating) derived from it.
+  - profile stats (review count, album count, avg rating) derived from it.
 - **Sample (labeled "샘플")**: now-playing, recent albums/tracks, library, genres, artists,
   activity, and the seed bucket tree — all behind a single adapter `src/lib/member.ts`
   (`member.sample.ts` holds the mock). The adapter is the swap seam: later steps replace its
@@ -82,6 +82,7 @@ logged-in-only `#profile-link` in the header.
 - The dev "tweaks panel" is dropped; defaults fixed (sidebar layout / banner now-playing / bar chart).
 
 **Verification**:
+
 ```
 cd myblog_front && pnpm lint && pnpm exec astro check    # Node 20 (.nvmrc 20.19.5)
 # + browser click-through: 5 tabs, overview drag (in-row + new-row), bucket nest/un-nest,
@@ -93,7 +94,7 @@ cd myblog_front && pnpm lint && pnpm exec astro check    # Node 20 (.nvmrc 20.19
 
 ---
 
-### Step 2 — Library status (backend) *(cross-repo)*
+### Step 2 — Library status (backend) _(cross-repo)_
 
 Persist library state (듣는 중 / 들음 / 평론함 / 위시리스트) per album. Likely a `library_items`
 table (shared_db) + `GET/PATCH /api/.../library`. Adapter's library section → real. Contract
@@ -101,7 +102,7 @@ change → regenerate `openapi.json` + frontend types.
 
 ---
 
-### Step 3 — Listening history + now-playing (worker-fed) *(cross-repo)*
+### Step 3 — Listening history + now-playing (worker-fed) _(cross-repo)_
 
 Recently-played albums/tracks + "now playing" from a **worker/EventBridge-fed cache**, never a
 synchronous user-facing Spotify call (rule #9). Builds on the **FEAT-spotify-personalize-light**
@@ -110,21 +111,21 @@ now-playing + recent sections → real.
 
 ---
 
-### Step 4 — Genre / artist distribution *(depends on FEAT-genre-taxonomy)*
+### Step 4 — Genre / artist distribution _(depends on FEAT-genre-taxonomy)_
 
 Aggregation for the 통계 charts. Genre distribution needs first-class genres, so this **depends on
 FEAT-genre-taxonomy** (plan.md Backlog). Artist distribution can come from review/listen counts.
 
 ---
 
-### Step 5 — Nested-bucket backend + unify `/reviews/queue` *(cross-repo)*
+### Step 5 — Nested-bucket backend + unify `/reviews/queue` _(cross-repo)_
 
 Add `parent_id` (or a nesting model) to `review_buckets` + recursive API; point the member page's
 bucket tab at it; **unify or retire** the flat `/reviews/queue` board so only one bucket UI remains.
 
 ---
 
-### Step 6 — Multi-user accounts *(large, separate; may graduate to its own RFC)*
+### Step 6 — Multi-user accounts _(large, separate; may graduate to its own RFC)_
 
 User/profile model, public `/members/[handle]`, followers/following/lists. Un-hides the social
 stats. Likely its own RFC by the time we reach it.
@@ -137,15 +138,15 @@ stats. Likely its own RFC by the time we reach it.
    Blocks Step 2.
 2. **Now-playing source** — full personalize-light OAuth pipeline, or a lighter "last scrobble"
    cache? Blocks Step 3.
-3. **Bucket migration** — does the nested board *replace* `/reviews/queue`, or do both stay with
+3. **Bucket migration** — does the nested board _replace_ `/reviews/queue`, or do both stay with
    different purposes? Blocks Step 5.
 
 ## Decisions log
 
-| Date | Decision | Step |
-|------|----------|------|
-| 2026-06-04 | Scope Step 1 to frontend shell; real reviews + sample elsewhere behind one adapter | 1 |
-| 2026-06-04 | Bucket tab = nested redesign on localStorage (not reuse flat queue) for Step 1 | 1 |
-| 2026-06-04 | Now-playing mock + label now; worker-fed cache later (rule #9) | 1/3 |
-| 2026-06-04 | Route = `/profile`; multi-user public profiles → `/members/[handle]` later | 1/6 |
-| 2026-06-04 | Hide follower/following/list stats in Step 1 (social = multi-user) | 1/6 |
+| Date       | Decision                                                                           | Step |
+| ---------- | ---------------------------------------------------------------------------------- | ---- |
+| 2026-06-04 | Scope Step 1 to frontend shell; real reviews + sample elsewhere behind one adapter | 1    |
+| 2026-06-04 | Bucket tab = nested redesign on localStorage (not reuse flat queue) for Step 1     | 1    |
+| 2026-06-04 | Now-playing mock + label now; worker-fed cache later (rule #9)                     | 1/3  |
+| 2026-06-04 | Route = `/profile`; multi-user public profiles → `/members/[handle]` later         | 1/6  |
+| 2026-06-04 | Hide follower/following/list stats in Step 1 (social = multi-user)                 | 1/6  |
