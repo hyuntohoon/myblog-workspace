@@ -1,13 +1,13 @@
 # FEAT-header-scroll-prefs: 헤더 스크롤 거동 사용자 설정
 
-- **Status**: draft
+- **Status**: done
 - **Owner**: TBD
 - **Created**: 2026-06-04
 - **Plan row**: dropped 2026-06-04 (shipped)
 - **Shipped**: 2026-06-04 — Steps 1 + 2 in one PR (myblog_front#82, squash `73d1471`).
   Prod smoke 14/14 on https://www.ratemymusic.blog (3 modes + reduced-motion +
-  focus-reveal + live footer `<select>`). Status left `draft`: formal accept→close
-  is human-only (Hard rule #5) — flip Status + move to `docs/archive/done/rfcs/` when ready.
+  focus-reveal + live footer `<select>`). Closed + archived to `docs/archive/done/rfcs/`
+  2026-06-05 (human-approved Status flip, Hard rule #5).
 
 ---
 
