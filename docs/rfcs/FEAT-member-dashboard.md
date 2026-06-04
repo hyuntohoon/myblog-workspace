@@ -148,10 +148,11 @@ API does **not** expose a complete listening history — only `GET /me/player/re
 > Decisions **D28–D31** and the review fixes (drop `progress_ms`/`duration_ms` + idle
 > `updated_at`, append-only events table, retry/backoff + symmetric isolation, server debounce +
 > `last_synced_at` poll, token write-back, real-album panel, cron alarms) were adopted **after**
-> ship and land as **post-ship follow-up PRs** (the "Follow-up rollout" block below). **D28
-> shipped 2026-06-04** (workspace #211 / front #77 / backend #49, prod smoke green); D29–D31 +
-> the remaining review fixes are **not yet in prod**. Bullets tagged D29–D31 describe that
-> follow-up target, not the baseline.
+> ship and land as **post-ship follow-up PRs** (the "Follow-up rollout" block below). **D28 +
+> D31 shipped 2026-06-04** (D28: workspace #211 / front #77 / backend #49; D31: worker #34 /
+> workspace #213 / backend #50 / front #78 — both prod smoke green); D29, D30 + the remaining
+> review fixes (retry/backoff + symmetric isolation, real-album panel, cron alarms) are **not yet
+> in prod**. Bullets tagged D29/D30 describe that follow-up target, not the baseline.
 
 Pulls data per the **hybrid sync model (D5)**:
 - **EventBridge cron, 1h**: worker reads `/me/player/recently-played`, then (a) upserts the
@@ -217,9 +218,18 @@ follow-ups ship as normal cross-repo PRs; ordering notes:
    `progress_ms`/`duration_ms` (D28) was a **contract change** → regen `openapi.json` + front
    types; the idle response now also carries `updated_at`. Merge order workspace→front→backend
    kept the front api.gen.ts drift gate green and gave a zero cosmetic window.
-3. Token write-back (D30) needs `secretsmanager:PutSecretValue` on `myblog/spotify` added to the
+3. ✅ **Shipped 2026-06-04** (worker #34 → workspace #213 → backend #50 → front #78). Manual-refresh
+   debounce + `last_synced_at` poll (D31). The worker skips Spotify reads when the cache is `<60s`
+   old (age measured DB-side via `GREATEST(spotify_recent_albums.synced_at,
+   spotify_now_playing.updated_at)`, skew-free; the 1h cron is never debounced). `last_synced_at`
+   (additive, max `synced_at`) was added to the recently-listened response; the UI polls it until it
+   advances past the click and shows a neutral "이미 최신 상태" on the debounced-timeout path. Merge
+   order worker→workspace→backend→front (worker is contract-independent; workspace before front for
+   the drift gate). prod smoke: refresh ×2 → only the 1st advanced `synced_at` (06:57→07:21), 2nd
+   debounced. The debounce SELECT was also validated read-only against prod Postgres pre-merge.
+4. Token write-back (D30) needs `secretsmanager:PutSecretValue` on `myblog/spotify` added to the
    worker IAM (`secrets.tf` grants only `GetSecretValue` today).
-4. Cron `FailedInvocations` + cache-staleness alarms are additive infra (`terraform apply`).
+5. Cron `FailedInvocations` + cache-staleness alarms are additive infra (`terraform apply`).
 
 **Verification** (baseline is prod-smoke-green per #209; the below cover the D28–D31 follow-ups +
 regression):
