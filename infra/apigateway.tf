@@ -185,6 +185,26 @@ resource "aws_apigatewayv2_route" "buckets_items_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Member library (FEAT-member-dashboard Step 2) ---
+# GET /api/library is served by the catch-all `api_get_proxy` route above
+# (edge_guard at the Lambda). Both mutations are Cognito-JWT gated here.
+
+resource "aws_apigatewayv2_route" "library_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/library/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "library_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/library/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;
