@@ -100,3 +100,27 @@ resource "aws_iam_role_policy_attachment" "backend_spotify_secrets" {
   policy_arn = aws_iam_policy.spotify_secrets_read.arn
 }
 
+# --- myblog/spotify write: worker only (D30 token-rotation write-back) ---
+# The worker persists a Spotify-rotated refresh_token + last_successful_refresh_at
+# back to myblog/spotify, and flips a needs_reauth marker on an invalid_grant. This
+# is a separate policy (not folded into spotify_secrets_read) so the backend, which
+# also attaches the read policy, stays read-only. Scoped to the spotify secret.
+resource "aws_iam_policy" "spotify_secrets_write" {
+  name        = "myblog-spotify-secrets-write"
+  description = "Allow blogWorkerLambda to write back the rotated Spotify refresh token"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:PutSecretValue"]
+      Resource = [data.aws_secretsmanager_secret.spotify.arn]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "worker_spotify_secrets_write" {
+  role       = "blogWorkerLambda-role-7w21g7o3"
+  policy_arn = aws_iam_policy.spotify_secrets_write.arn
+}
+
