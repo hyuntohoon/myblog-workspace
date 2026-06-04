@@ -32,6 +32,9 @@ resource "aws_lambda_function" "backend" {
       GITHUB_REPO_NAME   = "myblog_front"
       GITHUB_REPO_BRANCH = "main"
       CONTENT_DIR        = "content/blog"
+      # FEAT-member-dashboard Step 3: manual "지금 새로고침" → SQS; 연동 status read.
+      SQS_QUEUE_URL       = aws_sqs_queue.blog_sqs.url
+      SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
     }
   }
 
@@ -79,6 +82,9 @@ resource "aws_lambda_function" "worker" {
   environment {
     variables = {
       SECRETS_ARN = data.aws_secretsmanager_secret.worker.arn
+      # FEAT-member-dashboard Step 3: Spotify user OAuth creds + re-enqueue queue.
+      SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
+      SQS_QUEUE_URL       = aws_sqs_queue.blog_sqs.url
     }
   }
 

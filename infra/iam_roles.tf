@@ -115,6 +115,37 @@ resource "aws_iam_role_policy" "music_sqs_produce" {
   })
 }
 
+# FEAT-member-dashboard Step 3: backend produces the manual "지금 새로고침" trigger
+# ({"job":"spotify_refresh"}); worker re-enqueues recently-played albums not yet in
+# the catalog. Both send to the same blogSQS the worker already consumes.
+resource "aws_iam_role_policy" "backend_sqs_produce" {
+  name = "sqs-produce-blogSQS"
+  role = aws_iam_role.backend.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "SqsProduce"
+      Effect   = "Allow"
+      Action   = ["sqs:GetQueueUrl", "sqs:SendMessage"]
+      Resource = "arn:aws:sqs:ap-northeast-2:${var.account_id}:blogSQS"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "worker_sqs_produce" {
+  name = "sqs-produce-blogSQS"
+  role = aws_iam_role.worker.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "SqsProduce"
+      Effect   = "Allow"
+      Action   = ["sqs:GetQueueUrl", "sqs:SendMessage"]
+      Resource = "arn:aws:sqs:ap-northeast-2:${var.account_id}:blogSQS"
+    }]
+  })
+}
+
 # --- worker: blogWorkerLambda-role-7w21g7o3 ---
 # 인라인 sqs 정책은 잘못된 계정(123456789012)을 가리켜 dead code.
 # AWSLambdaBasicExecutionRole-* 커스텀 정책이 올바른 blogSQS ARN으로 SQS를 이미 허용.

@@ -12,8 +12,8 @@ Source of truth: `infra/terraform.tfstate`. The values below are a human-readabl
 | S3 bucket | `myblog-prod-web` |
 | CloudFront | `d2y4n52sgjlrz6.cloudfront.net` → `www.ratemymusic.blog` |
 | Neon DB | Serverless Postgres; pooler URL stored in each service's Secrets Manager entry |
-| Secrets | `myblog/backend`, `myblog/music`, `myblog/worker` (one per service; `SECRETS_ARN` env var; fetched once per cold start via `@lru_cache`) |
-| EventBridge | `rate(15 min)` → `blogWorkerLambda` (alias mode — MusicBrainz lookup for artists missing `musicbrainz_id`) |
+| Secrets | `myblog/backend`, `myblog/music`, `myblog/worker` (one per service; `SECRETS_ARN` env var; fetched once per cold start via `@lru_cache`). Plus `myblog/spotify` — Spotify user OAuth client_id/secret + refresh_token (`SPOTIFY_SECRETS_ARN`; read by worker for `/me/player/*`, by backend for connection status). |
+| EventBridge | `rate(15 min)` → `blogWorkerLambda` (alias mode — MusicBrainz lookup). `rate(1 hour)` → `blogWorkerLambda` with constant input `{"job":"spotify_listening"}` (Spotify recently-played + now-playing cache, FEAT-member-dashboard Step 3). |
 
 ## Lambda functions
 
