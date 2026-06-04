@@ -27,3 +27,4 @@ __pycache__/
 .vscode/
 .claude/hooks/
 .claude/launch.json
+.claude/worktrees/
