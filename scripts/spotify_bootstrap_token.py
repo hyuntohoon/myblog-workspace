@@ -22,6 +22,12 @@ USAGE:
 The token value is NEVER logged or printed unless you pass --show (avoid that on a
 shared terminal). With --write it goes straight into Secrets Manager.
 
+RE-AUTH (D30): if the /profile → 연동 tab shows "재인증 필요", the stored refresh token
+was revoked/expired (the worker saw an invalid_grant and set needs_reauth in the
+secret). Recover by re-running this script with --write — it mints a fresh token,
+stamps last_successful_refresh_at, and clears needs_reauth, so the tab flips back to
+연결됨 without waiting for the next worker tick.
+
 Scopes requested (read-only; write scopes deferred per D11):
   user-read-recently-played, user-read-currently-playing
 """
@@ -126,11 +132,18 @@ def _write_secret(client_id: str, client_secret: str, refresh_token: str) -> Non
         existing = json.loads(sm.get_secret_value(SecretId=SECRET_ID)["SecretString"])
     except sm.exceptions.ResourceNotFoundException:
         existing = {}
+    from datetime import datetime, timezone
+
     existing.update({
         "client_id": client_id,
         "client_secret": client_secret,
         "refresh_token": refresh_token,
+        # A fresh bootstrap IS a successful token acquisition — stamp it and drop any
+        # stale needs_reauth marker so the 연동 tab flips back to 연결됨 immediately,
+        # without waiting for the next worker refresh (D30 re-auth recovery).
+        "last_successful_refresh_at": datetime.now(timezone.utc).isoformat(),
     })
+    existing.pop("needs_reauth", None)
     sm.put_secret_value(SecretId=SECRET_ID, SecretString=json.dumps(existing))
     print(f"✅ refresh token을 Secrets Manager {SECRET_ID} 에 저장했습니다 (값은 출력하지 않음).")
 
