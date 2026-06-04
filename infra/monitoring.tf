@@ -83,3 +83,39 @@ resource "aws_cloudwatch_metric_alarm" "dlq_messages" {
     QueueName = aws_sqs_queue.album_sync_dlq.name
   }
 }
+
+# --- EventBridge cron delivery-failure alarms (FEAT-member-dashboard follow-up) ---
+# FailedInvocations fires when EventBridge cannot deliver a scheduled tick to the
+# worker Lambda (target throttle / permission / delivery failure) — a failure mode
+# the Lambda "Errors" alarm above cannot see, because the function never ran. Covers
+# both worker crons (the Spotify listening sync + the MusicBrainz alias backfill);
+# either silently stalling is the harm this catches.
+#
+# Cache-staleness (recent-albums / now-playing rows going stale) is intentionally NOT
+# covered: it is not a native CloudWatch metric and would need a custom-metric canary
+# — deferred to a follow-up (RFC "Follow-up rollout" item 5).
+locals {
+  worker_cron_rules = {
+    spotify_listening = aws_cloudwatch_event_rule.spotify_listening.name
+    musicbrainz_alias = aws_cloudwatch_event_rule.musicbrainz_alias.name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "cron_failed_invocations" {
+  for_each            = local.worker_cron_rules
+  alarm_name          = "${each.value}-failed-invocations"
+  alarm_description   = "EventBridge rule ${each.value} failed to invoke the worker Lambda"
+  namespace           = "AWS/Events"
+  metric_name         = "FailedInvocations"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    RuleName = each.value
+  }
+}
