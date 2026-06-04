@@ -6,6 +6,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+- **BUG-21** — `/profile` 평론 버킷: resetting a bucket color to "기본"(default) silently no-ops. `PATCH /api/buckets/{id}` with `{"color": null}` returns 200 but the color is never cleared (`bucket_service.update_bucket` treated `color=None` as "not provided"). A color could be set but never reset. Scope: backend only (`fix/BUG-21-bucket-color-reset`). Verification: pytest (new route-contract + real-engine set→clear regression tests) + the prod CDP click-through that surfaced it; prod smoke post-deploy. Rollback: revert the PR (1 commit). Post-deploy cleanup: smoke test account `우선순위` is stuck red on prod (clear via `{"color": null}` once the fix deploys). Status: fix implemented + tested, awaiting merge.
+
 ---
 
 ## Backlog
