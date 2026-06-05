@@ -1,10 +1,10 @@
 # STAB-2: P0 Auth boundary remediation
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-2
-- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 1** (P0 Auth boundary). STAB-1 stays `draft`; this implementation RFC is also `draft` (accept = human-only) and is the scoped follow-up STAB-1 calls for.
+- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 1** (P0 Auth boundary). STAB-1 + this RFC are **accepted** (2026-06-05, owner-approved); this is the scoped follow-up STAB-1 calls for.
 
 ---
 

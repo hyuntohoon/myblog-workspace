@@ -1,10 +1,10 @@
 # STAB-5: category → section taxonomy + review tags
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-5
-- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 5** + the §"Final decision — category/board/section + review tags model". STAB-1 prospectively called this **`FEAT-section-taxonomy`**; renamed to **STAB-5** for consistency with the STAB-N ↔ §Seq-item-N family. STAB-1 stays `draft`; this RFC is `draft` (accept = human-only).
+- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 5** + the §"Final decision — category/board/section + review tags model". STAB-1 prospectively called this **`FEAT-section-taxonomy`**; renamed to **STAB-5** for consistency with the STAB-N ↔ §Seq-item-N family. STAB-1 + this RFC are **accepted** (2026-06-05, owner-approved).
 - **Depends on**: **STAB-2** (P0 auth — removes the public `POST /api/categories` create path; do not start before STAB-2 Step 3 is decided). **Coordinate with STAB-4** (not a hard dependency): STAB-4 backfills `schema.sql` to document the *current* `categories` table, which this RFC then renames to `sections` — so sequence such that **STAB-5 Step 1's `schema.sql` regen is the final word** (or fold the rename into STAB-4's backfill), otherwise STAB-4's fresh `categories` DDL goes stale the moment STAB-5 lands.
 
 ---

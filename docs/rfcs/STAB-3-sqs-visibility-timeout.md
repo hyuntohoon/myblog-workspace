@@ -1,10 +1,10 @@
 # STAB-3: blogSQS visibility timeout ≥ worker timeout
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-3
-- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 2** (P1-1). STAB-1 stays `draft`; this RFC is `draft` (accept = human-only).
+- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 2** (P1-1). STAB-1 + this RFC are **accepted** (2026-06-05, owner-approved).
 
 ---
 

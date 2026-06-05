@@ -1,10 +1,10 @@
 # STAB-7: IAM least-privilege + IaC drift-visibility + observability (necessity-gated)
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-7
-- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 7** (P7 IAM trims, P4 drift-blindness, P5 observability). STAB-1 stays `draft`; this RFC is `draft` (accept = human-only).
+- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 7** (P7 IAM trims, P4 drift-blindness, P5 observability). STAB-1 + this RFC are **accepted** (2026-06-05, owner-approved).
 
 > **This tier is explicitly necessity-gated** ([[feedback-necessity-gate-reviews]]). STAB-1 ranks it lowest, behind P0/P1/section/hygiene. Each item below states whether there is **concrete harm if unfixed**; default for the no-clear-harm items is **leave alone**. Adopt a change only when the harm is nameable. "Mostly fine, do only P7-5 + the cheap drift imports" is a valid outcome.
 

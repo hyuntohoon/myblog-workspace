@@ -1,10 +1,10 @@
 # STAB-4: schema.sql backfill + architecture.md / contract doc drift
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-4
-- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 4** (P2-8 / MODEL-12 + architecture.md). STAB-1 stays `draft`; this RFC is `draft` (accept = human-only).
+- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 4** (P2-8 / MODEL-12 + architecture.md). STAB-1 + this RFC are **accepted** (2026-06-05, owner-approved).
 
 ---
 
