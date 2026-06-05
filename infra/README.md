@@ -38,8 +38,12 @@ Inspect any config: `aws lambda get-function-configuration --function-name <name
 
 ## Known out-of-IaC items
 
-These exist in AWS but are not managed by Terraform yet. Track in `plan.md` if remediation is planned.
+These exist in AWS but are **not managed by Terraform** → `terraform plan` is blind to out-of-band changes or deletion of them. STAB-7 Step 2 chose to **document** them here rather than `terraform import` (import is apply-class / heavier than the drift-value warrants at this scale). Track in `plan.md` if remediation is planned.
 
-- **CloudFront `handler` function** — code defined in console, not Terraform.
+- **CloudFront `handler` function** — JS code defined in console, not Terraform. Deleting it breaks site-wide deep-link routing (Astro `uri → uri + '/index.html'` rewrite). High-value to guard; not yet imported.
+- **S3 bucket policy** on the web bucket (`myblog-prod-web`) — console-created; still carries a dead `AllowCloudFrontServicePrincipal` OAC statement (the distribution serves the bucket's website endpoint, not via OAC).
+- **WAFv2 Web ACL** (CloudFront scope) — console-created; its rules are invisible to `plan`. (It cannot be attached to the HTTP API in any case — WAFv2 does not support API Gateway v2; see `reference-waf-http-api-invoke-domain`.)
+- **S3 versioning / access logging** on the web bucket — console-set, not in Terraform.
+- **Worker console policy** `AWSLambdaBasicExecutionRole-976d757e-…` — attached by ARN (`iam_roles.tf` `worker_basic_exec`), policy body not in repo or state. It carries the worker's real `blogSQS` consume grant, so a console edit could cause a silent consumer outage invisible to `plan`. Audit with `aws iam get-policy-version` before relying on `plan` for the worker's SQS perms.
 
-> The 3 Lambda execution roles (backend/music/worker) are now managed in `infra/iam_roles.tf` (no longer manual), and `AmazonRDSFullAccess` was dropped. Residual dead grant: `music_rds_ctrl` still allows `rds:Start/Stop/DescribeDBInstances` on `db:blogdb` — a phantom AWS RDS instance that doesn't exist (Neon is the DB). Safe to remove in a future `iam_roles.tf` change (needs `terraform apply`).
+> The 3 Lambda execution roles (backend/music/worker) are managed in `infra/iam_roles.tf`. **STAB-7** dropped the music role's account-wide `AWSLambdaSQSQueueExecutionRole` attachment (P7-5 over-grant — `musicApi` is producer-only) and the dead `music_rds_ctrl` `rds:Start/Stop/DescribeDBInstances` grant on the phantom `db:blogdb` (P7-1; Neon is the DB). `music_rds_ctrl` is now logs-only. Both land via the STAB-7 `terraform apply`.
