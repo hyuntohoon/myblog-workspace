@@ -100,6 +100,7 @@ When a step completes:
 
 In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcrumb to the archive, then gets dropped — `git log` and `docs/archive/done/rfcs/` are authoritative for history.
 
+- **STAB-1** (draft, **Active — top priority**) — 시스템 안정화/하드닝 (확장 착수 전). 2026-06-05 아키텍처 리뷰를 코드에 재검증한 조사·우선순위·시퀀싱 문서 (auth 경계 / worker-SQS-EventBridge / shared_db-schema drift / repo hygiene / S3-CloudFront / search-observability / side-effecting GET / IAM, 총 real issue 47건) + 최종 **category → section + review-tags** 모델 결정. 이 RFC 자체는 코드/Terraform/데이터/파일 무수정 — "구현 전 필요 증거"까지만; 수정은 후속 RFC/BUG 로. 모든 확장 기능은 이 뒤에 동결. 캐싱은 범위 외.
 - **FEAT-genre-taxonomy** (draft) — 장르 브랜치 저작 v1: 2단 단일부모 트리(상위→하위), 생성+부모지정만, prod `artists.genres` 시드. Cross-repo (shared_db V14 → 시드 → backend API → contract → front 저작 UI; V12/V13 = FEAT-music-search-recall). 앨범↔장르 연결·필터·통합뷰·관리는 v2+.
 - **FEAT-music-search-recall** (draft) — writer 음악 검색 recall 재평가, 목표 Hit@5 ≥ 0.9 / Hit@1 ≥ 0.6. 매칭레이어 우선(pg_trgm — A1 PoC done) + alias 커버리지. Cross-repo (front IME → fixture+gate → shared_db V12 pg_trgm → V13 aliases → music decomposition → ?explain=1).
 - **FEAT-genre-artist-distribution** (draft) — `/profile` 통계 charts: genre + artist/listen 분포. `FEAT-member-dashboard` Step 4에서 분리. `FEAT-genre-taxonomy`(genre) + `spotify_play_events`(listen) 의존. 미착수.
