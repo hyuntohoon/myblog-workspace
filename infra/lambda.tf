@@ -27,6 +27,10 @@ resource "aws_lambda_function" "backend" {
     variables = {
       ENV                = "prod"
       APP_ENV            = "prod"
+      # STAB-2 / AUTH-5: backend require_cognito_token was a no-op in prod
+      # because this was never set. With auth.py now fail-closed, APPLY THIS
+      # (and verify JWKS reachable) BEFORE deploying the fail-closed backend.
+      COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
       SECRETS_ARN        = data.aws_secretsmanager_secret.backend.arn
       GITHUB_REPO_OWNER  = "hyuntohoon"
       GITHUB_REPO_NAME   = "myblog_front"
