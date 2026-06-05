@@ -323,7 +323,30 @@ write is idempotent so leftover rows are harmless even before drop.
 
 ---
 
-### Step 6 — A2: query decomposition
+### Step 6 — A2: query decomposition ✅ DONE (2026-06-05)
+
+> ✅ Done 2026-06-05 — PR `hyuntohoon/myblog_music#37`, merge SHA `e74f977`.
+> Implemented as a single-boundary parse in `search_service.py` (`_decompose` +
+> `_decomposition_splits`), reusing existing repo methods — **no repo signature,
+> migration, or contract change.** Decomposed rows form a new top ranking tier
+> (`PATH_DECOMPOSED`, above literal/expansion), scored by similarity against the
+> `title_part`. Bounded: ≤3 tokens, ≤6 splits, ≤5 artist candidates/split.
+>
+> The recall gate was already 1.000 at Step 4 (fuzzy whole-string match covered
+> multi-token incidentally), so Step 6 does not move the metric — its value is
+> **precision/robustness**: the whole-string fuzzy dilutes trgm similarity with
+> the artist token, so a `"<artist> <title>"` query could rank a same-titled
+> album by another (higher-popularity) artist above the intended one.
+> Decomposition lifts the correct row to rank-1.
+>
+> Verification: `pytest -m "not integration"` 40 passed; recall gate vs prod
+> catalog (trgm on) **1.000/1.000** (no regression); new integration test
+> `test_multi_token_decomposition_surfaces_artists_album` proves a lower-pop
+> correct album beats a higher-pop same-titled decoy at rank-1 (passes both
+> `SEARCH_USE_PG_TRGM` states). **Prod smoke**: `방탄소년단 Proof` → album
+> `Proof` rank-1 (count 1); `Radiohead OK Computer` → `OK Computer` rank-1.
+> (Applied idempotent `CREATE EXTENSION pg_trgm` to the Neon test branch so the
+> flag-on real-engine tests run — `reference-neon-test-branch-migration-drift`.)
 
 For queries with ≥ 2 tokens, decompose into a structured shape (parsed
 once at a single boundary in `search_service.py`) and try combinations
@@ -397,4 +420,5 @@ curl '<music-prod>/api/music/search/unified?q=...&explain=1' | jq '.debug'
 | 2026-06-05 | **Step 2 baseline recorded: Hit@5 = Hit@1 = 0.600 (18/30).** Misses = 8 multi-token + 4 typo (the Step 6 / Step 4 gaps). korean/common-word/artist-alias already pass. Fixture uses real prod ids; alias category currently tests *artist* aliases only (album/track alias cases arrive with Step 5 V13 data). | 2 |
 | 2026-06-05 | **No pin bump at Step 4** (necessity gate): V12 adds no ORM column (extension + GIN indexes only) and `similarity()` is raw SQL → no service gains a model dependency; pin bump deferred to Step 5 (V13 alias models). | 4 |
 | 2026-06-05 | **RFC goal MET at Step 4: Hit@5 = Hit@1 = 1.000 (30/30), prod-verified + flag live.** pg_trgm's fuzzy fallback recovered typos *and* multi-token (query trigrams overlap title trigrams) at threshold 0.3, no tuning needed. Steps 5 (album/track aliases), 6 (decomposition), 7 (`?explain=1`) are now **additive capability beyond the goal metric**, not required to hit the target — to be scoped/sequenced by the owner as follow-ons. | 4 |
+| 2026-06-05 | **Step 6 DONE** (music #37, `e74f977`): single-boundary query decomposition in `search_service.py`, no repo/migration/contract change. Gate held at 1.000 (Step 6 adds precision, not gate movement — fuzzy already covered multi-token at Step 4). Prod smoke: `방탄소년단 Proof`/`Radiohead OK Computer` → correct album rank-1. | 6 |
 | 2026-06-05 | **Step 5 DEFERRED by owner** after necessity/scope re-assessment. (a) Gate already 1.000 + fixture has no album/track alias cases → zero gate benefit. (b) RFC "no new API call" premise false: MB path is `get_artist_by_id(includes=["aliases"])` (artist only), and albums/tracks have **no `musicbrainz_id` column** → would need to MB-match ~698 albums + ~4,898 tracks first. (c) Real scope ≈ 10× the step text (new MBID columns + ~5,600 MB resolutions + new cron + 3-repo pin bump); needs its own RFC. No observed alias-search-miss signal (OQ4 still deferred). Necessity gate → default no; revisit on real demand. | 5 |
