@@ -16,6 +16,7 @@
 -- Extensions
 -- =============================================================================
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- V12: trigram search indexes (FEAT-music-search-recall)
 
 -- =============================================================================
 -- Enums
@@ -24,6 +25,13 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'post_status') THEN
     CREATE TYPE post_status AS ENUM ('draft', 'published', 'archived');
+  END IF;
+END$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'review_bucket_item_status') THEN
+    CREATE TYPE review_bucket_item_status AS ENUM ('candidate', 'drafting', 'published');  -- V6
   END IF;
 END$$;
 
@@ -62,7 +70,7 @@ CREATE TABLE IF NOT EXISTS posts (
 
   -- Music review fields
   album_cover_url TEXT,
-  rating          NUMERIC(3,1) CHECK (rating IS NULL OR (rating >= 0 AND rating <= 10)),
+  rating          NUMERIC(3,2) CHECK (rating IS NULL OR (rating >= 0 AND rating <= rating_scale)),  -- V5 widened (3,1)→(3,2); bound is rating_scale, not a literal
   rating_scale    SMALLINT     NOT NULL DEFAULT 5 CHECK (rating_scale >= 1 AND rating_scale <= 10)
 );
 
@@ -134,6 +142,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_musicbrainz_id
   ON artists(musicbrainz_id) WHERE musicbrainz_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_artists_popularity_followers_views
   ON artists(popularity DESC, followers DESC, views DESC);
+CREATE INDEX IF NOT EXISTS idx_artists_name_trgm ON artists USING gin (name gin_trgm_ops);  -- V12
 
 -- =============================================================================
 -- Music Catalog — Albums
@@ -160,6 +169,7 @@ CREATE INDEX IF NOT EXISTS idx_albums_popularity_views
   ON albums(popularity DESC, views DESC);
 CREATE INDEX IF NOT EXISTS idx_albums_best_new
   ON albums(best_new) WHERE best_new = true;
+CREATE INDEX IF NOT EXISTS idx_albums_title_trgm ON albums USING gin (title gin_trgm_ops);  -- V12
 
 -- =============================================================================
 -- Music Catalog — Album ↔ Artist (M:N)
@@ -192,6 +202,7 @@ CREATE TABLE IF NOT EXISTS tracks (
 CREATE INDEX IF NOT EXISTS idx_tracks_album_id ON tracks(album_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_track_no ON tracks(track_no);
 CREATE INDEX IF NOT EXISTS idx_tracks_spotify_id ON tracks(spotify_id);
+CREATE INDEX IF NOT EXISTS idx_tracks_title_trgm ON tracks USING gin (title gin_trgm_ops);  -- V12
 
 -- =============================================================================
 -- Music Catalog — Track ↔ Artist (M:N)
@@ -271,3 +282,91 @@ CREATE TABLE IF NOT EXISTS op_logs (
   note        TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_op_logs_occurred_at ON op_logs(occurred_at);
+
+-- =============================================================================
+-- Review Buckets — private review-writing kanban (V6; parent_id V11)
+-- (Backfilled 2026-06-05 from prod introspection — STAB-4. NOT public taxonomy.)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS review_buckets (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT        NOT NULL,
+  position   INTEGER     NOT NULL,
+  color      TEXT,
+  is_done    BOOLEAN     NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  parent_id  UUID        REFERENCES review_buckets(id) ON DELETE CASCADE   -- V11
+);
+CREATE INDEX IF NOT EXISTS idx_review_buckets_parent_id ON review_buckets(parent_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_done
+  ON review_buckets((true)) WHERE is_done;
+
+CREATE TABLE IF NOT EXISTS review_bucket_items (
+  id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  bucket_id  UUID         NOT NULL REFERENCES review_buckets(id) ON DELETE CASCADE,
+  album_id   UUID         NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+  position   INTEGER      NOT NULL,
+  note       TEXT,
+  status     review_bucket_item_status NOT NULL DEFAULT 'candidate',
+  post_id    UUID         REFERENCES posts(id) ON DELETE SET NULL,
+  rec_reason TEXT,
+  added_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  UNIQUE (bucket_id, album_id)
+);
+CREATE INDEX IF NOT EXISTS idx_review_bucket_items_album_id  ON review_bucket_items(album_id);
+CREATE INDEX IF NOT EXISTS idx_review_bucket_items_bucket_id ON review_bucket_items(bucket_id);
+CREATE INDEX IF NOT EXISTS idx_review_bucket_items_post_id   ON review_bucket_items(post_id);
+
+-- =============================================================================
+-- Library — "To Listen" queue (V8; supersedes the never-applied V7 library_items)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS album_to_listen_items (
+  id       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  album_id UUID        NOT NULL UNIQUE REFERENCES albums(id) ON DELETE CASCADE,
+  position INTEGER     NOT NULL,
+  note     TEXT,
+  added_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- =============================================================================
+-- Spotify Listening Cache — now-playing + recent (V9), play events (V10)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS spotify_now_playing (
+  id          SMALLINT    PRIMARY KEY DEFAULT 1,
+  is_playing  BOOLEAN     NOT NULL DEFAULT false,
+  track_name  TEXT,
+  artist_name TEXT,
+  album_name  TEXT,
+  album_id    UUID        REFERENCES albums(id) ON DELETE SET NULL,
+  progress_ms INTEGER,
+  duration_ms INTEGER,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_spotify_now_playing_singleton CHECK (id = 1)
+);
+
+CREATE TABLE IF NOT EXISTS spotify_recent_albums (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  album_id       UUID        NOT NULL UNIQUE REFERENCES albums(id) ON DELETE CASCADE,
+  last_played_at TIMESTAMPTZ NOT NULL,
+  source         TEXT        NOT NULL DEFAULT 'spotify',
+  synced_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_recent_albums_last_played_at
+  ON spotify_recent_albums(last_played_at);
+
+CREATE TABLE IF NOT EXISTS spotify_play_events (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  album_id    UUID        NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+  played_at   TIMESTAMPTZ NOT NULL,
+  source      TEXT        NOT NULL DEFAULT 'spotify',
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (album_id, played_at)
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_play_events_played_at ON spotify_play_events(played_at);
+
+-- =============================================================================
+-- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
+-- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
+-- This file is current through V12 (verified against prod 2026-06-05, STAB-4).
+-- =============================================================================

@@ -3,8 +3,8 @@
 **Queue**: `blogSQS` (prod) / `test-queue` (local/dev)  
 **Region**: `ap-northeast-2`  
 **Account**: `338183196042`  
-**Type**: Standard queue  
-**DLQ**: 미설정 (P1 작업 예정)  
+**Type**: Standard queue (NOT FIFO)  
+**DLQ**: `album-sync-dlq` — redrive `maxReceiveCount=3`, 14-day retention, CloudWatch-alarmed (observe-only, no auto-redrive). Visibility timeout: see STAB-3 (30s → 720s pending).  
 **Producer**: `myblog_music` (`app/clients/sqs_client.py`, Lambda: `musicApi`)  
 **Consumer**: `myblog_worker` (`worker/handler.py`, Lambda: `blogWorkerLambda`)
 
@@ -56,7 +56,7 @@ File: `app/clients/sqs_client.py::SqsClient.enqueue_album_sync`
 1. Filters out empty strings from the input ID list.
 2. Groups IDs into chunks of **20** (Spotify batch limit).
 3. Sends chunks to SQS using `send_message_batch` with up to **10 entries per API call**.
-4. For FIFO queues: `MessageGroupId = "album-sync"`, `MessageDeduplicationId` derived from `uuid5(NAMESPACE_URL, body + ":" + market)`.
+4. The producer has a FIFO branch (`MessageGroupId = "album-sync"`, `MessageDeduplicationId` from `uuid5(NAMESPACE_URL, body + ":" + market)`) gated on `queue_name.endswith('.fifo')` — **dead in prod** (`blogSQS` is Standard). Prod relies on at-least-once delivery + an idempotent consumer (`ON CONFLICT`), NOT FIFO exactly-once/dedup.
 5. Partial `send_message_batch` failures are **logged as warnings** — no retry, no exception raised.
 
 ---
