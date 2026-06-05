@@ -1,12 +1,13 @@
 # FEAT-music-edge-cache: Cache the music read path (search, album detail, covers)
 
-- **Status**: in-progress — **all 5 steps live in prod (2026-06-05)**. Step 2 was
-  applied in **reduced Free-plan scope**: only `/api/music/albums/*` is edge-cached
-  (managed CachingOptimized); the custom-cache-policy approach for search + artists
-  hit the CloudFront Free-plan restriction (custom policies = Business tier ~$200/mo)
-  and was dropped to stay $0 — see the Step 2 note + Decisions log. Prod-verified
-  (album path `Miss`→`Hit`). **Promotion to `done` + archive awaits owner approval
-  (rule #5).**
+- **Status**: **done** (2026-06-05) — all 5 steps live in prod. Step 2 was applied in
+  **reduced Free-plan scope**: only `/api/music/albums/*` is edge-cached (managed
+  CachingOptimized); the custom-cache-policy approach for search + artists hit the
+  CloudFront Free-plan restriction (custom policies = Business tier ~$200/mo) and was
+  dropped to stay $0 — see the Step 2 note + Decisions log. Prod-verified (album path
+  `Miss`→`Hit`; search `Miss`/`Miss`). Owner-approved done-promotion + archive
+  (rule #5). **Future option**: edge-cache search + artists by reverting the
+  distribution to pay-as-you-go pricing (restores custom query-string cache policies).
 - **Owner**: 주인장
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → FEAT-music-edge-cache
