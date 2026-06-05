@@ -1,9 +1,12 @@
 # FEAT-music-edge-cache: Cache the music read path (search, album detail, covers)
 
-- **Status**: in-progress — **code-complete** (all 5 steps merged 2026-06-05); the
-  only remaining action is the **human `terraform apply` of Step 2** (CloudFront
-  edge cache). Steps 1, 3, 4, 5 are live in prod; Step 2 `.tf` is merged but not
-  applied (prod `x-cache: Miss` confirms the edge isn't caching yet).
+- **Status**: in-progress — **all 5 steps live in prod (2026-06-05)**. Step 2 was
+  applied in **reduced Free-plan scope**: only `/api/music/albums/*` is edge-cached
+  (managed CachingOptimized); the custom-cache-policy approach for search + artists
+  hit the CloudFront Free-plan restriction (custom policies = Business tier ~$200/mo)
+  and was dropped to stay $0 — see the Step 2 note + Decisions log. Prod-verified
+  (album path `Miss`→`Hit`). **Promotion to `done` + archive awaits owner approval
+  (rule #5).**
 - **Owner**: 주인장
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → FEAT-music-edge-cache
@@ -175,14 +178,31 @@ Full `terraform plan` (no `-target`, hard rule #6); stop on any unexpected drift
 Reminder (memory): merging the infra PR ≠ prod change — a human runs `terraform apply`
 locally; there is no infra auto-apply.
 
-> ✅ Code merged 2026-06-05, workspace #246 (`ad1536d`). Final scope (audit
-> refinements): search behavior is `/api/music/search/unified` **exact** (not
-> `/search/*` — excludes auth-gated `/search/candidates`); `/albums/*` + `/artists/*`;
-> by-spotify 404s kept uncached via `custom_error_response { 404, min_ttl=0 }`.
-> `terraform validate` ok; full `terraform plan` = **1 to add (cache policy) + 1
-> in-place (distribution), 0 destroy**, no unexpected drift.
-> ⏳ **Pending the human `terraform apply`** — edge caching is NOT live until then
-> (prod `x-cache: Miss`). Post-apply: 2nd hit on an album path → `Hit from cloudfront`.
+> ✅ Code merged 2026-06-05, workspace #246 (`ad1536d`) — original custom-cache-policy
+> design (query-string-keyed; `/albums/*` + `/artists/*` + `/search/unified`).
+>
+> ⚠️ **Apply-time blocker (2026-06-05): the distribution is on the CloudFront Free
+> flat-rate pricing plan, which rejects custom cache policies** —
+> `InvalidArgument: Distributions with the Free pricing plan can't have ... Custom
+> cache policy`. Custom cache policies are a **Business-tier (~$200/mo)** feature
+> ([docs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/flat-rate-pricing-plan.html)),
+> incompatible with this RFC's $0-cost premise (which rejected ElastiCache ~$91/mo
+> and API GW cache $14.6/mo on the same basis). The cache-policy resource was
+> created before the distribution update failed; both were then rolled back.
+>
+> ✅ **Reduced scope applied & verified (2026-06-05, $0, no plan change):**
+> edge-cache only the pure-path **`/api/music/albums/*`** (album detail +
+> by-spotify) via the AWS **managed `CachingOptimized`** policy (a "default
+> caching rule" → Free-allowed; honors Step 1's origin `max-age=300` → 300s edge
+> TTL). `custom_error_response { 404, min_ttl=0 }` retained for absorb-404s.
+> **Excluded** (managed cache can't key on query strings; no plan change):
+> `/search/unified?q=…` and `/artists/*?limit/offset` — both stay CachingDisabled,
+> already covered by browser (Step 1) + session (Step 3) + Lambda (Step 5) caches.
+> `terraform plan` = **1 destroy (orphan policy) + 1 in-place**, applied clean.
+> **Prod smoke ✅**: `/api/music/albums/<id>` → req1 `Miss`, req2/3 `Hit from
+> cloudfront` (`age` climbing), `Cache-Control: public, max-age=300, swr=120`;
+> `/search/unified` → `Miss`/`Miss` (uncached, confirmed); artist-albums + unknown
+> by-spotify 404 → not edge-cached. **Step 2 is live.**
 
 **Verification**:
 ```
@@ -298,3 +318,4 @@ _All resolved at acceptance (2026-06-05) — see Decisions log. None blocking._
 | 2026-06-05 | **Audit refinement:** `/{albums,artists}/by-spotify/*` return 404 while the worker absorbs, and the writer polls that 404→200 (`myblog_front SubjectBlock.tsx`). Keep 404s uncached via distribution-level `custom_error_response { error_code=404, error_caching_min_ttl=0 }` rather than per-path CachingDisabled behaviors. Headers are 200-only (Step 1). | 2 |
 | 2026-06-05 | **Apply is human** (no infra auto-apply; [[reference-workspace-no-infra-autoapply]]). Step 2 PR merge ships the `.tf` only — CloudFront caching is NOT live until a human runs `terraform apply`. `terraform plan`: 1 to add (cache policy) + 1 in-place (distribution), 0 destroy. | 2 |
 | 2026-06-05 | **Code-complete.** All 5 steps merged (music #39/#40, infra #246, front #92/#93). Steps 1/3/4/5 deployed + live; Step 1 prod-smoked (headers confirmed). Only remaining action: human `terraform apply` of Step 2. RFC stays in-flight until applied, then → `done` + archive. | all |
+| 2026-06-05 | **Free-plan blocker → reduced Step 2 scope.** `terraform apply` revealed the distribution is on the CloudFront **Free flat-rate pricing plan**, which forbids **custom cache policies** (a Business-tier ~$200/mo feature) — incompatible with the $0 premise. Options weighed: (A) managed `CachingOptimized` on pure-path `/albums/*` only, $0, no plan change; (B) cancel Free plan → pay-as-you-go (custom policies OK, ≈$0 usage, but console-only + next-billing-cycle); (C) drop Step 2 entirely. **Owner chose (A).** Search + artists stay uncached at the edge (query-string-keyed; managed cache can't key on QS, and they're already covered by Steps 1/3/5). Applied + prod-verified (album path Miss→Hit; search Miss/Miss). | 2 |
