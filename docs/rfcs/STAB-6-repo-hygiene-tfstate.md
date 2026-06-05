@@ -1,10 +1,10 @@
 # STAB-6: repo hygiene + remote Terraform backend
 
-- **Status**: draft
+- **Status**: in-progress (Step 2 done; Steps 1/3/4/5 remaining)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-6
-- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 6** (P3 hygiene + P3-1 remote tfstate backend). STAB-1 stays `draft`; this RFC is `draft` (accept = human-only).
+- **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 6** (P3 hygiene + P3-1 remote tfstate backend). STAB-1 + this RFC are **accepted** (2026-06-05, owner-approved).
 
 ---
 
@@ -49,6 +49,7 @@ Rewrite `.gitignore` to just the intended patterns (drop the `cd …`/`cat <<EOF
 ### Step 2 — workspace: untrack `allure-results/` (P3-4)
 Add `allure-results/` + `allure-report/` to the root `.gitignore`; `git rm --cached` the 18 files.
 **Verification:** `git ls-files 'allure-results/*'` empty.
+> ✅ Done 2026-06-05 — 18 files untracked + `.gitignore` rule added (this PR).
 
 ### Step 3 — `myblog_music`: untrack `.DS_Store` + `.idea/` (P3-5)
 Add `.DS_Store` + `.idea/` to `myblog_music/.gitignore`; `git rm --cached` the 5 files.

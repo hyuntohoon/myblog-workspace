@@ -28,3 +28,7 @@ __pycache__/
 .claude/hooks/
 .claude/launch.json
 .claude/worktrees/
+
+# Allure test artifacts (STAB-6)
+allure-results/
+allure-report/
