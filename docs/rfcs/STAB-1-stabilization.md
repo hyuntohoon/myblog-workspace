@@ -114,6 +114,7 @@ The concrete schema, migration, writer-UI, and cleanup steps are deferred to a f
 - **Why:** WAF was console-provisioned for CloudFront; edge_guard was meant to force the viewer→CloudFront→API path.
 - **Risk:** With edge_guard bypassable (AUTH-3), a direct invoke-domain caller gets **no** WAF (no rate-limit/managed rules) **and** no origin check → unthrottled unauth writes/reads at the origin.
 - **Evidence required:** Confirm no REGIONAL web-ACL association on the stage; confirm the invoke domain responds off-CloudFront (AUTH-1 curl already hits it). Decide: associate a REGIONAL WAF or block the raw invoke domain.
+- **Correction (2026-06-05, live — see STAB-2):** `wafv2 list-web-acls --scope REGIONAL` is empty **and** the API is **HTTP (v2)** — WAFv2 cannot associate to an HTTP API at all (only CloudFront / REST v1 / ALB / etc.). So "associate a REGIONAL WAF" is **impossible**; remediation re-scopes to a `$default` stage throttle (unblocked) or `disable_execute_api_endpoint`+CloudFront-only — the latter currently **site-down** because CloudFront's API origin is the raw invoke domain (`cloudfront.tf:5,63`), so it is blocked on first creating an API GW custom domain. See `STAB-2-p0-auth-boundary.md` Step 5.
 
 **[AUTH-8] Only categories is an unintended public mutation** · `real issue`
 - **Now:** Sweeping authorizer-less routes for writes: only `POST /api/categories` mutates (INSERT+commit); `metrics/batch` reads; music routes are all GET. *(Confirmed.)*
@@ -244,7 +245,7 @@ These are the facts the §model decision rests on. Most are descriptive (`unclea
 - **Now:** `cron_failed_invocations` (`monitoring.tf:104-121`, namespace `AWS/Events`, `FailedInvocations`) fires only on **delivery** failure. A **separate** `lambda_errors` alarm (`AWS/Lambda Errors≥1`, `:29-47`) covers the worker and **does** fire when the async handler raises (the code re-raises precisely for this). The prior review's "handler failure unmonitored" claim is overstated.
 - **Why:** Correct two-layer CloudWatch design (Errors = crashed; FailedInvocations = never ran).
 - **Risk:** Two residual gaps: Errors is per-**function** so it can't attribute *which* trigger (SQS vs 2 crons) failed; a silent no-raise failure isn't caught (but the code re-raises catastrophic ones).
-- **Evidence required:** Synthetic test that a cron exception trips the Errors alarm; **confirm the SNS `myblog-alerts` email subscription is actually click-confirmed** (`monitoring.tf:6-10`; `var.alert_email` has a default but email subs need manual confirmation) — load-bearing prerequisite before trusting *any* alarm.
+- **Evidence required:** Synthetic test that a cron exception trips the Errors alarm; **confirm the SNS `myblog-alerts` email subscription is actually click-confirmed** (`monitoring.tf:6-10`; `var.alert_email` has a default but email subs need manual confirmation) — load-bearing prerequisite before trusting *any* alarm. **(RESOLVED 2026-06-05: confirmed — real SubscriptionArn, not pending.)**
 
 **[P1-7] Contract doc `sqs-album-sync.md:7` says "DLQ 미설정" but a DLQ exists** · `real issue` *(missed)*
 - **Now:** The doc the review trusted over `architecture.md` says DLQ not configured; `sqs.tf:16-19` configures redrive → `album-sync-dlq` (`maxReceiveCount=3`), tfstate confirms.
@@ -255,7 +256,7 @@ These are the facts the §model decision rests on. Most are descriptive (`unclea
 **[P1-8] DLQ is observe-only — no redrive/replay path** · `intentional tradeoff`
 - **Now:** `album-sync-dlq` has 14-day retention + an alarm but no `redrive_allow_policy` and no consumer; recovery is a manual console redrive or expiry.
 - **Why:** Visibility prioritized over automated recovery for this scale.
-- **Risk:** Low, but combined with P1-1 a legitimately-DLQ'd album sync is lost if the operator misses the alarm (and the email sub may be unconfirmed, P1-6).
+- **Risk:** Low, but combined with P1-1 a legitimately-DLQ'd album sync is lost if the operator misses the alarm (the email sub is confirmed as of 2026-06-05, P1-6).
 - **Evidence required:** Whether any manual redrive has run; `album-sync-dlq` visible-message history. Fix P1-1 first; auto-redrive is secondary.
 
 **[P1-9] Raising `album-sync-dlq` visibility too** · `false positive`
@@ -558,7 +559,7 @@ Recommended order (highest risk-reduction-per-effort first; each gated by its ev
 
 1. **P0 Auth boundary (highest).** AUTH-1 (gate/remove `POST /api/categories`), AUTH-3/AUTH-9/P8-7 (edge_guard Bearer bypass → drafts/archived disclosure + unauthed write), AUTH-5 (backend `COGNITO_USER_POOL_ID` + fail-closed `auth.py`), P6-2/P6-5 (music `ENV=prod` + origin-verify/auth on `/candidates`), AUTH-7/P6-6 (WAF/throttle on the invoke path). These are internet-reachable, unauthenticated, and the substrate every expansion builds on.
 2. **P1-1 SQS visibility timeout** — the one P1 item with live data-loss/duplicate-work impact (premature DLQ of slow-but-correct syncs). Fix `blogSQS` visibility ≥ worker timeout.
-3. **Cross-cutting prerequisite (do first, cheap):** confirm the **SNS `myblog-alerts` email subscription is click-confirmed** (P1-6) — otherwise every alarm is silent and all observability conclusions are moot.
+3. **Cross-cutting prerequisite (do first, cheap):** confirm the **SNS `myblog-alerts` email subscription is click-confirmed** (P1-6) — otherwise every alarm is silent and all observability conclusions are moot. **RESOLVED 2026-06-05** — live check shows a real SubscriptionArn (confirmed/active, not `PendingConfirmation`); alarms deliver. No action needed (see Decisions log).
 4. **P2-8 / MODEL-12 schema.sql backfill + architecture.md fixes** — the contract docs are actively misleading (and block correct planning for the section redesign + genre work).
 5. **Category → section model redesign** (the §decision) as a scoped implementation RFC — depends on the P0 auth fix (removes the public create API) and the schema clarity from step 4.
 6. **P3 hygiene** (bundle.zip untrack + .gitignore repairs + OS/IDE files) and **P3-1 remote tfstate backend** — low-risk, improves reproducibility/recovery.
@@ -605,3 +606,5 @@ OQ1–OQ6 were resolved by the owner on 2026-06-05 (see Decisions log). Residual
 | 2026-06-05 | **Priority = most-urgent-first** (OQ5) — the §Sequencing order stands (P0 auth → P1-1 SQS → SNS-sub prerequisite → P2-8/architecture.md → section model → P3 hygiene → P7/P4/P5). Expansion thaws only after P0 + P1-1 + section model | §sequencing |
 | 2026-06-05 | **Adopt a remote Terraform backend (S3 + DynamoDB lock)** for `P3-1` — low urgency, scheduled in the P3 hygiene tier, not ahead of P0/P1 (OQ6) | §sequencing P3 |
 | 2026-06-05 | **STAB-1 is the top active work**; all product expansion (incl. AI suggestions) is frozen behind it | §sequencing + plan.md |
+| 2026-06-05 | **§Sequencing items 1, 2, 4 re-verified against live prod/AWS** (read-only probes) and spawned as scoped implementation RFCs: **STAB-2** (P0 auth), **STAB-3** (SQS visibility), **STAB-4** (schema/doc drift). All `draft` (accept = human-only). Live confirmations: AUTH-1/3/4/5/9 + P6-1/2/5/6 (item 1), P1-1 redelivery actively occurring but DLQ-loss=0 (item 2), 6 tables missing from `schema.sql` + `library_items` V7 ghost (item 4). | §sequencing items 1/2/4 |
+| 2026-06-05 | **§Sequencing item 3 (SNS alert email sub, P1-6) — RESOLVED.** Live: `myblog-alerts` email subscription has a real SubscriptionArn (not `PendingConfirmation`) → confirmed/active → alarms deliver. No fix needed. | §sequencing item 3 |
