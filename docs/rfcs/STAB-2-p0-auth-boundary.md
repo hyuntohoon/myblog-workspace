@@ -104,7 +104,7 @@ aws apigatewayv2 get-routes --api-id ld8pjw3mx4 --query "Items[?RouteKey=='POST 
 
 ---
 
-### Step 4 — Music `/candidates` requires auth; public reads stay open (P6-2/P6-5; P6-1 = caller-audit context only)
+### Step 4 — Music `/candidates` requires auth; public reads stay open (P6-2/P6-5; P6-1 = caller-audit context only) 🟡 PRs PREPARED 2026-06-06 (music#42 → ws#265 apply → front#95)
 
 Set `ENV=prod` on `musicApi` in `infra/lambda.tf` — this is **targeted**: only `/candidates` carries `Depends(require_cognito_token)`, so only it becomes gated; `/unified`, `/albums/*`, `/artists/*` have no such dep and stay public (verified). The **GET method itself is kept** (STAB-1 classifies P6-1 as an *intentional tradeoff* — "기존 유지"); P6-1 is referenced here only to flag that `/candidates` is side-effecting, so the caller audit matters. Optionally add `edge_guard`/origin-verify to the music app or a gateway authorizer on the candidates route as defense-in-depth. Cross-repo: `infra` + `myblog_music` + `myblog_front`.
 
@@ -122,7 +122,7 @@ Set `ENV=prod` on `musicApi` in `infra/lambda.tf` — this is **targeted**: only
 
 ---
 
-### Step 5 — Bound the raw invoke domain (AUTH-7 / P6-6)
+### Step 5 — Bound the raw invoke domain (AUTH-7 / P6-6) 🟡 PR PREPARED 2026-06-06 (ws#263, option b — human apply)
 
 WAFv2 **cannot** attach to an HTTP API (it only associates with CloudFront / REST API v1 stages / ALB / AppSync / Cognito / App Runner — not API Gateway HTTP v2), so the options are:
 
@@ -158,4 +158,7 @@ aws apigatewayv2 get-stage --api-id ld8pjw3mx4 --stage-name '$default' --query '
 | 2026-06-05 | Evidence re-verified live (see §Evidence gathered): AUTH-1/3/4/5/9, P6-1/2/5/6 all confirmed; reject path returns 500 (new). | §Evidence |
 | 2026-06-05 | **Step 1 DONE + verified in prod.** ws#255 applied (`COGNITO_USER_POOL_ID=ap-northeast-2_54vEJKEU5` on `ratemymusic-api`) → `require_cognito_token` flips to real JWT validation; be#54 merged + deployed (fail-closed app guard, regression-tested). Live on the raw invoke domain (`/api/posts?include_archived=true`): valid smoke JWT → 200 (2 drafts), `Bearer x` → 401 (**AUTH-5 + AUTH-9 closed**), no-auth → 500 (edge_guard reject path, unchanged → Step 2). Apply was public-read-safe as predicted. | Step 1 |
 | 2026-06-05 | **Step 2 DONE + verified in prod.** be#55 merged + deployed. `verify_token(token)` extracted from `require_cognito_token` so `edge_guard` (middleware) and the dep validate identically. `edge_guard` now passes only on a matching `x-origin-verify` (CloudFront edge) **or** a Bearer that actually validates — the `startswith("Bearer ")` prefix-trust is gone; reject returns a clean **403** via `JSONResponse` (no more middleware-`raise` 500), JWKS outage → 503. Prod (raw invoke domain): `Bearer x` → **403** (AUTH-3 closed), no-auth → **403** (P8-7 fixed), public `GET /api/categories` via CloudFront → 200; canonical smoke **27/27** (authed CRUD via real smoke JWT, no regression). Design note: safe because `PUBLIC_BACKEND_API_URL = www.ratemymusic.blog` (CloudFront) → all front traffic carries the injected `X-Origin-Verify`, so public reads never depend on a Bearer. | Step 2 |
-| 2026-06-05 | **OQ-C answered: the create path is NOT dead.** The writer front `addCategory` still calls `POST /api/categories` (`myblog_front/src/lib/api.ts:38`, `src/scripts/write/api.ts:16,26`). So Step 3 cannot simply *remove* the endpoint without breaking the writer — it must wait on STAB-5's writer rework, or take the interim *gate-behind-authorizer* path (`infra/apigateway.tf`, human apply). | Step 3 / OQ-C |
+| 2026-06-05 | **OQ-C answered: the create path is NOT dead.** The writer front `addCategory`/`createCategory` still calls `POST /api/categories` (`myblog_front/src/lib/api.ts:38`, `src/scripts/write/api.ts:24`). So Step 3 cannot simply *remove* the endpoint without breaking the writer — it must wait on STAB-5's writer rework, or take the interim *gate-behind-authorizer* path (`infra/apigateway.tf`, human apply). | Step 3 / OQ-C |
+| 2026-06-06 | **Step 3 folded into STAB-5** (owner decision). §model removes the public category-create API, so interim gating would be throwaway; close the unauthed-write hole as part of STAB-5's writer rework rather than standalone. | Step 3 |
+| 2026-06-06 | **OQ-A answered: hide the Sync control for logged-out visitors** (owner decision). Front `searchBarDb.client.ts` wires `dbSyncBtn` only when `isLoggedIn()`, else `hidden`. The other two `/candidates` callers (`SubjectBlock.tsx`, `AddAlbumModal.tsx`) use `apiFetch` (Bearer) and are unaffected. | Step 4 / OQ-A |
+| 2026-06-06 | **Steps 4 + 5 PRs PREPARED for human apply** (owner-approved). Step 4 bundle: music **#42** (JWKS→503 handler, inert until flip) → ws **#265** (`ENV=prod` on `musicApi`, human apply) → front **#95** (hide Sync, browser-verify + merge after the flip). Step 5: ws **#263** (`$default` stage throttle, rate 50/burst 100, human apply). All `terraform validate` Success; owner runs full `plan` (no -target) + apply. | Steps 4, 5 |
