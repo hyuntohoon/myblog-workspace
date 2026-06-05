@@ -25,17 +25,17 @@ resource "aws_lambda_function" "backend" {
 
   environment {
     variables = {
-      ENV                = "prod"
-      APP_ENV            = "prod"
+      ENV     = "prod"
+      APP_ENV = "prod"
       # STAB-2 / AUTH-5: backend require_cognito_token was a no-op in prod
       # because this was never set. With auth.py now fail-closed, APPLY THIS
       # (and verify JWKS reachable) BEFORE deploying the fail-closed backend.
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
-      SECRETS_ARN        = data.aws_secretsmanager_secret.backend.arn
-      GITHUB_REPO_OWNER  = "hyuntohoon"
-      GITHUB_REPO_NAME   = "myblog_front"
-      GITHUB_REPO_BRANCH = "main"
-      CONTENT_DIR        = "content/blog"
+      SECRETS_ARN          = data.aws_secretsmanager_secret.backend.arn
+      GITHUB_REPO_OWNER    = "hyuntohoon"
+      GITHUB_REPO_NAME     = "myblog_front"
+      GITHUB_REPO_BRANCH   = "main"
+      CONTENT_DIR          = "content/blog"
       # FEAT-member-dashboard Step 3: manual "지금 새로고침" → SQS; 연동 status read.
       SQS_QUEUE_URL       = aws_sqs_queue.blog_sqs.url
       SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
@@ -60,6 +60,13 @@ resource "aws_lambda_function" "music" {
 
   environment {
     variables = {
+      # STAB-2 Step 4 (P6-2): ENV=prod activates require_cognito_token on the
+      # music Lambda. Only /candidates carries Depends(require_cognito_token), so
+      # only it becomes gated; /unified, /albums/*, /artists/* have no such dep
+      # and stay public. PREREQ: deploy the myblog_music JWKS->503 handler first
+      # (PR #42) + verify the pool's JWKS URL is reachable from this Lambda's
+      # egress, else a JWKS outage 500s. Off-switch = remove this ENV line.
+      ENV                  = "prod"
       FASTAPI_ROOT_PATH    = "/api"
       QUEUE_NAME           = "blogSQS"
       SECRETS_ARN          = data.aws_secretsmanager_secret.music.arn
