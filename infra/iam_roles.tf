@@ -68,30 +68,28 @@ resource "aws_iam_role_policy" "backend_ssm" {
 }
 
 # --- music: LambdaRDSControlRole ---
-# 제거: AmazonRDSFullAccess (Neon DB 사용, AWS RDS 없음)
-#        AmazonSQSFullAccess, AmazonSQSReadOnlyAccess (AWSLambdaSQSQueueExecutionRole으로 충분)
+# Producer-only (no SQS ESM) — send-only grant is the inline music_sqs_produce below.
+# 제거: AmazonRDSFullAccess (Neon DB, AWS RDS 없음), AmazonSQSFullAccess/ReadOnlyAccess,
+#       그리고 STAB-7: AWSLambdaSQSQueueExecutionRole attachment (P7-5 account-wide consume 과다권한).
 resource "aws_iam_role" "music" {
   name               = "LambdaRDSControlRole"
   path               = "/"
   assume_role_policy = local.lambda_assume_role
 }
 
-resource "aws_iam_role_policy_attachment" "music_sqs_exec" {
-  role       = aws_iam_role.music.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
-}
-
+# STAB-7 (P7-5): AWSLambdaSQSQueueExecutionRole attachment removed — it granted
+# account-wide sqs:ReceiveMessage/DeleteMessage/* on a producer-only Lambda
+# (musicApi has no SQS event-source mapping; it only sends, via music_sqs_produce).
+# CloudWatch logging is unaffected — logs:* is granted independently by music_rds_ctrl.
 resource "aws_iam_role_policy" "music_rds_ctrl" {
   name = "rdscontorller"
   role = aws_iam_role.music.id
+  # STAB-7 (P7-1): dropped the dead rds:Start/Stop/DescribeDBInstances statement
+  # (acted on a phantom db:blogdb — the stack uses Neon, not AWS RDS). Now logs-only;
+  # the "rdscontorller" name is kept to avoid a destroy/recreate.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["rds:StartDBInstance", "rds:StopDBInstance", "rds:DescribeDBInstances"]
-        Resource = "arn:aws:rds:ap-northeast-2:${var.account_id}:db:blogdb"
-      },
       {
         Effect   = "Allow"
         Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
