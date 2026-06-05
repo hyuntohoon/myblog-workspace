@@ -1,6 +1,9 @@
 # FEAT-music-edge-cache: Cache the music read path (search, album detail, covers)
 
-- **Status**: in-progress (Step 2)
+- **Status**: in-progress — **code-complete** (all 5 steps merged 2026-06-05); the
+  only remaining action is the **human `terraform apply` of Step 2** (CloudFront
+  edge cache). Steps 1, 3, 4, 5 are live in prod; Step 2 `.tf` is merged but not
+  applied (prod `x-cache: Miss` confirms the edge isn't caching yet).
 - **Owner**: 주인장
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → FEAT-music-edge-cache
@@ -132,6 +135,9 @@ mutating routes or auth-gated endpoints.
 > to the 7 GET endpoints; `tests/test_cache_control.py` (5 cases) asserts 200-sets /
 > 400+by-spotify-404-uncached. CI `pytest -m "not integration"`: 45 passed.
 > Audit finding: `/search/candidates` (auth + SQS) deliberately left untouched.
+> **Prod smoke ✅**: `search/unified` → `public, max-age=60, stale-while-revalidate=60`;
+> album detail → `public, max-age=300, stale-while-revalidate=120` (GET; HEAD 405 is
+> expected, routes are GET-only).
 
 **Verification**:
 ```
@@ -169,6 +175,15 @@ Full `terraform plan` (no `-target`, hard rule #6); stop on any unexpected drift
 Reminder (memory): merging the infra PR ≠ prod change — a human runs `terraform apply`
 locally; there is no infra auto-apply.
 
+> ✅ Code merged 2026-06-05, workspace #246 (`ad1536d`). Final scope (audit
+> refinements): search behavior is `/api/music/search/unified` **exact** (not
+> `/search/*` — excludes auth-gated `/search/candidates`); `/albums/*` + `/artists/*`;
+> by-spotify 404s kept uncached via `custom_error_response { 404, min_ttl=0 }`.
+> `terraform validate` ok; full `terraform plan` = **1 to add (cache policy) + 1
+> in-place (distribution), 0 destroy**, no unexpected drift.
+> ⏳ **Pending the human `terraform apply`** — edge caching is NOT live until then
+> (prod `x-cache: Miss`). Post-apply: 2nd hit on an album path → `Hit from cloudfront`.
+
 **Verification**:
 ```
 cd infra && terraform plan        # only the new cache policy + 3 behaviors appear
@@ -190,6 +205,15 @@ input debounce is present and tuned. `albumDetail.fetch.client.ts`: cache by
 `albumId`. Cache is per-session, TTL-less (page reload clears) — bounded by tab
 lifetime, so staleness ≤ session and well within the "minutes OK" budget.
 
+> ✅ Done 2026-06-05, front #92 (`b74fb5f`). Implemented as `src/lib/sessionCache.ts`
+> (`cached(url, ttlMs, producer)`, in-memory Map + sessionStorage) — TTLs mirror the
+> server `max-age` (search 60s, detail 300s) rather than TTL-less, and the key is the
+> full URL. **Success-only**: a thrown fetch (incl. by-spotify absorb 404) is never
+> cached, so the writer retry still re-fetches. Search is submit/Enter-triggered (no
+> debounce needed). `/search/candidates` stays uncached. Lint + astro check clean;
+> throwaway `tsx` behavioral check of `cached()` (hit/miss/throw-uncached/expiry) all
+> pass; front deploy succeeded (prod live).
+
 **Verification**:
 ```
 cd myblog_front && pnpm lint && pnpm exec astro check
@@ -209,6 +233,14 @@ Search-dropdown thumbs (`searchBarDb.client.ts` DOM build) and `AlbumArt`
 `i.scdn.co` (already aggressively CDN- + browser-cached); **no proxy, no re-host**
 (Non-goals). Sweep other cover renders for parity with the existing
 `review-grid.astro:47` / `best-new-music.astro:49` pattern.
+
+> ✅ Done 2026-06-05, front #93 (`7e4d7d6`). `makeCard.ts` thumbs set
+> `loading=lazy` + `decoding=async` (before `src`) + intrinsic 1:1 dims (`.art`
+> already reserves space via `aspect-ratio`, so no CLS). `decoding=async` added to
+> the already-lazy covers in `AlbumArt` (ui.tsx), best-new-music, review-grid,
+> AddAlbumModal, ReviewsIndex. **Excluded** hero/LCP images (`hero-review`,
+> `review-hero`) and writer drill-in art — lazy would hurt their LCP. Lint + astro
+> check clean; front deploy succeeded (prod live).
 
 **Verification**:
 ```
@@ -230,9 +262,18 @@ win — but confirmed in scope (Decisions log 2026-06-05). Add `cachetools` to
 `myblog_music` deps. Ships last (after Steps 1–4 are live), so prod can show whether
 the miss path actually needs it before tuning `ttl`/`maxsize`.
 
+> ✅ Done 2026-06-05, music #40 (`c7a2748`). `unified_search` fronts
+> `_compute_unified_search` with a module-level `TTLCache(maxsize=256, ttl=60)` keyed
+> on the resolved arg tuple (`types=None` collapses to the full-set key; `explain`
+> separate). `tests/conftest.py` autouse fixture clears it between tests (units reuse
+> `q="MatchedAlbum"` against different mocked DBs); `tests/test_search_cache.py`
+> (4 cases). CI `pytest -m "not integration"`: 49 passed. `cachetools>=5.3` added.
+> Music deploy succeeded (prod live). Album detail caching left out (CDN covers it;
+> revisit if the miss path shows volume).
+
 **Verification**:
 ```
-cd myblog_music && pytest -q -k "ttl_cache"   # 2nd identical call doesn't re-hit the repo (mock asserts call count)
+cd myblog_music && pytest -q tests/test_search_cache.py   # identical→compute once; distinct/explain→recompute
 ```
 
 **Rollback**: trivial — revert PR; cache is in-memory only.
@@ -256,3 +297,4 @@ _All resolved at acceptance (2026-06-05) — see Decisions log. None blocking._
 | 2026-06-05 | **Audit refinement:** edge search caching is `/api/music/search/unified` **exact**, NOT `/search/*` — the sibling `/search/candidates` is auth-gated + enqueues to SQS and must never be cached (would skip the enqueue + leak an authed response). | 2 |
 | 2026-06-05 | **Audit refinement:** `/{albums,artists}/by-spotify/*` return 404 while the worker absorbs, and the writer polls that 404→200 (`myblog_front SubjectBlock.tsx`). Keep 404s uncached via distribution-level `custom_error_response { error_code=404, error_caching_min_ttl=0 }` rather than per-path CachingDisabled behaviors. Headers are 200-only (Step 1). | 2 |
 | 2026-06-05 | **Apply is human** (no infra auto-apply; [[reference-workspace-no-infra-autoapply]]). Step 2 PR merge ships the `.tf` only — CloudFront caching is NOT live until a human runs `terraform apply`. `terraform plan`: 1 to add (cache policy) + 1 in-place (distribution), 0 destroy. | 2 |
+| 2026-06-05 | **Code-complete.** All 5 steps merged (music #39/#40, infra #246, front #92/#93). Steps 1/3/4/5 deployed + live; Step 1 prod-smoked (headers confirmed). Only remaining action: human `terraform apply` of Step 2. RFC stays in-flight until applied, then → `done` + archive. | all |
