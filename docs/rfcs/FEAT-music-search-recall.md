@@ -122,7 +122,12 @@ After all steps below complete:
 
 ## Steps
 
-### Step 1 — D1: IME compose handling (front)
+### Step 1 — D1: IME compose handling (front) ✅ DONE (2026-06-05)
+
+> ✅ Done 2026-06-05 — PR `hyuntohoon/myblog_front#90`, merge SHA `9b7305c`.
+> Guarded `onSearchKeyDown` with `e.nativeEvent.isComposing` (the keyCode 229
+> fallback was dropped — it tripped a deprecation hint and `isComposing` covers
+> the modern path). Manual IME click-through deferred (can't simulate headless).
 
 Add `onCompositionStart` / `onCompositionEnd` handlers (or
 `e.nativeEvent.isComposing` guard) to `SubjectBlock.tsx:326`, so Enter
@@ -139,7 +144,16 @@ pnpm --filter myblog_front lint && pnpm --filter myblog_front exec astro check
 
 ---
 
-### Step 2 — E2: Fixture set + Hit@K gate
+### Step 2 — E2: Fixture set + Hit@K gate ✅ DONE (2026-06-05)
+
+> ✅ Done 2026-06-05 — PR `hyuntohoon/myblog_music#35`, merge SHA `cbd3195`.
+> **Baseline (read-only against the prod catalog): Hit@5 = 18/30 = 0.600,
+> Hit@1 = 18/30 = 0.600.** The 12 misses are exactly the later-step gaps: all 8
+> multi-token (no decomposition → Step 6) and all 4 typo (ILIKE substring can't
+> span a one-edit typo → Step 4 pg_trgm `similarity()`). korean / common-word /
+> artist-alias (18/18) already pass. Gate is `@pytest.mark.integration` +
+> `RECALL_GATE_DB_URL`/`TEST_DB_URL`-gated → excluded from CI (`pytest -m "not
+> integration"`), so the failing baseline does not block the build.
 
 Create `myblog_music/tests/fixtures/search_cases.yaml` with 30 queries
 covering: multi-token (8), Korean (8), common-word ambiguous (6), typo
@@ -329,3 +343,5 @@ curl '<music-prod>/api/music/search/unified?q=...&explain=1' | jq '.debug'
 | 2026-06-05 | OQ3 = **feature flag** (`SEARCH_USE_PG_TRGM`) for one deploy cycle, A/B'd via fixture gate. | 4 |
 | 2026-06-05 | OQ5 = **keep reader in mind**: execution writer-only, but prefer readable/popularity-aware ordering over raw-similarity where they diverge; reader-search RFC owns B-series polish. | 4/6 |
 | 2026-06-05 | shared_db migration V12 collision with `FEAT-genre-taxonomy` resolved: this RFC keeps **V12** (pg_trgm) + **V13** (aliases, plan.md reservation); genre-taxonomy renumbers genres → V14. | 4 |
+| 2026-06-05 | **Gate DB source = `RECALL_GATE_DB_URL` (fallback `TEST_DB_URL`), read-only.** TEST_DB (Neon test branch) is *not* a current mirror of prod (250/124/660 rows vs prod 1046/697/4883; prod ids absent), so a prod-id fixture can't run there. The recall gate only reads (no seeding) → point it at the prod catalog read-only for a true baseline; expected-id-absent cases degrade to data-misses, not recall failures. | 2 |
+| 2026-06-05 | **Step 2 baseline recorded: Hit@5 = Hit@1 = 0.600 (18/30).** Misses = 8 multi-token + 4 typo (the Step 6 / Step 4 gaps). korean/common-word/artist-alias already pass. Fixture uses real prod ids; alias category currently tests *artist* aliases only (album/track alias cases arrive with Step 5 V13 data). | 2 |
