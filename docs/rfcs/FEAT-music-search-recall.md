@@ -272,7 +272,34 @@ migration. The extension itself can stay.
 
 ---
 
-### Step 5 — A3: album/track aliases
+### Step 5 — A3: album/track aliases ⏸️ DEFERRED (2026-06-05)
+
+> ⏸️ Deferred 2026-06-05 by owner after a necessity/scope re-assessment (no
+> code written). Three findings inverted the cost/benefit the step text assumed:
+>
+> 1. **Zero gate benefit.** The goal metric is already 1.000 (Step 4) and the
+>    fixture has **no album/track alias cases** (the `alias` category tests
+>    *artist* aliases only — see Decisions log). Step 5 cannot move the gate.
+> 2. **"No new API call" premise is false — twice.** The current MB path calls
+>    `get_artist_by_id(includes=["aliases"])` — **artist entity only**
+>    (`myblog_worker/worker/clients/musicbrainz_client.py:171`); release/recording
+>    aliases are *not* in that response. Worse, **albums/tracks have no
+>    `musicbrainz_id` column at all** (MBID + aliases are `artists`-only,
+>    `schema.sql:119-121`), so before any alias fetch you must first MB-*match*
+>    ~698 albums + ~4,898 tracks (new MBID columns + sentinels + matching logic),
+>    under MB's 1 req/s limit (the artist cron already throttles to LIMIT 10/run).
+> 3. **Real scope ≈ an order of magnitude over the step text.** V13 alias tables
+>    + 2 new MBID columns + ~5,600 MB entity resolutions + a new worker
+>    handler/cron + search joins + 3-repo pin bump + prod migration — too large
+>    for a single-step RFC entry; would need its own multi-step RFC.
+>
+> Benefit side: prod artist aliases are well-populated (541/1046 artists, 2,153
+> entries) so the feature is valuable in principle, but pg_trgm fuzzy already
+> covers typos/partial matches; aliases would only add genuinely-distinct
+> alt-titles (e.g. multi-language), and there is **no observed search-miss
+> signal** for that (OQ4 `search_misses` table is still deferred → no data).
+> Per the necessity gate (no evidenced harm-if-unfixed → default no): deferred.
+> Revisit if real album/track alias-search demand is observed (e.g. via OQ4).
 
 - shared_db V13: `album_aliases (album_id, alias)` +
   `track_aliases (track_id, alias)` with `(target_id, alias)` unique.
@@ -370,3 +397,4 @@ curl '<music-prod>/api/music/search/unified?q=...&explain=1' | jq '.debug'
 | 2026-06-05 | **Step 2 baseline recorded: Hit@5 = Hit@1 = 0.600 (18/30).** Misses = 8 multi-token + 4 typo (the Step 6 / Step 4 gaps). korean/common-word/artist-alias already pass. Fixture uses real prod ids; alias category currently tests *artist* aliases only (album/track alias cases arrive with Step 5 V13 data). | 2 |
 | 2026-06-05 | **No pin bump at Step 4** (necessity gate): V12 adds no ORM column (extension + GIN indexes only) and `similarity()` is raw SQL → no service gains a model dependency; pin bump deferred to Step 5 (V13 alias models). | 4 |
 | 2026-06-05 | **RFC goal MET at Step 4: Hit@5 = Hit@1 = 1.000 (30/30), prod-verified + flag live.** pg_trgm's fuzzy fallback recovered typos *and* multi-token (query trigrams overlap title trigrams) at threshold 0.3, no tuning needed. Steps 5 (album/track aliases), 6 (decomposition), 7 (`?explain=1`) are now **additive capability beyond the goal metric**, not required to hit the target — to be scoped/sequenced by the owner as follow-ons. | 4 |
+| 2026-06-05 | **Step 5 DEFERRED by owner** after necessity/scope re-assessment. (a) Gate already 1.000 + fixture has no album/track alias cases → zero gate benefit. (b) RFC "no new API call" premise false: MB path is `get_artist_by_id(includes=["aliases"])` (artist only), and albums/tracks have **no `musicbrainz_id` column** → would need to MB-match ~698 albums + ~4,898 tracks first. (c) Real scope ≈ 10× the step text (new MBID columns + ~5,600 MB resolutions + new cron + 3-repo pin bump); needs its own RFC. No observed alias-search-miss signal (OQ4 still deferred). Necessity gate → default no; revisit on real demand. | 5 |
