@@ -1,6 +1,6 @@
 # Infrastructure facts
 
-Source of truth: `infra/terraform.tfstate`. The values below are a human-readable mirror; if they disagree with `terraform show`, Terraform wins. Refresh this file after any `terraform apply` that adds, replaces, or renames a resource.
+Source of truth: Terraform state. **STAB-6 Step 5 (in progress):** state is migrating from the local-only `infra/terraform.tfstate` to an S3 backend (`myblog-terraform-state-338183196042`, key `infra/terraform.tfstate`, region `ap-northeast-2`) with a DynamoDB lock table (`myblog-terraform-locks`) — see `docs/rfcs/STAB-6-repo-hygiene-tfstate.md` §Step 5. Until the `backend "s3"` block in `main.tf` is uncommented + `terraform init -migrate-state` is run, the local file is still canonical. The values below are a human-readable mirror; if they disagree with `terraform show`, Terraform wins. Refresh this file after any `terraform apply` that adds, replaces, or renames a resource.
 
 | Resource | Identifier |
 |----------|------------|
