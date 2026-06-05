@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-music-edge-cache** (accepted) — cache the music read path (search + album detail + covers) using only $0 layers: CloudFront edge behaviors for `/api/music/{albums,search,artists}/*` + `Cache-Control` headers + in-session client cache + cover-img lazy/async polish. TTL-only staleness (수 분 OK), no external cache store (ElastiCache/API-GW/Momento rejected on cost-first), no active invalidation. Cross-repo (music headers → infra CloudFront → front client cache + covers → Lambda TTLCache). No contract change. RFC → `docs/rfcs/FEAT-music-edge-cache.md`. Status in-progress: Step 1 done (music #39), Step 2 = infra (this/next). Step 2 edge cache NOT live until human `terraform apply`.
+- **FEAT-music-edge-cache** (code-complete, **awaiting human `terraform apply`**) — cache the music read path via $0 layers. All 5 steps merged 2026-06-05: Step 1 `Cache-Control` headers (music #39, prod-smoked ✅), Step 2 CloudFront edge behaviors (infra #246, **plan clean but NOT applied** — `x-cache: Miss` in prod until apply), Step 3 in-session client cache (front #92, live), Step 4 cover-img lazy/async (front #93, live), Step 5 Lambda TTLCache (music #40, live). RFC → `docs/rfcs/FEAT-music-edge-cache.md`. **Remaining: human runs `cd infra && terraform apply` (TF_VAR_edge_secret from Secrets Manager `myblog/backend`), then 2nd-hit `x-cache: Hit` smoke → drop this row + archive RFC.**
 
 ---
 
