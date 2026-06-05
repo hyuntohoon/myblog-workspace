@@ -1,9 +1,9 @@
 # FEAT-music-search-recall: Writer-facing music search — recall re-assessment
 
-- **Status**: accepted
+- **Status**: closed (shipped 2026-06-05 — goal met at Step 4, Hit@5=Hit@1=1.000; Steps 1–4/6/7 done, Step 5 deferred; plan row dropped via workspace #243 — see `docs/archive/done/2026-06.md`)
 - **Owner**: 박지훈
 - **Created**: 2026-06-04
-- **Plan row**: `plan.md` → FEAT-music-search-recall
+- **Plan row**: dropped (archived)
 
 ---
 
