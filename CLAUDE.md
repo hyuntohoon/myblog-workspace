@@ -35,7 +35,7 @@ Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.cla
 2. 🔒 Never commit secrets. Use AWS Secrets Manager / GitHub Actions Secrets.
 3. Never run rollback migrations against prod directly — human approval required.
 4. Never run >1 RFC step per session — unless (a) the RFC marks steps as `parallel`/`additive` or declares a single-PR merge, or (b) the user explicitly OKs the next step (e.g. "next step", "go", "gogo"). Reason: each gap enforces a prod-observe + direction-recheck gate (see PR-reviews-polymorphic — 4 steps reached prod before full revert).
-5. 🔒 Never self-promote RFC Status. `draft` → `accepted` is human-only.
+5. Never self-promote RFC Status **without explicit in-session user approval**. `draft` → `accepted` (and `accepted` → `in-progress`) default to human-only; on explicit approval (e.g. "승격해" / "promote"), Claude may make the Status edit. Absent approval, default no. (Was 🔒 hook-enforced; relaxed to a self-policed convention 2026-06-05 — `block-rfc-self-promote.sh` removed.)
 6. 🔒 Never `terraform apply -target=...` without explicit go-ahead. Always run full plan; stop on unexpected drift.
 7. 🔒 (partial — force-push to main) Never push or merge without explicit go-ahead. An explicit push approval covers PR open + CI pass + squash merge + branch delete as a single flow (stop and report on CI fail / merge conflict / unexpected drift). User can opt out per request with "push only" to halt at PR open. `git add` + `commit` need no approval.
 8. 🔒 Never skip git hooks (`--no-verify`, `--no-gpg-sign`) unless user says so.
