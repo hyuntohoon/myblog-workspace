@@ -69,3 +69,5 @@ Pull 30 days of `musicApi`/backend Duration p50/p99. **If** p99 is climbing towa
 |------|----------|------|
 | 2026-06-05 | Spawned from STAB-1 §Sequencing item 7. **Necessity-gated** — recommended: P7-5 (Step 1) + drift imports (Step 2); optional: P7-1 (Step 3); signal-gated: P5 (Step 4, default no-change at p99 ≈ 3.65 s). | all |
 | 2026-06-05 | Evidence: musicApi ESM empty (P7-5 over-grant live), `rds describe` empty (P7-1 dead), musicApi p99 ≈ 3.65 s (P5 no acute tail). | §Evidence |
+| 2026-06-05 | **Steps 1 + 3 DONE + applied** (ws#257 merged + `terraform apply` 0 add / 2 change / 1 destroy). Live: `AWSLambdaSQSQueueExecutionRole` detached from `LambdaRDSControlRole` (**P7-5**); `rdscontorller` `rds:Start/Stop/DescribeDBInstances` removed, `logs:*` kept (**P7-1**); `sqs-produce-blogSQS` `SendMessage`/`SendMessageBatch` intact → enqueue safe. Step 2 = out-of-IaC documented in `infra/README.md` (not imported, per OQ1). plan.md row dropped. | Steps 1/3 |
+| 2026-06-05 | **Step 4 / OQ2 (observability) still owner-pending** — default no-change at p99 ≈ 3.65 s. Not blocking; flagged at row-drop so it isn't lost. | Step 4 |

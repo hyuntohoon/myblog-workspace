@@ -76,3 +76,4 @@ aws sqs get-queue-attributes --region ap-northeast-2 \
 |------|----------|------|
 | 2026-06-05 | Spawned from STAB-1 §Sequencing item 2. Scope = `blogSQS` visibility only; DLQ untouched (P1-9); no worker code change (idempotent, P1-4). | Step 1 |
 | 2026-06-05 | Evidence confirmed redelivery is **live** (126 vs 55, ConcurrentExecutions 4, Duration to 120 s) but no DLQ loss yet (sent=0). | §Evidence |
+| 2026-06-05 | **DONE + applied.** ws#256 merged + `terraform apply` (0 add / 1 change / 0 destroy). Live `blogSQS VisibilityTimeout = 720` (was 30). plan.md row dropped — git log + this RFC are authoritative. | Step 1 |
