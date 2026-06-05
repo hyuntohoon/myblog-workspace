@@ -41,21 +41,22 @@
 - 캐노니컬 장르 목록/계층/dedup 전무 ("indie rock" vs "indie-rock" 공존).
 - `/reviews` 인덱스만 `genres[]` 배열 인식 필터 보유(`myblog_front/src/lib/reviews.ts`); music search 엔
   장르 필터 없음.
-- shared_db 최신 마이그레이션 **V11**(review_buckets_parent_id), 버전 **0.10.0**. backend pin `@v0.10.0`.
+- shared_db 최신 마이그레이션 **V12**(pg_trgm_search_indexes, FEAT-music-search-recall), 버전 **0.11.0**.
+  backend pin 은 아직 `@v0.10.0` (2버전 뒤 — V11 parent_id 는 모델 반영됨, V12 는 GIN 인덱스/익스텐션만이라 모델 무변).
 - 관리형 admin write 의 정착 패턴: backend 의 Cognito-JWT 라우트(`posts`/`publish`/`buckets`).
   단일 사용자(주인장) — user 테이블·author_id 없음.
 
 ## Target state
 
-### 데이터 모델 (shared_db, V14)
+### 데이터 모델 (shared_db, V13)
 
-`migrations/V14__genres.sql` + `models.py` `Genre` 모델. 단일 사용자 → `user_id` 없음.
+`migrations/V13__genres.sql` + `models.py` `Genre` 모델. 단일 사용자 → `user_id` 없음.
 
-> **마이그레이션 번호 deconfliction (2026-06-05)**: V12(pg_trgm) + V13(album/track aliases) 는
-> `FEAT-music-search-recall` 가 예약. genres 는 충돌 회피로 **V14**. 두 RFC 의 마이그레이션은
-> disjoint 테이블/익스텐션이라 번호만 deconflict 되면 병행 가능. 단 hand-numbered `V{N}__` 는
-> 연속 적용이 전제(`reference-shared-db-cross-repo-rollout`) — V14 는 V12/V13 *적용 후* 에 prod
-> 적용. genre-taxonomy 가 music-search 보다 먼저 실행되면 그때 free 한 V# 로 재지정.
+> **마이그레이션 번호 (2026-06-05, resolved)**: `FEAT-music-search-recall` 는 **V12(pg_trgm)만** 출시했고
+> Step 5(album/track aliases = V13)는 **DEFERRED** 되어 V13 은 **사용되지 않음**. 따라서 genres 는
+> **V13** (V12 다음 연속 번호). hand-numbered `V{N}__` 는 연속 적용이 전제
+> (`reference-shared-db-cross-repo-rollout`) — V14 로 두면 V13 갭이 생겨 그 전제를 위반하므로 **V13** 이 맞다.
+> V13 은 V12(이미 prod 적용됨) 다음에 적용.
 
 ```sql
 CREATE TABLE IF NOT EXISTS genres (
@@ -125,21 +126,20 @@ backend `openapi.json` regen → `tools/merge_openapi.py` → `docs/contracts/op
 
 ---
 
-### Step 1 — shared_db V14 마이그레이션 + Genre 모델
+### Step 1 — shared_db V13 마이그레이션 + Genre 모델
 
-`migrations/V14__genres.sql`(위 DDL), `models.py` `Genre`(self-ref `parent`/`children` + 2단 다운그레이드
-주석), `_generated_schema.sql` regen, `pyproject.toml` 버전을 직전 shared_db 버전의 다음 minor 로
-bump + 매칭 태그 (music-search-recall V12/V13 선착 시 `0.12.0`→`0.13.0` + `v0.13.0`; genre 가 먼저면
-`0.10.0`→`0.11.0` + `v0.11.0`), canonical `docs/contracts/schema.sql` 동기.
+`migrations/V13__genres.sql`(위 DDL), `models.py` `Genre`(self-ref `parent`/`children` + 2단 다운그레이드
+주석), `_generated_schema.sql` regen, `pyproject.toml` 버전 **`0.11.0`→`0.12.0`** + 태그 **`v0.12.0`**
+(현재 shared_db = V12/0.11.0; 다음 minor), canonical `docs/contracts/schema.sql` 동기.
 
-**롤아웃 (CRITICAL — `reference-shared-db-cross-repo-rollout`)**: V14 를 **prod Neon 에 머지 *전* 적용**
+**롤아웃 (CRITICAL — `reference-shared-db-cross-repo-rollout`)**: V13 을 **prod Neon 에 머지 *전* 적용**
 → `\dt genres` 확인 → shared_db PR 머지 → 태그. 순서 틀리면 Step 3 backend 가 unknown-table 500.
-V14 는 V12/V13(music-search) *적용 후* prod 적용 (연속 번호 전제).
+V13 은 V12(이미 prod 적용됨) 다음 연속 적용.
 
 **Verification**:
 ```
 cd myblog_shared_db && pytest        # 모델 ↔ _generated_schema.sql 일치
-psql "$TEST_DB_URL" -f migrations/V14__genres.sql -v ON_ERROR_STOP=1   # 클린 적용
+psql "$TEST_DB_URL" -f migrations/V13__genres.sql -v ON_ERROR_STOP=1   # 클린 적용
 # top G1 → child G2(parent=G1) OK; grandchild G3(parent=G2) → 앱레이어 거부(Step 3), DELETE G1 while child → RESTRICT
 ```
 **Rollback**: `DROP TABLE genres;` (참조 FK 없음, 순수 additive). prod DROP 은 사람 승인(룰 #3).
@@ -172,7 +172,7 @@ psql "$DATABASE_URL" -c "SELECT slug,label_en,label_ko,source FROM genres ORDER 
 
 `app/api/routes/genres.py`(GET tree + POST create, 2단 거부), `app/services/genre_service.py`
 (bucket_service 스타일), `app/api/schemas.py`(GenreNode/Tree/CreateReq/Resp), `app/main.py` include,
-`requirements.txt` pin = Step 1 의 genres 태그 (`@v0.13.0` 가정), `infra/apigateway.tf` `genres_post`(JWT, **buckets_post 복사**),
+`requirements.txt` pin = Step 1 의 genres 태그 **`@v0.12.0`** (현재 backend 는 `@v0.10.0` → 2버전 점프: V11 parent_id [모델 반영됨] + V12 pg_trgm [인덱스/익스텐션만, 모델 무변] 동반), `infra/apigateway.tf` `genres_post`(JWT, **buckets_post 복사**),
 `openapi.json` regen, `tests/test_genres.py`.
 
 **Verification**:
@@ -225,7 +225,8 @@ cd myblog_front && pnpm lint && pnpm exec astro check
    주인장과 1회 큐레이션. (a) 동의어 병합(`케이팝`+`K-Pop`→`k-pop`)? (b) 미매핑 문자열은 스킵 vs
    romanize placeholder? 권장: dry-run 먼저 → 합의 후 live INSERT.
 2. **`/genres` 경로 (blocks Step 5)** — `/genres` vs `/admin/genres` vs `/reviews/genres`. v1 은
-   로그인 후에만 접근. 기본 `/genres` 제안.
+   로그인 후에만 접근. 기본 `/genres` 제안. **(2026-06-05: 경로 결정 보류 — 주인장이 기능 착수 시점에
+   확정. 기능 자체가 추후 작업으로 파킹됨, `plan.md` Later 섹션 참조.)**
 3. **slug UNIQUE 전역 vs 범위(`UNIQUE(parent_id,slug)`)** — 엄격 2단 단일부모면 전역으로 충분.
    단 v2 에서 같은 자식 라벨이 두 상위 아래 반복되면 전역 unique 가 막아 파괴적 마이그레이션 필요
    (architect Q4a 🟡). 전역 유지로 시작, v2 진입 시 재확인.
@@ -246,4 +247,6 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-04 | POST auth 는 buckets_post(JWT) 복사, categories_post(미인증) 금지 — architect 🔴 | 3 |
 | 2026-06-04 | 2단 불변식 앱 레이어(단일 작성자) + ON DELETE RESTRICT, CHECK-서브쿼리 불가 | 1 |
 | 2026-06-04 | `ext_refs JSONB` v1 에 미리 추가 (v2 MB sourcing 무마이그레이션 확장) — architect 🟡 | 1 |
-| 2026-06-05 | shared_db 마이그레이션 V12→**V14** 리넘버: V12(pg_trgm)/V13(aliases) 는 `FEAT-music-search-recall` 가 예약 (plan.md). genres 는 V14, V12/V13 적용 후 prod 적용 — RFC 우선순위 검토 | 1 |
+| 2026-06-05 | ~~shared_db 마이그레이션 V12→**V14** 리넘버~~ — superseded below | 1 |
+| 2026-06-05 | shared_db genres 마이그레이션 = **V13** (확정): music-search-recall 는 V12(pg_trgm)만 출시, Step 5(V13 aliases) DEFERRED → V13 free; V14 로 두면 갭 위반. 버전 0.11.0→0.12.0/v0.12.0. backend pin @v0.10.0→@v0.12.0 (2버전 점프) | 1 |
+| 2026-06-05 | 기능 전체 **DEFERRED** (추후 작업) — 주인장 결정. plan.md Backlog→Later 로 이동, UI 경로(OQ2) 보류. RFC numbering 만 refresh, Status draft 유지 | — |
