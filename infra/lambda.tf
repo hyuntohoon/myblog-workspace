@@ -60,6 +60,11 @@ resource "aws_lambda_function" "music" {
       QUEUE_NAME           = "blogSQS"
       SECRETS_ARN          = data.aws_secretsmanager_secret.music.arn
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
+      # FEAT-music-search-recall Step 4 (A1): activate the pg_trgm fuzzy/typo
+      # search path. Safe only after V12 (pg_trgm extension + GIN indexes) is
+      # applied to prod Neon — done 2026-06-05. A/B via the recall gate:
+      # off = 0.600, on = 1.000 (Hit@5/Hit@1). Off-switch = set back to "false".
+      SEARCH_USE_PG_TRGM = "true"
     }
   }
 
