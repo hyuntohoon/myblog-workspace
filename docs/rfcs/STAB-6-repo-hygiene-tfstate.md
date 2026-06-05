@@ -1,6 +1,6 @@
 # STAB-6: repo hygiene + remote Terraform backend
 
-- **Status**: in-progress (Step 2 done; Steps 1/3/4/5 remaining)
+- **Status**: in-progress (Steps 1-4 done; only Step 5 [tfstate→S3] remaining)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-6
@@ -45,6 +45,7 @@ Steps 1-4 are **per-repo** and each needs a branch + commit **in that repo** (th
 ### Step 1 — `myblog_worker`: untrack `bundle.zip` + rewrite `.gitignore` (P3-2/P3-3)
 Rewrite `.gitignore` to just the intended patterns (drop the `cd …`/`cat <<EOF`/`EOF` transcript lines), then `git rm --cached bundle.zip`. Confirm `deploy.yml` is the only deploy path (it rebuilds the zip) before untracking.
 **Verification:** `git -C myblog_worker ls-files bundle.zip` empty; `.gitignore` is clean patterns; a CI deploy still builds+ships its own zip.
+> ✅ Done 2026-06-05 — worker **#38** (`bundle.zip` untracked + `.gitignore` rewritten). Deploy was initially red on a **pre-existing test-isolation defect** (not this hygiene change); fixed by worker **#39**.
 
 ### Step 2 — workspace: untrack `allure-results/` (P3-4)
 Add `allure-results/` + `allure-report/` to the root `.gitignore`; `git rm --cached` the 18 files.
@@ -54,10 +55,12 @@ Add `allure-results/` + `allure-report/` to the root `.gitignore`; `git rm --cac
 ### Step 3 — `myblog_music`: untrack `.DS_Store` + `.idea/` (P3-5)
 Add `.DS_Store` + `.idea/` to `myblog_music/.gitignore`; `git rm --cached` the 5 files.
 **Verification:** `git -C myblog_music ls-files '*.DS_Store' '.idea/*'` empty.
+> ✅ Done 2026-06-05 — music **#41** (`.DS_Store`/`.idea/` untracked + ignores added).
 
 ### Step 4 — `myblog_front`: resolve `.vscode/` (P3-8)
 Decide share-editor-config or not (OQ1). If not: add `.vscode/` to `.gitignore` + `git rm --cached` both files. If yes: delete the typo'd `setting.json`, keep `settings.json`.
 **Verification:** `git -C myblog_front ls-files '.vscode/*'` reflects the decision; the typo file is gone.
+> ✅ Done 2026-06-05 — front **#94**. **OQ1 resolved**: not shared → `.vscode/` ignored + both files untracked (`.gitignore` carries a "not shared; see STAB-6" note).
 
 ### Step 5 — remote Terraform backend (S3 + DynamoDB lock) (P3-1)
 Create an S3 bucket (versioned, SSE, public-access-blocked) + DynamoDB lock table **via a full `terraform plan` (no `-target`, rule #6) + human-run apply** ([[reference-workspace-no-infra-autoapply]]); stop on unexpected drift. Then add a `backend "s3"` block to `infra/main.tf`, run `terraform init -migrate-state` (human), verify a subsequent `plan` is clean. Reconcile `infra/README.md`'s "canonical state = `infra/terraform.tfstate`" claim. Consider rotating the `admin_client` secret only if laptop exposure is suspected (console-only).
@@ -66,7 +69,7 @@ Create an S3 bucket (versioned, SSE, public-access-blocked) + DynamoDB lock tabl
 
 ## Open questions
 
-1. **OQ1 (Step 4)** — share `myblog_front/.vscode/settings.json` (keep, delete the typo) or ignore the whole dir? Default: keep `settings.json`, delete `setting.json`. *(Blocks Step 4.)*
+1. **OQ1 (Step 4)** — ~~share `myblog_front/.vscode/settings.json` or ignore the whole dir?~~ **ANSWERED 2026-06-05 (front #94): ignore the whole dir** (not shared) — both files untracked, `.vscode/` gitignored.
 2. **OQ2 (Step 1)** — history-rewrite `bundle.zip` out (`git filter-repo`) or just `git rm --cached`? Default: `rm --cached` unless clone size is a real pain. *(Blocks Step 1 scope only.)*
 3. **OQ3 (Step 5)** — S3 backend bucket/region/lock-table naming + whether to enable state-bucket replication. *(Blocks Step 5.)*
 
