@@ -1,6 +1,6 @@
 # STAB-4: schema.sql backfill + architecture.md / contract doc drift
 
-- **Status**: accepted
+- **Status**: done (2026-06-05 — pending archive to `docs/archive/done/rfcs/`)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-4
@@ -64,6 +64,8 @@ Make the canonical contract docs trustworthy again so they stop misleading plann
 ## Steps
 
 All steps are **doc-only** (no DB/infra/code), independently mergeable, low-risk (revert = trivial). They can reasonably ride a single PR since none touches running systems — but keep them as labeled commits.
+
+> ✅ **All steps done 2026-06-05 (this PR).** Step 1: `schema.sql` backfilled from `pg_dump` of prod — 6 tables + `review_bucket_item_status` enum + `pg_trgm` ext/indexes added, `posts.rating` → `NUMERIC(3,2)` with the actual prod `CHECK (… <= rating_scale)` (not the stale `<= 10`), `library_items` deliberately omitted. **Verified: schema.sql's 24 `CREATE TABLE` set is IDENTICAL to prod's base tables, and the full file executes cleanly against prod in a `ROLLBACK` transaction (exit 0).** Step 2: `architecture.md` P2-1/2/3/4 corrected + drift banner. Step 3: `sqs-album-sync.md` DLQ + FIFO-branch claims corrected.
 
 ### Step 1 — Backfill `schema.sql` from prod introspection
 
