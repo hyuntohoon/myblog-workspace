@@ -1,6 +1,6 @@
 # STAB-6: repo hygiene + remote Terraform backend
 
-- **Status**: in-progress (Steps 1-4 done; only Step 5 [tfstate→S3] remaining)
+- **Status**: DONE 2026-06-06 (all 5 steps; Step 5 migrated S3-only, DynamoDB lock dropped)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-6
@@ -64,7 +64,7 @@ Decide share-editor-config or not (OQ1). If not: add `.vscode/` to `.gitignore` 
 
 ### Step 5 — remote Terraform backend (S3 + DynamoDB lock) (P3-1) 🟡 PR PREPARED 2026-06-06 (ws#264 — human two-phase apply)
 Create an S3 bucket (versioned, SSE, public-access-blocked) + DynamoDB lock table **via a full `terraform plan` (no `-target`, rule #6) + human-run apply** ([[reference-workspace-no-infra-autoapply]]); stop on unexpected drift. Then add a `backend "s3"` block to `infra/main.tf`, run `terraform init -migrate-state` (human), verify a subsequent `plan` is clean. Reconcile `infra/README.md`'s "canonical state = `infra/terraform.tfstate`" claim. Consider rotating the `admin_client` secret only if laptop exposure is suspected (console-only).
-> 🟡 **PR PREPARED 2026-06-06 — ws#264** (`infra/state_backend.tf` + commented `backend "s3"` in `main.tf` + README reconcile; `terraform validate` Success). **OQ3 resolved (defaults):** bucket `myblog-terraform-state-338183196042`, lock table `myblog-terraform-locks`, region `ap-northeast-2`, **no replication** — owner may rename before apply. Two-phase human apply: `terraform apply` (creates bucket+table) → uncomment backend block → `terraform init -migrate-state`.
+> ✅ **DONE 2026-06-06 (ws#264 + ws#268).** S3 bucket `myblog-terraform-state-338183196042` (versioned, AES256, public-access-blocked, `prevent_destroy`) created via owner-approved `terraform apply`; state migrated with `terraform init -migrate-state -force-copy`; post-migrate `plan` → **No changes**, state object present in S3 (versioned, 144 KB). **DynamoDB lock DROPPED — S3-only** (owner decision): single-author + no infra auto-apply → concurrent-apply lock value is low, and `claude_aws_manager` lacks `dynamodb:CreateTable` (apply hit AccessDenied). If multi-operator apply ever becomes real: grant the DynamoDB perm + re-add a lock table, or upgrade Terraform to ≥1.10 and set `use_lockfile = true`. Old local `infra/terraform.tfstate` is now a stale backup (still gitignored).
 **Verification:** `terraform plan` clean post-migrate; state object present in S3 (versioned); the DynamoDB lock table exists and a `plan`/`apply` acquires + releases a lock row.
 **Rollback:** `terraform init -migrate-state` back to local (keep the old local file until migration is confirmed).
 
