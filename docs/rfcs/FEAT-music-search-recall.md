@@ -204,7 +204,30 @@ than swapping ILIKE for the `%` operator wholesale.
 
 ---
 
-### Step 4 — A1 implementation (shared_db V12 + music repos)
+### Step 4 — A1 implementation (shared_db V12 + music repos) ✅ DONE (2026-06-05)
+
+> ✅ Done 2026-06-05 — shared_db `#20` (`32baccd`, tag `v0.11.0`), music `#36`
+> (`c65f26c`), infra flag-on `#236` (`7f87a09`). **V12 applied to prod Neon, flag
+> flipped on (`terraform apply`, 1 change). Recall gate against the prod catalog:
+> 0.600 → 1.000 (Hit@5 = Hit@1 = 30/30) — RFC goal met.** Prod smoke: typo
+> `방탕소년단`→방탄소년단, `Radiohad`→Radiohead; exact/alias/multi-token all
+> correct, no regression.
+>
+> Deviations from the step as written, with reasons:
+> - **No backend/worker pin bump** (and no music pin bump): V12 adds no ORM
+>   column — only the extension + GIN indexes — and `similarity()` is raw SQL, so
+>   no service gains a model dependency at V12. Per the necessity gate, a pin bump
+>   with no model delta is pure churn; it lands in Step 5 (V13 alias models) where
+>   music actually needs the new tables. (GIN index *declarations* were still added
+>   to `models.py` for schema-parity, but they're inert at runtime.)
+> - **pg_trgm fuzzy fallback also fixed all multi-token cases** (query trigrams
+>   overlap the title's), so the gate hit 1.000 without Step 6 decomposition. The
+>   RFC goal is therefore met at Step 4; Steps 5–7 are additive capability beyond
+>   the goal metric (see Decisions log).
+> - **No hybrid `similarity × log1p(views)` track score**: kept the existing
+>   `views DESC` ordering inside the substring tier (preserves passing cases) with
+>   similarity only as the fuzzy-tail signal + tiebreaker. The gate passed 30/30,
+>   so the hybrid wasn't needed to clear the goal.
 
 Per Step 3, the extension is **pg_trgm**.
 
@@ -345,3 +368,5 @@ curl '<music-prod>/api/music/search/unified?q=...&explain=1' | jq '.debug'
 | 2026-06-05 | shared_db migration V12 collision with `FEAT-genre-taxonomy` resolved: this RFC keeps **V12** (pg_trgm) + **V13** (aliases, plan.md reservation); genre-taxonomy renumbers genres → V14. | 4 |
 | 2026-06-05 | **Gate DB source = `RECALL_GATE_DB_URL` (fallback `TEST_DB_URL`), read-only.** TEST_DB (Neon test branch) is *not* a current mirror of prod (250/124/660 rows vs prod 1046/697/4883; prod ids absent), so a prod-id fixture can't run there. The recall gate only reads (no seeding) → point it at the prod catalog read-only for a true baseline; expected-id-absent cases degrade to data-misses, not recall failures. | 2 |
 | 2026-06-05 | **Step 2 baseline recorded: Hit@5 = Hit@1 = 0.600 (18/30).** Misses = 8 multi-token + 4 typo (the Step 6 / Step 4 gaps). korean/common-word/artist-alias already pass. Fixture uses real prod ids; alias category currently tests *artist* aliases only (album/track alias cases arrive with Step 5 V13 data). | 2 |
+| 2026-06-05 | **No pin bump at Step 4** (necessity gate): V12 adds no ORM column (extension + GIN indexes only) and `similarity()` is raw SQL → no service gains a model dependency; pin bump deferred to Step 5 (V13 alias models). | 4 |
+| 2026-06-05 | **RFC goal MET at Step 4: Hit@5 = Hit@1 = 1.000 (30/30), prod-verified + flag live.** pg_trgm's fuzzy fallback recovered typos *and* multi-token (query trigrams overlap title trigrams) at threshold 0.3, no tuning needed. Steps 5 (album/track aliases), 6 (decomposition), 7 (`?explain=1`) are now **additive capability beyond the goal metric**, not required to hit the target — to be scoped/sequenced by the owner as follow-ons. | 4 |
