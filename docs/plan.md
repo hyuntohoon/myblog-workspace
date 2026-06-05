@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-music-edge-cache** (accepted) — cache the music read path (search + album detail + covers) using only $0 layers: CloudFront edge behaviors for `/api/music/{albums,search,artists}/*` + `Cache-Control` headers + in-session client cache + cover-img lazy/async polish. TTL-only staleness (수 분 OK), no external cache store (ElastiCache/API-GW/Momento rejected on cost-first), no active invalidation. Cross-repo (music headers → infra CloudFront → front client cache + covers → Lambda TTLCache). No contract change. RFC → `docs/rfcs/FEAT-music-edge-cache.md`. Status accepted — Step 1 next (one step/session).
+- **FEAT-music-edge-cache** (accepted) — cache the music read path (search + album detail + covers) using only $0 layers: CloudFront edge behaviors for `/api/music/{albums,search,artists}/*` + `Cache-Control` headers + in-session client cache + cover-img lazy/async polish. TTL-only staleness (수 분 OK), no external cache store (ElastiCache/API-GW/Momento rejected on cost-first), no active invalidation. Cross-repo (music headers → infra CloudFront → front client cache + covers → Lambda TTLCache). No contract change. RFC → `docs/rfcs/FEAT-music-edge-cache.md`. Status in-progress: Step 1 done (music #39), Step 2 = infra (this/next). Step 2 edge cache NOT live until human `terraform apply`.
 
 ---
 
