@@ -13,6 +13,35 @@ locals {
   origin_req_policy_all_viewer = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
 }
 
+# --- FEAT-music-edge-cache Step 2: custom cache policy for public music reads ---
+# Cache key = query strings only (q/type/limit/offset/...). No cookies, no
+# Authorization header → public responses share one entry regardless of any
+# bearer token (music reads ignore auth). Origin Cache-Control (set by the music
+# Lambda in Step 1) drives the effective TTL, clamped to [min_ttl, max_ttl]:
+# search max-age=60 → 60s; album/artist max-age=300 → 300s.
+resource "aws_cloudfront_cache_policy" "music_read" {
+  name        = "myblog-music-read-cache"
+  comment     = "FEAT-music-edge-cache: public music read endpoints (search/album/artist)"
+  default_ttl = 60
+  min_ttl     = 0
+  max_ttl     = 300
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_gzip   = true
+    enable_accept_encoding_brotli = true
+
+    query_strings_config {
+      query_string_behavior = "all"
+    }
+    headers_config {
+      header_behavior = "none"
+    }
+    cookies_config {
+      cookie_behavior = "none"
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "myblog" {
   enabled         = true
   is_ipv6_enabled = true
@@ -72,6 +101,52 @@ resource "aws_cloudfront_distribution" "myblog" {
     }
   }
 
+  # --- FEAT-music-edge-cache Step 2: cache public music reads at the edge ---
+  # These MUST precede the `/api/*` catch-all below (CloudFront uses the first
+  # matching ordered behavior). cached_methods = GET/HEAD only, so any non-GET
+  # passes through uncached. Origin request policy stays AllViewerExceptHostHeader
+  # so the `X-Origin-Verify` origin header + query strings still reach the Lambda;
+  # the cache *key* (from the cache policy) is query-strings-only.
+  #
+  # Scope notes (current-state audit, FEAT-music-edge-cache Decisions log):
+  #   * search is `/unified` EXACT — NOT `/search/*` — so the auth-gated,
+  #     SQS-enqueuing `/search/candidates` stays on the CachingDisabled `/api/*`.
+  #   * `/albums/by-spotify/*` and `/artists/by-spotify/*` return 404 while the
+  #     worker absorbs; those 404s are kept uncached by the distribution-level
+  #     `custom_error_response` (error_caching_min_ttl = 0) so the writer poll works.
+  ordered_cache_behavior {
+    path_pattern             = "/api/music/albums/*"
+    target_origin_id         = local.apigw_origin_id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = true
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = aws_cloudfront_cache_policy.music_read.id
+    origin_request_policy_id = local.origin_req_policy_all_viewer
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/music/artists/*"
+    target_origin_id         = local.apigw_origin_id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = true
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = aws_cloudfront_cache_policy.music_read.id
+    origin_request_policy_id = local.origin_req_policy_all_viewer
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/music/search/unified"
+    target_origin_id         = local.apigw_origin_id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = true
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = aws_cloudfront_cache_policy.music_read.id
+    origin_request_policy_id = local.origin_req_policy_all_viewer
+  }
+
   # --- /api/* → API Gateway (CachingDisabled, all headers forwarded) ---
   ordered_cache_behavior {
     path_pattern             = "/api/*"
@@ -82,6 +157,14 @@ resource "aws_cloudfront_distribution" "myblog" {
     cached_methods           = ["GET", "HEAD"]
     cache_policy_id          = local.cache_policy_disabled
     origin_request_policy_id = local.origin_req_policy_all_viewer
+  }
+
+  # Keep absorb-pending 404s (album/artist by-spotify) out of the edge cache so
+  # the writer's poll-until-ready flow sees the 404→200 flip immediately. Passes
+  # the origin 404 through unchanged (no response_page_path); only caps caching.
+  custom_error_response {
+    error_code            = 404
+    error_caching_min_ttl = 0
   }
 
   viewer_certificate {

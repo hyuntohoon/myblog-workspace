@@ -1,6 +1,6 @@
 # FEAT-music-edge-cache: Cache the music read path (search, album detail, covers)
 
-- **Status**: accepted
+- **Status**: in-progress (Step 2)
 - **Owner**: 주인장
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → FEAT-music-edge-cache
@@ -128,6 +128,11 @@ middleware scoped to these GETs. Proposed values (see OQ1):
 This alone turns on **browser** caching immediately, no infra. Must NOT apply to
 mutating routes or auth-gated endpoints.
 
+> ✅ Done 2026-06-05, music #39 (`8807eea`). `app/core/cache.py` constants applied
+> to the 7 GET endpoints; `tests/test_cache_control.py` (5 cases) asserts 200-sets /
+> 400+by-spotify-404-uncached. CI `pytest -m "not integration"`: 45 passed.
+> Audit finding: `/search/candidates` (auth + SQS) deliberately left untouched.
+
 **Verification**:
 ```
 # music repo: header-assertion pytest (TestClient)
@@ -248,3 +253,6 @@ _All resolved at acceptance (2026-06-05) — see Decisions log. None blocking._
 | 2026-06-05 | Cache key includes **all** query strings; `?explain=1` lands in a separate entry — **no bypass** (simplest, no pollution). | 2 |
 | 2026-06-05 | **Step 5 (Lambda TTLCache) is in scope**, not deferred; ships last so prod can inform `ttl`/`maxsize`. | 5 |
 | 2026-06-05 | `stale-while-revalidate` kept for **browser-only** benefit; CloudFront honors `max-age` only — accepted, no Origin Shield / stale-if-error in this RFC. | 1 |
+| 2026-06-05 | **Audit refinement:** edge search caching is `/api/music/search/unified` **exact**, NOT `/search/*` — the sibling `/search/candidates` is auth-gated + enqueues to SQS and must never be cached (would skip the enqueue + leak an authed response). | 2 |
+| 2026-06-05 | **Audit refinement:** `/{albums,artists}/by-spotify/*` return 404 while the worker absorbs, and the writer polls that 404→200 (`myblog_front SubjectBlock.tsx`). Keep 404s uncached via distribution-level `custom_error_response { error_code=404, error_caching_min_ttl=0 }` rather than per-path CachingDisabled behaviors. Headers are 200-only (Step 1). | 2 |
+| 2026-06-05 | **Apply is human** (no infra auto-apply; [[reference-workspace-no-infra-autoapply]]). Step 2 PR merge ships the `.tf` only — CloudFront caching is NOT live until a human runs `terraform apply`. `terraform plan`: 1 to add (cache policy) + 1 in-place (distribution), 0 destroy. | 2 |
