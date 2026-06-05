@@ -24,3 +24,16 @@ variable "alert_email" {
   description = "Email address to receive CloudWatch alarm notifications"
   default     = "zlxlgus123@gmail.com"
 }
+
+# STAB-2 Step 5 — $default stage throttle floor (AUTH-7 / P6-6).
+variable "apigw_throttle_rate" {
+  type        = number
+  description = "Steady-state request/sec floor on the HTTP API $default stage"
+  default     = 50
+}
+
+variable "apigw_throttle_burst" {
+  type        = number
+  description = "Burst bucket size on the HTTP API $default stage"
+  default     = 100
+}
