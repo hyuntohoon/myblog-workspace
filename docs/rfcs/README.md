@@ -100,7 +100,7 @@ When a step completes:
 
 In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcrumb to the archive, then gets dropped — `git log` and `docs/archive/done/rfcs/` are authoritative for history.
 
-- **FEAT-music-edge-cache** (draft) — 음악 read 경로(검색·앨범상세·커버) 캐싱, $0 레이어만: CloudFront `/api/music/{albums,search,artists}/*` 엣지 캐시 + `Cache-Control` 헤더 + 세션 클라이언트 캐시 + 커버 img lazy/async. TTL-only(수 분), 외부 캐시 스토어·능동 무효화 없음. Cross-repo (music 헤더 → infra → front; Step 5 optional Lambda TTLCache).
+- **FEAT-music-edge-cache** (accepted) — 음악 read 경로(검색·앨범상세·커버) 캐싱, $0 레이어만: CloudFront `/api/music/{albums,search,artists}/*` 엣지 캐시 + `Cache-Control` 헤더 + 세션 클라이언트 캐시 + 커버 img lazy/async. TTL-only(수 분), 외부 캐시 스토어·능동 무효화 없음. Cross-repo 5스텝 (music 헤더 → infra → front 캐시 → front 커버 → Lambda TTLCache).
 - **FEAT-genre-taxonomy** (draft) — 장르 브랜치 저작 v1: 2단 단일부모 트리(상위→하위), 생성+부모지정만, prod `artists.genres` 시드. Cross-repo (shared_db V14 → 시드 → backend API → contract → front 저작 UI; V12/V13 = FEAT-music-search-recall). 앨범↔장르 연결·필터·통합뷰·관리는 v2+.
 - **FEAT-music-search-recall** (draft) — writer 음악 검색 recall 재평가, 목표 Hit@5 ≥ 0.9 / Hit@1 ≥ 0.6. 매칭레이어 우선(pg_trgm — A1 PoC done) + alias 커버리지. Cross-repo (front IME → fixture+gate → shared_db V12 pg_trgm → V13 aliases → music decomposition → ?explain=1).
 - **FEAT-genre-artist-distribution** (draft) — `/profile` 통계 charts: genre + artist/listen 분포. `FEAT-member-dashboard` Step 4에서 분리. `FEAT-genre-taxonomy`(genre) + `spotify_play_events`(listen) 의존. 미착수.

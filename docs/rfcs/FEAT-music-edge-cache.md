@@ -1,6 +1,6 @@
 # FEAT-music-edge-cache: Cache the music read path (search, album detail, covers)
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 주인장
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → FEAT-music-edge-cache
@@ -105,15 +105,16 @@ or intrinsic dimensions.
 - Search-dropdown thumbs and `AlbumArt` load with `loading="lazy"` +
   `decoding="async"` + intrinsic `width`/`height` (no layout shift), served straight
   from Spotify's CDN and browser-cached.
-- (Optional) A bounded `cachetools.TTLCache` in the music Lambda shields Neon on the
-  cache-miss path for warm containers.
+- A bounded `cachetools.TTLCache` in the music Lambda shields Neon on the cache-miss
+  path for warm containers (in scope — see Step 5).
 
 ## Steps
 
 Steps 1–5 are each independently mergeable. Suggested order is 1 → 2 (headers before
-edge, though either works alone) then 3, 4 (front, independent), 5 optional. No
-contract change in any step (HTTP response headers are not part of the OpenAPI schema)
-→ no `openapi.json` regen.
+edge, though either works alone) then 3, 4 (front, independent), 5 last. All five are
+in scope (Step 5 confirmed in, not deferred — Decisions log 2026-06-05). No contract
+change in any step (HTTP response headers are not part of the OpenAPI schema) → no
+`openapi.json` regen.
 
 ### Step 1 — `Cache-Control` headers on music read endpoints (music repo)
 
@@ -143,11 +144,13 @@ curl -sI "https://<prod>/api/music/search/unified?q=radiohead&type=album" | grep
 ### Step 2 — CloudFront edge cache for music read paths (infra)
 
 In `infra/cloudfront.tf`:
-1. Add an `aws_cloudfront_cache_policy` (custom): cache key includes query strings
-   `q, type, limit, offset, album_offset, …, explain`; **no** cookies; **no**
-   `Authorization` header; `min_ttl = 0`, `default_ttl = 60`, `max_ttl = 300`;
-   gzip + brotli on. Honoring origin `Cache-Control` lets Step 1's per-endpoint
-   `max-age` drive the actual TTL within these bounds.
+1. Add an `aws_cloudfront_cache_policy` (custom): cache key includes **all** query
+   strings (`q, type, limit, offset, album_offset, …, explain`) — `explain=1` simply
+   lands in a separate cache entry, no bypass, no pollution (Decisions log
+   2026-06-05); **no** cookies; **no** `Authorization` header; `min_ttl = 0`,
+   `default_ttl = 60`, `max_ttl = 300`; gzip + brotli on. Honoring origin
+   `Cache-Control` lets Step 1's per-endpoint `max-age` drive the actual TTL within
+   these bounds.
 2. Add `ordered_cache_behavior` blocks for `/api/music/albums/*`,
    `/api/music/search/*`, `/api/music/artists/*` → API Gateway origin, custom cache
    policy above, `cached_methods = [GET, HEAD]`, `allowed_methods` = full set
@@ -212,13 +215,15 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ---
 
-### Step 5 — (Optional) Lambda in-process TTLCache for DB protection (music repo)
+### Step 5 — Lambda in-process TTLCache for DB protection (music repo)
 
 Wrap `unified_search()` (and optionally `get_album_detail`) with a bounded
 `cachetools.TTLCache` (e.g. `maxsize=256, ttl=60`), keyed on the normalized query
-params. Shields Neon on the cache-miss path for warm containers. Low priority — at
-personal/small traffic, per-container hit rate is modest; this is insurance against
-bursts, not a primary win. Add `cachetools` to `myblog_music` deps.
+params. Shields Neon on the cache-miss path for warm containers. At personal/small
+traffic the per-container hit rate is modest — this is burst insurance, not a primary
+win — but confirmed in scope (Decisions log 2026-06-05). Add `cachetools` to
+`myblog_music` deps. Ships last (after Steps 1–4 are live), so prod can show whether
+the miss path actually needs it before tuning `ttl`/`maxsize`.
 
 **Verification**:
 ```
@@ -231,25 +236,15 @@ cd myblog_music && pytest -q -k "ttl_cache"   # 2nd identical call doesn't re-hi
 
 ## Open questions
 
-1. **TTL values** (blocks Step 1 + Step 2) — proposed: album/artist `max-age=300`,
-   search `max-age=60`, CloudFront `default_ttl=60 / max_ttl=300`. Owner OK with
-   these, or want search even shorter / album longer? Staleness budget is "수 분".
-2. **Scope of edge behaviors** (blocks Step 2) — include `/api/music/artists/*`, or
-   limit to `albums` + `search`? Artists hub is lower-traffic; including it is cheap
-   but adds a behavior.
-3. **Exclude `?explain=1` from the cache** (Step 2) — debug param. Simplest is to
-   include all query strings in the key (separate cache entry per `explain` value, no
-   pollution). Acceptable, or explicitly bypass cache when `explain` is present?
-4. **Ship Step 5 now or defer?** — optional DB-protection layer. Default: defer until
-   Steps 1–4 land and prod shows whether the miss path needs it.
-5. **`stale-while-revalidate`** — kept in the header for browser benefit; CloudFront
-   does not honor SWR (only `max-age`). Confirm we're fine with browser-only SWR (no
-   Origin Shield / stale-if-error work in this RFC).
+_All resolved at acceptance (2026-06-05) — see Decisions log. None blocking._
 
 ## Decisions log
 
-Filled in during execution.
-
 | Date | Decision | Step |
 |------|----------|------|
-| | | |
+| 2026-06-05 | RFC **accepted** (owner). | — |
+| 2026-06-05 | TTLs as proposed: album/artist `max-age=300`, search `max-age=60`; CloudFront `default_ttl=60 / max_ttl=300`. | 1, 2 |
+| 2026-06-05 | Edge behaviors **include `/api/music/artists/*`** (alongside `albums` + `search`). | 2 |
+| 2026-06-05 | Cache key includes **all** query strings; `?explain=1` lands in a separate entry — **no bypass** (simplest, no pollution). | 2 |
+| 2026-06-05 | **Step 5 (Lambda TTLCache) is in scope**, not deferred; ships last so prod can inform `ttl`/`maxsize`. | 5 |
+| 2026-06-05 | `stale-while-revalidate` kept for **browser-only** benefit; CloudFront honors `max-age` only — accepted, no Origin Shield / stale-if-error in this RFC. | 1 |
