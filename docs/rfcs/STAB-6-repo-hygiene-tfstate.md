@@ -62,8 +62,9 @@ Decide share-editor-config or not (OQ1). If not: add `.vscode/` to `.gitignore` 
 **Verification:** `git -C myblog_front ls-files '.vscode/*'` reflects the decision; the typo file is gone.
 > ✅ Done 2026-06-05 — front **#94**. **OQ1 resolved**: not shared → `.vscode/` ignored + both files untracked (`.gitignore` carries a "not shared; see STAB-6" note).
 
-### Step 5 — remote Terraform backend (S3 + DynamoDB lock) (P3-1)
+### Step 5 — remote Terraform backend (S3 + DynamoDB lock) (P3-1) 🟡 PR PREPARED 2026-06-06 (ws#264 — human two-phase apply)
 Create an S3 bucket (versioned, SSE, public-access-blocked) + DynamoDB lock table **via a full `terraform plan` (no `-target`, rule #6) + human-run apply** ([[reference-workspace-no-infra-autoapply]]); stop on unexpected drift. Then add a `backend "s3"` block to `infra/main.tf`, run `terraform init -migrate-state` (human), verify a subsequent `plan` is clean. Reconcile `infra/README.md`'s "canonical state = `infra/terraform.tfstate`" claim. Consider rotating the `admin_client` secret only if laptop exposure is suspected (console-only).
+> 🟡 **PR PREPARED 2026-06-06 — ws#264** (`infra/state_backend.tf` + commented `backend "s3"` in `main.tf` + README reconcile; `terraform validate` Success). **OQ3 resolved (defaults):** bucket `myblog-terraform-state-338183196042`, lock table `myblog-terraform-locks`, region `ap-northeast-2`, **no replication** — owner may rename before apply. Two-phase human apply: `terraform apply` (creates bucket+table) → uncomment backend block → `terraform init -migrate-state`.
 **Verification:** `terraform plan` clean post-migrate; state object present in S3 (versioned); the DynamoDB lock table exists and a `plan`/`apply` acquires + releases a lock row.
 **Rollback:** `terraform init -migrate-state` back to local (keep the old local file until migration is confirmed).
 
@@ -71,7 +72,7 @@ Create an S3 bucket (versioned, SSE, public-access-blocked) + DynamoDB lock tabl
 
 1. **OQ1 (Step 4)** — ~~share `myblog_front/.vscode/settings.json` or ignore the whole dir?~~ **ANSWERED 2026-06-05 (front #94): ignore the whole dir** (not shared) — both files untracked, `.vscode/` gitignored.
 2. **OQ2 (Step 1)** — history-rewrite `bundle.zip` out (`git filter-repo`) or just `git rm --cached`? Default: `rm --cached` unless clone size is a real pain. *(Blocks Step 1 scope only.)*
-3. **OQ3 (Step 5)** — S3 backend bucket/region/lock-table naming + whether to enable state-bucket replication. *(Blocks Step 5.)*
+3. **OQ3 (Step 5)** — ~~S3 backend bucket/region/lock-table naming + replication?~~ **ANSWERED 2026-06-06 (ws#264 defaults):** bucket `myblog-terraform-state-338183196042`, lock table `myblog-terraform-locks`, region `ap-northeast-2`, no replication. Owner may rename before apply.
 
 ## Decisions log
 
