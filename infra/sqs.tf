@@ -11,7 +11,7 @@ resource "aws_sqs_queue" "album_sync_dlq" {
 resource "aws_sqs_queue" "blog_sqs" {
   name                       = "blogSQS"
   message_retention_seconds  = 345600 # 4 days
-  visibility_timeout_seconds = 30
+  visibility_timeout_seconds = 720 # STAB-3: >= worker Lambda timeout (120s); 6x AWS-recommended margin. DLQ visibility unchanged (no consumer).
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.album_sync_dlq.arn
