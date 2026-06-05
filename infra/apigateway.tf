@@ -19,6 +19,16 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.lambda_api.id
   name        = "$default"
   auto_deploy = true
+
+  # STAB-2 Step 5 (AUTH-7 / P6-6): a throttle floor on the raw invoke domain.
+  # WAFv2 cannot attach to an HTTP API, so this stage-level rate/burst cap is the
+  # near-term bound against abuse of the unauthenticated, CloudFront-less invoke
+  # endpoint. Generous for a single-author blog's legit traffic; protects against
+  # scripted floods. Tune via the vars; off = remove this block.
+  default_route_settings {
+    throttling_rate_limit  = var.apigw_throttle_rate
+    throttling_burst_limit = var.apigw_throttle_burst
+  }
 }
 
 # --- Cognito JWT authorizer (used by POST /api/posts, POST /api/publish) ---
