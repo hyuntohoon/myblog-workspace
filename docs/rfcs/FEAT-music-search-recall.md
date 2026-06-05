@@ -1,6 +1,6 @@
 # FEAT-music-search-recall: Writer-facing music search — recall re-assessment
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-06-04
 - **Plan row**: `plan.md` → FEAT-music-search-recall
@@ -444,6 +444,7 @@ curl '<music-prod>/api/music/search/unified?q=...&explain=1' | jq '.debug'
 | 2026-06-05 | **Step 2 baseline recorded: Hit@5 = Hit@1 = 0.600 (18/30).** Misses = 8 multi-token + 4 typo (the Step 6 / Step 4 gaps). korean/common-word/artist-alias already pass. Fixture uses real prod ids; alias category currently tests *artist* aliases only (album/track alias cases arrive with Step 5 V13 data). | 2 |
 | 2026-06-05 | **No pin bump at Step 4** (necessity gate): V12 adds no ORM column (extension + GIN indexes only) and `similarity()` is raw SQL → no service gains a model dependency; pin bump deferred to Step 5 (V13 alias models). | 4 |
 | 2026-06-05 | **RFC goal MET at Step 4: Hit@5 = Hit@1 = 1.000 (30/30), prod-verified + flag live.** pg_trgm's fuzzy fallback recovered typos *and* multi-token (query trigrams overlap title trigrams) at threshold 0.3, no tuning needed. Steps 5 (album/track aliases), 6 (decomposition), 7 (`?explain=1`) are now **additive capability beyond the goal metric**, not required to hit the target — to be scoped/sequenced by the owner as follow-ons. | 4 |
+| 2026-06-05 | **Status → accepted** on explicit owner approval (all steps resolved, feature prod-live). Same approval relaxed hard rule #5: `draft`→`accepted` self-promotion is now a self-policed convention (approval-gated), not 🔒 hook-enforced — `block-rfc-self-promote.sh` removed. | — |
 | 2026-06-05 | **Step 7 DONE** (music #38 `dfec791` → contract #240 → front #91 `d64d93f`): `?explain=1` as an additive optional `debug` field (deviation from the `{row,debug}` wrapper — keeps default shape + item schemas unchanged for a dev-only surface). Prod smoke: default has no `debug` key; `explain=1` returns aligned per-row debug. **All RFC steps now resolved: 1/2/3/4/6/7 done, 5 deferred — goal met since Step 4.** | 7 |
 | 2026-06-05 | **Step 6 DONE** (music #37, `e74f977`): single-boundary query decomposition in `search_service.py`, no repo/migration/contract change. Gate held at 1.000 (Step 6 adds precision, not gate movement — fuzzy already covered multi-token at Step 4). Prod smoke: `방탄소년단 Proof`/`Radiohead OK Computer` → correct album rank-1. | 6 |
 | 2026-06-05 | **Step 5 DEFERRED by owner** after necessity/scope re-assessment. (a) Gate already 1.000 + fixture has no album/track alias cases → zero gate benefit. (b) RFC "no new API call" premise false: MB path is `get_artist_by_id(includes=["aliases"])` (artist only), and albums/tracks have **no `musicbrainz_id` column** → would need to MB-match ~698 albums + ~4,898 tracks first. (c) Real scope ≈ 10× the step text (new MBID columns + ~5,600 MB resolutions + new cron + 3-repo pin bump); needs its own RFC. No observed alias-search-miss signal (OQ4 still deferred). Necessity gate → default no; revisit on real demand. | 5 |
