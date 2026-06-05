@@ -1,9 +1,9 @@
 # STAB-3: blogSQS visibility timeout ≥ worker timeout
 
-- **Status**: accepted
+- **Status**: done (2026-06-05 — applied + verified, `blogSQS` visibility 30→720; ws#256 `1c76d89`; pending archive to `docs/archive/done/rfcs/`)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
-- **Plan row**: `plan.md` → STAB-3
+- **Plan row**: `plan.md` → STAB-3 (dropped on completion)
 - **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 2** (P1-1). STAB-1 + this RFC are **accepted** (2026-06-05, owner-approved).
 
 ---

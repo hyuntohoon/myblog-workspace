@@ -1,9 +1,9 @@
 # STAB-7: IAM least-privilege + IaC drift-visibility + observability (necessity-gated)
 
-- **Status**: accepted
+- **Status**: done (2026-06-05 — Steps 1+3 applied+verified, Step 2 documented; ws#257 `48b95a0`. **Step 4 / OQ2 observability DEFERRED** — owner to re-trigger if a latency tail emerges, default no-change at p99≈3.65s; pending archive to `docs/archive/done/rfcs/`)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
-- **Plan row**: `plan.md` → STAB-7
+- **Plan row**: `plan.md` → STAB-7 (dropped on completion)
 - **Spawned from**: `STAB-1-stabilization.md` §Prioritization & stabilization sequencing **item 7** (P7 IAM trims, P4 drift-blindness, P5 observability). STAB-1 + this RFC are **accepted** (2026-06-05, owner-approved).
 
 > **This tier is explicitly necessity-gated** ([[feedback-necessity-gate-reviews]]). STAB-1 ranks it lowest, behind P0/P1/section/hygiene. Each item below states whether there is **concrete harm if unfixed**; default for the no-clear-harm items is **leave alone**. Adopt a change only when the harm is nameable. "Mostly fine, do only P7-5 + the cheap drift imports" is a valid outcome.
