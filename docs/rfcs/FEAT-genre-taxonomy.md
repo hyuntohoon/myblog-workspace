@@ -48,15 +48,14 @@
 
 ## Target state
 
-### 데이터 모델 (shared_db, V13)
+### 데이터 모델 (shared_db, V14)
 
-`migrations/V13__genres.sql` + `models.py` `Genre` 모델. 단일 사용자 → `user_id` 없음.
+`migrations/V14__genres.sql` + `models.py` `Genre` 모델. 단일 사용자 → `user_id` 없음.
 
-> **마이그레이션 번호 (2026-06-05, resolved)**: `FEAT-music-search-recall` 는 **V12(pg_trgm)만** 출시했고
-> Step 5(album/track aliases = V13)는 **DEFERRED** 되어 V13 은 **사용되지 않음**. 따라서 genres 는
-> **V13** (V12 다음 연속 번호). hand-numbered `V{N}__` 는 연속 적용이 전제
-> (`reference-shared-db-cross-repo-rollout`) — V14 로 두면 V13 갭이 생겨 그 전제를 위반하므로 **V13** 이 맞다.
-> V13 은 V12(이미 prod 적용됨) 다음에 적용.
+> **마이그레이션 번호 (2026-06-06, re-resolved — STAB-5 OQ4)**: genre 는 **DEFERRED**, STAB-5 는 **active** 이므로
+> V12 다음 *실제로 적용되는* 마이그레이션은 STAB-5 (sections rename + seed) 다. gapless 전제상 STAB-5 = **V13**,
+> genres = **V14** (STAB-5 적용 후 다음 연속 번호). V13 을 deferred genre 용으로 예약해두면 그게 바로 genre RFC 가
+> 금지하는 V13 갭이 된다 — 그래서 active 인 STAB-5 가 V13 을 가져간다. 주인장 승인 2026-06-06.
 
 ```sql
 CREATE TABLE IF NOT EXISTS genres (
@@ -126,20 +125,20 @@ backend `openapi.json` regen → `tools/merge_openapi.py` → `docs/contracts/op
 
 ---
 
-### Step 1 — shared_db V13 마이그레이션 + Genre 모델
+### Step 1 — shared_db V14 마이그레이션 + Genre 모델
 
-`migrations/V13__genres.sql`(위 DDL), `models.py` `Genre`(self-ref `parent`/`children` + 2단 다운그레이드
-주석), `_generated_schema.sql` regen, `pyproject.toml` 버전 **`0.11.0`→`0.12.0`** + 태그 **`v0.12.0`**
-(현재 shared_db = V12/0.11.0; 다음 minor), canonical `docs/contracts/schema.sql` 동기.
+`migrations/V14__genres.sql`(위 DDL), `models.py` `Genre`(self-ref `parent`/`children` + 2단 다운그레이드
+주석), `_generated_schema.sql` regen, `pyproject.toml` 버전 bump + 태그 (un-defer 시점의 다음 minor;
+번호는 STAB-5 가 V13/0.12.x 를 가져간 *이후* 기준으로 재산정), canonical `docs/contracts/schema.sql` 동기.
 
-**롤아웃 (CRITICAL — `reference-shared-db-cross-repo-rollout`)**: V13 을 **prod Neon 에 머지 *전* 적용**
+**롤아웃 (CRITICAL — `reference-shared-db-cross-repo-rollout`)**: V14 를 **prod Neon 에 머지 *전* 적용**
 → `\dt genres` 확인 → shared_db PR 머지 → 태그. 순서 틀리면 Step 3 backend 가 unknown-table 500.
-V13 은 V12(이미 prod 적용됨) 다음 연속 적용.
+V14 는 STAB-5 V13 적용 이후 다음 연속 적용.
 
 **Verification**:
 ```
 cd myblog_shared_db && pytest        # 모델 ↔ _generated_schema.sql 일치
-psql "$TEST_DB_URL" -f migrations/V13__genres.sql -v ON_ERROR_STOP=1   # 클린 적용
+psql "$TEST_DB_URL" -f migrations/V14__genres.sql -v ON_ERROR_STOP=1   # 클린 적용
 # top G1 → child G2(parent=G1) OK; grandchild G3(parent=G2) → 앱레이어 거부(Step 3), DELETE G1 while child → RESTRICT
 ```
 **Rollback**: `DROP TABLE genres;` (참조 FK 없음, 순수 additive). prod DROP 은 사람 승인(룰 #3).
@@ -248,5 +247,6 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-04 | 2단 불변식 앱 레이어(단일 작성자) + ON DELETE RESTRICT, CHECK-서브쿼리 불가 | 1 |
 | 2026-06-04 | `ext_refs JSONB` v1 에 미리 추가 (v2 MB sourcing 무마이그레이션 확장) — architect 🟡 | 1 |
 | 2026-06-05 | ~~shared_db 마이그레이션 V12→**V14** 리넘버~~ — superseded below | 1 |
-| 2026-06-05 | shared_db genres 마이그레이션 = **V13** (확정): music-search-recall 는 V12(pg_trgm)만 출시, Step 5(V13 aliases) DEFERRED → V13 free; V14 로 두면 갭 위반. 버전 0.11.0→0.12.0/v0.12.0. backend pin @v0.10.0→@v0.12.0 (2버전 점프) | 1 |
+| 2026-06-05 | ~~shared_db genres 마이그레이션 = **V13** (확정)~~ — superseded 2026-06-06 below (STAB-5 OQ4) | 1 |
 | 2026-06-05 | 기능 전체 **DEFERRED** (추후 작업) — 주인장 결정. plan.md Backlog→Later 로 이동, UI 경로(OQ2) 보류. RFC numbering 만 refresh, Status draft 유지 | — |
+| 2026-06-06 | **genres 마이그레이션 V13→V14 재지정** (STAB-5 OQ4, 주인장 승인): genre 는 deferred, STAB-5(sections rename+seed)가 active → V12 다음 *실제 적용*은 STAB-5 = **V13**. deferred genre 용 V13 예약 = genre RFC 가 금지하는 V13 갭이므로 active 인 STAB-5 가 V13 을 가져가고 genres 는 **V14** (STAB-5 적용 후 다음 연속). 버전/pin 번호는 un-defer 시점에 재산정. | 1 |
