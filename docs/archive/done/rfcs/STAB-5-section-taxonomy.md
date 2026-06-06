@@ -1,6 +1,6 @@
 # STAB-5: category → section taxonomy + review tags
 
-- **Status**: accepted
+- **Status**: done (2026-06-06 — all Steps 1–6 implemented, deployed, prod-verified; owner-approved archive. Section taxonomy + review tags live; junk data reset. Steps: shared_db V13 rename + `v0.13.0` Tag ORM; backend section + tags read/write w/ reject-unknown; front section picker + review-tag picker; contract regen + `api.gen.ts`; data/MDX reset.)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-5
