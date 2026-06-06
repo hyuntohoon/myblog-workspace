@@ -81,13 +81,24 @@ Replace the hardcoded `SECTIONS` (`types.ts:64`) with a picker fed by `GET /api/
 **Verification:** writer shows only seeded sections, can't create; `pnpm lint` + `astro check` pass; browser click-through.
 **Rollback:** trivial — revert the PR (+ regen `api.gen.ts`).
 
-### Step 4 — review tags via `tags`/`post_tags`
-Wire the existing empty M:N for review tags. Initial tag vocabulary (OQ2, resolved): `album review` / `track review` / `reissue` / `best album` / `year-end list`. Backend read/write + writer UI + frontend filter on `/reviews`.
-**Verification:** a review post can carry multiple tags; tags render on `/reviews`.
-**Rollback:** trivial — revert the PR.
+### Step 4 — review tags via `tags`/`post_tags` — **BACKEND + CONTRACT DONE ✅ 2026-06-06; writer picker (UI) PENDING**
+Wire the existing empty M:N for review tags. Initial tag vocabulary (OQ2, resolved): `album review` / `track review` / `reissue` / `best album` / `year-end list`.
 
-### Step 5 — contract regen — **IN PROGRESS (workspace side open)**
-**Status:** Step 2's `openapi.json` merge fired `notify-contract` → workspace auto-PR **#270** (`chore: update merged OpenAPI spec`, regenerates `docs/contracts/openapi.json` with the section change) — open, no PR-stage CI (workspace), ready to merge on owner go. Frontend is contract-neutral (Step 3 used a build-time seed, not the generated client) so no `api.gen.ts` resync is forced by the section change. The tag fields land here once Step 4 ships.
+**Pre-impl owner decisions (2026-06-06):** D1 = **fixed 5-tag seed + read-only picker** (no public create, mirrors sections). D2 = **prod psql idempotent data-seed** (no migration — the `tags`/`post_tags` tables already exist as bootstrap DDL; `ON CONFLICT DO NOTHING`). D3 = **`Tag` ORM model** in shared_db (not raw-SQL) → `post_tags` table + `Post.tags` relationship + pin bump. D4 = tags allowed on all posts. D5 = **admin / DB-only** → **no MDX frontmatter, no `content.config.ts`, no public `/reviews` filter this step** (the RFC's original "tags render on `/reviews`" is dropped per owner; revisit if/when public tag browse is wanted).
+
+**DONE (prod-verified):**
+- **shared_db** PR #22 merged + tag **`v0.13.0`** — `Tag` ORM + `post_tags` assoc table + `Post.tags`; purely **additive** (tables pre-exist) → no breaking window. `_generated_schema.sql` regen; parity tests green.
+- **prod data-seed** — 5 tags `INSERT 0 5` (ids 1–5: `album review`/`track review`/`reissue`/`best album`/`year-end list`).
+- **backend** PR #57 merged (`2722c1c`), deployed — pin `@v0.13.0`; `TagRepository`(ORM)+`TagService`; read-only **`GET /api/tags`**; `POST/PUT /api/posts` accept `tags` (seeded names, **reject-unknown → 400** whole-set, empty=clear); `GET` detail+list return `tags`. `openapi.json` regen (additive). pyright 0 err; tag/section/post tests 39 pass (full-suite 11 fails = pre-existing config-singleton pollution).
+- **contract** workspace #273 merged (`docs/contracts/openapi.json` += `/api/tags`+`TagItem`+`TagListResponse`+`tags`). **front `api.gen.ts` re-synced** (front #100 `d56443a`, deployed — disarms the types-in-sync landmine; generated-only, no UI). This subsumes Step 5's tag-field tail.
+- **prod smoke green (smoke-JWT e2e):** create-with-tags→200 + GET reflects; PUT replace→single; PUT []→cleared; unknown tag→400; `GET /api/tags`→5; hard-delete cleanup 204.
+
+**PENDING (Lane B — writer tag picker UI):** build-time seed `src/lib/tags.ts` + writer multi-select picker reading it + wire `tags` into the post create/update payload. Was held behind the in-flight `/write` redesign (Direction C #99); **#99 landed 2026-06-06 → now unblocked.** No contract/`api.gen.ts` change needed (already synced); UI-only. Until shipped, admin can attach tags only via direct API.
+**Verification (picker):** writer shows the 5 seeded tags, multi-select, can't create new; selections persist via GET; `pnpm lint` + `astro check` + browser click-through.
+**Rollback:** trivial — revert the PR(s).
+
+### Step 5 — contract regen — **DONE ✅ 2026-06-06**
+**Status:** Section side — workspace #270 merged (`712b364`). Tag side — workspace #273 merged (`65b8427`, `docs/contracts/openapi.json` += the Step 4 tag surface) + front `api.gen.ts` re-synced (#100, deployed). Both contract waves are landed; nothing left here. (Unlike the section change, the tag change DID force an `api.gen.ts` resync — the `tags` field entered the generated client — so the front types-in-sync gate required a regen; done.)
 
 Export `openapi.json` for the new `/api/sections` (+ tag fields), workspace merge regenerates `docs/contracts/openapi.json`, frontend types derived. (Per ARCH-12 contract-first; merge workspace first — [[reference-workspace-contract-merge-order]].)
 **Verification:** openapi-verify CI clean; `api.gen.ts` in sync.
@@ -122,3 +133,5 @@ Delete the 13 test posts and the 11 junk MDX dirs and the 3 junk `categories`/`s
 | 2026-06-06 | **Step 1 + Step 2 back-to-back rollout executed (option A, owner full-go).** V13 applied to prod Neon (`INSERT 0 3`, breaking window opened) → backend PR #56 squash-merged (`d3cce15`) → deploy success → window closed. Prod smoke green. Total admin-writer outage = the deploy duration only; public site (build-time-static) unaffected as predicted. | Step 1/2 |
 | 2026-06-06 | **Step 3 (frontend) landed in parallel (Lane B), no coordination needed.** Build-time seed (not the runtime endpoint) kept it contract-neutral and mergeable independent of Lane A. Wire format compatibility confirmed: picker emits section LABEL as `category`; backend looks up by section *name* (= label), not slug. | Step 2/3 |
 | 2026-06-06 | **Step 6 (destructive data/MDX reset) executed — owner-approved (rule #3).** 13 posts hard-deleted via API (204 each); 11 MDX dirs removed from front content repo (`origin/main:content/blog` → 0); junk sections `default`/`smoke-bug10` deleted via psql after `posts=0` confirmed. Final: `posts`=0, `sections`=4 seed. **Gotcha logged:** the 11 concurrent push-triggered front deploys raced → a stale build won and re-listed junk; fixed with a manual `workflow_dispatch` re-deploy from clean `origin/main`. Prod smoke 28/0. **STAB-5 still has Step 4 (review tags) remaining → RFC stays open (not archived).** | Step 6 |
+| 2026-06-06 | **Step 4 pre-impl decisions D1–D5 (owner).** D1 fixed 5-tag seed + read-only. D2 prod psql idempotent data-seed (no migration — tables pre-exist). D3 `Tag` **ORM** model (not raw-SQL) → `post_tags`+`Post.tags`+pin bump. D4 tags on all posts. D5 **admin/DB-only** → dropped the RFC's public `/reviews` tag filter + all MDX/`content.config.ts` work (revisit if public tag-browse wanted). | Step 4 |
+| 2026-06-06 | **Step 4 backend+contract DONE, prod-verified (owner full-batch go).** shared_db #22→`v0.13.0` (additive Tag ORM, no breaking window) → prod seed 5 tags (`INSERT 0 5`) → backend #57 (`2722c1c`) deployed → workspace contract #273 → front `api.gen.ts` resync #100 (deployed, types-gate green). Tag change **did** force an `api.gen.ts` regen (the section change hadn't). smoke-JWT e2e all-pass (attach/replace/clear/reject-unknown-400/`GET /api/tags`=5). **Writer picker (Lane B, UI-only) deferred behind the in-flight `/write` redesign #99; #99 landed same day → picker now unblocked, only remaining piece before STAB-5 archive (Step 6 already done).** | Step 4/5 |
