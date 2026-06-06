@@ -1,9 +1,9 @@
 # STAB-1: System Stabilization & Hardening (pre-expansion)
 
-- **Status**: accepted
+- **Status**: done (2026-06-06 — all spawned implementation RFCs STAB-2..STAB-7 complete + archived; expansion freeze lifted)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
-- **Plan row**: `plan.md` → STAB-1 (Active)
+- **Plan row**: `plan.md` → STAB-1 (archived)
 
 ---
 
@@ -610,3 +610,4 @@ OQ1–OQ6 were resolved by the owner on 2026-06-05 (see Decisions log). Residual
 | 2026-06-05 | **§Sequencing item 3 (SNS alert email sub, P1-6) — RESOLVED.** Live: `myblog-alerts` email subscription has a real SubscriptionArn (not `PendingConfirmation`) → confirmed/active → alarms deliver. No fix needed. | §sequencing item 3 |
 | 2026-06-05 | **§Sequencing items 5, 6, 7 spawned** as scoped implementation RFCs: **STAB-5** (category→section + review tags; the prospective `FEAT-section-taxonomy`), **STAB-6** (repo hygiene + remote tfstate backend), **STAB-7** (IAM/drift/observability, necessity-gated). All `draft`. Evidence: all 13 prod posts + 11 MDX + 3 categories are junk (STAB-5 clean reset); P3 hygiene files confirmed tracked (STAB-6); musicApi ESM empty + `rds describe` empty + p99 ≈ 3.65s (STAB-7). Every §Sequencing item (1-7) now has a spawned RFC or is resolved. | §sequencing items 5/6/7 |
 | 2026-06-05 | **Owner approved the whole program** — STAB-1~7 promoted draft → **accepted**. Wave-1 low-risk implemented (STAB-6 Step 2 allure untrack; STAB-4 docs next); security (STAB-2), destructive (STAB-5 Step 6), and all `terraform apply` gated behind explicit per-step approval (rules #3/#4/#6/#7). | all |
+| 2026-06-06 | **STAB-1 closed (done) — all spawned RFCs complete + prod-live + archived:** STAB-2 (P0 auth boundary, 5 steps, #255–#267), STAB-3 (SQS visibility 30→720s, #256), STAB-4 (schema.sql backfill + doc drift, #254), STAB-5 (category→section + review tags, 6 steps, #276), STAB-6 (repo hygiene + S3 tfstate, #268), STAB-7 (IAM least-privilege, #257). §Seq item 3 (SNS sub) was already active. **Expansion freeze lifted** — backlog/later/frozen items unblocked. STAB-1 archived. | closure |
