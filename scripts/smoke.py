@@ -119,17 +119,21 @@ def get_token() -> str:
 # ---------- Test suites -----------------------------------------------------
 
 def run_unauth_tests(host: dict[str, str]) -> None:
-    print("\n[health + categories + DB]")
+    print("\n[health + sections + DB]")
     s, b = request_json(host["backend_public"] + "/api/db/ping")
     check("/api/db/ping returns 200", s == 200, f"status={s}")
     check("/api/db/ping body is 'Database connected'",
           b is not None and b.get("message") == "Database connected", str(b))
 
-    s, b = request_json(host["backend_public"] + "/api/categories")
-    check("/api/categories returns 200", s == 200)
-    check("/api/categories returns list",
-          isinstance(b, dict) and "categories" in b and isinstance(b["categories"], list),
+    # STAB-5: category axis renamed to section; read-only GET /api/sections
+    # replaced GET/POST /api/categories (the latter was an unauth write hole).
+    s, b = request_json(host["backend_public"] + "/api/sections")
+    check("/api/sections returns 200", s == 200)
+    check("/api/sections returns list",
+          isinstance(b, dict) and "sections" in b and isinstance(b["sections"], list),
           str(b)[:100])
+    check("/api/categories is gone (404)",
+          request_json(host["backend_public"] + "/api/categories")[0] == 404)
 
     print("\n[search filter — BUG-2 regression guard]")
     for t in ("album", "artist", "track"):
@@ -170,7 +174,7 @@ def run_authed_tests(host: dict[str, str], token: str | None) -> None:
         "body_mdx": "# smoke",
         "posted_date": str(datetime.date.today()),
         "status": "draft",
-        "category": "default",
+        "category": "Reviews",   # STAB-5: must be a seeded section (reject-unknown)
         "album_ids": [],
         "artist_ids": [],
         "rating": None,
@@ -194,13 +198,14 @@ def run_authed_tests(host: dict[str, str], token: str | None) -> None:
 
     # BUG-10 regression guard: PUT with category must actually persist. Prior
     # to the fix, UpdatePostRequest dropped the field silently and the user's
-    # category edit was lost.
+    # category edit was lost. STAB-5: value must be a seeded section name (the
+    # JSON field is still `category`; backend resolves it to section_id).
     s, _ = request_json(host["backend_authed"] + f"/api/posts/{post_id}",
-                        method="PUT", body={"category": "smoke-bug10"}, token=token)
+                        method="PUT", body={"category": "Features"}, token=token)
     check("PUT with category change returns 200", s == 200, f"status={s}")
     s, b = request_json(host["backend_authed"] + f"/api/posts/{post_id}", token=token)
     check("GET after category PUT reflects new category",
-          b is not None and b.get("category") == "smoke-bug10",
+          b is not None and b.get("category") == "Features",
           f"got category={b.get('category') if b else None}")
 
     # FEAT-writer-cleanup PR-1: default DELETE is a soft archive (200 + body),
