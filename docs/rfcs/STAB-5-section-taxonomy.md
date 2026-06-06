@@ -76,7 +76,7 @@ Replace the hardcoded `SECTIONS` (`types.ts:64`) with a picker fed by `GET /api/
 **Rollback:** trivial — revert the PR (+ regen `api.gen.ts`).
 
 ### Step 4 — review tags via `tags`/`post_tags`
-Wire the existing empty M:N for review tags (track review / album review / best album / year-end list …). Define the initial tag vocabulary (OQ2). Backend read/write + writer UI + frontend filter.
+Wire the existing empty M:N for review tags. Initial tag vocabulary (OQ2, resolved): `album review` / `track review` / `reissue` / `best album` / `year-end list`. Backend read/write + writer UI + frontend filter on `/reviews`.
 **Verification:** a review post can carry multiple tags; tags render on `/reviews`.
 **Rollback:** trivial — revert the PR.
 
@@ -93,7 +93,7 @@ Delete the 13 test posts and the 11 junk MDX dirs and the 3 junk `categories`/`s
 ## Open questions
 
 1. ✅ **OQ1 (Step 1) — RESOLVED 2026-06-06 (owner):** canonical seeded set = **`Reviews / Best New Music / Features / Tracks`** (slugs `reviews` / `best-new-music` / `features` / `tracks`) — the STAB-1 writer array verbatim. English labels.
-2. **OQ2 (Step 4)** — the initial review-tag vocabulary (track review / album review / best album / best albums / year-end list — STAB-1 §model point 6). *(Blocks Step 4.)*
+2. ✅ **OQ2 (Step 4) — RESOLVED 2026-06-06 (owner):** initial review-tag vocabulary = **`album review` · `track review` · `reissue` · `best album` · `year-end list`** (5 tags). Orthogonality principle accepted: tags are a cross-cutting axis (release format / editorial accolade / list form) distinct from the single-FK section. Owner kept `track review` despite the Tracks-section name overlap — they coexist: *Tracks section = the post's primary subject is a track; `track review` tag = a cross-cutting label that can also appear on posts in other sections*. Dropped from the STAB-1 floats: `best albums` (singular `best album` kept; no plural duplicate). Start lean; extend as content accrues. *(Lane C / Step 4 unblocked.)*
 3. ✅ **OQ3 (Step 1) — RESOLVED 2026-06-06 (owner):** **in-place rename** `Category`→`Section` / `categories`→`sections` / `posts.category_id`→`section_id` (single FK kept). Audit confirmed the `Category` ORM ref is contained: `models.py:91` (class) + `models.py:258` (posts FK) only; backend `CategoryService` / `category_repository` follow in Step 2. (See ⚠️ rename-breaking-window note above — rename ≠ additive.)
 4. ✅ **OQ4 (Step 1) — RESOLVED 2026-06-06 (owner):** **STAB-5 = V13**, genre re-pointed to **V14**. genre RFC text updated 2026-06-06 (`FEAT-genre-taxonomy.md` V13→V14 sweep + decisions-log supersede). The two RFCs no longer both own V13.
 
@@ -108,3 +108,4 @@ Delete the 13 test posts and the 11 junk MDX dirs and the 3 junk `categories`/`s
 | 2026-06-06 | **STAB-4-coordination caveat dropped** — STAB-4 is DONE+archived; its schema.sql backfill already landed (`categories` DDL in `_generated_schema.sql:39`). No in-flight coordination; STAB-5 Step 1 just renames that DDL. | Step 1 |
 | 2026-06-06 | **OQ1/OQ3/OQ4 resolved by owner.** OQ1 set = `Reviews/Best New Music/Features/Tracks`. OQ3 = in-place rename. OQ4 = STAB-5 V13 / genre V14 (genre RFC updated same day). | Step 1 |
 | 2026-06-06 | ⚠️ **Rename breaking-window surfaced.** V13 rename is NOT additive: prod-apply 500s the old-pinned (`@v0.10.0`) backend's `category_id` queries until Step 2 deploys. Blast radius = admin writer only (public pages static). Owner to pick mitigation (A) back-to-back Step1+2 / (B) expand-contract / (C) bundle — before Step 1 prod-apply. | Step 1/2 |
+| 2026-06-06 | **OQ2 resolved by owner.** Review-tag vocabulary = `album review` / `track review` / `reissue` / `best album` / `year-end list` (5). Orthogonality principle accepted (tags = cross-cutting format/accolade/list axis, distinct from single-FK section). `track review` kept despite Tracks-section overlap (coexist by definition); `best albums` plural dropped. Lane C / Step 4 unblocked. | Step 4 |
