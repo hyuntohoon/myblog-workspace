@@ -1,6 +1,6 @@
 # STAB-2: P0 Auth boundary remediation
 
-- **Status**: accepted
+- **Status**: done (2026-06-06 — Steps 1-5 applied+deployed+prod-verified; Step 3's `POST /api/categories` write hole closed under STAB-5 Step 2 backend #56 `d3cce15`)
 - **Owner**: TBD (주인장)
 - **Created**: 2026-06-05
 - **Plan row**: `plan.md` → STAB-2
