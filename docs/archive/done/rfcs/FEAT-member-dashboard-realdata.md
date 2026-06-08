@@ -1,10 +1,11 @@
 # FEAT-member-dashboard-realdata: `/profile` — drafts + durable listening data
 
-- **Status**: in-progress
+- **Status**: closed (shipped 2026-06-08, all 4 steps end-to-end, prod-verified)
 - **Owner**: TBD
 - **Created**: 2026-06-08
 - **Accepted**: 2026-06-08 (owner approval in-session — promote + start parallel work)
-- **Plan row**: `plan.md` → FEAT-member-dashboard-realdata
+- **Closed**: 2026-06-08 — shipped same day. Per-step merges: `myblog_shared_db` #23 (V14 + tag v0.14.0, applied to Neon prod), `myblog_worker` #40, `myblog_backend` #59, workspace contract #286, `myblog_front` #115; summary in `docs/archive/done/2026-06.md`. Verified: shared_db schema_parity 2/2; worker 158 pass incl. 7 real-engine; backend 67/67 relevant + prod curl; front lint+check+build + a CDP browser click-through of the auth-gated `/profile` (real smoke JWT) confirming all 5 surfaces render real prod data (들은 앨범 channel ORANGE ×27 from 220 play_events, 50 recent-tracks, the "LIT" draft with `album_cover_url`, 최근 재생 idle fallback). Plan row dropped on close.
+- **Plan row**: dropped on close
 
 ---
 
