@@ -28,8 +28,14 @@ secret). Recover by re-running this script with --write — it mints a fresh tok
 stamps last_successful_refresh_at, and clears needs_reauth, so the tab flips back to
 연결됨 without waiting for the next worker tick.
 
-Scopes requested (read-only; write scopes deferred per D11):
-  user-read-recently-played, user-read-currently-playing
+Scopes requested:
+  user-read-recently-played, user-read-currently-playing  (listening reads)
+  user-library-read, user-library-modify                  (Spotify Library two-way
+    sync, FEAT-spotify-library-sync — the only write scopes, per D11 follow-up)
+
+NOTE: re-run this with --write after adding the library scopes — a token minted by an
+earlier run lacks user-library-* and the worker's /me/albums calls 403 (the reconcile
+maps that to needs_attention / "재인증 필요").
 """
 from __future__ import annotations
 
@@ -46,7 +52,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import httpx
 
 REDIRECT_URI = "http://127.0.0.1:8888/callback"
-SCOPES = "user-read-recently-played user-read-currently-playing"
+SCOPES = (
+    "user-read-recently-played user-read-currently-playing "
+    "user-library-read user-library-modify"
+)
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 SECRET_ID = "myblog/spotify"

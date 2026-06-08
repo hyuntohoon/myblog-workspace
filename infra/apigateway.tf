@@ -155,6 +155,19 @@ resource "aws_apigatewayv2_route" "buckets_patch" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# FEAT-spotify-library-sync: manual "동기화" enqueues an async Spotify-Library sync
+# job; the worker does the Spotify reads/diffs/writes (rule #9 — never sync here).
+# The GET /api/buckets/spotify-library/state read rides the edge_guard catch-all
+# (api_get_proxy) — no route here. Declared before the {id} routes is unnecessary
+# for API Gateway (it matches the more-specific literal path), but kept grouped.
+resource "aws_apigatewayv2_route" "buckets_spotify_library_sync_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/buckets/spotify-library/sync"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "buckets_delete" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "DELETE /api/buckets/{id}"
