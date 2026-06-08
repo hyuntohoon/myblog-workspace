@@ -41,8 +41,7 @@
 - 캐노니컬 장르 목록/계층/dedup 전무 ("indie rock" vs "indie-rock" 공존).
 - `/reviews` 인덱스만 `genres[]` 배열 인식 필터 보유(`myblog_front/src/lib/reviews.ts`); music search 엔
   장르 필터 없음.
-- shared_db 최신 마이그레이션 **V12**(pg_trgm_search_indexes, FEAT-music-search-recall), 버전 **0.11.0**.
-  backend pin 은 아직 `@v0.10.0` (2버전 뒤 — V11 parent_id 는 모델 반영됨, V12 는 GIN 인덱스/익스텐션만이라 모델 무변).
+- shared_db 최신 마이그레이션 **V13**(section_rename_and_seed, STAB-5), 버전 **0.13.0**; backend pin `@v0.13.0` (동기). genres 는 다음 연속 번호 **V14** (un-defer 시 재확인). _(갱신 2026-06-08; Step 1/2 본문의 잠정 pin 번호는 decisions log 대로 un-defer 시 재산정.)_
 - 관리형 admin write 의 정착 패턴: backend 의 Cognito-JWT 라우트(`posts`/`publish`/`buckets`).
   단일 사용자(주인장) — user 테이블·author_id 없음.
 
