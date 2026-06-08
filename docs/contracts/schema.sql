@@ -11,13 +11,16 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- ⚠️ STALE post-STAB-5 (flagged 2026-06-08): STAB-5 V13 renamed `categories`
---   → `sections` and `posts.category_id` → `section_id` IN-PLACE on prod Neon
---   (applied 2026-06-06). The DDL below still shows the V12 `categories` schema.
---   Do NOT write code against `categories` / `category_id` / `idx_posts_category_id`
---   — prod uses `sections` / `section_id` / `idx_posts_section_id`. A full V13
---   resync (rename in this file, prod-verified) is a tracked follow-up — STAB-4-class
---   schema-drift work, deliberately out of scope for the doc-cleanup pass.
+-- This file shows clean canonical DDL through V13, verified against prod 2026-06-08.
+-- NB — STAB-5 V13 renamed `categories`→`sections` and `posts.category_id`→`section_id`
+--   IN-PLACE (`ALTER TABLE ... RENAME`). Postgres carries constraints/indexes/FK across
+--   a rename by OID, so prod's PHYSICAL names still read the pre-V13 `categor*` form:
+--     • index   `idx_posts_category_id`        (now on `posts(section_id)`)
+--     • uniques `categories_pkey/_name_key/_slug_key`  (now on `sections`)
+--     • FK      `posts_category_id_fkey`        (now `section_id` → `sections(id)`)
+--   The DDL below uses the clean `section_*` names; a fresh bootstrap therefore yields
+--   `section_*`-named objects rather than prod's legacy names — cosmetic only (object
+--   shape is identical). Do NOT reintroduce a `categories` table / `category_id` column.
 -- =============================================================================
 
 -- =============================================================================
@@ -44,9 +47,12 @@ BEGIN
 END$$;
 
 -- =============================================================================
--- Categories & Tags
+-- Sections & Tags
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS categories (
+-- `sections` (V13, STAB-5) — curated public post taxonomy, one section per post
+-- (single FK). Seeded by V13: Reviews / Best New Music / Features / Tracks. No
+-- get-or-create, no public create API. Renamed in place from `categories` (V12).
+CREATE TABLE IF NOT EXISTS sections (
   id         BIGSERIAL    PRIMARY KEY,
   name       TEXT         NOT NULL UNIQUE,
   slug       TEXT         NOT NULL UNIQUE,
@@ -72,7 +78,7 @@ CREATE TABLE IF NOT EXISTS posts (
   posted_date     DATE         NOT NULL,
   last_updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
   status          post_status  NOT NULL DEFAULT 'published',
-  category_id     BIGINT       REFERENCES categories(id) ON DELETE SET NULL,
+  section_id      BIGINT       REFERENCES sections(id) ON DELETE SET NULL,  -- V13 rename (prod FK still named posts_category_id_fkey)
   search_index    BOOLEAN      NOT NULL DEFAULT TRUE,
   extra           JSONB        NOT NULL DEFAULT '{}'::jsonb,
 
@@ -83,7 +89,7 @@ CREATE TABLE IF NOT EXISTS posts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_posts_posted_date  ON posts(posted_date);
-CREATE INDEX IF NOT EXISTS idx_posts_category_id  ON posts(category_id);
+CREATE INDEX IF NOT EXISTS idx_posts_section_id  ON posts(section_id);  -- prod physical name still idx_posts_category_id (OID-carried across V13 rename)
 CREATE INDEX IF NOT EXISTS idx_posts_status        ON posts(status);
 CREATE INDEX IF NOT EXISTS idx_posts_slug          ON posts(slug);
 
@@ -376,6 +382,7 @@ CREATE INDEX IF NOT EXISTS idx_spotify_play_events_played_at ON spotify_play_eve
 -- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
--- This file shows DDL through V12 (last full prod-verify 2026-06-05, STAB-4) but is
--- STALE post-V13: STAB-5 renamed categories→sections (see ⚠️ banner at top of file).
+-- This file is current through V13 (categories→sections rename verified against
+-- prod 2026-06-08; see the section-rename note in the header for prod's legacy
+-- physical object names). Last full structural prod-verify 2026-06-05 (STAB-4).
 -- =============================================================================
