@@ -4,7 +4,7 @@
 **Region**: `ap-northeast-2`  
 **Account**: `338183196042`  
 **Type**: Standard queue (NOT FIFO)  
-**DLQ**: `album-sync-dlq` — redrive `maxReceiveCount=3`, 14-day retention, CloudWatch-alarmed (observe-only, no auto-redrive). Visibility timeout: see STAB-3 (30s → 720s pending).  
+**DLQ**: `album-sync-dlq` — redrive `maxReceiveCount=3`, 14-day retention, CloudWatch-alarmed (observe-only, no auto-redrive). Visibility timeout: 720s (raised from 30s to clear the worker timeout, STAB-3, applied 2026-06-05).  
 **Producer**: `myblog_music` (`app/clients/sqs_client.py`, Lambda: `musicApi`)  
 **Consumer**: `myblog_worker` (`worker/handler.py`, Lambda: `blogWorkerLambda`)
 

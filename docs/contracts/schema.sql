@@ -10,6 +10,14 @@
 --
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
+--
+-- ⚠️ STALE post-STAB-5 (flagged 2026-06-08): STAB-5 V13 renamed `categories`
+--   → `sections` and `posts.category_id` → `section_id` IN-PLACE on prod Neon
+--   (applied 2026-06-06). The DDL below still shows the V12 `categories` schema.
+--   Do NOT write code against `categories` / `category_id` / `idx_posts_category_id`
+--   — prod uses `sections` / `section_id` / `idx_posts_section_id`. A full V13
+--   resync (rename in this file, prod-verified) is a tracked follow-up — STAB-4-class
+--   schema-drift work, deliberately out of scope for the doc-cleanup pass.
 -- =============================================================================
 
 -- =============================================================================
@@ -368,5 +376,6 @@ CREATE INDEX IF NOT EXISTS idx_spotify_play_events_played_at ON spotify_play_eve
 -- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
--- This file is current through V12 (verified against prod 2026-06-05, STAB-4).
+-- This file shows DDL through V12 (last full prod-verify 2026-06-05, STAB-4) but is
+-- STALE post-V13: STAB-5 renamed categories→sections (see ⚠️ banner at top of file).
 -- =============================================================================
