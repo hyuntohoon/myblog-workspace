@@ -41,20 +41,21 @@
 - 캐노니컬 장르 목록/계층/dedup 전무 ("indie rock" vs "indie-rock" 공존).
 - `/reviews` 인덱스만 `genres[]` 배열 인식 필터 보유(`myblog_front/src/lib/reviews.ts`); music search 엔
   장르 필터 없음.
-- shared_db 최신 마이그레이션 **V13**(section_rename_and_seed, STAB-5), 버전 **0.13.0**; backend pin `@v0.13.0` (동기). genres 는 다음 연속 번호 **V14** (un-defer 시 재확인). _(갱신 2026-06-08; Step 1/2 본문의 잠정 pin 번호는 decisions log 대로 un-defer 시 재산정.)_
+- shared_db 최신 마이그레이션 **V13**(section_rename_and_seed, STAB-5), 버전 **0.13.0**; backend pin `@v0.13.0` (동기). genres 는 다음 연속 번호 **V15** (V14 는 `FEAT-member-dashboard-realdata` 의 `spotify_recent_tracks` 가 선점; un-defer 시 재확인). _(갱신 2026-06-08; Step 1/2 본문의 잠정 pin 번호는 decisions log 대로 un-defer 시 재산정.)_
 - 관리형 admin write 의 정착 패턴: backend 의 Cognito-JWT 라우트(`posts`/`publish`/`buckets`).
   단일 사용자(주인장) — user 테이블·author_id 없음.
 
 ## Target state
 
-### 데이터 모델 (shared_db, V14)
+### 데이터 모델 (shared_db, V15)
 
-`migrations/V14__genres.sql` + `models.py` `Genre` 모델. 단일 사용자 → `user_id` 없음.
+`migrations/V15__genres.sql` + `models.py` `Genre` 모델. 단일 사용자 → `user_id` 없음.
 
-> **마이그레이션 번호 (2026-06-06, re-resolved — STAB-5 OQ4)**: genre 는 **DEFERRED**, STAB-5 는 **active** 이므로
-> V12 다음 *실제로 적용되는* 마이그레이션은 STAB-5 (sections rename + seed) 다. gapless 전제상 STAB-5 = **V13**,
-> genres = **V14** (STAB-5 적용 후 다음 연속 번호). V13 을 deferred genre 용으로 예약해두면 그게 바로 genre RFC 가
-> 금지하는 V13 갭이 된다 — 그래서 active 인 STAB-5 가 V13 을 가져간다. 주인장 승인 2026-06-06.
+> **마이그레이션 번호 (2026-06-08, re-resolved)**: genre 는 **DEFERRED** 라 코드에 마이그레이션 파일이 없으므로
+> active 작업들이 번호를 먼저 가져간다. V12 다음 *실제로 적용되는* 순서 = STAB-5 (sections rename+seed) **V13** →
+> `FEAT-member-dashboard-realdata` (`spotify_recent_tracks`) **V14** → genres = **V15** (다음 연속 번호). deferred
+> 동안 번호를 예약하면 그게 곧 genre RFC 가 금지하는 마이그레이션 갭이 되므로 항상 active 작업에 양보하고 genres 는
+> next-free 를 쓴다. 주인장 승인 2026-06-06(V13→V14) → 2026-06-08(V14→V15).
 
 ```sql
 CREATE TABLE IF NOT EXISTS genres (
@@ -124,20 +125,20 @@ backend `openapi.json` regen → `tools/merge_openapi.py` → `docs/contracts/op
 
 ---
 
-### Step 1 — shared_db V14 마이그레이션 + Genre 모델
+### Step 1 — shared_db V15 마이그레이션 + Genre 모델
 
-`migrations/V14__genres.sql`(위 DDL), `models.py` `Genre`(self-ref `parent`/`children` + 2단 다운그레이드
+`migrations/V15__genres.sql`(위 DDL), `models.py` `Genre`(self-ref `parent`/`children` + 2단 다운그레이드
 주석), `_generated_schema.sql` regen, `pyproject.toml` 버전 bump + 태그 (un-defer 시점의 다음 minor;
 번호는 STAB-5 가 V13/0.12.x 를 가져간 *이후* 기준으로 재산정), canonical `docs/contracts/schema.sql` 동기.
 
-**롤아웃 (CRITICAL — `reference-shared-db-cross-repo-rollout`)**: V14 를 **prod Neon 에 머지 *전* 적용**
+**롤아웃 (CRITICAL — `reference-shared-db-cross-repo-rollout`)**: V15 를 **prod Neon 에 머지 *전* 적용**
 → `\dt genres` 확인 → shared_db PR 머지 → 태그. 순서 틀리면 Step 3 backend 가 unknown-table 500.
-V14 는 STAB-5 V13 적용 이후 다음 연속 적용.
+V15 는 STAB-5 V13 + member-dashboard-realdata V14 적용 이후 다음 연속 적용.
 
 **Verification**:
 ```
 cd myblog_shared_db && pytest        # 모델 ↔ _generated_schema.sql 일치
-psql "$TEST_DB_URL" -f migrations/V14__genres.sql -v ON_ERROR_STOP=1   # 클린 적용
+psql "$TEST_DB_URL" -f migrations/V15__genres.sql -v ON_ERROR_STOP=1   # 클린 적용
 # top G1 → child G2(parent=G1) OK; grandchild G3(parent=G2) → 앱레이어 거부(Step 3), DELETE G1 while child → RESTRICT
 ```
 **Rollback**: `DROP TABLE genres;` (참조 FK 없음, 순수 additive). prod DROP 은 사람 승인(룰 #3).
@@ -248,4 +249,5 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-05 | ~~shared_db 마이그레이션 V12→**V14** 리넘버~~ — superseded below | 1 |
 | 2026-06-05 | ~~shared_db genres 마이그레이션 = **V13** (확정)~~ — superseded 2026-06-06 below (STAB-5 OQ4) | 1 |
 | 2026-06-05 | 기능 전체 **DEFERRED** (추후 작업) — 주인장 결정. plan.md Backlog→Later 로 이동, UI 경로(OQ2) 보류. RFC numbering 만 refresh, Status draft 유지 | — |
-| 2026-06-06 | **genres 마이그레이션 V13→V14 재지정** (STAB-5 OQ4, 주인장 승인): genre 는 deferred, STAB-5(sections rename+seed)가 active → V12 다음 *실제 적용*은 STAB-5 = **V13**. deferred genre 용 V13 예약 = genre RFC 가 금지하는 V13 갭이므로 active 인 STAB-5 가 V13 을 가져가고 genres 는 **V14** (STAB-5 적용 후 다음 연속). 버전/pin 번호는 un-defer 시점에 재산정. | 1 |
+| 2026-06-06 | **genres 마이그레이션 V13→V14 재지정** (STAB-5 OQ4, 주인장 승인): genre 는 deferred, STAB-5(sections rename+seed)가 active → V12 다음 *실제 적용*은 STAB-5 = **V13**. deferred genre 용 V13 예약 = genre RFC 가 금지하는 V13 갭이므로 active 인 STAB-5 가 V13 을 가져가고 genres 는 **V14** (STAB-5 적용 후 다음 연속). 버전/pin 번호는 un-defer 시점에 재산정. **(→ 2026-06-08 V14→V15 재재지정, 아래)** | 1 |
+| 2026-06-08 | **genres 마이그레이션 V14→V15 재지정**: `FEAT-member-dashboard-realdata` 가 V14 를 선점 (shared_db `V14__spotify_recent_tracks.sql` + v0.14.0) → deferred genre 는 next-free **V15**. plan.md genre row 동기. 버전/pin 은 여전히 un-defer 시 재산정. | — |
