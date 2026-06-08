@@ -6,7 +6,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(none)_ — STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, archived 2026-06-06). **Product-expansion freeze lifted.** No work is promoted to Active until the owner picks the next target from Backlog/Later/Frozen.
+- **FEAT-spotify-library-sync** (draft — owner-requested 2026-06-08; RFC Status promotion still owner-only) — D11 follow-up: a NEW special bucket (`review_buckets.kind='spotify_library'`) in the BucketBoard that **explicitly** two-way mirrors the owner's Spotify saved-albums Library (`GET/PUT/DELETE /me/albums`, album-level, no playlists); per-album source (myblog_added/preexisting) + state, never deletes a pre-existing saved album. Implements original spec reqs **4/5/6** (1/2/3 already shipped #287). RFC → `docs/rfcs/FEAT-spotify-library-sync.md`. **Order**: Step 0 owner token re-bootstrap (`user-library-read`+`user-library-modify`) → shared_db V15 → worker → backend (contract) → front. **Migration: V15** (genre re-bumps to V16). All Spotify I/O worker-async (rule #9); first prod reconcile under DRY_RUN. **Status**: Step 1 (shared_db V15 + models) **merged** (shared_db #24, v0.15.0) + **V15 prod-applied to Neon main 2026-06-08** (kind default 'review' backfilled, no breakage). OQ2 resolved: full PULL, but pre-existing vs MyBlog-added must be visually distinguished. **Next**: Step 0 (owner re-bootstraps Spotify token w/ `user-library-read`+`user-library-modify`) → Step 2 (worker reconcile, pin shared_db v0.15.0, DRY_RUN-first prod).
+
+_STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, archived 2026-06-06); product-expansion freeze lifted 2026-06-06._
 
 ---
 
