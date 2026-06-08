@@ -1,6 +1,6 @@
 # MyBlog + Music Review — System Architecture
 
-> ⚠️ **Verify against code — this doc drifts.** The 2026-06-05 review (STAB-1) found ≥4 load-bearing errors here; the ones found were corrected (2026-06-05, STAB-4), but treat any specific claim (pins, queue type, auth, imports) as needing a code/tfstate check before relying on it. Source of truth: `docs/contracts/schema.sql` (current through V12) + `infra/`.
+> ⚠️ **Verify against code — this doc drifts.** The 2026-06-05 review (STAB-1) found ≥4 load-bearing errors here; the ones found were corrected (2026-06-05, STAB-4), but treat any specific claim (pins, queue type, auth, imports) as needing a code/tfstate check before relying on it. Source of truth: `docs/contracts/schema.sql` (current through V13) + `infra/`.
 
 ## Overview
 
@@ -15,7 +15,7 @@ A personal blog combined with a music review feature. Blog authoring, music sear
 | Service | Responsibility | Lambda function | Deployment |
 |---------|----------------|-----------------|------------|
 | `myblog_front` | Static site + admin authoring UI | — | S3 + CloudFront |
-| `myblog_backend` | Blog post and category CRUD + auth + publishing | `ratemymusic-api` | Lambda + API Gateway |
+| `myblog_backend` | Blog post and section CRUD + auth + publishing | `ratemymusic-api` | Lambda + API Gateway |
 | `myblog_music` | DB-first music search + sync trigger | `musicApi` | Lambda + API Gateway |
 | `myblog_worker` | SQS consumer + Spotify sync + scheduled alias generation | `blogWorkerLambda` | Lambda (SQS + EventBridge) |
 
@@ -42,7 +42,7 @@ All AWS resources are managed by Terraform in `infra/` (IAC-1, 2026-05-25). The 
           ▼               ▼                   ▼
   GET /posts          GET /search/*      POST /publish
   POST /posts         (music search)     (publish trigger)
-  /categories
+  /sections
           │               │                   │
           └───────────────┤                   │
                           ▼                   │
@@ -102,7 +102,7 @@ Astro-based static site hosted on S3 and served through CloudFront. GitHub Actio
 
 | Target | Purpose |
 |--------|---------|
-| `myblog_backend` | Post and category CRUD + publish trigger |
+| `myblog_backend` | Post and section CRUD + publish trigger |
 | `myblog_music` | Unified music search / Spotify candidate search |
 
 Type contract with backend and music is generated from `docs/contracts/openapi.json` (merged spec, ARCH-12) via `pnpm generate:types` → `src/lib/api.gen.ts`. `PostPayload` is derived from `Backend_WritePostRequest`; do not hand-edit. CI fails if the committed `api.gen.ts` drifts from the spec.
@@ -113,7 +113,7 @@ The merged spec is regenerated automatically: each service repo publishes its ow
 
 ### myblog_backend
 
-Core blog API. Owns the post and category domain and is fully isolated from music sync.
+Core blog API. Owns the post and section domain and is fully isolated from music sync.
 
 **Endpoints**
 
@@ -124,8 +124,7 @@ Core blog API. Owns the post and category domain and is fully isolated from musi
 | `PUT` | `/api/posts/:id` | Cognito JWT |
 | `PATCH` | `/api/posts/:id/restore` | Cognito JWT |
 | `DELETE` | `/api/posts/:id` | Cognito JWT |
-| `GET` | `/api/categories` | None |
-| `POST` | `/api/categories` | ⚠️ **None (unauthenticated)** — no gateway authorizer + no app dep; see STAB-2 (AUTH-1). To be removed/gated. |
+| `GET` | `/api/sections` | None |
 | `POST` | `/api/publish` | Cognito JWT |
 | `POST` | `/api/metrics/batch` | None |
 
