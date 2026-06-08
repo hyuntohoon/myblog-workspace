@@ -39,6 +39,9 @@ resource "aws_lambda_function" "backend" {
       # FEAT-member-dashboard Step 3: manual "지금 새로고침" → SQS; 연동 status read.
       SQS_QUEUE_URL       = aws_sqs_queue.blog_sqs.url
       SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
+      # FEAT-spotify-library-sync: read-only mirror for the /profile "검토 모드" banner
+      # (backend never writes Spotify — rule #9). Keep in sync with the worker value.
+      SPOTIFY_LIBRARY_WRITES_ENABLED = "true"
     }
   }
 
@@ -101,6 +104,10 @@ resource "aws_lambda_function" "worker" {
       # FEAT-member-dashboard Step 3: Spotify user OAuth creds + re-enqueue queue.
       SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
       SQS_QUEUE_URL       = aws_sqs_queue.blog_sqs.url
+      # FEAT-spotify-library-sync Gate 3: enable real PUT/DELETE /me/albums in the
+      # reconcile. "false" = plan-only (reads + DB writes + logs intended writes, no
+      # Spotify mutation). Flip to "false" + apply to pause real writes.
+      SPOTIFY_LIBRARY_WRITES_ENABLED = "true"
     }
   }
 
