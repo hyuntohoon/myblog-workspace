@@ -6,9 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-spotify-library-sync** — ✅ **DONE + LIVE 2026-06-08**. D11 follow-up: a `review_buckets.kind='spotify_library'` bucket that explicitly two-way mirrors the owner's Spotify saved-albums Library (reqs 4/5/6; 1/2/3 were #287). Steps 1–4 shipped (shared_db V15 / v0.15.0 prod-applied; worker reconcile + Library client; backend sync/state endpoints + contract; front bucket UI) via a parallel build→adversarial-review workflow (fixed: backend concurrent-POST IntegrityError, worker SAVEPOINT PULL isolation). **All 3 activation gates applied**: apigateway POST route (`terraform apply`); Spotify token re-scoped `user-library-read`+`user-library-modify` (manual auth-code flow — interactive bootstrap didn't fit Claude `!`); `SPOTIFY_LIBRARY_WRITES_ENABLED=true` on worker+backend (`infra/lambda.tf`, #290). **Prod-verified**: 동기화 PULLed 3 saved-library albums into the bucket tagged `preexisting`/`synced`, `writes_enabled=true`. Adding an album + 동기화 now saves to Spotify Library; pre-existing albums never deleted (immutable `source` side table). Library albums not yet in the catalog auto-enqueue for album-sync → surface on later syncs. **Residual (owner-only)**: archive the still-`draft` RFC → `docs/archive/` + drop this row. RFC → `docs/rfcs/FEAT-spotify-library-sync.md`.
-
-_STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, archived 2026-06-06); product-expansion freeze lifted 2026-06-06._
+_STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, archived 2026-06-06); product-expansion freeze lifted 2026-06-06. FEAT-spotify-library-sync DONE + LIVE 2026-06-08, archived 2026-06-09 (#288–#291) — `git log` + `docs/archive/done/rfcs/` authoritative._
 
 ---
 
