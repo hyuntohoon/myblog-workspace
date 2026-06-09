@@ -1,11 +1,18 @@
 # FEAT-spotify-library-sync: Spotify Library sync bucket
 
-- **Status**: draft
+- **Status**: done (shipped + prod-live 2026-06-08; archived 2026-06-09)
 - **Owner**: 박지훈
 - **Created**: 2026-06-08
-- **Plan row**: `plan.md` → FEAT-spotify-library-sync
+- **Plan row**: dropped on archive (`git log` authoritative)
 
 ---
+
+> ✅ **Shipped 2026-06-08, prod-verified.** shared_db V15 (`V15__spotify_library_sync.sql`, v0.15.0, shared_db #24)
+> → worker reconcile + Library client (Step 2, worker #41) → backend sync/state endpoints + contract (Step 3,
+> backend #60) → front bucket UI (front #116/#117). Workspace activation gates: apigateway route + merged
+> contract (#289), Gate-3 `SPOTIFY_LIBRARY_WRITES_ENABLED=true` + UI banner (#290), plan DONE (#291). Prod:
+> 동기화 PULLed 3 saved-library albums (`preexisting`/`synced`), `writes_enabled=true`; add-album + 동기화 saves to
+> Spotify; pre-existing albums never deleted (immutable `source` side table).
 
 ## Goal
 

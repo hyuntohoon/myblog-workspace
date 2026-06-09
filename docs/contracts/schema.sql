@@ -11,7 +11,8 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V13, verified against prod 2026-06-08.
+-- This file shows clean canonical DDL through V15 (V1–V13 prod-verified 2026-06-08;
+--   V14/V15 backfilled from migration DDL 2026-06-09 — both prod-applied + prod-live).
 -- NB — STAB-5 V13 renamed `categories`→`sections` and `posts.category_id`→`section_id`
 --   IN-PLACE (`ALTER TABLE ... RENAME`). Postgres carries constraints/indexes/FK across
 --   a rename by OID, so prod's PHYSICAL names still read the pre-V13 `categor*` form:
@@ -309,11 +310,15 @@ CREATE TABLE IF NOT EXISTS review_buckets (
   is_done    BOOLEAN     NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  parent_id  UUID        REFERENCES review_buckets(id) ON DELETE CASCADE   -- V11
+  parent_id  UUID        REFERENCES review_buckets(id) ON DELETE CASCADE,  -- V11
+  kind       TEXT        NOT NULL DEFAULT 'review'                         -- V15: marks the single spotify_library bucket
 );
 CREATE INDEX IF NOT EXISTS idx_review_buckets_parent_id ON review_buckets(parent_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_done
   ON review_buckets((true)) WHERE is_done;
+-- V15: at most one kind='spotify_library' bucket (constant-expression partial unique)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_spotify_library
+  ON review_buckets((true)) WHERE kind = 'spotify_library';
 
 CREATE TABLE IF NOT EXISTS review_bucket_items (
   id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -344,7 +349,7 @@ CREATE TABLE IF NOT EXISTS album_to_listen_items (
 );
 
 -- =============================================================================
--- Spotify Listening Cache — now-playing + recent (V9), play events (V10)
+-- Spotify Listening Cache — now-playing + recent albums (V9), play events (V10), recent tracks (V14)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS spotify_now_playing (
   id          SMALLINT    PRIMARY KEY DEFAULT 1,
@@ -379,10 +384,60 @@ CREATE TABLE IF NOT EXISTS spotify_play_events (
 );
 CREATE INDEX IF NOT EXISTS idx_spotify_play_events_played_at ON spotify_play_events(played_at);
 
+-- V14: rolling TRACK-level cache of the recently-played window (album-level = spotify_recent_albums).
+-- DENORMALIZED text + nullable album_id FK so tracks whose album isn't catalogued still display.
+CREATE TABLE IF NOT EXISTS spotify_recent_tracks (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  spotify_track_id TEXT        NOT NULL,
+  track_name       TEXT        NOT NULL,
+  artist_name      TEXT,
+  album_name       TEXT,
+  album_id         UUID        REFERENCES albums(id) ON DELETE SET NULL,
+  played_at        TIMESTAMPTZ NOT NULL,
+  source           TEXT        NOT NULL DEFAULT 'spotify',
+  synced_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_spotify_recent_tracks_play UNIQUE (spotify_track_id, played_at)
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_recent_tracks_played_at
+  ON spotify_recent_tracks(played_at);
+
+-- =============================================================================
+-- Spotify Library Sync — two-way saved-albums mirror (V15; FEAT-spotify-library-sync)
+-- review_buckets.kind='spotify_library' (above) + this immutable provenance side-table.
+-- =============================================================================
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'spotify_library_source') THEN
+    CREATE TYPE spotify_library_source AS ENUM ('myblog_added', 'preexisting');
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'spotify_library_state') THEN
+    CREATE TYPE spotify_library_state AS ENUM ('pending', 'synced', 'failed', 'needs_attention');
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS spotify_library_albums (
+  id             UUID                   PRIMARY KEY DEFAULT gen_random_uuid(),
+  album_id       UUID                   NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+  spotify_id     TEXT                   NOT NULL,                  -- denormalized for contains/PUT/DELETE
+  source         spotify_library_source NOT NULL,                 -- immutable provenance (never delete preexisting)
+  state          spotify_library_state  NOT NULL DEFAULT 'pending',
+  in_bucket      BOOLEAN                NOT NULL DEFAULT TRUE,     -- bucket intent
+  in_spotify     BOOLEAN                NOT NULL DEFAULT FALSE,    -- last-observed Library membership
+  last_error     TEXT,
+  last_synced_at TIMESTAMPTZ,                                      -- poll anchor
+  created_at     TIMESTAMPTZ            NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ            NOT NULL DEFAULT now(),
+  CONSTRAINT uq_spotify_library_albums_album UNIQUE (album_id)
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_library_albums_state ON spotify_library_albums(state);
+
 -- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
--- This file is current through V13 (categories→sections rename verified against
--- prod 2026-06-08; see the section-rename note in the header for prod's legacy
--- physical object names). Last full structural prod-verify 2026-06-05 (STAB-4).
+-- This file is current through V15. V1–V13 verified against prod 2026-06-08
+-- (categories→sections rename; see the section-rename note in the header for prod's
+-- legacy physical object names). V14 (spotify_recent_tracks) + V15 (spotify_library_albums
+-- + review_buckets.kind + 2 enums) backfilled from migration DDL 2026-06-09 — both
+-- prod-applied + prod-live. Last full structural prod-verify 2026-06-05 (STAB-4).
 -- =============================================================================

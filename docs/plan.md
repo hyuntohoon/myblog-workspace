@@ -6,9 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-spotify-library-sync** — ✅ **DONE + LIVE 2026-06-08**. D11 follow-up: a `review_buckets.kind='spotify_library'` bucket that explicitly two-way mirrors the owner's Spotify saved-albums Library (reqs 4/5/6; 1/2/3 were #287). Steps 1–4 shipped (shared_db V15 / v0.15.0 prod-applied; worker reconcile + Library client; backend sync/state endpoints + contract; front bucket UI) via a parallel build→adversarial-review workflow (fixed: backend concurrent-POST IntegrityError, worker SAVEPOINT PULL isolation). **All 3 activation gates applied**: apigateway POST route (`terraform apply`); Spotify token re-scoped `user-library-read`+`user-library-modify` (manual auth-code flow — interactive bootstrap didn't fit Claude `!`); `SPOTIFY_LIBRARY_WRITES_ENABLED=true` on worker+backend (`infra/lambda.tf`, #290). **Prod-verified**: 동기화 PULLed 3 saved-library albums into the bucket tagged `preexisting`/`synced`, `writes_enabled=true`. Adding an album + 동기화 now saves to Spotify Library; pre-existing albums never deleted (immutable `source` side table). Library albums not yet in the catalog auto-enqueue for album-sync → surface on later syncs. **Residual (owner-only)**: archive the still-`draft` RFC → `docs/archive/` + drop this row. RFC → `docs/rfcs/FEAT-spotify-library-sync.md`.
-
-_STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, archived 2026-06-06); product-expansion freeze lifted 2026-06-06._
+_STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, archived 2026-06-06); product-expansion freeze lifted 2026-06-06. FEAT-spotify-library-sync DONE + LIVE 2026-06-08, archived 2026-06-09 (#288–#291) — `git log` + `docs/archive/done/rfcs/` authoritative._
 
 ---
 
@@ -24,7 +22,7 @@ _STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, ar
 
 ## Later (트리거 대기)
 
-- **FEAT-genre-taxonomy** (draft, **deferred 2026-06-05** — 주인장 추후 착수) — genre branch-authoring v1 (2-tier single-parent tree, create + assign-parent only; seeded from prod `artists.genres`). RFC → `docs/rfcs/FEAT-genre-taxonomy.md`. v2+ (album↔genre linkage, multi-genre on write, cross-cutting filter, browse-by-genre view, rename/merge/delete) in the RFC Non-goals. Cross-repo (shared_db migration → seed → backend API + infra → contract → front). **Migration number: was soft-reserved V14, now bumped to V15** — STAB-5 (sections) took V13; `FEAT-member-dashboard-realdata` claims V14 (`spotify_recent_tracks`, 2026-06-08) since genres are deferred and hold no migration in code → genres = next-free V15. Re-confirm next-free + version/pin at un-defer. 착수 트리거 = 주인장 의향; UI 경로(OQ2) 는 그때 결정. Status draft. 의존 기능 `FEAT-genre-artist-distribution` 도 대기.
+- **FEAT-genre-taxonomy** (draft, **deferred 2026-06-05** — 주인장 추후 착수) — genre branch-authoring v1 (2-tier single-parent tree, create + assign-parent only; seeded from prod `artists.genres`). RFC → `docs/rfcs/FEAT-genre-taxonomy.md`. v2+ (album↔genre linkage, multi-genre on write, cross-cutting filter, browse-by-genre view, rename/merge/delete) in the RFC Non-goals. Cross-repo (shared_db migration → seed → backend API + infra → contract → front). **Migration number: now bumped to V16** — STAB-5 (sections) took V13; `FEAT-member-dashboard-realdata` took V14 (`spotify_recent_tracks`); `FEAT-spotify-library-sync` took V15 (`spotify_library_sync`, shared_db v0.15.0, prod-applied 2026-06-08) → genres = next-free V16. Re-confirm next-free + version/pin at un-defer. 착수 트리거 = 주인장 의향; UI 경로(OQ2) 는 그때 결정. Status draft. 의존 기능 `FEAT-genre-artist-distribution` 도 대기.
 
 ---
 
