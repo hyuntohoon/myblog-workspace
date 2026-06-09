@@ -1,6 +1,6 @@
 # MyBlog + Music Review — System Architecture
 
-> ⚠️ **Verify against code — this doc drifts.** The 2026-06-05 review (STAB-1) found ≥4 load-bearing errors here; the ones found were corrected (2026-06-05, STAB-4), but treat any specific claim (pins, queue type, auth, imports) as needing a code/tfstate check before relying on it. Source of truth: `docs/contracts/schema.sql` (current through V13) + `infra/`.
+> ⚠️ **Verify against code — this doc drifts.** The 2026-06-05 review (STAB-1) found ≥4 load-bearing errors here; the ones found were corrected (2026-06-05, STAB-4), but treat any specific claim (pins, queue type, auth, imports) as needing a code/tfstate check before relying on it. Source of truth: `docs/contracts/schema.sql` (current through V15) + `infra/`.
 
 ## Overview
 
@@ -197,6 +197,19 @@ EventBridge rate(15 minutes) → worker (event['source'] == 'aws.events')
 
 Separated from the SQS path so MusicBrainz latency cannot block album sync, and so an outage in MusicBrainz cannot fail SQS messages. The MBID_NOT_FOUND sentinel prevents repeat lookups for artists MusicBrainz doesn't know about. (A Gemini fallback was originally planned but is **not implemented** — non-English artists without an MBID match currently keep an empty `aliases` array; alias coverage improvement is tracked separately.)
 
+**3. SQS job-control messages** (backend-enqueued — Spotify two-way sync, FEAT-spotify-library-sync)
+
+```
+{"job":"spotify_library_sync"}  (backend POST /api/buckets/spotify-library/sync → blogSQS)
+  → worker mirrors the owner's Spotify saved-albums Library (GET/PUT/DELETE /me/albums)
+  → diff bucket intent vs Library; writes gated on SPOTIFY_LIBRARY_WRITES_ENABLED
+  → spotify_library_albums (V15) side-table = per-album provenance (source) + sync state
+{"job":"spotify_refresh"}  (backend POST /api/library/refresh-recent → blogSQS)
+  → worker re-pulls recently-played into spotify_recent_tracks (V14)
+```
+
+Per **hard rule #9** the user-facing endpoint only **enqueues** (202 Accepted); the worker does all Spotify I/O. `source` is immutable, so a pre-existing saved album is never removed on bucket-remove (req 5). Detail: `docs/contracts/sqs-album-sync.md` Format C + `docs/rfcs/FEAT-spotify-library-sync.md`.
+
 **Key design points**
 
 - **Batch processing** — groups of up to 20 reduce Spotify API calls to ⌈N/20⌉
@@ -213,7 +226,7 @@ Concrete IDs/ARNs in `infra/README.md`.
 | Infrastructure | Used by | Notes |
 |----------------|---------|-------|
 | **Neon PostgreSQL** | `myblog_backend`, `myblog_music`, `myblog_worker` | Serverless Postgres; connection via pooler URL. Not AWS RDS. |
-| **Amazon SQS** | `myblog_music` (enqueue), `myblog_worker` (consume) | **Standard** queue `blogSQS` (NOT FIFO; tfstate `fifo=False`) with DLQ `album-sync-dlq` (`maxReceiveCount=3`) + `ReportBatchItemFailures`; at-least-once + idempotent consumer |
+| **Amazon SQS** | `myblog_music` + `myblog_backend` (enqueue), `myblog_worker` (consume) | **Standard** queue `blogSQS` (NOT FIFO; tfstate `fifo=False`) with DLQ `album-sync-dlq` (`maxReceiveCount=3`) + `ReportBatchItemFailures`; at-least-once + idempotent consumer. Carries album-sync (music) + `{job:...}` control messages (backend) |
 | **AWS Cognito** | `myblog_backend` and `myblog_music` (JWT validation), `myblog_front` (login) | JWKS-based validation; bypassed when `ENV=local\|dev` or `COGNITO_USER_POOL_ID` unset |
 | **AWS Secrets Manager** | All four Lambdas | One secret per service, loaded once per cold start via `@lru_cache` |
 | **AWS EventBridge** | `myblog_worker` (alias generation schedule) | `rate(15 minutes)` — triggers `generate_and_save_aliases` (MusicBrainz only) |
@@ -231,7 +244,7 @@ Canonical DDL: `docs/contracts/schema.sql` (ARCH-1, ADR 0003).
 SQLAlchemy models are owned by `myblog_shared_db` (ARCH-6, ADR 0005) — a private Python package installed via git URL pin. Each consumer pins its own version (different services may lag the latest tag if they don't need the newest columns):
 ```
 # myblog_backend/requirements.txt
-myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.10.0   # latest tag v0.11.0
+myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.15.0   # latest tag v0.15.0
 # myblog_music/requirements.txt
 myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.3.0
 # myblog_worker/requirements.txt

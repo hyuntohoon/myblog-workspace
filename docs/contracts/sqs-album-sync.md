@@ -5,14 +5,14 @@
 **Account**: `338183196042`  
 **Type**: Standard queue (NOT FIFO)  
 **DLQ**: `album-sync-dlq` — redrive `maxReceiveCount=3`, 14-day retention, CloudWatch-alarmed (observe-only, no auto-redrive). Visibility timeout: 720s (raised from 30s to clear the worker timeout, STAB-3, applied 2026-06-05).  
-**Producer**: `myblog_music` (`app/clients/sqs_client.py`, Lambda: `musicApi`)  
+**Producer**: `myblog_music` (album sync, Format A/B — `app/clients/sqs_client.py`, Lambda: `musicApi`) + `myblog_backend` (job-control, Format C — `app/clients/sqs_client.py`, Lambda: `ratemymusic-api`)  
 **Consumer**: `myblog_worker` (`worker/handler.py`, Lambda: `blogWorkerLambda`)
 
 ---
 
 ## Message Formats
 
-Two formats are accepted. The consumer handles both in the same handler.
+Three formats are accepted. The consumer handles all in the same handler — album-sync (A/B, from `myblog_music`) and job-control (C, from `myblog_backend`).
 
 ### Format A — Batch (preferred)
 
@@ -47,6 +47,24 @@ Retained for backward compatibility. Prefer Format A for new integrations.
 | `spotify_album_id` | `string` | yes | Single Spotify album ID |
 | `market` | `string` | no | Defaults to `KR` if omitted |
 
+### Format C — Job-control messages (`myblog_backend`)
+
+Dispatched by the **backend** (not `myblog_music`) onto the same `blogSQS` queue. The user-facing
+endpoint only **enqueues** (202 Accepted) — per hard rule #9 the worker performs all Spotify I/O.
+These carry a `job` key and **no** `album_ids`/`market` fields.
+
+```json
+{ "job": "spotify_library_sync" }
+```
+
+| `job` value | Producer (backend) | Endpoint | Worker action |
+|---|---|---|---|
+| `spotify_library_sync` | `SqsClient.send_library_sync` | `POST /api/buckets/spotify-library/sync` | mirror saved-albums Library (GET/PUT/DELETE `/me/albums`); writes gated on the worker's own `SPOTIFY_LIBRARY_WRITES_ENABLED` |
+| `spotify_refresh` | `SqsClient.send_listening_refresh` | `POST /api/library/refresh-recent` | re-pull recently-played → `spotify_recent_tracks` (V14) |
+
+The worker dispatches on the `job` key (`handler.py`) **before** the Format A/B branches and before the
+unknown-format fallthrough — so these are recognized messages, not "unknown format".
+
 ---
 
 ## Producer Behaviour (`myblog_music`)
@@ -67,8 +85,8 @@ File: `worker/handler.py::lambda_handler`
 
 1. Reads `event["Records"]` (standard Lambda SQS event structure).
 2. For each record, parses `record["body"]` as JSON.
-3. Dispatches to `_process_batch` (Format A) or `_process_single` (Format B) based on key presence.
-4. Unknown formats are **logged as warnings** and the record is considered successful (not retried).
+3. Dispatches on the `job` key first (Format C: `spotify_library_sync`, `spotify_refresh`), then to `_process_batch` (Format A) or `_process_single` (Format B) based on key presence.
+4. **Unrecognized** formats (no `job`, no `album_ids`/`spotify_album_id`) are **logged as warnings** and the record is considered successful (not retried). Recognized `job` keys are NOT treated as unknown.
 5. Per-record exceptions are caught; the failing record's `messageId` is collected.
 6. Returns `{"batchItemFailures": [{"itemIdentifier": messageId}, ...]}` — SQS retries only failed records.
 
@@ -112,7 +130,7 @@ The worker receives the standard AWS Lambda SQS event. Each record follows this 
 | Scenario | Producer | Consumer |
 |---|---|---|
 | Empty `album_ids` list | Skips silently, nothing sent | `_process_batch` skips with log |
-| Unknown message format | N/A | Logs warning, record treated as success (no retry) |
+| Unrecognized format (no `job`/`album_ids`/`spotify_album_id`) | N/A | Logs warning, record treated as success (no retry) — recognized `job` keys (Format C) excluded |
 | Spotify API error | N/A | Record fails → added to `batchItemFailures` → SQS retries |
 | DB write error | N/A | Record fails → added to `batchItemFailures` → SQS retries |
 | `send_message_batch` partial failure | Logs warning | N/A |
