@@ -8,6 +8,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 _STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, archived 2026-06-06); product-expansion freeze lifted 2026-06-06. FEAT-spotify-library-sync DONE + LIVE 2026-06-08, archived 2026-06-09 (#288–#291) — `git log` + `docs/archive/done/rfcs/` authoritative._
 
+- **FEAT-album-catalog-ingest** (**accepted** 2026-06-10) — scheduled known-artist **new-release** ingest (lean-catalog: famous/planned-use only). EventBridge `rate(1 day)` → worker `{"job":"album_ingest"}` → sweep catalog artists `popularity≥60` (305 today, 30/tick cursor) via `GET /artists/{id}/albums?include_groups=album` (full-lengths only) → `release_date ≥ INGEST_SINCE` (**new-releases-only, no backfill** — owner pick) → dedup → album-pop ≥20 gate → existing SQS→`sync_albums_batch`. Est. ~150 albums/yr, zero burst. 3 steps: ① worker Spotify 429/5xx retry on batch path → ② ingest job + SQS-send → ③ infra EventBridge rule + IAM. RFC → `docs/rfcs/FEAT-album-catalog-ingest.md`. `browse/new-releases` rejected (probe: stale 2023–2025-07 + 73% junk singles); `/artists/{id}/albums` probed fresh. Storage NOT the constraint; cap 5000 = curation guardrail. Verification: per-step pytest; prod = one-shot invoke → gate-passing full-lengths only + no DLQ growth. Rollback: remove rule. Order: worker Step 1 → worker Step 2 → infra Step 3.
+
 ---
 
 ## Backlog
