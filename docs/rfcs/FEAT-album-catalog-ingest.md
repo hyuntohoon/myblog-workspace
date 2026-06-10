@@ -1,7 +1,7 @@
 # FEAT-album-catalog-ingest: Scheduled known-artist album ingest (curated, lean catalog)
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: accepted (owner "이걸로 가 accept" 2026-06-10 — new-releases-only mode + default gates)
+- **Owner**: 박지훈
 - **Created**: 2026-06-10
 - **Plan row**: `plan.md` → FEAT-album-catalog-ingest
 
@@ -70,20 +70,22 @@ retry so bulk ingest can't leak messages to the DLQ.
 - **New worker job** `{"job":"album_ingest"}`, routed in `handler.py` before the SQS-record branch.
 - **Source-agnostic contract.** `discover_new_album_ids(session) -> list[str]` is the only
   Spotify-coupled surface; swapping sources never touches the pipeline.
-- **First source: known-artist discography sweep with a quality gate.**
+- **First source: known-artist discography sweep, NEW-RELEASES-ONLY mode (owner-accepted).**
   - Eligible artists: `artists.popularity >= ARTIST_POP_MIN` (default 60 → 305 artists today).
     Catalog membership = "plan to use"; popularity gate = "famous".
   - Per tick, take the next `SWEEP_ARTISTS_PER_TICK` (default 30) eligible artists in stable
     order (cursor pattern like alias-fill) → `GET /artists/{id}/albums?include_groups=album`
-    (full-lengths only; no singles/compilations/appears_on) → collect IDs.
+    (full-lengths only; no singles/compilations/appears_on) → keep only
+    `release_date >= INGEST_SINCE` (set to the deploy date → **no back-catalog backfill**;
+    the reactive candidates path remains the on-demand route for older albums).
   - Dedup via `get_existing_spotify_ids()` → multi-get full albums for the novel IDs →
     drop `popularity < ALBUM_POP_MIN` (default 20; sheds dead variants/track-by-track
     editions) → enqueue survivors to `blogSQS` (≤20/msg, same contract as candidates),
     bounded by `MAX_ENQUEUE_PER_TICK` (default 60).
-  - Convergence: first sweeps backfill eligible discographies (~305 artists × ~8 full albums
-    ≈ 2.5k albums ≈ +18 MB worst case, well inside the cap); steady state absorbs only new
-    releases. A day-0 album below `ALBUM_POP_MIN` is re-evaluated on the next sweep
-    (~`305/30` ≈ 10 days) — self-healing, no extra state.
+  - Expected volume: ~150 albums/yr (305 artists × ~0.5 full-length/yr); zero initial burst.
+    A day-0 album below `ALBUM_POP_MIN` is re-evaluated on the next sweep cycle
+    (~`305/30` ≈ 10 days) — self-healing, no extra state; accepted trade-off = up to one
+    sweep-cycle ingest delay. Backfill later = relax `INGEST_SINCE` (config-only).
 - **429 retry on the batch path.** `spotify_client.SpotifyClient` honors `Retry-After` on 429
   and retries 5xx (mirror `spotify_user_client` policy).
 - **Curation soft-cap.** `MAX_CATALOG_ALBUMS` (default 5,000); job no-ops + warns when
@@ -113,13 +115,14 @@ cd myblog_worker && pytest worker/tests -k "spotify and retry" -q
 - `spotify_client.py`: add `get_artist_albums(artist_id, include_groups="album")` (paginate).
 - New `discover_new_album_ids(session)`: eligible-artist query
   (`popularity >= ARTIST_POP_MIN`, stable cursor, `SWEEP_ARTISTS_PER_TICK` per tick) →
-  discography fetch → DB dedup → multi-get novel albums → `ALBUM_POP_MIN` gate →
-  return ≤ `MAX_ENQUEUE_PER_TICK` IDs.
+  discography fetch → `release_date >= INGEST_SINCE` filter → DB dedup → multi-get novel
+  albums → `ALBUM_POP_MIN` gate → return ≤ `MAX_ENQUEUE_PER_TICK` IDs.
 - SQS-send client (≤20 IDs/msg, candidates contract). Route `{"job":"album_ingest"}` in
   `handler.py`: cap-check → discover → enqueue. Single `WARNING` summary line
   (prod `LOG_LEVEL=WARNING`): swept/discovered/novel/gated/enqueued counts + cursor pos.
-- Config: `ARTIST_POP_MIN=60`, `ALBUM_POP_MIN=20`, `SWEEP_ARTISTS_PER_TICK=30`,
-  `MAX_ENQUEUE_PER_TICK=60`, `MAX_CATALOG_ALBUMS=5000`.
+- Config (owner-accepted defaults): `ARTIST_POP_MIN=60`, `ALBUM_POP_MIN=20`,
+  `SWEEP_ARTISTS_PER_TICK=30`, `MAX_ENQUEUE_PER_TICK=60`, `MAX_CATALOG_ALBUMS=5000`,
+  `INGEST_SINCE=<deploy date>` (new-releases-only; relax for backfill).
 
 **Verification**:
 ```
@@ -152,16 +155,16 @@ cd infra && terraform plan   # clean except new rule + permission + IAM statemen
 
 ## Open questions
 
-1. **`ARTIST_POP_MIN` value** — 60 → 305 artists / est. ~2.5k-album backfill; 55 → 400 artists.
-   Higher = leaner. Owner picks (default 60). *Blocks Step 2 config.*
-2. **`ALBUM_POP_MIN` value** — gate to shed dead deluxe/track-by-track variants. Catalog album
-   pop p25=15, p50=35. Default 20; 0 disables. *Blocks Step 2 config.*
-3. **Backfill appetite** — first sweeps ingest full back-catalogs of eligible artists
-   (~2.5k albums est.). If owner wants new-releases-only instead, add
-   `release_date >= INGEST_SINCE` to the gate (config-only change). *Blocks Step 2.*
+1. ~~`ARTIST_POP_MIN`~~ — **resolved: 60** (305 artists). Owner-accepted 2026-06-10.
+2. ~~`ALBUM_POP_MIN`~~ — **resolved: 20**; accepted trade-off = up to one sweep cycle (≤10 d)
+   ingest delay for day-0 albums (re-evaluated each sweep; dead variants stay filtered).
+3. ~~Backfill appetite~~ — **resolved: new-releases-only** (`INGEST_SINCE` = deploy date).
+   Back-catalog stays on-demand via the reactive candidates path; backfill later is a
+   config-only change.
 4. **EPs** — Spotify tags most EPs `album_type=single`, so `include_groups=album` excludes
    them. Including EPs would require `include_groups=album,single` + `total_tracks >= 4`
-   heuristic — junk risk. Default: exclude; editor can still add any EP via search. *Step 2.*
+   heuristic — junk risk. Default: exclude; editor can still add any EP via search. Revisit
+   only if missed EPs become a felt gap. *Step 2 (non-blocking).*
 5. **Source longevity** — `/artists/{id}/albums` not on the Feb-2026 removal list and probed
    fresh, but the app is Dev Mode; if it degrades, the `discover_new_album_ids` seam swaps to
    `/search`-driven or editor-curated lists with no pipeline change. *Risk, not a blocker.*
@@ -174,3 +177,4 @@ cd infra && terraform plan   # clean except new rule + permission + IAM statemen
 | 2026-06-10 | Source-agnostic seam; pipeline reuses candidates→SQS→`sync_albums_batch` | 2 |
 | 2026-06-10 | **`browse/new-releases` rejected**: live probe showed stale (2023–2025-07 only, zero 2026) + 73% junk singles — fails owner's "famous or planned-use" bar | 2 |
 | 2026-06-10 | Source = known-artist discography sweep (`/artists/{id}/albums`, probed fresh) + artist/album popularity gates + full-lengths only | 2 |
+| 2026-06-10 | **Owner accept** ("이걸로 가 accept"): mode A new-releases-only; `ARTIST_POP_MIN=60`, `ALBUM_POP_MIN=20`, sweep 30/day, cap 5000. Status → accepted | — |
