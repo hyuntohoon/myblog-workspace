@@ -61,3 +61,35 @@ resource "aws_lambda_permission" "spotify_listening_events" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.spotify_listening.arn
 }
+
+# Album-catalog ingest — daily scheduled invocation of the worker Lambda
+# (FEAT-album-catalog-ingest Step 3).
+#
+# Constant input {"job":"album_ingest"} (same pattern as spotify_listening; the
+# handler routes on event["job"] before the alias source check). The job sweeps
+# gate-passing catalog artists for new full-length releases and enqueues novel
+# IDs onto the existing blogSQS album-sync pipeline — discover+enqueue only, the
+# upsert runs in the SQS consumer. Worker-role sqs:SendMessage and SQS_QUEUE_URL
+# already exist (worker_sqs_produce / lambda.tf). Removing this rule stops all
+# scheduled ingest immediately; the job code is inert without it.
+resource "aws_cloudwatch_event_rule" "album_ingest" {
+  name                = "worker-album-catalog-ingest"
+  description         = "Daily new-release sweep of catalog artists into the album-sync pipeline"
+  schedule_expression = "rate(1 day)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "album_ingest" {
+  rule      = aws_cloudwatch_event_rule.album_ingest.name
+  target_id = "blogWorkerLambda-album-ingest"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "album_ingest" })
+}
+
+resource "aws_lambda_permission" "album_ingest_events" {
+  statement_id  = "AllowInvokeFromEventBridgeAlbumIngest"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.album_ingest.arn
+}
