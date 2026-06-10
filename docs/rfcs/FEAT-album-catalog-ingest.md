@@ -1,4 +1,4 @@
-# FEAT-album-catalog-ingest: Scheduled new-album catalog ingest
+# FEAT-album-catalog-ingest: Scheduled known-artist album ingest (curated, lean catalog)
 
 - **Status**: draft
 - **Owner**: TBD
@@ -9,25 +9,30 @@
 
 ## Goal
 
-A scheduled, source-agnostic job grows the music catalog automatically. An EventBridge
-rule fires the worker on a fixed cadence; the worker produces a list of new Spotify album
-IDs (first source: `GET /browse/new-releases?country=KR`), filters out IDs already in the
-DB, and feeds the novel IDs through the **existing** ingest pipeline (SQS → `sync_albums_batch`
-upsert). The Spotify source is isolated behind one strategy function so it can be swapped
-or removed without touching the pipeline. The existing batch-upsert path gains Spotify 429
+A scheduled, source-agnostic job grows the music catalog with **only review-relevant albums**:
+full-length releases by artists already in the catalog that clear a popularity gate
+("famous, or something we plan to use" — owner's curation bar, 2026-06-10). An EventBridge
+rule fires the worker daily; the worker rotates through gate-passing catalog artists, pulls
+their discographies via `GET /artists/{id}/albums?include_groups=album`, filters, dedups
+against the DB, and feeds novel IDs through the **existing** ingest pipeline
+(SQS → `sync_albums_batch` upsert). The Spotify source sits behind one strategy function so
+it can be swapped without touching the pipeline. The batch-upsert path gains Spotify 429
 retry so bulk ingest can't leak messages to the DLQ.
 
 ## Non-goals
 
-- **Not** a display/feed feature. Surfacing new releases in the UI (per-review-artist cards,
-  `/api/music/feed/new-releases`, an `artist_new_releases` table) is the separate Frozen idea
-  **FEAT-new-release-feed** — this RFC only fills the catalog tables (`albums`/`tracks`/`artists`).
+- **Not** a display/feed feature. Surfacing new releases in the UI (`artist_new_releases`
+  table, `/api/music/feed/new-releases`, main-page cards) is the separate Frozen idea
+  **FEAT-new-release-feed** — this RFC only fills catalog tables (`albums`/`tracks`/`artists`).
+- **No `browse/new-releases` source.** Evaluated and rejected on evidence — see Current state.
+- **No singles/compilations ingest.** `include_groups=album` only. Reactive candidates path
+  (search-on-write) still ingests whatever the editor explicitly picks, singles included —
+  "쓸 계획이 있는" is already covered by that path.
 - **No DB migration / no provider change.** Storage is not the constraint: ~7 kB/album all-in,
-  current footprint 16 MB / 936 albums, Neon Free 0.5 GB ≈ 70k-album headroom (70× current).
-  Stay on Neon. The "limited capacity" cap here is a **curation policy**, not a storage wall.
-- **No eviction / LRU.** Headroom is vast; deleting albums is out of scope.
-- **No editorial ranking / chart import.** Spotify exposes no public chart/Top-50 API; the
-  per-album `popularity` field (already stored) is the only ranking proxy and is untouched here.
+  16 MB / 936 albums today, Neon Free 0.5 GB ≈ 70k-album headroom. The cap here is a
+  **curation policy**, not a storage wall. No eviction/LRU.
+- **No editorial ranking / chart import.** Spotify has no public chart API; per-album
+  `popularity` (already stored) is the only ranking proxy.
 - **No new user-facing endpoint.** Worker-internal only.
 
 ## Current state
@@ -37,50 +42,63 @@ retry so bulk ingest can't leak messages to the DLQ.
   (`{"album_ids":[...],"market":"KR"}`, ≤20/msg). The worker consumer
   (`myblog_worker/worker/handler.py` → `_process_batch` → `AlbumSyncService.sync_albums_batch`,
   `worker/service/sync_service.py`) bulk-upserts artists→albums→album_artists→tracks→track_artists
-  via raw SQL `ON CONFLICT DO UPDATE`. There is **no** "pull new albums" job.
+  via raw SQL `ON CONFLICT DO UPDATE`. There is **no** scheduled "pull albums" job.
 - **Dedup primitive exists.** `AlbumRepository.get_existing_spotify_ids()` already filters
-  known IDs (used by the candidates path).
+  known IDs (candidates path).
 - **Spotify client (client-credentials).** `worker/clients/spotify_client.py` — `get_albums`
-  (multi-get `/albums?ids=`, ≤20), `get_album` single, `get_artists` (≤50). **No retry** on
-  Spotify errors; a 429 propagates → SQS redelivers 3× → DLQ. Retry/backoff exists only in
-  `spotify_user_client.py` (user-auth flow), not here.
-- **Scheduled-job pattern exists.** `infra/eventbridge.tf` has two rules invoking
-  `blogWorkerLambda`: alias-fill `rate(15 minutes)` (`source==aws.events`, 10 artists/tick) and
-  listening-sync `rate(1 hour)` (constant input `{"job":"spotify_listening"}`). New jobs route
-  on `event.get("job")` in `handler.py`.
-- **Spotify access tier — Development Mode (probed 2026-06-10).** Despite the Feb-2026 changelog
-  marking `/albums` multi-get, `/search`, and `/browse/new-releases` as `[REMOVED]`, a live
-  client-credentials probe returned **HTTP 200 for all three** — existing integration is
-  grandfathered (Dev-Mode enforcement postponed, not enforced). Treat new-releases + multi-get
-  as **borrowed time**; `/search` and `/albums/{id}` are core metadata endpoints, lower removal risk.
-  (See memory `reference-spotify-devmode-endpoints-live`.)
+  (multi-get ≤20), `get_album`, `get_artists` (≤50). **No retry** on Spotify errors; a 429
+  propagates → SQS redelivers 3× → DLQ. Retry/backoff exists only in `spotify_user_client.py`.
+- **Scheduled-job pattern exists.** `infra/eventbridge.tf`: alias-fill `rate(15 minutes)`
+  (10 artists/tick, cursor = `musicbrainz_id IS NULL`) and listening-sync `rate(1 hour)`
+  (constant input `{"job":"spotify_listening"}`). New jobs route on `event.get("job")`.
+- **Catalog quality baseline (prod probe 2026-06-10).** 936 albums / 1,553 artists;
+  artist popularity p50=40, p75=55, p90=71; **305 artists ≥60, 400 ≥55**. Album types already
+  56% singles (from the reactive path).
+- **`browse/new-releases` is rotten — rejected as source (live probe 2026-06-10).** The KR
+  feed (100 items) returned release dates **2023-10 … 2025-07 only — zero 2026 entries**
+  (probe date 2026-06-10), 73% one-to-two-track singles, mostly non-KR EDM/J-pop. The
+  endpoint still answers HTTP 200 but is unmaintained ahead of its announced removal
+  (Feb-2026 changelog `[REMOVED]`, Dev-Mode enforcement postponed). Stale + junk-dominated =
+  exactly the catalog pollution this RFC must avoid.
+- **`GET /artists/{id}/albums` is alive AND fresh (live probe 2026-06-10).** Not on the
+  removal list; returns current data (BTS → 2026-03-27 release; Taylor Swift → 2025-11-07).
+  Multi-get `/albums?ids=`, `/artists?ids=`, `/search` also probed 200 (existing integration
+  grandfathered — memory `reference-spotify-devmode-endpoints-live`).
 
 ## Target state
 
 - **New worker job** `{"job":"album_ingest"}`, routed in `handler.py` before the SQS-record branch.
-- **Source-agnostic contract.** A strategy function `discover_new_album_ids() -> list[str]` is the
-  only Spotify-coupled surface. First implementation: paginate
-  `GET /browse/new-releases?country=KR` up to a bounded page count. Swapping/removing the source =
-  replace this one function; the pipeline below is untouched.
-- **Reuse the pipeline.** Job body: `discover` → `get_existing_spotify_ids()` filter →
-  enqueue novel IDs to `blogSQS` (≤20/msg, same contract as candidates) → existing consumer upserts.
-  Tick stays well under the 120 s Lambda budget (it only discovers + enqueues; heavy upsert runs in
-  the SQS consumer under its 720 s visibility window).
-- **429 retry on the batch path.** `spotify_client.SpotifyClient` honors `Retry-After` on 429 and
-  retries 5xx (mirror `spotify_user_client` policy), so bulk ingest doesn't bleed to the DLQ.
-- **Curation soft-cap.** `MAX_CATALOG_ALBUMS` setting; the job no-ops when `count(albums) >= cap`.
-  Policy guardrail (not storage). Logged when it trips.
-- **New EventBridge rule** `rate(1 day)` → `blogWorkerLambda` with constant input
-  `{"job":"album_ingest"}`, plus IAM `sqs:SendMessage` to `blogSQS` on the worker role.
+- **Source-agnostic contract.** `discover_new_album_ids(session) -> list[str]` is the only
+  Spotify-coupled surface; swapping sources never touches the pipeline.
+- **First source: known-artist discography sweep with a quality gate.**
+  - Eligible artists: `artists.popularity >= ARTIST_POP_MIN` (default 60 → 305 artists today).
+    Catalog membership = "plan to use"; popularity gate = "famous".
+  - Per tick, take the next `SWEEP_ARTISTS_PER_TICK` (default 30) eligible artists in stable
+    order (cursor pattern like alias-fill) → `GET /artists/{id}/albums?include_groups=album`
+    (full-lengths only; no singles/compilations/appears_on) → collect IDs.
+  - Dedup via `get_existing_spotify_ids()` → multi-get full albums for the novel IDs →
+    drop `popularity < ALBUM_POP_MIN` (default 20; sheds dead variants/track-by-track
+    editions) → enqueue survivors to `blogSQS` (≤20/msg, same contract as candidates),
+    bounded by `MAX_ENQUEUE_PER_TICK` (default 60).
+  - Convergence: first sweeps backfill eligible discographies (~305 artists × ~8 full albums
+    ≈ 2.5k albums ≈ +18 MB worst case, well inside the cap); steady state absorbs only new
+    releases. A day-0 album below `ALBUM_POP_MIN` is re-evaluated on the next sweep
+    (~`305/30` ≈ 10 days) — self-healing, no extra state.
+- **429 retry on the batch path.** `spotify_client.SpotifyClient` honors `Retry-After` on 429
+  and retries 5xx (mirror `spotify_user_client` policy).
+- **Curation soft-cap.** `MAX_CATALOG_ALBUMS` (default 5,000); job no-ops + warns when
+  `count(albums) >= cap`.
+- **New EventBridge rule** `rate(1 day)` → `blogWorkerLambda`, constant input
+  `{"job":"album_ingest"}`; worker role gains `sqs:SendMessage` on `blogSQS`.
 
 ## Steps
 
 ### Step 1 — worker: 429/5xx retry on the client-credentials SpotifyClient
 
 Add `Retry-After`-aware retry + bounded exponential backoff to `spotify_client.py`
-(`get_albums`/`get_album`/`get_artists`), matching `spotify_user_client.py`'s policy
-(retryable `{429,500,502,503,504}`, max 3 tries, `Retry-After` capped). Hardens the **existing**
-reactive ingest too; independently mergeable and shippable before any new job exists.
+(`get_albums`/`get_album`/`get_artists`, + the new artist-albums call), matching
+`spotify_user_client.py` policy (retryable `{429,500,502,503,504}`, max 3 tries,
+`Retry-After` capped). Hardens the existing reactive ingest too; independently mergeable.
 
 **Verification**:
 ```
@@ -90,63 +108,69 @@ cd myblog_worker && pytest worker/tests -k "spotify and retry" -q
 
 ---
 
-### Step 2 — worker: `album_ingest` job (source-agnostic) + dedup + enqueue
+### Step 2 — worker: `album_ingest` job (discography sweep + gate + dedup + enqueue)
 
-- Add `discover_new_album_ids()` strategy (new-releases, `country=KR`, bounded pages) +
-  an SQS-send client (`sqs:SendMessage` to `blogSQS`, ≤20 IDs/msg, reusing the candidates contract).
-- Route `{"job":"album_ingest"}` in `handler.py`: cap-check (`MAX_CATALOG_ALBUMS`) → discover →
-  `get_existing_spotify_ids()` filter → enqueue novel IDs. Structured `logger.info` of
-  discovered/novel/enqueued counts (prod Lambda is `LOG_LEVEL=WARNING` → also emit a single
-  `WARNING` summary line so it lands in CloudWatch).
-- Config: `MAX_CATALOG_ALBUMS`, `NEW_RELEASE_PAGES` (or page-size/offset), `country` default `KR`.
+- `spotify_client.py`: add `get_artist_albums(artist_id, include_groups="album")` (paginate).
+- New `discover_new_album_ids(session)`: eligible-artist query
+  (`popularity >= ARTIST_POP_MIN`, stable cursor, `SWEEP_ARTISTS_PER_TICK` per tick) →
+  discography fetch → DB dedup → multi-get novel albums → `ALBUM_POP_MIN` gate →
+  return ≤ `MAX_ENQUEUE_PER_TICK` IDs.
+- SQS-send client (≤20 IDs/msg, candidates contract). Route `{"job":"album_ingest"}` in
+  `handler.py`: cap-check → discover → enqueue. Single `WARNING` summary line
+  (prod `LOG_LEVEL=WARNING`): swept/discovered/novel/gated/enqueued counts + cursor pos.
+- Config: `ARTIST_POP_MIN=60`, `ALBUM_POP_MIN=20`, `SWEEP_ARTISTS_PER_TICK=30`,
+  `MAX_ENQUEUE_PER_TICK=60`, `MAX_CATALOG_ALBUMS=5000`.
 
 **Verification**:
 ```
 cd myblog_worker && pytest worker/tests -k album_ingest -q
-# local invoke: handler({"job":"album_ingest"}) with mocked new-releases + mocked SQS send
-#   → asserts known IDs filtered out, only novel IDs enqueued in ≤20 chunks, cap short-circuits
+# unit: mocked discography + mocked SQS → asserts: singles never requested (include_groups),
+#   known IDs filtered, low-pop albums gated, ≤20/msg chunks, per-tick cap, catalog cap short-circuit,
+#   cursor advances and wraps
 ```
 
-**Rollback**: job is additive and only fires on the new EventBridge rule (Step 3); not wiring
-the rule = dead code, no behavior change.
+**Rollback**: additive; without the Step 3 rule it is dead code.
 
 ---
 
 ### Step 3 — infra: EventBridge rule + worker SQS-send IAM
 
-`infra/eventbridge.tf`: new `rate(1 day)` rule → `blogWorkerLambda`, constant input
-`{"job":"album_ingest"}`, with the matching `aws_lambda_permission`. Add `sqs:SendMessage`
-(+ `GetQueueUrl`) on `blogSQS` to the worker Lambda role.
+`infra/eventbridge.tf`: `rate(1 day)` rule → `blogWorkerLambda`, constant input
+`{"job":"album_ingest"}`, matching `aws_lambda_permission`. Worker role: `sqs:SendMessage`
+(+ `GetQueueUrl`) on `blogSQS`.
 
 **Verification**:
 ```
-cd infra && terraform plan   # clean except the new rule + permission + IAM statement
-# post-merge: manual one-shot invoke, then confirm albums row count rises + no DLQ growth
+cd infra && terraform plan   # clean except new rule + permission + IAM statement
+# post-merge: one-shot manual invoke → albums count rises only with gate-passing full-lengths,
+#   no DLQ growth, WARNING summary visible in CloudWatch
 ```
 
-**Rollback**: `terraform apply` removing the rule stops all ingest immediately; Steps 1–2 stay inert.
+**Rollback**: `terraform apply` removing the rule stops ingest immediately; Steps 1–2 inert.
 
 ---
 
 ## Open questions
 
-1. **Enqueue-to-SQS vs inline upsert in the tick** — chosen: enqueue (reuse batch path + DLQ +
-   stay under 120 s). Worker enqueues to the same `blogSQS` it consumes; confirm no feedback loop
-   (it won't — consumer never enqueues) and IAM scoping. *Blocks Step 2.*
-2. **`MAX_CATALOG_ALBUMS` value** — curation policy, not storage. Suggest 5,000 (5× current, still
-   <0.1 GB). Owner picks. *Blocks Step 2 config.*
-3. **Absorption rate per tick** — how many new albums/day to pull (`NEW_RELEASE_PAGES` × page size,
-   chunked to ≤20/msg). Suggest a small bound (e.g. ≤100/day) to keep Spotify load + DLQ risk low.
-   *Blocks Step 2.*
-4. **Markets** — `country=KR` only, or add others later? KR-only for v1. *Blocks Step 2 strategy
-   (additive later).*
-5. **Source longevity** — new-releases is Dev-Mode borrowed time. If it 403s post-enforcement, the
-   source-agnostic seam lets us swap to a `/search`-driven or editor-curated strategy with no
-   pipeline change. *Risk, not a blocker.*
+1. **`ARTIST_POP_MIN` value** — 60 → 305 artists / est. ~2.5k-album backfill; 55 → 400 artists.
+   Higher = leaner. Owner picks (default 60). *Blocks Step 2 config.*
+2. **`ALBUM_POP_MIN` value** — gate to shed dead deluxe/track-by-track variants. Catalog album
+   pop p25=15, p50=35. Default 20; 0 disables. *Blocks Step 2 config.*
+3. **Backfill appetite** — first sweeps ingest full back-catalogs of eligible artists
+   (~2.5k albums est.). If owner wants new-releases-only instead, add
+   `release_date >= INGEST_SINCE` to the gate (config-only change). *Blocks Step 2.*
+4. **EPs** — Spotify tags most EPs `album_type=single`, so `include_groups=album` excludes
+   them. Including EPs would require `include_groups=album,single` + `total_tracks >= 4`
+   heuristic — junk risk. Default: exclude; editor can still add any EP via search. *Step 2.*
+5. **Source longevity** — `/artists/{id}/albums` not on the Feb-2026 removal list and probed
+   fresh, but the app is Dev Mode; if it degrades, the `discover_new_album_ids` seam swaps to
+   `/search`-driven or editor-curated lists with no pipeline change. *Risk, not a blocker.*
 
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
-| 2026-06-10 | Source = `/browse/new-releases?country=KR`, automated EventBridge schedule, stay on Neon (storage not the constraint) | — |
-| 2026-06-10 | Source-agnostic seam: pipeline reuses existing candidates→SQS→`sync_albums_batch` path | 2 |
+| 2026-06-10 | Automated EventBridge schedule; stay on Neon (storage not the constraint; cap = curation policy) | — |
+| 2026-06-10 | Source-agnostic seam; pipeline reuses candidates→SQS→`sync_albums_batch` | 2 |
+| 2026-06-10 | **`browse/new-releases` rejected**: live probe showed stale (2023–2025-07 only, zero 2026) + 73% junk singles — fails owner's "famous or planned-use" bar | 2 |
+| 2026-06-10 | Source = known-artist discography sweep (`/artists/{id}/albums`, probed fresh) + artist/album popularity gates + full-lengths only | 2 |
