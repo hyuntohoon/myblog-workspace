@@ -178,3 +178,5 @@ cd infra && terraform plan   # clean except new rule + permission + IAM statemen
 | 2026-06-10 | **`browse/new-releases` rejected**: live probe showed stale (2023–2025-07 only, zero 2026) + 73% junk singles — fails owner's "famous or planned-use" bar | 2 |
 | 2026-06-10 | Source = known-artist discography sweep (`/artists/{id}/albums`, probed fresh) + artist/album popularity gates + full-lengths only | 2 |
 | 2026-06-10 | **Owner accept** ("이걸로 가 accept"): mode A new-releases-only; `ARTIST_POP_MIN=60`, `ALBUM_POP_MIN=20`, sweep 30/day, cap 5000. Status → accepted | — |
+| 2026-06-10 | Step 1 merged + deployed (worker #42); Step 2 merged + deployed (worker #43, incl. drive-by fix of nonexistent `spotify.get_album` in the DRY_RUN single path) | 1–2 |
+| 2026-06-10 | Step 3 merged (#298) + `terraform apply` (3 added, no drift); rule ENABLED. One-shot prod invoke: `eligible=305 swept=30 discovered=351 fresh=0 novel=0 enqueued=0` — new-releases-only gate rejects back-catalog as designed; albums 936→936, DLQ 0→0, ~10 s/tick. **All steps prod-live; feature complete.** Archive move = human-only, owner's call | 3 |
