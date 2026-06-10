@@ -1,9 +1,9 @@
 # FEAT-album-catalog-ingest: Scheduled known-artist album ingest (curated, lean catalog)
 
-- **Status**: accepted (owner "이걸로 가 accept" 2026-06-10 — new-releases-only mode + default gates)
+- **Status**: done (2026-06-10 — Steps 1–3 merged + deployed + prod-verified same day; ws #297/#298/#299, worker #42/#43; rule `worker-album-catalog-ingest` ENABLED, one-shot invoke `eligible=305 … enqueued=0` as designed. Archived on owner approval 2026-06-10)
 - **Owner**: 박지훈
 - **Created**: 2026-06-10
-- **Plan row**: `plan.md` → FEAT-album-catalog-ingest
+- **Plan row**: `plan.md` → FEAT-album-catalog-ingest (dropped on completion, #299)
 
 ---
 
