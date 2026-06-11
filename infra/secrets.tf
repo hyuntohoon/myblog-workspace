@@ -124,3 +124,54 @@ resource "aws_iam_role_policy_attachment" "worker_spotify_secrets_write" {
   policy_arn = aws_iam_policy.spotify_secrets_write.arn
 }
 
+
+# --- myblog/anthropic (FEAT-album-research-notes) ---
+# Feature-scoped Anthropic API key (RFC Forward-compat: one feature family ↔ one
+# credential; FEAT-ai-editorial-critique reuses this entry). Terraform creates
+# the CONTAINER only — the SecretString (ANTHROPIC_API_KEY) is set by the owner
+# in the console, so no key material ever enters tfstate.
+resource "aws_secretsmanager_secret" "anthropic" {
+  name        = "myblog/anthropic"
+  description = "Anthropic API key for editorial AI features (album research, critique)"
+}
+
+# Research worker needs: consume researchSQS + write its own log group + read
+# the anthropic secret. The reused worker role's existing grants are scoped to
+# blogSQS / the blogWorkerLambda log group only, so this is a separate policy.
+resource "aws_iam_policy" "research_worker_extras" {
+  name        = "myblog-research-worker"
+  description = "researchWorkerLambda: consume researchSQS, own logs, read myblog/anthropic"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:ChangeMessageVisibility",
+        ]
+        Resource = aws_sqs_queue.research_sqs.arn
+      },
+      {
+        Effect = "Allow"
+        Action = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = [
+          "arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/lambda/researchWorkerLambda:*"
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = [aws_secretsmanager_secret.anthropic.arn]
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "worker_research_extras" {
+  role       = aws_iam_role.worker.name
+  policy_arn = aws_iam_policy.research_worker_extras.arn
+}
