@@ -253,9 +253,20 @@ existing Lambda. The `POST /api/research/...` API GW JWT route ships **with Step
    900s, `myblog/anthropic` container, research-worker IAM; PRs #304/#306; `terraform apply` done
    + live-verified). **Inert in $0 mode** — kept as the cloud-autonomous upgrade switch. The $0
    path does **not** depend on this step.
-3. **local poller — the $0 executor.** A standalone operator script (proposed
-   `scripts/research_poller.py`, workspace-level — shares no code with the deployed Lambda; not
-   deployed anywhere) that: reads prod `DATABASE_URL` from `myblog/backend`; loops on a poll
+3. **local poller — the $0 executor.** ✅ **IMPLEMENTED + verified 2026-06-11** (this branch,
+   pre-merge). `scripts/research_poller.py` + vendored `scripts/album_research_v2.md` (prompt doc
+   lines 1–98). One real end-to-end run measured against **prod DB**: *Blonde* — Frank Ocean,
+   `claude -p` opus-4.8, **162.6s (~2.7 min)**, 5253-char Korean note with **12 live citations**
+   (Wikipedia/Complex/HipHopDX/The FADER), correct `[확인]/[미확인]` markers + disambiguation
+   (Blond/Blonde, *Endless*), `status='done'`. Failed-row re-claim verified (forced `failed` →
+   claim gate flips it to `running`). Two CLI-reporting caveats found + documented in code: the
+   `claude -p` JSON `search_count` aggregate reads 0 even when the model demonstrably fetched (the
+   citations are the grounding evidence), and `tokens_in` is inflated by Claude Code's own cached
+   system prompt vs the API-path bench (~49k) — order-of-magnitude audit only, $0 on subscription.
+   Test row deleted after verify (prod `album_research` back to 0). Runs via
+   `myblog_backend/.venv/bin/python` (psycopg3 + boto3). **PR #309.** Original spec: a standalone
+   operator script (`scripts/research_poller.py`, workspace-level — shares no code with the deployed
+   Lambda; not deployed anywhere) that: reads prod `DATABASE_URL` from `myblog/backend`; loops on a poll
    interval; **claims** a `queued`/stale row (conditional UPDATE above); builds the prompt
    (vendored v2 + addendum + the row's album metadata; `instruction` present ⇒ refine, prior note
    included); shells `claude -p … --allowedTools WebSearch,WebFetch --output-format json`; parses
@@ -328,9 +339,12 @@ both.
   not the Agent SDK.** Same cost ($0 subscription) and quality; chosen for a tiny/transparent
   poller and because the poller (not the model) does the DB write. Agent SDK reconsidered only if
   this grows into a standing service.
-- **OQ5 (open, decide at Step 3)**: poller host + schedule — a foreground `loop`/launchd/cron on
-  the owner's Mac vs a small always-on box. Affects only "how often it drains," not correctness
-  (queued rows wait). Start with a manual/`loop` run; formalize if it proves annoying.
+- ~~OQ5: poller host + schedule~~ — **resolved 2026-06-11 (Step 3)**: start with **manual `--once`
+  / `/loop` runs on the owner's Mac** (via `myblog_backend/.venv/bin/python`), **no launchd/cron
+  yet**. Correctness is independent of cadence — queued rows wait until the poller runs; serial
+  processing + a 30s inter-run sleep keep a bucket-wide `'all'` flip within the subscription rate
+  window. Formalize to launchd/cron only if hand-draining proves annoying. (The poller's machine
+  must be on — accepted caveat; the dormant Lambda is the machine-off-autonomous upgrade.)
 
 ## Forward-compat: per-feature API keys → per-user keys
 
