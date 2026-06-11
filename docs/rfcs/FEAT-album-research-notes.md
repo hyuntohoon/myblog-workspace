@@ -1,6 +1,6 @@
 # FEAT-album-research-notes: auto AI research notes for bucketed albums
 
-- **Status**: draft
+- **Status**: accepted (2026-06-11, owner: "승격하고")
 - **Owner**: 박지훈
 - **Created**: 2026-06-11
 - **Plan row**: `plan.md` → FEAT-album-research-notes
