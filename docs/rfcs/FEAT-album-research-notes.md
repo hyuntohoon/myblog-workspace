@@ -1,6 +1,10 @@
 # FEAT-album-research-notes: auto AI research notes for bucketed albums
 
-- **Status**: accepted (2026-06-11, owner: "승격하고")
+- **Status**: accepted (2026-06-11, owner: "승격하고"). **Execution backend pivoted 2026-06-11**
+  (owner: subscription-cost, not API): primary executor = **local poller → headless Claude Code
+  ($0 on the Max subscription)**. The paid `researchSQS`/`researchWorkerLambda` path (built +
+  prod-applied in Steps 1–2) is retained **dormant** as the cloud-autonomous upgrade. See
+  Execution backend below.
 - **Owner**: 박지훈
 - **Created**: 2026-06-11
 - **Plan row**: `plan.md` → FEAT-album-research-notes
@@ -9,17 +13,20 @@
 
 ## Goal
 
-When the owner adds an album to a review bucket, the system **automatically researches it** —
-running `docs/editorial/album-research-prompt.md` (v2, lines 1–98) against the live web via the
-Anthropic API — and stores the resulting Korean research note **per album** in the DB. The note
-(non-audible grounds: credits, samples, production method, genre coordinates, lineage, angles,
-with citations and 상충/불채택 honesty sections) is then readable in the writer GUI next to the
-bucket item, so pre-writing research is one click away from where review intent is declared.
+When the owner adds an album to a review bucket, the system **researches it** — running
+`docs/editorial/album-research-prompt.md` (v2, lines 1–98) against the live web — and stores the
+resulting Korean research note **per album** in the DB. The note (non-audible grounds: credits,
+samples, production method, genre coordinates, lineage, angles, with citations and 상충/불채택
+honesty sections) is then readable in the writer GUI next to the bucket item, so pre-writing
+research is one click away from where review intent is declared.
 
-The auto-trigger is the bucket itself — **opt-in per bucket** (`off`/`all`/`selected` + per-album
-checkboxes), with manual research/refine available for any album from the board or `/write`. No
-polling, no catalog-wide scans, no duplicate calls — each (album, prompt version) runs exactly
-once unless the owner explicitly restarts or refines it.
+The trigger is the bucket itself — **opt-in per bucket** (`off`/`all`/`selected` + per-album
+checkboxes), with manual research/refine available for any album from the board or `/write`. A
+bucket-add writes a `queued` row (DB only, **zero AI cost**); a **local poller** on the owner's
+machine picks queued rows up and runs the research via **headless Claude Code** (`claude -p`),
+which executes on the Max **subscription** — so the research itself costs **$0**, at the opus 4.8
+quality the bench selected. No catalog-wide scans, no duplicate calls — each (album, prompt
+version) runs exactly once unless the owner explicitly restarts or refines it.
 
 Validation behind this: 2026-06-09/10 manual validation on 6 albums (prompt doc §Validation log)
 plus a 2026-06-11 4-model × 3-album bench (haiku/sonnet/opus/fable). Verdict: **opus 4.8** —
@@ -33,11 +40,12 @@ for this RFC.
 - **Public display.** Notes are for the writer, not readers. No public page section, no contract
   exposure beyond authed routes. (Owner decision 2026-06-11: "이건 글 쓰는 사람을 위한거야".)
 - **Backlog backfill** of the ~50 already-bucketed albums. Deferred (owner: "나중에 생각하자").
-  When wanted, options are Claude Code batch ($0, like the 2026-06-11 bench) or running the
-  pipeline over existing items; a one-shot enqueue script is trivial once Steps 1–4 exist.
+  Trivial once Step 3 exists: one SQL insert of `queued` rows for the existing items, then let the
+  poller drain them ($0). No separate tooling needed.
 - **The critique feature** (`FEAT-ai-editorial-critique`, separate draft RFC). Research notes
-  gather grounds *before* writing; critique reviews a draft *after*. They share the Anthropic
-  dependency but no code path yet — first-mover lands the API-key secret, the other reuses it.
+  gather grounds *before* writing; critique reviews a draft *after*. Shared dependency is now the
+  **subscription executor pattern** (or, on the paid path, the `myblog/anthropic` key) — no shared
+  code yet.
 - **Auto re-research on prompt bump.** A new prompt version does not fan out re-runs over the
   bucket. Re-research is per-album, manual (restart or refine POST).
 - **Track/artist research, review generation, fact-check engine.** Out of scope.
@@ -61,56 +69,86 @@ for this RFC.
 - **No Anthropic anything** in any repo (unchanged from the 2026-06-06 grep; no SDK, no key, no
   prompt asset wired in).
 
+## Execution backend (the 2026-06-11 pivot)
+
+The data model, trigger, dedupe, and GUI are **executor-agnostic** — `album_research(queued)` is
+both the worklist and the store, regardless of who drains it. The owner chose the **$0 path** as
+primary; the paid path stays built but dormant.
+
+| | **Primary — local poller (chosen)** | **Dormant — Lambda (built, prod-applied)** |
+|---|---|---|
+| Executor | `claude -p` headless Claude Code | `anthropic` SDK in `researchWorkerLambda` |
+| Auth / cost | Max **subscription** → **$0** | `myblog/anthropic` API key → ~$1/run |
+| Where it runs | owner's machine (a poller process) | AWS, fully unattended |
+| Trigger reach | poller polls the table | backend sends to `researchSQS` |
+| Quality | opus 4.8 (same model/tools as bench) | opus 4.8 |
+| Trade-off | machine must be on; subject to subscription rate limits | always-on, but costs money |
+
+Why the split is cheap to keep: the trilemma is **{$0, machine-off-autonomous, opus-quality} —
+pick two**. $0 + opus today, with the Lambda as the one-flag upgrade to machine-off-autonomous
+when/if recurring volume justifies paying. The infra (researchSQS/Lambda/`myblog/anthropic`) is
+already applied to prod (Steps 1–2) and is inert as long as the backend never feeds the queue —
+flipping to it later is "set the API-key value + have the backend `send_album_research()`".
+
+**Headless legitimacy / limits**: `claude -p` (and the Claude Agent SDK) are first-party
+automation surfaces — this is **not** browser-scraping claude.ai. Caveats the owner accepted:
+(a) the poller's host must be running; (b) a 50-album backlog batch can hit the subscription's
+rolling usage window → drain across a day; steady-state (occasional new album) is well within
+limits.
+
 ## Design
 
 ```
-add_item() ──(no album_research row?)──▶ researchSQS ──▶ researchWorkerLambda
-                                                            │ claim row (queued→running, conditional UPDATE)
-                                                            │ anthropic messages.create:
-                                                            │   model=claude-opus-4-8
-                                                            │   system = album-research-prompt v2 (vendored)
-                                                            │   tools = web_search_20260209 (max_uses cap)
-                                                            │         + web_fetch_20260209
-                                                            │   pause_turn continuation loop
-                                                            ▼
-                                                   album_research.result_md (done)
-writer GUI (BucketBoard panel) ◀── authed GET ───────┘
+[web] add_item() / scope PATCH ─▶ album_research(queued)        ← DB only, $0, no AI
+                                        ▲
+[local poller  (owner machine, cron/launchd/loop)]              ← Step 3
+   every N min:
+     claim: UPDATE … SET status='running' WHERE status='queued' (or stale) RETURNING
+     for each: claude -p "<vendored prompt v2>\n\n앨범: <row metadata>"
+                 --allowedTools WebSearch,WebFetch --output-format json
+     parse note + usage → UPDATE result_md / tokens / status='done' (or 'failed' + error)
+                                        │
+writer GUI (BucketBoard + /write) ◀── authed GET ──┘            ← Step 5
+
+[dormant] researchSQS ▷ researchWorkerLambda (anthropic SDK)    ← built; unfed in $0 mode
 ```
 
-**Dedupe / no-duplicate-call invariants (two layers):**
+**Dedupe / no-duplicate-call invariants (two layers, executor-independent):**
 
-1. *Enqueue gate (backend)* — `add_item()` inserts an `album_research` row
-   (`status='queued'`) **only if** no row exists for `(album_id, prompt_version)`; enqueues only
-   on successful insert (`ON CONFLICT DO NOTHING` + rowcount check). Re-adding the same album to
-   another bucket, button mashing, double-submit: zero extra messages.
-2. *Claim gate (worker)* — handler does `UPDATE album_research SET status='running',
-   started_at=NOW() WHERE album_id=… AND prompt_version=… AND (status IN ('queued','failed')
-   OR (status='running' AND started_at < NOW() - INTERVAL '20 minutes')) RETURNING id`; if no
-   row claimed, exit silently. SQS at-least-once redelivery and DLQ replays therefore never
-   produce a second API call for a completed run. The **stale-`running` clause** is the
-   crash-recovery path: if the Lambda dies mid-run (timeout kill, OOM), the row would otherwise
-   be stuck `running` forever with nothing able to re-claim it — the 20-min staleness window
-   (run budget is ≤15 min) lets the SQS redelivery pick it up.
+1. *Enqueue gate (backend)* — the trigger inserts an `album_research` row (`status='queued'`)
+   **only if** no row exists for `(album_id, prompt_version)` (`INSERT … ON CONFLICT DO NOTHING`
+   + rowcount check). Re-adding the same album to another bucket, button mashing, double-submit:
+   zero extra rows. (In $0 mode the insert *is* the enqueue — no SQS send.)
+2. *Claim gate (poller)* — `UPDATE album_research SET status='running', started_at=NOW() WHERE
+   id=… AND (status IN ('queued','failed') OR (status='running' AND started_at < NOW() -
+   INTERVAL '20 minutes')) RETURNING id`; if no row claimed, skip. This makes the poll loop
+   single-flight even if two poller instances run, and the **stale-`running` clause** is
+   crash-recovery: a poller killed mid-run (laptop sleep, `claude -p` crash) would otherwise
+   strand the row in `running` — the 20-min window (a run is ≤~10 min) lets the next poll
+   re-claim it. (The dormant Lambda path uses the identical claim against SQS redelivery.)
 
-**Failure path**: exception → `status='failed'` + `error` recorded; SQS retry (maxReceive 3) can
-re-claim `failed`; after DLQ, the manual restart POST is the recovery lever (restart accepts
-`done`, `failed`, and stale-`running` rows).
+**Failure path**: `claude -p` non-zero exit / parse failure / timeout → `status='failed'` +
+`error` recorded; next poll re-claims `failed`; the manual restart POST is the operator recovery
+lever (restart accepts `done`, `failed`, and stale-`running` rows).
 
-**Cost guard**: `web_search` declared with `max_uses` (bound per-run search spend; tune from the
-Step 3 measured run), `max_tokens` ceiling, and the enqueue gate above means total spend is
-bounded by bucket adds — there is no autonomous fan-out surface.
+**Cost / rate guard**: in $0 mode there is no per-run dollar spend; the bound is the
+subscription's usage window. The poller processes **serially** (one `claude -p` at a time, small
+inter-run sleep) so a `research_mode='all'` flip of dozens of albums drains steadily instead of
+spiking the rate limit. `--allowedTools WebSearch,WebFetch` only (no Bash/Edit) so a headless run
+can't touch the repo or filesystem; DB writes are done by the **poller**, not the model.
 
-**Prompt vendoring**: worker ships `worker/prompts/album_research_v2.md` = lines 1–98 of
-`docs/editorial/album-research-prompt.md`, **plus a pipeline addendum**: (a) the prompt's
-workflow step 1 says "if ambiguous, present the candidates and confirm" — there is no human
-mid-run, so the addendum instructs the model to pin the release itself and record any ambiguity
-under 앨범 식별 (the 2026-06-11 bench ran exactly this addendum successfully on all 12 runs);
-(b) disambiguation is largely pre-solved anyway — the user message carries the album row's
-metadata (artist, title, release_date, label, spotify id), not a bare title. `PROMPT_VERSION =
-"v2"` recorded on every row.
-Single-source-vs-drift is accepted as the same OQ1 as FEAT-ai-editorial-critique: the workspace
-doc stays canonical; copying into the worker is a deliberate build-time act that bumps
-`PROMPT_VERSION`.
+**Prompt vendoring**: the poller ships `album_research_v2.md` = lines 1–98 of
+`docs/editorial/album-research-prompt.md`, passed as the `claude -p` prompt prefix, **plus a
+pipeline addendum**: (a) the prompt's workflow step 1 says "if ambiguous, present the candidates
+and confirm" — there is no human mid-run, so the addendum instructs the model to pin the release
+itself and record any ambiguity under 앨범 식별 (the 2026-06-11 bench ran exactly this addendum
+successfully on all 12 runs), and to emit **only** the note markdown (so `--output-format json` →
+`.result` is the clean note); (b) disambiguation is largely pre-solved anyway — the prompt carries
+the album row's metadata (artist, title, release_date, label, spotify id), not a bare title.
+`PROMPT_VERSION = "v2"` recorded on every row. Single-source-vs-drift is the same OQ1 as
+FEAT-ai-editorial-critique: the workspace doc stays canonical; copying into the poller is a
+deliberate build-time act that bumps `PROMPT_VERSION`. (When the Lambda path is later activated it
+vendors the same file — one prompt asset, two callers.)
 
 **New table** (shared_db, V16 or next-free):
 
@@ -193,53 +231,52 @@ surface): (a) auto via bucket `research_mode` scope above; (b) manual button on 
 item; (c) manual button in `/write` for the album(s) linked to the draft — research, read, and
 refine the note without leaving the editor.
 
-**Secrets**: dedicated `myblog/anthropic` entry, key `ANTHROPIC_API_KEY` (created console/manual,
-per credential-rotation convention), readable by the research Lambda — feature-scoped per the
-Forward-compat section; FEAT-ai-editorial-critique reuses the same entry later.
+**Secrets**: the **$0 poller needs no Anthropic key** — `claude -p` uses the owner's Claude Code
+subscription login. It needs the prod `DATABASE_URL` (Secrets Manager `myblog/backend`, read with
+the owner's AWS creds on their machine). The dedicated `myblog/anthropic` entry (created Step 2)
+is **for the dormant Lambda path only**; its value is left unset until/unless that path is
+activated. Feature-scoped per Forward-compat; FEAT-ai-editorial-critique reuses it.
 
-**Infra**: `researchSQS` (visibility ≥ 5400s = 6× function timeout, DLQ maxReceive 3, **batch
-size 1**) + `researchWorkerLambda` (same worker image/codebase, timeout **900s**, 512MB,
-**reserved concurrency 2**) + event source mapping + IAM (SQS consume, secrets read). The
-concurrency cap is deliberate: a bucket flipped to `'all'` can enqueue dozens of runs at once —
-serializing to ≤2 concurrent 5-min opus calls keeps Anthropic rate limits and spend ramp smooth
-(a 50-item flip drains in ~2h; the queue absorbs the burst). No change to `blogSQS` or the
-existing Lambda. The `POST /api/research/...` API GW JWT route ships **with Step 4** (backend),
-per the route↔backend DoD pairing — not in Step 2. Workspace infra merge ≠ prod change — owner
-runs `terraform apply` manually.
+**Infra (built + prod-applied in Step 2, now dormant)**: `researchSQS` (visibility 5400s, DLQ
+maxReceive 3, batch 1) + `researchWorkerLambda` (worker codebase, timeout 900s, 512MB; concurrency
+capped at the SQS ESM via `maximum_concurrency=2` — **not** function-reserved, because this
+account's concurrent-execution limit is 10 and any reservation trips the unreserved floor; fix
+#306) + event source mapping + IAM. **Inert in $0 mode**: the backend never sends to `researchSQS`
+and `myblog/anthropic` has no value, so the Lambda never fires. No change to `blogSQS` / the
+existing Lambda. The `POST /api/research/...` API GW JWT route ships **with Step 4**.
 
 ## Steps
 
-Order follows the shared_db rollout convention (migration → prod apply → pin bump → service →
-front). Steps 1–2 are additive/independent of each other; 3–5 depend on them.
-
-1. **shared_db — `album_research` + scope columns** (V16 or next-free at land time). Plain SQL
-   migration (new table + the two `review_buckets`/`review_bucket_items` ALTERs, all additive
-   with defaults) + SQLAlchemy models + tag bump. **Prod apply required before any dependent
-   merge.**
-   - Verify: migration applies on Neon test branch; models import; backend pin unchanged yet.
-2. **infra — queue, function, secret plumbing.** `researchSQS` + DLQ (batch size 1),
-   `researchWorkerLambda` (timeout 900s, reserved concurrency 2), event source mapping, IAM,
-   secret ARN env var. Full `terraform plan`, owner applies manually. `myblog/anthropic` +
-   ANTHROPIC_API_KEY created in console. (API GW route moves to Step 4 — see Infra note.)
-   - Verify: plan clean; after apply, function exists + a hand-sent SQS message reaches the
-     handler (no-op job logs).
-3. **worker — research handler.** `{"job": "album_research", "album_id": …, "instruction"?: …}`
-   dispatch (instruction present ⇒ refine: prior note included in the call); claim gate;
-   vendored prompt; anthropic SDK call (opus 4.8, web_search `max_uses` + web_fetch, pause_turn
-   loop, streaming-safe timeout budget inside 900s); persist result/tokens/searches/refine
-   fields; failure path. Unit tests with mocked anthropic client (claim-gate idempotency,
-   refine-payload shape, failure writeback). **One real prod-side run measured here** (single
-   album, quote tokens + $ in PR) — this sets `max_uses` and confirms the 900s budget.
-   - Verify: pytest; real-run note lands in `album_research`, cost quoted.
-4. **backend — scope triggers + routes + contract.** shared_db pin bump;
-   `send_album_research()` in `sqs_client.py`; auto-enqueue on the scope transitions (item add
-   in `'all'`-mode bucket; bucket `research_mode` PATCH; item `research_selected` PATCH) — all
-   fire-and-forget (bucket ops must not fail on SQS hiccups; log + continue); `POST` (restart /
-   refine modes) / `GET /api/research/albums/{id}` **+ the matching API GW JWT route in
-   `infra/apigateway.tf` (same PR, per DoD)**; `openapi.json` regen + workspace contract merge
-   (+ front `api.gen.ts` regen in the same flow).
-   - Verify: pytest (gate: duplicate transitions ⇒ no second enqueue; restart resets exactly one
-     row; refine enqueues with instruction; plain POST on done ⇒ no-op); local smoke substitute
+1. **shared_db — `album_research` + scope columns** ✅ **DONE + prod-applied** (V16, shared_db
+   v0.16.0, PR #25; applied to Neon test + prod 2026-06-11). The table serves both executors.
+2. **infra — dormant paid path** ✅ **DONE + applied** (researchSQS/DLQ, researchWorkerLambda
+   900s, `myblog/anthropic` container, research-worker IAM; PRs #304/#306; `terraform apply` done
+   + live-verified). **Inert in $0 mode** — kept as the cloud-autonomous upgrade switch. The $0
+   path does **not** depend on this step.
+3. **local poller — the $0 executor.** A standalone operator script (proposed
+   `scripts/research_poller.py`, workspace-level — shares no code with the deployed Lambda; not
+   deployed anywhere) that: reads prod `DATABASE_URL` from `myblog/backend`; loops on a poll
+   interval; **claims** a `queued`/stale row (conditional UPDATE above); builds the prompt
+   (vendored v2 + addendum + the row's album metadata; `instruction` present ⇒ refine, prior note
+   included); shells `claude -p … --allowedTools WebSearch,WebFetch --output-format json`; parses
+   `.result` (note) + usage; writes `result_md`/tokens/`status='done'` (or `'failed'`+`error`,
+   refine keeping the prior note). Serial, with an inter-run sleep. **One real measured run here**
+   (single album end-to-end, quote wall-time + subscription-usage note in the PR) confirms the
+   `claude -p` headless invocation, tool-permission flags, JSON parse, and DB writeback.
+   - Verify: insert a `queued` row by hand → run poller → note lands in `album_research`, status
+     `done`; a forced `failed` row re-claims; quote the run.
+   - (Backlog: this same poller drains the ~50 existing items once they have `queued` rows —
+     see Non-goals backfill.)
+4. **backend — triggers + routes + contract.** shared_db pin bump; auto-enqueue on the scope
+   transitions (item add in `'all'`-mode bucket; bucket `research_mode` PATCH; item
+   `research_selected` PATCH) = **INSERT `queued` row, `ON CONFLICT DO NOTHING`** (no SQS send in
+   $0 mode) — fire-and-forget (bucket ops must not fail on a research hiccup; log + continue);
+   `POST` (first-run / restart / refine modes — all just set row state for the poller) /
+   `GET /api/research/albums/{id}` **+ the matching API GW JWT route in `infra/apigateway.tf`
+   (same PR, per DoD)**; `openapi.json` regen + workspace contract merge (+ front `api.gen.ts`
+   regen in the same flow).
+   - Verify: pytest (gate: duplicate transitions ⇒ one row; restart resets exactly one row;
+     refine sets instruction + keeps note; plain POST on done ⇒ no-op); local smoke substitute
      per no-local-DB convention; contract CI green.
 5. **front — writer GUI surfaces.** (a) BucketBoard: bucket research-mode control
    (off/전체/선택), item checkboxes in `'selected'` mode, research status badge
@@ -252,24 +289,31 @@ front). Steps 1–2 are additive/independent of each other; 3–5 depend on them
    album. Narrow viewports: collapse to a toggleable drawer (gutter math is fragile —
    see /profile overlay lessons). `pnpm lint` + `astro check` + real browser click-through
    (DoD).
-   - Verify: click-through on prod-realistic data; prod smoke after merge = add one album to a
-     bucket → note appears in GUI within ~10 min; quote in PR comment.
+   - Verify: click-through on prod-realistic data; prod smoke after merge = add an album to an
+     `'all'`-mode bucket → `queued` row appears → run the poller → note renders in the GUI; quote
+     in PR comment.
 
-Steps are **sequential** (gap-gated per workflow rule 4); 1 and 2 may be OK'd together by the
-owner as additive if desired.
+Steps 1–2 are **done**. Remaining 3 → 4 → 5 are gap-gated per workflow rule 4. Step 3 (poller) is
+validatable standalone (hand-inserted `queued` row), so it does not block on Step 4; Step 5 needs
+both.
 
 ## Cost
 
-- Bench-measured (2026-06-11): opus 4.8 ≈ 49k tokens/run ≈ **$0.44/run** token cost (+
-  per-search web_search billing, measured at Step 3 — expect ≈$1/run order of magnitude).
-- Spend is strictly bounded by bucket adds × 1. 50-album scale ⇒ tens of dollars, one-time-ish.
-- No recurring/cron spend. EventBridge is not used.
+- **$0 in the primary path** — `claude -p` runs on the Max subscription; no per-run dollar spend.
+  The real bound is the subscription's rolling usage window, so a 50-album backlog batch is spread
+  across a day; steady-state (occasional new album) is negligible.
+- Bench reference for the **dormant paid path** (if ever activated): opus 4.8 ≈ 49k tokens/run ≈
+  ~$0.44 token + web_search per-search billing ≈ ~$1/run order of magnitude; 50 albums ⇒ tens of
+  dollars one-time.
+- No recurring/cron cost either way. EventBridge is not used.
 
 ## Rollback
 
 - Each step is independently revertable; the table is additive (no existing reads).
-- Kill switch: disabling the event source mapping (console) stops all API spend instantly;
-  enqueue gate rows stay `queued` and are processed on re-enable.
+- $0-mode kill switch: **stop running the poller** — queued rows simply wait. Nothing autonomous
+  is in flight (the Lambda is unfed).
+- The dormant Lambda path stays disabled by construction (no queue feed, no key value); activating
+  it is an explicit future act, not a rollback concern.
 
 ## Open questions
 
@@ -280,6 +324,13 @@ owner as additive if desired.
   unscoped (any album, bucket or `/write`).**
 - ~~OQ3: secret placement~~ — **resolved 2026-06-11 (owner direction): feature-scoped secrets.**
   Dedicated `myblog/anthropic`; see Forward-compat below.
+- ~~OQ4: executor embed style~~ — **resolved 2026-06-11 (owner): `claude -p` headless subprocess,
+  not the Agent SDK.** Same cost ($0 subscription) and quality; chosen for a tiny/transparent
+  poller and because the poller (not the model) does the DB write. Agent SDK reconsidered only if
+  this grows into a standing service.
+- **OQ5 (open, decide at Step 3)**: poller host + schedule — a foreground `loop`/launchd/cron on
+  the owner's Mac vs a small always-on box. Affects only "how often it drains," not correctness
+  (queued rows wait). Start with a manual/`loop` run; formalize if it proves annoying.
 
 ## Forward-compat: per-feature API keys → per-user keys
 
@@ -289,14 +340,17 @@ personalized users** — at which point keys/quotas must be managed per user.
 
 What this RFC does about it now (cheap, non-blocking):
 
-- **Feature-scoped secret**: `myblog/anthropic` is its own Secrets Manager entry (not a key
-  buried in the worker's blob). One feature ↔ one credential; rotation/cost questions have one
-  obvious place to look. The critique feature (FEAT-ai-editorial-critique) reuses the same entry
-  when it lands — same provider, same feature family (editorial AI).
+- **Today the $0 path uses no key at all** — research runs on the owner's subscription via
+  `claude -p`. The per-user-key question only becomes live when the feature goes
+  machine-off-autonomous (the dormant Lambda path) or multi-user.
+- **Feature-scoped secret** (for that future): `myblog/anthropic` is its own Secrets Manager entry
+  (not buried in the worker blob). One feature ↔ one credential. The critique feature reuses it.
 - **Per-run usage attribution is already in the schema**: every `album_research` row records
-  `model`, `tokens_in/out`, `search_count`. When users exist, adding a `user_id` column to usage
-  rows is the whole accounting change — the measurement substrate ships now.
+  `model`, `tokens_in/out`, `search_count`. When users exist, adding a `user_id` column is the
+  whole accounting change — the substrate ships now.
 
 What is explicitly **deferred to FEAT-multi-user-accounts** (or an ARCH RFC under it): per-user
-key vaulting/BYO-key, per-user quotas/budgets, and a feature→credential registry. Designing that
-before the user model exists would be speculation.
+key vaulting/BYO-key, per-user quotas/budgets, a feature→credential registry, and the
+subscription-vs-API executor choice **per user** (a multi-user product can't run everyone on the
+owner's personal subscription — that's the natural point to require per-user API keys). Designing
+that before the user model exists would be speculation.
