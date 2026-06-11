@@ -264,7 +264,7 @@ existing Lambda. The `POST /api/research/...` API GW JWT route ships **with Step
    citations are the grounding evidence), and `tokens_in` is inflated by Claude Code's own cached
    system prompt vs the API-path bench (~49k) — order-of-magnitude audit only, $0 on subscription.
    Test row deleted after verify (prod `album_research` back to 0). Runs via
-   `myblog_backend/.venv/bin/python` (psycopg3 + boto3). **PR #__.** Original spec: a standalone
+   `myblog_backend/.venv/bin/python` (psycopg3 + boto3). **PR #309.** Original spec: a standalone
    operator script (`scripts/research_poller.py`, workspace-level — shares no code with the deployed
    Lambda; not deployed anywhere) that: reads prod `DATABASE_URL` from `myblog/backend`; loops on a poll
    interval; **claims** a `queued`/stale row (conditional UPDATE above); builds the prompt
