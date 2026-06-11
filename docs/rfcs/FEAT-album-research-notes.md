@@ -339,12 +339,13 @@ both.
   not the Agent SDK.** Same cost ($0 subscription) and quality; chosen for a tiny/transparent
   poller and because the poller (not the model) does the DB write. Agent SDK reconsidered only if
   this grows into a standing service.
-- ~~OQ5: poller host + schedule~~ — **resolved 2026-06-11 (Step 3)**: start with **manual `--once`
-  / `/loop` runs on the owner's Mac** (via `myblog_backend/.venv/bin/python`), **no launchd/cron
-  yet**. Correctness is independent of cadence — queued rows wait until the poller runs; serial
-  processing + a 30s inter-run sleep keep a bucket-wide `'all'` flip within the subscription rate
-  window. Formalize to launchd/cron only if hand-draining proves annoying. (The poller's machine
-  must be on — accepted caveat; the dormant Lambda is the machine-off-autonomous upgrade.)
+- ~~OQ5: poller host + schedule~~ — **resolved 2026-06-11 (Step 3)**: **launchd LaunchAgent on the
+  owner's Mac** (`scripts/com.myblog.research-poller.plist`, installed +
+  empty-queue-verified) runs `research_poller.py --once` every 5 min via `StartInterval`; each fire
+  drains the queue serially then exits (no lingering daemon, survives sleep/wake, launchd suppresses
+  overlapping runs → single-flight on top of the DB claim gate). Correctness is independent of
+  cadence — queued rows wait. Kill switch = `launchctl unload`. (The poller's machine must be on —
+  accepted caveat; the dormant Lambda is the machine-off-autonomous upgrade.)
 
 ## Forward-compat: per-feature API keys → per-user keys
 

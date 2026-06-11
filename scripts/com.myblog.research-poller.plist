@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FEAT-album-research-notes Step 3 / OQ5 — launchd automation for the $0 poller.
+
+  Runs `research_poller.py --once` every 5 minutes (StartInterval). Each fire
+  drains all queued album_research rows serially, then exits — no lingering
+  daemon. launchd will NOT start a new run while the previous one is still going
+  (a 50-album backlog drain can run for hours and that's fine), so this also
+  gives launchd-level single-flight on top of the DB claim gate.
+
+  Why --once + StartInterval (not a KeepAlive long-running loop): on a laptop a
+  periodic one-shot survives sleep/wake cleanly (just runs at the next interval)
+  and leaves no always-alive process. Auth: claude -p reads the subscription
+  token from ~/.claude/.credentials.json, so HOME must be set; PATH must include
+  ~/.local/bin (the `claude` binary). AWS creds come from ~/.aws via boto3.
+
+  INSTALL (owner's machine):
+    cp scripts/com.myblog.research-poller.plist ~/Library/LaunchAgents/
+    launchctl load -w ~/Library/LaunchAgents/com.myblog.research-poller.plist
+    launchctl kickstart -k gui/$(id -u)/com.myblog.research-poller   # run now
+
+  STATUS / LOGS:
+    launchctl list | grep research-poller
+    tail -f ~/Library/Logs/myblog-research-poller.log
+
+  STOP (kill switch — queued rows simply wait):
+    launchctl unload -w ~/Library/LaunchAgents/com.myblog.research-poller.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.myblog.research-poller</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/park_hyun/myblog-workspace/myblog_backend/.venv/bin/python</string>
+        <string>/Users/park_hyun/myblog-workspace/scripts/research_poller.py</string>
+        <string>--once</string>
+    </array>
+
+    <!-- HOME so claude finds ~/.claude/.credentials.json and boto3 finds ~/.aws;
+         PATH so the `claude` binary in ~/.local/bin resolves. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/park_hyun</string>
+        <key>PATH</key>
+        <string>/Users/park_hyun/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- Fire every 5 minutes. Each run drains the queue then exits; overlapping
+         runs are suppressed by launchd while the prior one is still alive. -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <!-- Run once at load so it doesn't wait 5 min for the first drain. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/park_hyun/myblog-workspace</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-research-poller.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-research-poller.log</string>
+
+    <!-- Be a good laptop citizen: low priority, don't fight foreground work. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>
