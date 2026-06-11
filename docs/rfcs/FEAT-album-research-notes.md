@@ -291,7 +291,7 @@ existing Lambda. The `POST /api/research/...` API GW JWT route ships **with Step
    order pollution (identical set before/after). No-local-DB ⇒ SQL-level dedup deferred to prod
    smoke. Merge order: **workspace contract → front api.gen.ts → backend** (front CI sync-gate
    reads workspace-main contract; backend notify then a no-op) + human `terraform apply` for the
-   POST route. **PRs #__ (ws) / #__ (front) / #__ (be).** Original spec: shared_db pin bump; auto-enqueue on the scope
+   POST route. **PRs #311 (ws) / #137 (front) / #61 (be).** Original spec: shared_db pin bump; auto-enqueue on the scope
    transitions (item add in `'all'`-mode bucket; bucket `research_mode` PATCH; item
    `research_selected` PATCH) = **INSERT `queued` row, `ON CONFLICT DO NOTHING`** (no SQS send in
    $0 mode) — fire-and-forget (bucket ops must not fail on a research hiccup; log + continue);
