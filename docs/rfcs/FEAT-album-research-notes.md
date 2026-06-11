@@ -278,7 +278,20 @@ existing Lambda. The `POST /api/research/...` API GW JWT route ships **with Step
      `done`; a forced `failed` row re-claims; quote the run.
    - (Backlog: this same poller drains the ~50 existing items once they have `queued` rows —
      see Non-goals backfill.)
-4. **backend — triggers + routes + contract.** shared_db pin bump; auto-enqueue on the scope
+4. **backend — triggers + routes + contract.** ✅ **IMPLEMENTED + verified 2026-06-11** (this
+   branch set, pre-merge). Backend `ResearchService` + `POST`/`GET /api/research/albums/{album_id}`
+   (GET on the edge_guard catch-all like GET /api/buckets; POST = Cognito-JWT, new
+   `infra/apigateway.tf` route) + fire-and-forget auto-enqueue in the three bucket routes +
+   `research_mode`/`research_selected` on the bucket/item schemas. shared_db pin bumped to v0.16.0
+   (**gap found + fixed: the v0.16.0 git tag was never pushed in Steps 1–2 despite the merge —
+   created on the #25 commit**). `openapi.json` regen (additive, pydantic 2.13.4), merged contract
+   `docs/contracts/openapi.json` regen, front `api.gen.ts` regen. **18 new pytest** (route dispatch
+   + service gates: restart clears note / refine keeps note + increments / plain POST no-op / dedup
+   return); `pyright app/` = 0 errors; the 13 full-suite failures are pre-existing config-import-
+   order pollution (identical set before/after). No-local-DB ⇒ SQL-level dedup deferred to prod
+   smoke. Merge order: **workspace contract → front api.gen.ts → backend** (front CI sync-gate
+   reads workspace-main contract; backend notify then a no-op) + human `terraform apply` for the
+   POST route. **PRs #__ (ws) / #__ (front) / #__ (be).** Original spec: shared_db pin bump; auto-enqueue on the scope
    transitions (item add in `'all'`-mode bucket; bucket `research_mode` PATCH; item
    `research_selected` PATCH) = **INSERT `queued` row, `ON CONFLICT DO NOTHING`** (no SQS send in
    $0 mode) — fire-and-forget (bucket ops must not fail on a research hiccup; log + continue);
