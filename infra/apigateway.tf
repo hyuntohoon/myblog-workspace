@@ -155,6 +155,18 @@ resource "aws_apigatewayv2_route" "buckets_patch" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Album research notes (FEAT-album-research-notes Step 4) ---
+# Writer-facing AI research notes (never public). The manual trigger / restart /
+# refine POST is Cognito-JWT here. GET /api/research/albums/{id} rides the
+# edge_guard catch-all (api_get_proxy) like GET /api/buckets — no route here.
+resource "aws_apigatewayv2_route" "research_albums_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/research/albums/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # FEAT-spotify-library-sync: manual "동기화" enqueues an async Spotify-Library sync
 # job; the worker does the Spotify reads/diffs/writes (rule #9 — never sync here).
 # The GET /api/buckets/spotify-library/state read rides the edge_guard catch-all
