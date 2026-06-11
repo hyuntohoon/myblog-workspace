@@ -302,7 +302,21 @@ existing Lambda. The `POST /api/research/...` API GW JWT route ships **with Step
    - Verify: pytest (gate: duplicate transitions ⇒ one row; restart resets exactly one row;
      refine sets instruction + keeps note; plain POST on done ⇒ no-op); local smoke substitute
      per no-local-DB convention; contract CI green.
-5. **front — writer GUI surfaces.** (a) BucketBoard: bucket research-mode control
+5. **front — writer GUI surfaces.** ✅ **DONE + prod-deployed 2026-06-11** (PR #138,
+   myblog_front). Shared `ResearchNote` (badge + collapsed-by-default markdown + 보강=refine /
+   처음부터=restart-confirm / failed→retry), album-id-keyed store + `useResearch` hook
+   (GET/POST `/api/research/albums/{id}`, 4s poll while queued/running), a no-dep markdown
+   renderer (escaped React nodes; balanced-paren URLs + http(s)/mailto/relative scheme
+   allowlist). BucketBoard: per-bucket mode control (off/전체/선택) + per-item `research_selected`
+   checkbox in 'selected' mode + per-cover status dot → research slide-over. `/write`: sticky
+   margin rail (flex-pair, no gutter math) for the album subject with 조사하기 when no note;
+   ≤1120px → drawer. No contract change (Step 4 `api.gen.ts`). Verified: `pnpm lint` clean,
+   `astro check` 0 errors, headless CDP click-through of all note states (caught + fixed a
+   parens-URL truncation in the renderer). Prod smoke (post-deploy, PR comment): both bundles
+   shipped (asset markers); authed `GET /api/buckets` returns `research_mode`/`research_selected`
+   on every bucket/item; `GET /api/research/albums/{id}` live (404→조사하기 state). The
+   `'all'`-bucket → poller → *rendered* note visual e2e is left for the owner (real AI run on the
+   subscription; data path already prod-verified in Steps 3–4). Original spec: (a) BucketBoard: bucket research-mode control
    (off/전체/선택), item checkboxes in `'selected'` mode, research status badge
    (queued/running/done/failed) + "리서치 노트" panel — markdown render, collapsed by default,
    links clickable; "재조사" split action: 보강(instruction 입력 → refine) / 처음부터(restart,
