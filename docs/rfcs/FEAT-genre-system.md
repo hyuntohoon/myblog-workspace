@@ -217,15 +217,24 @@ cd myblog_backend && .venv/bin/pytest tests/api/test_unpublish.py   # 18 passed 
 
 **Rollback**: revert to artist-copy derivation (pure function swap).
 
-### Step 6 — front `/reviews` real filter + genre chips (F5)
+### Step 6 — front `/reviews` real filter + genre chips (F5) — **DONE 2026-06-13**
 
-`pnpm generate:types` + commit `api.gen.ts`; `reviews.ts` drops the section-label fallback (real genres now guaranteed); filter rail + card chips verified in a real browser (DoD).
+`buildReviewCards` drops the `[d.category]` genre fallback → `ReviewCard.genres` is `musicReview.genres ?? []` (real `album_genres` labels from Step 5, never the category).
 
-**Verification**:
+**Drift correction (found at execution)**: "real genres now guaranteed" was too strong — genres can legitimately be **empty** (a rating-only post with no album, or the 1 album with no `album_genres` rows). Dropping the fallback therefore exposed an `undefined · <date>` render at the 3 `rev-meta` spots (`genres[0]` on `[]`). Fixed with a `metaLine()` helper that drops the genre segment when empty.
+
+**Shipped (front PR #144)**: fallback drop + `metaLine()` guard; `api.gen.ts` regenerated — it was **stale since Step 4** (the genres-API contract from workspace #321 was never synced to the front, +192 lines; the front deploy api-gen sync gate would have failed). Deploy + sync gate green post-merge.
+
+**Verification** (as run, 2026-06-13, Node 20):
 ```
-cd myblog_front && pnpm lint && pnpm exec astro check
-# browser click-through: filter by Hip-Hop → only hip-hop reviews; chips render English labels
+cd myblog_front && pnpm lint && pnpm exec astro check   # lint clean; 0 errors
+# headless CDP on a synthetic seed incl. an EMPTY-genres card:
+#   chips = [전체, Hip-Hop, R&B-Soul, Electronic, Pop]  (real labels; category gone; ampersand renders)
+#   click Hip-Hop → only the Hip-Hop review remains
+#   empty-genres card meta = "<date>" alone — no "undefined ·"
 ```
+0 published prod posts → prod `/reviews` shows the empty state; filter/chips validate on the owner's first publish. Deploy build + api-gen sync gate are the prod-side green.
+
 **Rollback**: revert front PR (display-only).
 
 ### Step 7 — front `/genres` public page + owner inline edit (F3)
@@ -266,3 +275,4 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-12 | Step 3 executed (shared_db #28 → v0.18.1): owner reviewed full dry-run → `--execute` — 982/982 albums, 1,552 rows, gates ALL PASS. Dry-run review caught classic-not-classical strings (`클래식 록` et al → AC/DC in Classical) → v0.18.1 explicit overrides; worker pin bump pending. Execute replays reviewed `decisions.json`; upsert upgrades low→high only; processed marker `ext_refs.genre_pipeline`. Incremental cadence resolved: separate daily plist (09:30), not the research poller — owner | 3 |
 | 2026-06-12 | Step 4 executed (backend #64, workspace #321): genres API — public `GET /tree`, JWT `POST`/`PUT`. Merge-order: workspace first → backend notify-contract no-op (no stale auto-PR). Human-approved `terraform apply` post-merge (2 routes, no drift). Prod smoke: tree 200/12 seeds; POST/PUT no-token 401. PUT scoped to label/definition/position (no rename/delete). Auth write happy-path → Step 7 browser DoD | 4 |
 | 2026-06-13 | Step 5 executed (backend #65): `derive_subject_meta` swapped artist-copy → real `album_genres`. Audit corrected the "zero-high should not happen" drift: prod = high 713 / low-only **269** / no-rows 1. Owner chose **high-first, else the album's own low rows** (artist-copy only at zero rows) — strict high-only would have reverted 27% of the catalog to fake ko-KR + broken Step 6's filter. No contract change. 0 published posts → no runtime invocation to prod-smoke; unit tests (18) are the verification | 5 |
+| 2026-06-13 | Step 6 executed (front #144): `/reviews` genres = `musicReview.genres ?? []` (category fallback dropped). Drift: "real genres guaranteed" was too strong — empty genres are legit → added a `metaLine()` guard against `undefined · <date>` at 3 `rev-meta` spots. `api.gen.ts` was stale since Step 4 (genres contract never synced, +192 lines) → regenerated; deploy api-gen sync gate green. Browser DoD on synthetic seed (incl. empty-genres card): chips = real English labels, Hip-Hop filter narrows correctly, no `undefined ·` | 6 |
