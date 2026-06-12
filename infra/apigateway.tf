@@ -167,6 +167,27 @@ resource "aws_apigatewayv2_route" "research_albums_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Genres (FEAT-genre-system Step 4) ---
+# Machine-labeled tier-0 taxonomy + owner-editable definitions. GET /api/genres/tree
+# is public — it rides the edge_guard catch-all (api_get_proxy), no route here. The
+# create/edit mutations are Cognito-JWT gated (buckets_post pattern, NOT the unauthed
+# categories_post). POST is collection-root; PUT carries the {genre_id} path param.
+resource "aws_apigatewayv2_route" "genres_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/genres"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "genres_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/genres/{genre_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # FEAT-spotify-library-sync: manual "동기화" enqueues an async Spotify-Library sync
 # job; the worker does the Spotify reads/diffs/writes (rule #9 — never sync here).
 # The GET /api/buckets/spotify-library/state read rides the edge_guard catch-all
