@@ -168,17 +168,20 @@ cd myblog_worker && pytest                                   # 189 passed, 3 ski
 ```
 **Rollback**: revert worker pin; mapping module is inert without callers.
 
-### Step 3 — backfill run (script + prod execution, human-gated)
+### Step 3 — backfill run (script + prod execution, human-gated) — **DONE 2026-06-12**
 
 `myblog_shared_db/scripts/backfill_genres.py` — modes: `--keys` (UPC/ISRC via Spotify, ~150 calls), `--label` (S1+iTunes+LLM per pipeline above), `--dry-run` (default; prints label table + distribution sanity + unmapped log, writes nothing), `--execute` (BEGIN/COMMIT, idempotent `ON CONFLICT DO NOTHING`), `--incremental` (poller mode). Run dry-run → owner reviews the *run* (not labels) → execute against prod.
 
-**Verification**:
+**Shipped (shared_db PR #28 → v0.18.1)**: full-catalog dry-run (982 albums — catalog grew from 978) reviewed by owner → `--execute`: **982/982 albums labeled, 1,552 album_genres rows (high 845 / low 707), 32 track_genres overrides, UPC 979, ISRC 7,335 tracks; all gates pass** (max share Hip-Hop 49.3% < 50%, World-Other 3.4% < 15%, zero-label 0). LLM arbitrated 376 albums, 0 failures; track overrides landed exactly on the bench-predicted set (BTS WORLD OST / BTS THE BEST / Little Women OST). Implementation deltas found at execution: (a) `--execute` replays a reviewed `decisions.json` (cache-replayable runs) rather than relabeling, so what the owner reviewed is byte-what gets written; (b) upsert is `ON CONFLICT DO UPDATE` upgrading confidence low→high only (never downgrades/rewrites source) — required so the pass corroborates worker inline S1 rows; (c) processed-marker = `albums.ext_refs.genre_pipeline` (incremental selection key); (d) dry-run review caught `클래식 록/클래식 소울/클래식 컨트리/바로크 팝` mapping to Classical (classic-X ≠ classical music) → explicit overrides in genre_mapping **v0.18.1** (worker pin bump to v0.18.1 pending); (e) per-call iTunes throttle 3.5s, LLM chunks 4-way parallel.
+
+**Verification** (as run, 2026-06-12):
 ```
-python scripts/backfill_genres.py --dry-run        # distribution sanity: no genre >50%, World-Other <15%, zero-label albums = 0
+python scripts/backfill_genres.py                  # dry-run ×3 (cache-replayed); gates ALL PASS
 psql "$DATABASE_URL" -c "SELECT g.label, count(*) FROM album_genres ag JOIN genres g ON g.id=ag.genre_id GROUP BY 1 ORDER BY 2 DESC;"
-psql "$DATABASE_URL" -c "SELECT count(DISTINCT album_id) FROM album_genres;"   # == albums count
+psql "$DATABASE_URL" -c "SELECT count(DISTINCT album_id) FROM album_genres;"   # 982 == albums count ✓
+python scripts/backfill_genres.py --incremental    # post-execute: "nothing to process" ✓
 ```
-**Rollback**: `DELETE FROM album_genres WHERE source IN ('mapping','itunes','llm');` (= all rows, v1).
+**Rollback**: `DELETE FROM track_genres; DELETE FROM album_genres; UPDATE albums SET ext_refs = ext_refs - 'genre_pipeline';` (= all rows, v1).
 
 ### Step 4 — backend genres API + infra + contract
 
@@ -226,7 +229,7 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ## Open questions
 
-1. **(Step 3)** Incremental labeling cadence — fold into the existing research poller launchd schedule vs separate timer. Default: same poller, daily.
+1. ~~**(Step 3)** Incremental labeling cadence — fold into the existing research poller launchd schedule vs separate timer~~ — resolved 2026-06-12 (owner): **separate launchd plist, daily 09:30** (`scripts/com.myblog.genre-backfill.plist`, installed + loaded; research poller untouched — different venv, cadence, kill switch).
 2. **(Step 7)** Which spike visualization to productionize (cluster map vs constellation vs plate) — decide with `frontend-design` at execution; tree data model is view-agnostic.
 3. ~~**(Step 1)** Re-verify V17/0.17.0 next-free at execution~~ — resolved 2026-06-12: V17/0.17.0 confirmed next-free and shipped.
 4. **(post-v1)** When the tier-1 RFC lands, revisit whether `confidence=low` rows should surface on `/reviews` chips or stay filter-only.
@@ -248,3 +251,4 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-12 | `FEAT-genre-taxonomy` discarded (authoring-first approach superseded by labeling-first) — owner | 0 |
 | 2026-06-12 | Step 1 executed: V17/0.17.0 re-verified next-free; Current-state claims re-audited against code (all held); test-branch idempotent re-apply ×2 clean; prod-applied before merge (shared_db PR #26 → v0.17.0). Workspace `docs/contracts/schema.sql` found stale at V15 → V16 backfilled in the same sync | 1 |
 | 2026-06-12 | Step 2 executed (shared_db #27 → v0.18.0, worker #44): track ISRC dropped from sync scope — album-nested tracks carry no `external_ids` (RFC drift, corrected; ISRC → Step 3 `--keys`/`--incremental`). ext_refs upsert switched replace→merge (`\|\|` + strip_nulls). S1 inline attach = `confidence='low'` singletons; K-Pop gate enforced in shared helper. Prod e2e: Bad Bunny ×3 → upc + `latin/mapping/low` | 2 |
+| 2026-06-12 | Step 3 executed (shared_db #28 → v0.18.1): owner reviewed full dry-run → `--execute` — 982/982 albums, 1,552 rows, gates ALL PASS. Dry-run review caught classic-not-classical strings (`클래식 록` et al → AC/DC in Classical) → v0.18.1 explicit overrides; worker pin bump pending. Execute replays reviewed `decisions.json`; upsert upgrades low→high only; processed marker `ext_refs.genre_pipeline`. Incremental cadence resolved: separate daily plist (09:30), not the research poller — owner | 3 |
