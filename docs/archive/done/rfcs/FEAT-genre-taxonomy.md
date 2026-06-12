@@ -1,6 +1,11 @@
 # FEAT-genre-taxonomy: 장르 브랜치 저작 (v1, authoring-only)
 
-- **Status**: draft
+> **DISCARDED 2026-06-12** (owner decision, never executed beyond Step 0). Superseded by
+> `docs/rfcs/FEAT-genre-system.md` — the authoring-first approach was replaced by a
+> labeling-first design (12-genre English tier-0, zero-human pipeline benchmarked against
+> 7 sources, public `/genres` page with DB-stored definitions). Kept for decision history.
+
+- **Status**: discarded
 - **Owner**: 박지훈
 - **Created**: 2026-06-04
 - **Plan row**: `plan.md` → FEAT-genre-taxonomy
