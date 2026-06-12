@@ -153,14 +153,18 @@ psql "$TEST_DB_URL" -f migrations/V17__genres.sql -v ON_ERROR_STOP=1   # idempot
 ```
 **Rollback**: `DROP TABLE track_genres, album_genres, genres;` (additive; prod DROP needs human approval — rule #3).
 
-### Step 2 — shared_db mapping module + worker ext_refs capture
+### Step 2 — shared_db mapping module + worker ext_refs capture — **DONE 2026-06-12**
 
-shared_db: `genre_mapping.py` (ko→12-vocab rules from the bench, weighted coverage test ≥98%). worker: store `external_ids` → `albums.ext_refs.upc` / `tracks.ext_refs.isrc` during sync (response already contains them — zero new calls); apply S1 mapping → `album_genres(source='mapping')` for new albums; pin bump.
+shared_db: `genre_mapping.py` (ko→12-vocab rules from the bench, weighted coverage test ≥98%). worker: store `external_ids` → `albums.ext_refs.upc` during sync (the album response carries it — zero new calls); apply S1 mapping → `album_genres(source='mapping')` for new albums; pin bump.
 
-**Verification**:
+**Drift correction (found at execution)**: track ISRC is NOT capturable at sync with zero calls — album-nested tracks are `SimplifiedTrackObject` without `external_ids` (the bench's ISRC 215/215 probe used separate `GET /tracks` calls). Track ISRCs move wholly to the Step 3 backfill `--keys` mode (which was already going to fetch them for the existing catalog; new-album ISRCs ride the poller `--incremental` pass when the OST/compilation per-song exception needs them).
+
+**Shipped**: shared_db PR #27 → v0.18.0 (98.2% weighted coverage on the frozen 335-string dump, identical to bench; K-Pop arbitration gate in `attachable_labels/attachable_slugs`; Latin rule ordered before the reggae rule — `레게톤` contains `레게`, the bench ordering silently routed reggaeton strings to World-Other). worker PR #44 (UPC capture; ext_refs replace→merge `||` + `jsonb_strip_nulls` so re-syncs can't clobber backfilled keys; S1 inline mapping with `confidence='low'` singletons; pin v0.2.2→v0.18.0). Prod e2e: candidates→SQS→worker on Bad Bunny — 3 albums synced, all with `ext_refs.upc`, all attached `latin/mapping/low`.
+
+**Verification** (as run):
 ```
-cd myblog_shared_db && pytest tests/test_genre_mapping.py   # coverage gate ≥98% weighted on frozen distinct dump
-cd myblog_worker && pytest                                   # sync writes ext_refs + album_genres rows (real-engine test — feedback-sa-session-lifecycle-mock-blind)
+cd myblog_shared_db && pytest tests/test_genre_mapping.py   # 31 passed; coverage 1607/1636 weighted = 98.2%
+cd myblog_worker && pytest                                   # 189 passed, 3 skipped (real-engine — feedback-sa-session-lifecycle-mock-blind)
 ```
 **Rollback**: revert worker pin; mapping module is inert without callers.
 
@@ -243,3 +247,4 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-12 | First front consumer after data = `/reviews` real filter — owner | — |
 | 2026-06-12 | `FEAT-genre-taxonomy` discarded (authoring-first approach superseded by labeling-first) — owner | 0 |
 | 2026-06-12 | Step 1 executed: V17/0.17.0 re-verified next-free; Current-state claims re-audited against code (all held); test-branch idempotent re-apply ×2 clean; prod-applied before merge (shared_db PR #26 → v0.17.0). Workspace `docs/contracts/schema.sql` found stale at V15 → V16 backfilled in the same sync | 1 |
+| 2026-06-12 | Step 2 executed (shared_db #27 → v0.18.0, worker #44): track ISRC dropped from sync scope — album-nested tracks carry no `external_ids` (RFC drift, corrected; ISRC → Step 3 `--keys`/`--incremental`). ext_refs upsert switched replace→merge (`\|\|` + strip_nulls). S1 inline attach = `confidence='low'` singletons; K-Pop gate enforced in shared helper. Prod e2e: Bad Bunny ×3 → upc + `latin/mapping/low` | 2 |
