@@ -14,12 +14,12 @@ Every artist, album, and track in the catalog carries machine-assigned **tier-0 
 
 ## Vocabulary (fixed, owner-confirmed 2026-06-12)
 
-`Pop · K-Pop · City Pop · Hip-Hop · R&B-Soul · Rock · Electronic · Jazz · Classical · Folk-Country · Soundtrack · World-Other`
+`Pop · K-Pop · Latin · Hip-Hop · R&B-Soul · Rock · Electronic · Jazz · Classical · Folk-Country · Soundtrack · World-Other`
 
 - English labels only (no `label_ko`).
 - **K-Pop = idol-industry category** (production system), not nationality. Korean rap/ballad by non-idol artists is NOT K-Pop. **No formal boundary definition is maintained** (owner decision) — edge cases (e.g. IU-type soloists) are absorbed by LLM judgment + `confidence=low` + future editorial layers, mirroring industry practice (no platform defines idol-ness; Apple inherits label claims, Melon avoids the category domestically, Pitchfork files K-pop under Pop/R&B).
 - Multi-attach allowed (e.g. K-Pop + Hip-Hop). Ballad/Trot are NOT top-level (Melon-convention rejected); ballads map to Pop.
-- City Pop is top-level (owner decision).
+- **Final lock 2026-06-12 (after cross-platform survey)**: City Pop demoted from top-level → future sub-genre under Pop (S1 `시티 팝` strings map to Pop until the tier-1 RFC); **Latin promoted to top-level** (present in Discogs/Apple/Deezer/Billboard/AllMusic; absorbs 라틴/레게톤/쿰비아/살사/RKT/turreo strings previously routed to World-Other). Reggae/afro/traditional stay in World-Other.
 
 ## Non-goals
 
@@ -69,7 +69,7 @@ Key measured facts driving the design:
 ```sql
 CREATE TABLE IF NOT EXISTS genres (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  slug          TEXT        NOT NULL UNIQUE,          -- 'k-pop', 'city-pop'
+  slug          TEXT        NOT NULL UNIQUE,          -- 'k-pop', 'rnb-soul'
   label         TEXT        NOT NULL,                 -- 'K-Pop' (English only)
   parent_id     UUID        REFERENCES genres(id) ON DELETE RESTRICT,  -- NULL = tier-0; tier-1 RFC uses this later
   definition_md TEXT        NOT NULL DEFAULT '',      -- owner-edited on /genres (exemplar albums live inside the markdown)
@@ -105,7 +105,7 @@ UPC/ISRC land in existing `ext_refs` JSONB (`albums.ext_refs.upc`, `tracks.ext_r
 [S2]  album UPC ──iTunes lookup (KR storefront)──▶ candidate genre
 [S3]  LLM (claude -p, $0 poller pattern) ──▶ (a) albums with zero S1+S2 signal
                                               (b) K-Pop idol arbitration (definition one-liner in prompt; label string as evidence)
-                                              (c) S1↔S2 conflict arbitration  (d) City Pop detection w/o S1 string
+                                              (c) S1↔S2 conflict arbitration
 confidence: 2+ parts agree = high; singleton = low. K-Pop never attaches without (b) passing.
 OST/compilation albums (album_type='compilation' OR title ~OST): iTunes US storefront per-song pass → track_genres.
 LLM output validated against the closed 12-vocab whitelist (prompt-injection containment).
@@ -233,6 +233,7 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 |---|---|---|
 | 2026-06-12 | Unit: track-level via album inheritance + OST/compilation per-song exceptions (bench: deviation 14/140, all in 1 OST) — owner + evidence | — |
 | 2026-06-12 | Vocabulary: 12 tier-0, English labels only; Melon conventions (Ballad/Trot) dropped; City Pop top-level — owner | — |
+| 2026-06-12 | **Vocabulary final lock after cross-platform survey (Pitchfork/Discogs/RYM/Apple/Deezer/Billboard/AllMusic/Melon): City Pop demoted → future Pop sub-genre; Latin promoted to top-level** — owner | — |
 | 2026-06-12 | K-Pop = idol-industry category; **no formal boundary definition** (LLM judgment + low-confidence + revisability) — owner | — |
 | 2026-06-12 | Tier-0 labeling = zero human; pipeline minimized to S1 mapping + iTunes + LLM after 7-source benchmark (Deezer/Last.fm/Wikidata/MB rejected on measured evidence) — owner + evidence | — |
 | 2026-06-12 | External K-Pop votes never attach directly — idol arbitration only; non-idol → Pop | — |
