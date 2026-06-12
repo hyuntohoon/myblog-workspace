@@ -183,17 +183,22 @@ python scripts/backfill_genres.py --incremental    # post-execute: "nothing to p
 ```
 **Rollback**: `DELETE FROM track_genres; DELETE FROM album_genres; UPDATE albums SET ext_refs = ext_refs - 'genre_pipeline';` (= all rows, v1).
 
-### Step 4 — backend genres API + infra + contract
+### Step 4 — backend genres API + infra + contract — **DONE 2026-06-12**
 
 `app/api/routes/genres.py` (GET tree / POST / PUT), `GenreService`, schemas, `infra/apigateway.tf` `genres_post` + `genres_put` (copy `buckets_post`; **never** `categories_post`), `openapi.json` regen, tests. Then workspace contract merge PR.
 
-**Verification**:
+**Shipped**: backend PR #64 (`GenreService` bucket-style; `GET /api/genres/tree` public via edge_guard catch-all; `POST`/`PUT /api/genres/{genre_id}` Cognito-JWT; shared_db pin `v0.16.0 → v0.18.1`; openapi regen; 15 tests). Workspace PR #321 (`genres_post`+`genres_put` JWT routes; merged contract) — **merged first** so the backend post-merge `notify-contract` dispatch was a no-op (no stale auto-PR). Human-approved `terraform apply` after merge: 2 routes added, 0 change/destroy. Implementation notes: PUT mutates `label`/`definition_md`/`position` only (slug/parent_id owner-stable, no rename/delete UI per non-goals); `list_tree` assembles the 2-tier forest in Python (no recursive CTE).
+
+**Verification** (as run, 2026-06-12):
 ```
-cd myblog_backend && pytest tests/test_genres.py -v
-cd infra && terraform plan        # only genres routes add; stop on unexpected drift
+cd myblog_backend && pyright app/                 # 0 errors (CI runs pyright + openapi-verify, NOT pytest)
+.venv/bin/pytest tests/api/test_genres.py tests/test_genre_service.py   # 15 passed
+cd infra && terraform plan                         # 2 add (genres_post/put), 0 change/destroy — no drift
 python tools/merge_openapi.py && git diff --stat docs/contracts/openapi.json
 ```
-**Rollback**: revert router include + infra entries; tables untouched (Step 1 scope).
+Prod smoke (post-deploy + apply): `GET /api/genres/tree` → 200, 12 tier-0 seeds in position order (Latin@3, no City Pop); `POST`/`PUT /api/genres*` no-token → **401** (authorizer gating; control route → 404). Authenticated write happy-path deferred to Step 7's browser edit-save-reload DoD (avoids a stray prod genre row — no DELETE route by design).
+
+**Rollback**: revert router include + infra entries (`terraform apply` removes the 2 routes); tables untouched (Step 1 scope).
 
 ### Step 5 — backend `derive_subject_meta` swap (F8)
 
@@ -252,3 +257,4 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-12 | Step 1 executed: V17/0.17.0 re-verified next-free; Current-state claims re-audited against code (all held); test-branch idempotent re-apply ×2 clean; prod-applied before merge (shared_db PR #26 → v0.17.0). Workspace `docs/contracts/schema.sql` found stale at V15 → V16 backfilled in the same sync | 1 |
 | 2026-06-12 | Step 2 executed (shared_db #27 → v0.18.0, worker #44): track ISRC dropped from sync scope — album-nested tracks carry no `external_ids` (RFC drift, corrected; ISRC → Step 3 `--keys`/`--incremental`). ext_refs upsert switched replace→merge (`\|\|` + strip_nulls). S1 inline attach = `confidence='low'` singletons; K-Pop gate enforced in shared helper. Prod e2e: Bad Bunny ×3 → upc + `latin/mapping/low` | 2 |
 | 2026-06-12 | Step 3 executed (shared_db #28 → v0.18.1): owner reviewed full dry-run → `--execute` — 982/982 albums, 1,552 rows, gates ALL PASS. Dry-run review caught classic-not-classical strings (`클래식 록` et al → AC/DC in Classical) → v0.18.1 explicit overrides; worker pin bump pending. Execute replays reviewed `decisions.json`; upsert upgrades low→high only; processed marker `ext_refs.genre_pipeline`. Incremental cadence resolved: separate daily plist (09:30), not the research poller — owner | 3 |
+| 2026-06-12 | Step 4 executed (backend #64, workspace #321): genres API — public `GET /tree`, JWT `POST`/`PUT`. Merge-order: workspace first → backend notify-contract no-op (no stale auto-PR). Human-approved `terraform apply` post-merge (2 routes, no drift). Prod smoke: tree 200/12 seeds; POST/PUT no-token 401. PUT scoped to label/definition/position (no rename/delete). Auth write happy-path → Step 7 browser DoD | 4 |
