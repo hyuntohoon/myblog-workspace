@@ -11,8 +11,9 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V15 (V1–V13 prod-verified 2026-06-08;
---   V14/V15 backfilled from migration DDL 2026-06-09 — both prod-applied + prod-live).
+-- This file shows clean canonical DDL through V17 (V1–V13 prod-verified 2026-06-08;
+--   V14/V15 backfilled from migration DDL 2026-06-09; V16 backfilled 2026-06-12 —
+--   all prod-applied + prod-live. V17 prod-applied + prod-verified 2026-06-12).
 -- NB — STAB-5 V13 renamed `categories`→`sections` and `posts.category_id`→`section_id`
 --   IN-PLACE (`ALTER TABLE ... RENAME`). Postgres carries constraints/indexes/FK across
 --   a rename by OID, so prod's PHYSICAL names still read the pre-V13 `categor*` form:
@@ -311,7 +312,9 @@ CREATE TABLE IF NOT EXISTS review_buckets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   parent_id  UUID        REFERENCES review_buckets(id) ON DELETE CASCADE,  -- V11
-  kind       TEXT        NOT NULL DEFAULT 'review'                         -- V15: marks the single spotify_library bucket
+  kind       TEXT        NOT NULL DEFAULT 'review',                        -- V15: marks the single spotify_library bucket
+  research_mode TEXT     NOT NULL DEFAULT 'off'
+                         CHECK (research_mode IN ('off', 'all', 'selected'))  -- V16: auto-research scope (FEAT-album-research-notes)
 );
 CREATE INDEX IF NOT EXISTS idx_review_buckets_parent_id ON review_buckets(parent_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_done
@@ -329,6 +332,7 @@ CREATE TABLE IF NOT EXISTS review_bucket_items (
   status     review_bucket_item_status NOT NULL DEFAULT 'candidate',
   post_id    UUID         REFERENCES posts(id) ON DELETE SET NULL,
   rec_reason TEXT,
+  research_selected BOOLEAN NOT NULL DEFAULT FALSE,  -- V16: per-item checkbox under research_mode='selected'
   added_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
   UNIQUE (bucket_id, album_id)
@@ -433,11 +437,80 @@ CREATE TABLE IF NOT EXISTS spotify_library_albums (
 CREATE INDEX IF NOT EXISTS idx_spotify_library_albums_state ON spotify_library_albums(state);
 
 -- =============================================================================
+-- Album Research — per-album AI research notes, writer-facing (V16; FEAT-album-research-notes)
+-- One row per (album, prompt_version); that UNIQUE is the enqueue/claim dedupe
+-- invariant. status is TEXT+CHECK (not a PG enum). Scope controls live on the
+-- review board: review_buckets.research_mode + review_bucket_items.research_selected (above).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS album_research (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  album_id         UUID        NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+  prompt_version   TEXT        NOT NULL,
+  status           TEXT        NOT NULL DEFAULT 'queued'
+                               CHECK (status IN ('queued', 'running', 'done', 'failed')),
+  model            TEXT,
+  result_md        TEXT,
+  tokens_in        INTEGER,
+  tokens_out       INTEGER,
+  search_count     INTEGER,
+  error            TEXT,
+  refine_count     INTEGER     NOT NULL DEFAULT 0,
+  last_instruction TEXT,
+  requested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  started_at       TIMESTAMPTZ,
+  finished_at      TIMESTAMPTZ,
+  CONSTRAINT uq_album_research_album_prompt UNIQUE (album_id, prompt_version)
+);
+
+-- =============================================================================
+-- Genres — tier-0 vocabulary + machine attachments (V17; FEAT-genre-system)
+-- genres: fixed 12-genre English vocabulary, seeded by V17 (the migration is
+--   the source of truth for slugs/labels). parent_id NULL = tier-0; the future
+--   tier-1 (sub-genre) RFC attaches via parent_id with no migration.
+--   definition_md is owner-edited in place on the public /genres page.
+-- album_genres: MACHINE-ONLY attachments (source 'mapping'|'itunes'|'llm',
+--   never 'manual'); confidence 'high' (2+ pipeline parts agree) | 'low'.
+-- track_genres: override-only — a row exists iff the track deviates from its
+--   album; effective track genre = track_genres rows if any, else the album's.
+-- Artist genre is derived in queries (no artist_genres table by design).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS genres (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug          TEXT        NOT NULL UNIQUE,          -- 'k-pop', 'rnb-soul'
+  label         TEXT        NOT NULL,                 -- 'K-Pop' (English only)
+  parent_id     UUID        REFERENCES genres(id) ON DELETE RESTRICT,  -- NULL = tier-0
+  definition_md TEXT        NOT NULL DEFAULT '',      -- owner-edited on /genres
+  position      INTEGER     NOT NULL DEFAULT 0,       -- display order on /genres
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS album_genres (
+  album_id   UUID NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+  genre_id   UUID NOT NULL REFERENCES genres(id) ON DELETE RESTRICT,
+  source     TEXT NOT NULL,                           -- 'mapping' | 'itunes' | 'llm' (machine-only, no 'manual')
+  confidence TEXT NOT NULL DEFAULT 'high',            -- 'high' | 'low'
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (album_id, genre_id)
+);
+
+CREATE TABLE IF NOT EXISTS track_genres (             -- override-only; row exists ⇔ track deviates from album
+  track_id   UUID NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+  genre_id   UUID NOT NULL REFERENCES genres(id) ON DELETE RESTRICT,
+  source     TEXT NOT NULL,
+  confidence TEXT NOT NULL DEFAULT 'high',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (track_id, genre_id)
+);
+
+-- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
--- This file is current through V15. V1–V13 verified against prod 2026-06-08
+-- This file is current through V17. V1–V13 verified against prod 2026-06-08
 -- (categories→sections rename; see the section-rename note in the header for prod's
 -- legacy physical object names). V14 (spotify_recent_tracks) + V15 (spotify_library_albums
--- + review_buckets.kind + 2 enums) backfilled from migration DDL 2026-06-09 — both
--- prod-applied + prod-live. Last full structural prod-verify 2026-06-05 (STAB-4).
+-- + review_buckets.kind + 2 enums) backfilled from migration DDL 2026-06-09; V16
+-- (album_research + research scope columns) backfilled from migration DDL 2026-06-12 —
+-- all prod-applied + prod-live. V17 (genres + album_genres + track_genres + 12-row seed)
+-- added 2026-06-12, prod-applied + prod-verified same day (FEAT-genre-system Step 1,
+-- shared_db v0.17.0). Last full structural prod-verify 2026-06-05 (STAB-4).
 -- =============================================================================

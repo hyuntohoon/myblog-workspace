@@ -224,7 +224,7 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 1. **(Step 3)** Incremental labeling cadence — fold into the existing research poller launchd schedule vs separate timer. Default: same poller, daily.
 2. **(Step 7)** Which spike visualization to productionize (cluster map vs constellation vs plate) — decide with `frontend-design` at execution; tree data model is view-agnostic.
-3. **(Step 1)** Re-verify V17/0.17.0 next-free at execution (numbering has shifted 3× before — see discarded RFC's history).
+3. ~~**(Step 1)** Re-verify V17/0.17.0 next-free at execution~~ — resolved 2026-06-12: V17/0.17.0 confirmed next-free and shipped.
 4. **(post-v1)** When the tier-1 RFC lands, revisit whether `confidence=low` rows should surface on `/reviews` chips or stay filter-only.
 
 ## Decisions log
@@ -242,3 +242,4 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-12 | `/genres` public; definitions stored in DB (`definition_md`) with owner inline edit (no separate admin/authoring UI) — owner | — |
 | 2026-06-12 | First front consumer after data = `/reviews` real filter — owner | — |
 | 2026-06-12 | `FEAT-genre-taxonomy` discarded (authoring-first approach superseded by labeling-first) — owner | 0 |
+| 2026-06-12 | Step 1 executed: V17/0.17.0 re-verified next-free; Current-state claims re-audited against code (all held); test-branch idempotent re-apply ×2 clean; prod-applied before merge (shared_db PR #26 → v0.17.0). Workspace `docs/contracts/schema.sql` found stale at V15 → V16 backfilled in the same sync | 1 |
