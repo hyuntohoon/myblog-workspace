@@ -200,14 +200,21 @@ Prod smoke (post-deploy + apply): `GET /api/genres/tree` → 200, 12 tier-0 seed
 
 **Rollback**: revert router include + infra entries (`terraform apply` removes the 2 routes); tables untouched (Step 1 scope).
 
-### Step 5 — backend `derive_subject_meta` swap (F8)
+### Step 5 — backend `derive_subject_meta` swap (F8) — **DONE 2026-06-13**
 
-`content_sync.py`: frontmatter `musicReview.genres[]` ← album's high-confidence `album_genres` labels (fallback to current artist-copy only when album has zero rows — should not happen post-Step 3).
+`content_sync.py`: frontmatter `musicReview.genres[]` ← album's `album_genres` labels (12-vocab English), shared by both the publish route and restore re-publish.
 
-**Verification**:
+**Drift correction (found at execution — `feedback-rfc-current-state-audit`)**: the "should not happen post-Step 3" assumption was **wrong**. Prod `album_genres`: 713/983 albums have a high-confidence row, **269 are low-only** (all carrying real 12-vocab English labels), 1 album has no rows. Strict high-only + artist-copy fallback would have reverted 27% of the catalog to the fake ko-KR Spotify strings and broken Step 6's real-genre filter. **Owner decision 2026-06-13: high-first, else the album's own low rows; artist-copy stays a last-resort fallback only for an album with zero `album_genres` rows.** (Consistent with open-Q4: low rows stay hidden whenever a high row exists; they surface only when there is no high row at all.)
+
+**Shipped (backend PR #65)**: `_album_genre_labels(db, album_id)` helper — one query (`Genre.label`+`AlbumGenre.confidence` joined, ordered by `Genre.position`), high rows preferred, else all (low) rows. `derive_subject_meta` consumes it; artist-copy retained as the zero-rows fallback. No contract change (internal frontmatter, not an API schema) → no `openapi.json` regen. 0 published posts → `derive_subject_meta` does not run at runtime, so there is no live frontmatter to prod-smoke; unit tests are the effective verification and real output validates on the owner's first publish.
+
+**Verification** (as run, 2026-06-13):
 ```
-cd myblog_backend && pytest tests/ -k content_sync   # frontmatter shows real labels, English
+cd myblog_backend && .venv/bin/pytest tests/api/test_unpublish.py   # 18 passed (real-genre / low-only / artist-copy fallback / high-first selector)
+.venv/bin/pyright app/services/content_sync.py                       # 0 errors (CI gate; CI runs pyright + openapi-verify, NOT pytest)
 ```
+(Full-suite has 13 pre-existing failures — `reference-backend-test-config-import-collection` collection-order config-cache pollution, identical on a clean tree; not introduced here. The RFC's `-k content_sync` selector matches no test name — the tests live in `test_unpublish.py::TestDeriveSubjectMeta`/`TestAlbumGenreLabels`.)
+
 **Rollback**: revert to artist-copy derivation (pure function swap).
 
 ### Step 6 — front `/reviews` real filter + genre chips (F5)
@@ -258,3 +265,4 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 | 2026-06-12 | Step 2 executed (shared_db #27 → v0.18.0, worker #44): track ISRC dropped from sync scope — album-nested tracks carry no `external_ids` (RFC drift, corrected; ISRC → Step 3 `--keys`/`--incremental`). ext_refs upsert switched replace→merge (`\|\|` + strip_nulls). S1 inline attach = `confidence='low'` singletons; K-Pop gate enforced in shared helper. Prod e2e: Bad Bunny ×3 → upc + `latin/mapping/low` | 2 |
 | 2026-06-12 | Step 3 executed (shared_db #28 → v0.18.1): owner reviewed full dry-run → `--execute` — 982/982 albums, 1,552 rows, gates ALL PASS. Dry-run review caught classic-not-classical strings (`클래식 록` et al → AC/DC in Classical) → v0.18.1 explicit overrides; worker pin bump pending. Execute replays reviewed `decisions.json`; upsert upgrades low→high only; processed marker `ext_refs.genre_pipeline`. Incremental cadence resolved: separate daily plist (09:30), not the research poller — owner | 3 |
 | 2026-06-12 | Step 4 executed (backend #64, workspace #321): genres API — public `GET /tree`, JWT `POST`/`PUT`. Merge-order: workspace first → backend notify-contract no-op (no stale auto-PR). Human-approved `terraform apply` post-merge (2 routes, no drift). Prod smoke: tree 200/12 seeds; POST/PUT no-token 401. PUT scoped to label/definition/position (no rename/delete). Auth write happy-path → Step 7 browser DoD | 4 |
+| 2026-06-13 | Step 5 executed (backend #65): `derive_subject_meta` swapped artist-copy → real `album_genres`. Audit corrected the "zero-high should not happen" drift: prod = high 713 / low-only **269** / no-rows 1. Owner chose **high-first, else the album's own low rows** (artist-copy only at zero rows) — strict high-only would have reverted 27% of the catalog to fake ko-KR + broken Step 6's filter. No contract change. 0 published posts → no runtime invocation to prod-smoke; unit tests (18) are the verification | 5 |
