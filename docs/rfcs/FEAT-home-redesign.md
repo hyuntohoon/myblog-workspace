@@ -168,6 +168,23 @@ Decisions from the 2026-06-13 brainstorm, beyond the home page itself:
 Each step: `pnpm lint` (Node 20) + `pnpm exec astro check` + browser click-through
 (UI changes need a real render check — lint/astro-check miss render/event regressions).
 
+## `/blog/` prefix migration — TODO (⚠️ detailed plan still to be written)
+
+High-level task list only. **A detailed plan / sequencing doc (possibly its own RFC)
+MUST be written and reviewed before any of this is executed** — especially the redirect
+mechanism and no-404 sequencing. Do NOT bundle with the front-only home redesign
+(steps 1–5); run last and separately.
+
+- [ ] Decide the new prefix (`/review/[slug]` vs `/reviews/[slug]` — align with the surviving `/reviews` browser)
+- [ ] Decide the redirect mechanism (CloudFront Free vs Astro-level) — note CF Free plan rejects custom policies; confirm what's feasible
+- [ ] Rename the read-page route file; keep page content untouched
+- [ ] Remove `/blog/category` page
+- [ ] Add redirects from old `/blog/[slug]` URLs (in place before/with the rename — no 404 window for inbound/search links)
+- [ ] Sweep all internal links to old `/blog/*` (header, cards, `ReviewsIndex`, footer, anywhere)
+- [ ] Update sitemap + canonical URLs
+- [ ] Update smoke tests / any hardcoded `/blog` paths
+- [ ] Verify content-collection slug behavior under the new route
+
 ## Decisions log
 
 | Date | Decision | Step |
