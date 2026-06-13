@@ -1,6 +1,8 @@
 # FEAT-album-research-notes: auto AI research notes for bucketed albums
 
-- **Status**: accepted (2026-06-11, owner: "승격하고"). **Execution backend pivoted 2026-06-11**
+- **Status**: done (2026-06-14) — all 5 steps shipped + prod-live (Steps 1–2 infra, Step 3 $0
+  local poller, Step 4 backend, Step 5 front writer GUI); archived to `docs/archive/done/rfcs/`.
+  Originally accepted 2026-06-11 (owner: "승격하고"). **Execution backend pivoted 2026-06-11**
   (owner: subscription-cost, not API): primary executor = **local poller → headless Claude Code
   ($0 on the Max subscription)**. The paid `researchSQS`/`researchWorkerLambda` path (built +
   prod-applied in Steps 1–2) is retained **dormant** as the cloud-autonomous upgrade. See

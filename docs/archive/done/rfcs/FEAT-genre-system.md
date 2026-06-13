@@ -1,9 +1,9 @@
 # FEAT-genre-system: Tier-0 genre vocabulary, automated labeling, and the public genre map
 
-- **Status**: draft
+- **Status**: done (2026-06-14) — tier-0 Steps 0–7 shipped + prod-live 2026-06-13 (ws #325 / be #66 / front #145); archived to `docs/archive/done/rfcs/`. ego-view relationships + sub-genre vocabulary carved out to **FEAT-genre-subgenres** (Frozen).
 - **Owner**: 박지훈
 - **Created**: 2026-06-12
-- **Plan row**: `plan.md` → FEAT-genre-system
+- **Plan row**: dropped 2026-06-14 (done) — history in `git log` + `docs/archive/done/2026-06.md`
 - **Supersedes**: `FEAT-genre-taxonomy` (discarded 2026-06-12 by owner decision; archived to `docs/archive/done/rfcs/`)
 
 ---
