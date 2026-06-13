@@ -122,28 +122,32 @@ Decisions from the 2026-06-13 brainstorm, beyond the home page itself:
 | Page / component | Decision | Note |
 |------------------|----------|------|
 | `/blog/category` (flat title+date table) | **Remove** | Redundant with the `ReviewsIndex` browser (`/reviews`). Fold into it. |
-| `/blog/[slug]` (review read page) | **Keep** | The actual review reading surface — untouched. |
+| `/blog/` URL prefix | **Migrate the whole prefix** (OQ0 resolved 2026-06-14) | Owner chose dropping `/blog/` entirely (e.g. `/review/[slug]`), *not* the category-only removal the brainstorm leaned toward. This is a **routing migration**: rename the read page, add redirects from old `/blog/[slug]` URLs (avoid breaking external/inbound links + search index), update every internal link + sitemap. Gets its own step. |
+| `/blog/[slug]` (review read page) | **Keep content, move URL** | The reading surface itself is untouched; only its route changes under the prefix migration above. |
 | `/profile` | **Keep as-is for now** | Single-author "critic/About" reframing deferred; the dead "트랙 리뷰" tab is a minor later cleanup (track ratings rolled back 2026-05-28), not this scope. |
 | **Bucket view** (`BucketBoard`, source `bucket.jsx` / 평론 버킷 크레이트) | **Update existing** (not new) | Already a nestable-row DnD board with localStorage. Re-wire it as the writer-lane destination from the home's writer strip; align "add album" with the real `/write` command-palette pick. |
 | Artist hub page (`/artist/[id]`) | **Recommended, not yet decided** | Roadmap item (`artist = hub page + search`). Not in the active design prompt below; add on request. |
 
 ## Open questions
 
-0. **Scope of "remove `/blog`"** — confirmed as removing the `/blog/category` flat list
-   only; `/blog/[slug]` read page stays. If the intent is to drop the `/blog/` URL prefix
-   entirely (e.g. `/review/[slug]`), that's a routing migration with redirect concerns —
-   handle separately. Blocks the page-removal step.
+0. **Scope of "remove `/blog`"** — ✅ **RESOLVED 2026-06-14: migrate the whole `/blog/`
+   prefix** (owner chose the bigger scope, not category-only). `/blog/category` removed,
+   `/blog/[slug]` read page moves to a new prefix (e.g. `/review/[slug]`). Routing
+   migration: redirects for old URLs + internal-link + sitemap sweep. Owns a dedicated step.
 
-1. **Module manager affordance for readers** — does reorder/hide need an explicit
-   "edit home" toggle (like the source) or inline drag handles always-on? Blocks the
-   reader-personalization step. (Leaning: explicit toggle, less clutter for casual readers.)
-2. **Writer-strip ↔ crate data** — does `/write`'s crate expose a count the home can
-   read without loading the full WriterApp island (localStorage? a light API)? Blocks
-   the writer-strip step.
-3. **"Browse by genre" depth** — chips only, or share-bars mirroring `/genres`? Blocks
-   that module's build.
-4. **`/reviews` relationship** — does `/reviews` stay as the full browser while `/`
-   becomes the editorial home, or does `/` subsume it? Affects nav + routing.
+1. **Module manager affordance for readers** — ✅ **RESOLVED 2026-06-14: explicit
+   "홈 편집" toggle.** Reorder/hide drag handles + ✕ appear only in edit mode; clean for
+   casual readers. (Matches the brainstorm leaning.)
+2. **Writer-strip ↔ crate data** — *still open.* Does `/write`'s crate expose a count the
+   home can read without loading the full WriterApp island (localStorage? a light API)?
+   Blocks the writer-strip step. Resolve during implementation (likely read the same
+   localStorage key the crate writes).
+3. **"Browse by genre" depth** — *still open.* Chips only, or share-bars mirroring
+   `/genres`? Blocks that module's build. (Likely settled by the design bundle.)
+4. **`/reviews` relationship** — ✅ **RESOLVED 2026-06-14: `/reviews` stays the full
+   browser; `/` becomes the editorial home.** Both remain in nav. `/` does *not* subsume
+   `/reviews`. The `FEAT-reviews-home-genre-filter-removal` backlog item stays independent
+   (removing the genre filter *on* `/reviews`), since `/reviews` survives.
 
 ## Steps (sketch — not yet sequenced for execution)
 
@@ -152,8 +156,14 @@ Decisions from the 2026-06-13 brainstorm, beyond the home page itself:
 1. **Writer strip** — auth-gated component under header; counts from crate + drafts.
 2. **BNM hero + Latest** — reuse `selectFeatured()` / `ReviewCard`; editorial layout.
 3. **Browse-by-genre + By-the-numbers** — real `album_count` + content counts.
-4. **Reader personalization** — drag reorder / hide-restore + localStorage.
+4. **Reader personalization** — drag reorder / hide-restore + localStorage, gated behind
+   an explicit "홈 편집" toggle (OQ1).
 5. **Empty-state polish** — graceful 0/1/2-post rendering; writer-lane prominence.
+6. **`/blog/` prefix migration** (OQ0) — rename read route to the new prefix, remove
+   `/blog/category`, add redirects from old `/blog/[slug]` URLs, sweep internal links +
+   sitemap. Sequence with care (redirects before/with the rename so no 404 window);
+   consider splitting to its own RFC if the redirect mechanism (CloudFront vs Astro) is
+   non-trivial.
 
 Each step: `pnpm lint` (Node 20) + `pnpm exec astro check` + browser click-through
 (UI changes need a real render check — lint/astro-check miss render/event regressions).
@@ -164,6 +174,7 @@ Each step: `pnpm lint` (Node 20) + `pnpm exec astro check` + browser click-throu
 |------|----------|------|
 | 2026-06-13 | Identity = editorial (not community); keep drag personalization for readers; writer strip pinned top, auth-gated; empty-state first-class | brainstorm |
 | 2026-06-13 | Remove `/blog/category`; keep `/profile`; bucket view = update existing `BucketBoard`; artist hub recommended-but-deferred | site scope |
+| 2026-06-14 | OQ0 → migrate the whole `/blog/` prefix (not category-only); OQ1 → explicit "홈 편집" toggle; OQ4 → `/reviews` stays full browser, `/` does not subsume it. Path: implement from a Claude Design bundle (pending), promote RFC after design is confirmed. | OQ resolution |
 
 ---
 
