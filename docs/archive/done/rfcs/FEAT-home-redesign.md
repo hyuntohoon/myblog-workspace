@@ -1,9 +1,9 @@
 # FEAT-home-redesign: Editorial home with reader personalization + writer strip
 
-- **Status**: draft
+- **Status**: done (promoted + archived 2026-06-14)
 - **Owner**: TBD
 - **Created**: 2026-06-13
-- **Plan row**: `plan.md` → FEAT-home-redesign (not yet added — pending promotion)
+- **Plan row**: dropped on promotion (history → `git log` + this archived file)
 
 > Brainstorm doc. One feedback round completed (2026-06-13). Not an accepted RFC.
 > Source design: Claude Design handoff `ratemymusic/project/홈.html` (+ `home.jsx`,
@@ -52,13 +52,13 @@ Decisions confirmed in the build: **genre = teaser + full page kept separate** (
 `/api/genres/tree`); **BNM = 30-day rolling**; **stars only, never a numeric score to readers**
 (hard rule honored). Reviewer pass: 0 HIGH / 3 MED (all fixed).
 
-**NOT done in #151:** the `/blog → /review` prefix migration (Step 6) — **extracted 2026-06-14 to
-its own RFC `docs/rfcs/FEAT-blog-to-review-migration.md`** (implemented on branch
-`feat/blog-to-review-migration`, PR open, not merged). With Step 6 extracted, this RFC's own scope
-(steps 1–5 + `/canon`) is complete; promotion to `done` is owner-gated (rule 5).
+**NOT in #151:** the `/blog → /review` prefix migration (Step 6) — **extracted 2026-06-14 to its own
+RFC `docs/rfcs/FEAT-blog-to-review-migration.md`** (now merged + prod-live: front #153 / ws #344,
+prod smoke passed, zero 404s). With Step 6 extracted + shipped, this RFC's own scope (steps 1–5 +
+`/canon`) is complete → **promoted to `done` and archived 2026-06-14** (owner approval given in-session).
 
-> **Status stays `draft`; front steps 1–5 + `/canon` shipped & prod-live — done-promotion pending
-> owner approval** (rule 5, no RFC self-promotion).
+> **Promoted to `done` + archived 2026-06-14** (owner approval given in-session). Front steps 1–5 +
+> `/canon` shipped & prod-live (#151); Step 6 shipped as the separate `FEAT-blog-to-review-migration`.
 
 ## Design decisions (this brainstorm)
 

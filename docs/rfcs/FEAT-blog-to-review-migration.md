@@ -9,10 +9,13 @@
   the redirect mechanism … is non-trivial" — it is hereby split out so home-redesign's own scope
   (steps 1–5 + `/canon`) is complete and promotable independently).
 
-> **Implementation status (2026-06-14):** built on branch `feat/blog-to-review-migration`
-> (`myblog_front`), front-only, **PR open, NOT merged**. `pnpm lint` clean · `astro check`
-> 0 errors · `pnpm build` 13 pages incl. all redirect stubs. Awaiting owner review + a manual
-> redirect click-through, then merge. Status stays `draft` (no RFC self-promotion, rule 5).
+> **Implementation status (2026-06-14): Step 1 MERGED + PROD-LIVE.** front #153 + ws #344
+> squash-merged to `main`; front deploy run 27497324862 success (api.gen.ts sync gate passed).
+> **Prod smoke PASSED:** old `/blog/lit/`, `/blog/lit`, `/blog/`, `/blog/category/`,
+> `/blog/category/Reviews/` all return **HTTP 200** (zero 404s) and redirect to `/review/` resp.
+> `/reviews/`; `/review/lit/` renders the review. `pnpm lint`/`astro check`/`build` all green.
+> **Only optional Step 2 (true 301) remains** → the RFC stays open for it. (The `Status:` field
+> above is left for the owner to flip per rule 5; the work itself is done + verified.)
 
 ---
 

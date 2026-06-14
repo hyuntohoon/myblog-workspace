@@ -162,11 +162,10 @@ decouple before Scope A is sequenced.**
 
 ## Open questions (owner decides before sequencing)
 
-1. **Decouple Scope A from Scope B?** (Recommended: yes — ship A first.) D2/D4 said "coupled"; this
-   RFC argues they're separable. **Blocks all sequencing.**
-2. **Is the pre-existing unauthenticated `GET /api/buckets` acceptable?** If not, that is its own
-   small hardening task (add a public-vs-private split or require auth for non-public buckets) and
-   should likely land *with* Scope A so "private" actually means private at the API.
+1. ✅ **RESOLVED 2026-06-14 (owner): decouple — ship Scope A first**, separate from Scope B (accounts).
+2. ✅ **RESOLVED 2026-06-14 (owner): NOT acceptable — harden it as part of Scope A.** "Private = private"
+   at the API: non-public buckets require auth; only `is_public=true` buckets are served unauthenticated.
+   This folds A5 into Scope A as a required (not optional) task, paired with A2.
 3. **Public route name?** `/collection` vs `/shelf` vs reusing `/members/[handle]` (the latter
    presupposes Scope B). Recommend `/collection` for Scope-A-alone.
 4. **Visibility granularity:** per-bucket `is_public` only, or also per-item hide? (Recommend
@@ -178,8 +177,9 @@ decouple before Scope A is sequenced.**
 
 ## Ordered, approvable task breakdown
 
-> Each task is independently reviewable; nothing starts before OQ1 (+ OQ2) is answered. Tasks are
-> sized to one PR where possible. **Scope A first; Scope B only on a separate owner go.**
+> **OQ1 + OQ2 answered 2026-06-14 → Scope A is sequenced and started (A1 in progress).** Each task is
+> independently reviewable, sized to one PR where possible. **Scope A first; Scope B only on a separate
+> owner go.** OQ2's "private = private" hardening (A5) is now a **required** part of Scope A, not optional.
 
 ### Scope A — Public read-only bucket viewer
 - **A0 — (optional) read-only spike** on a branch: render the existing `GET /api/buckets` tree in a
@@ -187,7 +187,8 @@ decouple before Scope A is sequenced.**
   spike is the only build activity sanctioned for this RFC tonight; deferred unless owner wants it.)*
 - **A1 — shared_db migration** `V{N}__review_buckets_is_public.sql`: add `is_public BOOLEAN NOT NULL
   DEFAULT false`. Apply to Neon prod **before** any backend pin bump (rollout rule). Reversible
-  (`DROP COLUMN`), additive, non-destructive.
+  (`DROP COLUMN`), additive, non-destructive. **🟡 IN PROGRESS 2026-06-14** — migration file + ORM
+  column written on branch `db/scopeA-is-public` (shared_db); **prod apply gated on owner go.**
 - **A2 — backend public read endpoint**: `GET /api/public/buckets` → only `is_public=true` +
   `kind='review'`, whitelisted field projection (album/position/public-blurb; **no** private notes),
   nested tree. Add `is_public` to the bucket PATCH (Cognito-gated). openapi regen + contract.
@@ -195,8 +196,9 @@ decouple before Scope A is sequenced.**
   write), with a clear "이 버킷이 공개됩니다" affordance + private default.
 - **A4 — front read-only `/collection` route**: new slim `AlbumGrid` (no DnD/edit), fetches the
   public endpoint, no auth, graceful empty state, sitemap-included. Link from home/footer.
-- **A5 — (decide w/ OQ2) API privacy hardening**: if the owner wants "private = private" at the API,
-  split `GET /api/buckets` so non-public buckets require auth. Pairs with A2.
+- **A5 — API privacy hardening (REQUIRED, OQ2 resolved)**: split `GET /api/buckets` so non-public
+  buckets require auth (only `is_public=true` served unauthenticated). Lands **with** A2. This closes
+  the pre-existing exposure (today all bucket reads are unauthenticated via edge_guard).
 
 ### Scope B — Multi-user accounts (separate program; only on owner go)
 - **B1 — RFC accept + data-model design**: finalize `users` + ownership-FK schema + the auth-model
@@ -215,3 +217,6 @@ decouple before Scope A is sequenced.**
 | 2026-06-14 | Visibility = explicit per-bucket `is_public`, default **false**, opt-in | replaces today's name-regex heuristic; `spotify_library` hard-excluded |
 | 2026-06-14 | No ACL/S3/infra change needed for Scope A | public viewer = static HTML + JSON read endpoint only |
 | 2026-06-14 | Flagged pre-existing unauthenticated `GET /api/buckets` for owner review | not changed here (overnight no-auth-change scope) |
+| 2026-06-14 | **OQ1 RESOLVED (owner): decouple — ship Scope A first**, separate from Scope B | Scope A sequenced + started |
+| 2026-06-14 | **OQ2 RESOLVED (owner): harden the API — "private = private"** (A5 required, with A2) | non-public buckets require auth; closes the pre-existing exposure |
+| 2026-06-14 | **A1 started** — `review_buckets.is_public` migration + ORM written on branch `db/scopeA-is-public` | prod apply gated on owner go |
