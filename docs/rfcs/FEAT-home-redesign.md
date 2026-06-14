@@ -23,6 +23,40 @@ logged in — surfaces the owner's bucket (crate) + drafts + "new review" entry.
 home renders honestly with real data only and degrades gracefully at near-zero
 content (current reality: posts were reset to 0 in STAB-5).
 
+## Implementation status (2026-06-14)
+
+**Front shipped & prod-live.** myblog_front PR **#151** squash-merged to main (`746591c`),
+auto-deployed, prod smoke PASSED on `https://www.ratemymusic.blog/` and `/canon`. Front-only —
+no backend/API/contract/infra change.
+
+Built (A–G of the home redesign):
+
+- **A — home shell** (`home/EditorialHome.tsx`): auth-gated writer strip + personalizable
+  reader module stack — 홈 편집 toggle, drag + keyboard reorder, hide/restore, localStorage,
+  empty state. (Steps 1, 4, 5.)
+- **B — Best New Music hero** (`home/BnmHero.tsx`): 30-day rolling window, self-hides when
+  empty, stars-only. (Step 2.)
+- **C — Latest reviews** (`home/LatestReviews.tsx`). (Step 2.)
+- **D — Browse-by-genre teaser** (`home/BrowseGenres.tsx`): **kept SEPARATE** from the full
+  `/genres` Outliner per the reconciliation decision — the home module is a *teaser* that links
+  into the full page; single data source `/api/genres/tree`. (Step 3.)
+- **E — By the numbers**: real honest counts (reviews / albums / genres / last-updated),
+  replacing the placeholder — completed in this same push by the main agent. (Step 3.)
+- **F — editorial footer**: `components/footer.astro` rewritten. (New, beyond the original step
+  sketch.)
+- **G — `/canon` route**: `pages/canon.astro` + `components/canon/CanonPage.tsx` — ≥4.0★ canon
+  hall, no ranking/numbers, year-end placeholder; + header Canon→/canon nav; + `ds.css` helper
+  classes ported into `styles/global.css`. (Owner decision D5.)
+
+Decisions confirmed in the build: **genre = teaser + full page kept separate** (single source
+`/api/genres/tree`); **BNM = 30-day rolling**; **stars only, never a numeric score to readers**
+(hard rule honored). Reviewer pass: 0 HIGH / 3 MED (all fixed).
+
+**NOT done:** the `/blog → /review` prefix migration (Step 6) — intentionally separate future work.
+
+> **Status stays `draft`; front steps 1–5 + `/canon` shipped & prod-live — done-promotion pending
+> owner approval** (rule 5, no RFC self-promotion).
+
 ## Design decisions (this brainstorm)
 
 | # | Decision | Rationale |
@@ -85,10 +119,10 @@ A single `/` page composed of, top to bottom:
 
 | Module | Default | Data source | Status |
 |--------|:------:|-------------|--------|
-| **Best New Music hero** | ✅ on | `bestNew` flag, **rolling 30-day window** (only posts flagged `bestNew` AND published within the last 30 days) via `selectFeatured()`; needs a **daily rebuild** (EventBridge cron) so aged-out picks drop without a content edit — see Owner decisions 2026-06-14 | build now |
-| **Latest reviews** | ✅ on | `blog` collection, date desc (reuse `ReviewsIndex` card) | build now |
-| **Browse by genre** | ✅ on | `/genres` `album_count` share-bars → filtered `/reviews` | build now |
-| **By the numbers** | ✅ on | real counts: reviews / albums covered / genres / last-updated | build now |
+| **Best New Music hero** | ✅ on | `bestNew` flag, **rolling 30-day window** (only posts flagged `bestNew` AND published within the last 30 days) via `selectFeatured()`; needs a **daily rebuild** (EventBridge cron) so aged-out picks drop without a content edit — see Owner decisions 2026-06-14 | ✅ built (#151, `home/BnmHero.tsx`; self-hides empty; daily-rebuild cron = follow-up) |
+| **Latest reviews** | ✅ on | `blog` collection, date desc (reuse `ReviewsIndex` card) | ✅ built (#151, `home/LatestReviews.tsx`) |
+| **Browse by genre** | ✅ on | **teaser** into the full `/genres` Outliner (kept separate; single source `/api/genres/tree`) | ✅ built (#151, `home/BrowseGenres.tsx`) |
+| **By the numbers** | ✅ on | real counts: reviews / albums covered / genres / last-updated | ✅ built (#151 push, honest counts replacing the placeholder) |
 | For-you recommendations | — | listening history + rec engine | roadmap (no data) |
 | Weekly chart (aggregate) | — | community votes | roadmap (no data) |
 | Release calendar | — | release schedule | roadmap (no data) |
@@ -152,14 +186,17 @@ Decisions from the 2026-06-13 brainstorm, beyond the home page itself:
 ## Steps (sketch — not yet sequenced for execution)
 
 > Draft only. Promote to accepted + add `plan.md` row before implementing.
+> **Steps 1–5 + `/canon` SHIPPED & prod-live 2026-06-14 (PR #151, `746591c`)** — see
+> "Implementation status" above. Step 6 NOT done.
 
-1. **Writer strip** — auth-gated component under header; counts from crate + drafts.
-2. **BNM hero + Latest** — reuse `selectFeatured()` / `ReviewCard`; editorial layout.
-3. **Browse-by-genre + By-the-numbers** — real `album_count` + content counts.
-4. **Reader personalization** — drag reorder / hide-restore + localStorage, gated behind
+1. ✅ **DONE (#151)** **Writer strip** — auth-gated component under header; counts from crate + drafts. (In `home/EditorialHome.tsx`.)
+2. ✅ **DONE (#151)** **BNM hero + Latest** — reuse `selectFeatured()` / `ReviewCard`; editorial layout. (`home/BnmHero.tsx` + `home/LatestReviews.tsx`.)
+3. ✅ **DONE (#151)** **Browse-by-genre + By-the-numbers** — Browse-by-genre = teaser into `/genres` (kept separate); By-the-numbers = real honest counts.
+4. ✅ **DONE (#151)** **Reader personalization** — drag reorder / hide-restore + localStorage, gated behind
    an explicit "홈 편집" toggle (OQ1).
-5. **Empty-state polish** — graceful 0/1/2-post rendering; writer-lane prominence.
-6. **`/blog/` prefix migration** (OQ0) — rename read route to the new prefix, remove
+5. ✅ **DONE (#151)** **Empty-state polish** — graceful 0/1/2-post rendering; writer-lane prominence.
+   *(Also shipped in #151 beyond the original sketch: **F** footer rewrite + **G** `/canon` route — Owner decision D5.)*
+6. **`/blog/` prefix migration** (OQ0) — **NOT done; separate future work.** Rename read route to the new prefix, remove
    `/blog/category`, add redirects from old `/blog/[slug]` URLs, sweep internal links +
    sitemap. Sequence with care (redirects before/with the rename so no 404 window);
    consider splitting to its own RFC if the redirect mechanism (CloudFront vs Astro) is
