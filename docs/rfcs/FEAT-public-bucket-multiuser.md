@@ -1,6 +1,6 @@
 # FEAT-public-bucket-multiuser: Public read-only bucket viewer + multi-user accounts
 
-- **Status**: draft — **investigation + design + task breakdown only. NOT implemented.**
+- **Status**: **Scope A done + prod-live** (A1–A5, 2026-06-15) — the public-bucket viewer shipped end-to-end (opt-in `is_public` → public read endpoint + board hardening → `/profile` 공개 toggle → read-only `/collection` viewer). **Scope B (multi-user accounts) not started** — separate owner-gated program.
 - **Owner**: TBD
 - **Created**: 2026-06-14 (overnight Task 3)
 - **Plan row**: pointer under `FEAT-multi-user-accounts` (Backlog)
