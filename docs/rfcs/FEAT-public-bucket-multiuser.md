@@ -177,9 +177,15 @@ decouple before Scope A is sequenced.**
 
 ## Ordered, approvable task breakdown
 
-> **OQ1 + OQ2 answered 2026-06-14 → Scope A is sequenced and started (A1 in progress).** Each task is
-> independently reviewable, sized to one PR where possible. **Scope A first; Scope B only on a separate
-> owner go.** OQ2's "private = private" hardening (A5) is now a **required** part of Scope A, not optional.
+> **2026-06-14: A1 + A2 + A5 DONE + PROD-LIVE.** OQ1/OQ2 answered; Scope A backend shipped. Remaining:
+> A3 (front publish toggle) + A4 (front read-only viewer). Each task independently reviewable, one PR
+> where possible. **Scope A first; Scope B only on a separate owner go.**
+>
+> ⚠️ **Rollout incident (logged):** A2/A5 (be #69) first shipped using `ReviewBucket.is_public` while the
+> backend's shared_db pin was still `v0.18.1` (pre-`is_public`) → `AttributeError` 500 on the new public
+> endpoint AND the owner's authed `/profile`. Hotfix be #70 repinned to the `is_public` commit (`650b1e5`).
+> **Lesson:** apply migration → **bump the consumer pin** → THEN merge code that uses the new column.
+> **Follow-up (cleanup):** cut a proper shared_db `v0.19.0` tag, repin the backend to it, bump pyproject.
 
 ### Scope A — Public read-only bucket viewer
 - **A0 — (optional) read-only spike** on a branch: render the existing `GET /api/buckets` tree in a
@@ -187,18 +193,23 @@ decouple before Scope A is sequenced.**
   spike is the only build activity sanctioned for this RFC tonight; deferred unless owner wants it.)*
 - **A1 — shared_db migration** `V{N}__review_buckets_is_public.sql`: add `is_public BOOLEAN NOT NULL
   DEFAULT false`. Apply to Neon prod **before** any backend pin bump (rollout rule). Reversible
-  (`DROP COLUMN`), additive, non-destructive. **🟡 IN PROGRESS 2026-06-14** — migration file + ORM
-  column written on branch `db/scopeA-is-public` (shared_db); **prod apply gated on owner go.**
-- **A2 — backend public read endpoint**: `GET /api/public/buckets` → only `is_public=true` +
-  `kind='review'`, whitelisted field projection (album/position/public-blurb; **no** private notes),
-  nested tree. Add `is_public` to the bucket PATCH (Cognito-gated). openapi regen + contract.
+  (`DROP COLUMN`), additive, non-destructive. **✅ DONE + PROD-LIVE 2026-06-14** (shared_db #30, V18
+  applied to Neon prod, 5 existing buckets default false).
+- **A2 — backend public read endpoint**: **✅ DONE + PROD-LIVE 2026-06-14** (be #69 + ws contract #347 +
+  front types #154). Shipped as **`GET /api/buckets/public`** (under the buckets router; not
+  `/api/public/buckets`) → only `is_public=true` + `kind='review'`, **flat** (no nesting, so private
+  structure can't leak), whitelisted projection (album + position + already_reviewed; **no** private
+  item fields), `spotify_library` excluded. `PATCH /api/buckets/{id}` accepts `is_public` (refuses to
+  publish the spotify_library bucket → 400). Prod smoke: `200 {"buckets":[]}`.
 - **A3 — front `/profile` publish toggle**: a per-bucket `is_public` switch in `BucketCard` (Bearer
   write), with a clear "이 버킷이 공개됩니다" affordance + private default.
 - **A4 — front read-only `/collection` route**: new slim `AlbumGrid` (no DnD/edit), fetches the
   public endpoint, no auth, graceful empty state, sitemap-included. Link from home/footer.
-- **A5 — API privacy hardening (REQUIRED, OQ2 resolved)**: split `GET /api/buckets` so non-public
-  buckets require auth (only `is_public=true` served unauthenticated). Lands **with** A2. This closes
-  the pre-existing exposure (today all bucket reads are unauthenticated via edge_guard).
+- **A5 — API privacy hardening (REQUIRED, OQ2 resolved)**: **✅ DONE + PROD-LIVE 2026-06-14** (be #69).
+  `GET /api/buckets` now requires a Cognito JWT (app-layer `require_cognito_token`, full in-Lambda
+  validation) — closes the pre-existing unauthenticated exposure of the owner's full board. Prod smoke:
+  `401` without a token. (Optional belt-and-suspenders: an API-Gateway authorizer on `GET /api/buckets`
+  — not done, app-layer enforcement is sufficient.)
 
 ### Scope B — Multi-user accounts (separate program; only on owner go)
 - **B1 — RFC accept + data-model design**: finalize `users` + ownership-FK schema + the auth-model
@@ -219,4 +230,7 @@ decouple before Scope A is sequenced.**
 | 2026-06-14 | Flagged pre-existing unauthenticated `GET /api/buckets` for owner review | not changed here (overnight no-auth-change scope) |
 | 2026-06-14 | **OQ1 RESOLVED (owner): decouple — ship Scope A first**, separate from Scope B | Scope A sequenced + started |
 | 2026-06-14 | **OQ2 RESOLVED (owner): harden the API — "private = private"** (A5 required, with A2) | non-public buckets require auth; closes the pre-existing exposure |
-| 2026-06-14 | **A1 started** — `review_buckets.is_public` migration + ORM written on branch `db/scopeA-is-public` | prod apply gated on owner go |
+| 2026-06-14 | **A1 DONE + prod-live** — `review_buckets.is_public` (V18) applied to Neon prod + shared_db #30 | additive, 5 buckets default false |
+| 2026-06-14 | **A2 + A5 DONE + prod-live** — `GET /api/buckets/public` (whitelisted, flat) + `GET /api/buckets` now JWT-gated | be #69, ws #347, front #154; prod smoke public=200, board=401 |
+| 2026-06-14 | **Public endpoint path = `/api/buckets/public`** (buckets router) | not `/api/public/buckets` as first sketched |
+| 2026-06-14 | **Rollout incident** — be #69 shipped is_public code on pin v0.18.1 → 500; hotfix be #70 repinned to `650b1e5` | lesson: bump consumer pin BEFORE merging code that uses the new column; follow-up: cut v0.19.0 tag |
