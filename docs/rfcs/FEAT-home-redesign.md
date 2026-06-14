@@ -52,7 +52,10 @@ Decisions confirmed in the build: **genre = teaser + full page kept separate** (
 `/api/genres/tree`); **BNM = 30-day rolling**; **stars only, never a numeric score to readers**
 (hard rule honored). Reviewer pass: 0 HIGH / 3 MED (all fixed).
 
-**NOT done:** the `/blog → /review` prefix migration (Step 6) — intentionally separate future work.
+**NOT done in #151:** the `/blog → /review` prefix migration (Step 6) — **extracted 2026-06-14 to
+its own RFC `docs/rfcs/FEAT-blog-to-review-migration.md`** (implemented on branch
+`feat/blog-to-review-migration`, PR open, not merged). With Step 6 extracted, this RFC's own scope
+(steps 1–5 + `/canon`) is complete; promotion to `done` is owner-gated (rule 5).
 
 > **Status stays `draft`; front steps 1–5 + `/canon` shipped & prod-live — done-promotion pending
 > owner approval** (rule 5, no RFC self-promotion).
@@ -196,16 +199,21 @@ Decisions from the 2026-06-13 brainstorm, beyond the home page itself:
    an explicit "홈 편집" toggle (OQ1).
 5. ✅ **DONE (#151)** **Empty-state polish** — graceful 0/1/2-post rendering; writer-lane prominence.
    *(Also shipped in #151 beyond the original sketch: **F** footer rewrite + **G** `/canon` route — Owner decision D5.)*
-6. **`/blog/` prefix migration** (OQ0) — **NOT done; separate future work.** Rename read route to the new prefix, remove
-   `/blog/category`, add redirects from old `/blog/[slug]` URLs, sweep internal links +
-   sitemap. Sequence with care (redirects before/with the rename so no 404 window);
-   consider splitting to its own RFC if the redirect mechanism (CloudFront vs Astro) is
-   non-trivial.
+6. **`/blog/` prefix migration** (OQ0) — **EXTRACTED 2026-06-14 → `docs/rfcs/FEAT-blog-to-review-migration.md`**
+   (implemented front-only, PR open, not merged). Rename read route to `/review/[slug]`, remove
+   `/blog/category`, static no-404 redirect stubs from old `/blog/[slug]` URLs, sweep internal links +
+   sitemap. The redirect mechanism was non-trivial (static S3-website model → no request-time 301),
+   so per the note below it was split to its own RFC.
 
 Each step: `pnpm lint` (Node 20) + `pnpm exec astro check` + browser click-through
 (UI changes need a real render check — lint/astro-check miss render/event regressions).
 
-## `/blog/` prefix migration — TODO (⚠️ detailed plan still to be written)
+## `/blog/` prefix migration — TODO (✅ SUPERSEDED — now `FEAT-blog-to-review-migration`)
+
+> **2026-06-14: this section is superseded.** The migration was written up as its own RFC
+> (`docs/rfcs/FEAT-blog-to-review-migration.md`) and implemented front-only on branch
+> `feat/blog-to-review-migration` (PR open, not merged). The checklist below is retained for
+> history; the dedicated RFC + its manual test checklist are authoritative.
 
 High-level task list only. **A detailed plan / sequencing doc (possibly its own RFC)
 MUST be written and reviewed before any of this is executed** — especially the redirect
