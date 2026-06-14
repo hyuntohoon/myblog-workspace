@@ -177,9 +177,9 @@ decouple before Scope A is sequenced.**
 
 ## Ordered, approvable task breakdown
 
-> **2026-06-14: A1 + A2 + A3 + A5 DONE + PROD-LIVE.** OQ1/OQ2 answered; Scope A backend + the `/profile`
-> publish toggle shipped. Remaining: **A4** (front read-only `/collection` viewer). Each task
-> independently reviewable, one PR where possible. **Scope A first; Scope B only on a separate owner go.**
+> **2026-06-15: Scope A COMPLETE (A1–A5 DONE + PROD-LIVE).** The public-bucket viewer ships end-to-end:
+> opt-in `is_public` (A1) → public read endpoint + board hardening (A2/A5) → `/profile` publish toggle
+> (A3) → read-only `/collection` viewer (A4). **Scope B (multi-user accounts) only on a separate owner go.**
 >
 > ⚠️ **Rollout incident (logged):** A2/A5 (be #69) first shipped using `ReviewBucket.is_public` while the
 > backend's shared_db pin was still `v0.18.1` (pre-`is_public`) → `AttributeError` 500 on the new public
@@ -209,8 +209,13 @@ decouple before Scope A is sequenced.**
   private default; hidden for `spotify_library`. Optimistic + `PATCH /api/buckets/{id} {is_public}`
   (mirrors `setColor`). Verified: headless-Chromium click-through pre-merge + prod real-auth e2e
   (create → toggle public → appears in `/api/buckets/public` → delete).
-- **A4 — front read-only `/collection` route**: new slim `AlbumGrid` (no DnD/edit), fetches the
-  public endpoint, no auth, graceful empty state, sitemap-included. Link from home/footer.
+- **A4 — front read-only `/collection` route**: **✅ DONE + PROD-LIVE 2026-06-15** (front #156). A public,
+  no-auth `/collection` page: a slim read-only album grid (no DnD/edit) that client-fetches
+  `GET /api/buckets/public` on mount (reflects the live A3 toggles), renders each public bucket as a
+  section of cover tiles + `artist · year` captions, with graceful loading/error/empty states. Reuses
+  `AlbumArt`/`SectionTitle`; linked from the header nav + footer (컬렉션); sitemap auto-included. Verified:
+  CDP drive of the real page (mocked + real endpoint) + prod e2e (publish a throwaway bucket → it renders
+  on `/collection` → delete → empty state).
 - **A5 — API privacy hardening (REQUIRED, OQ2 resolved)**: **✅ DONE + PROD-LIVE 2026-06-14** (be #69).
   `GET /api/buckets` now requires a Cognito JWT (app-layer `require_cognito_token`, full in-Lambda
   validation) — closes the pre-existing unauthenticated exposure of the owner's full board. Prod smoke:
@@ -242,3 +247,5 @@ decouple before Scope A is sequenced.**
 | 2026-06-14 | **Rollout incident** — be #69 shipped is_public code on pin v0.18.1 → 500; hotfix be #70 repinned to `650b1e5` | lesson: bump consumer pin BEFORE merging code that uses the new column; follow-up: cut v0.19.0 tag |
 | 2026-06-14 | **A3 DONE + prod-live** — `/profile` per-bucket `is_public` toggle in `BucketCard` | front #155; prod real-auth e2e (toggle → in `/api/buckets/public` → delete) + deployed-bundle grep |
 | 2026-06-14 | **Cleanup DONE** — shared_db `v0.19.0` tag (#31) + backend repinned to tag (be #71) + pyproject `0.19.0` | resolves the be #70 SHA hotfix; repin = version-line-only no-op, prod re-verified |
+| 2026-06-15 | **A4 DONE + prod-live** — read-only `/collection` viewer (slim grid, public endpoint, sitemap, header+footer link) | front #156; prod e2e: publish throwaway → renders on /collection → delete → empty |
+| 2026-06-15 | **Scope A COMPLETE** — A1–A5 all prod-live | Scope B (accounts) remains a separate, owner-gated program; RFC `Status:` promotion left to owner |
