@@ -177,15 +177,17 @@ decouple before Scope A is sequenced.**
 
 ## Ordered, approvable task breakdown
 
-> **2026-06-14: A1 + A2 + A5 DONE + PROD-LIVE.** OQ1/OQ2 answered; Scope A backend shipped. Remaining:
-> A3 (front publish toggle) + A4 (front read-only viewer). Each task independently reviewable, one PR
-> where possible. **Scope A first; Scope B only on a separate owner go.**
+> **2026-06-14: A1 + A2 + A3 + A5 DONE + PROD-LIVE.** OQ1/OQ2 answered; Scope A backend + the `/profile`
+> publish toggle shipped. Remaining: **A4** (front read-only `/collection` viewer). Each task
+> independently reviewable, one PR where possible. **Scope A first; Scope B only on a separate owner go.**
 >
 > ⚠️ **Rollout incident (logged):** A2/A5 (be #69) first shipped using `ReviewBucket.is_public` while the
 > backend's shared_db pin was still `v0.18.1` (pre-`is_public`) → `AttributeError` 500 on the new public
 > endpoint AND the owner's authed `/profile`. Hotfix be #70 repinned to the `is_public` commit (`650b1e5`).
 > **Lesson:** apply migration → **bump the consumer pin** → THEN merge code that uses the new column.
-> **Follow-up (cleanup):** cut a proper shared_db `v0.19.0` tag, repin the backend to it, bump pyproject.
+> **Follow-up (cleanup): ✅ DONE 2026-06-14** — shared_db `v0.19.0` tag cut (#31), backend repinned to the
+> tag (be #71), pyproject bumped `0.18.2 → 0.19.0`. The repin diff vs `650b1e5` is the version line only
+> (no-op runtime); prod re-verified `public=200` / `board=401`.
 
 ### Scope A — Public read-only bucket viewer
 - **A0 — (optional) read-only spike** on a branch: render the existing `GET /api/buckets` tree in a
@@ -201,8 +203,12 @@ decouple before Scope A is sequenced.**
   structure can't leak), whitelisted projection (album + position + already_reviewed; **no** private
   item fields), `spotify_library` excluded. `PATCH /api/buckets/{id}` accepts `is_public` (refuses to
   publish the spotify_library bucket → 400). Prod smoke: `200 {"buckets":[]}`.
-- **A3 — front `/profile` publish toggle**: a per-bucket `is_public` switch in `BucketCard` (Bearer
-  write), with a clear "이 버킷이 공개됩니다" affordance + private default.
+- **A3 — front `/profile` publish toggle**: **✅ DONE + PROD-LIVE 2026-06-14** (front #155). A per-bucket
+  `is_public` switch in `BucketCard` — a `🌐` header icon (accent + `aria-pressed` when public) opens a
+  `비공개`/`공개` segmented panel with the affordance "이 버킷이 공개됩니다 — 누구나 컬렉션에서 볼 수 있어요";
+  private default; hidden for `spotify_library`. Optimistic + `PATCH /api/buckets/{id} {is_public}`
+  (mirrors `setColor`). Verified: headless-Chromium click-through pre-merge + prod real-auth e2e
+  (create → toggle public → appears in `/api/buckets/public` → delete).
 - **A4 — front read-only `/collection` route**: new slim `AlbumGrid` (no DnD/edit), fetches the
   public endpoint, no auth, graceful empty state, sitemap-included. Link from home/footer.
 - **A5 — API privacy hardening (REQUIRED, OQ2 resolved)**: **✅ DONE + PROD-LIVE 2026-06-14** (be #69).
@@ -234,3 +240,5 @@ decouple before Scope A is sequenced.**
 | 2026-06-14 | **A2 + A5 DONE + prod-live** — `GET /api/buckets/public` (whitelisted, flat) + `GET /api/buckets` now JWT-gated | be #69, ws #347, front #154; prod smoke public=200, board=401 |
 | 2026-06-14 | **Public endpoint path = `/api/buckets/public`** (buckets router) | not `/api/public/buckets` as first sketched |
 | 2026-06-14 | **Rollout incident** — be #69 shipped is_public code on pin v0.18.1 → 500; hotfix be #70 repinned to `650b1e5` | lesson: bump consumer pin BEFORE merging code that uses the new column; follow-up: cut v0.19.0 tag |
+| 2026-06-14 | **A3 DONE + prod-live** — `/profile` per-bucket `is_public` toggle in `BucketCard` | front #155; prod real-auth e2e (toggle → in `/api/buckets/public` → delete) + deployed-bundle grep |
+| 2026-06-14 | **Cleanup DONE** — shared_db `v0.19.0` tag (#31) + backend repinned to tag (be #71) + pyproject `0.19.0` | resolves the be #70 SHA hotfix; repin = version-line-only no-op, prod re-verified |
