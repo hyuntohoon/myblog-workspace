@@ -2,6 +2,8 @@
 
 **Status**: draft
 
+> **Correction 2026-06-15:** the `FEAT-genre-taxonomy` dependency referenced below is **stale**. That RFC was **discarded 2026-06-12**, superseded by **FEAT-genre-system** (tier-0 genre vocabulary + `album_genres` labels), which is **done + prod-live 2026-06-13** (archived). The genre-chart's "needs first-class genres" data blocker is therefore **resolved** — real genre labels exist now. Read "FEAT-genre-taxonomy" below as "FEAT-genre-system (done)"; this is now scopable. (Body kept as-authored for history.)
+
 Aggregation for the `/profile` 통계 charts — genre distribution + artist / listen
 distribution. Carved out of `FEAT-member-dashboard` (was its "Step 4") because it is
 large enough to track independently and is gated on a separate dependency
