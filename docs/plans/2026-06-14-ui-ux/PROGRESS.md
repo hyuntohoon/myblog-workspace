@@ -66,3 +66,23 @@ Already decided (sources in parens):
   rolling window + daily rebuild cron**. D7 (stars-only, no numbers) = **already implemented**
   (`DragRatingInput.tsx` — rating is continuous 2-decimal, not 0.5-step; number is author-only).
   Corrected two stale memories (rating granularity).
+
+- 2026-06-14 — **Implementation shipped (front-only, prod-live).** myblog_front PR **#151**
+  squash-merged to main (`746591c`), auto-deployed, prod smoke PASSED on
+  `https://www.ratemymusic.blog/` and `/canon`. Shipped A–G of the redesign:
+  **A** home shell (auth-gated writer strip + personalizable module stack: 홈 편집 toggle,
+  drag + keyboard reorder, hide/restore, localStorage, empty state) — `home/EditorialHome.tsx`;
+  **B** Best New Music hero (30-day rolling, self-hides when empty, stars-only) — `home/BnmHero.tsx`;
+  **C** Latest reviews module — `home/LatestReviews.tsx`;
+  **D** Browse-by-genre **teaser** — `home/BrowseGenres.tsx`, links into the full `/genres`
+  Outliner (**KEPT SEPARATE** per the reconciliation decision: teaser → full page, single data
+  source `/api/genres/tree`);
+  **F** editorial footer rewrite — `components/footer.astro`;
+  **G** new `/canon` route (≥4.0★ canon hall, no ranking/numbers, year-end placeholder) —
+  `pages/canon.astro` + `components/canon/CanonPage.tsx`, + header Canon→/canon nav,
+  + ds.css helper classes ported into `styles/global.css`.
+  **E** "By the numbers" (real honest counts) is being built now in this same push (just completed
+  by the main agent — replaces the placeholder). Hard rule honored: stars only, never a numeric
+  score to readers. Reviewer pass: 0 HIGH / 3 MED (all fixed). `/blog → /review` prefix migration
+  (RFC step 6) intentionally **NOT** done — separate future work. RFC Status left `draft`
+  (done-promotion pending owner approval, rule 5).

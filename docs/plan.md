@@ -8,6 +8,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 _STAB-1 stabilization program complete (STAB-2..STAB-7 all merged, prod-live, archived 2026-06-06); product-expansion freeze lifted 2026-06-06. FEAT-spotify-library-sync DONE + LIVE 2026-06-08, archived 2026-06-09 (#288–#291). FEAT-album-catalog-ingest DONE + LIVE 2026-06-10 (ws #297/#298, worker #42/#43; rule applied, one-shot verified `enqueued=0` as designed) — `git log` + `docs/archive/done/rfcs/` authoritative. **FEAT-genre-system (tier-0) DONE + LIVE 2026-06-13, archived 2026-06-14** (ws #325/#326 / be #66 / front #145) — `docs/archive/done/` authoritative; only the Outliner view productionized, ego-view relationships + sub-genre vocab = separate **FEAT-genre-subgenres** (Frozen). **FEAT-album-research-notes DONE + LIVE 2026-06-11, archived 2026-06-14** (5 steps, $0 local-poller path; #25/#304/#310/#138) — `docs/archive/done/` authoritative._
 
+- **FEAT-home-redesign — FRONT shipped + prod-live 2026-06-14** (front-only; no contract/infra). myblog_front PR **#151** (`746591c`), prod smoke PASSED on `/` + `/canon`. Built A–G: editorial home shell (writer strip + personalizable module stack, 홈 편집 toggle) + BNM hero (30-day rolling) + Latest + Browse-by-genre teaser (links into full `/genres`, kept separate) + By-the-numbers honest counts + footer rewrite + new `/canon` (≥4.0★). Stars-only honored. RFC → `docs/rfcs/FEAT-home-redesign.md` (Status still `draft`; done-promotion pending owner approval, rule 5). **Pending:** `/blog → /review` prefix migration (RFC step 6, separate future work).
+
 ---
 
 ## Backlog
