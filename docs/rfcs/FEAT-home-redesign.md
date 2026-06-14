@@ -85,7 +85,7 @@ A single `/` page composed of, top to bottom:
 
 | Module | Default | Data source | Status |
 |--------|:------:|-------------|--------|
-| **Best New Music hero** | ✅ on | `bestNew` flag via `selectFeatured()` | build now |
+| **Best New Music hero** | ✅ on | `bestNew` flag, **rolling 30-day window** (only posts flagged `bestNew` AND published within the last 30 days) via `selectFeatured()`; needs a **daily rebuild** (EventBridge cron) so aged-out picks drop without a content edit — see Owner decisions 2026-06-14 | build now |
 | **Latest reviews** | ✅ on | `blog` collection, date desc (reuse `ReviewsIndex` card) | build now |
 | **Browse by genre** | ✅ on | `/genres` `album_count` share-bars → filtered `/reviews` | build now |
 | **By the numbers** | ✅ on | real counts: reviews / albums covered / genres / last-updated | build now |
@@ -192,6 +192,44 @@ mechanism and no-404 sequencing. Do NOT bundle with the front-only home redesign
 | 2026-06-13 | Identity = editorial (not community); keep drag personalization for readers; writer strip pinned top, auth-gated; empty-state first-class | brainstorm |
 | 2026-06-13 | Remove `/blog/category`; keep `/profile`; bucket view = update existing `BucketBoard`; artist hub recommended-but-deferred | site scope |
 | 2026-06-14 | OQ0 → migrate the whole `/blog/` prefix (not category-only); OQ1 → explicit "홈 편집" toggle; OQ4 → `/reviews` stays full browser, `/` does not subsume it. Path: implement from a Claude Design bundle (pending), promote RFC after design is confirmed. | OQ resolution |
+| 2026-06-14 | **Owner UI/UX-review decisions (D1–D9 + BNM 30-day rolling)** — see "Owner decisions" section below. | review |
+
+---
+
+## Owner decisions — 2026-06-14 (UI/UX & IA review)
+
+Confirmed by the owner during the `docs/plans/2026-06-14-ui-ux/` review. **Status stays `draft`**
+(no self-promotion); these record design decisions, not a status change. Cross-ref:
+`docs/plans/2026-06-14-ui-ux/00-SUMMARY.md` §"확정 결정".
+
+- **Positioning (D1):** "Letterboxd-foundation / IZM-surface" — the bucket/log stays the foundation;
+  a thin owner-curated editorial surface (canon + future year-end Picks) supplies authority. Neither
+  pure-editorial nor pure-log.
+- **Home structure (D3):** Concept B (this RFC's two-lane editorial home) — confirmed as the frame.
+- **Best New Music hero (NEW):** rolling **30-day window** — the hero shows only posts flagged
+  `bestNew` **and** published within the last 30 days; picks age out automatically. Because the site
+  is static, this needs a **daily rebuild** (EventBridge cron) so a pick drops without a content edit.
+  `selectFeatured()` gains a recency filter. *Empty-month behavior (no BNM in the last 30 days =
+  self-hide vs. fall back to latest) is a follow-up OQ.*
+- **Score display (D7):** stars only, **no numbers, ever** — **already implemented**
+  (`writer/DragRatingInput.tsx`: the numeric value shows to the author only while dragging and never
+  reaches the published read page; `partial-stars` is continuous, not 0.5-step). **No work needed.**
+  A star-based `sort` on `/reviews` is acceptable.
+- **`/canon` (D5):** BUILD — a computed **★4.0+** canon from review `rating` (no new API). Inert /
+  scaffolded at 0 posts; fills as reviews accrue. Hand-curated, blurbed year-end Picks **deferred**
+  (needs the editor-lists / bucket-as-list feature).
+- **Public bucket projection (D2 / D4):** **deferred and coupled to multi-user accounts**
+  (`FEAT-multi-user-accounts`). Target form = a **read-only public viewer** of the bucket board
+  ("current format, not editable, anyone can view"). What is shown vs. kept private (e.g. workflow
+  crates like "재평가 대기") is decided then. `/collections` is **NOT** built now.
+- **`/about/how-i-rate` (D6):** NOT built.
+- **Email subscription (D8):** NOT in scope (RSS-only posture kept).
+- **Read-page prefix (D9):** **`/review/[slug]`** (singular — `/reviews/[slug]` would collide with
+  the surviving `/reviews` browser). Confirmed for the dedicated `/blog`-migration step.
+
+**Net "build now" set:** (1) Concept-B editorial home with the 30-day-rolling BNM hero + daily
+rebuild cron, (2) `/canon` (★4.0+ computed, graceful empty state), (3) the `/blog → /review` prefix
+migration (its own step). Everything else above is deferred or already done.
 
 ---
 
