@@ -314,7 +314,8 @@ CREATE TABLE IF NOT EXISTS review_buckets (
   parent_id  UUID        REFERENCES review_buckets(id) ON DELETE CASCADE,  -- V11
   kind       TEXT        NOT NULL DEFAULT 'review',                        -- V15: marks the single spotify_library bucket
   research_mode TEXT     NOT NULL DEFAULT 'off'
-                         CHECK (research_mode IN ('off', 'all', 'selected'))  -- V16: auto-research scope (FEAT-album-research-notes)
+                         CHECK (research_mode IN ('off', 'all', 'selected')),  -- V16: auto-research scope (FEAT-album-research-notes)
+  is_public  BOOLEAN     NOT NULL DEFAULT false                            -- V18: public bucket viewer opt-in (FEAT-public-bucket-multiuser)
 );
 CREATE INDEX IF NOT EXISTS idx_review_buckets_parent_id ON review_buckets(parent_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_done
