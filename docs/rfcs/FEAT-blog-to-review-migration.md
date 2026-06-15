@@ -132,14 +132,48 @@ revert. No infra/data state to undo.
 
 ### Step 2 — (Optional, owner-applied) true 301 via CloudFront Function
 
-Extend the existing `handler` viewer-request function to emit a 301 for `^/blog/(.*)$` →
-`/review/$1` (and `^/blog/category` → `/reviews/`). Pseudocode:
+Extend the existing `handler` viewer-request function to emit a 301 for legacy `/blog/*` URLs.
+Ready-to-paste (CloudFront Functions JS, ES5-safe — no template literals / arrow fns). Paste the
+`/blog` block at the **top** of the existing `handler(event)` body (right after `var uri = ...`),
+keep the existing SPA-routing logic below it, and add the `redirect301` helper:
 
 ```js
-// viewer-request
-if (uri.startsWith('/blog/category')) return redirect(301, '/reviews/')
-if (uri.startsWith('/blog/'))         return redirect(301, '/review/' + uri.slice('/blog/'.length))
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+
+  // ── FEAT-blog-to-review-migration Step 2: true 301 for legacy /blog/* URLs ──
+  // Mirrors the static stubs (already no-404); upgrades them to a real permanent
+  // redirect for SEO link-equity. Order matters: /blog/category before the slug rule.
+  if (uri === '/blog' || uri === '/blog/' || uri.indexOf('/blog/category') === 0) {
+    return redirect301('/reviews/');
+  }
+  if (uri.indexOf('/blog/') === 0) {
+    var slugPath = uri.substring('/blog/'.length);          // "lit/" | "lit"
+    if (slugPath.charAt(slugPath.length - 1) !== '/') { slugPath += '/'; }
+    return redirect301('/review/' + slugPath);              // → "/review/lit/"
+  }
+
+  // ===== existing SPA-routing logic stays below — DO NOT REMOVE =====
+  return request;
+}
+
+function redirect301(location) {
+  return {
+    statusCode: 301,
+    statusDescription: 'Moved Permanently',
+    headers: { location: { value: location } },
+  };
+}
 ```
+
+Covers: `/blog`, `/blog/`, `/blog/category`, `/blog/category/*` → `301 /reviews/`; `/blog/<slug>`
+and `/blog/<slug>/` → `301 /review/<slug>/` (trailing slash normalized to the canonical form).
+
+**Console steps (owner — non-IaC):** CloudFront → Functions → open the existing `handler` →
+fold in the block above → **Save changes** → **Publish** → confirm it stays associated to the
+distribution's default behavior on **Viewer request** (it already is). Verify:
+`curl -I https://www.ratemymusic.blog/blog/lit/` → `HTTP/2 301` + `location: /review/lit/`.
 
 Caveats: the function source lives in the console (not IaC) → owner edits it; verify CloudFront
 **Functions** are permitted on the current **Free flat-rate plan** (Functions are generally
