@@ -36,9 +36,11 @@ precondition as `FEAT-ai-editorial-critique`.
 
 ## Current state (substrate is live)
 
-- `genre_edges` (40 seeded: 33 influenced_by / 7 related) + `post_genres`
-  (filled per-review by FEAT-genre-subgenres Step 2) + the 211-genre tier-1 tree
-  — all prod-live. `GET /api/genres/tree` returns the tree + edges.
+- `genre_edges` (**2,064**: 1,434 influenced_by / 590 related — densified by
+  FEAT-genre-deepen, was 40) + `post_genres` (filled per-review by the `/write`
+  picker) + the **1,230-genre, 4-tier** taxonomy (13 top-level incl. Blues — was
+  211/2-tier) — all prod-live. `GET /api/genres/tree` returns the tree + edges.
+  The deeper tree + denser graph give the recommendation a far richer substrate.
 - So the recommendation has all its **inputs**; only the ranking/query + the
   `/review/{slug}` block + (optionally) the edge-authoring write endpoints are
   missing.
