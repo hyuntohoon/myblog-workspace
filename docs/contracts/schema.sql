@@ -11,9 +11,11 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V17 (V1–V13 prod-verified 2026-06-08;
+-- This file shows clean canonical DDL through V19 (V1–V13 prod-verified 2026-06-08;
 --   V14/V15 backfilled from migration DDL 2026-06-09; V16 backfilled 2026-06-12 —
---   all prod-applied + prod-live. V17 prod-applied + prod-verified 2026-06-12).
+--   all prod-applied + prod-live. V17 prod-applied + prod-verified 2026-06-12; V18
+--   (review_buckets.is_public) prod-live 2026-06-15; V19 (spotify_track_play_events)
+--   added 2026-06-15 — prod-apply PENDING before the worker deploy, FEAT-track-play-history).
 -- NB — STAB-5 V13 renamed `categories`→`sections` and `posts.category_id`→`section_id`
 --   IN-PLACE (`ALTER TABLE ... RENAME`). Postgres carries constraints/indexes/FK across
 --   a rename by OID, so prod's PHYSICAL names still read the pre-V13 `categor*` form:
@@ -406,6 +408,22 @@ CREATE TABLE IF NOT EXISTS spotify_recent_tracks (
 CREATE INDEX IF NOT EXISTS idx_spotify_recent_tracks_played_at
   ON spotify_recent_tracks(played_at);
 
+-- V19: append-only TRACK-level play history (FEAT-track-play-history). Durable
+-- per-track mirror of spotify_play_events (never pruned). spotify_track_id dedups;
+-- track_id/album_id resolve from the catalog when known, NULL otherwise.
+CREATE TABLE IF NOT EXISTS spotify_track_play_events (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  spotify_track_id TEXT        NOT NULL,
+  track_id         UUID        REFERENCES tracks(id) ON DELETE SET NULL,
+  album_id         UUID        REFERENCES albums(id) ON DELETE SET NULL,
+  played_at        TIMESTAMPTZ NOT NULL,
+  source           TEXT        NOT NULL DEFAULT 'spotify',
+  recorded_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_spotify_track_play_events_play UNIQUE (spotify_track_id, played_at)
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_track_play_events_played_at
+  ON spotify_track_play_events(played_at);
+
 -- =============================================================================
 -- Spotify Library Sync — two-way saved-albums mirror (V15; FEAT-spotify-library-sync)
 -- review_buckets.kind='spotify_library' (above) + this immutable provenance side-table.
@@ -506,12 +524,16 @@ CREATE TABLE IF NOT EXISTS track_genres (             -- override-only; row exis
 -- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
--- This file is current through V17. V1–V13 verified against prod 2026-06-08
+-- This file is current through V19. V1–V13 verified against prod 2026-06-08
 -- (categories→sections rename; see the section-rename note in the header for prod's
 -- legacy physical object names). V14 (spotify_recent_tracks) + V15 (spotify_library_albums
 -- + review_buckets.kind + 2 enums) backfilled from migration DDL 2026-06-09; V16
 -- (album_research + research scope columns) backfilled from migration DDL 2026-06-12 —
 -- all prod-applied + prod-live. V17 (genres + album_genres + track_genres + 12-row seed)
 -- added 2026-06-12, prod-applied + prod-verified same day (FEAT-genre-system Step 1,
--- shared_db v0.17.0). Last full structural prod-verify 2026-06-05 (STAB-4).
+-- shared_db v0.17.0). V18 (review_buckets.is_public) prod-live 2026-06-15
+-- (FEAT-public-bucket-multiuser Scope A). V19 (spotify_track_play_events — durable
+-- TRACK-level play log) added 2026-06-15, FEAT-track-play-history — prod-apply PENDING,
+-- must hit Neon main BEFORE the worker deploy. Last full structural prod-verify
+-- 2026-06-05 (STAB-4).
 -- =============================================================================
