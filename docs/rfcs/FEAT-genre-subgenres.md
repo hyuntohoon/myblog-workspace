@@ -11,11 +11,11 @@ A **tier-1 editorial sub-genre layer**. Its purpose is **NOT** a browse/search t
 
 1. **Critical authority** — tag each review with the exact sub-genre(s) it concerns. A precise vocabulary is the structured form of the criticism's expertise (Pitchfork browses only ~9 genres but names hundreds of micro-genres *in prose*; this layer is that article-level precision made structured).
 2. **Definitions** — every used sub-genre carries an owner-authored definition (`definition_md`), surfaced on review/genre pages so the site reads as a reference.
-3. **The edge-graph substrate for related-review recommendation** — the seeded `genre_edges` graph (influenced-by / related) is the data that a recommendation engine will later consume. **The recommendation + ego-view *experiences* themselves are split to a follow-on feature** (see Scope below).
+3. **The edge-graph substrate for related-review recommendation** — the seeded `genre_edges` graph (influenced-by / related) is the data that a recommendation engine will later consume. **The recommendation *experience* itself is split to a follow-on feature** (see Scope below).
 
 Sub-genres are encountered **on review pages**, not browsed to. This single fact reframes the whole design (see Non-goals + the vocabulary decision).
 
-**Scope (rescoped 2026-06-15, owner).** This RFC delivers the **tagging + definitions data layer**: the vocabulary + edge-graph data (Step 1/1b ✅), the writer's tagging input (Step 2), and the review-page display (Step 3). The **graph *experiences*** — the `/genres` ego-view visualization, the related-review recommendation, and owner edge-authoring (old Steps 4–6) — are split out to **`docs/rfcs/FEAT-genre-graph-views.md`** (deferred: gated on this tagging being live + real review volume).
+**Scope (rescoped 2026-06-15, owner).** This RFC delivers the sub-genre **tagging + definitions + taxonomy-visualization** layer: the vocabulary + edge-graph data (Step 1/1b ✅), the writer's tagging input (Step 2), the review-page display (Step 3), and the **`/genres` ego-view visualization** (Step 4 — visualizes the live 211-genre taxonomy + 40 edges, **review-volume-independent**). Only the **related-review recommendation** (old Step 5) + **owner edge-authoring** (old Step 6) are split out to **`docs/rfcs/FEAT-genre-recommendation.md`** — deferred, gated on real review volume (nothing to recommend until reviews accrue).
 
 ## Non-goals
 
@@ -23,7 +23,7 @@ Sub-genres are encountered **on review pages**, not browsed to. This single fact
 - **Machine labeling of sub-genres.** tier-1 is human/editorial, attached at *review* time, stored per-post. tier-0 (`album_genres`) stays machine-labeled; the two stores never mix and humans never edit `album_genres`.
 - **Sub-sub-genres.** The model is **2-tier flat** — every sub-genre attaches directly to one of the 12 tier-0 parents.
 - **Multi-parent containment.** Cross-genre membership is expressed as *influence/related edges*, not multiple parents (see Decisions).
-- **The graph experiences** — `/genres` ego-view visualization, related-review recommendation, owner edge-authoring UI. Split to `FEAT-genre-graph-views` (deferred). This RFC only produces their data (the edge graph + the per-review tags).
+- **Related-review recommendation + owner edge-authoring UI** — split to `FEAT-genre-recommendation` (deferred, gated on review volume). This RFC produces the recommendation's data (edge graph + per-review tags) and the genre-map *view* (Step 4), but not the recommendation block itself.
 
 ## Current state
 
@@ -113,7 +113,10 @@ Sub-genre multi-select in the `/write` SettingsPanel (below section / review-tag
 ### Step 3 — review-page tags + definitions (front)
 Render a review's `post_genres` as labeled tags on `/review/{slug}`; each tag links to its definition (popover or `/genres#slug`). Owner sees an inline "define" affordance for an as-yet-undefined used sub-genre.
 
-> **Steps 4–6 split out (rescoped 2026-06-15).** The `/genres` ego-view + populated Outliner (old Step 4), the related-review recommendation (old Step 5), and owner edge-authoring (old Step 6 — inline in the ego-view, so inseparable from it) move to **`docs/rfcs/FEAT-genre-graph-views.md`**, deferred. They consume this RFC's outputs (the edge graph + per-review tags) but are gated on real review volume (the recommendation has nothing to rank, and the populated-only ego-view nothing to show, until reviews are tagged). FEAT-genre-subgenres is **done at Step 3**.
+### Step 4 — `/genres` ego-view + taxonomy visualization (front)
+Extend `/genres` to render the **tier-1 taxonomy + relationships** from the live `GET /api/genres/tree` (211 genres + 40 edges): the Outliner shows sub-nodes, and clicking any node opens a small **local ego-diagram** (that node + its parent/children + `influenced_by`/`related` neighbours). Reuses the deferred "장르 맵" Claude Design layouts (ego-view / Miller-columns / diagram — see `GenreMap.tsx`). **Read-only** (edge authoring is split out). Review-volume-independent — it visualizes the taxonomy itself, so it's buildable now. Open Q: show the full palette vs populated-only in the local diagram (the global tree may stay populated-only for readability). FEAT-genre-subgenres is **done at Step 4**.
+
+> **Steps 5–6 split out (rescoped 2026-06-15).** The related-review recommendation (old Step 5 — the "장르 기준 추천 평론") and owner edge-authoring (old Step 6) move to **`docs/rfcs/FEAT-genre-recommendation.md`**, deferred: gated on real review volume (the recommendation has nothing to rank until reviews are tagged). The ego-view viz (Step 4) was **kept here** — it's review-volume-independent.
 
 ## Open questions
 
@@ -137,7 +140,7 @@ Render a review's `post_genres` as labeled tags on `/review/{slug}`; each tag li
 | 2026-06-15 | **Accepted** → Step 1. Step-1 audit corrections: `post_genres` keys by `post_id` FK (reviews ARE `posts` rows — OQ1 resolved); `genre_edges` ON DELETE RESTRICT (not CASCADE) per the all-genre_id-FKs-RESTRICT rule. Migration = V20 | owner |
 | 2026-06-15 | **Step 1 schema+seed DONE + prod-applied** (V20). Owner Step-1 trims: dropped generic "Soundtrack" node, folded House sub-forms, dropped Djent/Drumstep, K-Pop = idol-pop + ballad → palette 220→211; 7 lateral edges set to `related` (33 influenced_by / 7 related). Backend API = Step 1b | owner |
 | 2026-06-15 | **Step 1b DONE + prod-live** (shared_db #35→v0.20.0 / backend #73 / ws #364 / front #162): ORM models, `GET /tree` edges, editorial tagging via post create/update payload `genre_ids`→`post_genres`. `/api/genres/tree` = 12+211+40 live | owner |
-| 2026-06-15 | **Rescoped: Steps 4–6 split out** to `FEAT-genre-graph-views` (deferred — gated on review volume). FEAT-genre-subgenres = tagging+definitions data layer, **done at Step 3**. Not the work to do now | owner |
+| 2026-06-15 | **Rescoped: Steps 5–6 split out** to `FEAT-genre-recommendation` (deferred — gated on review volume): related-review recommendation + owner edge-authoring. **Step 4 (ego-view taxonomy viz) kept here** (revived — it visualizes the live taxonomy, review-volume-independent). FEAT-genre-subgenres = tagging + definitions + genre-map viz, **done at Step 4** | owner |
 
 ---
 
