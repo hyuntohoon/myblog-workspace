@@ -1,6 +1,6 @@
 # FEAT-genre-subgenres: tier-1 editorial sub-genres — tagging, definitions, related-review recommendation
 
-- **Status**: accepted (2026-06-15, owner) — Step 1 in progress
+- **Status**: accepted (2026-06-15, owner) — **all steps (1, 1b, 2, 3, 4) DONE + prod-live 2026-06-15; feature complete, ready to archive (owner OK)**
 - **Owner**: 박지훈
 - **Created**: 2026-06-15
 - **Supersedes**: the tier-1 carve-out from FEAT-genre-system (`docs/archive/done/rfcs/FEAT-genre-system.md`) — that RFC shipped tier-0 (12 machine genres + Outliner) and deferred ego-view relationships + sub-genre vocabulary here.
@@ -107,14 +107,14 @@ A 6-agent benchmark (Pitchfork / RYM / AllMusic / Discogs / Apple / Spotify) est
 
 Original plan: `genre_edges` + `post_genres` tables (plain `V{N}__*.sql`, no Alembic). Seed the palette as tier-1 `genres` rows (`parent_id` = the tier-0 parent; `position`; `definition_md` NULL until authored) + the `influenced_by`/`related` edges from Appendix A. Dry-run → owner reviews the seed → execute against prod (REQUIRED before merge per `reference-shared-db-cross-repo-rollout`). Backend: `GET /api/genres/tree` returns tier-1 nodes + edges; `POST /api/genres/{id}/edges` + `POST /api/posts/{slug}/genres` (Cognito JWT, copy `buckets_post` pattern). Contract: `openapi.json` regen + workspace merge.
 
-### Step 2 — writer picker (front `/write`)
-Sub-genre multi-select in the `/write` SettingsPanel (below section / review-tag pickers), drawing from the palette (searchable — large palette, so filter-as-you-type). Persists `post_genres` on publish/restore via `content_sync`.
+### Step 2 — writer picker (front `/write`) ✅ DONE + prod-live 2026-06-15 (front #163)
+Sub-genre multi-select in the `/write` SettingsPanel (below section / review-tag pickers), drawing from the palette (searchable — large palette, so filter-as-you-type). **Shipped**: `GenrePicker` fetches the genre tree, flattens the 211 tier-1 (+12 tier-0) under their roots → removable selected pills + type-to-filter search (flat results w/ parent breadcrumb) + parent-grouped browse list with ✓ on-state. `WriterApp.genreIds` rides the post create/update payload `genre_ids` → `post_genres` (no separate publish-payload field). Verified: CDP click-through + **prod e2e** (genre_ids round-trips: post_genres persisted, replace-set on update).
 
-### Step 3 — review-page tags + definitions (front)
-Render a review's `post_genres` as labeled tags on `/review/{slug}`; each tag links to its definition (popover or `/genres#slug`). Owner sees an inline "define" affordance for an as-yet-undefined used sub-genre.
+### Step 3 — review-page tags + definitions (front + backend) ✅ DONE + prod-live 2026-06-15 (backend #74, front #163)
+Render a review's `post_genres` as labeled tags on `/review/{slug}`. **Shipped**: the publish service derives `subgenres: [{slug,label}]` from `post_genres` (`derive_subgenres`, DB-not-request, shared by publish + restore) and bakes it into the MDX frontmatter (top-level, after `tags`); `content.config.ts` + `review/[slug].astro` render them as distinct bordered chips in the hero — the critic's precise genre call, separated from the machine tier-0 `musicReview.genres` line. **No contract change** (subgenres derived, not a request field). **On-demand definitions deferred** to when definitions are authored (mostly empty today; Claude-Code-driven). Verified: pytest (route emit + real-engine `derive_subgenres` on Neon) + a screenshot of the rendered chips.
 
-### Step 4 — `/genres` ego-view + taxonomy visualization (front)
-Extend `/genres` to render the **tier-1 taxonomy + relationships** from the live `GET /api/genres/tree` (211 genres + 40 edges): the Outliner shows sub-nodes, and clicking any node opens a small **local ego-diagram** (that node + its parent/children + `influenced_by`/`related` neighbours). Reuses the deferred "장르 맵" Claude Design layouts (ego-view / Miller-columns / diagram — see `GenreMap.tsx`). **Read-only** (edge authoring is split out). Review-volume-independent — it visualizes the taxonomy itself, so it's buildable now. Open Q: show the full palette vs populated-only in the local diagram (the global tree may stay populated-only for readability). FEAT-genre-subgenres is **done at Step 4**.
+### Step 4 — `/genres` ego-view + taxonomy visualization (front) ✅ DONE + prod-live 2026-06-15 (front #164)
+Extend `/genres` to render the **tier-1 taxonomy + relationships** from the live `GET /api/genres/tree` (211 genres + 40 edges). **Shipped**: A/B/C layout switcher — **A** Outliner (inline ego on open), **B** Miller columns, **C** horizontal dendrogram (pan+zoom) — each sharing one per-node **ego-view** (definition + 상위/영향/관련 diagram; multi-parent via `parent`-type edges). **Read-only** (the old owner inline-edit path was dropped — definitions are Claude-Code-authored; owner confirmed read-only 2026-06-15). Verified: CDP render of the real built page with **live prod data** (211 genres + 40 edges) + prod render after deploy (12 genres, switcher, no error). FEAT-genre-subgenres is **done at Step 4** — all steps prod-live.
 
 > **Steps 5–6 split out (rescoped 2026-06-15).** The related-review recommendation (old Step 5 — the "장르 기준 추천 평론") and owner edge-authoring (old Step 6) move to **`docs/rfcs/FEAT-genre-recommendation.md`**, deferred: gated on real review volume (the recommendation has nothing to rank until reviews are tagged). The ego-view viz (Step 4) was **kept here** — it's review-volume-independent.
 
@@ -141,6 +141,7 @@ Extend `/genres` to render the **tier-1 taxonomy + relationships** from the live
 | 2026-06-15 | **Step 1 schema+seed DONE + prod-applied** (V20). Owner Step-1 trims: dropped generic "Soundtrack" node, folded House sub-forms, dropped Djent/Drumstep, K-Pop = idol-pop + ballad → palette 220→211; 7 lateral edges set to `related` (33 influenced_by / 7 related). Backend API = Step 1b | owner |
 | 2026-06-15 | **Step 1b DONE + prod-live** (shared_db #35→v0.20.0 / backend #73 / ws #364 / front #162): ORM models, `GET /tree` edges, editorial tagging via post create/update payload `genre_ids`→`post_genres`. `/api/genres/tree` = 12+211+40 live | owner |
 | 2026-06-15 | **Rescoped: Steps 5–6 split out** to `FEAT-genre-recommendation` (deferred — gated on review volume): related-review recommendation + owner edge-authoring. **Step 4 (ego-view taxonomy viz) kept here** (revived — it visualizes the live taxonomy, review-volume-independent). FEAT-genre-subgenres = tagging + definitions + genre-map viz, **done at Step 4** | owner |
+| 2026-06-15 | **Steps 2 + 3 + 4 DONE + prod-live** (backend #74 / front #163 [Step 2+3] / front #164 [Step 4]). Step 2 writer sub-genre picker (`genre_ids`→`post_genres`); Step 3 publish bakes `subgenres:[{slug,label}]` into review frontmatter (DB-derived, no contract change) + review-page chips; Step 4 read-only A/B/C genre map + per-node ego-view. Owner confirmed Step-4 read-only (no inline edit; definitions Claude-Code-authored). Prod smoke: `/genres` renders (12+211+40 live), genre_ids tagging round-trips, UI in deployed bundles. **Feature complete — ready to archive (owner OK)** | Claude |
 
 ---
 
