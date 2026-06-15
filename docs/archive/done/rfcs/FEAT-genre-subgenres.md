@@ -1,6 +1,6 @@
 # FEAT-genre-subgenres: tier-1 editorial sub-genres — tagging, definitions, related-review recommendation
 
-- **Status**: accepted (2026-06-15, owner) — **all steps (1, 1b, 2, 3, 4) DONE + prod-live 2026-06-15; feature complete, ready to archive (owner OK)**
+- **Status**: **done — all steps (1, 1b, 2, 3, 4) prod-live + archived 2026-06-15** (owner OK). Follow-on `FEAT-genre-recommendation` (Steps 5–6) stays Frozen, gated on review volume.
 - **Owner**: 박지훈
 - **Created**: 2026-06-15
 - **Supersedes**: the tier-1 carve-out from FEAT-genre-system (`docs/archive/done/rfcs/FEAT-genre-system.md`) — that RFC shipped tier-0 (12 machine genres + Outliner) and deferred ego-view relationships + sub-genre vocabulary here.
