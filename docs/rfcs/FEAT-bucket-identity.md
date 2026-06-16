@@ -74,6 +74,30 @@ becomes listening-history-only. Highest identity payoff, highest cost (backend +
 data migration + front rework). Propose only if the two save-queues are judged an
 accident worth unwinding.
 
+### Direction D — bucket as a flexible PUBLIC collection (owner direction, 2026-06-16)
+Beyond the personal save→review workflow, the owner wants **"bucket" = a flexible
+collection ("모음")** surfaced publicly, used in several ways:
+- **장르 평론 모음** — a curated set of reviews for a genre.
+- **플레이리스트 / 추천 음반 모음** — recommended-album collections.
+- **아티스트 모음** — an artist's albums as a collection.
+- **이번 주 / 신보 모음**, **명반 모음**, etc.
+
+Infra already exists: `FEAT-public-bucket-multiuser` shipped the public bucket
+viewer (`/collection`, opt-in `is_public`, `GET /api/buckets` via edge_guard). So
+the owner can curate public buckets that read as magazine collections.
+
+**Caveat the owner flagged:** if the flexible-bucket meaning is provided too
+*minorly / abstractly*, it loses meaning and confuses readers. So the **home
+stays clear/general** — the magazine basics (BNM feature, latest reviews, genres)
+in the chosen **Variant B** form — and the multi-meaning bucket collections are
+surfaced on dedicated surfaces (`/collection`, genre/artist pages), NOT crammed
+onto the home. The B home's mock bucket-curation rows (`이번 주 버킷` / `추천 버킷`)
+are therefore **deferred** until curated public-bucket / new-release data is ready
+to feed the home in a way readers immediately understand.
+
+Status: **home shipped in Variant B** (front #176, `FEAT-home-redesign-v2` DONE);
+the public-collection bucket surfaces are the next concrete step here.
+
 ## Open questions
 
 - Direction B prominence: should the board become the `/profile` **landing tab**
