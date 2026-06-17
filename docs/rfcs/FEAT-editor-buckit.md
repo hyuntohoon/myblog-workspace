@@ -1,9 +1,9 @@
 # FEAT-editor-buckit: editorial commissioning desk (pre-writing idea generator)
 
-- **Status**: draft
+- **Status**: in-progress (accepted + execution started 2026-06-17, owner-approved)
 - **Owner**: 박지훈
 - **Created**: 2026-06-17
-- **Plan row**: `plan.md` → FEAT-editor-buckit (Backlog)
+- **Plan row**: `plan.md` → FEAT-editor-buckit (Active)
 
 ---
 
@@ -244,3 +244,4 @@ implementation get added back here.
 | 2026-06-17 | OQ4: reports **gitignored by default** (`docs/editorial/ideas/*.md`); owner commits a report deliberately if wanted | 1 |
 | 2026-06-17 | OQ5: Stage 0 runs *before* the first review (the "what to write first" unblocker); Stage 1 gated until ≥1 review exists | 1 |
 | 2026-06-17 | OQ6: a simple version string in the prompt-doc report header only; no poller/service duplication to sync in Stage 0 (full vendoring convention deferred to Stage 1) | 1 |
+| 2026-06-17 | Owner accepted + promoted Status draft → in-progress; Step 1 executed on `feat/FEAT-editor-buckit-stage0`: `scripts/editor_buckit.py` (read-only prod export, candidates **deduped by album_id**) + `docs/editorial/editor-buckit-prompt.md` (3-draft judge-panel synthesis) + `docs/editorial/ideas/` (gitignored). Read-only dry-run verified live (68 distinct bucket albums, 1 reviewed excluded) | 1 |
