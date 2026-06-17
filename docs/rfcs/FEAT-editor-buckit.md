@@ -103,11 +103,11 @@ Anti-scope-creep insurance. Each is **out of Stage 0**; most are deferred to Sta
 - **Editorial volume**: ~0–1 published reviews ever (STAB-5 reset posts to 0). So the bucket /
   listening / research-note signals are the only meaningful own-data at present — which is precisely
   why grounding is on buckets, not reviews.
-- **Future handoff plumbing already exists** (Stage 1 only): `WriterApp.tsx` parses `?album=<id>` on
-  mount (`prefillAlbum` → `onSubjectSelect`); `AlbumDetail.tsx:309` already builds `/write?album=<id>`
-  links; `Post.extra` (JSONB, `default '{}'`, unused) is a zero-migration provenance sink; the
-  research-note rendering stack (`NoteBody.tsx` + shared `research.css`, the `lib/research.ts`
-  external store) is the reusable display pattern.
+- **Future handoff plumbing** (was for the dropped in-app draft-factory; **superseded 2026-06-18** by
+  the file-only redesign — Stage 1 no longer seeds drafts into `/write`): `WriterApp.tsx` parses
+  `?album=<id>` on mount; `AlbumDetail.tsx:309` builds `/write?album=<id>` links; `Post.extra` (JSONB,
+  unused) was the provenance sink; `NoteBody.tsx` + `research.css` the display pattern. Retained here
+  only as a record — none of it is on Stage 1's path now.
 - **DB safety**: prod `DATABASE_URL` is `postgresql+psycopg://`; convert for `psql`; use
   `BEGIN…ROLLBACK` / read-only SELECTs (`reference-database-url-psql`). Prod Lambda
   `LOG_LEVEL=WARNING` (irrelevant to a local script, but stated for completeness).
@@ -171,18 +171,37 @@ Three new artifacts in the **workspace repo** (operator tooling, not a deployed 
 
 **The one command**: `myblog_backend/.venv/bin/python scripts/editor_buckit.py`.
 
-### Stage 1 (future, gated — sketch only, not part of this RFC's executable scope)
+### Stage 1 (the nightly memo → skeleton factory — redesigned 2026-06-18, gate now met)
 
-If Stage 0's reports prove the ideas are sharp *and* ≥1 review has been hand-published, promote to the
-proven `album_research` architecture: one additive `editor_buckit_ideas` table (a row is both the
-job, `status='queued'`, and the store, `status='done'` + the rendered card), a `$0` local poller
-(weekly `launchd` + manual fire), a `UNIQUE(idea_fingerprint)` dedup gate, a `/profile` `아이디어`
-tab rendering cards through the shared `NoteBody.tsx` + `research.css`, and a one-click
-**draft-factory** handoff (`POST /api/posts {status:'draft', title, body_mdx: skeleton, album_ids}` →
-`/write?id=<new>`, restored by the existing edit-load path with zero new editor code). Anti-recency
-weighting, cross-run fingerprint dedup, dismiss-cooldown, and "zero is a valid batch" become
-first-class. This is sketched here for direction only; it gets its own steps (and its own
-human-approved Status bump) when earned.
+Stage 1 is **not** the in-app draft-factory the earlier sketch described (an `editor_buckit_ideas`
+table + poller + `/profile` tab + a `POST /api/posts {status:'draft'}` seed into `/write`). That
+design was **dropped 2026-06-18**. Stage 1 keeps the **same `$0` file-only safety class as Stage 0**:
+an unattended overnight `claude -p` job that turns a **checked** bucket memo into a Korean **section
+skeleton file** under `docs/buckit/<YYYY-MM-DD>/` — no DB write, no backend route, no frontend, no
+API key. The only thing it touches is its own output files.
+
+- **Rule docs (canonical, saved):** `docs/editorial/buckit-nightly-run.md` (the run spec / entry
+  point handed to `claude -p`) + `docs/editorial/buckit-nightly.md` (the memo→skeleton conversion
+  rules), both **inheriting** the ★ honesty line + §6 language bans from
+  `docs/editorial/review-critique-method.md` (v2.5). These supersede the retired
+  `editor-buckit-draft-prompt.md` strawman (deleted 2026-06-18).
+- **What it produces:** an **inventory-shaped** skeleton — what exists / what's confirmed / what
+  others said / open questions — never a thesis. It expands *only* the editor's own judgments, leaves
+  evidence as `[passage]` blanks, lists the controlling-idea **candidates without choosing one**, and
+  marks every open question as a blank. A too-finished skeleton is a bug. **Zero outputs is a valid
+  run.**
+- **The gate = one explicit checkbox.** "오늘 밤 키우기" checked on a memo is the human go-ahead; the
+  job processes only checked memos. This is what reconciles a **nightly scheduler** with Stage 0's
+  anti-blind-timer constraint — the timer is not blind, it only ever acts on memos the editor
+  deliberately flagged.
+- **Build scope (when steps are authored):** the new data the design needs — a "오늘 밤 키우기" flag
+  on the memo — plus the output-dir convention. The memo store is a **single freeform field**
+  (`note`, overwrite); **no dated-memo log** (dropped 2026-06-18 — no value). Output files likely
+  gitignored like `docs/editorial/ideas/` (they reveal unpublished direction).
+
+The Stage 1 gate (Stage 0 proved out + ≥1 hand-published review) is **now met** (the 저스디스 *LIT*
+review exists). Stage 1 is therefore unblockable, but still gets its own steps + a human-approved
+Status action per hard rules #4/#5 before any build.
 
 ## Steps
 
@@ -218,16 +237,36 @@ Create `scripts/editor_buckit.py`, `docs/editorial/editor-buckit-prompt.md`, and
 
 ---
 
-### Steps 2+ — Stage 1 promotion (deferred, gated)
+### Steps 2+ — Stage 1: the nightly memo → skeleton factory (gate met, steps to be authored)
 
-Not executable under this RFC's current Status. Authored only after Step 1 proves out **and** ≥1
-review is hand-published (the project-wide precondition; same gate as `FEAT-ai-editorial-critique`
-and `FEAT-genre-recommendation`). See the Stage 1 sketch in Target state.
+The gate (Step 1 proved out **and** ≥1 review hand-published) is now **met** (저스디스 *LIT*). The
+rule docs (`buckit-nightly-run.md` + `buckit-nightly.md`) are saved; what remains is the build, which
+gets its own steps + a human-approved Status action (rules #4/#5) before execution. Expected shape:
+
+1. **Data + gate** — add the "오늘 밤 키우기" flag on `review_bucket_items` (memo store = single
+   freeform `note`, no dated log) + a memo field + the checkbox in the **bucket album-click modal**
+   (`AlbumDetail`); needs a PATCH write path (the modal composes a draft today, not the bucket note).
+2. **The runner** — a `$0` `claude -p` script (clone `editor_buckit.py`) that reads checked memos +
+   facts **read-only**, runs `buckit-nightly-run.md`, and writes skeleton files to
+   `docs/buckit/<date>/`. Tool scope = repo read + file write + Postgres MCP read; **no**
+   git-write/merge/delete.
+3. **Schedule** — overnight fire, gated by the checkbox (not a blind timer).
+
+See the redesigned Stage 1 in Target state.
 
 ## Open questions
 
-**None open** — OQ1–6 resolved 2026-06-17 (see Decisions log). New questions surfacing during Step 1
-implementation get added back here.
+OQ1–6 resolved 2026-06-17; OQ8 resolved 2026-06-18 (see Decisions log). Reopened 2026-06-18 by the
+Stage 1 redesign:
+
+- **OQ7 (gate column):** UX resolved 2026-06-18 (see Decisions) — the memo input + the "오늘 밤
+  키우기" checkbox both live in the **review-bucket album-click modal** (`AlbumDetail`, opened by
+  `ProfileApp.openDetail` from `BucketBoard`). Remaining build detail: add the boolean flag column on
+  `review_bucket_items` (schema has none — verify live) and a memo field bound to
+  `review_bucket_items.note` + a PATCH write path. **NB the modal today composes a _draft post_, not
+  the bucket note — so memo+checkbox is a net-new write path, not a tweak.**
+- **OQ9 (output dir):** `docs/buckit/<date>/` skeleton files — gitignored by default like
+  `docs/editorial/ideas/`?
 
 ## Decisions log
 
@@ -245,3 +284,10 @@ implementation get added back here.
 | 2026-06-17 | OQ5: Stage 0 runs *before* the first review (the "what to write first" unblocker); Stage 1 gated until ≥1 review exists | 1 |
 | 2026-06-17 | OQ6: a simple version string in the prompt-doc report header only; no poller/service duplication to sync in Stage 0 (full vendoring convention deferred to Stage 1) | 1 |
 | 2026-06-17 | Owner accepted + promoted Status draft → in-progress; Step 1 executed on `feat/FEAT-editor-buckit-stage0`: `scripts/editor_buckit.py` (read-only prod export, candidates **deduped by album_id**) + `docs/editorial/editor-buckit-prompt.md` (3-draft judge-panel synthesis) + `docs/editorial/ideas/` (gitignored). Read-only dry-run verified live (68 distinct bucket albums, 1 reviewed excluded) | 1 |
+| 2026-06-18 | Stage 1 redesigned: **dropped** the in-app draft-factory sketch (table + poller + `/profile` tab + `POST /api/posts {status:'draft'}` seed into `/write`) → Stage 1 is now a **`$0` file-only nightly** memo→skeleton job, same safety class as Stage 0. Output = Korean skeleton files under `docs/buckit/<date>/`; no DB/route/frontend | 1 |
+| 2026-06-18 | Canonical Stage 1 rule docs saved: `docs/editorial/buckit-nightly-run.md` (run spec) + `docs/editorial/buckit-nightly.md` (conversion rules), inheriting ★ + §6 from `review-critique-method.md` (v2.5). The competing strawman `editor-buckit-draft-prompt.md` retired (deleted) | 1 |
+| 2026-06-18 | Skeletons are **inventory-shaped, never thesis-shaped** — expand only the editor's judgments, evidence→`[passage]` blanks, controlling idea = candidates not chosen, ask→mark. A too-finished skeleton is a bug; zero outputs is valid | 1 |
+| 2026-06-18 | A **nightly scheduler is allowed for Stage 1** (reverses the Stage-0 no-scheduler stance) because the **"오늘 밤 키우기" checkbox** gates it — the timer acts only on memos the editor explicitly flagged, so it is not the "blind timer" Stage 0 banned | 1 |
+| 2026-06-18 | OQ8: **no dated-memo log** — the memo store stays a single freeform field (`note`, overwrite). Then→now reappraisal via a dated log is "의미 없어" (owner) → dropped; the nightly run's "prior dated memos" input removed | 1 |
+| 2026-06-18 | OQ7 (gate UX): the memo + the "오늘 밤 키우기" checkbox both live in the **review-bucket album-click modal** (`AlbumDetail` via `ProfileApp.openDetail`) — write the memo there, check it there. Build detail: new flag column on `review_bucket_items` + memo bound to `note`; the modal composes a draft post today, so this is a **net-new write path** | 1/2 |
+| 2026-06-18 | Stage 1 gate (Stage 0 proved out + ≥1 hand-published review) **met** (저스디스 *LIT*) → Stage 1 unblockable; still needs own steps + human Status action before build | 1/2 |
