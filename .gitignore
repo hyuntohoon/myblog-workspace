@@ -32,3 +32,7 @@ __pycache__/
 # Allure test artifacts (STAB-6)
 allure-results/
 allure-report/
+
+# Editor Buckit idea reports — unpublished editorial direction (FEAT-editor-buckit Stage 0).
+# .gitkeep keeps the dir; reports stay local. Commit a report deliberately if wanted.
+docs/editorial/ideas/*.md
