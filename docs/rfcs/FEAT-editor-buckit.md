@@ -237,20 +237,55 @@ Create `scripts/editor_buckit.py`, `docs/editorial/editor-buckit-prompt.md`, and
 
 ---
 
-### Steps 2+ — Stage 1: the nightly memo → skeleton factory (gate met, steps to be authored)
+### Stage 1 — the nightly memo → skeleton factory (gate met)
 
-The gate (Step 1 proved out **and** ≥1 review hand-published) is now **met** (저스디스 *LIT*). The
-rule docs (`buckit-nightly-run.md` + `buckit-nightly.md`) are saved; what remains is the build, which
-gets its own steps + a human-approved Status action (rules #4/#5) before execution. Expected shape:
+The gate (Step 1 proved out **and** ≥1 review hand-published) is **met** (저스디스 *LIT*). The rule
+docs (`buckit-nightly-run.md` + `buckit-nightly.md`) are saved. The build is split into the steps
+below; each is independently mergeable and gets the usual per-step prod-observe gate (rule #4). The
+RFC Status is already `in-progress` (no further Status promotion needed); each step still gets explicit
+in-session go-ahead before execution.
 
-1. **Data + gate** — add the "오늘 밤 키우기" flag on `review_bucket_items` (memo store = single
-   freeform `note`, no dated log) + a memo field + the checkbox in the **bucket album-click modal**
-   (`AlbumDetail`); needs a PATCH write path (the modal composes a draft today, not the bucket note).
-2. **The runner** — a `$0` `claude -p` script (clone `editor_buckit.py`) that reads checked memos +
-   facts **read-only**, runs `buckit-nightly-run.md`, and writes skeleton files to
-   `docs/buckit/<date>/`. Tool scope = repo read + file write + Postgres MCP read; **no**
-   git-write/merge/delete.
-3. **Schedule** — overnight fire, gated by the checkbox (not a blind timer).
+**Code-reality correction (found while scoping Step 2, 2026-06-18):** the earlier sketch said "the
+modal composes a draft today, not the bucket note — so memo+checkbox is a net-new write path." That is
+only half right. The backend **already** exposes `PATCH /api/buckets/{bucket_id}/items/{item_id}`
+(`update_item`) and it **already writes `note`** (+ `research_selected`); the frontend client
+(`setItemResearchSelected`) already calls it. So the net-new write work is small: (a) one new
+`prep_tonight` field threaded through that existing route, and (b) **frontend plumbing** — the modal's
+`DetailTarget` does not carry `bucketId`/`itemId`/`note` today (`BoardAlbum` omits `note` too), so the
+memo cannot be prefilled/PATCHed until those are passed through `AlbumChip.onOpen`.
+
+#### Step 2 — Stage 1 data layer: `prep_tonight` column + backend PATCH field
+
+Add the "오늘 밤 키우기" gate as `review_bucket_items.prep_tonight` (BOOLEAN NOT NULL DEFAULT false;
+memo store stays the existing freeform `note` — OQ8, no new column, no dated log) and thread it through
+the existing item PATCH. **shared_db**: V22 additive migration + model column + regenerated
+`_generated_schema.sql`/`canonical_schema.sql` + version bump → **prod apply** (`ALTER … ADD COLUMN IF
+NOT EXISTS`, additive, before merge per the cross-repo rollout order). **backend**: `prep_tonight` on
+`UpdateBucketItemRequest`/`BucketItemResponse` + `update_item` (set-only, **no enqueue/side-effect** —
+unlike `research_selected`; the offline nightly job is the only reader) + `_item_response`; bump the
+shared_db pin to the new tag; regenerate `openapi.json`. No frontend in this step.
+
+> **Verification**: `pytest` (shared_db parity + backend buckets), `terraform plan` clean (no infra
+> touch), prod schema probe confirms the column. Prod smoke post-merge.
+> **Rollback**: `ALTER TABLE review_bucket_items DROP COLUMN IF EXISTS prep_tonight;` + revert the pin.
+
+#### Step 3 — Stage 1 frontend: the memo + "오늘 밤 키우기" gate in the album-click modal
+
+Surface the memo + checkbox in `AlbumDetail`'s write-mode body (OQ7). Thread `bucketId`/`itemId`/`note`/
+`prep_tonight` from `BoardAlbum` → `AlbumChip.onOpen` → `DetailTarget`; add the memo textarea (bound to
+`note`) + the "오늘 밤 키우기" checkbox, persisted via the Step 2 PATCH; regenerate `api.gen.ts` off the
+merged contract. Browser click-through required (CLAUDE.md UI DoD).
+
+#### Step 4 — Stage 1 runner: the `$0` nightly memo → skeleton job
+
+A `$0` `claude -p` script (clone `editor_buckit.py`) that reads `prep_tonight`-checked memos + facts
+**read-only**, runs `buckit-nightly-run.md`, and writes skeleton files to `docs/buckit/<date>/`. Tool
+scope = repo read + file write + Postgres MCP read; **no** git-write/merge/delete. (OQ9: gitignore
+`docs/buckit/` by default, like `docs/editorial/ideas/`.)
+
+#### Step 5 — Stage 1 schedule: overnight fire, checkbox-gated
+
+Overnight fire, gated by `prep_tonight` (not a blind timer — it only ever acts on flagged memos).
 
 See the redesigned Stage 1 in Target state.
 
@@ -291,3 +326,4 @@ Stage 1 redesign:
 | 2026-06-18 | OQ8: **no dated-memo log** — the memo store stays a single freeform field (`note`, overwrite). Then→now reappraisal via a dated log is "의미 없어" (owner) → dropped; the nightly run's "prior dated memos" input removed | 1 |
 | 2026-06-18 | OQ7 (gate UX): the memo + the "오늘 밤 키우기" checkbox both live in the **review-bucket album-click modal** (`AlbumDetail` via `ProfileApp.openDetail`) — write the memo there, check it there. Build detail: new flag column on `review_bucket_items` + memo bound to `note`; the modal composes a draft post today, so this is a **net-new write path** | 1/2 |
 | 2026-06-18 | Stage 1 gate (Stage 0 proved out + ≥1 hand-published review) **met** (저스디스 *LIT*) → Stage 1 unblockable; still needs own steps + human Status action before build | 1/2 |
+| 2026-06-18 | Stage 1 steps formalized (Step 2 data layer / 3 frontend / 4 runner / 5 schedule). **Step 2 built** (owner-approved, backend-only this session): shared_db V22 `prep_tonight` BOOLEAN + model + parity files + version bump 0.20.0→0.21.0 (prod-applied via `ALTER … ADD COLUMN IF NOT EXISTS`, verified live); backend `prep_tonight` on the **existing** item-PATCH (`update_item`, set-only no enqueue) + pin→v0.21.0 + openapi regen + test. **Correction**: the item PATCH route already existed and already wrote `note` — net-new write work was only the field + (deferred) frontend plumbing, not a whole new route | 2 |
