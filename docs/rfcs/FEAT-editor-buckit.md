@@ -366,21 +366,55 @@ because it touches only `myblog_front` (parallel-safe vs other repos).
 > **Verification**: `pnpm lint` + `astro check` + a logged-in browser click-through (inbox renders,
 > lists a draft, click opens it in `/write?id=`). **Rollback**: remove the inbox component.
 
-#### Step 7 — nightly job: dual-write the skeleton as a draft post  *(adversarial-audit gated)*
+#### Step 7 — nightly job: dual-write the skeleton as a draft post — ✅ DONE — built + verified live (e2e 9/9, $0, zero residue)
 
 `buckit_nightly.py` keeps writing the `docs/buckit/` file **and additionally** creates a draft post:
 mint a smoke-user Cognito JWT (`smoke.py get_token` USER_AUTH pattern, **$0**) → `POST /api/posts
-{status:'draft', title, body_mdx: <skeleton>, source album/provenance in extra}`. The job's only new
-capability is **create-a-draft** (never publish, no raw DB write) — narrow blast radius; **re-run the
-Stage-1 adversarial tool-scope audit on this new write path** before shipping. **Dedup = grow-once:**
-after creating the draft the job unchecks that memo (`prep_tonight=false` via the existing item PATCH)
-so a memo grows once per explicit check (re-check to re-grow) — also a visible "processed" signal.
-Generation stays `$0 claude -p`.
+{status:'draft', title, body_mdx:<skeleton+provenance>, category:'Reviews'}`. The job's only new
+capability is **create-a-draft** (never publish — `status` hard-wired; no raw DB write — all writes via
+the authed API). **Grow-once dedup** (audit-hardened): after a draft is created the job marks the memo
+grown by **stamping the new `post_id` AND clearing `prep_tonight` in one item PATCH** — the `post_id`
+stamp durably excludes the album next run (CHECKED_SQL `post_id IS NULL`) even if the `prep_tonight`
+clear is lost, and the album-unique slug makes any re-POST 409 (rejected, never duplicated). Generation
+stays `$0 claude -p`.
 
-> **Verification**: temp-inject a checked memo → run → assert a draft post appears (`GET ?status=draft`)
-> + the file backup exists + the memo got unchecked → clean up the draft + revert (zero residue).
-> Adversarial audit on the write path. No contract change expected (routes exist) → confirm openapi unaffected.
-> **Rollback**: revert the job's draft-write block (file path + read-only export untouched).
+**Code-reality corrections (current-state audit before build):**
+- **Provenance rides in `body_mdx`** (a leading HTML comment), **not `Post.extra`** — `WritePostRequest`
+  is `extra='ignore'`, so an `extra` field is silently dropped and `svc.create()` has no `extra` param.
+  This keeps Step 7 a **single-repo, no-contract-change** job (honoring the RFC's "no contract change"
+  constraint; `openapi.json` untouched — confirmed). The draft carries **no `album_ids`** — linking
+  would insert into `post_albums` (the reviewed-set + this job's own exclusion source), corrupting the
+  `already_reviewed` badge and grow-once. Token read from Secrets Manager `myblog/smoke` (launchd-robust).
+
+**Adversarial audit (re-run per the gate; 5 independent refutation lenses + synthesis).** Initial verdict
+**unsafe** → fixed before ship: (#1 high) durable dedup via the `post_id` stamp above (was: a failed
+uncheck → unbounded duplicate drafts); (#2 high) ASCII hex discriminator in the title — Korean-only titles
+all `slugify` to `untitled`/date-digits → a 409 storm that starved delivery at ~2/night; (#3 med) `_api`
+now catches transport errors (URLError/timeout → status 0 skip) + the delivery call is wrapped, so a
+03:00 Neon cold-start can't crash mid-loop; (#4 med) collision-safe normalized file↔memo pairing (the
+model's filename is no longer load-bearing); body-length cap; docstring/least-privilege corrections.
+What held: cannot publish, no raw DB write, no `album_ids` pollution, create-only, not injection-drivable,
+password/token never logged.
+
+**Prod-pool read-only leak found + fixed (root-caused in this verification).** The first live run 500'd
+on `POST /api/posts` — CloudWatch showed `cannot execute INSERT in a read-only transaction`. Root cause:
+`connect()`'s session-level `SET default_transaction_read_only = on` **leaks through Neon's pgbouncer
+(`-pooler`)** onto a shared server connection, which the backend Lambda then reused → its INSERT ran
+read-only. Pre-existing (Step-4 code), latent until Step 7 became the first writer right after the export.
+Fix: read-only is now **transaction-scoped** (`conn.read_only = True`), which never poisons the pool
+(empirically: old session-`SET` → 1/14 fresh pooled conns inherit read-only; `conn.read_only` → 0/14).
+This also de-poisons the already-live nightly. (Follow-up: the same session-`SET` pattern lives in
+`editor_buckit.py` / `research_poller.py` / `backfill_genres.py` — flagged to the owner; see
+`reference-neon-pooler-readonly-leak`.)
+
+> **Verification** (the real run *is* the check — no local DB): temp-injected a checked memo on a real item
+> (혁오 *20*) → ran the full job (real opus, **94s, $0**) → asserted **9/9**: draft created (`GET ?status=draft`
+> +1, `status='draft'`, `[초고]`+hex title, provenance comment w/ album_id), file backup written, memo grown
+> (`post_id` stamped + `prep_tonight` cleared) → cleaned up (draft hard-deleted, item restored) = **zero
+> residue**. `py_compile` + `ruff` clean. `openapi.json` unaffected (no route/contract change). No PR-stage CI
+> on the workspace repo (`reference-pr-ci-matrix`).
+> **Rollback**: revert the job's draft-delivery block (the read-only export + file path stay; keep the
+> `conn.read_only` leak fix regardless — it is independently correct).
 
 ## Open questions
 
@@ -425,3 +459,5 @@ Stage 1 redesign:
 | 2026-06-18 | **Steps 4+5 built in one session** (rule #4 exception — owner explicitly OK'd doing 4+5 together; each still got its own verification gate). Step 4 = `scripts/buckit_nightly.py` ($0 nightly runner: read-only checked-memo export → `claude -p` opus → Korean skeletons in `docs/buckit/<date>/`, gitignored). Step 5 = `scripts/com.myblog.buckit-nightly.plist` (03:00 `launchd`, checkbox-gated, owner-installed; cloud cron rejected — `claude -p` $0 only on the local Max login). Verified by a temp-inject→run→revert on a real bucket item (*channel ORANGE*): skeleton confirmed inventory-shaped / candidates-not-chosen / `[passage]` blanks / verbatim memo / caught a real fact-conflict, **zero prod residue** | 4/5 |
 | 2026-06-18 | **Audit-driven architecture hardening (Step 4).** An adversarial 3-lens tool-scope audit refuted the first "agentic claude writes the files" cut: scoped `Write(docs/buckit/**)` is **denied** in headless `-p` (CLI 2.1.181) ⇒ zero files written; **and** unscoped `Read` + unrestricted `WebFetch` was a **secret-exfil** surface drivable by a memo prompt-injection. Redesigned: claude = **pure text transformer, NO tools** (rule docs + context inlined; `--disallowed-tools` full file/net/exec surface; `--setting-sources user`); the **script** does all repo-read + file-write + Postgres-read and reduces output filenames to safe basenames. DB-write-surface + run-spec-faithfulness audit lenses returned **safe** | 4 |
 | 2026-06-18 | **Stage 2 opened — in-app draft delivery.** Owner reversed the file-only *delivery* stance: the nightly skeleton should land as an **in-app draft** opened in `/write`, not only a file. Skeleton CONTENT (inventory-shaped) + `$0` generation unchanged; NOT the full dropped factory — investigation found the backend already ready (posts.status/body_mdx/extra; POST/GET draft routes Cognito-JWT; `/write` loads `?id=`; unused `listDrafts()`). Owner-chosen: **draft + local file both**; discovery via a **'임시 저장' inbox in `/write`**. Steps 6 (frontend inbox — independent, first, `myblog_front`-only) / 7 (job dual-writes a draft via a minted smoke JWT, audit-gated; auto-unchecks the memo after = grow-once) | 6/7 |
+| 2026-06-18 | **Step 6 DONE + MERGED + prod-live** (front #178, `13fd2a9`; Deploy Front success; `임시 저장함` literals verified in the deployed `WriterApp.*.js` chunk). `DraftsInbox.tsx` lists `status='draft'` posts → `/write?id=`, statically imported by `WriterApp` | 6 |
+| 2026-06-18 | **Step 7 built + verified live** (workspace `buckit_nightly.py` only). Two RFC-premise corrections from a current-state audit: provenance → `body_mdx` HTML comment (NOT `Post.extra` — `WritePostRequest` is `extra='ignore'` ⇒ dropped), and **no `album_ids`** on the draft (would pollute `post_albums`). Adversarial re-audit (5 lenses) returned **unsafe** → fixed: durable grow-once stamps `post_id`+clears `prep_tonight` in one PATCH; ASCII hex title discriminator kills the Korean-`untitled`-slug 409 storm; `_api` catches transport errors; collision-safe file↔memo pairing; body cap. **Prod-pool read-only leak root-caused + fixed**: session `SET default_transaction_read_only=on` leaks through Neon pgbouncer (`-pooler`) → backend INSERT 500'd; switched to transaction-scoped `conn.read_only` (empirically 0/14 vs 1/14 poisoned). Verified live: temp-inject 혁오 *20* → real opus run (94s, $0) → 9/9 (draft+file+grown) → zero residue. `openapi.json` unaffected (no contract change). Same session-`SET` leak flagged in editor_buckit/research_poller/backfill_genres (follow-up, `reference-neon-pooler-readonly-leak`) | 7 |
