@@ -28,7 +28,7 @@ Clone heritage / safety (RFC "Current state"):
   * Never logs DATABASE_URL / secrets. The model gets `--allowed-tools
     WebSearch,WebFetch` only (no Bash/Edit) — a headless run can't touch the repo.
 
-RFC: docs/rfcs/FEAT-editor-buckit.md (Stage 0, Step 1).
+RFC: docs/archive/done/rfcs/FEAT-editor-buckit.md (Stage 0, Step 1; archived 2026-06-18).
 """
 from __future__ import annotations
 

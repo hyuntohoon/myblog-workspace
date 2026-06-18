@@ -76,7 +76,7 @@ Note on ordering: memos are processed in bucket/item position order (review_buck
 no checked-at timestamp), so run-spec §6's "newest-checked first" recency hint is intentionally
 not honored — the order is deterministic instead.
 
-RFC: docs/rfcs/FEAT-editor-buckit.md (Stage 1, Step 4).
+RFC: docs/archive/done/rfcs/FEAT-editor-buckit.md (Stage 1, Step 4; archived 2026-06-18).
 Run spec inlined into the prompt: docs/editorial/buckit-nightly-run.md.
 """
 from __future__ import annotations
