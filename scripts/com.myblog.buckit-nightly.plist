@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FEAT-editor-buckit Stage 1 Step 5 — launchd schedule for the $0 nightly memo→skeleton job.
+
+  Fires scripts/buckit_nightly.py ONCE per night at 03:00 (StartCalendarInterval). Each fire
+  reads the prep_tonight-CHECKED bucket memos read-only, runs headless `claude -p` (opus, $0 on
+  the Max subscription), writes Korean section skeletons to docs/buckit/<date>/, and exits.
+
+  Why this is NOT a "blind timer" (RFC Stage-0 anti-blind-timer constraint, reversed for Stage 1):
+  the job acts ONLY on memos the editor explicitly checked "오늘 밤 키우기" (prep_tonight=true).
+  On a night with zero checked memos the runner writes a one-line _summary.md and never calls
+  claude — so a quiet night costs nothing and manufactures no stale ideas. The checkbox is the gate.
+
+  Host = the owner's machine (not cloud cron): `claude -p` is $0 only on the Max-subscription login
+  in ~/.claude/.credentials.json, which lives here; a cloud cron would need a paid API key. Same
+  precedent as com.myblog.research-poller.plist.
+
+  Laptop sleep: a single nightly StartCalendarInterval is laptop-safe — if the machine is asleep at
+  03:00, launchd runs the missed fire once at the next wake (it does NOT stack multiple catch-ups).
+
+  INSTALL (owner's machine — flips the nightly schedule ON):
+    cp scripts/com.myblog.buckit-nightly.plist ~/Library/LaunchAgents/
+    launchctl load -w ~/Library/LaunchAgents/com.myblog.buckit-nightly.plist
+    launchctl kickstart -k gui/$(id -u)/com.myblog.buckit-nightly   # optional: run once now to test
+
+  STATUS / LOGS:
+    launchctl list | grep buckit-nightly
+    tail -f ~/Library/Logs/myblog-buckit-nightly.log
+    ls ~/myblog-workspace/docs/buckit/                              # the morning output (gitignored)
+
+  STOP (kill switch — nothing happens until reloaded; checked memos simply wait):
+    launchctl unload -w ~/Library/LaunchAgents/com.myblog.buckit-nightly.plist
+
+  Change the hour: edit StartCalendarInterval > Hour below, then unload + load again.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.myblog.buckit-nightly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/park_hyun/myblog-workspace/myblog_backend/.venv/bin/python</string>
+        <string>/Users/park_hyun/myblog-workspace/scripts/buckit_nightly.py</string>
+    </array>
+
+    <!-- HOME so claude finds ~/.claude/.credentials.json and boto3 finds ~/.aws;
+         PATH so the `claude` binary in ~/.local/bin resolves. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/park_hyun</string>
+        <key>PATH</key>
+        <string>/Users/park_hyun/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- Fire once per night at 03:00. The checkbox (prep_tonight) is the real gate; this only
+         decides WHEN the gated job is checked. Missed fires (laptop asleep) run at next wake. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Do NOT run at load: this is a nightly job, not an on-demand drainer. Use kickstart to
+         test the install immediately (see header). -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/park_hyun/myblog-workspace</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-buckit-nightly.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-buckit-nightly.log</string>
+
+    <!-- Be a good laptop citizen: low priority, don't fight foreground work. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>

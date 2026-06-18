@@ -283,18 +283,52 @@ the path to `/write`. Threaded `bucketId`/`itemId`/`note`/`prepTonight` through 
 (render / toggle→night / autosave-PATCH / flush-on-close / size / ESC / autofocus) + a 5-dimension
 adversarial review (1 high data-loss + 4 med/low fixed); prod-smoked via deployed-chunk grep.
 
-#### Step 4 — Stage 1 runner: the `$0` nightly memo → skeleton job
+#### Step 4 — Stage 1 runner: the `$0` nightly memo → skeleton job — ✅ BUILT + locally verified 2026-06-18 (PR pending)
 
-A `$0` `claude -p` script (clone `editor_buckit.py`) that reads `prep_tonight`-checked memos + facts
-**read-only**, runs `buckit-nightly-run.md`, and writes skeleton files to `docs/buckit/<date>/`. Tool
-scope = repo read + file write + Postgres MCP read; **no** git-write/merge/delete. (OQ9: gitignore
-`docs/buckit/` by default, like `docs/editorial/ideas/`.)
+`scripts/buckit_nightly.py` (cloned from `editor_buckit.py`): a **read-only** prod export of the
+`prep_tonight`-checked, unwritten, not-yet-reviewed bucket items (verbatim `note` + album/artist/genre
+facts + done research-note excerpt + recent listens, **deduped by `album_id`**), then headless
+`claude -p` (opus, **$0**) turns them into Korean section skeletons under `docs/buckit/<date>/`
+(gitignored, OQ9 = yes). **The checkbox is the only gate**: zero checked memos ⇒ a one-line
+`_summary.md` and **no claude call** (a blind timer would manufacture stale ideas).
 
-#### Step 5 — Stage 1 schedule: overnight fire, checkbox-gated
+**Architecture hardened after an adversarial tool-scope audit (this session).** The first cut let the
+model write the files agentically (`--allowed-tools Write(docs/buckit/**)`). The audit refuted it on
+two counts, both verified live on CLI 2.1.181: (a) the scoped `Write` glob is **denied** in headless
+`-p` ⇒ the job wrote **zero files** (silently broken); (b) an unscoped `Read` + unrestricted `WebFetch`
+was a **secret-exfiltration surface** (readable `~/.aws`/`~/.claude` creds, driveable by a
+prompt-injection in the memo/research text). Fix: the model is now a **pure text transformer with NO
+tools** — the three rule docs + the read-only context block are **inlined** into the prompt,
+`--disallowed-tools` denies the whole file/network/exec surface, and `--setting-sources user` keeps the
+project-local broad Bash allow-list out of the run. The model returns a delimited multi-file payload;
+**the script** parses it, reduces each filename to a safe basename, and writes under `docs/buckit/<date>/`.
+So "repo read + file write + Postgres read" all live in the (validated) script; the model touches
+nothing — strictly safer than the agentic design and faithful to the Stage-0 clone. The
+DB-write-surface and run-spec-faithfulness audit lenses both returned **safe**.
 
-Overnight fire, gated by `prep_tonight` (not a blind timer — it only ever acts on flagged memos).
+> **Verification** (no local-DB smoke harness — per `feedback-local-db-smoke-fallback` the real run
+> *is* the check): a temporary `prep_tonight=true` memo was injected on one real bucket item (Frank
+> Ocean — *channel ORANGE*), the job run once (**$0, 77s, opus, 2 files**), the skeleton inspected —
+> inventory-shaped ✓ / candidates-not-chosen ✓ / `[passage]` blanks ✓ / verbatim memo ✓ / caught a real
+> label fact-conflict ✓ / not too-finished ✓ — then the injection **fully reverted (zero residue**:
+> checked-count + note-count back to 0). `py_compile` clean; `plutil -lint` OK; no PR-stage CI on the
+> workspace repo (`reference-pr-ci-matrix`).
+> **Rollback**: delete `scripts/buckit_nightly.py` (+ the `docs/buckit/**/*.md` gitignore line / `.gitkeep`).
 
-See the redesigned Stage 1 in Target state.
+#### Step 5 — Stage 1 schedule: overnight fire, checkbox-gated — ✅ BUILT 2026-06-18 (PR pending; owner installs)
+
+`scripts/com.myblog.buckit-nightly.plist` (cloned from `com.myblog.research-poller.plist`): a `launchd`
+agent firing `buckit_nightly.py` **once per night at 03:00** (`StartCalendarInterval`). **Host = the
+owner's machine, not cloud cron** — `claude -p` is $0 only on the Max-subscription login in
+`~/.claude/.credentials.json` (cloud cron needs a paid key); same precedent as the research poller.
+**Not a blind timer**: it only ever acts on `prep_tonight`-checked memos; a quiet night writes a
+one-line `_summary.md` and never calls claude. `RunAtLoad=false` (nightly, not on-demand); laptop-safe
+(a missed 03:00 fire runs once at next wake, no stacking). Committed as an artifact + INSTALL/STATUS/STOP
+instructions in the header — **the owner runs `launchctl load` to flip the schedule on** (the plist is
+not auto-loaded), exactly like the research poller.
+
+> **Rollback / kill switch**: `launchctl unload -w ~/Library/LaunchAgents/com.myblog.buckit-nightly.plist`
+> (checked memos simply wait); delete the plist to remove the artifact.
 
 ## Open questions
 
@@ -307,8 +341,9 @@ Stage 1 redesign:
   `review_bucket_items` (schema has none — verify live) and a memo field bound to
   `review_bucket_items.note` + a PATCH write path. **NB the modal today composes a _draft post_, not
   the bucket note — so memo+checkbox is a net-new write path, not a tweak.**
-- **OQ9 (output dir):** `docs/buckit/<date>/` skeleton files — gitignored by default like
-  `docs/editorial/ideas/`?
+- **OQ9 (output dir):** RESOLVED 2026-06-18 (Step 4) — `docs/buckit/<date>/` skeleton files are
+  **gitignored by default** (`docs/buckit/**/*.md`, `.gitkeep` keeps the dir), like
+  `docs/editorial/ideas/`. Commit a skeleton deliberately if wanted.
 
 ## Decisions log
 
@@ -335,3 +370,5 @@ Stage 1 redesign:
 | 2026-06-18 | Stage 1 gate (Stage 0 proved out + ≥1 hand-published review) **met** (저스디스 *LIT*) → Stage 1 unblockable; still needs own steps + human Status action before build | 1/2 |
 | 2026-06-18 | Stage 1 steps formalized (Step 2 data layer / 3 frontend / 4 runner / 5 schedule). **Step 2 built** (owner-approved, backend-only this session): shared_db V22 `prep_tonight` BOOLEAN + model + parity files + version bump 0.20.0→0.21.0 (prod-applied via `ALTER … ADD COLUMN IF NOT EXISTS`, verified live); backend `prep_tonight` on the **existing** item-PATCH (`update_item`, set-only no enqueue) + pin→v0.21.0 + openapi regen + test. **Correction**: the item PATCH route already existed and already wrote `note` — net-new write work was only the field + (deferred) frontend plumbing, not a whole new route | 2 |
 | 2026-06-18 | Step 3 built + merged (PR #177, front-only) + prod-smoked. The Claude Design handoff (`앨범 메모 컴포넌트`) reshaped the sketch: the memo is a **dedicated 2-column `MemoWindow`** (album identity + one freeform memo + "오늘 밤 키우기" toggle; debounced autosave w/ flush-on-unmount; no save button; night-mode; size m/l/xl) that **replaces** the inline draft composer — not a textarea+checkbox in write-mode. Owner-chosen: keep one "전체 에디터에서 작성" /write link. Note→`note`, toggle→`prep_tonight` via the existing set-only item PATCH; `api.gen.ts` regen. Verified in-browser (CDP) + adversarial review (1 high data-loss + 4 med/low fixed). Only Step 4 (runner) + Step 5 (schedule) remain | 3 |
+| 2026-06-18 | **Steps 4+5 built in one session** (rule #4 exception — owner explicitly OK'd doing 4+5 together; each still got its own verification gate). Step 4 = `scripts/buckit_nightly.py` ($0 nightly runner: read-only checked-memo export → `claude -p` opus → Korean skeletons in `docs/buckit/<date>/`, gitignored). Step 5 = `scripts/com.myblog.buckit-nightly.plist` (03:00 `launchd`, checkbox-gated, owner-installed; cloud cron rejected — `claude -p` $0 only on the local Max login). Verified by a temp-inject→run→revert on a real bucket item (*channel ORANGE*): skeleton confirmed inventory-shaped / candidates-not-chosen / `[passage]` blanks / verbatim memo / caught a real fact-conflict, **zero prod residue** | 4/5 |
+| 2026-06-18 | **Audit-driven architecture hardening (Step 4).** An adversarial 3-lens tool-scope audit refuted the first "agentic claude writes the files" cut: scoped `Write(docs/buckit/**)` is **denied** in headless `-p` (CLI 2.1.181) ⇒ zero files written; **and** unscoped `Read` + unrestricted `WebFetch` was a **secret-exfil** surface drivable by a memo prompt-injection. Redesigned: claude = **pure text transformer, NO tools** (rule docs + context inlined; `--disallowed-tools` full file/net/exec surface; `--setting-sources user`); the **script** does all repo-read + file-write + Postgres-read and reduces output filenames to safe basenames. DB-write-surface + run-spec-faithfulness audit lenses returned **safe** | 4 |

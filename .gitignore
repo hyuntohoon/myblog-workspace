@@ -36,3 +36,7 @@ allure-report/
 # Editor Buckit idea reports — unpublished editorial direction (FEAT-editor-buckit Stage 0).
 # .gitkeep keeps the dir; reports stay local. Commit a report deliberately if wanted.
 docs/editorial/ideas/*.md
+
+# Editor Buckit nightly skeletons — unpublished editorial direction (FEAT-editor-buckit Stage 1, OQ9).
+# .gitkeep keeps the dir; per-night skeleton dirs stay local. Commit deliberately if wanted.
+docs/buckit/**/*.md
