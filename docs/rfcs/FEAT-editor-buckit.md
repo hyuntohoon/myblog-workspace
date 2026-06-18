@@ -336,6 +336,52 @@ script.
 > **Rollback / kill switch**: `launchctl unload -w ~/Library/LaunchAgents/com.myblog.buckit-nightly.plist`
 > (checked memos simply wait); delete the plist to remove the artifact.
 
+### Stage 2 — in-app draft delivery (reverses the Stage-1 file-only *delivery* stance)
+
+**Owner decision 2026-06-18 (this session):** the nightly skeleton should arrive as an **in-app
+draft** the editor opens in `/write` next morning — not *only* a `docs/buckit/` file. This
+reverses the file-only **delivery** decision (2026-06-18) but keeps everything else: the skeleton
+**content is still inventory-shaped** (not prose — Stage 1's whole point), and generation is still
+`$0 claude -p`. It is **not** the full dropped draft-factory (no new table, no `/profile` tab) —
+investigation this session found the backend **already fully ready**, so the gap is small.
+
+**Already exists (verified this session):** `posts.status` (draft|published|archived) + `body_mdx`
++ `extra` JSONB (`myblog_shared_db/.../models.py:304`); `POST /api/posts {status:'draft'}` /
+`GET /api/posts?status=draft` / `GET /api/posts/{id}` (`myblog_backend/app/api/routes/posts.py:55/28/100`,
+all Cognito-JWT); `/write` already loads `?id=<uuid>` for editing via `fetchPostById`
+(`myblog_front/.../WriterApp.tsx:149`); `listDrafts()` exists but is **unused** (`front .../write/api.ts:20`).
+
+**Owner-chosen shape:** **draft + local file (both)** — the draft is primary, the `docs/buckit/`
+file stays as a gitignored backup (survives an API-write failure); discovery via a **'임시 저장'
+inbox inside `/write`**.
+
+#### Step 6 — frontend: '임시 저장' (drafts) inbox in `/write`  *(low-risk, independent, first)*
+
+Wire the unused `listDrafts()` + the already-wired `?id=` load into a small drafts list in `/write`:
+list `status='draft'` posts (title / date / source album), each opening `/write?id=<post-id>`.
+**Frontend-only, no backend/contract change.** Useful even before the job writes drafts (a manually
+created draft shows up). Built first so discovery exists before any write path is switched on, and
+because it touches only `myblog_front` (parallel-safe vs other repos).
+
+> **Verification**: `pnpm lint` + `astro check` + a logged-in browser click-through (inbox renders,
+> lists a draft, click opens it in `/write?id=`). **Rollback**: remove the inbox component.
+
+#### Step 7 — nightly job: dual-write the skeleton as a draft post  *(adversarial-audit gated)*
+
+`buckit_nightly.py` keeps writing the `docs/buckit/` file **and additionally** creates a draft post:
+mint a smoke-user Cognito JWT (`smoke.py get_token` USER_AUTH pattern, **$0**) → `POST /api/posts
+{status:'draft', title, body_mdx: <skeleton>, source album/provenance in extra}`. The job's only new
+capability is **create-a-draft** (never publish, no raw DB write) — narrow blast radius; **re-run the
+Stage-1 adversarial tool-scope audit on this new write path** before shipping. **Dedup = grow-once:**
+after creating the draft the job unchecks that memo (`prep_tonight=false` via the existing item PATCH)
+so a memo grows once per explicit check (re-check to re-grow) — also a visible "processed" signal.
+Generation stays `$0 claude -p`.
+
+> **Verification**: temp-inject a checked memo → run → assert a draft post appears (`GET ?status=draft`)
+> + the file backup exists + the memo got unchecked → clean up the draft + revert (zero residue).
+> Adversarial audit on the write path. No contract change expected (routes exist) → confirm openapi unaffected.
+> **Rollback**: revert the job's draft-write block (file path + read-only export untouched).
+
 ## Open questions
 
 OQ1–6 resolved 2026-06-17; OQ8 resolved 2026-06-18 (see Decisions log). Reopened 2026-06-18 by the
@@ -378,3 +424,4 @@ Stage 1 redesign:
 | 2026-06-18 | Step 3 built + merged (PR #177, front-only) + prod-smoked. The Claude Design handoff (`앨범 메모 컴포넌트`) reshaped the sketch: the memo is a **dedicated 2-column `MemoWindow`** (album identity + one freeform memo + "오늘 밤 키우기" toggle; debounced autosave w/ flush-on-unmount; no save button; night-mode; size m/l/xl) that **replaces** the inline draft composer — not a textarea+checkbox in write-mode. Owner-chosen: keep one "전체 에디터에서 작성" /write link. Note→`note`, toggle→`prep_tonight` via the existing set-only item PATCH; `api.gen.ts` regen. Verified in-browser (CDP) + adversarial review (1 high data-loss + 4 med/low fixed). Only Step 4 (runner) + Step 5 (schedule) remain | 3 |
 | 2026-06-18 | **Steps 4+5 built in one session** (rule #4 exception — owner explicitly OK'd doing 4+5 together; each still got its own verification gate). Step 4 = `scripts/buckit_nightly.py` ($0 nightly runner: read-only checked-memo export → `claude -p` opus → Korean skeletons in `docs/buckit/<date>/`, gitignored). Step 5 = `scripts/com.myblog.buckit-nightly.plist` (03:00 `launchd`, checkbox-gated, owner-installed; cloud cron rejected — `claude -p` $0 only on the local Max login). Verified by a temp-inject→run→revert on a real bucket item (*channel ORANGE*): skeleton confirmed inventory-shaped / candidates-not-chosen / `[passage]` blanks / verbatim memo / caught a real fact-conflict, **zero prod residue** | 4/5 |
 | 2026-06-18 | **Audit-driven architecture hardening (Step 4).** An adversarial 3-lens tool-scope audit refuted the first "agentic claude writes the files" cut: scoped `Write(docs/buckit/**)` is **denied** in headless `-p` (CLI 2.1.181) ⇒ zero files written; **and** unscoped `Read` + unrestricted `WebFetch` was a **secret-exfil** surface drivable by a memo prompt-injection. Redesigned: claude = **pure text transformer, NO tools** (rule docs + context inlined; `--disallowed-tools` full file/net/exec surface; `--setting-sources user`); the **script** does all repo-read + file-write + Postgres-read and reduces output filenames to safe basenames. DB-write-surface + run-spec-faithfulness audit lenses returned **safe** | 4 |
+| 2026-06-18 | **Stage 2 opened — in-app draft delivery.** Owner reversed the file-only *delivery* stance: the nightly skeleton should land as an **in-app draft** opened in `/write`, not only a file. Skeleton CONTENT (inventory-shaped) + `$0` generation unchanged; NOT the full dropped factory — investigation found the backend already ready (posts.status/body_mdx/extra; POST/GET draft routes Cognito-JWT; `/write` loads `?id=`; unused `listDrafts()`). Owner-chosen: **draft + local file both**; discovery via a **'임시 저장' inbox in `/write`**. Steps 6 (frontend inbox — independent, first, `myblog_front`-only) / 7 (job dual-writes a draft via a minted smoke JWT, audit-gated; auto-unchecks the memo after = grow-once) | 6/7 |
