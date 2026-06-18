@@ -1,9 +1,9 @@
 # FEAT-editor-buckit: editorial commissioning desk (pre-writing idea generator)
 
-- **Status**: in-progress (accepted + execution started 2026-06-17, owner-approved)
+- **Status**: **done — prod-live + archived 2026-06-18** (owner-directed; all stages 0/1/2 shipped + verified. Status flipped in-progress→done at archive time on explicit owner approval, rule #5)
 - **Owner**: 박지훈
-- **Created**: 2026-06-17
-- **Plan row**: `plan.md` → FEAT-editor-buckit (Active)
+- **Created / shipped**: 2026-06-17 / 2026-06-18
+- **Plan row**: dropped at archive (history → `git log` + `docs/archive/done/2026-06.md`)
 
 ---
 
