@@ -21,9 +21,9 @@ single-fire — run it when the bucket has new signal.
 Clone heritage / safety (RFC "Current state"):
   * `database_url()` / `connect()` / `run_claude()` are lifted from
     research_poller.py (same secret `myblog/backend`, same `claude -p` JSON path).
-  * The DB session is forced READ ONLY (`SET default_transaction_read_only`) and
-    runs autocommit SELECTs only — this script can NOT write to prod
-    (reference-database-url-psql). Dropped vs the poller: the claim-gate/queue,
+  * The DB session is READ ONLY, transaction-scoped (`conn.read_only`, NOT a leaking session
+    `SET default_transaction_read_only`; reference-neon-pooler-readonly-leak) — SELECTs only,
+    this script can NOT write to prod. Dropped vs the poller: the claim-gate/queue,
     the launchd loop, and ALL DB writeback (no UPDATE/INSERT anywhere).
   * Never logs DATABASE_URL / secrets. The model gets `--allowed-tools
     WebSearch,WebFetch` only (no Bash/Edit) — a headless run can't touch the repo.
@@ -92,11 +92,13 @@ def connect():
 
     # connect_timeout=30 absorbs Neon cold-start (reference-database-url-psql).
     conn = psycopg.connect(database_url(), connect_timeout=30, row_factory=dict_row)
-    # This tool is strictly read-only. Force it at the session level so any
-    # accidental write raises instead of mutating prod, then run SELECTs autocommit.
-    conn.execute("SET default_transaction_read_only = on")
-    conn.commit()
-    conn.autocommit = True
+    # Read-only safety, TRANSACTION-scoped — NOT a session SET. A session-level
+    # `SET default_transaction_read_only = on` LEAKS through Neon's pgbouncer (`-pooler`) onto a
+    # shared server connection and makes a LATER writer (the backend Lambda's INSERT) fail
+    # read-only (root-caused in FEAT-editor-buckit Step 7; reference-neon-pooler-readonly-leak).
+    # `conn.read_only` applies READ ONLY per transaction (auto-cleared on commit/rollback ⇒ never
+    # poisons the pool). autocommit stays False ⇒ SELECTs share one read-only tx, rolled back on close.
+    conn.read_only = True
     return conn
 
 
