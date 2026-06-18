@@ -355,16 +355,22 @@ all Cognito-JWT); `/write` already loads `?id=<uuid>` for editing via `fetchPost
 file stays as a gitignored backup (survives an API-write failure); discovery via a **'임시 저장'
 inbox inside `/write`**.
 
-#### Step 6 — frontend: '임시 저장' (drafts) inbox in `/write`  *(low-risk, independent, first)*
+#### Step 6 — frontend: '임시 저장' (drafts) inbox in `/write` — ✅ DONE (PR #178, merged + prod-live 2026-06-18)
 
-Wire the unused `listDrafts()` + the already-wired `?id=` load into a small drafts list in `/write`:
-list `status='draft'` posts (title / date / source album), each opening `/write?id=<post-id>`.
-**Frontend-only, no backend/contract change.** Useful even before the job writes drafts (a manually
-created draft shows up). Built first so discovery exists before any write path is switched on, and
-because it touches only `myblog_front` (parallel-safe vs other repos).
+Wired the unused `listDrafts()` + the already-wired `?id=` load into a small drafts list in `/write`:
+lists `status='draft'` posts (title / `posted_date · category` / `album_cover_url`), each opening
+`/write?id=<post-id>`. **Frontend-only, no backend/contract change.** Useful even before the job writes
+drafts (a manually created draft shows up). Built first so discovery exists before any write path is
+switched on, and because it touches only `myblog_front` (parallel-safe vs other repos).
+
+**Shipped** as `DraftsInbox.tsx` (a `임시 저장함` dialog opened from the writer chrome's `임시 저장함`
+button), statically imported by `WriterApp.tsx`. Merge commit `13fd2a9`; **Deploy Front (S3+CF)
+succeeded** post-merge; the `임시 저장함` literals are present in the deployed `WriterApp.*.js` chunk
+(auth-gated-front prod-smoke method, `reference-prod-smoke-auth-gated-front`).
 
 > **Verification**: `pnpm lint` + `astro check` + a logged-in browser click-through (inbox renders,
-> lists a draft, click opens it in `/write?id=`). **Rollback**: remove the inbox component.
+> lists a draft, click opens it in `/write?id=`) — done pre-merge in the front PR; deployed-chunk
+> literal grep confirmed live. **Rollback**: remove the inbox component.
 
 #### Step 7 — nightly job: dual-write the skeleton as a draft post  *(adversarial-audit gated)*
 
