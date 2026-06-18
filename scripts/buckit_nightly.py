@@ -24,11 +24,12 @@ written) AND opened a secret-exfiltration surface (an unscoped `Read` + unrestri
 could read `~/.aws`/`~/.claude` creds and exfiltrate, driven by a prompt-injection in the memo
 text). So this runner reverts to the proven Stage-0 mechanical pattern:
 
-  * **This script** does the entire DB read, **read-only**: `connect()` forces
-    `SET default_transaction_read_only = on` + autocommit SELECTs (cloned from
-    editor_buckit.py). There is NO write path to prod anywhere in this file. It reads the
-    `prep_tonight`-checked, unwritten, not-yet-reviewed bucket items (+ their verbatim
-    `note`, album/artist/genre facts, done research-note excerpts, recent listens).
+  * **This script** does the entire DB read **read-only**: `connect()` sets `conn.read_only`
+    (TRANSACTION-scoped — a session `SET default_transaction_read_only = on` would LEAK through
+    Neon's pgbouncer `-pooler` and make a later writer fail read-only; see connect()). There is NO
+    raw DB write anywhere in this file; the only prod writes are Step 7's authed-API draft create +
+    memo grow (below). It reads the `prep_tonight`-checked, unwritten, not-yet-reviewed bucket items
+    (+ their verbatim `note`, album/artist/genre facts, done research-note excerpts, recent listens).
   * **This script also reads the rule docs and writes the skeleton files** — i.e. the
     "repo read + file write + Postgres read" capabilities all live in the script, validated.
     Output filenames are reduced to a safe basename under `docs/buckit/<date>/` — the model
@@ -45,6 +46,31 @@ text). So this runner reverts to the proven Stage-0 mechanical pattern:
     manufacture stale ideas — the checkbox is what makes the timer non-blind; see the RFC
     Decisions log 2026-06-18).
   * Never logs DATABASE_URL / secrets.
+
+Stage 2 Step 7 — in-app draft delivery (default ON; `--no-draft` opts out). After the skeleton
+files are written, the script ALSO creates one **draft** post per memo so the skeleton lands in
+the `/write` '임시 저장함' inbox, not only a `docs/buckit/` file (owner decision 2026-06-18):
+
+  * It mints a short-lived Cognito JWT for the smoke/test user (`USER_AUTH`, password from Secrets
+    Manager `myblog/smoke`; the `scripts/smoke.py get_token` pattern) and calls
+    `POST /api/posts {status:'draft', …}` on the raw API Gateway. The password and the token are
+    NEVER logged. The job's ONLY new capability is **create-a-draft** — it never publishes
+    (`status` is hard-wired to `draft`) and makes no raw DB write (the read-only export connection
+    is untouched; every write goes through the authed API).
+  * Provenance (album_id / bucket / date) rides as a leading HTML comment in the draft `body_mdx`,
+    NOT `Post.extra` — `WritePostRequest` is `extra='ignore'`, so an `extra` field would be silently
+    dropped; the comment keeps this a single-repo, no-contract-change job. The draft carries NO
+    `album_ids`, so it does NOT enter `post_albums` (the reviewed-set + this job's own exclusion
+    source) — a draft skeleton is not a review.
+  * Grow-once: after a draft is created the script marks that memo grown — it stamps the new
+    `post_id` on the item AND clears `prep_tonight` in one PATCH. The `post_id` stamp durably
+    excludes the album next run (CHECKED_SQL filters `post_id IS NULL`), so even a lost
+    `prep_tonight` clear or a crash between POST and PATCH does NOT re-create the draft — and the
+    album-unique slug makes any re-POST 409 (rejected, never duplicated). A draft or PATCH failure
+    is non-fatal — the `docs/buckit/` file is the backup. The model still has NO tools; a
+    prompt-injection in a memo cannot redirect a write,
+    because every write target (title, album_id, bucket/item ids) comes from the trusted DB export,
+    never from the model's text (which only fills `body_mdx`, a draft that is never published).
 
 Note on ordering: memos are processed in bucket/item position order (review_bucket_items has
 no checked-at timestamp), so run-spec §6's "newest-checked first" recency hint is intentionally
@@ -64,6 +90,8 @@ import subprocess
 import sys
 import time
 import unicodedata
+import urllib.error
+import urllib.request
 from datetime import date
 
 logging.basicConfig(
@@ -95,6 +123,16 @@ SETTING_SOURCES = "user"
 # file body, until the next delimiter. The script splits, validates the basename, and writes.
 FILE_DELIM = "=====BUCKIT_FILE:"
 FILE_DELIM_RE = re.compile(r"^=====BUCKIT_FILE:\s*(.+?)\s*=*\s*$", re.MULTILINE)
+
+# --- Stage 2 Step 7: in-app draft delivery (authed API; the script is the only writer) ---
+BACKEND_AUTHED = "https://ld8pjw3mx4.execute-api.ap-northeast-2.amazonaws.com"  # raw API Gateway
+SMOKE_SECRET_ID = "myblog/smoke"        # holds MYBLOG_SMOKE_PASSWORD (test Cognito user pw)
+COGNITO_REGION = "ap-northeast-2"
+COGNITO_CLIENT_ID = "68ccmcanfbvla9qbovnb9b18bt"
+DEFAULT_SMOKE_EMAIL = "test@ratemymusic.blog"
+DRAFT_SECTION = "Reviews"               # seeded section (reject-unknown); a skeleton is a review draft
+HTTP_TIMEOUT_S = 30
+BODY_MDX_MAX = 32000                     # cap the model's skeleton before POST (oversize ⇒ 4xx re-fail)
 
 
 # --- paths ----------------------------------------------------------------
@@ -132,11 +170,15 @@ def connect():
 
     # connect_timeout=30 absorbs Neon cold-start (reference-database-url-psql).
     conn = psycopg.connect(database_url(), connect_timeout=30, row_factory=dict_row)
-    # Strictly read-only: force it at the session level (committed BEFORE autocommit flips on,
-    # so it survives) — any accidental write raises instead of mutating prod. (editor_buckit.py.)
-    conn.execute("SET default_transaction_read_only = on")
-    conn.commit()
-    conn.autocommit = True
+    # Read-only safety, TRANSACTION-SCOPED — NOT a session SET. A session-level
+    # `SET default_transaction_read_only = on` LEAKS through Neon's pgbouncer (`-pooler`) onto the
+    # shared server connection, so the NEXT writer on that pooled backend — this job's own
+    # POST /api/posts in Step 7, or the live backend Lambda serving real users — fails with
+    # "cannot execute INSERT in a read-only transaction" (root-caused in Step 7 verification).
+    # `conn.read_only` makes psycopg apply READ ONLY per transaction (auto-cleared on commit/
+    # rollback), so the export stays write-safe without ever poisoning the pool. autocommit stays
+    # False ⇒ the export's SELECTs share one read-only tx, rolled back on close().
+    conn.read_only = True
     return conn
 
 
@@ -147,6 +189,8 @@ def connect():
 CHECKED_SQL = """
 SELECT
     i.album_id,
+    i.id                    AS item_id,
+    i.bucket_id,
     i.note,
     i.rec_reason,
     i.status::text          AS item_status,
@@ -246,10 +290,10 @@ def _listen_line(rec: dict | None) -> str:
     return "기록 없음"
 
 
-def export_checked_memos(conn) -> tuple[int, str]:
+def export_checked_memos(conn) -> tuple[list[dict], str]:
     """Assemble the read-only context block for every CHECKED memo.
 
-    Returns (n_memos, context_markdown). The block IS the model's §3 input — it carries
+    Returns (memos, context_markdown). The block IS the model's §3 input — it carries
     the verbatim memo (viewpoint), album facts, the done research note (facts), and recent
     listens, plus a suggested output filename per memo. The model gets no DB tool."""
     rows = _fetch_all(conn, CHECKED_SQL)
@@ -279,12 +323,16 @@ def export_checked_memos(conn) -> tuple[int, str]:
                 "artists": list(row.get("artists") or []),
                 "genres": list(row.get("genres") or []),
                 "buckets": [],
+                "items": [],
                 "notes": [],
                 "rec_reasons": [],
             }
             memo_by[aid] = m
         if row["bucket_name"] not in m["buckets"]:
             m["buckets"].append(row["bucket_name"])
+        item_ref = {"bucket_id": str(row["bucket_id"]), "item_id": str(row["item_id"])}
+        if item_ref not in m["items"]:  # every checked item for this album → unchecked on grow
+            m["items"].append(item_ref)
         note = (row.get("note") or "").strip()
         if note and note not in m["notes"]:
             m["notes"].append(note)
@@ -341,7 +389,7 @@ def export_checked_memos(conn) -> tuple[int, str]:
         parts.append(f"- 청취 기록: {m['listen']}")
         parts.append("")
 
-    return len(memos), "\n".join(parts)
+    return memos, "\n".join(parts)
 
 
 # --- prompt assembly ------------------------------------------------------
@@ -501,21 +549,190 @@ def write_summary_only(text: str) -> str:
     return path
 
 
+# --- Stage 2 Step 7: mint a smoke JWT + deliver each skeleton as a draft post --------------
+def mint_smoke_token() -> str:
+    """Mint a short-lived (≈60-min) Cognito access token for the smoke/test user via USER_AUTH
+    (2-step), reading the password from Secrets Manager `myblog/smoke`. $0; the password and the
+    token are NEVER logged. (scripts/smoke.py get_token pattern.)
+
+    Blast radius: in this single-user, no-per-user-scoping system the token is owner-equivalent —
+    it CAN publish/edit/delete any post. The draft-only / create-only limit is enforced by THIS code
+    (status hard-wired to 'draft'; no PUT/DELETE), not by the credential. The MYBLOG_SMOKE_PASSWORD
+    env override is dev-only — launchd sets no env var; never set it on the nightly job (a plaintext
+    pw in the process env is exposable via `ps e` / crash dumps)."""
+    import boto3
+
+    sm = boto3.client("secretsmanager", region_name=REGION)
+    secret = json.loads(sm.get_secret_value(SecretId=SMOKE_SECRET_ID)["SecretString"])
+    pw = os.environ.get("MYBLOG_SMOKE_PASSWORD") or secret.get("MYBLOG_SMOKE_PASSWORD")
+    email = (os.environ.get("MYBLOG_SMOKE_EMAIL")
+             or secret.get("MYBLOG_SMOKE_EMAIL") or DEFAULT_SMOKE_EMAIL)
+    if not pw:
+        raise RuntimeError("smoke password missing (Secrets Manager myblog/smoke / MYBLOG_SMOKE_PASSWORD)")
+    c = boto3.client("cognito-idp", region_name=COGNITO_REGION)
+    r = c.initiate_auth(
+        AuthFlow="USER_AUTH",
+        AuthParameters={"USERNAME": email},
+        ClientId=COGNITO_CLIENT_ID,
+    )
+    r2 = c.respond_to_auth_challenge(
+        ClientId=COGNITO_CLIENT_ID,
+        ChallengeName="SELECT_CHALLENGE",
+        Session=r["Session"],
+        ChallengeResponses={"USERNAME": email, "ANSWER": "PASSWORD", "PASSWORD": pw},
+    )
+    return r2["AuthenticationResult"]["AccessToken"]
+
+
+def _api(method: str, path: str, token: str, body: dict | None = None) -> tuple[int, dict | None]:
+    """One authed JSON request to the raw API Gateway. The Bearer token skips edge_guard; BOTH
+    POST /api/posts and the bucket item PATCH are explicit Cognito-authorized routes (the smoke
+    token passes the API-GW authorizer / the backend's require_cognito_token). Returns
+    (status, parsed_body_or_None); **status 0 = a transport error** (DNS/connect/timeout), which the
+    caller treats as a non-ok skip — so a Neon/Lambda cold-start at 03:00 can't crash the run.
+    The token is NEVER logged; an HTTP error surfaces as its code + a short body."""
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(BACKEND_AUTHED + path, data=data, headers=headers, method=method)
+    try:
+        resp = urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S)
+        raw = resp.read()
+        return resp.status, (json.loads(raw) if raw else None)
+    except urllib.error.HTTPError as e:           # 4xx/5xx with a body (HTTPError ⊂ URLError ⇒ first)
+        raw = e.read()
+        try:
+            return e.code, json.loads(raw)
+        except (ValueError, TypeError):
+            return e.code, {"raw": raw.decode(errors="replace")[:300]}
+    except (urllib.error.URLError, TimeoutError, OSError) as e:  # connect/DNS/timeout ⇒ skip, no crash
+        return 0, {"err": type(e).__name__}
+
+
+def _draft_title(m: dict) -> str:
+    """Working title for the draft. Appends a short hex album-id token so the SERVER-derived slug
+    stays unique per album: slugify_title strips to [a-z0-9], so a fully-Korean title would slug to
+    the same 'untitled' and the create would 409 after the first one. The hex survives slugify."""
+    artist = m["artists"][0].strip() if m["artists"] else ""
+    title = (m["title"] or "무제").strip()
+    head = f"[초고] {artist} — {title}" if artist else f"[초고] {title}"
+    return f"{head} · {m['album_id'][:8]}"
+
+
+def _draft_body(m: dict, skeleton: str) -> str:
+    """Prepend a machine-readable provenance comment (invisible on render, visible in the /write
+    editor source) to the skeleton. Provenance can't go to Post.extra (WritePostRequest is
+    extra='ignore' ⇒ silently dropped), so it rides in body_mdx — no contract change needed. The
+    skeleton is length-capped so a prompt-injected oversize block can't make every POST 4xx-fail."""
+    body = skeleton.rstrip()
+    if len(body) > BODY_MDX_MAX:
+        body = body[:BODY_MDX_MAX].rstrip() + "\n\n<!-- buckit-nightly: 골격이 길어 잘림 — 원본은 docs/buckit 파일 -->"
+    buckets = "; ".join(m.get("buckets") or []) or "?"
+    prov = (f"<!-- buckit-nightly draft · album_id={m['album_id']} · bucket={buckets} · "
+            f"generated={date.today().isoformat()} · via=memo-skeleton -->")
+    return f"{prov}\n\n{body}\n"
+
+
+def _norm_key(s: str) -> str:
+    """Aggressive fold for binding a model-emitted filename to a memo slug despite case / space /
+    separator drift. Keeps alnum + Hangul/Kana/CJK only (the script's _slug yields lowercased
+    word-chars incl. Hangul, so a memo slug and a faithful model filename fold to the same key)."""
+    return re.sub(r"[^0-9a-z가-힣぀-ヿ一-鿿]+", "", (s or "").lower())
+
+
+def _pair_files_to_memos(memos: list[dict],
+                         files: list[tuple[str, str]]) -> tuple[list[tuple[dict, str]], list[str]]:
+    """Bind each written skeleton file to its memo WITHOUT trusting the model's exact filename.
+    Primary = exact `<slug>.md`; fallback = a collision-safe normalized fold (a fold key shared by
+    2+ memos is dropped, so two memos can never cross-pair). `_summary.md` and any file that matches
+    no memo (or a second file folding onto an already-paired memo) are returned as orphans (kept on
+    disk, no draft). Returns ([(memo, content)], orphan_basenames)."""
+    by_slug = {f"{m['slug']}.md": m for m in memos}
+    norm_index: dict[str, dict | None] = {}
+    for m in memos:
+        k = _norm_key(m["slug"])
+        norm_index[k] = None if k in norm_index else m  # ambiguous fold ⇒ disable (no cross-pair)
+    pairs: list[tuple[dict, str]] = []
+    used: set[str] = set()
+    orphans: list[str] = []
+    for base, content in files:
+        if base == "_summary.md":
+            continue
+        stem = base[:-3] if base.endswith(".md") else base
+        memo = by_slug.get(base) or norm_index.get(_norm_key(stem))
+        if memo is None or memo["album_id"] in used:
+            orphans.append(base)
+            continue
+        used.add(memo["album_id"])
+        pairs.append((memo, content))
+    return pairs, orphans
+
+
+def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) -> dict:
+    """Create one `status='draft'` post per memo whose skeleton was written, then mark that memo
+    GROWN: stamp the new post_id on the item AND clear prep_tonight, both in one PATCH. NEVER
+    publishes; makes no raw DB write (every write goes via the authed API). Drafts carry NO
+    album_ids → they never enter post_albums (the reviewed-set / exclusion source).
+
+    Durable grow-once (audit fix): stamping post_id excludes the album next run via CHECKED_SQL's
+    `post_id IS NULL`, so even a lost prep_tonight clear / a crash between POST and PATCH does NOT
+    re-create the draft — create+exclude are idempotent. The album-unique slug (see _draft_title)
+    means a re-POST after a stamp failure 409s (REJECTED, never duplicated). All non-2xx is
+    non-fatal: the docs/buckit file is the backup. Returns {created, grown, skipped}."""
+    pairs, orphans = _pair_files_to_memos(memos, files)
+    created: list[tuple[str, str]] = []
+    grown = 0
+    skipped: list[str] = []
+
+    for m, skeleton in pairs:
+        payload = {"title": _draft_title(m), "body_mdx": _draft_body(m, skeleton),
+                   "status": "draft", "category": DRAFT_SECTION}
+        status, resp = _api("POST", "/api/posts", token, payload)
+        if status != 200 or not resp or "id" not in resp:
+            # 409 ⇒ this album's draft already exists (a prior run created it but failed to stamp);
+            # do NOT duplicate. status 0 / 5xx ⇒ transient; retry next run. Either way leave checked.
+            log.warning("draft not created (album %s, status %s): %s — memo left checked, file kept",
+                        m["album_id"], status, str(resp)[:200])
+            skipped.append(m["album_id"])
+            continue
+        post_id = resp["id"]
+        created.append((post_id, payload["title"]))
+        log.info("draft created: id=%s slug=%s title=%r (album %s)",
+                 post_id, resp.get("slug"), payload["title"], m["album_id"])
+        for it in m.get("items", []):  # grow-once: post_id (durable exclude) + clear prep_tonight
+            ps, pb = _api("PATCH", f"/api/buckets/{it['bucket_id']}/items/{it['item_id']}",
+                          token, {"prep_tonight": False, "post_id": post_id})
+            if ps == 200:
+                grown += 1
+            else:
+                log.warning("grow PATCH failed (item %s, status %s): %s — post_id not stamped; memo "
+                            "stays checked but the album-unique slug makes next run 409-skip (no dup)",
+                            it["item_id"], ps, str(pb)[:160])
+
+    if orphans:
+        log.warning("%d skeleton file(s) matched no memo — kept on disk, no draft: %s",
+                    len(orphans), ", ".join(orphans))
+    return {"created": created, "grown": grown, "skipped": skipped}
+
+
 # --- orchestration --------------------------------------------------------
 def main() -> None:
     ap = argparse.ArgumentParser(description="$0 nightly memo→skeleton runner (Stage 1).")
     ap.add_argument("--dry-run", action="store_true",
                     help="assemble + print the checked-memo context and the claude argv, "
                          "then exit; do NOT call claude and write no files")
+    ap.add_argument("--no-draft", action="store_true",
+                    help="write the docs/buckit skeleton files only; skip in-app draft creation "
+                         "(Stage 2 Step 7). Default: also create one draft post per skeleton.")
     args = ap.parse_args()
 
     missing = missing_rule_files()
 
     conn = connect()
     try:
-        n_memos, context = export_checked_memos(conn)
+        memos, context = export_checked_memos(conn)
     finally:
         conn.close()
+    n_memos = len(memos)
 
     if args.dry_run:
         log.info("dry-run: %d checked memo(s); context = %d chars; not calling claude",
@@ -580,6 +797,26 @@ def main() -> None:
              res["tokens_in"], res["tokens_out"], res["model"])
     if "_summary.md" not in written:
         log.warning("model did not emit _summary.md (run spec §5 wants a morning index)")
+
+    # Stage 2 Step 7: ALSO deliver each skeleton as an in-app draft (default on). The files above
+    # are the backup — a token-mint / API failure here degrades gracefully (files already written).
+    if args.no_draft:
+        log.info("--no-draft: skipping in-app draft delivery (skeleton files only)")
+        return
+    try:
+        token = mint_smoke_token()
+    except Exception as e:  # noqa: BLE001 — any mint failure ⇒ keep the files, skip drafts
+        log.error("draft delivery skipped — smoke token mint failed: %s; skeleton files were "
+                  "written and remain the backup", str(e)[:300])  # message distinguishes AccessDenied
+        return
+    try:
+        summary = deliver_drafts(memos, files, token)
+    except Exception as e:  # noqa: BLE001 — never crash after files are written (token in frame locals)
+        log.error("draft delivery error (%s) — skeleton files were written and remain the backup",
+                  type(e).__name__)
+        return
+    log.info("draft delivery: %d draft(s) created, %d memo(s) grown, %d skipped/failed",
+             len(summary["created"]), summary["grown"], len(summary["skipped"]))
 
 
 if __name__ == "__main__":
