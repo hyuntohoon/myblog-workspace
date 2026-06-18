@@ -269,12 +269,19 @@ shared_db pin to the new tag; regenerate `openapi.json`. No frontend in this ste
 > touch), prod schema probe confirms the column. Prod smoke post-merge.
 > **Rollback**: `ALTER TABLE review_bucket_items DROP COLUMN IF EXISTS prep_tonight;` + revert the pin.
 
-#### Step 3 — Stage 1 frontend: the memo + "오늘 밤 키우기" gate in the album-click modal
+#### Step 3 — Stage 1 frontend: the memo + "오늘 밤 키우기" gate in the album-click modal — ✅ DONE (PR #177, merged + prod-smoked 2026-06-18)
 
-Surface the memo + checkbox in `AlbumDetail`'s write-mode body (OQ7). Thread `bucketId`/`itemId`/`note`/
-`prep_tonight` from `BoardAlbum` → `AlbumChip.onOpen` → `DetailTarget`; add the memo textarea (bound to
-`note`) + the "오늘 밤 키우기" checkbox, persisted via the Step 2 PATCH; regenerate `api.gen.ts` off the
-merged contract. Browser click-through required (CLAUDE.md UI DoD).
+**Shipped per the Claude Design handoff (`앨범 메모 컴포넌트`), which reshaped the original sketch.** Clicking
+a writable, unreviewed 평론 버킷 album now opens a dedicated 2-column memo "쓰레기통" overlay (`MemoWindow`)
+— album identity left, one freeform memo (→ `note`) + the "오늘 밤 키우기" toggle (→ `prep_tonight`) right —
+**replacing** the old inline draft composer (`WriteBody`/`RatingInput` removed), rather than bolting a
+textarea+checkbox into write-mode. Overwrite model, **debounced autosave with flush-on-unmount** (no save
+button), night-mode on toggle, size m/l/xl, textarea autofocus. One "전체 에디터에서 작성 →" link preserves
+the path to `/write`. Threaded `bucketId`/`itemId`/`note`/`prepTonight` through `BoardAlbum` →
+`AlbumChip.onOpen` → `DetailTarget`; `updateBucketItemMemo` PATCH client (reuses the Step 2 set-only route);
+`api.gen.ts` regenerated off the merged contract. Verified by a headless-CDP browser click-through
+(render / toggle→night / autosave-PATCH / flush-on-close / size / ESC / autofocus) + a 5-dimension
+adversarial review (1 high data-loss + 4 med/low fixed); prod-smoked via deployed-chunk grep.
 
 #### Step 4 — Stage 1 runner: the `$0` nightly memo → skeleton job
 
@@ -327,3 +334,4 @@ Stage 1 redesign:
 | 2026-06-18 | OQ7 (gate UX): the memo + the "오늘 밤 키우기" checkbox both live in the **review-bucket album-click modal** (`AlbumDetail` via `ProfileApp.openDetail`) — write the memo there, check it there. Build detail: new flag column on `review_bucket_items` + memo bound to `note`; the modal composes a draft post today, so this is a **net-new write path** | 1/2 |
 | 2026-06-18 | Stage 1 gate (Stage 0 proved out + ≥1 hand-published review) **met** (저스디스 *LIT*) → Stage 1 unblockable; still needs own steps + human Status action before build | 1/2 |
 | 2026-06-18 | Stage 1 steps formalized (Step 2 data layer / 3 frontend / 4 runner / 5 schedule). **Step 2 built** (owner-approved, backend-only this session): shared_db V22 `prep_tonight` BOOLEAN + model + parity files + version bump 0.20.0→0.21.0 (prod-applied via `ALTER … ADD COLUMN IF NOT EXISTS`, verified live); backend `prep_tonight` on the **existing** item-PATCH (`update_item`, set-only no enqueue) + pin→v0.21.0 + openapi regen + test. **Correction**: the item PATCH route already existed and already wrote `note` — net-new write work was only the field + (deferred) frontend plumbing, not a whole new route | 2 |
+| 2026-06-18 | Step 3 built + merged (PR #177, front-only) + prod-smoked. The Claude Design handoff (`앨범 메모 컴포넌트`) reshaped the sketch: the memo is a **dedicated 2-column `MemoWindow`** (album identity + one freeform memo + "오늘 밤 키우기" toggle; debounced autosave w/ flush-on-unmount; no save button; night-mode; size m/l/xl) that **replaces** the inline draft composer — not a textarea+checkbox in write-mode. Owner-chosen: keep one "전체 에디터에서 작성" /write link. Note→`note`, toggle→`prep_tonight` via the existing set-only item PATCH; `api.gen.ts` regen. Verified in-browser (CDP) + adversarial review (1 high data-loss + 4 med/low fixed). Only Step 4 (runner) + Step 5 (schedule) remain | 3 |
