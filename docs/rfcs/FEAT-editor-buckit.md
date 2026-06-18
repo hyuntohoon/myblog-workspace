@@ -283,7 +283,7 @@ the path to `/write`. Threaded `bucketId`/`itemId`/`note`/`prepTonight` through 
 (render / toggle→night / autosave-PATCH / flush-on-close / size / ESC / autofocus) + a 5-dimension
 adversarial review (1 high data-loss + 4 med/low fixed); prod-smoked via deployed-chunk grep.
 
-#### Step 4 — Stage 1 runner: the `$0` nightly memo → skeleton job — ✅ BUILT + locally verified 2026-06-18 (PR pending)
+#### Step 4 — Stage 1 runner: the `$0` nightly memo → skeleton job — ✅ DONE + MERGED 2026-06-18 (PR #385)
 
 `scripts/buckit_nightly.py` (cloned from `editor_buckit.py`): a **read-only** prod export of the
 `prep_tonight`-checked, unwritten, not-yet-reviewed bucket items (verbatim `note` + album/artist/genre
@@ -315,7 +315,7 @@ DB-write-surface and run-spec-faithfulness audit lenses both returned **safe**.
 > workspace repo (`reference-pr-ci-matrix`).
 > **Rollback**: delete `scripts/buckit_nightly.py` (+ the `docs/buckit/**/*.md` gitignore line / `.gitkeep`).
 
-#### Step 5 — Stage 1 schedule: overnight fire, checkbox-gated — ✅ BUILT 2026-06-18 (PR pending; owner installs)
+#### Step 5 — Stage 1 schedule: overnight fire, checkbox-gated — ✅ DONE + MERGED 2026-06-18 (PR #385; owner installs)
 
 `scripts/com.myblog.buckit-nightly.plist` (cloned from `com.myblog.research-poller.plist`): a `launchd`
 agent firing `buckit_nightly.py` **once per night at 03:00** (`StartCalendarInterval`). **Host = the
