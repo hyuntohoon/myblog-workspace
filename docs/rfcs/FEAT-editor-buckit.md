@@ -315,7 +315,7 @@ DB-write-surface and run-spec-faithfulness audit lenses both returned **safe**.
 > workspace repo (`reference-pr-ci-matrix`).
 > **Rollback**: delete `scripts/buckit_nightly.py` (+ the `docs/buckit/**/*.md` gitignore line / `.gitkeep`).
 
-#### Step 5 — Stage 1 schedule: overnight fire, checkbox-gated — ✅ DONE + MERGED 2026-06-18 (PR #385; owner installs)
+#### Step 5 — Stage 1 schedule: overnight fire, checkbox-gated — ✅ DONE + MERGED 2026-06-18 (PR #385); nightly ENABLED 2026-06-18
 
 `scripts/com.myblog.buckit-nightly.plist` (cloned from `com.myblog.research-poller.plist`): a `launchd`
 agent firing `buckit_nightly.py` **once per night at 03:00** (`StartCalendarInterval`). **Host = the
@@ -326,6 +326,12 @@ one-line `_summary.md` and never calls claude. `RunAtLoad=false` (nightly, not o
 (a missed 03:00 fire runs once at next wake, no stacking). Committed as an artifact + INSTALL/STATUS/STOP
 instructions in the header — **the owner runs `launchctl load` to flip the schedule on** (the plist is
 not auto-loaded), exactly like the research poller.
+
+**Enabled 2026-06-18** — installed to `~/Library/LaunchAgents/` + `launchctl load -w`, then
+`kickstart`-verified end-to-end under launchd's own env (found AWS creds, prod read-only, hit the
+0-checked-memo gate → wrote `_summary.md`, exit 0, **$0** no claude call). The nightly and **manual**
+on-demand runs (`python scripts/buckit_nightly.py`) coexist — both just invoke the same single-fire
+script.
 
 > **Rollback / kill switch**: `launchctl unload -w ~/Library/LaunchAgents/com.myblog.buckit-nightly.plist`
 > (checked memos simply wait); delete the plist to remove the artifact.
