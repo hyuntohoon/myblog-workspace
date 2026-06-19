@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""FEAT-editor-buckit Stage 1 Step 4 — the $0 nightly memo → skeleton runner.
+"""FEAT-editor-buckit Stage 1 — the $0 nightly memo → review-draft runner.
 
 Turns each **checked** bucket memo ("오늘 밤 키우기" = `review_bucket_items.prep_tonight`)
-into a Korean **section skeleton** file under `docs/buckit/<YYYY-MM-DD>/`, run unattended
-overnight on the owner's Max subscription via headless Claude Code (`claude -p`) = **$0**.
-It is the Stage-1 sibling of `scripts/editor_buckit.py` (Stage 0) and clones its read-only
-prod-export + `claude -p` heritage.
+into a complete Korean **review draft** (readable prose) under `docs/buckit/<YYYY-MM-DD>/`,
+run unattended overnight on the owner's Max subscription via headless Claude Code (`claude -p`)
+= **$0**. It is the Stage-1 sibling of `scripts/editor_buckit.py` (Stage 0) and clones its
+read-only prod-export + `claude -p` heritage.
 
-The output is **inventory-shaped, never thesis-shaped** (see docs/editorial/buckit-nightly.md):
-it expands only the editor's own judgments, leaves evidence as `[passage]` blanks, lists the
-controlling-idea candidates without choosing, and marks every open question. A too-finished
-skeleton is a bug. **Zero outputs is a valid run.** The job writes files and nothing else —
-no DB write, no git, no publish.
+The output is a **full review draft** the editor wakes to, edits, and publishes manually (see
+docs/editorial/buckit-nightly.md, v0.2): it develops the editor's own judgment into prose, may
+choose a **provisional controlling idea** from the memo, and marks missing evidence inline as
+`[근거 보강 필요: 트랙/구간]` — it never fabricates facts, emotions, experiences, or a verdict the
+memo didn't hold (★). A memo too thin to support a review yields a short `초안 생성 보류` note
+instead of a fabricated draft. **Zero outputs is a valid run.** The job writes files and nothing
+else — no DB write, no git, no publish (Stage 2's draft delivery uses the authed API).
 
     myblog_backend/.venv/bin/python scripts/buckit_nightly.py            # full nightly run
     myblog_backend/.venv/bin/python scripts/buckit_nightly.py --dry-run  # print the assembled
@@ -30,7 +32,7 @@ text). So this runner reverts to the proven Stage-0 mechanical pattern:
     raw DB write anywhere in this file; the only prod writes are Step 7's authed-API draft create +
     memo grow (below). It reads the `prep_tonight`-checked, unwritten, not-yet-reviewed bucket items
     (+ their verbatim `note`, album/artist/genre facts, done research-note excerpts, recent listens).
-  * **This script also reads the rule docs and writes the skeleton files** — i.e. the
+  * **This script also reads the rule docs and writes the draft files** — i.e. the
     "repo read + file write + Postgres read" capabilities all live in the script, validated.
     Output filenames are reduced to a safe basename under `docs/buckit/<date>/` — the model
     cannot cause a path escape.
@@ -38,7 +40,7 @@ text). So this runner reverts to the proven Stage-0 mechanical pattern:
     read-only context block are inlined into the prompt; `--disallowed-tools` denies the full
     file/network/exec surface (Bash/Edit/Read/Write/WebSearch/WebFetch/…) and
     `--setting-sources user` keeps the broad project-local Bash allow-list out of the run.
-    The model only generates the Korean skeletons as a delimited payload and returns it; it
+    The model only generates the Korean review drafts as a delimited payload and returns it; it
     has no DB tool, no file tool, no network tool ⇒ structurally incapable of touching prod,
     git, the filesystem, or the network.
   * The **checkbox is the only gate**: if zero memos are checked, this script writes a
@@ -47,9 +49,9 @@ text). So this runner reverts to the proven Stage-0 mechanical pattern:
     Decisions log 2026-06-18).
   * Never logs DATABASE_URL / secrets.
 
-Stage 2 Step 7 — in-app draft delivery (default ON; `--no-draft` opts out). After the skeleton
-files are written, the script ALSO creates one **draft** post per memo so the skeleton lands in
-the `/write` '임시 저장함' inbox, not only a `docs/buckit/` file (owner decision 2026-06-18):
+Stage 2 Step 7 — in-app draft delivery (default ON; `--no-draft` opts out). After the draft
+files are written, the script ALSO creates one **draft** post per memo so the review draft lands
+in the `/write` '임시 저장함' inbox, not only a `docs/buckit/` file (owner decision 2026-06-18):
 
   * It mints a short-lived Cognito JWT for the smoke/test user (`USER_AUTH`, password from Secrets
     Manager `myblog/smoke`; the `scripts/smoke.py get_token` pattern) and calls
@@ -61,7 +63,7 @@ the `/write` '임시 저장함' inbox, not only a `docs/buckit/` file (owner dec
     NOT `Post.extra` — `WritePostRequest` is `extra='ignore'`, so an `extra` field would be silently
     dropped; the comment keeps this a single-repo, no-contract-change job. The draft carries NO
     `album_ids`, so it does NOT enter `post_albums` (the reviewed-set + this job's own exclusion
-    source) — a draft skeleton is not a review.
+    source) — a nightly draft is not yet a published review.
   * Grow-once: after a draft is created the script marks that memo grown — it stamps the new
     `post_id` on the item AND clears `prep_tonight` in one PATCH. The `post_id` stamp durably
     excludes the album next run (CHECKED_SQL filters `post_id IS NULL`), so even a lost
@@ -130,9 +132,9 @@ SMOKE_SECRET_ID = "myblog/smoke"        # holds MYBLOG_SMOKE_PASSWORD (test Cogn
 COGNITO_REGION = "ap-northeast-2"
 COGNITO_CLIENT_ID = "68ccmcanfbvla9qbovnb9b18bt"
 DEFAULT_SMOKE_EMAIL = "test@ratemymusic.blog"
-DRAFT_SECTION = "Reviews"               # seeded section (reject-unknown); a skeleton is a review draft
+DRAFT_SECTION = "Reviews"               # seeded section (reject-unknown); the nightly draft posts here
 HTTP_TIMEOUT_S = 30
-BODY_MDX_MAX = 32000                     # cap the model's skeleton before POST (oversize ⇒ 4xx re-fail)
+BODY_MDX_MAX = 32000                     # cap the model's draft before POST (oversize ⇒ 4xx re-fail)
 
 
 # --- paths ----------------------------------------------------------------
@@ -414,24 +416,28 @@ ADDENDUM = """
 그대로 따르되:
 
 - **너에겐 어떤 도구도 없다.** DB도 파일도 웹도 접근 못 한다. 규칙은 위에 인라인으로 다 들어 있고,
-  입력은 아래 "오늘 밤 키울 메모" 블록이 전부다. 블록에 없는 사실은 지어내지 말고 `[source?]`/`[passage]`로
-  비워라(★). 파일을 직접 쓰려 하지 말 것 — 아래 형식으로 텍스트만 반환하면 스크립트가 파일로 저장한다.
-- **출력은 전부 한국어.** 스켈레톤은 **인벤토리형**(있는 것/확인된 것/타인 견해/열린 질문) — thesis 금지.
-  판단은 편집자(메모) 것만 펴고, 근거는 `[passage]` 빈칸, controlling idea는 후보만(택1하지 말 것),
-  질문은 표시(ask→mark). **너무 완성된 스켈레톤은 버그다. 0개 출력도 정답이다.**
+  입력은 아래 "오늘 밤 키울 메모" 블록이 전부다. 블록에 없는 사실/가사/크레딧/날짜는 지어내지 말고
+  `[근거 보강 필요: 트랙/구간]`(출처 미상이면 `[source?]`)로 본문 안에 표시해라(★). 파일을 직접
+  쓰려 하지 말 것 — 아래 형식으로 텍스트만 반환하면 스크립트가 파일로 저장한다.
+- **출력은 전부 한국어 — 메모마다 완결형 평론 초안(읽히는 산문)이다. 스켈레톤/개요가 아니다.**
+  메모의 판단을 잠정 controlling idea로 골라(택1) 도입에서 끌고 가며 한 편의 글로 전개해라. 단, 메모에
+  없는 평가/결론은 새로 만들지 말 것(편집자 판단의 전개이지 대체가 아니다, ★). 근거가 비면
+  `[근거 보강 필요: 트랙/구간]`로 인라인 표시. **점수 정당화로 닫지 말고** 비평적 판단·이미지·여운으로
+  닫아라. 음향 디테일 나열보다 표현·편곡·장르 맥락·비평 프레이밍을 우선. 메모가 너무 얇아 평론이
+  안 되면 지어내지 말고 `초안 생성 보류`로 둬라(§4). **0개 출력도 정답이다.**
 
 ### 출력 형식 (반드시 이대로 — 이 외 텍스트 금지)
 
-파일마다 아래 구분자 한 줄로 시작하고, 그 다음 줄부터 그 파일의 한국어 마크다운 본문을 쓴다:
+파일마다 아래 구분자 한 줄로 시작하고, 그 다음 줄부터 그 메모의 완결형 한국어 평론 초안(마크다운)을 쓴다:
 
 ```
 =====BUCKIT_FILE: <파일명.md>=====
-<그 파일의 마크다운 본문>
+<그 메모의 완결형 평론 초안 (마크다운)>
 ```
 
 - `<파일명.md>` 는 각 메모의 "출력 파일명(제안)"을 그대로 쓴다(예: `frank-ocean-channel-orange.md`). 경로/슬래시 없이 파일명만.
-- 메모마다 한 파일. 자랄 판단 씨앗이 없는 메모(§4)는 파일을 만들지 말고 _summary.md의 '생략' 목록에만 한 줄로 남겨라.
-- **맨 마지막 파일은 반드시 `_summary.md`** — 아침에 가장 먼저 여는 인덱스. 생성한 것 + 생략한 것(이유: 씨앗 없음 / 미확인 사실 많음 등)을 우선순위로 정리. 아무 것도 자라지 않았으면 `_summary.md` 하나만, '오늘 키울 메모 없음' + 이유.
+- 메모마다 한 파일. 평론으로 자라기엔 너무 얇은 메모(§4)는 파일을 만들지 말고 _summary.md의 '초안 생성 보류' 목록에 이유 한 줄로 남겨라.
+- **맨 마지막 파일은 반드시 `_summary.md`** — 아침에 가장 먼저 여는 인덱스. 생성한 초안 + 보류한 것(이유: 메모 얇음 / 미확인 사실 많음 등)을 우선순위로 정리. 아무 것도 자라지 않았으면 `_summary.md` 하나만, '오늘 키울 메모 없음' + 이유.
 - 구분자 줄과 파일 본문 외에 서문/맺음말("Here is…", "아래는…") 절대 금지. 구분자 문자열(`=====BUCKIT_FILE:`)을 본문 안에서 재현하지 말 것.
 
 오늘 날짜 = {today}.
@@ -549,7 +555,7 @@ def write_summary_only(text: str) -> str:
     return path
 
 
-# --- Stage 2 Step 7: mint a smoke JWT + deliver each skeleton as a draft post --------------
+# --- Stage 2 Step 7: mint a smoke JWT + deliver each generated draft as a draft post --------
 def mint_smoke_token() -> str:
     """Mint a short-lived (≈60-min) Cognito access token for the smoke/test user via USER_AUTH
     (2-step), reading the password from Secrets Manager `myblog/smoke`. $0; the password and the
@@ -618,17 +624,17 @@ def _draft_title(m: dict) -> str:
     return f"{head} · {m['album_id'][:8]}"
 
 
-def _draft_body(m: dict, skeleton: str) -> str:
+def _draft_body(m: dict, draft: str) -> str:
     """Prepend a machine-readable provenance comment (invisible on render, visible in the /write
-    editor source) to the skeleton. Provenance can't go to Post.extra (WritePostRequest is
+    editor source) to the draft. Provenance can't go to Post.extra (WritePostRequest is
     extra='ignore' ⇒ silently dropped), so it rides in body_mdx — no contract change needed. The
-    skeleton is length-capped so a prompt-injected oversize block can't make every POST 4xx-fail."""
-    body = skeleton.rstrip()
+    draft is length-capped so a prompt-injected oversize block can't make every POST 4xx-fail."""
+    body = draft.rstrip()
     if len(body) > BODY_MDX_MAX:
-        body = body[:BODY_MDX_MAX].rstrip() + "\n\n<!-- buckit-nightly: 골격이 길어 잘림 — 원본은 docs/buckit 파일 -->"
+        body = body[:BODY_MDX_MAX].rstrip() + "\n\n<!-- buckit-nightly: 초안이 길어 잘림 — 원본은 docs/buckit 파일 -->"
     buckets = "; ".join(m.get("buckets") or []) or "?"
     prov = (f"<!-- buckit-nightly draft · album_id={m['album_id']} · bucket={buckets} · "
-            f"generated={date.today().isoformat()} · via=memo-skeleton -->")
+            f"generated={date.today().isoformat()} · via=memo-draft -->")
     return f"{prov}\n\n{body}\n"
 
 
@@ -641,7 +647,7 @@ def _norm_key(s: str) -> str:
 
 def _pair_files_to_memos(memos: list[dict],
                          files: list[tuple[str, str]]) -> tuple[list[tuple[dict, str]], list[str]]:
-    """Bind each written skeleton file to its memo WITHOUT trusting the model's exact filename.
+    """Bind each written draft file to its memo WITHOUT trusting the model's exact filename.
     Primary = exact `<slug>.md`; fallback = a collision-safe normalized fold (a fold key shared by
     2+ memos is dropped, so two memos can never cross-pair). `_summary.md` and any file that matches
     no memo (or a second file folding onto an already-paired memo) are returned as orphans (kept on
@@ -668,7 +674,7 @@ def _pair_files_to_memos(memos: list[dict],
 
 
 def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) -> dict:
-    """Create one `status='draft'` post per memo whose skeleton was written, then mark that memo
+    """Create one `status='draft'` post per memo whose draft was written, then mark that memo
     GROWN: stamp the new post_id on the item AND clear prep_tonight, both in one PATCH. NEVER
     publishes; makes no raw DB write (every write goes via the authed API). Drafts carry NO
     album_ids → they never enter post_albums (the reviewed-set / exclusion source).
@@ -683,8 +689,8 @@ def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) 
     grown = 0
     skipped: list[str] = []
 
-    for m, skeleton in pairs:
-        payload = {"title": _draft_title(m), "body_mdx": _draft_body(m, skeleton),
+    for m, draft in pairs:
+        payload = {"title": _draft_title(m), "body_mdx": _draft_body(m, draft),
                    "status": "draft", "category": DRAFT_SECTION}
         status, resp = _api("POST", "/api/posts", token, payload)
         if status != 200 or not resp or "id" not in resp:
@@ -709,20 +715,20 @@ def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) 
                             it["item_id"], ps, str(pb)[:160])
 
     if orphans:
-        log.warning("%d skeleton file(s) matched no memo — kept on disk, no draft: %s",
+        log.warning("%d draft file(s) matched no memo — kept on disk, no draft: %s",
                     len(orphans), ", ".join(orphans))
     return {"created": created, "grown": grown, "skipped": skipped}
 
 
 # --- orchestration --------------------------------------------------------
 def main() -> None:
-    ap = argparse.ArgumentParser(description="$0 nightly memo→skeleton runner (Stage 1).")
+    ap = argparse.ArgumentParser(description="$0 nightly memo→review-draft runner (Stage 1).")
     ap.add_argument("--dry-run", action="store_true",
                     help="assemble + print the checked-memo context and the claude argv, "
                          "then exit; do NOT call claude and write no files")
     ap.add_argument("--no-draft", action="store_true",
-                    help="write the docs/buckit skeleton files only; skip in-app draft creation "
-                         "(Stage 2 Step 7). Default: also create one draft post per skeleton.")
+                    help="write the docs/buckit draft files only; skip in-app draft creation "
+                         "(Stage 2 Step 7). Default: also create one draft post per memo.")
     args = ap.parse_args()
 
     missing = missing_rule_files()
@@ -753,7 +759,7 @@ def main() -> None:
         path = write_summary_only(
             f"# Buckit Nightly — {today}\n\n"
             f"오늘 키울 메모 없음 (체크된 메모 0개).{note} 키우고 싶은 메모에 "
-            "'오늘 밤 키우기'를 체크해 두면 다음 밤에 골격을 잡아 둡니다.\n"
+            "'오늘 밤 키우기'를 체크해 두면 다음 밤에 완결형 평론 초안을 만들어 둡니다.\n"
         )
         log.info("no checked memos — wrote %s and exiting (no claude call, $0)", path)
         if missing:
@@ -798,21 +804,21 @@ def main() -> None:
     if "_summary.md" not in written:
         log.warning("model did not emit _summary.md (run spec §5 wants a morning index)")
 
-    # Stage 2 Step 7: ALSO deliver each skeleton as an in-app draft (default on). The files above
-    # are the backup — a token-mint / API failure here degrades gracefully (files already written).
+    # Stage 2 Step 7: ALSO deliver each generated draft as an in-app draft (default on). The files
+    # above are the backup — a token-mint / API failure here degrades gracefully (files written).
     if args.no_draft:
-        log.info("--no-draft: skipping in-app draft delivery (skeleton files only)")
+        log.info("--no-draft: skipping in-app draft delivery (draft files only)")
         return
     try:
         token = mint_smoke_token()
     except Exception as e:  # noqa: BLE001 — any mint failure ⇒ keep the files, skip drafts
-        log.error("draft delivery skipped — smoke token mint failed: %s; skeleton files were "
+        log.error("draft delivery skipped — smoke token mint failed: %s; draft files were "
                   "written and remain the backup", str(e)[:300])  # message distinguishes AccessDenied
         return
     try:
         summary = deliver_drafts(memos, files, token)
     except Exception as e:  # noqa: BLE001 — never crash after files are written (token in frame locals)
-        log.error("draft delivery error (%s) — skeleton files were written and remain the backup",
+        log.error("draft delivery error (%s) — draft files were written and remain the backup",
                   type(e).__name__)
         return
     log.info("draft delivery: %d draft(s) created, %d memo(s) grown, %d skipped/failed",

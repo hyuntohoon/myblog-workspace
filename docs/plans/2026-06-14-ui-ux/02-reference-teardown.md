@@ -1,3 +1,13 @@
+> **⚠️ HISTORICAL SNAPSHOT — 2026-06-14. SUPERSEDED. Read for IA/positioning rationale only, not as a current spec.**
+> This is a frozen overnight UI/UX & IA planning snapshot. Since it was written: the home direction it recommends
+> (two-lane WriterStrip + drag-reorder personalization) was **superseded by FEAT-home-redesign-v2** (Variant B
+> "Refined Editorial", front #176, 2026-06-16, prod-live), which removed WriterStrip + drag/reorder. The public-bucket
+> viewer shipped as **`/collection`** (singular; the `/collections` plural used here was a deferred proposal).
+> `FEAT-home-redesign` is **done + archived** (`docs/archive/done/rfcs/FEAT-home-redesign.md`), not "draft".
+> See `git log` + the FEAT-* RFCs for current state.
+
+---
+
 # 02 — Reference / Competitor IA Teardown
 
 **Scope.** A citation-backed IA + UX teardown of seven reference sites across the personal-log ↔ editorial-authority spectrum: **Letterboxd**, **Rate Your Music (RYM/Sonemic)**, **Album of the Year (AOTY)**, **Pitchfork**, **IZM**, **음악취향Y (Music Y)**, and **Bandcamp Daily**. For each site we cover (1) what the home/front page shows first and curates by, (2) IA / navigation + core page types, (3) where it sits on the personal-log ↔ editorial-authority axis and the *mechanism* by which it makes records public, and (4) how the review/record unit is displayed (score / length / structure) plus discovery and subscribe surfaces.

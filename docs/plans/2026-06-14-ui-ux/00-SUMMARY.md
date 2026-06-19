@@ -1,3 +1,13 @@
+> **⚠️ HISTORICAL SNAPSHOT — 2026-06-14. SUPERSEDED. Read for IA/positioning rationale only, not as a current spec.**
+> This is a frozen overnight UI/UX & IA planning snapshot. Since it was written: the home direction it recommends
+> (two-lane WriterStrip + drag-reorder personalization) was **superseded by FEAT-home-redesign-v2** (Variant B
+> "Refined Editorial", front #176, 2026-06-16, prod-live), which removed WriterStrip + drag/reorder. The public-bucket
+> viewer shipped as **`/collection`** (singular; the `/collections` plural used here was a deferred proposal).
+> `FEAT-home-redesign` is **done + archived** (`docs/archive/done/rfcs/FEAT-home-redesign.md`), not "draft".
+> See `git log` + the FEAT-* RFCs for current state.
+
+---
+
 # 00 — 종합 요약 (UI/UX & IA 오버나이트, 2026-06-14)
 
 > 아침에 15분 안에 읽고 결정하라고 만든 문서. 상세 근거는 01~05 + `OPEN_QUESTIONS.md`.

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  FEAT-editor-buckit Stage 1 Step 5 — launchd schedule for the $0 nightly memo→skeleton job.
+  FEAT-editor-buckit Stage 1 Step 5 — launchd schedule for the $0 nightly memo→review-draft job.
 
   Fires scripts/buckit_nightly.py ONCE per night at 03:00 (StartCalendarInterval). Each fire
   reads the prep_tonight-CHECKED bucket memos read-only, runs headless `claude -p` (opus, $0 on
-  the Max subscription), writes Korean section skeletons to docs/buckit/<date>/, and exits.
+  the Max subscription), writes Korean review drafts to docs/buckit/<date>/, and exits.
 
   Why this is NOT a "blind timer" (RFC Stage-0 anti-blind-timer constraint, reversed for Stage 1):
   the job acts ONLY on memos the editor explicitly checked "오늘 밤 키우기" (prep_tonight=true).
