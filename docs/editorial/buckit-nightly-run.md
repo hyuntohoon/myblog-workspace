@@ -1,91 +1,99 @@
-# Buckit Nightly — Run Spec for Claude Code (v0.1, EN)
+# Buckit Nightly — Run Spec (v0.2, EN)
 
-> Hand this file to `claude -p`. The agent reads the two rule files, gathers inputs, and writes skeletons to disk. **Output is files only — no asking, no commits, no merges.**
-> Language: spec in English. **All produced skeletons + summary in Korean (한국어).**
-
----
-
-## 0. TL;DR for the agent
-
-You are an **unattended overnight job**. The editor is asleep. For each **checked** bucket memo, turn it into a Korean **section skeleton**, write each file to disk the moment it's done, never ask, mark open questions as blanks, and produce **0 outputs if nothing qualifies**. Fewer is better than padded. You finish drafts of *structure*, never of *judgment*.
+> **Architecture:** An unattended script (`scripts/buckit_nightly.py`) reads the checked memos + their facts from the DB (read-only), inlines this file + the rule docs into one prompt, and runs the model as a **pure text transformer with NO tools** (no DB, file, web, or shell access). **The script — not the model — writes every file and creates the drafts.** The model only **returns** the drafts as a delimited text payload.
+> **Output:** one complete Korean **review draft** per checked memo (readable prose), plus a `_summary.md` index. **The model returns text; it does not write, ask, commit, or merge.**
+> Language: spec in English. **All produced drafts + summary in Korean (한국어).**
 
 ---
 
-## 1. Read these first (the rules — do not skip, do not improvise)
+## 0. TL;DR for the model
 
-1. `docs/editorial/review-critique-method.md` — the criticism engine (titled "Music Criticism — Writing & Revision Rules v2.5"). You **inherit** its ★ honesty line and §6 language bans.
-2. `docs/editorial/buckit-nightly.md` — the nightly conversion rules. This run obeys it **exactly** (§3 four rules, §4 stop conditions, §5 output shape).
+You are the text-transformer stage of an unattended overnight job. The editor is asleep, and **you have no tools** — every input is already in the assembled context block below; you cannot fetch more, and you cannot write files (the script does that from the text you return). For each **checked** bucket memo, write a **complete Korean review draft** (prose, not an outline): choose a provisional controlling idea from the memo, mark any missing evidence inline (`[근거 보강 필요: 트랙/구간]`), and never fabricate facts, emotions, or a verdict the memo didn't hold. Return everything in the delimited format in §5. Produce **0 drafts if nothing qualifies** — a tight real draft beats a padded one.
 
-(Paths point to where these actually live in this repo.) If either file is missing, **STOP**: write `_summary.md` with one line naming the missing file, and exit. Never reconstruct the rules from memory.
+---
+
+## 1. The rules you obey (inlined above — you cannot open files)
+
+The script has already inlined these into this prompt, in order:
+
+1. `review-critique-method.md` — the criticism engine ("Music Criticism — Writing & Revision Rules v2.5"). You **inherit** its ★ honesty line and §6 language bans.
+2. `buckit-nightly.md` — the nightly conversion rules. Obey it **exactly** (§3 conversion rules, §4 stop condition, §5 full-draft output).
+
+You have no Read tool — do not try to open these; their text is already in the prompt. If a rule file were missing, the **script** stops before calling you (it never reconstructs rules from memory).
 
 ---
 
 ## 2. What this job is — context you must hold (decided with the editor)
 
-- **The bucket is a trash can (쓰레기통).** The editor throws thoughts in with zero friction, intending most to be noise. Do **not** treat every memo as precious or worth growing.
-- **The checkbox is the only gate.** "오늘 밤 키우기" checked = the editor decided *this one* is worth a skeleton. That check is the human go-ahead. Process checked memos only; ignore the rest entirely.
-- **Success = how much the editor actually uses, not how much you produce.** A skeleton the editor skips is a failure even though it cost nothing. So bias hard toward few or zero. Padding is the enemy.
-- **A too-finished skeleton is a bug, not a win.** It pre-makes the decisions that belong to the editor. Leave the judgment work visibly open.
-- **Division of labor: you do facts, the editor does judgment.** But know the leak — *selecting and framing facts is already editing.* So keep the skeleton **inventory-shaped** (what exists / what's confirmed / what others said / open questions), never **thesis-shaped** (no "strength/weakness" framing, no verdict). Don't decide what the piece argues.
-- **The editor's words are the voice — keep them verbatim.** Never "improve" their phrasing. You expand *their* judgments into sentences; you never add a judgment they didn't have.
+- **The bucket is a trash can (쓰레기통).** The editor throws thoughts in with zero friction, intending most to be noise. Do **not** treat every memo as precious.
+- **The checkbox is the only gate.** "오늘 밤 키우기" checked = the editor decided *this one* is worth a full draft. The script only sends you checked memos; write each one.
+- **Success = how much the editor actually uses, not how much you produce.** A draft the editor discards is a failure even though it cost nothing. Bias toward a tight, real draft over a padded one.
+- **Write a finished draft, not a skeleton.** The editor wants to wake to something to **edit**, not to assemble. Take a provisional position; develop the memo's judgment into prose. Mark the gaps inline rather than leaving the piece structurally open.
+- **The judgment is the editor's — develop it, don't replace it.** You may choose a provisional controlling idea from the memo, build the argument, and add genre/critical framing. You may **not** invent a stance the memo never had, flip its verdict, or fabricate a listening moment. Missing evidence → `[근거 보강 필요: 트랙/구간]`.
+- **The editor's words are the voice — keep them verbatim** where the memo phrased something well. Don't "improve" their phrasing.
 
 ---
 
-## 3. Inputs — what to gather, per checked memo
+## 3. Inputs — already assembled for you
 
-**Gate first:** select only memos the editor has **checked**. Skip everything unchecked.
+The script has resolved the schema and assembled, per checked memo, into the context block at the end of this prompt:
 
-For each checked memo, assemble:
-- **The memo text** — the *only* source of viewpoint. A single freeform field (overwrite; there is no dated-memo log). Pass it verbatim; do not edit.
-- **The album's AI research note** — facts only: credits / lineage / sound.
-- **Listening history for the album** — counts/dates, light context only. Do not build a recommendation engine; this is just "recent state."
+- **The memo text** — verbatim; the *only* source of viewpoint. Use it exactly; do not edit it.
+- **The album's confirmed facts** — credits / lineage / sound from the AI research note, genre/release facts, bucket. Facts only.
+- **Listening history** — light context only ("recent state"); not a recommendation engine.
 
-**Source mapping:** resolve the actual tables/endpoints from the `myblog_shared_db` models / Postgres MCP / the repo. **Do not assume column or table names — read the schema.** Never fabricate a field or a value to fill a gap (★).
-
----
-
-## 4. Per-memo procedure (no-stop)
-
-1. Apply **§4 stop conditions** of `buckit-nightly.md`. If there's no judgment seed (only "들었다/좋다" with no *how-I-see-it*), write the one-line note `판단 씨앗 없음: 청취 메모로 둠` for that album and move on. **Do not grow it.**
-2. Otherwise produce the **§5 section skeleton** (Korean).
-3. Obey the four conversion rules: expand **only** the editor's judgments · evidence → `[passage]` blanks · controlling idea → **candidates, not chosen** · questions → marked blanks (ask→mark).
-4. Web lookup is allowed **only** for facts and for *existing critical discussion of a concept*. **Never** for judgment, and never to invent the editor's view.
-5. **Write the skeleton file to disk immediately** (incremental — a crash must not lose finished work). Then the next memo.
-
-Never pause to ask. Never commit, merge, push, or delete anything. The job produces files and nothing else.
+You cannot reach the DB, the repo, or the web. Use only what's in the context block. Anything absent is marked (`[근거 보강 필요: …]` / `[source?]`), never invented (★).
 
 ---
 
-## 5. Outputs
+## 4. Per-memo procedure
 
-- **Directory:** `docs/buckit/<YYYY-MM-DD>/`
-- **One file per grown memo:** `<album-slug>.md` — the Korean section skeleton from §5 of `buckit-nightly.md`.
-- **One summary index:** `_summary.md` (Korean) — the file the editor opens first in the morning. List, in priority order: what was produced, and what was skipped with the reason (e.g. `씨앗 없음`, `미확인 사실 많음`).
-- **If nothing qualified:** still write `_summary.md` with `오늘 키울 메모 없음` plus the skip reasons. **Zero skeletons is a correct, valid result.**
+1. Apply the **§4 stop condition** of `buckit-nightly.md`. If the memo is too thin to support a review (only "들었다/좋다", no angle), return a short **`초안 생성 보류`** note for that album and move on — **do not fabricate** a review.
+2. Otherwise write the **complete Korean review draft** (§5 of `buckit-nightly.md`): lead on a provisional controlling idea, develop the editor's judgment into prose, prefer expression / arrangement / genre context / critical framing over micro sound-detail listing, mark missing evidence inline, and **end on critical judgment / an image / an aftertaste — never on score justification.**
+3. Keep the editor's wording verbatim where it's good (v2.5 §3-4). Never fabricate facts, emotions, experiences, or an unsupported verdict (★).
+4. **Return** each draft as a delimited text block (§5). You do **not** write files, ask, commit, merge, push, or delete — the script writes what you return, and nothing is published (every draft is created as `status='draft'`).
+
+---
+
+## 5. Output format (return text only — the script writes the files)
+
+Return each file as a delimiter line followed by its Korean markdown body:
+
+```
+=====BUCKIT_FILE: <album-slug>.md=====
+<that memo's complete Korean review draft (markdown)>
+```
+
+- Use each memo's suggested filename (`출력 파일명(제안)`) verbatim — filename only, no path/slash.
+- **One file per drafted memo.** A memo too thin to draft (§4) gets **no file** — list it in `_summary.md` under `초안 생성 보류` with the reason (one line).
+- **The last file must be `_summary.md`** (Korean) — the morning index the editor opens first: what was drafted, and what was held (`초안 생성 보류`) with reasons. If nothing qualified, return only `_summary.md` with `오늘 키울 메모 없음` + reasons. **Zero drafts is a correct, valid result.**
+- No preamble or postscript ("Here is…", "아래는…") outside the delimiter blocks. Never reproduce the delimiter string (`=====BUCKIT_FILE:`) inside a body.
 
 ---
 
 ## 6. Priority & partial completion
 
-If several memos are checked, process **newest-checked first** (adjust if you prefer) so a partial run still delivers finished skeletons. Each output file is independent — a failure on one memo must not block the others. Write `_summary.md` last, after the per-memo files, so it reflects what actually got done.
+The script processes memos in a deterministic order and writes each file as your payload is parsed. Each draft is independent — keep them self-contained so a partial run still delivers finished drafts. `_summary.md` is written last so it reflects everything produced.
 
 ---
 
 ## 7. Hard don'ts (recap)
 
-- Don't write finished prose or verdicts — the editor judges.
-- Don't choose the controlling idea — list candidates.
-- Don't fabricate facts, emotions, or judgments (★).
+- Don't write a skeleton / outline — write a complete, readable draft.
+- Don't fabricate facts, emotions, experiences, or a verdict the memo didn't hold (★) — mark gaps inline.
+- Don't end on score justification — end on critical judgment / image / aftertaste.
 - Don't rewrite the editor's wording — verbatim.
-- Don't ask, commit, merge, push, or delete.
-- Don't pad a thin memo to look complete.
+- Don't try to use tools, write files, ask, commit, merge, push, or delete — you have none; return text only.
+- Don't pad a thin memo — hold it (`초안 생성 보류`).
 
 ---
 
-### Invocation (example — adjust to your setup)
+### Operator note (about the runner, not an instruction to the model)
 
-```bash
-claude -p "$(cat docs/editorial/buckit-nightly-run.md)"
-```
+The job runs unattended via launchd at 03:00 (`scripts/com.myblog.buckit-nightly.plist`). **Safety comes from the model having NO tools, not from tool scoping:** `scripts/buckit_nightly.py` invokes `claude -p` with `--disallowed-tools` denying the full file/network/exec surface (Bash/Edit/Read/Write/WebSearch/WebFetch/…) and `--setting-sources user`, so a prompt-injection in a memo cannot read `~/.aws`/`~/.claude` or touch the repo. The script does all I/O — read-only DB export, file writes under `docs/buckit/<date>/`, and the authed `POST /api/posts {status:'draft'}` draft delivery. Nothing is published. (An earlier "agentic claude reads the files and writes them to disk" design was removed 2026-06-18: scoped `Write` is denied in headless `-p` *and* it opened a secret-exfiltration surface.)
 
-The agent reads `buckit-nightly-run.md` → which points it to `buckit-nightly.md` + `v2.5` (`review-critique-method.md`) → gathers inputs → writes to `docs/buckit/<date>/`. Scope its tools to repo read + file write (and Postgres MCP read if memos live in the DB); it needs **no** git-write, merge, or delete permission. That tool scoping is what makes an unattended run safe — the job is structurally incapable of touching anything but the output files.
+---
+
+### Change log
+- **v0.2 (2026-06-19):** Output contract reversed — **section skeleton ⇒ complete review draft** — and the architecture description corrected to the **no-tool script** model (the script reads the DB + rule docs and writes the files; the model returns a delimited text payload and has no DB/file/web tool). Removed the stale "the agent reads the rule files and writes skeletons to disk" / "resolve tables via Postgres MCP" / "scope its tools to repo read + file write" instructions, which described a removed, unsafe design.
+- **v0.1:** Section-skeleton output; written as if an agent read the files and wrote to disk. *(Superseded.)*

@@ -1,3 +1,13 @@
+> **⚠️ HISTORICAL SNAPSHOT — 2026-06-14. SUPERSEDED. Read for IA/positioning rationale only, not as a current spec.**
+> This is a frozen overnight UI/UX & IA planning snapshot. Since it was written: the home direction it recommends
+> (two-lane WriterStrip + drag-reorder personalization) was **superseded by FEAT-home-redesign-v2** (Variant B
+> "Refined Editorial", front #176, 2026-06-16, prod-live), which removed WriterStrip + drag/reorder. The public-bucket
+> viewer shipped as **`/collection`** (singular; the `/collections` plural used here was a deferred proposal).
+> `FEAT-home-redesign` is **done + archived** (`docs/archive/done/rfcs/FEAT-home-redesign.md`), not "draft".
+> See `git log` + the FEAT-* RFCs for current state.
+
+---
+
 # 04 — Home Page Strategy
 
 **Scope.** Three distinct home-page CONCEPTS for `/`, each grounded in what the static
