@@ -21,6 +21,4 @@ When reviewing existing tests:
 - Flag flaky patterns (time.sleep, hardcoded timestamps, order dependency)
 - Suggest missing edge cases
 
-For pytest-allure: ensure proper @allure.feature / @allure.story / @allure.title decorators when the project uses them.
-
 Run tests with `pytest -xvs` to verify they pass before returning.
