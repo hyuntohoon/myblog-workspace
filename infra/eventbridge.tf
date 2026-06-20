@@ -93,3 +93,60 @@ resource "aws_lambda_permission" "album_ingest_events" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.album_ingest.arn
 }
+
+# Saved-tracks (좋아요) sync — daily incremental + weekly full reconcile
+# (FEAT-genre-artist-distribution Step 2).
+#
+# Two rules, same constant-input pattern as spotify_listening / album_ingest (the
+# handler routes on event["job"] before the alias source check, then reads
+# event["mode"]). The worker upserts the spotify_saved_tracks cache from /me/tracks
+# (reuses the user-library-read scope; never a synchronous Spotify call from a
+# user-facing endpoint, rule #9):
+#   - incremental (daily): fetch likes newer than max(added_at), upsert, no prune.
+#   - full (weekly): page the whole library, upsert all + prune un-likes.
+# The full-mode prune is cache-only (no Spotify write-back). Removing a rule stops
+# that cadence; the manual blogSQS {"job":"spotify_saved_tracks_sync","mode":…}
+# message still works either way.
+resource "aws_cloudwatch_event_rule" "spotify_saved_tracks_incremental" {
+  name                = "worker-spotify-saved-tracks-incremental"
+  description         = "Daily incremental Spotify saved-tracks (좋아요) cache refresh"
+  schedule_expression = "cron(0 18 * * ? *)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "spotify_saved_tracks_incremental" {
+  rule      = aws_cloudwatch_event_rule.spotify_saved_tracks_incremental.name
+  target_id = "blogWorkerLambda-saved-tracks-incremental"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "spotify_saved_tracks_sync", mode = "incremental" })
+}
+
+resource "aws_lambda_permission" "spotify_saved_tracks_incremental_events" {
+  statement_id  = "AllowInvokeFromEventBridgeSavedTracksIncremental"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.spotify_saved_tracks_incremental.arn
+}
+
+resource "aws_cloudwatch_event_rule" "spotify_saved_tracks_full" {
+  name                = "worker-spotify-saved-tracks-full"
+  description         = "Weekly full Spotify saved-tracks reconcile (upsert all + prune un-likes)"
+  schedule_expression = "cron(0 19 ? * SUN *)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "spotify_saved_tracks_full" {
+  rule      = aws_cloudwatch_event_rule.spotify_saved_tracks_full.name
+  target_id = "blogWorkerLambda-saved-tracks-full"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "spotify_saved_tracks_sync", mode = "full" })
+}
+
+resource "aws_lambda_permission" "spotify_saved_tracks_full_events" {
+  statement_id  = "AllowInvokeFromEventBridgeSavedTracksFull"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.spotify_saved_tracks_full.arn
+}
