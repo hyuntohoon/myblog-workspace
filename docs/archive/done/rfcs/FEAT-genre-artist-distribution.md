@@ -1,9 +1,19 @@
 # FEAT-genre-artist-distribution: 분석 버킷 — 좋아요 트랙 장르/아티스트 분포
 
-- **Status**: accepted (2026-06-21)
+- **Status**: ✅ DONE — prod-live 2026-06-21 (all 6 steps shipped; owner-approved completion + archive)
 - **Owner**: repo owner
 - **Created**: 2026-06-21
-- **Plan row**: `plan.md` → FEAT-genre-artist-distribution
+- **Plan row**: dropped 2026-06-21 (done)
+
+> **✅ Completion (2026-06-21).** All 6 steps shipped + prod-verified:
+> - **Step 1** shared_db `spotify_saved_tracks` V24 + `SpotifySavedTrack` ORM, `v0.22.0` (ws #39).
+> - **Step 2** worker `get_saved_tracks` + hybrid `run_saved_tracks_sync` (incremental / full+prune) + handler EventBridge/SQS branches (myblog_worker #47). 18 tests incl. 3 real-engine. **EventBridge cron rules = a follow-up Terraform infra PR (apply human-gated, rule #6); manual SQS drives it until then.**
+> - **Steps 3+4** shared pure `rank_counts` module + saved-tracks & play-events `{genre,artist}-distribution` endpoints + list (myblog_backend #79).
+> - **Step 5** `_safe_enqueue_*` lifted into `app/services/enqueue.py` (buckets unchanged) + `POST /saved-tracks/classify`. **Decision (owner-approved, option a):** classify is wired to the **catalog-sync** queue (`SqsClient.send_album_sync` → worker `_process_batch` → `AlbumSyncService` S1 genres), NOT the research enqueue — `enqueue_album` queues *editorial research notes* and never touches `album_genres`, so the literal "reuse 평론 버킷 enqueue" would have shipped a no-op button. Catalog-absent unclassified albums are enqueued; catalog-present-ungenred are reported as `skipped_needs_backfill` (need the manual iTunes backfill).
+> - **Step 6** front `StatsTab` 통계 → **분석 버킷** (source toggle 좋아요/재생, shared `DistChart`, 미분류 chip + breakdown + 분류하기, recent-좋아요 list) (myblog_front #182).
+> - **OQ4 resolved:** single 미분류 bucket + a (near-free) `uncatalogued/ungenred` breakdown in the response; the chart states "전체 N곡 중" as the denominator. **OQ5 (track-override authoring): deferred** to a later RFC.
+> - **Counting contract:** each item → exactly one genre (`track_genres` override → `album_genres` inherit → 미분류) and one artist (full joined `artist_name` string, no splitting — keeps "Tyler, the Creator" intact); the play source is play-count-weighted. Clean partition `sum(count) + unclassified == total`.
+> - **Prod-verified (real data):** 1,017 saved tracks synced; saved-genre 719/1017 unclassified (712 uncatalogued / 7 ungenred); play-genre 833 plays, 35 unclassified (0 uncatalogued). The two sources tell genuinely different stories — 71% of *likes* are uncatalogued vs 4% of *plays*.
 
 > **History — 2026-06-15 correction (kept):** the original `FEAT-genre-taxonomy`
 > dependency below was stale; superseded by **FEAT-genre-system** (tier-0 vocabulary +
