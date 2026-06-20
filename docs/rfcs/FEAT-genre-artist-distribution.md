@@ -64,7 +64,11 @@ the album's artist — no new table or sync needed.
   re-mint is required**.
 - **Listening sync** `myblog_worker/worker/service/listening_sync_service.py` writes the
   recently-played window into `spotify_recent_tracks` (rolling cache) + durable play logs.
-  This is the template for a saved-tracks sync (raw `text()` SQL, no ORM pin bump).
+  This is the template for the worker's saved-tracks **write** path (raw `text()` SQL —
+  the worker itself needs no shared_db pin bump). **Correction (Step 1, 2026-06-21):**
+  the cache table *is* ORM-modeled in `shared_db` (`SpotifySavedTrack`) — every sibling
+  Spotify cache table is, and backend `LibraryService` reads them via the ORM — so
+  shared_db bumps `v0.21.0 → v0.22.0` and Step 3 backend pins `@v0.22.0`.
 - **Saved-albums sync** `myblog_worker/worker/service/library_sync_service.py` reconciles
   `/me/albums` into the special `review_buckets.kind='spotify_library'` bucket — the
   precedent for a worker-fed Spotify mirror.
@@ -112,7 +116,7 @@ the album's artist — no new table or sync needed.
 > prod **before** the worker that reads it; contract (`openapi.json`) regenerated with the
 > backend step; front types (`api.gen.ts`) regenerated after the workspace contract merge.
 
-### Step 1 — shared_db: `spotify_saved_tracks` cache table
+### Step 1 — shared_db: `spotify_saved_tracks` cache table ✅ DONE (prod-live 2026-06-21, `v0.22.0`, ws #39 → shared_db PR #39)
 
 New migration `myblog_shared_db/migrations/V<next>__spotify_saved_tracks.sql`. Plain
 `V{N}__` SQL (no Alembic), idempotent `CREATE TABLE IF NOT EXISTS`. Columns (denormalized,
@@ -298,3 +302,6 @@ Filled in during execution.
 | 2026-06-21 | Classification reuses the 평론 버킷 `_safe_enqueue_*` mechanism, factored into a shared helper so both surfaces share one code path (owner: 통일성). | 5 |
 | 2026-06-21 | Distribution counting lives in one shared `genre/artist_distribution` module used by both sources (통일성). | 3,4 |
 | 2026-06-21 | Saved-tracks sync = hybrid: daily `added_at`-incremental (no prune) + weekly full reconcile (prune un-likes). | 2 |
+| 2026-06-21 | **Step 1 ships a `SpotifySavedTrack` ORM model** alongside the migration — every sibling Spotify cache table is ORM-modeled and backend `LibraryService` queries them via the ORM, so the "no ORM pin bump" assumption was wrong. shared_db bumped `v0.21.0 → v0.22.0`; Step 3 backend pins `@v0.22.0`. | 1,3 |
+| 2026-06-21 | **Step 1 ships a single `added_at` index** (no `album_id` index). Step 3/4 genre/artist distribution is a full-set `GROUP BY` with no `album_id` predicate, the `album_genres` join is covered by that table's own PK, and at owner-only scale a secondary index sits inert while adding write cost on every reconcile — matches sibling precedent (V14/V19 index their time column alone). | 1 |
+| 2026-06-21 | **Release = push the git tag to origin.** Consumers pin shared_db by *remote* git ref (`git+https://…@v0.22.0`); there is no PyPI publish, so `git tag -a v0.22.0 && git push origin v0.22.0` on the squash-merge commit IS the release. Without it Step 3 cannot `pip install @v0.22.0`. | 1,3 |
