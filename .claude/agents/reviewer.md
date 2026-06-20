@@ -2,7 +2,7 @@
 name: reviewer
 description: Expert code reviewer for the myblog system. Invoked after implementation is complete. Does not modify code directly.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 ---
 
 You are a code reviewer for the hyuntohoon/myblog system.
