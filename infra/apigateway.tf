@@ -292,6 +292,18 @@ resource "aws_apigatewayv2_route" "library_refresh_recent_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- 분석 버킷: 분류하기 (FEAT-genre-artist-distribution Step 5) ---
+# The GET /api/library/saved-tracks* + /play-events/* distributions ride the catch-all
+# api_get_proxy (edge_guard at the Lambda). Only this POST is Cognito-JWT gated; the
+# handler just enqueues an SQS catalog-sync job (rule #9 — no sync Spotify call).
+resource "aws_apigatewayv2_route" "library_saved_tracks_classify_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/library/saved-tracks/classify"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;
