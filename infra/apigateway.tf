@@ -304,6 +304,17 @@ resource "aws_apigatewayv2_route" "library_saved_tracks_classify_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# 분석 버킷 장르 채우기 — on-demand genre-backfill trigger (FEAT-genre-autoheal).
+# Cognito-JWT; the handler only inserts a genre_backfill_requests row (a local 5-min
+# poller runs the existing backfill_genres.py — rule #9, no sync work in the request).
+resource "aws_apigatewayv2_route" "library_saved_tracks_fill_genres_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/library/saved-tracks/fill-genres"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;
