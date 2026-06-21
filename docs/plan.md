@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-_(empty — nothing in active development.)_
+- **FEAT-liked-tracks-workbench** (in-progress, 2026-06-21) — **분석 버킷 redesign** to a "좋아요한 트랙(Liked Tracks) workbench" (hero + toggleable analysis [genre/artist + 좋아요/재생 chart toggle, decade, likes-over-time] + classify facets + search/sort + list/card table + row actions). **3 PRs, contract-free + parallel.** Backend (`feat/FEAT-liked-tracks-workbench-saved-track-genre`): `list_saved_tracks` populates `album.genres` (Step 1, schema-identical — DONE, 9 tests pass). Frontend (`feat/FEAT-liked-tracks-workbench-ui`): port the workbench + `평론 버킷에 담기` via the existing `BucketPickerSheet`+`POST /api/buckets/{id}/items` (Steps 2-3). Workspace (`docs/FEAT-liked-tracks-workbench-rfc`): RFC + this row. Steps 4 (duration) + 5 (unlike) deferred out of v1. RFC → `docs/rfcs/FEAT-liked-tracks-workbench.md`. **Verify**: backend pytest (done) + front lint/astro-check + prod CDP click-through on `/profile` 분석 버킷 post-deploy. Order: backend & front independent (no contract dep); workspace RFC anytime.
 
 Last shipped: **FEAT-genre-artist-distribution** (분석 버킷) + its post-merge hardening + the **FEAT-genre-autoheal on-demand 장르 채우기** button (merged into 분류하기) + the **FIX-uiux-audit-2026-06-21** front fix batch (all DONE + archived 2026-06-21), preceded by **FEAT-editor-buckit** (2026-06-18) and the 2026-06-15/16 batch — `home-redesign-v2`, the `ux-polish` sweep, `global-search`, `artist-page`, `genre-subgenres`/`-deepen`, `track-play-history`, and the `genre-autoheal` local fix. All 2026-06 completions are written up in `docs/archive/done/2026-06.md`; `git log` is authoritative.
 
