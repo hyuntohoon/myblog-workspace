@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FEAT-genre-autoheal — launchd automation for the on-demand genre-heal poller.
+
+  Fires genre_heal_poller.py `--once` every 5 minutes (StartInterval). Each run claims
+  one pending genre_backfill_requests row (filled by the /profile 분석 버킷 "장르 채우기"
+  button) and runs the EXISTING backfill_genres.py --incremental --label --execute
+  (S1 mapping → S2 iTunes → S3 LLM) — the same pipeline as the daily 04:00 genre-backfill
+  launchd, just on-demand. With no pending request it exits in milliseconds; launchd
+  suppresses overlapping runs while a backfill is still going.
+
+  This is the LOCAL half of the web button: the cloud endpoint only enqueues a row;
+  claude -p (S3) runs here on the owner's Max subscription. Auth: claude reads
+  ~/.claude/.credentials.json (HOME); aws CLI resolves DATABASE_URL + Spotify creds
+  (PATH must include /opt/homebrew/bin); the `claude` binary is in ~/.local/bin.
+
+  INSTALL (owner's machine):
+    cp scripts/com.myblog.genre-heal-poller.plist ~/Library/LaunchAgents/
+    launchctl load -w ~/Library/LaunchAgents/com.myblog.genre-heal-poller.plist
+
+  STATUS / LOGS:
+    launchctl list | grep genre-heal-poller
+    tail -f ~/Library/Logs/myblog-genre-heal-poller.log
+
+  STOP (kill switch — queued requests just wait, or the daily 04:00 run picks them up):
+    launchctl unload -w ~/Library/LaunchAgents/com.myblog.genre-heal-poller.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.myblog.genre-heal-poller</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/park_hyun/myblog-workspace/myblog_worker/.venv/bin/python</string>
+        <string>/Users/park_hyun/myblog-workspace/scripts/genre_heal_poller.py</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/park_hyun</string>
+        <key>PATH</key>
+        <string>/Users/park_hyun/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- Fire every 5 minutes; each run claims+drains one request then exits. -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/park_hyun/myblog-workspace</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-genre-heal-poller.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-genre-heal-poller.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>
