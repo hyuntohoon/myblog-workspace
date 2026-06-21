@@ -1,6 +1,6 @@
 # FEAT-liked-tracks-workbench: 분석 버킷 redesign — Liked Tracks workbench
 
-- **Status**: v1 SHIPPED — Steps 1–3 live + prod-smoked 2026-06-21 (PRs: backend #82, front #187, N+1 hotfix #83). **Step 4 (duration)** implemented 2026-06-22 — per-repo branches ready + locally verified, pending prod rollout (V26 prod apply + merges + front). **Step 5 (unlike) DROPPED** 2026-06-22 (owner: "굳이 할 필요 없어").
+- **Status**: v1 SHIPPED — Steps 1–3 live + prod-smoked 2026-06-21 (PRs: backend #82, front #187, N+1 hotfix #83). **Step 4 (duration) SHIPPED + prod-verified 2026-06-22** — shared_db #42 (tag v0.23.0) + V26 prod-applied + backfilled **1017/1017** rows; worker #49, backend #84, contract #410, front #192; prod CDP smoke on `/profile`: 길이 (m:ss) column + sort-by-length (longest-first) live. Hero total-duration dropped (hero banner removed in front #190). **Step 5 (unlike) DROPPED** 2026-06-22 (owner: "굳이 할 필요 없어").
 - **Owner**: TBD
 - **Created**: 2026-06-21
 - **Plan row**: `plan.md` → FEAT-liked-tracks-workbench
@@ -94,7 +94,7 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ---
 
-### Step 4 — (optional) duration: `duration_ms` end-to-end → 길이 / total-duration / sort-by-length
+### Step 4 — duration: `duration_ms` end-to-end → 길이 / sort-by-length ✅ SHIPPED 2026-06-22
 
 Only if OQ2 = yes. Ordered cross-repo rollout (per `reference-shared-db-cross-repo-rollout`): shared_db `V{N}__add_saved_track_duration.sql` (add `duration_ms int`) → **prod apply before merge** → worker `saved_tracks_sync_service` writes `track.duration_ms` from `/me/tracks` → backend `SavedTrackItem.duration_ms` + serializer → front shows 길이 column, hero total-duration, sort-by-length. Backfill is automatic on the next weekly full sync (or a one-off `mode=full` SQS message).
 
@@ -150,3 +150,4 @@ All v1-scoping questions were resolved 2026-06-21 (see Decisions log). No remain
 | 2026-06-22 | **Step 5 (unlike) DROPPED** (owner). Real un-like needs `SPOTIFY_LIBRARY_WRITES_ENABLED=ON` = irreversible deletion of real Spotify likes; off = no-op/weekly re-add. Not worth it. Nothing built. | 5 |
 | 2026-06-22 | **Step 4 implemented** — shared_db V26 (`duration_ms INTEGER`, additive/nullable/idempotent) + ORM + schema-parity; worker writes it from `/me/tracks` (real-engine integration test green on Neon test branch); backend `SavedTrackItem.duration_ms` + openapi regen (single-field diff); merged contract regen. Per-repo branches ready, **pending prod rollout** (V26 prod apply → tag v0.23.0 → merges → front). | 4 |
 | 2026-06-22 | **Step 4 open decisions resolved (defaults)**: row 길이 = `m:ss` via `fmtTime` (matches AlbumDetail); hero total = "약 N시간 M분" over the **loaded** set (labeled vs the 1,000-row truncation); length sort = **longest-first** (desc); backfill = ride the weekly `mode=full` (blank 길이 until then — additive); 길이 shown in the **list table only**, not the card. Owner may override. | 4 |
+| 2026-06-22 | **Step 4 SHIPPED + prod-verified** — all repos merged/deployed (#42 tag `v0.23.0`, #49, #84, #410, #192); V26 prod-applied; manual `mode=full` backfilled **1017/1017** rows immediately (not waiting for the weekly); prod CDP smoke on `/profile` 분석 버킷: 길이 (m:ss) column + sort-by-length (longest-first, top 10:36) live. **Hero total-duration dropped** — the 좋아요 hero banner was removed in front #190, so there is no hero to host it; out of scope. | 4 |
