@@ -40,3 +40,7 @@ docs/editorial/ideas/*.md
 # Editor Buckit nightly skeletons — unpublished editorial direction (FEAT-editor-buckit Stage 1, OQ9).
 # .gitkeep keeps the dir; per-night skeleton dirs stay local. Commit deliberately if wanted.
 docs/buckit/**/*.md
+
+# UI/UX audit scratch — per-page screenshots + draft PR bodies from front audit runs.
+# One-off, regenerable; the audit's outcome lands in docs/archive + the front PR. Stays local.
+.uiux-audit/
