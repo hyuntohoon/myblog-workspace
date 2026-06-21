@@ -1,6 +1,6 @@
 # FEAT-liked-tracks-workbench: 분석 버킷 redesign — Liked Tracks workbench
 
-- **Status**: v1 SHIPPED — Steps 1–3 live + prod-smoked 2026-06-21 (PRs: backend #82, front #187, N+1 hotfix #83); Steps 4–5 deferred (optional)
+- **Status**: v1 SHIPPED — Steps 1–3 live + prod-smoked 2026-06-21 (PRs: backend #82, front #187, N+1 hotfix #83). **Step 4 (duration)** implemented 2026-06-22 — per-repo branches ready + locally verified, pending prod rollout (V26 prod apply + merges + front). **Step 5 (unlike) DROPPED** 2026-06-22 (owner: "굳이 할 필요 없어").
 - **Owner**: TBD
 - **Created**: 2026-06-21
 - **Plan row**: `plan.md` → FEAT-liked-tracks-workbench
@@ -107,7 +107,16 @@ Only if OQ2 = yes. Ordered cross-repo rollout (per `reference-shared-db-cross-re
 
 ---
 
-### Step 5 — (optional) `좋아요 해제` (Spotify un-like via SQS worker)
+### Step 5 — ~~`좋아요 해제` (Spotify un-like via SQS worker)~~ — DROPPED 2026-06-22
+
+**Dropped** on owner decision (2026-06-22, "좋아요 해제는 없애자 굳이 할 필요 없어"). The
+adversarial design pass established the feature is only real with
+`SPOTIFY_LIBRARY_WRITES_ENABLED=ON` — which **irreversibly deletes the owner's real
+Spotify likes**; with the flag off the button no-ops or the track re-appears on the
+weekly full sync. The owner judged it not worth the cost. **Nothing is built**: no
+`DELETE /api/library/saved-tracks/{id}` route, no SQS un-like job, no worker handler,
+no `apigateway.tf` route, no front button. The original design is kept below for the
+record only.
 
 Only if OQ3 = yes. New `DELETE /api/library/saved-tracks/{spotify_track_id}` (Cognito-JWT) → enqueue an SQS un-like job (rule #9: endpoint never calls Spotify) → worker `DELETE /me/tracks` + prune the cache row. Front: optimistic removal + undo toast (re-add on undo before the job lands is best-effort). **Reconciliation risk**: the weekly full sync is the source of truth; document the eventual-consistency window.
 
@@ -137,3 +146,7 @@ All v1-scoping questions were resolved 2026-06-21 (see Decisions log). No remain
 | 2026-06-21 | **Status promoted draft → in-progress** on explicit owner go-ahead ("병렬로 작업 진행하자 … 스텝도 병렬 작업 다 하자"). | — |
 | 2026-06-21 | **N+1 hotfix (#83)** — the workbench's `limit=500` list fetch timed out the Lambda (HTTP 500 at limit≥200; double N+1 on lazy `.album`+`.album.artists`). `list_saved_tracks` now eager-loads via `selectinload(...album).selectinload(...artists)`; `limit=500` went 18.7s/500 → 0.94s/200. Pre-existing N+1 exposed by the larger page size. | 2 |
 | 2026-06-21 | **Prod CDP smoke PASSED** — `/profile` 분석 버킷: hero "1,000곡 · 728 아티스트" + truncation note, 1,000-row table (real data), genre/artist charts (Hip-Hop 441 / Pop 249 / …), decade + likes-flow populated, per-row genre chips (Step 1), list⇄card toggle works. Caught the N+1 (fixed by #83) before sign-off. | 1–3 |
+| 2026-06-22 | **Step 3 `평론 버킷에 담기` re-verified in prod** — API-replay (add 201 → dup 409 → present → cleanup 204, zero residue) + live CDP click-through (row ⋯ → 평론 버킷에 담기 → BucketPickerSheet → pick → POST 201, item removed after). The one Step-1–3 action the 6-21 smoke didn't enumerate. | 3 |
+| 2026-06-22 | **Step 5 (unlike) DROPPED** (owner). Real un-like needs `SPOTIFY_LIBRARY_WRITES_ENABLED=ON` = irreversible deletion of real Spotify likes; off = no-op/weekly re-add. Not worth it. Nothing built. | 5 |
+| 2026-06-22 | **Step 4 implemented** — shared_db V26 (`duration_ms INTEGER`, additive/nullable/idempotent) + ORM + schema-parity; worker writes it from `/me/tracks` (real-engine integration test green on Neon test branch); backend `SavedTrackItem.duration_ms` + openapi regen (single-field diff); merged contract regen. Per-repo branches ready, **pending prod rollout** (V26 prod apply → tag v0.23.0 → merges → front). | 4 |
+| 2026-06-22 | **Step 4 open decisions resolved (defaults)**: row 길이 = `m:ss` via `fmtTime` (matches AlbumDetail); hero total = "약 N시간 M분" over the **loaded** set (labeled vs the 1,000-row truncation); length sort = **longest-first** (desc); backfill = ride the weekly `mode=full` (blank 길이 until then — additive); 길이 shown in the **list table only**, not the card. Owner may override. | 4 |
