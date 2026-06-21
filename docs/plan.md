@@ -8,7 +8,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 _(empty — nothing in active development.)_
 
-Last shipped: **FEAT-editor-buckit** (DONE + archived 2026-06-18), preceded by the 2026-06-15/16 batch — `home-redesign-v2`, the `ux-polish` sweep, `global-search`, `artist-page`, `genre-subgenres`/`-deepen`, `track-play-history`, and the `genre-autoheal` local fix. All 2026-06 completions are written up in `docs/archive/done/2026-06.md`; `git log` is authoritative.
+Last shipped: **FEAT-genre-artist-distribution** (분석 버킷) + the **FIX-uiux-audit-2026-06-21** front fix batch (both DONE + archived 2026-06-21), preceded by **FEAT-editor-buckit** (2026-06-18) and the 2026-06-15/16 batch — `home-redesign-v2`, the `ux-polish` sweep, `global-search`, `artist-page`, `genre-subgenres`/`-deepen`, `track-play-history`, and the `genre-autoheal` local fix. All 2026-06 completions are written up in `docs/archive/done/2026-06.md`; `git log` is authoritative.
 
 ---
 
