@@ -1,6 +1,6 @@
 # FEAT-liked-tracks-workbench: 분석 버킷 redesign — Liked Tracks workbench
 
-- **Status**: in-progress (accepted + steps 1–3 started on owner go-ahead, 2026-06-21)
+- **Status**: v1 SHIPPED — Steps 1–3 live + prod-smoked 2026-06-21 (PRs: backend #82, front #187, N+1 hotfix #83); Steps 4–5 deferred (optional)
 - **Owner**: TBD
 - **Created**: 2026-06-21
 - **Plan row**: `plan.md` → FEAT-liked-tracks-workbench
@@ -67,7 +67,7 @@ cd myblog_backend && .venv/bin/python -m pytest -q tests/api/test_saved_tracks.p
 
 ---
 
-### Step 2 — frontend: port `LikedBoard` workbench over `StatsTab` (core redesign)
+### Step 2 — frontend: port `LikedBoard` workbench over `StatsTab` (core redesign) ✅ DONE (#187)
 
 `myblog_front`: replace `StatsTab.tsx` body with the `LikedBoard` workbench. Reuse `analysis.api.ts` (extend `SavedTrack`/`listSavedTracks` for the new `genre` + the already-present `album`/`added_at`; fetch the full list — paginate-accumulate via `offset` to a ~1000-row ceiling, then note any overflow; the charts stay accurate via the server distributions regardless). Analysis panel uses the server distribution endpoints for genre/artist **with the 좋아요/재생 source toggle** and computes decade + likes-flow client-side. Port hero, classify facets, search/sort, list/card table, grouped headers, row menu (작품 상세 + 평론 쓰기 only this step). Use `member.css` `lf-*` classes + `Seg`/`SectionTitle`/`AlbumArt`/`Stars` from `ui.tsx`; **no inline-style prototype**. Keep `분류하기`/`장르 채우기` in the analysis panel.
 
@@ -81,7 +81,7 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ---
 
-### Step 3 — frontend: `평론 버킷에 담기` (reuse the review-bucket API)
+### Step 3 — frontend: `평론 버킷에 담기` (reuse the review-bucket API) ✅ DONE (#187)
 
 Wire the row-menu `평론 버킷에 담기` to the **existing** review-bucket API: open `BucketPickerSheet` (reused) → `POST /api/buckets/{bucketId}/items { album_id }` via `buckets.ts#addBucketItem`. Enabled **only when `album_id` is present** (catalogued track); uncatalogued rows show a disabled item hinting `분류하기 먼저`. Handle 409 (already in bucket) as a friendly toast. Cognito-JWT (always present on the owner's `/profile`).
 
@@ -135,3 +135,5 @@ All v1-scoping questions were resolved 2026-06-21 (see Decisions log). No remain
 | 2026-06-21 | **Table list paginate-accumulates to a ~1000-row ceiling**; charts stay accurate via the server distributions; overflow noted in the UI. | 1, 2 |
 | 2026-06-21 | **Step 1 reframed to contract-free**: reuse the existing `AlbumBrief.genres` field (populate it for saved-tracks) instead of adding a new `genre` field — no openapi/`api.gen.ts` change, no contract-merge-order dependency, backend & frontend PRs fully parallel. Trade-off: per-row genre is album-primary only (no `track_genres` override per-row); acceptable v1. | 1 |
 | 2026-06-21 | **Status promoted draft → in-progress** on explicit owner go-ahead ("병렬로 작업 진행하자 … 스텝도 병렬 작업 다 하자"). | — |
+| 2026-06-21 | **N+1 hotfix (#83)** — the workbench's `limit=500` list fetch timed out the Lambda (HTTP 500 at limit≥200; double N+1 on lazy `.album`+`.album.artists`). `list_saved_tracks` now eager-loads via `selectinload(...album).selectinload(...artists)`; `limit=500` went 18.7s/500 → 0.94s/200. Pre-existing N+1 exposed by the larger page size. | 2 |
+| 2026-06-21 | **Prod CDP smoke PASSED** — `/profile` 분석 버킷: hero "1,000곡 · 728 아티스트" + truncation note, 1,000-row table (real data), genre/artist charts (Hip-Hop 441 / Pop 249 / …), decade + likes-flow populated, per-row genre chips (Step 1), list⇄card toggle works. Caught the N+1 (fixed by #83) before sign-off. | 1–3 |
