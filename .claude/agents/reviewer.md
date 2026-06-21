@@ -24,10 +24,13 @@ Read changed files and identify problems. Do not modify code directly. Fixes are
 - Worker: is the `spotify_id`-based upsert broken?
 - Can duplicate SQS message processing corrupt the DB?
 
-### 3. Secrets / Security
+### 3. Secrets / Security (fast triage — escalate any real hit to the `security-review` skill)
 
-- Are `.env` files, API keys, or DB credentials exposed in code or commits?
-- Is there SQL injection risk or missing input validation?
+First-pass, not a full audit. If any item trips, flag it 🔴/🟡 and hand off to the `security-review` skill — do not self-clear an auth/secrets/input finding.
+
+- **Auth regression** — does the change reopen a fix already in place? `edge_guard` (backend `main.py`) must *validate* a raw-domain Bearer token via `verify_token`, never trust the bare `"Bearer "` prefix (STAB-2/AUTH-3); `require_cognito_token` must *refuse* (not fail open) when `COGNITO_USER_POOL_ID` is unset. A new/changed mutation route (POST/PUT/DELETE) with no `infra/apigateway.tf` authorizer entry **and** no `require_cognito_token` dependency = 🔴.
+- **Secret-read → exfil** — does the diff read a secret (Secrets Manager / `DATABASE_URL` / `EDGE_SECRET` / token) in the same path as an outbound sink (`WebFetch` / `requests` / `curl` / any Bash network call)? Read-secret + network-out in one flow = exfil surface = 🔴. Is a secret ever passed to a log, error, or response body? (Never log `GITHUB_TOKEN` / `DATABASE_URL` / `EDGE_SECRET` / Spotify creds.)
+- **Input / injection** — `.env*` files, API keys, or DB credentials committed or hardcoded; raw string-interpolated SQL or missing validation on a user-facing param.
 
 ### 4. Tests
 
