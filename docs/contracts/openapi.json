@@ -705,6 +705,17 @@
         "title": "DistributionResponse",
         "type": "object"
       },
+      "Backend_FillGenresResponse": {
+        "properties": {
+          "status": {
+            "default": "queued",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "FillGenresResponse",
+        "type": "object"
+      },
       "Backend_GenreEdge": {
         "description": "A tier-1 relationship edge (FEAT-genre-subgenres). Drives the /genres\nego-view + the related-review recommendation. `type` \u2208 influenced_by | related\n| parent (the multi-parent fallback, unused in v1).",
         "properties": {
@@ -4909,6 +4920,32 @@
           }
         ],
         "summary": "Classify Saved Tracks",
+        "tags": [
+          "library"
+        ]
+      }
+    },
+    "/api/library/saved-tracks/fill-genres": {
+      "post": {
+        "operationId": "fill_saved_track_genres_api_library_saved_tracks_fill_genres_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_FillGenresResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Fill Saved Track Genres",
         "tags": [
           "library"
         ]
