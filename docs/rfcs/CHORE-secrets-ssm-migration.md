@@ -179,12 +179,19 @@ Confirm via console Cost Explorer (USAGE_TYPE `APN2-SecretsManager-Secrets`) the
 
 ## Progress (2026-06-22)
 
-**Phase A (Claude-side) — DONE, all PRs open + locally verified, held for owner Step 0:**
-- code (dual-source loaders, safe no-op until env flip): backend `myblog_backend#85`, music `myblog_music#46`, worker `myblog_worker#50`
-- infra (additive SSM IAM + `kms:Decrypt` + empty `SECRETS_PARAM` env switches): workspace `#414`
-- Deferred (pre-Step-7, local-only, no prod/bill impact): `scripts/` (health.sh, research_poller, editor_buckit, buckit_nightly, genre_heal_poller, spotify_bootstrap_token) still read Secrets Manager — migrate to `aws ssm get-parameter` before the Step-7 SM deletion.
+**Phase A — DONE + merged:** dual-source code (backend `myblog_backend#85`, music `myblog_music#46`, worker `myblog_worker#50` + worker test fix `#51`) + infra additive SSM IAM/`kms:Decrypt`/env switches (workspace `#414`). All deployed.
 
-**Phase B (owner-gated) — runbook below.**
+**Phase B — CUTOVER DONE + PROD-VALIDATED (workspace `#416`):** owner granted `claude_aws_manager` ssm/kms (inline policy `claude-ssm-myblog`); Claude then:
+1. Provisioned 6 SSM SecureString params from Secrets Manager (all valid JSON, <4KB).
+2. Applied `#414` (additive IAM + empty env), `terraform plan` clean (8 add / 4 change / 0 destroy).
+3. Flipped `SECRETS_PARAM`/`SPOTIFY_SECRETS_PARAM` per service + applied. **Verified in prod:** backend prod smoke 28/0 (CRUD + edge_guard) + zero SSM-fallback logs; music smoke search; worker invoke 200; spotify **write-back to SSM confirmed** (`last_successful_refresh_at` 00:57→02:16) + zero fallback logs across all log groups. Every service reads SSM, not the SM fallback.
+
+**Step 7 — REMAINING (this is where the bill drops; not yet done):**
+- `scripts/` (health.sh, research_poller, editor_buckit, buckit_nightly, genre_heal_poller, spotify_bootstrap_token) still read Secrets Manager — migrate to `aws ssm get-parameter` first.
+- `myblog/test-db` + `myblog/neon-api` have **no readers** (audit) → deletable now (−$0.80/mo); SM restore window is the backstop.
+- backend/music/worker/spotify/smoke SM secrets + `SECRETS_ARN`/`SPOTIFY_SECRETS_ARN` env + `secretsmanager:*` IAM grants: delete after the observation window (they are the dual-source fallback net — deleting removes it). **Bill reaches ~$0 only after this.**
+
+**Cost status: NOT yet realized.** All 8 SM secrets still exist ($3.20/mo) + 6 free SSM params. The drop happens at Step 7 deletion.
 
 ## Owner runbook
 
