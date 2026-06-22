@@ -133,8 +133,8 @@ Confirm via console Cost Explorer (USAGE_TYPE `APN2-SecretsManager-Secrets`) the
 
 ## Open questions
 
-1. **test-db deletion vs migration** — recommend **delete** the AWS copy (GHA `secrets.TEST_DB_URL` is the live source; nothing reads the SM copy). Blocks Step 1. Owner confirm there's no undocumented manual reader.
-2. **`kms:Decrypt` on `alias/aws/ssm`** — confirm whether the Lambda roles need an explicit `kms:Decrypt` statement or the AWS-managed key's default policy auto-allows decryption via the SSM service principal. Must verify from a real role context in Step 0. Blocks Step 2.
+1. ~~**test-db deletion vs migration**~~ — **RESOLVED 2026-06-22 (owner): delete the AWS copy.** GHA `secrets.TEST_DB_URL` is the live source; no code/script reads the SM copy. Step 1 deletes it (no SSM migration for test-db).
+2. ~~**`kms:Decrypt` on `alias/aws/ssm`**~~ — **RESOLVED 2026-06-22: grant `kms:Decrypt` explicitly, scoped to the key, on every role that reads a SecureString.** Reasoning: SecureString decryption is a separate KMS action from `ssm:GetParameter`; the AWS-managed key's policy delegates to account IAM, and the "implicit via SSM" path is unreliable enough that gambling risks a prod cold-start `AccessDeniedException` (DB URL read = site-down). Granting it when unneeded is harmless (one key, decrypt only, $0). Scope via `data "aws_kms_alias" "ssm" { name = "alias/aws/ssm" }` → `.target_key_arn` (alias exists after Step 0 creates the first SecureString — order holds). Still confirm with the Step-0 verification command (`aws ssm get-parameter --with-decryption` from a role context). **Do NOT downgrade to `String` type to dodge KMS — that stores plaintext = security regression.**
 3. **Parameter size ≤ 4 KB (Standard tier)** — all current secrets are small (DB URL + a few keys), but confirm each `SecretString` length < 4096 before Step 0; otherwise that param needs Advanced tier ($0.05/param/mo — still cheaper, but note it).
 4. **Steps 2–4 batching** — gated one-per-session (rule #4) by default; owner may OK running them together since they're independent Lambdas with the same low-risk mechanical change and per-service prod smoke.
 
@@ -143,4 +143,5 @@ Confirm via console Cost Explorer (USAGE_TYPE `APN2-SecretsManager-Secrets`) the
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-06-22 | Full SSM migration chosen over consolidation (can't reach <$1 with least-privilege intact); AWS-managed KMS key (free), no CMK | — |
-| | | |
+| 2026-06-22 | `myblog/test-db` AWS copy deleted, not migrated (GHA secret is the live source, no SM reader) | 1 |
+| 2026-06-22 | Grant `kms:Decrypt` explicitly per role (scoped to `alias/aws/ssm` target key); don't rely on implicit SSM decryption; never downgrade to `String` | 0/2 |
