@@ -1,7 +1,7 @@
 # CHORE-secrets-ssm-migration: Move all secrets from Secrets Manager → SSM Parameter Store
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: accepted
+- **Owner**: 박지훈
 - **Created**: 2026-06-22
 - **Plan row**: `plan.md` → CHORE-secrets-ssm-migration
 
