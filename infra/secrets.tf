@@ -1,25 +1,15 @@
-# CHORE-secrets-ssm-migration Step 7 (2026-06-22): backend/worker/music/spotify secrets
-# migrated to SSM Parameter Store SecureString (see the SSM section below) and their
-# Secrets Manager secrets + read/write IAM removed. Only myblog/anthropic remains in
-# Secrets Manager (feature credential; SSM migration deferred to Step 6, feature not shipped).
+# CHORE-secrets-ssm-migration (2026-06-22): ALL secrets migrated to SSM Parameter
+# Store SecureString (see the SSM section below); every Secrets Manager secret + its
+# read/write IAM removed, including the empty myblog/anthropic container. AWS Secrets
+# Manager is no longer used by this stack. When FEAT-ai-editorial-critique ships,
+# provision myblog/anthropic as an SSM SecureString (RFC Step 6) + an ANTHROPIC_PARAM
+# dual-source read — do NOT reintroduce a Secrets Manager secret.
 
-
-# --- myblog/anthropic (FEAT-album-research-notes) ---
-# Feature-scoped Anthropic API key (RFC Forward-compat: one feature family ↔ one
-# credential; FEAT-ai-editorial-critique reuses this entry). Terraform creates
-# the CONTAINER only — the SecretString (ANTHROPIC_API_KEY) is set by the owner
-# in the console, so no key material ever enters tfstate.
-resource "aws_secretsmanager_secret" "anthropic" {
-  name        = "myblog/anthropic"
-  description = "Anthropic API key for editorial AI features (album research, critique)"
-}
-
-# Research worker needs: consume researchSQS + write its own log group + read
-# the anthropic secret. The reused worker role's existing grants are scoped to
-# blogSQS / the blogWorkerLambda log group only, so this is a separate policy.
+# Research worker needs: consume researchSQS + write its own log group. (anthropic
+# read dropped with the secret — re-add an SSM read when the feature ships.)
 resource "aws_iam_policy" "research_worker_extras" {
   name        = "myblog-research-worker"
-  description = "researchWorkerLambda: consume researchSQS, own logs, read myblog/anthropic"
+  description = "researchWorkerLambda: consume researchSQS + own logs"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -40,11 +30,6 @@ resource "aws_iam_policy" "research_worker_extras" {
         Resource = [
           "arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/lambda/researchWorkerLambda:*"
         ]
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue"]
-        Resource = [aws_secretsmanager_secret.anthropic.arn]
       },
     ]
   })
@@ -159,17 +144,18 @@ resource "aws_iam_role_policy_attachment" "worker_ssm_attach" {
   policy_arn = aws_iam_policy.worker_ssm.arn
 }
 
-# --- research worker role: read /myblog/worker + /myblog/anthropic, decrypt ---
+# --- research worker role: read /myblog/worker, decrypt ---
+# (anthropic dropped — add ${local.ssm_param_arn_prefix}/anthropic back when FEAT-ai-editorial-critique ships)
 resource "aws_iam_policy" "research_worker_ssm_read" {
   name        = "myblog-research-worker-ssm-read"
-  description = "Allow researchWorkerLambda to read its SSM params (worker + anthropic)"
+  description = "Allow researchWorkerLambda to read its SSM param (worker)"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = ["${local.ssm_param_arn_prefix}/worker", "${local.ssm_param_arn_prefix}/anthropic"]
+        Resource = ["${local.ssm_param_arn_prefix}/worker"]
       },
       {
         Effect   = "Allow"
