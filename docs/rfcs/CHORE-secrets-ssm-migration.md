@@ -42,15 +42,44 @@ Each secret is a JSON blob (`DATABASE_URL`, `EDGE_SECRET`, `GITHUB_TOKEN`, Spoti
 
 ## Target state
 
-8 SecureString parameters at the **same names** `/myblog/backend`, `/myblog/music`, … (leading slash for SSM hierarchy), Standard tier, encrypted with `alias/aws/ssm`. Same JSON value as today — code does `ssm.get_parameter(Name=..., WithDecryption=True)["Parameter"]["Value"]` then the **same `json.loads`** (minimal diff; `@lru_cache`/TTL caching preserved). Write-back: `ssm.put_parameter(Name, Value, Type="SecureString", Overwrite=True)`.
+8 SecureString parameters at the **same names** `/myblog/backend`, `/myblog/music`, … (leading slash for SSM hierarchy), Standard tier, encrypted with `alias/aws/ssm`. Same JSON value as today.
 
-IAM (`infra/secrets.tf` rewritten): `ssm:GetParameter` (+ `ssm:PutParameter` for the worker/spotify path) scoped to `arn:aws:ssm:ap-northeast-2:338183196042:parameter/myblog/<name>` per role, plus `kms:Decrypt` on the `alias/aws/ssm` key. Env vars carry the **parameter name** (e.g. `/myblog/backend`) not an ARN, since `get_parameter` takes `Name`. Parameter **values created out-of-band** (CLI by owner); Terraform manages IAM only and references ARNs as constructed strings — **no values in tfstate** (mirrors the existing `myblog/anthropic` container/value split).
+**Design (revised 2026-06-22): dual-source loader + env-flip cutover.** Instead of a hard call swap, each loader prefers SSM when a new `SECRETS_PARAM` env var is set and falls back to Secrets Manager (`SECRETS_ARN`) on unset-or-error:
+
+```python
+def _load_secrets(s) -> dict:
+    if s.SECRETS_PARAM:
+        try:
+            ssm = boto3.client("ssm", region_name="ap-northeast-2")
+            return json.loads(ssm.get_parameter(Name=s.SECRETS_PARAM, WithDecryption=True)["Parameter"]["Value"])
+        except Exception as e:
+            logger.error("SSM load failed for %s, falling back to Secrets Manager: %s", s.SECRETS_PARAM, e)
+    if s.SECRETS_ARN:
+        sm = boto3.client("secretsmanager", region_name="ap-northeast-2")
+        return json.loads(sm.get_secret_value(SecretId=s.SECRETS_ARN)["SecretString"])
+    return {}
+```
+
+This makes the **code deploy a safe no-op** (`SECRETS_PARAM` unset → unchanged Secrets Manager path) and the **cutover a single Terraform env flip** (`SECRETS_PARAM=/myblog/<name>`, owner-applied), fully reversible by unsetting it. `@lru_cache`/TTL caching preserved. Write-back (spotify): `ssm.put_parameter(Name, Value, Type="SecureString", Overwrite=True)`, gated on the same `SECRETS_PARAM`.
+
+IAM (`infra/secrets.tf`): **additively** grant `ssm:GetParameter` (+ `ssm:PutParameter` for worker/spotify) scoped to `arn:aws:ssm:ap-northeast-2:338183196042:parameter/myblog/<name>` per role, plus `kms:Decrypt` on `data.aws_kms_alias.ssm.target_key_arn` — **keeping the existing `secretsmanager:*` grants** until the final cleanup step. Parameter **values created out-of-band** (CLI by owner — see constraint below); Terraform manages IAM + env only, never values → **no values in tfstate**.
 
 Secrets Manager ends empty → storage bill ~$0. `test-db` AWS copy is **deleted** (redundant with GHA), not migrated.
 
+## Execution constraint (discovered 2026-06-22)
+
+The `claude_aws_manager` IAM user **lacks `ssm:PutParameter`** (and likely `ssm:GetParameter`) — net-new service type, AccessDenied (memory `reference-claude-aws-manager-iam-limits`). Two actions are therefore **owner-only** and gate the whole migration:
+
+1. **Provision the SSM parameter values** (copy from Secrets Manager) — owner runs the Step-0 CLI snippet, OR grants `claude_aws_manager` `ssm:PutParameter`+`ssm:GetParameter` on `parameter/myblog/*` so Claude can run it.
+2. **`terraform apply`** the IAM/env changes — workspace infra has no auto-apply (memory `reference-workspace-no-infra-autoapply`); a human applies.
+
+Claude CAN: write all dual-source code (safe no-op), open PRs with local verification, and author the Terraform diff. Claude CANNOT: provision values, apply infra, or therefore complete a live cutover. The dual-source design means Claude's code can merge+deploy safely ahead of provisioning, and the cutover waits on the two owner actions above.
+
 ## Steps
 
-Dual-run safety: Step 0 populates SSM and adds SSM IAM **additively while keeping every Secrets Manager grant and secret**. Each later code step is therefore reversible by redeploying the previous bundle (still reads Secrets Manager). The old secrets are deleted only in the final step — that is the step that realizes the savings.
+Dual-run safety: Step 0 populates SSM and adds SSM IAM **additively while keeping every Secrets Manager grant and secret**. With the dual-source loader, deploying the code is a no-op (SM path) until the owner flips `SECRETS_PARAM` per service; each flip is reversible by unsetting it (→ SM fallback). The old secrets are deleted only in the final step — that is the step that realizes the savings.
+
+**Two phases now:** (A) Claude-side — dual-source code merged + deployed to all Lambdas (no-op), Terraform IAM/env diff authored. (B) Owner-gated — provision SSM values, `terraform apply` additive IAM, then flip `SECRETS_PARAM` per service (each a prod-observe gate, rule #4), observe, finally delete SM secrets + drop SM grants/`SECRETS_ARN`.
 
 ### Step 0 — Provision SSM params + additive IAM (no prod risk)
 
@@ -145,3 +174,5 @@ Confirm via console Cost Explorer (USAGE_TYPE `APN2-SecretsManager-Secrets`) the
 | 2026-06-22 | Full SSM migration chosen over consolidation (can't reach <$1 with least-privilege intact); AWS-managed KMS key (free), no CMK | — |
 | 2026-06-22 | `myblog/test-db` AWS copy deleted, not migrated (GHA secret is the live source, no SM reader) | 1 |
 | 2026-06-22 | Grant `kms:Decrypt` explicitly per role (scoped to `alias/aws/ssm` target key); don't rely on implicit SSM decryption; never downgrade to `String` | 0/2 |
+| 2026-06-22 | Dual-source loader (`SECRETS_PARAM` SSM-preferred → `SECRETS_ARN` SM fallback); cutover = owner Terraform env flip, not a code swap — code deploy is a safe no-op, cutover fully reversible | 2–5 |
+| 2026-06-22 | `claude_aws_manager` lacks `ssm:PutParameter`/`GetParameter` → provisioning + `terraform apply` are owner-only; migration completion is owner-gated | 0/7 |
