@@ -176,3 +176,37 @@ Confirm via console Cost Explorer (USAGE_TYPE `APN2-SecretsManager-Secrets`) the
 | 2026-06-22 | Grant `kms:Decrypt` explicitly per role (scoped to `alias/aws/ssm` target key); don't rely on implicit SSM decryption; never downgrade to `String` | 0/2 |
 | 2026-06-22 | Dual-source loader (`SECRETS_PARAM` SSM-preferred → `SECRETS_ARN` SM fallback); cutover = owner Terraform env flip, not a code swap — code deploy is a safe no-op, cutover fully reversible | 2–5 |
 | 2026-06-22 | `claude_aws_manager` lacks `ssm:PutParameter`/`GetParameter` → provisioning + `terraform apply` are owner-only; migration completion is owner-gated | 0/7 |
+
+## Progress (2026-06-22)
+
+**Phase A (Claude-side) — DONE, all PRs open + locally verified, held for owner Step 0:**
+- code (dual-source loaders, safe no-op until env flip): backend `myblog_backend#85`, music `myblog_music#46`, worker `myblog_worker#50`
+- infra (additive SSM IAM + `kms:Decrypt` + empty `SECRETS_PARAM` env switches): workspace `#414`
+- Deferred (pre-Step-7, local-only, no prod/bill impact): `scripts/` (health.sh, research_poller, editor_buckit, buckit_nightly, genre_heal_poller, spotify_bootstrap_token) still read Secrets Manager — migrate to `aws ssm get-parameter` before the Step-7 SM deletion.
+
+**Phase B (owner-gated) — runbook below.**
+
+## Owner runbook
+
+```bash
+# 0a. ONE-TIME: let Claude drive the rest (option A), OR skip and run 0b yourself (option B).
+#     Attach an inline policy to user claude_aws_manager:
+#       ssm:PutParameter, ssm:GetParameter on arn:aws:ssm:ap-northeast-2:338183196042:parameter/myblog/*
+#       (+ kms:Encrypt/Decrypt/GenerateDataKey on alias/aws/ssm to write SecureStrings)
+
+# 0b. Provision SSM SecureString params from Secrets Manager (test-db excluded — it's deleted).
+for n in backend music worker spotify smoke neon-api; do
+  v=$(aws secretsmanager get-secret-value --secret-id "myblog/$n" --query SecretString --output text)
+  aws ssm put-parameter --name "/myblog/$n" --type SecureString --value "$v" --overwrite
+done
+# anthropic: provision only once its key value is set (research feature). test-db: delete, don't migrate.
+
+# 0c. Verify decryption works from a role context (OQ2):
+aws ssm get-parameter --name /myblog/backend --with-decryption --query Parameter.Value --output text | head -c 0 && echo OK
+```
+
+Then, in order (each `apply` is owner-run — no infra auto-apply):
+1. Merge the 4 PRs (#85/#46/#50 code = no-op deploys; #414 infra). Confirm prod smoke stays green after each code deploy (SM path unchanged).
+2. `terraform apply` #414 — additive SSM IAM + empty env switches (no behavior change).
+3. **Cutover, one service per session (rule #4):** set that Lambda's `SECRETS_PARAM` (and `SPOTIFY_SECRETS_PARAM`) to `/myblog/<name>` in `infra/lambda.tf` → `apply` → prod smoke → observe. Order: backend → music → worker → (spotify is the worker/backend `SPOTIFY_SECRETS_PARAM`, do last; verify a token write-back rewrites the SSM param).
+4. After ≥7 days of stale `LastAccessedDate` on the SM secrets: migrate `scripts/`, delete the 6 SM secrets (+ test-db), remove the `secretsmanager:*` grants + `SECRETS_ARN`/`SPOTIFY_SECRETS_ARN` env from Terraform, `apply`. **Bill drops here.** SM has a 7–30 day restore window as a safety net.
