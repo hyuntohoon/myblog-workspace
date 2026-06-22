@@ -154,10 +154,8 @@ resource "aws_lambda_function" "research_worker" {
   environment {
     variables = {
       SECRETS_PARAM = "/myblog/worker" # CHORE-secrets-ssm-migration: SSM Parameter Store
-      # Feature-scoped key (RFC Forward-compat): myblog/anthropic, value set in
-      # console by the owner — never via terraform (no value in tfstate).
-      # anthropic stays in Secrets Manager (SSM migration deferred to RFC Step 6, feature not shipped).
-      ANTHROPIC_SECRETS_ARN = aws_secretsmanager_secret.anthropic.arn
+      # anthropic credential removed (empty/unused; feature not shipped). When
+      # FEAT-ai-editorial-critique ships, add ANTHROPIC_PARAM=/myblog/anthropic (SSM).
     }
   }
 
