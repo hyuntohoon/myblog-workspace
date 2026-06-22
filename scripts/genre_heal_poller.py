@@ -40,8 +40,8 @@ def _db_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if not url:
         out = subprocess.run(
-            ["aws", "secretsmanager", "get-secret-value", "--secret-id", "myblog/music",
-             "--query", "SecretString", "--output", "text"],
+            ["aws", "ssm", "get-parameter", "--name", "/myblog/music", "--with-decryption",
+             "--query", "Parameter.Value", "--output", "text"],
             capture_output=True, text=True, check=True,
         ).stdout
         url = json.loads(out)["DATABASE_URL"]

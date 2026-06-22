@@ -50,7 +50,7 @@ log = logging.getLogger("editor_buckit")
 
 # --- config ---------------------------------------------------------------
 REGION = "ap-northeast-2"
-SECRET_ID = "myblog/backend"          # holds DATABASE_URL
+SECRET_ID = "/myblog/backend"         # SSM SecureString param (holds DATABASE_URL)
 PROMPT_VERSION = "v1"                  # surfaced in the report header (OQ6)
 PROMPT_FILE = "editor-buckit-prompt.md"  # canonical prompt, read live (no vendored copy in Stage 0)
 CLAUDE_MODEL = "opus"                  # same bench winner as the research path
@@ -80,8 +80,8 @@ def database_url() -> str:
     """Read prod DATABASE_URL from Secrets Manager and normalize for psycopg."""
     import boto3
 
-    sm = boto3.client("secretsmanager", region_name=REGION)
-    secret = json.loads(sm.get_secret_value(SecretId=SECRET_ID)["SecretString"])
+    ssm = boto3.client("ssm", region_name=REGION)
+    secret = json.loads(ssm.get_parameter(Name=SECRET_ID, WithDecryption=True)["Parameter"]["Value"])
     # SQLAlchemy form `postgresql+psycopg://` -> libpq form psycopg.connect wants.
     return secret["DATABASE_URL"].replace("postgresql+psycopg://", "postgresql://", 1)
 

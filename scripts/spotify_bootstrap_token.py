@@ -58,7 +58,7 @@ SCOPES = (
 )
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
-SECRET_ID = "myblog/spotify"
+SECRET_ID = "/myblog/spotify"  # SSM SecureString param (was Secrets Manager)
 REGION = "ap-northeast-2"
 
 
@@ -133,13 +133,13 @@ def _exchange(code: str, client_id: str, client_secret: str) -> str:
 def _write_secret(client_id: str, client_secret: str, refresh_token: str) -> None:
     import boto3
 
-    sm = boto3.client("secretsmanager", region_name=REGION)
+    ssm = boto3.client("ssm", region_name=REGION)
     # Merge into any existing payload so unrelated keys survive. Only treat a
-    # genuinely-absent secret as empty — any other read error must abort rather
+    # genuinely-absent param as empty — any other read error must abort rather
     # than clobber the existing keys.
     try:
-        existing = json.loads(sm.get_secret_value(SecretId=SECRET_ID)["SecretString"])
-    except sm.exceptions.ResourceNotFoundException:
+        existing = json.loads(ssm.get_parameter(Name=SECRET_ID, WithDecryption=True)["Parameter"]["Value"])
+    except ssm.exceptions.ParameterNotFound:
         existing = {}
     from datetime import datetime, timezone
 
@@ -153,8 +153,8 @@ def _write_secret(client_id: str, client_secret: str, refresh_token: str) -> Non
         "last_successful_refresh_at": datetime.now(timezone.utc).isoformat(),
     })
     existing.pop("needs_reauth", None)
-    sm.put_secret_value(SecretId=SECRET_ID, SecretString=json.dumps(existing))
-    print(f"✅ refresh token을 Secrets Manager {SECRET_ID} 에 저장했습니다 (값은 출력하지 않음).")
+    ssm.put_parameter(Name=SECRET_ID, Value=json.dumps(existing), Type="SecureString", Overwrite=True)
+    print(f"✅ refresh token을 SSM {SECRET_ID} 에 저장했습니다 (값은 출력하지 않음).")
 
 
 def main() -> None:
