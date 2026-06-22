@@ -39,6 +39,11 @@ resource "aws_lambda_function" "backend" {
       # FEAT-member-dashboard Step 3: manual "지금 새로고침" → SQS; 연동 status read.
       SQS_QUEUE_URL       = aws_sqs_queue.blog_sqs.url
       SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
+      # CHORE-secrets-ssm-migration cutover switches. Empty = read Secrets Manager
+      # (no-op). Set to the SSM SecureString name + apply to cut THIS service over
+      # (one at a time = rule-#4 prod-observe gate); empty again to revert.
+      SECRETS_PARAM         = "" # set "/myblog/backend" to cut over
+      SPOTIFY_SECRETS_PARAM = "" # set "/myblog/spotify" to cut over
       # FEAT-spotify-library-sync: read-only mirror for the /profile "검토 모드" banner
       # (backend never writes Spotify — rule #9). Keep in sync with the worker value.
       SPOTIFY_LIBRARY_WRITES_ENABLED = "true"
@@ -73,6 +78,7 @@ resource "aws_lambda_function" "music" {
       FASTAPI_ROOT_PATH    = "/api"
       QUEUE_NAME           = "blogSQS"
       SECRETS_ARN          = data.aws_secretsmanager_secret.music.arn
+      SECRETS_PARAM        = "" # CHORE-secrets-ssm-migration: set "/myblog/music" + apply to cut over
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
       # FEAT-music-search-recall Step 4 (A1): activate the pg_trgm fuzzy/typo
       # search path. Safe only after V12 (pg_trgm extension + GIN indexes) is
@@ -103,7 +109,10 @@ resource "aws_lambda_function" "worker" {
       SECRETS_ARN = data.aws_secretsmanager_secret.worker.arn
       # FEAT-member-dashboard Step 3: Spotify user OAuth creds + re-enqueue queue.
       SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
-      SQS_QUEUE_URL       = aws_sqs_queue.blog_sqs.url
+      # CHORE-secrets-ssm-migration cutover switches (empty = Secrets Manager no-op).
+      SECRETS_PARAM         = "" # set "/myblog/worker" to cut over
+      SPOTIFY_SECRETS_PARAM = "" # set "/myblog/spotify" to cut over (read + write-back)
+      SQS_QUEUE_URL         = aws_sqs_queue.blog_sqs.url
       # FEAT-spotify-library-sync Gate 3: enable real PUT/DELETE /me/albums in the
       # reconcile. "false" = plan-only (reads + DB writes + logs intended writes, no
       # Spotify mutation). Flip to "false" + apply to pause real writes.
@@ -151,9 +160,11 @@ resource "aws_lambda_function" "research_worker" {
 
   environment {
     variables = {
-      SECRETS_ARN = data.aws_secretsmanager_secret.worker.arn
+      SECRETS_ARN   = data.aws_secretsmanager_secret.worker.arn
+      SECRETS_PARAM = "" # CHORE-secrets-ssm-migration: set "/myblog/worker" + apply to cut over
       # Feature-scoped key (RFC Forward-compat): myblog/anthropic, value set in
       # console by the owner — never via terraform (no value in tfstate).
+      # anthropic SSM migration deferred to RFC Step 6 (feature not yet shipped).
       ANTHROPIC_SECRETS_ARN = aws_secretsmanager_secret.anthropic.arn
     }
   }
