@@ -105,7 +105,7 @@ log = logging.getLogger("buckit_nightly")
 
 # --- config ---------------------------------------------------------------
 REGION = "ap-northeast-2"
-SECRET_ID = "myblog/backend"            # holds DATABASE_URL
+SECRET_ID = "/myblog/backend"           # SSM SecureString param (holds DATABASE_URL)
 RUN_SPEC_FILE = "buckit-nightly-run.md"  # the run spec (entry point), inlined as the base prompt
 # Conversion + method rule docs inlined into the prompt (the model has no Read tool). The model
 # inherits buckit-nightly.md §3 four rules + review-critique-method.md ★ honesty / §6 language.
@@ -128,7 +128,7 @@ FILE_DELIM_RE = re.compile(r"^=====BUCKIT_FILE:\s*(.+?)\s*=*\s*$", re.MULTILINE)
 
 # --- Stage 2 Step 7: in-app draft delivery (authed API; the script is the only writer) ---
 BACKEND_AUTHED = "https://ld8pjw3mx4.execute-api.ap-northeast-2.amazonaws.com"  # raw API Gateway
-SMOKE_SECRET_ID = "myblog/smoke"        # holds MYBLOG_SMOKE_PASSWORD (test Cognito user pw)
+SMOKE_SECRET_ID = "/myblog/smoke"       # SSM SecureString param (MYBLOG_SMOKE_PASSWORD)
 COGNITO_REGION = "ap-northeast-2"
 COGNITO_CLIENT_ID = "68ccmcanfbvla9qbovnb9b18bt"
 DEFAULT_SMOKE_EMAIL = "test@ratemymusic.blog"
@@ -160,8 +160,8 @@ def database_url() -> str:
     """Read prod DATABASE_URL from Secrets Manager and normalize for psycopg."""
     import boto3
 
-    sm = boto3.client("secretsmanager", region_name=REGION)
-    secret = json.loads(sm.get_secret_value(SecretId=SECRET_ID)["SecretString"])
+    ssm = boto3.client("ssm", region_name=REGION)
+    secret = json.loads(ssm.get_parameter(Name=SECRET_ID, WithDecryption=True)["Parameter"]["Value"])
     # SQLAlchemy form `postgresql+psycopg://` -> libpq form psycopg.connect wants.
     return secret["DATABASE_URL"].replace("postgresql+psycopg://", "postgresql://", 1)
 
@@ -573,8 +573,8 @@ def mint_smoke_token() -> str:
     pw in the process env is exposable via `ps e` / crash dumps)."""
     import boto3
 
-    sm = boto3.client("secretsmanager", region_name=REGION)
-    secret = json.loads(sm.get_secret_value(SecretId=SMOKE_SECRET_ID)["SecretString"])
+    ssm = boto3.client("ssm", region_name=REGION)
+    secret = json.loads(ssm.get_parameter(Name=SMOKE_SECRET_ID, WithDecryption=True)["Parameter"]["Value"])
     pw = os.environ.get("MYBLOG_SMOKE_PASSWORD") or secret.get("MYBLOG_SMOKE_PASSWORD")
     email = (os.environ.get("MYBLOG_SMOKE_EMAIL")
              or secret.get("MYBLOG_SMOKE_EMAIL") or DEFAULT_SMOKE_EMAIL)

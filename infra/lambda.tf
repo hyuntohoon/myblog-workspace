@@ -31,19 +31,15 @@ resource "aws_lambda_function" "backend" {
       # because this was never set. With auth.py now fail-closed, APPLY THIS
       # (and verify JWKS reachable) BEFORE deploying the fail-closed backend.
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
-      SECRETS_ARN          = data.aws_secretsmanager_secret.backend.arn
       GITHUB_REPO_OWNER    = "hyuntohoon"
       GITHUB_REPO_NAME     = "myblog_front"
       GITHUB_REPO_BRANCH   = "main"
       CONTENT_DIR          = "content/blog"
       # FEAT-member-dashboard Step 3: manual "지금 새로고침" → SQS; 연동 status read.
-      SQS_QUEUE_URL       = aws_sqs_queue.blog_sqs.url
-      SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
-      # CHORE-secrets-ssm-migration cutover switches. Empty = read Secrets Manager
-      # (no-op). Set to the SSM SecureString name + apply to cut THIS service over
-      # (one at a time = rule-#4 prod-observe gate); empty again to revert.
-      SECRETS_PARAM         = "/myblog/backend" # CHORE-secrets-ssm-migration: cut over to SSM
-      SPOTIFY_SECRETS_PARAM = "/myblog/spotify" # cut over (status read only; worker owns write-back)
+      SQS_QUEUE_URL = aws_sqs_queue.blog_sqs.url
+      # CHORE-secrets-ssm-migration: secrets read from SSM Parameter Store (SM removed Step 7).
+      SECRETS_PARAM         = "/myblog/backend"
+      SPOTIFY_SECRETS_PARAM = "/myblog/spotify" # status read only; worker owns write-back
       # FEAT-spotify-library-sync: read-only mirror for the /profile "검토 모드" banner
       # (backend never writes Spotify — rule #9). Keep in sync with the worker value.
       SPOTIFY_LIBRARY_WRITES_ENABLED = "true"
@@ -77,8 +73,7 @@ resource "aws_lambda_function" "music" {
       ENV                  = "prod"
       FASTAPI_ROOT_PATH    = "/api"
       QUEUE_NAME           = "blogSQS"
-      SECRETS_ARN          = data.aws_secretsmanager_secret.music.arn
-      SECRETS_PARAM        = "/myblog/music" # CHORE-secrets-ssm-migration: cut over to SSM
+      SECRETS_PARAM        = "/myblog/music" # CHORE-secrets-ssm-migration: SSM Parameter Store
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
       # FEAT-music-search-recall Step 4 (A1): activate the pg_trgm fuzzy/typo
       # search path. Safe only after V12 (pg_trgm extension + GIN indexes) is
@@ -106,12 +101,10 @@ resource "aws_lambda_function" "worker" {
 
   environment {
     variables = {
-      SECRETS_ARN = data.aws_secretsmanager_secret.worker.arn
       # FEAT-member-dashboard Step 3: Spotify user OAuth creds + re-enqueue queue.
-      SPOTIFY_SECRETS_ARN = data.aws_secretsmanager_secret.spotify.arn
-      # CHORE-secrets-ssm-migration cutover switches (empty = Secrets Manager no-op).
-      SECRETS_PARAM         = "/myblog/worker"  # CHORE-secrets-ssm-migration: cut over to SSM
-      SPOTIFY_SECRETS_PARAM = "/myblog/spotify" # cut over (read + token write-back via put_parameter)
+      # CHORE-secrets-ssm-migration: secrets from SSM Parameter Store (SM removed Step 7).
+      SECRETS_PARAM         = "/myblog/worker"
+      SPOTIFY_SECRETS_PARAM = "/myblog/spotify" # read + token write-back via put_parameter
       SQS_QUEUE_URL         = aws_sqs_queue.blog_sqs.url
       # FEAT-spotify-library-sync Gate 3: enable real PUT/DELETE /me/albums in the
       # reconcile. "false" = plan-only (reads + DB writes + logs intended writes, no
@@ -160,11 +153,10 @@ resource "aws_lambda_function" "research_worker" {
 
   environment {
     variables = {
-      SECRETS_ARN   = data.aws_secretsmanager_secret.worker.arn
-      SECRETS_PARAM = "/myblog/worker" # CHORE-secrets-ssm-migration: cut over to SSM
+      SECRETS_PARAM = "/myblog/worker" # CHORE-secrets-ssm-migration: SSM Parameter Store
       # Feature-scoped key (RFC Forward-compat): myblog/anthropic, value set in
       # console by the owner — never via terraform (no value in tfstate).
-      # anthropic SSM migration deferred to RFC Step 6 (feature not yet shipped).
+      # anthropic stays in Secrets Manager (SSM migration deferred to RFC Step 6, feature not shipped).
       ANTHROPIC_SECRETS_ARN = aws_secretsmanager_secret.anthropic.arn
     }
   }

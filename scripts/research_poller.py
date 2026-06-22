@@ -56,7 +56,7 @@ log = logging.getLogger("research_poller")
 
 # --- config ---------------------------------------------------------------
 REGION = "ap-northeast-2"
-SECRET_ID = "myblog/backend"          # holds DATABASE_URL
+SECRET_ID = "/myblog/backend"         # SSM SecureString param (holds DATABASE_URL)
 PROMPT_VERSION = "v2"                  # must match the vendored prompt below
 PROMPT_FILE = "album_research_v2.md"   # vendored beside this script (lines 1-98 of the doc)
 CLAUDE_MODEL = "opus"                  # bench winner = opus 4.8
@@ -68,11 +68,11 @@ DEFAULT_INTER_RUN_SLEEP_S = 30       # serial spacing between runs (rate-limit g
 
 # --- secrets / db ---------------------------------------------------------
 def database_url() -> str:
-    """Read prod DATABASE_URL from Secrets Manager and normalize for psycopg."""
+    """Read prod DATABASE_URL from SSM Parameter Store and normalize for psycopg."""
     import boto3
 
-    sm = boto3.client("secretsmanager", region_name=REGION)
-    secret = json.loads(sm.get_secret_value(SecretId=SECRET_ID)["SecretString"])
+    ssm = boto3.client("ssm", region_name=REGION)
+    secret = json.loads(ssm.get_parameter(Name=SECRET_ID, WithDecryption=True)["Parameter"]["Value"])
     url = secret["DATABASE_URL"]
     # SQLAlchemy form `postgresql+psycopg://` -> libpq form psycopg.connect wants.
     return url.replace("postgresql+psycopg://", "postgresql://", 1)
