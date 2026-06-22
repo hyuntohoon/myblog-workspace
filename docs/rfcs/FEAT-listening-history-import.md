@@ -1,6 +1,8 @@
 # FEAT-listening-history-import
 
-**Status:** draft
+**Status:** in-progress
+
+> **Accepted 2026-06-22** (owner) — draft → accepted → in-progress; Step 1 (shared_db V27) started the same session.
 
 > **Review-revised 2026-06-22** (adversarial design review — 2 independent lenses + code ground-truth; all "Current state" claims verified accurate). Folded in: a **catalog-coverage gate** + **two-pass re-resolution** (Steps 3/5 — without these the headline album/era/genre views ship mostly 미분류 and never improve as the catalog grows); **SQL `GROUP BY` aggregation** + **BIGINT `ms_played`** + V27 indexes (the load-all-rows `rank_counts` path won't survive 100k–500k rows); a **KST timezone** decision for retrospective/era; an explicit **import↔poller seam** + as-of horizon caption; and correctness pins (URI-prefix strip, podcast-by-URI-prefix predicate, SQS chunk+key-sort, dedup-precision note, script home, import-run ledger). **Step 4/6 re-scoped** — the front work reworks the merged `#194` source panel, not a small additive extension.
 
@@ -78,5 +80,6 @@ The owner can import their Spotify **Extended Streaming History** (GDPR data exp
 | 2026-06-22 | review | Retrospective/era bucketing in **`Asia/Seoul`** (export `ts` is UTC). |
 | 2026-06-22 | review | Import↔poller seam explicit: import is the lifetime source; surface its `as_of` as the horizon caption; never silently union the two grains (double-count). |
 | 2026-06-22 | review | Script home = `myblog_shared_db/scripts/` (DB-mutating, like `backfill_genres.py`), not workspace `scripts/`. |
+| 2026-06-22 | accept | Owner accepted (draft → in-progress). Step 1 = shared_db V27 `spotify_stream_history` + `stream_import_runs` (BIGINT `ms_played`, dedup `(ts, spotify_track_uri)`, indexes), tag `v0.24.0`. |
 
 Source / rationale: `docs/reviews/2026-06-22/analysis-bucket-statsfm-research.md` (§2 import mechanics, §5 brainstorm, §6 recommendation; coverage diagnosis §9; UX/design patterns §9.4).
