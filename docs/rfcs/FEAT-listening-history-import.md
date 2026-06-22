@@ -28,6 +28,7 @@ The owner can import their Spotify **Extended Streaming History** (GDPR data exp
 - **`scripts/import_streaming_history.py`** ($0 local pattern; reads SSM `/myblog/backend` DATABASE_URL like `editor_buckit.py`/`backfill_genres.py`): unzips/parses `Streaming_History_Audio_*.json` (+ legacy `endsong*.json`), inserts streams idempotently, resolves `spotify_track_uri` → `tracks.spotify_id` and backfills `track_id`/`album_id`, enqueues catalog sync for missing albums (reuse candidates→SQS path), retains podcast/episode rows but excludes them from music aggregates. Never logs DATABASE_URL.
 - **Backend lifetime read/aggregation endpoints** (edge_guard, DB-only, no synchronous Spotify per hard rule #9): lifetime top tracks/artists/albums/genres by **count** and by **time** (`sum(ms_played)`), era/decade distribution (count- or time-weighted), retrospective (per-year + "on this day"). Display filters = import defaults (exclude `skipped`, `ms_played < 30000`, local files, podcasts); raw rows retained for future re-filtering.
 - **분석 버킷 gains an "임포트(평생)" source**: lifetime top lists (count/time sort), listening-time totals, era distribution, retrospective panel. **Primary "favorite" signal = import lifetime-play**; 좋아요 shown as a secondary "intent" signal. Reuses the source-agnostic distribution chart contract.
+- **UX patterns** (research note §9.4 — borrow interaction/IA, not Stats.fm's visual skin): per-item drill-down (artist/album/track → its own stats; reuse `/artist/[id]` hub), Count↔Time toggle on ranked lists, era histogram, "on this day"/per-year recap cards. Explicitly avoid consumer-app skin / Wrapped share cards / leaderboards. `frontend-design` skill sets visual direction when the front step lands; no separate design RFC.
 
 ## Steps
 
@@ -67,4 +68,4 @@ The owner can import their Spotify **Extended Streaming History** (GDPR data exp
 | 2026-06-22 | — | Display filters = import defaults (exclude skipped / <30s / local / podcasts); store raw (owner). |
 | 2026-06-22 | — | Do **not** store IP / user-agent fields (privacy; not needed for any feature). |
 
-Source / rationale: `docs/reviews/2026-06-22/analysis-bucket-statsfm-research.md` (§2 import mechanics, §5 brainstorm, §6 recommendation; coverage diagnosis §9).
+Source / rationale: `docs/reviews/2026-06-22/analysis-bucket-statsfm-research.md` (§2 import mechanics, §5 brainstorm, §6 recommendation; coverage diagnosis §9; UX/design patterns §9.4).
