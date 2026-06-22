@@ -1,6 +1,6 @@
 # CHORE-secrets-ssm-migration: Move all secrets from Secrets Manager → SSM Parameter Store
 
-- **Status**: done (2026-06-22 — fully migrated + prod-validated; bill ~$0.40/mo)
+- **Status**: done (2026-06-22 — fully migrated + prod-validated; Secrets Manager emptied, SM bill ~$0/mo)
 - **Owner**: 박지훈
 - **Created**: 2026-06-22
 - **Plan row**: `plan.md` → CHORE-secrets-ssm-migration
@@ -191,7 +191,7 @@ Confirm via console Cost Explorer (USAGE_TYPE `APN2-SecretsManager-Secrets`) the
 - Removed `SECRETS_ARN`/`SPOTIFY_SECRETS_ARN` env + 5 `secretsmanager:*` IAM policies + 6 attachments + 4 data sources (`terraform apply` 0add/4change/11destroy; final `terraform plan` = No changes). Lambdas read SSM-only — verified smoke 28/0 + worker 200 with no SM fallback/IAM.
 - Deleted 7 SM secrets (backend/worker/music/spotify/smoke/test-db/neon-api), 30-day recovery window (restorable via `restore-secret`).
 
-**Cost: REALIZED. 1 active SM secret (`myblog/anthropic`, ~$0.40/mo) + 6 free SSM Standard params → ~$0.40/mo (<$1).** anthropic stays in SM until FEAT-ai-editorial-critique ships (RFC Step 6). The 7 pending-deletion secrets aren't billed (AWS doesn't charge secrets scheduled for deletion); confirm in Cost Explorer next cycle (`APN2-SecretsManager-Secrets`).
+**Cost: REALIZED → ~$0/mo.** `myblog/anthropic` (the last SM secret) was an empty container (no value) + researchWorkerLambda was dormant (0 invocations/30d), so it was deleted too (workspace `#420`: TF resource + env + IAM refs removed; `blogWorkerLambda` still 200; plan clean). **0 active Secrets Manager secrets** + 6 free SSM Standard params → SM storage bill ~$0/mo. All deleted secrets have a 30-day recovery window. When FEAT-ai-editorial-critique ships, provision `myblog/anthropic` as an **SSM SecureString** (RFC Step 6 + an `ANTHROPIC_PARAM` dual-source read) — do NOT reintroduce a Secrets Manager secret. Confirm the drop in Cost Explorer next cycle (`APN2-SecretsManager-Secrets`).
 
 ## Owner runbook
 
