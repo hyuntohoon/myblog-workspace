@@ -2,6 +2,8 @@
 
 **Status:** draft
 
+> **Review-revised 2026-06-22** (adversarial design review — 2 independent lenses + code ground-truth; all "Current state" claims verified accurate). Folded in: a **catalog-coverage gate** + **two-pass re-resolution** (Steps 3/5 — without these the headline album/era/genre views ship mostly 미분류 and never improve as the catalog grows); **SQL `GROUP BY` aggregation** + **BIGINT `ms_played`** + V27 indexes (the load-all-rows `rank_counts` path won't survive 100k–500k rows); a **KST timezone** decision for retrospective/era; an explicit **import↔poller seam** + as-of horizon caption; and correctness pins (URI-prefix strip, podcast-by-URI-prefix predicate, SQS chunk+key-sort, dedup-precision note, script home, import-run ledger). **Step 4/6 re-scoped** — the front work reworks the merged `#194` source panel, not a small additive extension.
+
 ## Goal
 
 The owner can import their Spotify **Extended Streaming History** (GDPR data export — a lifetime, per-stream JSON ledger) into the system's own Postgres, and the `/profile` 분석 버킷 surfaces true **lifetime** listening analytics that no Spotify API can provide: per-track/artist/album/genre **play counts** AND **listening time** (`ms_played`), an **era/decade** distribution of what was actually played, and a **retrospective** view ("on this day" / per-year recap). Post-import, the bucket's primary "favorite" signal is lifetime play (count + time); the 좋아요(saved) set is demoted to a secondary "intent" signal.
@@ -24,39 +26,42 @@ The owner can import their Spotify **Extended Streaming History** (GDPR data exp
 
 ## Target state
 
-- **New shared_db table `spotify_stream_history` (V27)** — one row per stream: `ts` (timestamptz, stream end), `ms_played` (int), `spotify_track_uri` (text), denormalized `track_name`/`artist_name`/`album_name`, flags `skipped`/`offline`/`shuffle`/`incognito` + `reason_start`/`reason_end`, nullable catalog FKs `track_id`/`album_id` (best-effort resolved). Dedup: unique `(ts, spotify_track_uri)`. Append-only; re-import idempotent. **No IP / user-agent columns.**
-- **`scripts/import_streaming_history.py`** ($0 local pattern; reads SSM `/myblog/backend` DATABASE_URL like `editor_buckit.py`/`backfill_genres.py`): unzips/parses `Streaming_History_Audio_*.json` (+ legacy `endsong*.json`), inserts streams idempotently, resolves `spotify_track_uri` → `tracks.spotify_id` and backfills `track_id`/`album_id`, enqueues catalog sync for missing albums (reuse candidates→SQS path), retains podcast/episode rows but excludes them from music aggregates. Never logs DATABASE_URL.
-- **Backend lifetime read/aggregation endpoints** (edge_guard, DB-only, no synchronous Spotify per hard rule #9): lifetime top tracks/artists/albums/genres by **count** and by **time** (`sum(ms_played)`), era/decade distribution (count- or time-weighted), retrospective (per-year + "on this day"). Display filters = import defaults (exclude `skipped`, `ms_played < 30000`, local files, podcasts); raw rows retained for future re-filtering.
-- **분석 버킷 gains an "임포트(평생)" source**: lifetime top lists (count/time sort), listening-time totals, era distribution, retrospective panel. **Primary "favorite" signal = import lifetime-play**; 좋아요 shown as a secondary "intent" signal. Reuses the source-agnostic distribution chart contract.
+- **New shared_db table `spotify_stream_history` (V27)** — one row per stream: `ts` (timestamptz, stream end), **`ms_played` BIGINT** (per-row fits INT, but a lifetime `sum(ms_played)` is tens of billions of ms → exceeds INT4; store BIGINT), `spotify_track_uri` (text — the full `spotify:track:…` / `spotify:episode:…` URI), denormalized `track_name`/`artist_name`/`album_name`, flags `skipped`/`offline`/`shuffle`/`incognito` + `reason_start`/`reason_end`, nullable catalog FKs `track_id`/`album_id` (best-effort, **two-pass** — see Steps). Dedup unique `(ts, spotify_track_uri)`; append-only, re-import idempotent. **No IP / user-agent columns.** Indexes `(album_id)`, `(track_id)`, `(ts)` for drilldown / re-resolution UPDATE / retrospective range. A small **`stream_import_runs`** ledger (file, row count, `as_of`=max(ts), imported_at) records each import → crash-detection + the as-of horizon caption.
+- **`myblog_shared_db/scripts/import_streaming_history.py`** ($0 local; same home + psycopg/raw-SQL heritage as `backfill_genres.py` — NOT the content-oriented workspace `scripts/`; reads SSM `/myblog/backend`, never logs it): unzip/parse `Streaming_History_Audio_*.json` (+ legacy `endsong*.json`), idempotent insert (`ON CONFLICT (ts, spotify_track_uri) DO NOTHING`), **strip the `spotify:track:` prefix** before matching `tracks.spotify_id` (storing the URI but joining a bare id silently resolves 0 rows — a "100% uncatalogued" failure mode), backfill `track_id`/`album_id`. Catalog-absent albums → existing SQS catalog-sync, **chunked ≤20 album_ids/msg + sorted by key** (the concurrency-10 deadlock-livelock — `reference-sqs-fanout-burst-pitfalls`). A canonical **music-stream predicate keys on the URI prefix** (`spotify:track:`), NOT on resolution failure — uncatalogued *music* also fails resolution and must stay distinct from podcasts (`spotify:episode:`). Re-runnable as `--resolve-only` (the two-pass backfill).
+- **Backend lifetime endpoints** (edge_guard, DB-only, no synchronous Spotify — rule #9), aggregated with **SQL `GROUP BY count(*) / sum(ms_played)` returning top-N** — NOT the load-all-rows-into-`rank_counts` path (it timed out once at limit=500 and won't survive 100k–500k rows; keep `rank_counts` for the small saved/played sources):
+  - *Coverage-independent (off denormalized text):* lifetime **top tracks / artists** by count and by time → ship **ungated**.
+  - *Coverage-dependent (needs catalog FK + `Album.release_date`):* **top albums, genre distribution, era/decade, listening-time-by-album, retrospective** (per-year + "on this day") → **gated** on the Step 3 resolution rate. Era/year/"on this day" bucket via **`ts AT TIME ZONE 'Asia/Seoul'`** (export `ts` is UTC; UTC bucketing misfiles late-night KST listens by a day/year). Display filters = import defaults (exclude `skipped`, `ms_played < 30000`, local, podcasts) via the shared predicate; raw rows retained.
+  - Contract gains a value-**unit** field (count vs ms) so the source-agnostic chart renders a Count↔Time axis — "time" is long-track-biased (research §3.2), labelled as such.
+- **분석 버킷 gains an "임포트(평생)" source** — a **structural extension** of the merged `#194` panel (today `LikedAnalysis` `Source` is the binary `'liked' | 'played'` with a binary `SourceNote` + `'liked:'/'played:'` dist keys): add the 3rd source, a **Count↔Time toggle**, listening-time totals, era histogram, retrospective. **Primary "favorite" = import lifetime-play; 좋아요 demoted to secondary "intent".** Carries the #194 honesty captions (meaning + denominator + **horizon = the import `as_of` date**, so the post-export staleness is surfaced, not hidden). Album/era/genre panels honor the coverage gate (population caption + 미분류 bar).
 - **UX patterns** (research note §9.4 — borrow interaction/IA, not Stats.fm's visual skin): per-item drill-down (artist/album/track → its own stats; reuse `/artist/[id]` hub), Count↔Time toggle on ranked lists, era histogram, "on this day"/per-year recap cards. Explicitly avoid consumer-app skin / Wrapped share cards / leaderboards. `frontend-design` skill sets visual direction when the front step lands; no separate design RFC.
 
 ## Steps
 
-> One step per session unless the owner says "go". Each step is independently mergeable. Cross-repo: shared_db migration applied to prod **before** merge, then service pin bump (`reference-shared-db-cross-repo-rollout`).
+> One step per session unless the owner says "go". Each step is independently mergeable. Cross-repo: shared_db migration applied to prod **before** merge, then service pin bump (`reference-shared-db-cross-repo-rollout`). **Resolution is two-pass** (import-time best-effort + a re-runnable `--resolve-only` backfill), and **catalog coverage gates the album/genre/era panels** (Steps 3 → 5).
 
-1. **shared_db V27 `spotify_stream_history`** — plain `V27__*.sql` + ORM model + tag/pin. Apply to prod before merge.
-   - *Verification*: table + unique `(ts, spotify_track_uri)` present; `terraform plan` N/A (no infra).
-   - *Rollback*: `DROP TABLE spotify_stream_history` (no consumer yet).
-2. **Local import script** (`scripts/import_streaming_history.py`) — parse + idempotent upsert + URI→catalog resolution + enqueue-missing + podcast exclusion.
-   - *Verification*: dry-run on a sample export (row counts; re-run inserts 0 = idempotent; podcasts excluded from music aggregates); then owner runs the real import; spot-check counts/time via read-only SQL.
-   - *Rollback*: `TRUNCATE spotify_stream_history` (script-only; no schema change).
-3. **Backend lifetime aggregation endpoints + contract** — count/time top lists + era + retrospective; extend `distribution.rank_counts` for `ms_played` weighting.
-   - *Verification*: pytest + read-only prod aggregate sanity; `openapi.json` regenerated + committed.
-   - *Rollback*: revert (routes additive).
-4. **Frontend 분석 버킷 "임포트(평생)" source** — listening-time + count/time top lists + era; primary-signal shift; 좋아요 demoted to secondary label.
-   - *Verification*: `pnpm lint` + `astro check` + browser click-through (BUG-11/12 rule); `api.gen.ts` regenerated.
-   - *Rollback*: revert (front-only).
-5. **Retrospective view** — "on this day" / per-year recap panel.
-   - *Verification*: browser click-through.
-   - *Rollback*: revert (front-only).
+1. **shared_db V27 `spotify_stream_history` + `stream_import_runs`** — plain `V27__*.sql` + ORM models + tag/pin. Apply to prod before merge.
+   - Columns per Target state; **`ms_played` BIGINT**; `ts timestamptz`; unique `(ts, spotify_track_uri)`; indexes `(album_id)`, `(track_id)`, `(ts)`; the `stream_import_runs` ledger.
+   - *Verification*: table + unique + indexes present. *Rollback*: `DROP TABLE` (no consumer yet).
+2. **Local import script** (`myblog_shared_db/scripts/import_streaming_history.py`) — parse + idempotent insert + **`spotify:track:`-prefix-stripped** URI→catalog resolution + enqueue-missing (**chunk ≤20/msg + key-sort**) + URI-prefix podcast exclusion + record the run.
+   - *Verification*: dry-run on a sample (counts; re-run inserts 0 = idempotent; **Audio↔endsong overlap tested**; podcasts excluded by URI prefix); then the owner runs the real import; read-only SQL spot-check.
+   - *Rollback*: `TRUNCATE spotify_stream_history` (script-only).
+3. **Re-resolution backfill + coverage GATE** — `import_streaming_history.py --resolve-only`: idempotent `UPDATE … SET track_id/album_id FROM tracks WHERE album_id IS NULL AND <uri match>`. **Re-runnable** (the daily album-ingest cron + manual classify keep cataloging albums all year → a recurring owner action, not one-time). Then **measure + report the resolution rate** (% music streams with `album_id`; of those, with `release_date` / genre). **This rate gates Step 5's album/era/genre panels** (Step 4 is ungated).
+   - *Verification*: re-run after the SQS catalog wave drains → coverage rises; print the rate. *Rollback*: N/A (idempotent UPDATE).
+4. **Backend count/time top-track + top-artist endpoints + contract (UNGATED)** — `count(*)` and `sum(ms_played)` top-N in **SQL `GROUP BY`** over the **denormalized** `track_name`/`artist_name` → independent of catalog coverage. Add the value-**unit** field to the distribution contract.
+   - *Verification*: pytest + read-only prod aggregate sanity; `openapi.json` regenerated. *Rollback*: revert (additive).
+5. **Backend album / genre / era + listening-time-by-album + retrospective endpoints (GATED on Step 3)** — all need the catalog FK + `Album.release_date`; era/year/"on this day" bucket via **`ts AT TIME ZONE 'Asia/Seoul'`**. SQL aggregation + the V27 indexes.
+   - *Verification*: pytest + prod sanity; `openapi.json` regenerated. *Rollback*: revert.
+6. **Frontend 분석 버킷 "임포트(평생)" source** — **structural rework of the merged `#194` panel** (binary `Source`/`SourceNote`/dist-keys → 3rd source): Count↔Time toggle, listening-time totals, era histogram, retrospective panel. **Primary signal = import lifetime-play; 좋아요 → secondary "intent" label.** Carries the #194 honesty captions (meaning + denominator + horizon = import `as_of`); album/era/genre panels honor the Step 3 gate.
+   - *Verification*: `pnpm lint` + `astro check` + browser click-through (BUG-11/12). *Rollback*: revert (front-only).
 
 ## Open questions
 
-1. **Catalog backfill scope** — a lifetime export references many albums absent from the catalog. Backfill all (cost: SQS fan-out, account Lambda concurrency 10 — `reference-sqs-fanout-burst-pitfalls`) or only albums above a play/time threshold? *Lean*: resolve FK for all; enqueue catalog-sync only above a min play/time, leave the long tail denormalized.
-2. **Genre for un-catalogued lifetime albums** — rides the existing pipeline once catalogued; albums left denormalized show as 미분류 in genre views. Acceptable for v1?
-3. **Re-import cadence** — owner re-requests ~yearly; `(ts, spotify_track_uri)` dedup makes re-import safe. Report only the new-row count, or also the gap between exports? *Lean*: new-row count only.
-4. **Retrospective depth** — "on this day" + per-year is in v1. Beyond (first-listen dates, "this year vs last")? Defer.
-5. **Storage volume** — a long-tenured account may be 100k–500k rows; trivial for Postgres, but confirm Neon plan headroom before the first full import.
+1. **Catalog backfill scope** — *now decided by Step 3's measured resolution rate.* Lean: resolve FK for all; enqueue catalog-sync only above a min play/time (chunked + key-sorted), leave the long tail denormalized; the gate decides whether the album/era/genre panels ship now or wait.
+2. **Genre quality for lifetime albums** — denormalized albums show 미분류; *and* the import fans thousands of albums through the iTunes/LLM backfill, swelling the ~318 low-confidence-genred set (research §9.1). Distinguish **미분류 vs low-confidence-genred** in the honesty story. Acceptable bar for v1?
+3. **Re-import cadence** — `(ts, spotify_track_uri)` dedup makes re-import safe; `stream_import_runs` records the as-of date. *Lean*: report new-row count + as-of date.
+4. **Retrospective depth** — "on this day" + per-year in v1; first-listen dates / "this year vs last" deferred.
+5. **Storage + signal shape** — 100k–500k rows is trivial for *storage*, but aggregation must be SQL GROUP BY + indexed (not load-all-rows). Separately, the **count-signal shape** is unknown until the real import (the 18-day poller shows 65% single-play) — do a post-import sanity read (top-N repeat counts) before committing the front to a count-ranked "favorite" headline.
+6. **Dedup precision** — `ts` is second-precision stream-end → two genuine same-second replays of one URI collapse under `ON CONFLICT` (small systematic undercount of heavy-rotation/skip behavior). Accept as a logged ~0.x% undercount, or add a tiebreaker (e.g. include `ms_played`)? Verify on a real Audio↔endsong overlap.
 
 ## Decisions log
 
@@ -67,5 +72,11 @@ The owner can import their Spotify **Extended Streaming History** (GDPR data exp
 | 2026-06-22 | — | Ingestion = **local script**, no web-upload UI in v1 (owner packaging choice + $0/local pattern). |
 | 2026-06-22 | — | Display filters = import defaults (exclude skipped / <30s / local / podcasts); store raw (owner). |
 | 2026-06-22 | — | Do **not** store IP / user-agent fields (privacy; not needed for any feature). |
+| 2026-06-22 | review | **Two-pass resolution**: import-time best-effort + a re-runnable `--resolve-only` backfill (cataloging never re-touches historical rows; same latent gap already exists for `spotify_track_play_events`). |
+| 2026-06-22 | review | **Coverage gate** after import: album/era/genre panels wait on a measured resolution rate; denormalized count/time top tracks/artists ship ungated. |
+| 2026-06-22 | review | **`ms_played` BIGINT**; aggregation via SQL `GROUP BY` (not load-all-rows `rank_counts`); V27 indexes `(album_id)`,`(track_id)`,`(ts)`. |
+| 2026-06-22 | review | Retrospective/era bucketing in **`Asia/Seoul`** (export `ts` is UTC). |
+| 2026-06-22 | review | Import↔poller seam explicit: import is the lifetime source; surface its `as_of` as the horizon caption; never silently union the two grains (double-count). |
+| 2026-06-22 | review | Script home = `myblog_shared_db/scripts/` (DB-mutating, like `backfill_genres.py`), not workspace `scripts/`. |
 
 Source / rationale: `docs/reviews/2026-06-22/analysis-bucket-statsfm-research.md` (§2 import mechanics, §5 brainstorm, §6 recommendation; coverage diagnosis §9; UX/design patterns §9.4).
