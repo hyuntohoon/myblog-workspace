@@ -1,6 +1,6 @@
 # CHORE-secrets-ssm-migration: Move all secrets from Secrets Manager → SSM Parameter Store
 
-- **Status**: accepted
+- **Status**: done (2026-06-22 — fully migrated + prod-validated; bill ~$0.40/mo)
 - **Owner**: 박지훈
 - **Created**: 2026-06-22
 - **Plan row**: `plan.md` → CHORE-secrets-ssm-migration
@@ -186,12 +186,12 @@ Confirm via console Cost Explorer (USAGE_TYPE `APN2-SecretsManager-Secrets`) the
 2. Applied `#414` (additive IAM + empty env), `terraform plan` clean (8 add / 4 change / 0 destroy).
 3. Flipped `SECRETS_PARAM`/`SPOTIFY_SECRETS_PARAM` per service + applied. **Verified in prod:** backend prod smoke 28/0 (CRUD + edge_guard) + zero SSM-fallback logs; music smoke search; worker invoke 200; spotify **write-back to SSM confirmed** (`last_successful_refresh_at` 00:57→02:16) + zero fallback logs across all log groups. Every service reads SSM, not the SM fallback.
 
-**Step 7 — REMAINING (this is where the bill drops; not yet done):**
-- `scripts/` (health.sh, research_poller, editor_buckit, buckit_nightly, genre_heal_poller, spotify_bootstrap_token) still read Secrets Manager — migrate to `aws ssm get-parameter` first.
-- `myblog/test-db` + `myblog/neon-api` have **no readers** (audit) → deletable now (−$0.80/mo); SM restore window is the backstop.
-- backend/music/worker/spotify/smoke SM secrets + `SECRETS_ARN`/`SPOTIFY_SECRETS_ARN` env + `secretsmanager:*` IAM grants: delete after the observation window (they are the dual-source fallback net — deleting removes it). **Bill reaches ~$0 only after this.**
+**Step 7 — DONE (workspace `#418`, applied + prod-validated):**
+- `scripts/` (health.sh, research_poller, editor_buckit, buckit_nightly, genre_heal_poller, spotify_bootstrap_token) migrated to `aws ssm get-parameter`/`put_parameter` (verified `research_poller.database_url()` reads SSM). **They run locally as `claude_aws_manager` → that user's inline `claude-ssm-myblog` policy (ssm:Get/Put on `parameter/myblog/*` + kms-via-ssm) MUST stay or the local pollers/nightly break.**
+- Removed `SECRETS_ARN`/`SPOTIFY_SECRETS_ARN` env + 5 `secretsmanager:*` IAM policies + 6 attachments + 4 data sources (`terraform apply` 0add/4change/11destroy; final `terraform plan` = No changes). Lambdas read SSM-only — verified smoke 28/0 + worker 200 with no SM fallback/IAM.
+- Deleted 7 SM secrets (backend/worker/music/spotify/smoke/test-db/neon-api), 30-day recovery window (restorable via `restore-secret`).
 
-**Cost status: NOT yet realized.** All 8 SM secrets still exist ($3.20/mo) + 6 free SSM params. The drop happens at Step 7 deletion.
+**Cost: REALIZED. 1 active SM secret (`myblog/anthropic`, ~$0.40/mo) + 6 free SSM Standard params → ~$0.40/mo (<$1).** anthropic stays in SM until FEAT-ai-editorial-critique ships (RFC Step 6). The 7 pending-deletion secrets aren't billed (AWS doesn't charge secrets scheduled for deletion); confirm in Cost Explorer next cycle (`APN2-SecretsManager-Secrets`).
 
 ## Owner runbook
 
