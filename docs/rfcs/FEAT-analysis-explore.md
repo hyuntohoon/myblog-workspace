@@ -1,7 +1,9 @@
 # FEAT-analysis-explore
 
-**Status:** accepted
+**Status:** done
 
+> **Done 2026-06-23** (owner-approved close, rule #5) — all three capabilities shipped in one coordinated cross-repo pass and prod-smoked. Time-range + item drill-down + listening clock, all re-aggregating the existing `_unified_events` union (no new ingestion / ML / schema). Additive contract (+2 paths, +3 schemas, +`from`/`to` params). PRs: workspace #437, backend #91, front #201 (merge order contract → backend → front). Prod smoke 2026-06-23: clock self-consistent (cell-sum 3252 == total), range 전체 3,252 → 이번달 948, drill-down 키드밀리 274 (10 tracks / 4 albums), 404/422 guards; deployed front bundle carries the new UI; read-only prod invariants (partition-sum, drill==panel, `as_of`-invariant) hold; pre-merge real-browser CDP click-through (console 0). The 4-dimension adversarial review returned zero findings. Full writeup → `docs/archive/done/2026-06.md`; `git log` authoritative. NB all current import data is calendar-2026, so the 연도/시대 dropdowns are data-gated (appear as more history imports). Custom date-picker + writing-screen evidence + "intensity" metric remain deferred (non-goals).
+>
 > **Accepted 2026-06-23** (owner) — draft → accepted on explicit owner approval (rule #5). Owner also authorized **single-pass completion** (build all capabilities in one coordinated cross-repo pass — contract → backend → front — rather than the 6-session cadence; rule #4 escape (b) "user explicitly OKs"). The per-step prod-observe gates are waived for this build; verification rides the per-PR local + post-merge prod smoke instead.
 >
 > Follow-on to the shipped **FEAT-listening-history-import** (closed 2026-06-23) + **FEAT-listening-live-merge** (closed 2026-06-23). Those gave the 분석 버킷 a lifetime **aggregate** import source (one continuous lifetime + live signal). This RFC makes that source **explorable**: filter by time period, drill into any artist/album/track, and see *when* you listen (clock). All over the already-owned data — no new ingestion, no ML, no external cost.
