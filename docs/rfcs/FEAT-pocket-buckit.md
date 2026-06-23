@@ -1,18 +1,18 @@
 # FEAT-pocket-buckit: Pocket Buckit — the canonical Buckit product + interaction definition (design exploration)
 
-- **Status**: draft
+- **Status**: in-progress (promoted from draft 2026-06-24 with explicit owner approval — design decided, Pocket Buckit Design Atlas + an interactive configurator built on claude.ai/design, OQ 1–5 resolved as a **user-selectable design setting**, execution plan finalized below via a 7-agent audit+design+review workflow)
 - **Owner**: TBD
 - **Created**: 2026-06-23
 - **Plan row**: `plan.md` → FEAT-pocket-buckit
 - **Related**: `docs/rfcs/FEAT-bucket-identity.md` (now reframed as the **compatibility / migration / integration** track — existing review buckets + `들을 것` + public collections — that aligns to *this* model), `docs/rfcs/FEAT-multi-user-accounts.md` (deferred multi-user scope), `docs/rfcs/FEAT-liked-tracks-workbench.md` (the `분석 버킷` track→album promote path)
 
-> **This RFC is the latest, canonical product + interaction definition for Buckit.** It is still a
-> **draft** and still requires a visual **Pocket Buckit Design Atlas** (Appendix A) before any
-> implementation. Several product questions are now **decided** (see *Canonical product direction*); what
-> remains open is split into **Design-Atlas decisions** (final UI form) and **technical-validation
-> decisions** (how to build it) — see *Open questions*. `Steps` stay TBD until the atlas exists and the
-> technical-validation items are resolved. This document does not implement code, change schemas, create
-> migrations, change APIs, or convert into an execution plan.
+> **This RFC is the latest, canonical product + interaction definition for Buckit, now IN PROGRESS.** Product
+> direction, technical-validation (OQ 6–12), and the Design-Atlas UI (OQ 1–5) are all **decided** — the latter
+> as a **user-selectable `design` setting** (the Design Atlas + an interactive configurator were built on
+> claude.ai/design). The **execution plan is finalized** (see *Steps*) and the RFC is **promoted to
+> in-progress** with explicit owner approval (2026-06-24); push/merge are owner-pre-approved. Build proceeds
+> **front-first**: the selectable-design tray on the existing bucket API ships before the
+> generalized-membership backend.
 
 ---
 
@@ -92,6 +92,11 @@ validation*).
   horizontal **quick-access projection** of it (see *Tree model*).
 - **D8 — Settled behaviors** for duplicates, ordering, confirmation, and deletion safety (see *Decided
   behaviors*).
+- **D9 — The design is a user-selectable setting (decided 2026-06-24).** The Pocket entry-control, tray-shell
+  (+weight), ordering, overflow, tree-depth, and quick-inspection are **not** a single hard pick — they are a
+  persisted `design` setting the owner switches at will, shipped with a recommended default and **every value
+  usable** (all designs selectable). The Design Atlas + an interactive configurator (claude.ai/design) are the
+  blueprint. See *Open questions → Design-Atlas decisions* + *Steps*.
 
 ---
 
@@ -441,16 +446,49 @@ reduced-motion. End with a **coverage checklist** mapping every option/state to 
 
 The product direction is decided (above). The **technical-validation** group is now **resolved
 (2026-06-23)** — recorded below as findings/decisions with residual sub-forks deferred to implementation.
-What remains genuinely open is the **Design-Atlas** group, resolved by rendering the atlas (Appendix A) and
-choosing; it does **not** block the atlas from starting.
+The **Design-Atlas** group is now **RESOLVED (2026-06-24)** — the atlas + an interactive configurator were
+built (claude.ai/design) and OQ 1–5 are decided as a **user-selectable `design` setting** (below). No open
+questions remain; the RFC is promoted to **in-progress** with a finalized execution plan (see *Steps*).
 
-### Design-Atlas decisions (still open — resolved by rendering + choosing)
+### Design-Atlas decisions (RESOLVED 2026-06-24 — design is a user-selectable setting)
 
-1. Final Pocket **entry-control model** (one toggle vs two same-tray vs two filtered-views).
-2. Final **horizontal tray-shell family**.
-3. **Tray ordering and overflow** behavior (pinned vs recent vs contextual; scroll vs paginate vs search).
-4. **Tree-navigation depth** reachable inside Pocket (how deep before handing off to the full page).
-5. **Quick-inspection / edit** surface form.
+**Binding decision: the design is not a single hard pick — it is a user-selectable `design` setting** (the
+five atlas axes), persisted client-side, with the *recommended combo* as the shipped default and **every
+value switchable** (owner directive: all designs usable via settings). The atlas configurator's axis
+structure is the blueprint (one source of truth). Decisions:
+
+1. **OQ1 — Entry-control model:** selectable; **default = single persistent toggle**; switchable to
+   dual-same-tray and (later) dual-filtered-views. Single is the lowest-risk D6-invariant-compliant baseline
+   (re-click closes, tray stays open after drop, horizontal bottom-anchored, no left/right branch ambiguity).
+2. **OQ2 — Tray-shell family:** selectable across **F1–F6 + an Editorial/Light weight** (forced light for
+   F5/F6); **default = F2 editorial-shelf at LIGHT weight**. F2 keeps named, individually-droppable
+   destination *containers* (at-a-glance "which bucket receives this") and mixes into the editorial house
+   style; the owner's LIGHT lean is routed into the *weight* axis (translucent, page shows through) while
+   **F5 floating-pill / F6 sticker-shelf ship real and selectable** for maximum lightness.
+3. **OQ3 — Ordering & overflow:** both selectable; **defaults = order `pinned` · overflow `more (+N)`**;
+   order switchable to recent/contextual, overflow to scroll/search. Pinned never reshuffles (the
+   "spatially stable during a drag" invariant); "more" is the legible non-gestural handoff.
+4. **OQ4 — Tree-navigation depth:** selectable; **default = depth 1** (one folder expand to its leaves, then
+   hand off to the full page — the RFC's own recommended balance). Depth 0/2 selectable; depth 2 carries the
+   explicit "don't become a vertical folder explorer" anti-goal warning.
+5. **OQ5 — Quick-inspection surface:** selectable; **default = inspect-above-tray** (rises as one paired
+   surface, identical desktop/mobile); switchable to card/side/drawer.
+
+Cross-cutting: no default depends on HTML5 drag (the non-drag "Add to…/Move to…" peer is the WCAG-2.5.7
+PRIMARY path on touch); the editorial F1–F4 engine is animation-free and the light F5/F6 animations are
+`prefers-reduced-motion`-guarded, so the **F2-light default is reduced-motion-safe by construction**.
+
+### Design-settings architecture (decided 2026-06-24)
+
+A single typed `PocketBuckitDesign` object (the five axes + `schemaVersion`), persisted as one atomic
+localStorage blob under `pb:design` (single-owner; future per-owner = additive `pb:design:<sub>` — **no**
+`owner_id`, no global-singleton shape, per D5/OQ12). A pure `normalizeDesign()` coerces F5/F6→light and
+clamps unknown/removed enums back to the default (graceful forward-compat). Components reuse the
+configurator's variant-dispatch verbatim: a **single `PocketTray` dispatcher** selects the engine by
+`shell+weight` (never a per-variant fork), the option tables + live-preview settings panel are lifted from
+`atlas-configurator.jsx` (settings UI and configurator share one source of truth), surfaced in `/profile` +
+an inline gear on the open tray. Gated (not-yet-wired-to-data) variants are **disabled** in the picker, not
+silently no-op.
 
 ### Technical-validation findings (resolved 2026-06-23)
 
@@ -510,23 +548,141 @@ shape in new tables). Findings (evidence + sources in the workflow research log)
 
 ---
 
-## Steps
+## Steps (execution plan — finalized 2026-06-24, promoted to in-progress)
 
-**Gated only on the Design Atlas now** — the technical approach is resolved above. Once the atlas picks the
-entry-control + tray-shell form, the **likely step order** (each independently mergeable, standard
-cross-repo rollout per `CLAUDE.md`) is sketched below. **This sketch is NOT yet an execution plan** — it is
-finalized into concrete Steps only after the atlas; rule #4 (one RFC step per session) applies to the
-STEP-1/STEP-2 schema gap.
+**Re-sequenced front-first** (owner directive: the design implementation must be *actually applied*, with
+**all** designs usable via a settings option). The Pocket **design layer** — the user-selectable-design
+horizontal tray wired to the **existing album-only** bucket API — ships **first**, so the visible, switchable
+design is real before the generalized-membership backend exists; the deeper item types, snapshots, playback,
+and sign-in resume then **extend** it. Each step is independently mergeable (standard cross-repo rollout per
+CLAUDE.md). **Push/merge are owner pre-approved (2026-06-24).**
 
-1. **shared_db** — STEP-1 membership widening (`item_type` + nullable typed FKs, additive) + the snapshot
-   side-table + the `playback_queue` bucket-kind; prod-apply.
-2. **backend** — generalized `add_item`/serializers branching on `item_type`; snapshot-capture read+insert;
-   the async `playback/spotify-token` mint endpoint; the public-drop endpoint — each a new Cognito-JWT
-   `apigateway.tf` route; openapi contract regen.
-3. **front** — the chosen tray shell + entry control; the Spotify Web Playback SDK integration; the sign-in
-   handoff resume-checker; `api.gen.ts` regen.
-4. **shared_db** — STEP-2 relax (`album_id` NOT NULL drop + per-kind partial-uniques) once front reads
-   `item_type`; fold `들을 것`.
+**Invariants carried into execution** (from the safety + sequencing review):
+- **rule #4** — the two schema steps (**Step 2** / **Step 6**) are SEPARATE sessions with a prod-observe gap.
+- **rule #9** — playback is a client SDK + an async token-mint, never a synchronous Spotify call.
+- **Contract chain** (strict order) — backend `openapi.json` export *in the backend PR* → workspace
+  `scripts/merge_openapi.py` regenerates `docs/contracts/openapi.json` → front `pnpm generate:types`
+  regenerates `api.gen.ts` (front CI diffs → fails on drift). These are three distinct artifacts; do not
+  collapse the backend export and the workspace merge.
+- **Schema-parity gate** — any `shared_db` model change requires regenerating `_generated_schema.sql` **and**
+  editing `tests/canonical_schema.sql` in the same PR or `test_schema_parity.py` fails. shared_db **and**
+  backend have no real PR-stage CI gate → **local `pytest`+lint(+openapi-diff) is the merge decision**.
+- **OQ12** — no new table/index uses the global-singleton shape (no `(TRUE)` partial-unique / `CHECK(id=1)`;
+  that shape exists only on *legacy* `review_buckets`/`spotify_now_playing`).
+- **owner read** — use `claims.get('sub')` with a single-owner fallback; `require_cognito_token` returns `{}`
+  in local/dev, so a bare `claims['sub']` KeyErrors.
+
+1. **front — Pocket design layer on the EXISTING bucket API (no backend/schema dependency).** The
+   selectable-design tray, actually applied. `src/lib/pocketBuckit/design.ts`: `PocketBuckitDesign` type +
+   frozen `POCKET_DESIGN_DEFAULTS` (`entry:single · shell:f2 · weight:light · order:pinned · overflow:more ·
+   treeDepth:1 · inspect:above · schemaVersion:1`) + the axis OPTION TABLES lifted from
+   `atlas-configurator.jsx` (one source of truth with the configurator) + a pure `normalizeDesign()`
+   (coerce f5/f6→light, clamp unknown enums to default, fill missing axes). Persistence = one atomic
+   localStorage key `pb:design`, SSR-safe (`typeof window` guard), schemaVersion-migrated, corrupt→silent
+   default (mirror the existing theme provider). `src/components/member/pocket/`: `PocketBuckitProvider`
+   (context = resolved design + runtime tray state; `usePocketDesign()`/`usePocketTray()`; mounted ONCE in
+   `layout.astro`), `PocketEntry` (entry variants), `PocketTray` (the **single dispatcher** —
+   `shell∈{f5,f6}||weight==='light' → LightTray else EditorialTray`; ports `atlas-tray.jsx` F1–F4 +
+   `atlas-light.jsx` F1L–F4L/F5/F6 from window-globals to ES modules, fixtures→live buckets),
+   `PocketBucketTarget`, `PocketOverflow`, `PocketTreeNav`, `PocketInspect`, `AddToBucketMenu` (the non-drag
+   **WCAG 2.5.7** peer — PRIMARY on touch — reusing `BucketPickerSheet.tsx`). Settings: `PocketDesignSettings`
+   hosted in `/profile` (ProfileApp) + an inline gear on the open tray → the same panel as a bottom sheet;
+   **live preview** bound to the in-progress selection; a `추천` badge on each default; gated values are
+   **disabled, not just labeled**. **All 6 shells + every axis value are real and selectable** (the owner
+   directive — all designs usable); the only later-gated items are those that need data from a deeper step
+   (generalized item types, playback). Wire to the **existing** `GET /api/buckets` + the current album
+   add/move/remove (`src/lib/buckets.ts`) — album membership only for now. New `--z-pocket ≈70` token in
+   `global.css` (between progress 60 and overlay 80; do not reuse 50/60). Mount in `layout.astro` after
+   `<Footer/>` (covers profile + review; the writer's `write-layout.astro` stays OFF in v1). **Acceptance:**
+   `pnpm lint` (antfu, before commit) + `astro check` on Node 20 (.nvmrc 20.19.5); a real-browser CDP
+   click-through of entry open/close, an album drop with bucket-local Undo, incompatible-stays-in-place (no
+   reflow), the touch AddToBucketMenu path, and the settings panel switching **every** axis with live preview
+   persisting across reload (functional-setState multi-select correctness only surfaces in a live
+   click-through). **Gate:** prod smoke of the deployed bundle (classNames survive minify); observe one clean
+   cycle.
+
+2. **shared_db — STEP-1 additive membership widening + snapshot side-table + playback_queue kind (V28/V29)**
+   [rule #4 schema step A]. `V28__review_bucket_items_generalize.sql` (BEGIN…COMMIT): `ADD COLUMN item_type
+   TEXT NOT NULL DEFAULT 'album' CHECK item_type IN ('album','track','review','playback','snapshot')`; `ADD
+   COLUMN track_id UUID NULL REFERENCES tracks(id) ON DELETE CASCADE`; `ADD COLUMN review_target_id UUID NULL
+   REFERENCES posts(id) ON DELETE CASCADE` (**DISTINCT** from the existing `post_id` = "the review this album
+   PRODUCED", SET NULL) + supporting indexes + one-line DROP-COLUMN rollback per the V18/V22 idiom.
+   `V29__bucket_item_snapshots.sql` (side-table mirroring V15: `item_id` FK CASCADE, kind, `as_of`/
+   `captured_at`, metric/from/to/unit/totals/unresolved/unclassified, `frozen` JSONB NOT NULL,
+   `source_album_ids UUID[]` + GIN index, `schema_version`, `refreshed_from` self-FK; **APPEND-ONLY**; **no**
+   singleton shape). `playback_queue` kind needs no enum widening (`kind` is free TEXT) — **do NOT** add a
+   per-kind singleton partial-unique. `models.py` (import `ARRAY` — net-new here; JSONB already imported),
+   export `BucketItemSnapshot`, **regen `_generated_schema.sql` + edit `canonical_schema.sql`**, bump
+   `pyproject` + tag. **Do NOT** relax `album_id NOT NULL`/UNIQUE here (that is Step 6). **Gate:** human
+   applies V28+V29 to Neon prod (rule #3) and confirms columns exist **before** the backend pin bump
+   (reference-shared-db-cross-repo-rollout).
+
+3. **backend — generalize add_item/serializers on item_type + snapshot-capture + async playback token +
+   JWT public-drop.** Bump the shared_db git pin (read the REAL pin in pyproject/requirements; README is
+   stale at v0.5.0). `schemas.py`: widen `AddBucketItemRequest`/`BucketItemResponse` with `item_type` + a
+   typed payload (non-album rows serialize **without** a required nested `AlbumBrief`) + Playback-token /
+   public-drop / SnapshotCapture schemas. `bucket_service.add_item`: branch on `item_type` (keep the exact
+   album path: Album lookup + `_score` seeding + UNIQUE dedup; resolve+validate typed targets for the other
+   kinds; per-kind duplicate policy D8; seed position separately for non-album kinds — `_score` is
+   album-typed); snapshot-capture = read `library/stream-history` aggregate + **append-only INSERT** (never
+   UPDATE; rule #9 safe); a short-lived Spotify-token **mint/refresh-only** helper (no inline Spotify content
+   call). `buckets.py`: branch `_item_response`/`_album_brief` (today `str(item.album_id)` is unconditional →
+   500s on non-album rows); album-only auto-research enqueue. NEW `routes/playback.py` `GET
+   /api/playback/spotify-token` (Cognito-JWT). Public-drop = an **explicit Cognito-JWT route** reading owner
+   from `claims.get('sub')` (first sub consumer; **no `owner_id` in v1**). `infra/apigateway.tf`: one
+   `aws_apigatewayv2_route` per new endpoint (`authorizer_id=cognito`) — the token GET as its **own** explicit
+   route, NOT the `GET /api/{proxy+}` edge_guard catch-all. `make export-openapi` + commit `openapi.json` in
+   the **same PR**. **Acceptance:** local pytest+lint (no local DB → defer to prod smoke; **local
+   pytest+lint+openapi-diff is the merge decision**); `GET /api/buckets` serializes a mixed album+non-album
+   bucket without 500; probe routes live with `curl -X` (401=live vs 404). **Must-fix probe:** the token route
+   **rejects an edge-only request** (x-origin-verify, *no* Bearer) with 401/403 — proving it did not fall into
+   the edge_guard catch-all (else any CloudFront-fronted request mints a streaming token). **Gate:** human
+   applies the apigateway routes; prod smoke quoted in the PR comment; public-drop confirmed JWT-gated
+   (`curl` 401 not 404) reading owner from sub, before front wires the drop.
+
+4. **workspace — regenerate the merged contract.** `scripts/merge_openapi.py` → `docs/contracts/openapi.json`
+   (merge workspace first so the service notify is a no-op — reference-workspace-contract-merge-order). This
+   is a distinct artifact from the backend export; it unblocks the front regen. **Gate:** merged contract on
+   main **before** Step 5's `api.gen.ts` regen.
+
+5. **front — generalized item types + playback SDK + sign-in resume + drop sources (extends Step 1).** Extend
+   `PocketTray`/`PocketBucketTarget` for track/review/playback/snapshot members + source-preserving
+   conversion (track→album parent confirm; album→"add 14 tracks?" order-preserved) + the snapshot drop. NEW
+   `src/lib/spotifyPlayback.ts` — **lazy-load `sdk.scdn.co/spotify-player.js` only on an explicit play
+   action** (never at tray mount; public review pages must not pull the SDK or mint a token for anonymous
+   visitors), init with `getSpotifyStreamingToken()` = `apiFetch GET /api/playback/spotify-token`;
+   provider-neutral identity resolved at play; Premium-only, non-Premium → 30s preview / disabled; rule #9.
+   `auth.ts`: a per-listener Spotify `streaming` consent (separate from Cognito PKCE; today's SCOPES carry
+   none) that must **not** alter the existing login for non-playback users. NEW `pocketResume.client.ts`
+   (mounted on home — callback forces `location.replace('/')`): **single-drain, idempotent, TTL-bounded**
+   replay of the pending-intent (route reads owner from JWT sub, never the body). Wire drop SOURCES: LikedBoard
+   (track→parent album, catalogued-gated), charts/ImportAnalysis (album add + signal→snapshot), the review
+   tracklist handle, `atoms.tsx RowAction`. **Regen + commit `api.gen.ts`** (`pnpm generate:types`, Node 20)
+   after the merged contract lands. **Acceptance:** lint + astro check; CDP click-through incl. a generalized
+   add + a conversion confirm; api.gen.ts no drift. **Gate:** public-page drop tolerates 401/403 →
+   goLogin → home-resume; prod smoke quoted; Spotify Dev-Mode 5-user cap → file the extended-quota request
+   before any multi-user launch (out-of-band, not a v1 merge blocker).
+
+6. **shared_db — STEP-2 relax (V30/V31)** [rule #4 schema step B — SEPARATE session]. Relax `album_id NOT
+   NULL`; replace `uq_review_bucket_items_bucket_album` with **per-kind partial-uniques** (album/review/
+   research reject dupes; playlist/playback_queue allow — D8); fold `album_to_listen_items` via
+   `INSERT…SELECT` into a system bucket (old table kept as a deprecated read-through until front cutover).
+   Regen schema + canonical. **No** global-singleton shape. **Acceptance must-fix:** after V30/V31 an
+   album-row **duplicate INSERT still raises** (the new per-kind partial-unique must cover `album` — the
+   dropped named UNIQUE was the old dedup that `bucket_service.add_item` relies on; confirm against prod).
+   **Gate (rule #4 + serializer hazard):** the `item_type`-branching serializer (Step 3) must already be
+   **PROD-deployed and verified** serializing a mixed bucket **before** this relax, else the first non-album
+   row 500s the whole `GET /api/buckets` board. Separate session from Step 2; human applies to Neon prod
+   (rule #3); confirm no album-row regression before dropping the plan.md row. Note: re-adding `album_id NOT
+   NULL` is **not** trivially reversible once non-album rows exist — kept in its own migration so V28 stays
+   cleanly rollback-able.
+
+> **Continuation pointer (for an uninterrupted multi-session build):** Step 1 (front design layer) is first
+> and dependency-free. Build order: **1 → 2 → 3 → 4 → 5 → 6**. Steps 2 and 6 are the rule-#4 schema pair
+> (separate sessions). If Step 1 or Step 5 grows too large for one PR, split at the marked sub-boundaries
+> (Step 1: tray+settings as 1a, drop-source wiring as 1b; Step 5: item-types as 5a, playback+resume as 5b) —
+> the dispatcher is never forked, only extended. The design defaults + the must-fix guards are recorded in
+> memory `reference-pocket-buckit-execution-plan`.
 
 ## Decisions log
 
@@ -536,6 +692,7 @@ STEP-1/STEP-2 schema gap.
 | 2026-06-23 | Corrections v2: bucket-local Undo (not a global toast); incompatible drop targets stay visible/stable during a drag; bucket-target invariant across all tray shells; Design Atlas repackaged into four numbered boards + a coverage checklist. | — |
 | 2026-06-23 | Corrections v3 (this version is canonical): Pocket Buckit is the canonical top-level product/interaction definition; FEAT-bucket-identity reframed as its compatibility/migration/integration track (absorb-question answered: yes). Generalized **membership** decided (item↔bucket relationship, not a copy; "membership" ≠ paid/multi-user). Tree ("My Buckit") canonical; Pocket = its projection (parent=folders, leaf=actionable). Move/add/transform semantics fixed (internal MOVE default + Undo; external ADD; source-preserving conversion). Notes narrowed (standalone Notes/Reference deferred). Ordinary listening-add ≠ snapshot (no auto stat-copy; snapshots frozen). **Playback aims for real playback** (Spotify→YouTube, provider provisional). **Summary** auto-async + bell/badge (not manual-refresh-first). Multi-user deferred (v1 single-owner; not an atlas blocker; keep scoping possible). **Entry-control count re-opened** (1 or 2 controls; single-control comparison restored; dual-non-negotiable wording removed). Decided behaviors fixed (duplicate/ordering by type; album→track order preserved; same-type move no-confirm; conversion/expansion confirm; delete→archive; parent child-handling). Open Questions split into Design-Atlas vs Technical-validation. | — |
 | 2026-06-23 | Technical-validation OQs **resolved** (10-agent research/design workflow + owner decisions). **Playback v1 = Spotify Web Playback SDK (Premium, per-listener `streaming` OAuth, client-side; rule-#9 token-mint); YouTube deferred** (provider-neutral track identity keeps it possible). **Membership = staged in-place widening** of `review_bucket_items` (`item_type`+nullable typed FKs; relax in STEP 2; fold `들을 것`). **Snapshot = side-table** (typed header + `frozen` JSONB + `source_album_ids[]` + `schema_version`, append-only refresh). **Queue = hybrid** (server ordered+dup-allowed membership `kind='playback_queue'`; client-ephemeral playhead; internal save-to-playlist). **Sign-in handoff = localStorage thin-intent + Cognito PKCE + single-drain resume**; drop route must be explicit Cognito-JWT. **Multi-user = defer all** (owner decision) — no `owner_id` now; the one rule: new tables avoid the global-singleton shape. Steps now gated only on the Design Atlas. | — |
+| 2026-06-24 | **Design Atlas + interactive configurator built** (claude.ai/design project `cf932975` — `Pocket Buckit configurator.html` + `atlas-configurator.jsx`; clickable 5-axis configurator over the atlas engines). **OQ 1–5 resolved** as a **user-selectable `design` setting** (default = single-toggle / F2-editorial-light / pinned / more / depth-1 / inspect-above; all axes switchable, all 6 shells real — D9). **Design-settings architecture decided** (`PocketBuckitDesign` blob under `pb:design`, single `PocketTray` dispatcher, configurator as blueprint). **Execution plan finalized** via a 7-agent audit+design+review workflow; both adversarial-review must-fixes baked in (`claims.get('sub')`; token-route edge-only probe; STEP-2 gated on serializer-prod-deployed + album-dup-survives-the-swap; 3-artifact contract chain; gated-variants-disabled). **Promoted draft→in-progress with explicit owner approval; push/merge owner-pre-approved.** Re-sequenced **front-first** (design layer on existing buckets ships before the membership backend). | All |
 
 ---
 
