@@ -1,7 +1,8 @@
 # FEAT-listening-live-merge
 
-**Status:** draft
+**Status:** accepted
 
+> **Accepted 2026-06-23** (owner) — draft → accepted; Step 1 (backend as_of-union) starts the same session. Status flipped on explicit owner approval (rule #5).
 > Follow-on to the completed **FEAT-listening-history-import** (closed 2026-06-23, `docs/archive/done/2026-06.md`). That RFC deliberately kept the lifetime import and the live poller as **separate** sources ("never silently union the two grains — double-count"). This RFC does the union **safely**, via a time boundary rather than per-row dedup, and folds the live poller into the import source so the 분석 버킷 shows one continuous **lifetime + live** signal.
 
 ## Goal
