@@ -8,6 +8,16 @@
   read-only inspection mapped the current bucket surface; this RFC records the
   directions so B/C aren't lost.
 
+> **2026-06-23 — relationship update.** `docs/rfcs/FEAT-pocket-buckit.md` is now the
+> **canonical top-level product + interaction definition** for Buckit. This RFC is
+> hereby scoped as the **compatibility / migration / integration** track for the
+> *existing* review buckets, the `들을 것` data, and the public-collection (Direction D)
+> work — it **aligns to** the Pocket Buckit bucket model rather than competing with it.
+> Direction C ("one shelf object") is **subsumed** by Pocket Buckit's generalized-membership
+> direction; the open part is the *technical migration*, tracked in
+> `FEAT-pocket-buckit` → Open questions → Technical-validation. Directions A/B/D stay valid
+> as legacy-surface work that must conform to the Pocket Buckit model.
+
 ---
 
 ## Goal
