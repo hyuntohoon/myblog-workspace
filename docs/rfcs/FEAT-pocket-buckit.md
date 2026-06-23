@@ -59,14 +59,20 @@ validation*).
   membership. Today the repo has an **album-only** relationship via `review_bucket_items`. Buckit will use
   a **generalized bucket-item relationship** that can support albums, tracks, reviews, playback entries,
   and snapshot items. A bucket item is a **non-destructive relationship to a source object or a snapshot,
-  not a copy of the source.** *Whether* to add generalized membership is **decided (yes)**; *how* is a
-  technical-validation decision (migration/coexistence with `review_bucket_items`, preserving the
-  review-pipeline fields `status`/`research_selected`/`post_id`/existing album-review notes, one new table
-  vs a staged migration, and snapshot representation).
-- **D3 — Playback aims for real playback.** The Playback bucket aims for **actual in-product playback**
-  (not merely intent-recording or a queue snapshot). Provider order: **evaluate Spotify first; if Spotify
-  constraints / platform / licensing limits make it insufficient, evaluate YouTube as a fallback
-  candidate.** Provider behavior is **provisional** until technical validation (see *Open questions*).
+  not a copy of the source.** *Whether* to add generalized membership is **decided (yes)**; *how* is now
+  **resolved (2026-06-23): a staged in-place widening of `review_bucket_items`** (add `item_type` default
+  `'album'` + nullable typed FKs; relax `album_id NOT NULL`/UNIQUE in a follow-up step; fold `들을 것` via
+  `INSERT…SELECT` into a system bucket) — the album review-pipeline fields stay untouched on album rows.
+  See *Technical-validation findings* OQ6.
+- **D3 — Playback aims for real playback; v1 = Spotify Premium.** The Playback bucket aims for **actual
+  in-product playback** (not intent-recording or a queue snapshot). **Resolved (2026-06-23): v1 uses the
+  Spotify Web Playback SDK** — full-track, client-side; requires the **listener's own Spotify Premium** +
+  a **per-listener OAuth `streaming` scope** (separate from the read-only worker token); rule #9 holds
+  (only an async token mint, no synchronous Spotify on a user-facing endpoint). Membership stores a
+  **provider-neutral track identity** (ISRC / artist+title) resolved to a provider id at play time, so a
+  **YouTube fallback is DEFERRED** (kept possible, not built — its ToS forbids background/audio-only and
+  metadata matching runs ~34% wrong-version). Non-Premium listeners get a preview/disabled state. Provider
+  remains **provisional**. See *Technical-validation findings* OQ8/9.
 - **D4 — Summary is automatic + asynchronous.** Dropping material into a Summary bucket **auto-starts**
   an asynchronous summary, shows the bucket as **processing**, and signals **completion** with a visible
   indicator (bell/badge) on the bucket and the Pocket tray. Manual regenerate may exist later, but the
@@ -287,17 +293,27 @@ transforming, playing, summarizing, and preparing music/review material.
   An explicit future **"refresh with current data"** action may exist, but it **never silently overwrites**
   the historical snapshot.
 
-### Playback (decided goal — D3)
+### Playback (decided goal — D3; v1 resolved 2026-06-23)
 
 The Playback bucket aims for **actual in-product playback** (Play now / Play next / Add to queue — explicit
-insertion positions). Preferred provider order: **Spotify first; YouTube as a fallback candidate** if
-Spotify constraints make it insufficient. The Design Atlas shows playback as a **real intended user
-action** while **clearly labeling provider behavior as provisional** until technical validation. A queue
-is more session-like than a stored playlist (a "Save queue to playlist" bridge converts a session into a
-stored collection). Unresolved technical/product items (see *Open questions*): Spotify playback feasibility
-/ eligibility; whether a YouTube fallback is necessary/acceptable; Spotify→YouTube matching policy;
-provider attribution + user expectations; queue persistence/recovery; legal/terms/platform-policy review;
-asynchronous architecture constraints (rule #9).
+insertion positions). **v1 = the Spotify Web Playback SDK**: full-track, gapless, client-side JS (fits the
+S3 + CloudFront + Astro/React stack), requiring the **listener's own Spotify Premium** and a **per-listener
+OAuth `streaming` (+ `user-read-email`/`user-read-private`) scope** — the existing read-only worker token
+**cannot** carry streaming, so this is a **new per-listener consent**. **rule #9 holds**: the play path is
+client-side; the server only async-mints/refreshes a short-lived token (e.g. `GET /api/playback/spotify-token`),
+never proxying a Spotify content call inline. Membership/snapshots store a **provider-neutral track
+identity** (ISRC / artist+title) resolved to a provider id at play time, so the provider stays
+**provisional/switchable**. **YouTube fallback is DEFERRED** (kept possible by the provider-neutral design,
+not built in v1) because: its Developer Policy **forbids background + audio-only playback** and requires a
+visible ≥200×200 player with ads (no real music-player UX); public YouTube **cannot search by ISRC** so
+matching is title/artist/duration with a measured **~34% wrong-version** rate; and `search.list` costs 100
+units against a 10k/day quota. Non-Premium listeners get a **30s preview or a disabled state** (no YouTube
+in v1). A queue is more session-like than a stored playlist (a "Save queue to playlist" bridge — internal,
+server-side membership copy — converts a session into a stored collection). **Caveats for launch**: a
+playback app is a Spotify "Streaming SDA" (monetizing/advertising on it needs Spotify's **prior written
+approval**); post-Feb-2026 Spotify Dev Mode caps at **5 authorized users** → an **extended-quota/production
+request** is required before any public or multi-user launch; **attribution** (Spotify Marks + link-back)
+is mandatory. See *Technical-validation findings* OQ8/9.
 
 ### Summary bucket (decided — D4)
 
@@ -423,11 +439,12 @@ reduced-motion. End with a **coverage checklist** mapping every option/state to 
 
 ## Open questions
 
-The product direction is decided (above). What remains is grouped into two kinds. **Neither group blocks
-the Design Atlas from starting** (the atlas itself resolves the first group); the second is technical
-validation that precedes implementation Steps.
+The product direction is decided (above). The **technical-validation** group is now **resolved
+(2026-06-23)** — recorded below as findings/decisions with residual sub-forks deferred to implementation.
+What remains genuinely open is the **Design-Atlas** group, resolved by rendering the atlas (Appendix A) and
+choosing; it does **not** block the atlas from starting.
 
-### Design-Atlas decisions (resolved by rendering + choosing)
+### Design-Atlas decisions (still open — resolved by rendering + choosing)
 
 1. Final Pocket **entry-control model** (one toggle vs two same-tray vs two filtered-views).
 2. Final **horizontal tray-shell family**.
@@ -435,28 +452,81 @@ validation that precedes implementation Steps.
 4. **Tree-navigation depth** reachable inside Pocket (how deep before handing off to the full page).
 5. **Quick-inspection / edit** surface form.
 
-### Technical-validation decisions (precede Steps)
+### Technical-validation findings (resolved 2026-06-23)
 
-6. **Generalized-membership migration** from album-only `review_bucket_items` — one new table vs staged
-   migration; preserving review-pipeline fields (`status`, `research_selected`, `post_id`, existing
-   album-review notes); coexistence with / absorption of `album_to_listen_items` ("들을 것").
-7. **Snapshot storage representation** (period/signal/trend frozen values + source context).
-8. **Spotify playback feasibility / eligibility** constraints.
-9. **YouTube fallback** necessity/acceptability + **Spotify→YouTube matching** policy + provider
-   attribution.
-10. **Queue persistence / recovery.**
-11. **Public-page authentication / sign-in handoff** for a drop from an unauthenticated reading page.
-12. **Future multi-user ownership migration** strategy (keep it possible; no new irreversible singletons).
+Owner decisions on the three load-bearing forks: **playback = Spotify Premium-only v1**; **membership =
+staged in-place widening**; **multi-user forward-compat = defer all now** (just avoid the global-singleton
+shape in new tables). Findings (evidence + sources in the workflow research log):
+
+6. **Generalized-membership migration → staged in-place widening of `review_bucket_items`.** STEP 1
+   (additive, no rewrite): `ADD item_type TEXT NOT NULL DEFAULT 'album'` (CHECK ∈ album/track/review/
+   playback/snapshot) + nullable typed target FKs (`track_id`→tracks CASCADE, a distinct review-target FK,
+   etc.); every existing row is implicitly `item_type='album'`, so the album review-pipeline columns
+   (`status`/`note`/`post_id`/`research_selected`/`prep_tonight`) and serializers are **unchanged**. STEP 2
+   (after contract+front read `item_type`): relax `album_id NOT NULL`, replace `UNIQUE(bucket_id,album_id)`
+   with **per-kind partial-uniques** so non-album kinds become writable. `들을 것` folds in via
+   `INSERT…SELECT` into a system bucket; old table kept as a deprecated read-through until front cutover.
+   Real typed FKs keep ON DELETE integrity. Rollout: shared_db migration → prod apply → pin → openapi regen
+   → front `api.gen.ts` regen. *Residual sub-forks (implementation):* review-member target = a `posts` FK
+   vs a future first-class review entity (and disambiguate from the existing `post_id` = "the review this
+   album produced"); **playback/snapshot members copy a denormalized payload in a side-table rather than FK
+   a volatile listening row** (`spotify_play_events` is prunable); per-kind duplicate policy (D8).
+7. **Snapshot storage → a side-table snapshot row** (keyed to the membership) with **typed header columns**
+   (`as_of`, `captured_at`, `metric`, `from`, `to`, `unit`, totals, `unresolved/unclassified`) + a `kind`
+   discriminator + a **verbatim `frozen` JSONB** payload + `source_album_ids uuid[]` (GIN) + a
+   `schema_version`. **Append-only**: "refresh with current data" is a **new row** (new `captured_at`/`as_of`,
+   optional `refreshed_from` self-FK), **never an UPDATE** — the never-silently-overwrite rule becomes a
+   structural guarantee. The label shows `as_of`, not `captured_at`. Capture is a DB-only read + insert
+   (rule #9 safe). Mirrors the `SpotifyLibraryAlbum` side-table idiom so the album-membership hot path
+   stays narrow. *Residual:* retention cap; refresh-lineage diff view.
+8/9. **Playback → Spotify Web Playback SDK (Premium, per-listener OAuth), YouTube deferred.** (See *Playback*
+   above for the full finding.) Membership stores a provider-neutral track identity; the play path is
+   client-side with an async token-mint (rule #9). YouTube fallback is **kept possible but not built** (ToS
+   forbids background/audio-only; ~34% wrong-version match; quota). *Residual / must-do before launch:* file
+   the Spotify **extended-quota/production-access** request (Dev Mode caps at 5 users); resolve the
+   "Streaming SDA" **monetization** question with Spotify in writing if monetizing; honor **attribution**;
+   real-device **iOS Safari** QA (autoplay/`setVolume` quirks); non-Premium UX (preview vs disabled).
+10. **Queue persistence → hybrid.** The queue is a server-persisted **ordered, duplicate-allowed**
+   generalized-membership collection under a new `kind='playback_queue'` bucket (the single-special-bucket
+   partial-unique idiom, single-owner); the **live playhead** (current item + progress + is_playing) stays
+   **client-side**, restored on reload from a small `localStorage` hint (re-seek) — never written to the DB,
+   so no rule-#9 conflict and it survives a provider swap. "Save queue to playlist" = a **server-side
+   membership copy** into a stored bucket (no Spotify write; a future push-to-Spotify goes enqueue→worker).
+   *Residual:* fractional/gap `position` for heavy reorder churn; cross-device resume out of v1 scope.
+11. **Public-page sign-in handoff → capture intent + resume.** An anonymous drop writes a **thin
+   pending-intent** (`{ts, target bucket-or-sentinel, item descriptor}`, TTL-stamped, **not a content
+   copy**) to `localStorage`, then triggers the existing **Cognito PKCE** login; because the callback forces
+   `location.replace('/')`, a **resume-checker** (single-drain, idempotent) completes the drop after auth.
+   The drop endpoint **must be an explicit Cognito-JWT route** (not edge_guard, which trusts any CloudFront
+   request) and the server reads the owner from the verified JWT `sub`, never the body. *Residual:*
+   default-bucket auto-create vs forced picker; resume-on-home vs a return-path (touches the shared login
+   flow); silent vs confirmed completion.
+12. **Multi-user forward-compat → DEFER all now (owner decision).** v1 adds **no `owner_id`** anywhere. The
+   single binding rule carried forward: **new generalized-membership/tree tables must NOT use a global
+   singleton / partial-unique shape** (no `idx_..._single_done` / `CHECK(id=1)` analog), since that is the
+   *only* shape whose later per-owner generalization is a destructive DROP+recreate rather than a plain
+   additive `owner_id`. Legacy tables, `_claims['sub']→owner` wiring, and edge_guard per-owner authz are all
+   deferred to `FEAT-multi-user-accounts`.
 
 ---
 
 ## Steps
 
-**TBD** — intentionally empty. Pending (a) the **Design Atlas** (Appendix A) so the UI form is chosen, and
-(b) the **technical-validation decisions** above (esp. #6 generalized-membership migration, #8/#9 playback
-provider). When those resolve, this RFC will gain concrete, independently-mergeable Steps (data-model
-migration order, contract delta, infra routes, frontend tray) following the standard cross-repo rollout
-order in `CLAUDE.md`.
+**Gated only on the Design Atlas now** — the technical approach is resolved above. Once the atlas picks the
+entry-control + tray-shell form, the **likely step order** (each independently mergeable, standard
+cross-repo rollout per `CLAUDE.md`) is sketched below. **This sketch is NOT yet an execution plan** — it is
+finalized into concrete Steps only after the atlas; rule #4 (one RFC step per session) applies to the
+STEP-1/STEP-2 schema gap.
+
+1. **shared_db** — STEP-1 membership widening (`item_type` + nullable typed FKs, additive) + the snapshot
+   side-table + the `playback_queue` bucket-kind; prod-apply.
+2. **backend** — generalized `add_item`/serializers branching on `item_type`; snapshot-capture read+insert;
+   the async `playback/spotify-token` mint endpoint; the public-drop endpoint — each a new Cognito-JWT
+   `apigateway.tf` route; openapi contract regen.
+3. **front** — the chosen tray shell + entry control; the Spotify Web Playback SDK integration; the sign-in
+   handoff resume-checker; `api.gen.ts` regen.
+4. **shared_db** — STEP-2 relax (`album_id` NOT NULL drop + per-kind partial-uniques) once front reads
+   `item_type`; fold `들을 것`.
 
 ## Decisions log
 
@@ -465,6 +535,7 @@ order in `CLAUDE.md`.
 | 2026-06-23 | Filed as a draft design-exploration RFC. Documented in English per CLAUDE.md doc-language; brief authored in Korean per the task, translated here. | — |
 | 2026-06-23 | Corrections v2: bucket-local Undo (not a global toast); incompatible drop targets stay visible/stable during a drag; bucket-target invariant across all tray shells; Design Atlas repackaged into four numbered boards + a coverage checklist. | — |
 | 2026-06-23 | Corrections v3 (this version is canonical): Pocket Buckit is the canonical top-level product/interaction definition; FEAT-bucket-identity reframed as its compatibility/migration/integration track (absorb-question answered: yes). Generalized **membership** decided (item↔bucket relationship, not a copy; "membership" ≠ paid/multi-user). Tree ("My Buckit") canonical; Pocket = its projection (parent=folders, leaf=actionable). Move/add/transform semantics fixed (internal MOVE default + Undo; external ADD; source-preserving conversion). Notes narrowed (standalone Notes/Reference deferred). Ordinary listening-add ≠ snapshot (no auto stat-copy; snapshots frozen). **Playback aims for real playback** (Spotify→YouTube, provider provisional). **Summary** auto-async + bell/badge (not manual-refresh-first). Multi-user deferred (v1 single-owner; not an atlas blocker; keep scoping possible). **Entry-control count re-opened** (1 or 2 controls; single-control comparison restored; dual-non-negotiable wording removed). Decided behaviors fixed (duplicate/ordering by type; album→track order preserved; same-type move no-confirm; conversion/expansion confirm; delete→archive; parent child-handling). Open Questions split into Design-Atlas vs Technical-validation. | — |
+| 2026-06-23 | Technical-validation OQs **resolved** (10-agent research/design workflow + owner decisions). **Playback v1 = Spotify Web Playback SDK (Premium, per-listener `streaming` OAuth, client-side; rule-#9 token-mint); YouTube deferred** (provider-neutral track identity keeps it possible). **Membership = staged in-place widening** of `review_bucket_items` (`item_type`+nullable typed FKs; relax in STEP 2; fold `들을 것`). **Snapshot = side-table** (typed header + `frozen` JSONB + `source_album_ids[]` + `schema_version`, append-only refresh). **Queue = hybrid** (server ordered+dup-allowed membership `kind='playback_queue'`; client-ephemeral playhead; internal save-to-playlist). **Sign-in handoff = localStorage thin-intent + Cognito PKCE + single-drain resume**; drop route must be explicit Cognito-JWT. **Multi-user = defer all** (owner decision) — no `owner_id` now; the one rule: new tables avoid the global-singleton shape. Steps now gated only on the Design Atlas. | — |
 
 ---
 
@@ -532,10 +603,11 @@ purpose-defined bucket without leaving that context.
   meaning drifts as data evolves); an explicit future "refresh with current data" may exist but NEVER
   silently overwrites the historical snapshot.
 - PLAYBACK aims for ACTUAL in-product playback (Play now / Play next / Add to queue — explicit insertion
-  positions). Provider is PROVISIONAL: Spotify evaluated first, YouTube as a fallback candidate if needed.
-  Render playback as a REAL intended user action while clearly LABELING provider behavior as provisional /
-  under technical validation. A queue is more session-like than a stored playlist; offer a "Save queue to
-  playlist" bridge.
+  positions). v1 PROVIDER = Spotify (Web Playback SDK): render REAL playback for a Spotify-PREMIUM listener,
+  AND a distinct NON-PREMIUM state (a 30s preview or a disabled "Premium required" affordance). A YouTube
+  fallback is DEFERRED (NOT in v1) — show the provider as PROVISIONAL/switchable, never a hidden background
+  player. A queue is more session-like than a stored playlist; offer an (internal) "Save queue to playlist"
+  bridge.
 - SUMMARY bucket = AUTOMATIC asynchronous summarization: dropping material adds the source AND starts a
   summary update; show the bucket as PROCESSING; on completion show a visible indicator (bell/badge) on
   BOTH the bucket and the Pocket tray; opening / quick-inspecting reveals the new summary; preserve visible
@@ -659,8 +731,9 @@ Also on Board 1, compare ENTRY CONTROLS and TRAY DENSITY side by side:
        provenance + "why is this here")
      * Another bucket as source — INTERNAL MOVE by default ("Moved · Undo"), explicit Copy on intent; a
        node move carries its subtree; playback-queue -> playlist "save queue" bridge.
-   - PLAYBACK: show Play now / Play next / Add to queue as real actions, with provider clearly marked
-     PROVISIONAL (Spotify first, YouTube fallback candidate).
+   - PLAYBACK: show Play now / Play next / Add to queue as real actions for a Spotify-PREMIUM listener, AND
+     a distinct NON-PREMIUM state (30s preview or a disabled "Premium required" affordance). v1 provider =
+     Spotify; YouTube fallback DEFERRED; mark the provider PROVISIONAL (never a hidden background player).
    - Mobile alternatives (beside each desktop equivalent): touch entry control(s), long-press lift + flock
      + count badge, card/confirmation/quick-inspection at phone width, and the non-drag "Add to…" / "Move
      to…" overflow action that ENUMERATES live bucket targets WITH their verbs (Add to Playlist / Move to /
