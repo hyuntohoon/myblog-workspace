@@ -1,7 +1,8 @@
 # FEAT-listening-history-import
 
-**Status:** in-progress
+**Status:** done (2026-06-23)
 
+> **Done 2026-06-23** — all 6 steps shipped + prod-verified the same day. Status flipped in-progress→done on explicit owner approval (rule #5). Authoritative history: `git log` + the Decisions log below + `docs/archive/done/2026-06.md`.
 > **Accepted 2026-06-22** (owner) — draft → accepted → in-progress; Step 1 (shared_db V27) started the same session.
 
 > **Review-revised 2026-06-22** (adversarial design review — 2 independent lenses + code ground-truth; all "Current state" claims verified accurate). Folded in: a **catalog-coverage gate** + **two-pass re-resolution** (Steps 3/5 — without these the headline album/era/genre views ship mostly 미분류 and never improve as the catalog grows); **SQL `GROUP BY` aggregation** + **BIGINT `ms_played`** + V27 indexes (the load-all-rows `rank_counts` path won't survive 100k–500k rows); a **KST timezone** decision for retrospective/era; an explicit **import↔poller seam** + as-of horizon caption; and correctness pins (URI-prefix strip, podcast-by-URI-prefix predicate, SQS chunk+key-sort, dedup-precision note, script home, import-run ledger). **Step 4/6 re-scoped** — the front work reworks the merged `#194` source panel, not a small additive extension.
