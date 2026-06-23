@@ -2152,6 +2152,190 @@
         "title": "StreamAlbumRankResponse",
         "type": "object"
       },
+      "Backend_StreamClockCell": {
+        "properties": {
+          "hour": {
+            "title": "Hour",
+            "type": "integer"
+          },
+          "ms_played": {
+            "title": "Ms Played",
+            "type": "integer"
+          },
+          "plays": {
+            "title": "Plays",
+            "type": "integer"
+          },
+          "weekday": {
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weekday",
+          "hour",
+          "plays",
+          "ms_played"
+        ],
+        "title": "StreamClockCell",
+        "type": "object"
+      },
+      "Backend_StreamClockResponse": {
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_StreamClockCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "live_streams": {
+            "default": 0,
+            "title": "Live Streams",
+            "type": "integer"
+          },
+          "total_ms": {
+            "default": 0,
+            "title": "Total Ms",
+            "type": "integer"
+          },
+          "total_streams": {
+            "default": 0,
+            "title": "Total Streams",
+            "type": "integer"
+          },
+          "unit": {
+            "default": "count",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "title": "StreamClockResponse",
+        "type": "object"
+      },
+      "Backend_StreamItemDetailResponse": {
+        "properties": {
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "first_listen": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Listen"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_listen": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Listen"
+          },
+          "live_streams": {
+            "default": 0,
+            "title": "Live Streams",
+            "type": "integer"
+          },
+          "per_year": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_RetroYearStat"
+            },
+            "title": "Per Year",
+            "type": "array"
+          },
+          "time_ms": {
+            "default": 0,
+            "title": "Time Ms",
+            "type": "integer"
+          },
+          "top_albums": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_StreamAlbumRankItem"
+            },
+            "title": "Top Albums",
+            "type": "array"
+          },
+          "top_tracks": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_StreamRankItem"
+            },
+            "title": "Top Tracks",
+            "type": "array"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "unit": {
+            "default": "count",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "label"
+        ],
+        "title": "StreamItemDetailResponse",
+        "type": "object"
+      },
       "Backend_StreamRankItem": {
         "properties": {
           "artist": {
@@ -5294,6 +5478,91 @@
         ]
       }
     },
+    "/api/library/stream-history/clock": {
+      "get": {
+        "operationId": "stream_history_clock_api_library_stream_history_clock_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "default": "count",
+              "enum": [
+                "count",
+                "time"
+              ],
+              "title": "Metric",
+              "type": "string"
+            }
+          },
+          {
+            "description": "range start, inclusive (ISO 8601); omit for lifetime",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range start, inclusive (ISO 8601); omit for lifetime",
+              "title": "From"
+            }
+          },
+          {
+            "description": "range end, exclusive (ISO 8601); omit for open-ended",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range end, exclusive (ISO 8601); omit for open-ended",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_StreamClockResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream History Clock",
+        "tags": [
+          "library"
+        ]
+      }
+    },
     "/api/library/stream-history/era-distribution": {
       "get": {
         "operationId": "stream_history_era_distribution_api_library_stream_history_era_distribution_get",
@@ -5310,6 +5579,44 @@
               ],
               "title": "Metric",
               "type": "string"
+            }
+          },
+          {
+            "description": "range start, inclusive (ISO 8601); omit for lifetime",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range start, inclusive (ISO 8601); omit for lifetime",
+              "title": "From"
+            }
+          },
+          {
+            "description": "range end, exclusive (ISO 8601); omit for open-ended",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range end, exclusive (ISO 8601); omit for open-ended",
+              "title": "To"
             }
           }
         ],
@@ -5358,6 +5665,44 @@
               "title": "Metric",
               "type": "string"
             }
+          },
+          {
+            "description": "range start, inclusive (ISO 8601); omit for lifetime",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range start, inclusive (ISO 8601); omit for lifetime",
+              "title": "From"
+            }
+          },
+          {
+            "description": "range end, exclusive (ISO 8601); omit for open-ended",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range end, exclusive (ISO 8601); omit for open-ended",
+              "title": "To"
+            }
           }
         ],
         "responses": {
@@ -5388,6 +5733,114 @@
         ]
       }
     },
+    "/api/library/stream-history/item": {
+      "get": {
+        "operationId": "stream_history_item_api_library_stream_history_item_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "artist",
+                "album",
+                "track"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "default": "count",
+              "enum": [
+                "count",
+                "time"
+              ],
+              "title": "Metric",
+              "type": "string"
+            }
+          },
+          {
+            "description": "range start, inclusive (ISO 8601); omit for lifetime",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range start, inclusive (ISO 8601); omit for lifetime",
+              "title": "From"
+            }
+          },
+          {
+            "description": "range end, exclusive (ISO 8601); omit for open-ended",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range end, exclusive (ISO 8601); omit for open-ended",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_StreamItemDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream History Item",
+        "tags": [
+          "library"
+        ]
+      }
+    },
     "/api/library/stream-history/retrospective": {
       "get": {
         "operationId": "stream_history_retrospective_api_library_stream_history_retrospective_get",
@@ -5400,6 +5853,44 @@
               "default": 20,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "range start, inclusive (ISO 8601); omit for lifetime",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range start, inclusive (ISO 8601); omit for lifetime",
+              "title": "From"
+            }
+          },
+          {
+            "description": "range end, exclusive (ISO 8601); omit for open-ended",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range end, exclusive (ISO 8601); omit for open-ended",
+              "title": "To"
             }
           }
         ],
@@ -5458,6 +5949,44 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "range start, inclusive (ISO 8601); omit for lifetime",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range start, inclusive (ISO 8601); omit for lifetime",
+              "title": "From"
+            }
+          },
+          {
+            "description": "range end, exclusive (ISO 8601); omit for open-ended",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range end, exclusive (ISO 8601); omit for open-ended",
+              "title": "To"
+            }
           }
         ],
         "responses": {
@@ -5515,6 +6044,44 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "range start, inclusive (ISO 8601); omit for lifetime",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range start, inclusive (ISO 8601); omit for lifetime",
+              "title": "From"
+            }
+          },
+          {
+            "description": "range end, exclusive (ISO 8601); omit for open-ended",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range end, exclusive (ISO 8601); omit for open-ended",
+              "title": "To"
+            }
           }
         ],
         "responses": {
@@ -5571,6 +6138,44 @@
               "default": 15,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "range start, inclusive (ISO 8601); omit for lifetime",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range start, inclusive (ISO 8601); omit for lifetime",
+              "title": "From"
+            }
+          },
+          {
+            "description": "range end, exclusive (ISO 8601); omit for open-ended",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "range end, exclusive (ISO 8601); omit for open-ended",
+              "title": "To"
             }
           }
         ],
