@@ -21,8 +21,9 @@ A persistent **global interaction layer** ("Pocket Buckit") where a user can enc
 review, listening-history record, artist, research-note, analysis-signal, or time-period **anywhere** in
 the product and drop it into a **purpose-defined bucket** without leaving that context — annotate,
 organize, replay, summarize, or use it for criticism, then connect it to a review or published writing.
-Reachable from lower-left and lower-right controls that open a **horizontal bottom tray** showing a row
-of visible bucket targets, with cross-type conversion on drop and per-item Undo.
+Reachable from **both** lower-left and lower-right controls (a non-negotiable premise) that open a
+**horizontal bottom tray** showing a row of visible, independently-droppable bucket targets, with
+cross-type conversion on drop and per-item, **bucket-local Undo**.
 
 ## Non-goals
 
@@ -33,6 +34,9 @@ of visible bucket targets, with cross-type conversion on drop and per-item Undo.
   deep work happens on a separate full bucket page.
 - It does **not** assume the playback bucket performs real Spotify playback (see OQ2 — rule #9 forbids
   synchronous Spotify calls on user-facing endpoints).
+- It assumes a **single-owner workspace for v1**; multi-user accounts and public collections are
+  explicitly **deferred** (a separate future architecture/product decision — see OQ4/OQ5) and are **not**
+  a prerequisite for the Design Atlas.
 
 ---
 
@@ -113,9 +117,10 @@ before a coherent user model exists:
 | Bucket/library **mutations** (POST/PUT/PATCH/DELETE) | **Cognito JWT** + an explicit route in `infra/apigateway.tf` (404 until added) | All drop **writes** require login |
 
 **Conflict**: on public review/search pages an anonymous user could drag an item, but every drop is
-401/403. Single-owner (no `user_id`) means "my purpose buckets" needs multi-user scoping first
-(`FEAT-multi-user-accounts.md`, unstarted). Any new Pocket Buckit POST/PUT/DELETE **404s until added to
-`infra/apigateway.tf` + applied** (memory `reference-apigateway-post-route-required`).
+401/403. The model is single-owner (no `user_id`); **v1 assumes a single-owner workspace** and treats
+multi-user scoping (`FEAT-multi-user-accounts.md`, unstarted) as **deferred, not a v1 prerequisite**
+(OQ4). Any new Pocket Buckit POST/PUT/DELETE **404s until added to `infra/apigateway.tf` + applied**
+(memory `reference-apigateway-post-route-required`).
 
 ### Concrete conflicts between the existing model and the premise
 
@@ -150,7 +155,9 @@ Seven products analyzed; transferable vs non-transferable separated.
 
 - **Strong transfer**: Apple Music (purpose-named destinations with stable verbs; Play Next = an
   insertion *position*; non-destructive removal); Are.na (item-as-connection, remove = membership only);
-  Raindrop / read-later (zero-decision Inbox, save-first-organize-later); Pinterest (top targets first +
+  Raindrop / read-later (zero-decision capture, save-first-organize-later — but we do **not** adopt an
+  Inbox-first default; intentional placement into purpose-defined buckets stays the core identity);
+  Pinterest (top targets first +
   search + inline create); Yoink/Dropover (edge shelf + count badge + flocking); **React Aria / WCAG
   2.5.7** (non-drag "Add to…" + keyboard DnD — legally required, not optional).
 - **Anti-patterns (avoid)**: Spotify (single overloaded "Add"; a queue that silently churns/evaporates →
@@ -165,27 +172,36 @@ Seven products analyzed; transferable vs non-transferable separated.
 
 ### Mandatory option matrix (A–G) — do NOT converge; `[visual]` = must be rendered side by side
 
-- **A. Entry controls** — `[visual]` left/right open the SAME tray vs FILTERED views (pinned vs
-  recent/contextual) vs single control; icon-only vs icon+text; floating button vs edge tab; states
-  idle/hover/open/**drag-active**; bucket-count badge. (Decided/textual: shake/modifier summon is an
-  accelerator only, corner controls are primary.)
+- **A. Entry controls** — `[visual]` **TWO options only** (both lower-left/right controls are a
+  non-negotiable premise): (1) both controls open the SAME tray; (2) both open DIFFERENT FILTERED views
+  of the same bucket collection (e.g. pinned vs recent/contextual). **No single-control option**; never
+  replace the two controls with a sidebar, command palette, or vertical menu. The originating control is
+  the visible primary toggle that also **closes** the tray. Treatments: icon-only vs icon+text; floating
+  button vs edge tab; states idle/hover/open/**drag-active**; bucket-count badge. (Decided/textual:
+  shake/modifier summon is an accelerator only, corner controls are primary.)
 - **B. Bottom tray shell** — `[visual]` **four families**: tangible bucket row / editorial shelf /
-  modular utility dock / immersive music-workspace tray. Each compared across: compact-closed, opened,
-  drag-active, **many-bucket overflow** (scroll vs paginate vs "more" vs search), pinned vs recent vs
-  contextual ordering, how much source page stays visible, desktop, mobile.
+  modular utility dock / immersive music-workspace tray. **Invariant across all four** (tone/density may
+  differ, this must not): a horizontal bottom tray of multiple individually-visible, independently-
+  droppable bucket **targets** that read as destination containers, not generic commands — the editorial
+  shelf and utility dock must **not** degrade into a toolbar / command palette / sidebar / vertical list
+  / folder menu; the user must see "which bucket will receive this item" at a glance. Each compared
+  across: compact-closed, opened, drag-active, **many-bucket overflow** (scroll vs paginate vs "more" vs
+  search), pinned vs recent vs contextual ordering, how much source page stays visible, desktop, mobile.
 - **C. Target card representation** — `[visual]` 5 variants: literal-restrained container / minimal
   editorial / album-art-driven / icon+action-driven / dense utility. Each must communicate: name,
   purpose/verb, accepted-type-or-compatible-drop-state (live vs the dragged item), item count, and the
   outcome (add/convert/play/queue/summarize/write). Plus: empty, single-cover, stacked-grid, pinned,
   "transient-by-design" (playback).
-- **D. Drag feedback** — `[visual]` compatible direct / incompatible / conversion-required / one-to-many
-  expansion (with a "+14" semantic count badge) / executable / **duplicate** / processing / success /
-  **Undo** / error; insertion line for ordered buckets.
+- **D. Drag feedback** — `[visual]` compatible (highlighted) / conversion-required (visibly explains the
+  pending transform) / **incompatible (stays in the same position, muted/disabled with a concise reason —
+  never hidden; the tray must not reflow or reshuffle during a drag)** / one-to-many expansion (with a
+  "+14" semantic count badge) / executable / **duplicate** / processing / success / **bucket-local Undo
+  on the affected target** / error; insertion line for ordered buckets.
 - **E. Confirmation patterns** — `[visual]` inline-above-tray / popover anchored to target / expanded
   bottom sheet / focused dialog (high-risk only), mapped to risk per case: ① 1:1 direct add → instant +
   visible Undo; ② 1:1 conversion → compact confirm; ③ 1:N expansion → **mandatory** confirm + count +
   alternatives; ④ executable/generative → preview/choice; ⑤ ambiguous → never silently guess; ⑥ removal
-  → membership only + Undo. Cases: track→album, album→track ("Add all 14 / Select tracks / Cancel"),
+  → membership only + bucket-local Undo. Cases: track→album, album→track ("Add all 14 / Select tracks / Cancel"),
   album→playlist, track→playback (now/next/queue), album|review|note→summary (source preview + refresh),
   ambiguous review (surface candidates).
 - **F. Quick inspection/editing** — `[visual]` inspect-above-tray / expandable card / side peek / mini
@@ -202,25 +218,26 @@ Each: `source → Pocket open → drag/drop target → conversion/immediate acti
 inspect/edit`, with current-code constraints. (Full chains in Appendix A §4.)
 
 1. **Listening history (analysis tab `ImportAnalysis`)** — top-album datum (has album_id) → corner
-   control → albums-to-hear / review-research → 1:1 add → inline Undo → inspect bucket card.
+   control → albums-to-hear / review-research → 1:1 add → bucket-local Undo on the target card → inspect
+   bucket card.
    *Constraint: charts are onClick-only (not draggable); drill-down slide-over has zero actions; top-track
    datum is uri-only → needs track→album resolve; time-period is a selector, not an item.*
 2. **Review reading (`/review/[slug]`)** — hero album → read-reviews/review-research; or a tracklist
-   song → track-collection / playback (now/next/queue) → "added — Undo" toast (tray stays open) →
-   inspect + Edit-mode minus (source preserved). *Constraint: track `<li>` has no id/handle; review has
-   no DB id (slug); page is prerender + public → drop is 401.*
+   song → track-collection / playback (now/next/queue) → **bucket-local Undo on the target bucket**
+   ("Brat added · Undo"; tray stays open) → inspect + Edit-mode minus (source preserved). *Constraint:
+   track `<li>` has no id/handle; review has no DB id (slug); page is prerender + public → drop is 401.*
 3. **Album detail** — album → track bucket ("Add all 14 tracks?") / playlist (expand) / playback (set,
-   one position prompt) / summary (as source) → 1:N confirm + count → "14 tracks added — Undo" (set-level)
-   → inspect: tracklist + reorder + per-item removal Undo. *Constraint: no public album page; render as a
+   one position prompt) / summary (as source) → 1:N confirm + count → bucket-local "14 tracks added · Undo"
+   on the target (set-level) → inspect: tracklist + reorder + per-item removal Undo. *Constraint: no public album page; render as a
    PROPOSED surface, label "new surface."*
 4. **Track detail** — track → album bucket (parent-resolve compact confirm) / track-collection (direct)
-   / playback (now/next/queue) / playlist → "○○ album added — Undo" → inspect: reorder + removal + remove
-   ≠ delete. *Same "no dedicated page" constraint.*
+   / playback (now/next/queue) / playlist → bucket-local "○○ album added · Undo" on the target → inspect:
+   reorder + removal + remove ≠ delete. *Same "no dedicated page" constraint.*
 5. **Analysis page (signal/period)** — analysis-signal (e.g. "2010s" or an artist signal) →
-   summary/review-research **as a cited source** (provenance shown) → "source added — Undo" + dropped/
-   rule/AI badge → inspect: source list + visible refresh control + "why is this here" + source removal
-   (re-summarize, source signal preserved). *Constraint: signal = query result (no persistent id) → needs
-   a snapshot/reference design.*
+   summary/review-research **as a cited source** (provenance shown) → bucket-local "Source added · Undo"
+   on the target + dropped/rule/AI badge → inspect: source list + visible refresh control + "why is this
+   here" + source removal (re-summarize, source signal preserved). *Constraint: signal = query result (no
+   persistent id) → needs a snapshot/reference design.*
 6. **Another bucket as source** — promote/move between buckets (albums-to-hear album → review-research;
    playback-queue → playlist "save queue" bridge); make move-vs-copy explicit + Undo.
 
@@ -237,17 +254,22 @@ model). Each carries a mitigation in Appendix A §5.
 
 ### Recommended design-exploration scope (what the atlas must render)
 
-Not reducible to 3 polished screens. Minimum: **4 shells × 9 states (≈36 panels)** + **component atlas
-A–I** + **6 source-page prototypes** + **6 required interaction sequences** + **bucket-settings flow** +
-**responsive/accessibility variants** — all annotated, side by side, at realistic scale (14-track
-expansion, 15+ bucket overflow). See Appendix A for the verbatim Claude Design prompt.
+Not reducible to 3 polished screens, and not one giant single-canvas collage either. The atlas is
+packaged as **four numbered comparison boards** (consistent representative data + scale): **Board 1** —
+Pocket controls + the 4 tray-shell families × 9 states + tray density; **Board 2** — target cards + drag
+feedback + conversions + confirmations + duplicates + bucket-local Undo; **Board 3** — quick inspection +
+Apple-like Edit mode + membership removal + reordering + full-bucket handoff; **Board 4** —
+settings/creation + the 6 source-page flows + mobile + keyboard + reduced-motion. All annotated, side by
+side, at realistic scale (14-track expansion, 15+ bucket overflow), ending in a **coverage checklist**
+mapping every option/state to its board + panel. See Appendix A for the verbatim Claude Design prompt.
 
 ---
 
 ## Open questions
 
-Each blocks the design atlas direction and/or any future `Steps`. These are **product decisions**, not
-inferable from the repo.
+Most of these block future `Steps`; **OQ4–OQ5 (multi-user / public collections) do NOT block the v1
+design atlas** — v1 assumes a single-owner workspace (see Non-goals). These are **product decisions**,
+not inferable from the repo.
 
 1. **Polymorphic membership** — will we add a polymorphic item model (an `item_type` discriminator) so a
    bucket can hold track/review/artist/note/signal/period? No such column/migration/draft exists today.
@@ -260,12 +282,15 @@ inferable from the repo.
 3. **Relationship to `FEAT-bucket-identity`** — does Pocket Buckit supersede/absorb that RFC (esp.
    Direction C — merging `album_to_listen_items` into the bucket model as one save target)? Direction C
    is currently deferred/undecided. — **Blocks**: bucket-collection unification, "albums-to-hear" target.
-4. **Multi-user timeline** — single-owner only (no `user_id` anywhere) or multi-user first
-   (`FEAT-multi-user-accounts`, unstarted)? — **Blocks**: ownership scoping, public exposure, the
-   auth-asymmetry resolution.
-5. **Public collection direction (FEAT-bucket-identity Direction D)** — do public "magazine collections"
-   (genre/artist/weekly 모음) imply new bucket kinds or stay name-only curation? — **Blocks**: whether
-   bucket `kind` grows.
+4. **Multi-user timeline (DEFERRED — does not block the v1 atlas)** — the repo is factually single-owner
+   (no `user_id` anywhere). **Pocket Buckit v1 design exploration assumes a single-owner workspace.**
+   Multi-user is a **separate future architecture/product decision** (`FEAT-multi-user-accounts`,
+   unstarted) — not solved here, and not a prerequisite for validating the core personal interaction
+   model. — **Later (not an atlas blocker)**: ownership scoping, public exposure, the auth-asymmetry
+   resolution.
+5. **Public collection direction (FEAT-bucket-identity Direction D — DEFERRED)** — do public "magazine
+   collections" (genre/artist/weekly 모음) imply new bucket kinds or stay name-only curation? Deferred
+   alongside multi-user; **does not block the v1 atlas**. — **Later**: whether bucket `kind` grows.
 
 ---
 
@@ -282,6 +307,7 @@ cross-repo rollout order in `CLAUDE.md`.
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-06-23 | Filed as a draft design-exploration RFC (not converged). Documented in English per CLAUDE.md doc-language; brief authored in Korean per the task, translated here. | — |
+| 2026-06-23 | Corrections v2: both corner controls non-negotiable (single-control option dropped); Inbox/Unsorted demoted to an optional template (no Inbox-first default); Undo is bucket-local on the affected target (not a global toast); incompatible drop targets stay visible/stable during a drag (no hide, no reflow/reshuffle); the bucket-target invariant is preserved across all four tray shells; the Design Atlas is repackaged into four numbered boards + a coverage checklist; multi-user / public-collection scope deferred (v1 = single-owner, not an atlas blocker). Korean typography/font scope intentionally not added. | — |
 
 ---
 
@@ -304,15 +330,23 @@ Pocket Buckit is a persistent global interaction layer over a music-review blog.
 album, track, review, listening-history record, artist, research-note, analysis-signal, or time-period
 ANYWHERE (review reading page, search, listening-analysis dashboard, artist hub, inside another bucket)
 and drops it into a purpose-defined "bucket" without leaving that context.
-- Reachable from lower-left AND lower-right controls. Clicking a control opens a HORIZONTAL tray across
-  the bottom showing a ROW of actual bucket targets side by side (NOT a vertical menu, popover, sidebar,
-  file tree, or folder list). Clicking again closes it. The tray STAYS OPEN after a drop (add several
-  consecutively).
-- Bucket types (each has a distinct VERB): Inbox/Unsorted (zero-decision default), Albums-to-hear,
-  Track-collection, Playlist, Playback-queue, Read-reviews, Summary, Review/Research, Notes/Reference.
+- Reachable from lower-left AND lower-right controls — BOTH controls are a NON-NEGOTIABLE premise; never
+  collapse them to a single control, and never replace them with a sidebar, a command palette, or a
+  vertical menu. Clicking either control opens a HORIZONTAL tray across the bottom showing a ROW of actual
+  bucket targets side by side (NOT a vertical menu, popover, sidebar, file tree, or folder list). The
+  originating control stays the visible PRIMARY toggle; clicking that same control CLOSES the tray. The
+  tray STAYS OPEN after a drop (add several consecutively).
+- Bucket types (each has a distinct VERB): Albums-to-hear, Track-collection, Playlist, Playback-queue,
+  Read-reviews, Summary, Review/Research, Notes/Reference. The core identity is INTENTIONAL placement into
+  purpose-defined buckets — there is NO Inbox-first default; an Inbox/Unsorted bucket is at most ONE
+  OPTIONAL template (or a possible later workflow choice), never the default and never the first/primary
+  destination.
 - Core invariant: an item in a bucket is a MEMBERSHIP (a connection), never a copy. Removing from a
   bucket removes membership ONLY — it NEVER deletes the source album/track/review/listening-record.
-  Every add AND every removal shows an immediate inline Undo.
+  Feedback + Undo are BUCKET-LOCAL: after any add / conversion / expansion / removal, the AFFECTED BUCKET
+  TARGET itself visibly shows the result and a bucket-local Undo (e.g. "Brat added · Undo", "14 tracks
+  added · Undo", "Removed from this bucket · Undo"); the tray stays open. A global toast may exist ONLY as
+  secondary accessibility/status feedback and must NEVER replace the bucket-local Undo.
 - Cross-type conversion on drop (the bucket's type drives the transform):
   * track -> album bucket: resolve & add the parent album, compact confirmation first.
   * album -> track bucket: show count, ask "Add all 14 tracks from this album?" with Add all /
@@ -336,108 +370,138 @@ art as the dominant imagery). Do NOT copy Apple Music / Milanote / Raindrop visu
 interaction structure only. The tray must clear page chrome (a fixed header and a reading progress bar
 exist) and must keep as much of the source page visible as the chosen density allows.
 
-## MANDATORY DELIVERABLE STRUCTURE (render ALL of it, side by side, annotated)
+## MANDATORY DELIVERABLE STRUCTURE — package as FOUR numbered comparison boards
+Render the FULL option space below, but PACKAGE it as four numbered comparison boards (NOT one giant
+single-canvas collage), using the SAME representative music data and a CONSISTENT visual scale across all
+four boards. Do not reduce the option space or drop any required state. At the very end, output a visible
+COVERAGE CHECKLIST mapping every mandatory option and state to the exact board + panel where it appears.
 
-### 1. Four complete TRAY-SHELL FAMILIES — render all four, never pick one
+INVARIANTS — hold on EVERY board and EVERY tray-shell family (never violate, even for tone/density):
+- Pocket Buckit is a HORIZONTAL bottom tray. The TWO controls (lower-left AND lower-right) are a fixed,
+  non-negotiable premise — never collapse them to a single control, a sidebar, a command palette, a
+  vertical menu, or a toolbar. The originating control stays the visible PRIMARY toggle; clicking that
+  same control CLOSES the tray.
+- The tray shows MULTIPLE bucket TARGETS, each individually visible and independently droppable, reading
+  as destination CONTAINERS (not generic commands). The user must understand "which bucket will receive
+  this item" at a glance. The editorial-shelf and utility-dock families may differ in tone but must NOT
+  degrade into a toolbar / command palette / sidebar / vertical list / folder menu.
+- During a drag the tray is spatially STABLE: compatible targets are clearly highlighted; conversion-
+  required targets visibly explain the pending transformation; INCOMPATIBLE targets stay in the SAME
+  position, muted/disabled, with a concise reason — never hidden. The layout must not jump or reflow, and
+  contextual ordering must not reshuffle while a drag is active.
+- Feedback + Undo are BUCKET-LOCAL: the affected bucket target itself shows the result and the Undo
+  control (e.g. "Brat added · Undo", "14 tracks added · Undo", "Removed from this bucket · Undo"); the
+  tray stays open afterward. A global toast may appear ONLY as secondary accessibility/status feedback —
+  it must never replace the bucket-local Undo.
+- There is NO Inbox-first default. Items are placed INTENTIONALLY into purpose-defined buckets; if an
+  Inbox/Unsorted bucket appears at all it is just ONE optional template, never the default or first
+  destination.
+
+### BOARD 1 — Pocket controls + horizontal tray-shell families
+Render all FOUR tray-shell families, never pick one:
    F1 Tangible bucket row (literal-but-restrained container metaphor)
    F2 Editorial shelf / collection rail (magazine shelf)
    F3 Modular utility dock / drawer
    F4 Immersive music-workspace tray
-   For EACH family, render this full 9-state strip in a labeled row so the four families line up column-
-   for-column for direct comparison:
+For EACH family, render this full 9-state strip in a labeled row, and place the four families together
+(column per family, row per state) so one state can be scanned across all four at once:
    (a) collapsed control (idle)        (b) open tray (resting, ~6 visible buckets)
    (c) compatible drag (valid target highlighted, insertion line where ordered)
-   (d) incompatible drag (invalid targets dimmed / hidden)
-   (e) conversion-required drag (e.g. track over an album bucket — shows the pending resolution)
-   (f) successful drop WITH inline Undo  (g) quick inspection of one bucket (count, purpose, recent adds)
+   (d) incompatible drag (invalid targets STAY IN PLACE, muted/disabled with a concise reason — NOT
+       hidden; the tray must not reflow or reshuffle)
+   (e) conversion-required drag (e.g. track over an album bucket — visibly explains the pending resolution)
+   (f) successful drop WITH bucket-local Undo ON the affected target ("Brat added · Undo"); tray stays open
+   (g) quick inspection of one bucket (count, purpose, recent adds)
    (h) Apple-like Edit mode (per-item minus = remove-from-bucket, Done exits; reorder for playlist/queue)
    (i) many-bucket overflow (15+ buckets: show the chosen strategy — horizontal scroll vs paginate vs
        "more" vs search).
+Also on Board 1, compare ENTRY CONTROLS and TRAY DENSITY side by side:
+   - Entry controls (TWO options only — never a single control): (1) both lower-left/right controls open
+     the SAME tray; (2) both controls open DIFFERENT FILTERED views of the same bucket collection (e.g.
+     pinned vs recent/contextual). Treatments: icon-only vs icon+text; compact floating button vs edge-
+     attached tab. States: idle / hover / open(active) / drag-active; bucket-count badge. The originating
+     control is the visible toggle that also closes the tray.
+   - Tray density: how much source page stays visible (short bar vs tall sheet vs translucent); pinned vs
+     recent vs contextual INITIAL ordering (which must not reshuffle during a drag).
 
-### 2. COMPONENT OPTION ATLAS — each option set rendered as a side-by-side comparison grid, labeled
-   A. Entry controls: lower-left/right opening the SAME tray vs FILTERED views (pinned vs recent/
-      contextual) vs single control; icon-only vs icon+text; compact floating button vs edge-attached
-      tab; states idle/hover/open(active)/drag-active; bucket-count badge.
-   B. Tray density: how much source page stays visible (short bar vs tall sheet vs translucent),
-      pinned vs recent vs contextual ordering.
-   C. Bucket target CARD treatments (5, side by side): literal-restrained container / minimal editorial
-      / album-art-driven / icon+action-driven / dense utility. Each card MUST communicate: name,
-      purpose/verb, accepted-type-or-compatible-drop-state (live vs the currently dragged item:
-      compatible / convert / incompatible), item count, and the drop outcome (add / convert / play /
-      queue / summarize / write). Also render: empty bucket, single-cover, stacked-grid, pinned marker,
-      "transient-by-design" (playback) marker.
-   D. Drag feedback states (all, side by side): compatible direct drop, incompatible, conversion-
-      required, one-to-many expansion-required (with a "+14" semantic count badge), executable-action,
-      duplicate (already present), processing, success-add, Undo, error. Include the insertion line for
-      ordered buckets.
-   E. Confirmation patterns (4, compared against each case): small inline confirm above tray / compact
-      popover anchored to the target bucket / expanded bottom sheet / focused dialog (higher-risk only).
-      Map them to: track->album, album->track ("Add all 14 / Select tracks / Cancel"), album->playlist,
-      track->playback (now/next/queue), album|review|note->summary (source preview + refresh), ambiguous
-      review relationship (candidate surfacing).
-   F. Quick-inspection patterns (4, side by side): inspect-above-tray panel / expandable tray card /
-      side peek / mini drawer. Each with: normal inspection, Edit mode, minus badges, Done, reordering,
-      removal Undo, and an explicit visual distinction between "remove from bucket" and "delete source."
-      Keep Pocket Buckit lightweight — show the separate path to open the FULL bucket page for deep work.
-   G. Bucket settings & creation (template-FIRST, not a raw rule-builder): template picker gallery,
-      create bucket, edit bucket, pin-to-Pocket, accepted source types, a simple plain-language
-      conversion-behavior description, default drop action, display/order settings, archive/delete
-      safety. Show how ADVANCED rules stay hidden until needed (progressive disclosure).
-   H. Mobile alternatives (render INSIDE this atlas, beside each desktop component): the touch entry
-      control, the long-press lift + flock variant, the card/confirmation/quick-inspection at phone
-      width, and the non-drag "Add to…" overflow action that enumerates live bucket targets with their
-      conversion verbs. (Full responsive treatment also appears in section 5; the atlas must still carry
-      the side-by-side desktop-vs-mobile component comparison here.)
-   I. Keyboard focus + accessibility states (render INSIDE this atlas, beside each component): visible
-      focus rings on the entry control, bucket cards, tray items, and confirmations; the keyboard-drag
-      focus path through the tray (lift / choose target / drop / cancel); and the reduced-motion variant
-      of drag feedback. (Cross-references section 5, but the per-component focus/accessibility states
-      belong in the atlas grid so no component is shown without them.)
+### BOARD 2 — Target cards, drag feedback, conversions, confirmations, duplicates, bucket-local Undo
+   - Bucket target CARD treatments (5, side by side): literal-restrained container / minimal editorial /
+     album-art-driven / icon+action-driven / dense utility. Each card MUST read as a destination CONTAINER
+     and communicate: name, purpose/verb, accepted-type-or-compatible-drop-state (live vs the currently
+     dragged item: compatible / convert / incompatible), item count, and the drop outcome (add / convert
+     / play / queue / summarize / write). Also render: empty bucket, single-cover, stacked-grid, pinned
+     marker, "transient-by-design" (playback) marker.
+   - Drag feedback states (all, side by side): compatible direct drop (highlighted), conversion-required
+     (explains the pending transform), incompatible (stays in place, muted/disabled, concise reason —
+     never hidden, no reflow), one-to-many expansion-required (with a "+14" semantic count badge),
+     executable-action, duplicate (already present — musical-identity match), processing, success-add,
+     bucket-local Undo ON the target, error. Include the insertion line for ordered buckets.
+   - Conversion sequences (storyboard each as an annotated left-to-right strip): track->album (parent
+     resolve + compact confirm + bucket-local Undo); album->tracks / album->playlist expansion with the
+     "Add all 14 tracks?" confirmation (+ Select tracks / Cancel); track->playback Play now / Play next /
+     Add to queue (with the transient-vs-stored distinction).
+   - Confirmation patterns (4, compared against each case): small inline confirm above tray / compact
+     popover anchored to the target bucket / expanded bottom sheet / focused dialog (higher-risk only).
+     Map them to: track->album, album->track ("Add all 14 / Select tracks / Cancel"), album->playlist,
+     track->playback (now/next/queue), album|review|note->summary (source preview + refresh), ambiguous
+     review relationship (surface candidates, never silently guess).
+   - Duplicate handling at drop time (musical-identity match -> warn/merge, originals untouched).
+   - Bucket-local Undo after an ADD and after a REMOVAL (membership-only, source survives), shown ON the
+     affected target ("Removed from this bucket · Undo").
 
-### 3. SOURCE-PAGE PROTOTYPES (render the tray IN CONTEXT on each; the item that gets dragged is real)
-   - Listening-history / analysis dashboard (charts, clock heatmap, retrospective — drag a top-album,
-     a top-track, and a time-period; note that a time-period becomes a droppable item here)
-   - Review reading page (drag the hero album AND a track from the tracklist)
-   - Album page (album -> track/playlist/playback/summary). NOTE: a standalone album page does not exist
-     yet in the product — render it as a PROPOSED surface and label it "new surface."
-   - Track page (track -> album/track-collection/playback). Same "new surface" note.
-   - Analysis page (analysis-signal / artist signal -> summary/review-research as a cited source)
-   - Another bucket as source (move/promote an item between buckets; playback-queue -> playlist bridge)
+### BOARD 3 — Quick inspection, Apple-like Edit mode, removal, reordering, full-bucket handoff
+   - Quick-inspection patterns (4, side by side): inspect-above-tray panel / expandable tray card / side
+     peek / mini drawer. Each with: normal inspection (purpose, count, recent adds, current action), Edit
+     mode, minus badges, Done, reordering (playlist/playback only), bucket-local removal Undo, and an
+     explicit visual distinction between "remove from bucket" (membership only) and "delete source."
+   - Keep Pocket Buckit lightweight — show the separate path to open the FULL bucket page for deep work
+     (the handoff), so the tray itself never becomes a giant editor.
 
-### 4. REQUIRED INTERACTION SEQUENCES (storyboard each as an annotated left-to-right strip)
-   - track -> album conversion (parent resolve + compact confirm + Undo)
-   - album -> tracks / playlist expansion with the "Add all 14 tracks?" confirmation (+ Select tracks)
-   - playback choices (Play now / Play next / Add to queue) and the transient-vs-stored distinction
-   - summary-bucket source accumulation: source preview list, provenance badges, and the generated
-     result with a visible refresh control
-   - duplicate handling at drop time (musical-identity match -> warn/merge, originals untouched)
-   - Undo after an ADD and Undo after a REMOVAL (membership-only, source survives)
-
-### 5. RESPONSIVE / ACCESSIBILITY VARIANTS (render as paired comparisons)
-   - Desktop drag-and-drop (pointer) vs Mobile long-press lift + flock + count badge
-   - Mobile non-drag fallback: an explicit "Add to…" overflow action that ENUMERATES live bucket targets
-     WITH their conversion verbs (Add to Playlist / Queue next / Add 14 tracks / Add to Summary) — this
-     is a peer to drag, not an afterthought (WCAG 2.5.7).
-   - Keyboard navigation model: focus a draggable item, Enter/Space to lift, Tab/arrow to choose a
-     bucket target (insertion position for ordered buckets), Enter to drop, Esc to cancel — show focus
-     order through the tray.
-   - Visible focus states on controls, bucket cards, tray items, confirmations.
-   - Reduced-motion-friendly behavior: show the no-flocking / instant-reposition variant next to the
-     animated one.
+### BOARD 4 — Bucket creation/settings, source-page flows, mobile, keyboard, reduced-motion
+   - Bucket settings & creation (template-FIRST, not a raw rule-builder): template picker gallery, create
+     bucket, edit bucket, pin-to-Pocket, accepted source types, a simple plain-language conversion-
+     behavior description, default drop action, display/order settings, archive/delete safety. Advanced
+     rules stay hidden until needed (progressive disclosure). Buckets are entered INTENTIONALLY into
+     purpose-defined targets — if an Inbox/Unsorted bucket appears it is ONE optional template, never the
+     default and never the first/primary destination; do not default to an Inbox-first layout.
+   - Source-page prototypes (render the tray IN CONTEXT; the dragged item is real):
+     * Listening-history / analysis dashboard (drag a top-album, a top-track, and a time-period — a time-
+       period becomes a droppable item here)
+     * Review reading page (drag the hero album AND a track from the tracklist)
+     * Album page (album -> track/playlist/playback/summary). A standalone album page does not exist yet —
+       render it as a PROPOSED surface, labeled "new surface."
+     * Track page (track -> album/track-collection/playback). Same "new surface" note.
+     * Analysis page (analysis-signal / artist signal -> summary/review-research as a cited source, with
+       provenance badges + a visible summary-refresh control + "why is this here")
+     * Another bucket as source (move/promote an item between buckets; playback-queue -> playlist "save
+       queue" bridge; make move-vs-copy explicit + bucket-local Undo)
+   - Mobile alternatives (beside each desktop equivalent): touch entry control, long-press lift + flock +
+     count badge, card/confirmation/quick-inspection at phone width, and the non-drag "Add to…" overflow
+     action that ENUMERATES live bucket targets WITH their conversion verbs (Add to Playlist / Queue next
+     / Add 14 tracks / Add to Summary) — a peer to drag, not an afterthought (WCAG 2.5.7).
+   - Keyboard navigation: focus a draggable item, Enter/Space to lift, Tab/arrow to choose a bucket target
+     (insertion position for ordered buckets), Enter to drop, Esc to cancel — show the focus order through
+     the tray, with visible focus rings on controls, bucket cards, tray items, and confirmations.
+   - Reduced-motion: show the no-flocking / instant-reposition variant next to the animated one.
 
 ## OUTPUT FORMAT REQUIREMENTS
-- Organize as labeled comparison BOARDS, one board per matrix dimension above. Within each board, place
-  alternatives in a row/grid so they are directly comparable; caption every panel with its option name
-  and the one-line tradeoff it represents.
-- The four tray-shell families must appear together on a master comparison board (column per family,
-  row per state) so the user can scan one state across all four shells at once.
-- Annotate states (compatible/incompatible/convert/duplicate/processing/success/undo/error) with small
-  labels ON the panels.
-- Use realistic music data (album covers, real-length tracklists ~12–16 tracks, Korean + English
-  titles) so density and overflow are honest. Do NOT idealize counts — show a 15+ bucket overflow case
-  and a 14-track expansion case explicitly.
-- This is an ATLAS for comparison and decision-making. Do not produce a single hero screen, do not
-  declare a winner, and do not omit any of the four shell families or any matrix dimension above.
+- Deliver exactly FOUR numbered comparison boards (Board 1-4 above), NOT one giant single-canvas collage.
+  Use the SAME representative music data and a CONSISTENT visual scale across all four boards.
+- Within each board, place alternatives in a row/grid so they are directly comparable; caption every panel
+  with its option name and the one-line tradeoff it represents. On Board 1, place the four shell families
+  together (column per family, row per state) so one state can be scanned across all four at once.
+- Annotate states (compatible / incompatible / convert / duplicate / processing / success / bucket-local
+  undo / error) with small labels ON the panels.
+- Use realistic music data (album covers, real-length tracklists ~12–16 tracks, Korean + English titles)
+  so density and overflow are honest. Do NOT idealize counts — show a 15+ bucket overflow case and a
+  14-track expansion case explicitly.
+- End with a visible COVERAGE CHECKLIST: a table mapping every mandatory option and state (the four shell
+  families, each of the 9 states, the entry-control + tray-density options, the 5 card treatments, every
+  drag-feedback state, the conversion + confirmation cases, duplicate handling, bucket-local Undo, quick-
+  inspection + edit/remove/reorder + full-bucket handoff, settings/creation, the 6 source pages, mobile,
+  keyboard, reduced-motion) to the exact board + panel where it appears.
+- This is an ATLAS for comparison and decision-making. Do not produce a single hero screen, do not declare
+  a winner, and do not omit any tray-shell family or any option/state above.
 ```
 
 ## Appendix B — reference source links
