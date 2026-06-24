@@ -659,23 +659,49 @@ CLAUDE.md). **Push/merge are owner pre-approved (2026-06-24).**
    is a distinct artifact from the backend export; it unblocks the front regen. **Gate:** merged contract on
    main **before** Step 5's `api.gen.ts` regen.
 
-5. **front — generalized item types + playback SDK + sign-in resume + drop sources (extends Step 1).** Extend
-   `PocketTray`/`PocketBucketTarget` for track/review/playback/snapshot members + source-preserving
-   conversion (track→album parent confirm; album→"add 14 tracks?" order-preserved) + the snapshot drop. NEW
-   `src/lib/spotifyPlayback.ts` — **lazy-load `sdk.scdn.co/spotify-player.js` only on an explicit play
-   action** (never at tray mount; public review pages must not pull the SDK or mint a token for anonymous
-   visitors), init with `getSpotifyStreamingToken()` = `apiFetch GET /api/playback/spotify-token`;
-   provider-neutral identity resolved at play; Premium-only, non-Premium → 30s preview / disabled; rule #9.
-   `auth.ts`: a per-listener Spotify `streaming` consent (separate from Cognito PKCE; today's SCOPES carry
-   none) that must **not** alter the existing login for non-playback users. NEW `pocketResume.client.ts`
-   (mounted on home — callback forces `location.replace('/')`): **single-drain, idempotent, TTL-bounded**
-   replay of the pending-intent (route reads owner from JWT sub, never the body). Wire drop SOURCES: LikedBoard
-   (track→parent album, catalogued-gated), charts/ImportAnalysis (album add + signal→snapshot), the review
-   tracklist handle, `atoms.tsx RowAction`. **Regen + commit `api.gen.ts`** (`pnpm generate:types`, Node 20)
-   after the merged contract lands. **Acceptance:** lint + astro check; CDP click-through incl. a generalized
-   add + a conversion confirm; api.gen.ts no drift. **Gate:** public-page drop tolerates 401/403 →
-   goLogin → home-resume; prod smoke quoted; Spotify Dev-Mode 5-user cap → file the extended-quota request
-   before any multi-user launch (out-of-band, not a v1 merge blocker).
+5. **front — generalized item types + playback SDK + sign-in resume + drop sources (extends Step 1).**
+   **Split into 5a / 5b (owner-approved 2026-06-24)** at the marked sub-boundary (item-types as 5a;
+   playback+resume as 5b) — the dispatcher is never forked, only extended. 5a ships the generalized
+   item-type render + the non-drag add path + the logged-out resume; 5b adds the Spotify SDK, the
+   per-listener streaming consent, the play/queue UI, and the public drop SOURCES that exercise the 5a
+   handoff. The `api.gen.ts` regen (post-Step-4 merged contract) shipped with 5a.
+
+   **5a — generalized item types + non-drag add + sign-in resume. ✅ DONE + prod-live 2026-06-24**
+   (myblog_front PR **#203** `b7040ee`, deploy `28068681050`). Generalized the tray/board render off
+   `item_type` so a non-album row is **null-album-safe** (item rows + `BucketBoard` 17-site guard — the
+   first non-album row can no longer 500 the board); **`api.gen.ts` regenerated** off the Step-4 merged
+   contract (`item_type`/`track_id`/`review_target_id`, album/album_id → Optional). NEW **self-styled
+   non-drag `AddToBucketMenu`** — the WCAG 2.5.7 PRIMARY path (touch + keyboard peer to drag), inline
+   sheet + bucket-local toast, **`member.css`-independent** (no `/profile`-scope dependency so it works on
+   any surface). NEW **`PocketResume`** home island — **single-drain, idempotent, TTL-bounded** replay of
+   the `pb:resume` pending-intent written by a logged-out drop (callback forces `location.replace('/')`),
+   the drop completed by the existing JWT route reading owner from `sub`. Wired the **ImportAnalysis** drop
+   source (album add). **Acceptance met:** `pnpm lint` (antfu) + `astro check` on Node 20; real-browser CDP
+   click-through **13/13** (entry open/close, generalized add, logged-out → `pb:resume` → `goLogin` → home
+   resume, the touch `AddToBucketMenu` path, settings persistence across reload). **Prod-live + smoked.**
+
+   **5b — Spotify Web Playback SDK + per-listener streaming consent + play/queue UI + public drop
+   sources. ← _next_ (this session).** NEW `src/lib/spotifyPlayback.ts` — **lazy-load
+   `sdk.scdn.co/spotify-player.js` only on an explicit play action** (never at tray mount; never for an
+   anonymous visitor; **public review pages must not pull the SDK or mint a token** — rule #9), init with
+   `getSpotifyStreamingToken()` = `apiFetch GET /api/playback/spotify-token`; provider-neutral identity
+   resolved at play; Premium-only, non-Premium → 30s preview / disabled. **The token route is
+   503-dormant** (`"Spotify playback not configured"`) until the owner provisions a
+   `streaming_refresh_token` key in the `myblog/spotify` secret via the OAuth `streaming` consent — so
+   this session can verify **only the dormant path** (explicit play → token fetch → 503 → a dormant
+   "Premium required / not yet provisioned" affordance); full playback verification waits on the owner
+   provisioning the refresh token. `auth.ts`: a per-listener Spotify `streaming` consent (separate from
+   Cognito PKCE; today's SCOPES carry none) that must **not** alter the existing login for non-playback
+   users. Extend `PocketTray`/`PocketBucketTarget`/inspect with play / Play-next / Add-to-queue on the
+   5a-generalized item rows + source-preserving conversion affordances (track→album parent confirm;
+   album→"add 14 tracks?" order-preserved). Wire the **public review drop SOURCES** (the hero album + a
+   tracklist track) — the real entry point into the 5a logged-out handoff (`AddToBucketMenu` → `pb:resume`
+   → `goLogin` → home `PocketResume`). **Acceptance:** `pnpm lint` + `astro check`; CDP click-through incl.
+   ★ a **negative test** that the SDK is **not** loaded at tray mount / for an anonymous visitor, plus an
+   explicit play → token fetch → 503 → dormant affordance, and a public-page drop tolerating 401/403 →
+   `goLogin` → home-resume. **Gate:** prod smoke of the deployed bundle quoted in the PR comment; Spotify
+   Dev-Mode 5-user cap → file the extended-quota request before any multi-user launch (out-of-band, not a
+   v1 merge blocker).
 
 6. **shared_db — STEP-2 relax (V30/V31)** [rule #4 schema step B — SEPARATE session]. Relax `album_id NOT
    NULL`; replace `uq_review_bucket_items_bucket_album` with **per-kind partial-uniques** (album/review/
@@ -707,6 +733,7 @@ CLAUDE.md). **Push/merge are owner pre-approved (2026-06-24).**
 | 2026-06-23 | Corrections v3 (this version is canonical): Pocket Buckit is the canonical top-level product/interaction definition; FEAT-bucket-identity reframed as its compatibility/migration/integration track (absorb-question answered: yes). Generalized **membership** decided (item↔bucket relationship, not a copy; "membership" ≠ paid/multi-user). Tree ("My Buckit") canonical; Pocket = its projection (parent=folders, leaf=actionable). Move/add/transform semantics fixed (internal MOVE default + Undo; external ADD; source-preserving conversion). Notes narrowed (standalone Notes/Reference deferred). Ordinary listening-add ≠ snapshot (no auto stat-copy; snapshots frozen). **Playback aims for real playback** (Spotify→YouTube, provider provisional). **Summary** auto-async + bell/badge (not manual-refresh-first). Multi-user deferred (v1 single-owner; not an atlas blocker; keep scoping possible). **Entry-control count re-opened** (1 or 2 controls; single-control comparison restored; dual-non-negotiable wording removed). Decided behaviors fixed (duplicate/ordering by type; album→track order preserved; same-type move no-confirm; conversion/expansion confirm; delete→archive; parent child-handling). Open Questions split into Design-Atlas vs Technical-validation. | — |
 | 2026-06-23 | Technical-validation OQs **resolved** (10-agent research/design workflow + owner decisions). **Playback v1 = Spotify Web Playback SDK (Premium, per-listener `streaming` OAuth, client-side; rule-#9 token-mint); YouTube deferred** (provider-neutral track identity keeps it possible). **Membership = staged in-place widening** of `review_bucket_items` (`item_type`+nullable typed FKs; relax in STEP 2; fold `들을 것`). **Snapshot = side-table** (typed header + `frozen` JSONB + `source_album_ids[]` + `schema_version`, append-only refresh). **Queue = hybrid** (server ordered+dup-allowed membership `kind='playback_queue'`; client-ephemeral playhead; internal save-to-playlist). **Sign-in handoff = localStorage thin-intent + Cognito PKCE + single-drain resume**; drop route must be explicit Cognito-JWT. **Multi-user = defer all** (owner decision) — no `owner_id` now; the one rule: new tables avoid the global-singleton shape. Steps now gated only on the Design Atlas. | — |
 | 2026-06-24 | **Design Atlas + interactive configurator built** (claude.ai/design project `cf932975` — `Pocket Buckit configurator.html` + `atlas-configurator.jsx`; clickable 5-axis configurator over the atlas engines). **OQ 1–5 resolved** as a **user-selectable `design` setting** (default = single-toggle / F2-editorial-light / pinned / more / depth-1 / inspect-above; all axes switchable, all 6 shells real — D9). **Design-settings architecture decided** (`PocketBuckitDesign` blob under `pb:design`, single `PocketTray` dispatcher, configurator as blueprint). **Execution plan finalized** via a 7-agent audit+design+review workflow; both adversarial-review must-fixes baked in (`claims.get('sub')`; token-route edge-only probe; STEP-2 gated on serializer-prod-deployed + album-dup-survives-the-swap; 3-artifact contract chain; gated-variants-disabled). **Promoted draft→in-progress with explicit owner approval; push/merge owner-pre-approved.** Re-sequenced **front-first** (design layer on existing buckets ships before the membership backend). | All |
+| 2026-06-24 | **Steps 1–4 + 5a DONE + prod-live.** Step 5 **split into 5a / 5b (owner-approved)** at the marked item-types ‖ playback+resume sub-boundary so the Spotify SDK + per-listener `streaming` consent get their own session (the `PocketTray` dispatcher is never forked, only extended). **5a shipped** (myblog_front PR **#203** `b7040ee`, deploy `28068681050`, prod-live + smoked): generalized item-type render (null-album-safe rows + `BucketBoard` 17-site guard so the first non-album row can't 500 the board), `api.gen.ts` regen off the Step-4 merged contract, self-styled non-drag **`AddToBucketMenu`** (WCAG 2.5.7 primary, `member.css`-independent inline sheet/toast), **`PocketResume`** single-drain/idempotent/TTL-bounded `pb:resume` home island for the logged-out drop handoff, ImportAnalysis drop source; CDP 13/13. **5b deferred to its own session** (the playback SDK lazy-loads only on explicit play — never at tray mount / for anonymous visitors / on public review pages, rule #9; the `GET /api/playback/spotify-token` route stays **503-dormant** until the owner provisions `streaming_refresh_token`, so only the dormant path is verifiable until then). | 5 |
 
 ---
 
