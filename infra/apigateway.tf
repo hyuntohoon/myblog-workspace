@@ -315,6 +315,21 @@ resource "aws_apigatewayv2_route" "library_saved_tracks_fill_genres_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Playback token (FEAT-pocket-buckit Step 3, D3 / OQ8) ---
+# GET /api/playback/spotify-token async-mints a short-lived Spotify Web Playback SDK token.
+# This is its OWN explicit Cognito-JWT route — deliberately NOT served by the
+# `api_get_proxy` (GET /api/{proxy+}) edge_guard catch-all — so an edge-only request
+# (CloudFront x-origin-verify, NO Bearer) is rejected at the authorizer (401) and can never
+# mint a streaming token. API Gateway routes the more-specific literal path over {proxy+}.
+# rule #9-safe: the handler only mints/refreshes a token, never a synchronous Spotify call.
+resource "aws_apigatewayv2_route" "playback_spotify_token_get" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "GET /api/playback/spotify-token"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;
