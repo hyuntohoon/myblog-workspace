@@ -4,8 +4,8 @@
 The /me/player/* endpoints are user-scoped, so the worker needs a refresh token
 minted via the Authorization-Code flow — which requires a human to approve consent
 in a browser once. Rather than build a full in-app OAuth UI (deferred per D27), an
-admin runs this script once; the resulting refresh token is stored in Secrets
-Manager `myblog/spotify` and the worker uses it forever after.
+admin runs this script once; the resulting refresh token is stored in SSM Parameter
+Store (SecureString param `/myblog/spotify`) and the worker uses it forever after.
 
 ONE-TIME SETUP (Spotify Developer Dashboard, https://developer.spotify.com):
   Add this exact Redirect URI to the app's settings:
@@ -13,14 +13,22 @@ ONE-TIME SETUP (Spotify Developer Dashboard, https://developer.spotify.com):
 
 REQUIRES: httpx (+ boto3 for --write).  pip install httpx boto3
 
-USAGE:
+USAGE (worker read/library token — the default):
   export SPOTIFY_CLIENT_ID=...        # the app's client id
   export SPOTIFY_CLIENT_SECRET=...    # the app's client secret
   python scripts/spotify_bootstrap_token.py            # prints the refresh token
-  python scripts/spotify_bootstrap_token.py --write    # also writes myblog/spotify
+  python scripts/spotify_bootstrap_token.py --write    # also writes /myblog/spotify
+
+USAGE (streaming token — FEAT-spotify-streaming-playback Step 1):
+  python scripts/spotify_bootstrap_token.py --streaming --write
+    Mints a `streaming`-scoped token from a Spotify PREMIUM account's consent and stores it
+    under the SEPARATE JSON key `streaming_refresh_token`, flipping
+    GET /api/playback/spotify-token from 503-dormant to 200. The worker's own `refresh_token`
+    key (and its D30 health markers) is left untouched. Requires a Premium account + local
+    AWS creds with ssm:PutParameter on /myblog/spotify.
 
 The token value is NEVER logged or printed unless you pass --show (avoid that on a
-shared terminal). With --write it goes straight into Secrets Manager.
+shared terminal). With --write it goes straight into SSM Parameter Store (SecureString).
 
 RE-AUTH (D30): if the /profile → 연동 tab shows "재인증 필요", the stored refresh token
 was revoked/expired (the worker saw an invalid_grant and set needs_reauth in the
@@ -28,10 +36,14 @@ secret). Recover by re-running this script with --write — it mints a fresh tok
 stamps last_successful_refresh_at, and clears needs_reauth, so the tab flips back to
 연결됨 without waiting for the next worker tick.
 
-Scopes requested:
+Scopes requested (default / worker token):
   user-read-recently-played, user-read-currently-playing  (listening reads)
   user-library-read, user-library-modify                  (Spotify Library two-way
     sync, FEAT-spotify-library-sync — the only write scopes, per D11 follow-up)
+
+Scopes requested (--streaming token):
+  streaming                                               (Web Playback SDK audio)
+  user-read-playback-state, user-modify-playback-state    (device transfer + play control)
 
 NOTE: re-run this with --write after adding the library scopes — a token minted by an
 earlier run lacks user-library-* and the worker's /me/albums calls 403 (the reconcile
@@ -56,6 +68,10 @@ SCOPES = (
     "user-read-recently-played user-read-currently-playing "
     "user-library-read user-library-modify"
 )
+# FEAT-spotify-streaming-playback Step 1: the Web Playback SDK needs `streaming`; device
+# transfer + play control need the two playback-state scopes. Minted into a DISTINCT
+# refresh token (streaming_refresh_token) so it never mixes with the worker's read token.
+STREAMING_SCOPES = "streaming user-read-playback-state user-modify-playback-state"
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 SECRET_ID = "/myblog/spotify"  # SSM SecureString param (was Secrets Manager)
@@ -90,14 +106,14 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         return
 
 
-def _capture_code(client_id: str) -> str:
+def _capture_code(client_id: str, scopes: str) -> str:
     state = secrets.token_urlsafe(16)
     _CallbackHandler.state_expected = state
     query = urllib.parse.urlencode({
         "client_id": client_id,
         "response_type": "code",
         "redirect_uri": REDIRECT_URI,
-        "scope": SCOPES,
+        "scope": scopes,
         "state": state,
     })
     url = f"{AUTH_URL}?{query}"
@@ -130,7 +146,9 @@ def _exchange(code: str, client_id: str, client_secret: str) -> str:
     return token
 
 
-def _write_secret(client_id: str, client_secret: str, refresh_token: str) -> None:
+def _write_secret(
+    client_id: str, client_secret: str, refresh_token: str, *, streaming: bool = False
+) -> None:
     import boto3
 
     ssm = boto3.client("ssm", region_name=REGION)
@@ -141,26 +159,41 @@ def _write_secret(client_id: str, client_secret: str, refresh_token: str) -> Non
         existing = json.loads(ssm.get_parameter(Name=SECRET_ID, WithDecryption=True)["Parameter"]["Value"])
     except ssm.exceptions.ParameterNotFound:
         existing = {}
-    from datetime import datetime, timezone
 
-    existing.update({
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "refresh_token": refresh_token,
+    existing["client_id"] = client_id
+    existing["client_secret"] = client_secret
+    if streaming:
+        # FEAT-spotify-streaming-playback Step 1: a dedicated `streaming`-scope token,
+        # DISTINCT from the worker's read-only refresh_token. Write ONLY this key — never
+        # touch refresh_token or its D30 health markers (last_successful_refresh_at /
+        # needs_reauth), which describe the worker token's state, not this one.
+        existing["streaming_refresh_token"] = refresh_token
+        token_key = "streaming_refresh_token"
+    else:
+        from datetime import datetime, timezone
+
+        existing["refresh_token"] = refresh_token
         # A fresh bootstrap IS a successful token acquisition — stamp it and drop any
         # stale needs_reauth marker so the 연동 tab flips back to 연결됨 immediately,
         # without waiting for the next worker refresh (D30 re-auth recovery).
-        "last_successful_refresh_at": datetime.now(timezone.utc).isoformat(),
-    })
-    existing.pop("needs_reauth", None)
+        existing["last_successful_refresh_at"] = datetime.now(timezone.utc).isoformat()
+        existing.pop("needs_reauth", None)
+        token_key = "refresh_token"
+
     ssm.put_parameter(Name=SECRET_ID, Value=json.dumps(existing), Type="SecureString", Overwrite=True)
-    print(f"✅ refresh token을 SSM {SECRET_ID} 에 저장했습니다 (값은 출력하지 않음).")
+    print(f"✅ {token_key}을(를) SSM {SECRET_ID} 에 저장했습니다 (값은 출력하지 않음).")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Mint a Spotify user refresh token (one-time).")
-    ap.add_argument("--write", action="store_true", help=f"write the token to Secrets Manager {SECRET_ID}")
+    ap.add_argument("--write", action="store_true", help=f"write the token to SSM {SECRET_ID}")
     ap.add_argument("--show", action="store_true", help="print the token (avoid on shared terminals)")
+    ap.add_argument(
+        "--streaming",
+        action="store_true",
+        help="mint a `streaming`-scope token (Web Playback SDK) into streaming_refresh_token "
+        "instead of the worker's refresh_token — needs a Premium account (Step 1)",
+    )
     args = ap.parse_args()
 
     client_id = os.environ.get("SPOTIFY_CLIENT_ID", "").strip()
@@ -168,15 +201,19 @@ def main() -> None:
     if not client_id or not client_secret:
         sys.exit("SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET 환경변수를 설정하세요.")
 
-    code = _capture_code(client_id)
+    scopes = STREAMING_SCOPES if args.streaming else SCOPES
+    token_label = "streaming_refresh_token" if args.streaming else "refresh_token"
+    if args.streaming:
+        print("⚠️  --streaming: PREMIUM 계정으로 동의해야 재생 토큰이 유효합니다.")
+    code = _capture_code(client_id, scopes)
     refresh_token = _exchange(code, client_id, client_secret)
 
     if args.write:
-        _write_secret(client_id, client_secret, refresh_token)
+        _write_secret(client_id, client_secret, refresh_token, streaming=args.streaming)
     if args.show:
-        print("refresh_token:", refresh_token)
+        print(f"{token_label}:", refresh_token)
     if not args.write and not args.show:
-        print("✅ refresh token 발급 완료. 저장하려면 --write, 직접 확인하려면 --show 를 사용하세요.")
+        print(f"✅ {token_label} 발급 완료. 저장하려면 --write, 직접 확인하려면 --show 를 사용하세요.")
 
 
 if __name__ == "__main__":
