@@ -1,6 +1,6 @@
 # FEAT-pocket-buckit-workspace: Pocket Buckit — multi-drawer workspace, edit mode, efficient reads
 
-- **Status**: draft (needs owner accept before Active; Step A scoped + ready to build front-only)
+- **Status**: closed — Steps A + B shipped + prod-live 2026-06-24 (front #208/#209/#210); **Step C deferred** (necessity gate not met — see **Outcome** below). C is additive + fully designed → revivable on the stated trigger without a redesign.
 - **Owner**: TBD
 - **Created**: 2026-06-24
 - **Plan row**: `plan.md` → FEAT-pocket-buckit-workspace
@@ -11,6 +11,52 @@
 > **edit/arrange mode** (removal + reorder gated, separate from drawer-open), and stops the tray + profile
 > from **re-fetching the full bucket tree on every navigation** — backed by a new **lightweight tray
 > read-model** so the tray never pays for full item/album/snapshot payloads it does not render.
+
+---
+
+## Outcome (2026-06-24) — A + B shipped, C deferred
+
+**Steps A + B: DONE + prod-live 2026-06-24.** Front #208 (multi-drawer workspace + edit/arrange mode),
+#209 (user-scoped cached `bucketStore` + provider SWR), #210 (`BucketBoard` + `LikedBoard` folded onto the
+shared store). All three `Deploy Front (S3+CF)` runs green on their merge SHAs; the deployed bundle is
+verified to ship the markers (`pbDrawerIn`/`openDrawers` in `PocketBuckit.*.js`; `ensureFresh` +
+`pb:cache:buckets` in `bucketStore.*.js`).
+
+**Step C: DEFERRED — this RFC is closed.** Decided from a prod-evidence dossier + an adversarial judge panel
+(judge confidence 0.74; even the implement advocate self-rated 0.42 and conceded "no concrete user-visible
+harm right now"):
+
+- C's **only** named motivation — heavy `GET /api/buckets` on **every** nav — was already **eliminated by
+  Step B**: `bucketStore.ensureFresh()` (`bucketStore.ts:145`) seeds instantly from the user-scoped session
+  cache, dedups within a 30s `staleTime`, and revalidates in the **background** while painting cached state.
+  The blocking / perceived cost is gone in prod.
+- Step B left `ensureFresh()` calling the full `listBuckets()`, so C *would* still shrink the wire payload —
+  **but the residual is sub-perceptual.** Prod (queried live 2026-06-24): **7 buckets, all flat roots (zero
+  nesting / zero grandchildren), 96 items / 76 albums, max 46 in one bucket, single owner** (buckets are
+  global — zero per-user scoping). Full `GET /api/buckets` ≈ **45–55 KB uncompressed (~10–13 KB gzip)** (only
+  ~7 KB is content text; the rest is structural JSON across 96 embedded `AlbumBrief`s), fetched **≤ once /
+  30s** and **never blocking**.
+- C's headline mechanism — client-side depth/path reconstruction from `parent_id` + `position` — is **moot at
+  zero nesting** (all 7 buckets are already roots in tray order).
+- Shipping C is a **4-repo, multi-PR, permanent public-contract** effort (backend route + `BucketSummary` +
+  grouped `COUNT` + tests, openapi regen, workspace contract merge, `api.gen.ts`, front lazy-load refactor) +
+  the rule #4 prod-observe gate. Under the project **necessity gate** (adopt only with concrete
+  harm-if-unfixed; "nothing to fix" is valid) this fails the bar. Reversibility is asymmetric: deferring is
+  fully reversible (this RFC preserves the complete additive design), while implementing carries a contract
+  surface forever for a residual that is currently zero harm.
+
+**Revival trigger** — build C (it stays additive; the full design below is preserved, so revival is a hot
+restart, not a redesign) when **any** of:
+
+- **(a)** buckets actually start **nesting** in prod (`parent_id IS NOT NULL`, tree depth ≥ 2) → client-side
+  depth/path reconstruction becomes real;
+- **(b)** full `GET /api/buckets` exceeds **~150 KB uncompressed / ~40 KB gzip** (≈ 3× today — e.g. ~300+
+  embedded items, or one bucket large enough that lazy per-drawer `GET /{id}` becomes load-bearing);
+- **(c)** a **measured** cold-load / first-paint regression after cache eviction or logout/relogin is
+  observed.
+
+The full Step C design (route placement, `BucketSummary` schema, grouped-`COUNT` strategy, OQ1–OQ4) is
+retained below for that revival.
 
 ---
 
