@@ -725,6 +725,22 @@ CLAUDE.md). **Push/merge are owner pre-approved (2026-06-24).**
    NULL` is **not** trivially reversible once non-album rows exist — kept in its own migration so V28 stays
    cleanly rollback-able.
 
+   **Build note (2026-06-24 — IMPLEMENTED, awaiting prod-apply).** V30/V31 authored + merged to shared_db
+   `main` (PR #47 `496a290`). **D8 mapping resolved as Option A** (owner-decided): `album`/`track`/`review`
+   get per-kind partial-uniques (`uq_review_bucket_items_{album,track,review}`, predicate
+   `WHERE item_type='<kind>'`); `playback`/`snapshot` allow duplicates. Added
+   `ck_review_bucket_items_album_id_present` (`item_type<>'album' OR album_id IS NOT NULL`) so dropping NOT
+   NULL can't admit a NULL-album `album` row that escapes the album partial-unique. V31 folds
+   `album_to_listen_items` into a `kind='to_listen'` system bucket (idempotent NOT-EXISTS guards, no
+   singleton index). Parity 58/58; a 3-lens adversarial review confirmed the dup-album must-fix (proven vs
+   live Postgres) + OQ12. **Worker co-requisite (PR #52 `7bc0514`):** `library_sync._insert_bucket_item`
+   used a bare `ON CONFLICT (bucket_id, album_id)` that cannot infer the V30 partial album index → would 500
+   the Spotify library sync on V30 apply; replaced with a schema-agnostic NOT-EXISTS dedup + a real-engine
+   integration test. **Rollout (NEXT — human, rule #3):** deploy worker → `BEGIN…ROLLBACK` dry-run on Neon →
+   apply V30, then V31 → confirm a dup album INSERT still raises. Still-deferred (after apply): backend
+   non-album `add_item` branches + snapshot-capture INSERT + per-kind dedup, front track-as-bucket-member +
+   `들을 것` front cutover.
+
 > **Continuation pointer (for an uninterrupted multi-session build):** Step 1 (front design layer) is first
 > and dependency-free. Build order: **1 → 2 → 3 → 4 → 5 → 6**. Steps 2 and 6 are the rule-#4 schema pair
 > (separate sessions). If Step 1 or Step 5 grows too large for one PR, split at the marked sub-boundaries
