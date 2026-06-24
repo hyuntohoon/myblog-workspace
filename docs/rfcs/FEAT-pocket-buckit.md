@@ -640,6 +640,20 @@ CLAUDE.md). **Push/merge are owner pre-approved (2026-06-24).**
    applies the apigateway routes; prod smoke quoted in the PR comment; public-drop confirmed JWT-gated
    (`curl` 401 not 404) reading owner from sub, before front wires the drop.
 
+   > **Build note (2026-06-24, owner-confirmed scope):** V28/V29 (Step 2) kept `album_id NOT
+   > NULL` + the named UNIQUE — the relax is **Step 6** — so a non-album row **cannot be
+   > INSERTed yet**. Pulling the relax forward would violate rule #4 + the serializer-before-relax
+   > gate. Step 3 therefore ships the **read-side serializer + scaffolding ONLY**: the
+   > `item_type`-tolerant serializer (deployed + prod-verified before the relax), `add_item`
+   > threading `item_type` but **rejecting non-album writes with 422** (`TypedMembershipNotEnabledError`),
+   > the dormant async `GET /api/playback/spotify-token` (own JWT route; 503 until the Step-5
+   > `streaming` consent — Spotify app creds confirmed present in the `myblog/spotify` secret +
+   > a new `streaming_refresh_token` key, so NO 501 stub was needed), and `resolve_owner`. The
+   > **non-album `add_item` branches, the snapshot-capture INSERT, and per-kind dedup move to
+   > Step 6** (alongside the relax, where they are end-to-end testable). The "public-drop" is the
+   > existing `POST /api/buckets/{id}/items` JWT route now reading owner from `sub` (no separate
+   > endpoint). Shipped as backend `fcd01cb` + the one apigateway route (clean `1 add / 0 change`).
+
 4. **workspace — regenerate the merged contract.** `scripts/merge_openapi.py` → `docs/contracts/openapi.json`
    (merge workspace first so the service notify is a no-op — reference-workspace-contract-merge-order). This
    is a distinct artifact from the backend export; it unblocks the front regen. **Gate:** merged contract on
