@@ -1,8 +1,9 @@
 # FEAT-spotify-streaming-playback: Spotify Premium playback, end-to-end
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈 (single-owner)
 - **Created**: 2026-06-25
+- **Accepted**: 2026-06-25
 - **Plan row**: `plan.md` → FEAT-spotify-streaming-playback (Backlog)
 
 ---
@@ -116,4 +117,4 @@ Filled in during execution.
 
 | Date | Decision | Step |
 |------|----------|------|
-| | | |
+| 2026-06-25 | Accepted by owner (승격). Step 1 (streaming-scope bootstrap) queued for the next session — not started this session (rule #4 one-step gate). | — |
