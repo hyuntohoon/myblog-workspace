@@ -680,28 +680,36 @@ CLAUDE.md). **Push/merge are owner pre-approved (2026-06-24).**
    click-through **13/13** (entry open/close, generalized add, logged-out → `pb:resume` → `goLogin` → home
    resume, the touch `AddToBucketMenu` path, settings persistence across reload). **Prod-live + smoked.**
 
-   **5b — Spotify Web Playback SDK + per-listener streaming consent + play/queue UI + public drop
-   sources. ← _next_ (this session).** NEW `src/lib/spotifyPlayback.ts` — **lazy-load
-   `sdk.scdn.co/spotify-player.js` only on an explicit play action** (never at tray mount; never for an
-   anonymous visitor; **public review pages must not pull the SDK or mint a token** — rule #9), init with
-   `getSpotifyStreamingToken()` = `apiFetch GET /api/playback/spotify-token`; provider-neutral identity
-   resolved at play; Premium-only, non-Premium → 30s preview / disabled. **The token route is
-   503-dormant** (`"Spotify playback not configured"`) until the owner provisions a
-   `streaming_refresh_token` key in the `myblog/spotify` secret via the OAuth `streaming` consent — so
-   this session can verify **only the dormant path** (explicit play → token fetch → 503 → a dormant
-   "Premium required / not yet provisioned" affordance); full playback verification waits on the owner
-   provisioning the refresh token. `auth.ts`: a per-listener Spotify `streaming` consent (separate from
-   Cognito PKCE; today's SCOPES carry none) that must **not** alter the existing login for non-playback
-   users. Extend `PocketTray`/`PocketBucketTarget`/inspect with play / Play-next / Add-to-queue on the
-   5a-generalized item rows + source-preserving conversion affordances (track→album parent confirm;
-   album→"add 14 tracks?" order-preserved). Wire the **public review drop SOURCES** (the hero album + a
-   tracklist track) — the real entry point into the 5a logged-out handoff (`AddToBucketMenu` → `pb:resume`
-   → `goLogin` → home `PocketResume`). **Acceptance:** `pnpm lint` + `astro check`; CDP click-through incl.
-   ★ a **negative test** that the SDK is **not** loaded at tray mount / for an anonymous visitor, plus an
-   explicit play → token fetch → 503 → dormant affordance, and a public-page drop tolerating 401/403 →
-   `goLogin` → home-resume. **Gate:** prod smoke of the deployed bundle quoted in the PR comment; Spotify
-   Dev-Mode 5-user cap → file the extended-quota request before any multi-user launch (out-of-band, not a
-   v1 merge blocker).
+   **5b — Spotify Web Playback SDK (lazy/dormant) + play UI + public review drop sources. ✅ DONE +
+   prod-live 2026-06-24** (myblog_front PR **#204** `473237f`, deploy `28070507378`). **Token model A+
+   (owner-decided this session):** v1 streaming token is **single-owner, server-minted** via `GET
+   /api/playback/spotify-token` (Cognito-JWT), **503-dormant** (`"Spotify playback not configured"`) until
+   the owner provisions a `streaming_refresh_token` key in the `myblog/spotify` secret — so only the
+   **dormant path** is reachable now (non-Premium → preview/disabled later). **No browser per-listener
+   Spotify OAuth was built**: the backend mints from the owner secret, so a per-listener browser flow would
+   be dead code until multi-user. Cognito **`auth.ts` is UNCHANGED** (non-playback login provably
+   untouched); the per-listener consent is left as a **documented seam** (a future `spotifyAuth.ts`, not a
+   change to the Cognito SCOPES) for `FEAT-multi-user-accounts`. NEW `src/lib/spotifyPlayback.ts` —
+   **lazy-loads `sdk.scdn.co/spotify-player.js` only inside an explicit play action's live-token branch**
+   (never at module import / tray mount / for an anonymous visitor / on a public review page — rule #9).
+   **Token-first:** `getStreamingToken()` (the single swappable token seam) uses a raw `fetch`+`getAuthHeader`
+   (NOT `apiFetch`, so a play click never redirects to login; an anonymous caller short-circuits with zero
+   network call), and a 503/unauthorized returns **before** any SDK pull. Identity is provider-neutral
+   (`PlaybackTarget`); the SDK loader + `Player.connect` are real-but-gated; the one genuine gap (no Spotify
+   URI surfaced on items) is the documented `resolveProviderUri` seam. No `owner_id`/singleton (OQ12). UI:
+   an inspect-row ▶ on the 5a-generalized item rows → dormant notice; the **public review hero** mounts
+   `AddToBucketMenu` (`client:only=react`) — the real entry into the 5a logged-out `pb:resume` → `goLogin`
+   → home `PocketResume` handoff — and the tracklist gets a per-track ▶ **play** (dormant), **not** a
+   track-as-bucket-member (a track write 422s until the Step-6 relax — deferred). **Verified:** `pnpm lint`
+   (antfu) + `astro check` clean on Node 20; a real-browser **CDP** run on a temp local review page — SDK
+   **not** loaded at tray mount or after a dormant play (the negative test), explicit play → token fetch →
+   503 → dormant notice, hero 담기 island hydrates, 2 tracklist ▶ render; an adversarial 3-lens review
+   (rule-#9/correctness, regression, brief-completeness) **PASS**. **Prod smoke:** deployed
+   `spotifyPlayback.*.js` ships the token path + the SDK URL as a lazy string + the dormant message; the home
+   page eager-loads `sdk.scdn.co` **0×**; the token route returns **401** unauthenticated (live + Cognito-gated;
+   503-with-JWT verified in backend Step 3, and 5b touched no backend). Full review-page click-through on prod
+   awaits a published review article (none is published on prod yet); Spotify Dev-Mode 5-user cap → file the
+   extended-quota request before any multi-user launch (out-of-band, not a v1 merge blocker).
 
 6. **shared_db — STEP-2 relax (V30/V31)** [rule #4 schema step B — SEPARATE session]. Relax `album_id NOT
    NULL`; replace `uq_review_bucket_items_bucket_album` with **per-kind partial-uniques** (album/review/
@@ -734,6 +742,7 @@ CLAUDE.md). **Push/merge are owner pre-approved (2026-06-24).**
 | 2026-06-23 | Technical-validation OQs **resolved** (10-agent research/design workflow + owner decisions). **Playback v1 = Spotify Web Playback SDK (Premium, per-listener `streaming` OAuth, client-side; rule-#9 token-mint); YouTube deferred** (provider-neutral track identity keeps it possible). **Membership = staged in-place widening** of `review_bucket_items` (`item_type`+nullable typed FKs; relax in STEP 2; fold `들을 것`). **Snapshot = side-table** (typed header + `frozen` JSONB + `source_album_ids[]` + `schema_version`, append-only refresh). **Queue = hybrid** (server ordered+dup-allowed membership `kind='playback_queue'`; client-ephemeral playhead; internal save-to-playlist). **Sign-in handoff = localStorage thin-intent + Cognito PKCE + single-drain resume**; drop route must be explicit Cognito-JWT. **Multi-user = defer all** (owner decision) — no `owner_id` now; the one rule: new tables avoid the global-singleton shape. Steps now gated only on the Design Atlas. | — |
 | 2026-06-24 | **Design Atlas + interactive configurator built** (claude.ai/design project `cf932975` — `Pocket Buckit configurator.html` + `atlas-configurator.jsx`; clickable 5-axis configurator over the atlas engines). **OQ 1–5 resolved** as a **user-selectable `design` setting** (default = single-toggle / F2-editorial-light / pinned / more / depth-1 / inspect-above; all axes switchable, all 6 shells real — D9). **Design-settings architecture decided** (`PocketBuckitDesign` blob under `pb:design`, single `PocketTray` dispatcher, configurator as blueprint). **Execution plan finalized** via a 7-agent audit+design+review workflow; both adversarial-review must-fixes baked in (`claims.get('sub')`; token-route edge-only probe; STEP-2 gated on serializer-prod-deployed + album-dup-survives-the-swap; 3-artifact contract chain; gated-variants-disabled). **Promoted draft→in-progress with explicit owner approval; push/merge owner-pre-approved.** Re-sequenced **front-first** (design layer on existing buckets ships before the membership backend). | All |
 | 2026-06-24 | **Steps 1–4 + 5a DONE + prod-live.** Step 5 **split into 5a / 5b (owner-approved)** at the marked item-types ‖ playback+resume sub-boundary so the Spotify SDK + per-listener `streaming` consent get their own session (the `PocketTray` dispatcher is never forked, only extended). **5a shipped** (myblog_front PR **#203** `b7040ee`, deploy `28068681050`, prod-live + smoked): generalized item-type render (null-album-safe rows + `BucketBoard` 17-site guard so the first non-album row can't 500 the board), `api.gen.ts` regen off the Step-4 merged contract, self-styled non-drag **`AddToBucketMenu`** (WCAG 2.5.7 primary, `member.css`-independent inline sheet/toast), **`PocketResume`** single-drain/idempotent/TTL-bounded `pb:resume` home island for the logged-out drop handoff, ImportAnalysis drop source; CDP 13/13. **5b deferred to its own session** (the playback SDK lazy-loads only on explicit play — never at tray mount / for anonymous visitors / on public review pages, rule #9; the `GET /api/playback/spotify-token` route stays **503-dormant** until the owner provisions `streaming_refresh_token`, so only the dormant path is verifiable until then). | 5 |
+| 2026-06-24 | **Step 5b DONE + prod-live** (myblog_front PR **#204** `473237f`, deploy `28070507378`). **Token-model decision "A+" (owner)**: when the implementer surfaced that the Step-3 backend mints the streaming token **server-side from the owner's `streaming_refresh_token`** (single-owner), the owner chose **A+** — ship the **server-mint single-owner** path now (the only thing that functions in v1) while keeping the future per-listener path open via seams, and **build no multi-user code**. Concretely: token acquisition is one swappable `getStreamingToken()` seam, identity is provider-neutral, no `owner_id`/singleton, and Cognito **`auth.ts` is UNCHANGED** (the per-listener browser OAuth is a documented seam → `FEAT-multi-user-accounts`, NOT built — it would be dead until the backend stores a per-listener token). **Scope (owner Q1)**: the review tracklist gets a (dormant) **play** affordance only; **track-as-bucket-member is deferred to Step 6** (the backend 422s non-album writes until the relax). The SDK lazy-loads only inside an explicit play action's live-token branch (token-first; a 503/anon short-circuits before any SDK pull — rule #9); a play click never redirects (raw `fetch`, not `apiFetch`). Verified: lint+astro-check, real-browser CDP (negative test + dormant play), adversarial 3-lens review PASS, prod smoke (bundle carries the code, no eager SDK, token route 401-live). **Next = Step 6** (shared_db STEP-2 relax) — separate session per rule #4, gated on the prod-deployed Step-3 serializer. | 5b |
 
 ---
 
