@@ -73,6 +73,8 @@ validation*).
   **YouTube fallback is DEFERRED** (kept possible, not built — its ToS forbids background/audio-only and
   metadata matching runs ~34% wrong-version). Non-Premium listeners get a preview/disabled state. Provider
   remains **provisional**. See *Technical-validation findings* OQ8/9.
+
+  > **SUPERSEDED 2026-06-24 (token model A+, Step 5b):** v1 ships a SINGLE-OWNER, SERVER-MINTED streaming token (`GET /api/playback/spotify-token`, Cognito-JWT, 503-dormant until the owner provisions `streaming_refresh_token`) — NOT per-listener browser OAuth. The per-listener Premium `streaming` OAuth described here is a DEFERRED multi-user seam (FEAT-multi-user-accounts), not v1. See Step 5b / Decisions log.
 - **D4 — Summary is automatic + asynchronous.** Dropping material into a Summary bucket **auto-starts**
   an asynchronous summary, shows the bucket as **processing**, and signals **completion** with a visible
   indicator (bell/badge) on the bucket and the Pocket tray. Manual regenerate may exist later, but the
@@ -320,6 +322,8 @@ approval**); post-Feb-2026 Spotify Dev Mode caps at **5 authorized users** → a
 request** is required before any public or multi-user launch; **attribution** (Spotify Marks + link-back)
 is mandatory. See *Technical-validation findings* OQ8/9.
 
+> **SUPERSEDED 2026-06-24 (token model A+, Step 5b):** v1 ships a SINGLE-OWNER, SERVER-MINTED streaming token (`GET /api/playback/spotify-token`, Cognito-JWT, 503-dormant until the owner provisions `streaming_refresh_token`) — NOT per-listener browser OAuth. The per-listener Premium `streaming` OAuth described here is a DEFERRED multi-user seam (FEAT-multi-user-accounts), not v1. See Step 5b / Decisions log.
+
 ### Summary bucket (decided — D4)
 
 When material is dropped into a Summary bucket: add the source material; **begin a summary update
@@ -524,6 +528,8 @@ shape in new tables). Findings (evidence + sources in the workflow research log)
    the Spotify **extended-quota/production-access** request (Dev Mode caps at 5 users); resolve the
    "Streaming SDA" **monetization** question with Spotify in writing if monetizing; honor **attribution**;
    real-device **iOS Safari** QA (autoplay/`setVolume` quirks); non-Premium UX (preview vs disabled).
+
+   > **SUPERSEDED 2026-06-24 (token model A+, Step 5b):** v1 ships a SINGLE-OWNER, SERVER-MINTED streaming token (`GET /api/playback/spotify-token`, Cognito-JWT, 503-dormant until the owner provisions `streaming_refresh_token`) — NOT per-listener browser OAuth. The per-listener Premium `streaming` OAuth described here is a DEFERRED multi-user seam (FEAT-multi-user-accounts), not v1. See Step 5b / Decisions log.
 10. **Queue persistence → hybrid.** The queue is a server-persisted **ordered, duplicate-allowed**
    generalized-membership collection under a new `kind='playback_queue'` bucket (the single-special-bucket
    partial-unique idiom, single-owner); the **live playhead** (current item + progress + is_playing) stays

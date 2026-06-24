@@ -32,7 +32,7 @@ myblog-workspace/
 Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.claude/hooks/` (gitignored, local). The rest are convention only — Claude must self-police.
 
 1. 🔒 Never work on `main`. First command: `git checkout -b <type>/<plan-id>-<desc>`.
-2. 🔒 Never commit secrets. Use AWS Secrets Manager / GitHub Actions Secrets.
+2. 🔒 Never commit secrets. Use AWS SSM Parameter Store (SecureString) / GitHub Actions Secrets — Secrets Manager was emptied; do not reintroduce it (CHORE-secrets-ssm-migration).
 3. Never run rollback migrations against prod directly — human approval required.
 4. Never run >1 RFC step per session — unless (a) the RFC marks steps as `parallel`/`additive` or declares a single-PR merge, or (b) the user explicitly OKs the next step (e.g. "next step", "go", "gogo"). Reason: each gap enforces a prod-observe + direction-recheck gate (see PR-reviews-polymorphic — 4 steps reached prod before full revert).
 5. Never self-promote RFC Status **without explicit in-session user approval**. `draft` → `accepted` (and `accepted` → `in-progress`) default to human-only; on explicit approval (e.g. "승격해" / "promote"), Claude may make the Status edit. Absent approval, default no. (Was 🔒 hook-enforced; relaxed to a self-policed convention 2026-06-05 — `block-rfc-self-promote.sh` removed.)

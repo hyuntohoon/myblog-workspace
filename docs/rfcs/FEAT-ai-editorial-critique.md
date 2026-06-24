@@ -57,7 +57,7 @@ in Phase 0:
   chat tool; it is not wired into the product.
 - **`myblog_backend`** is a FastAPI Lambda (`ratemymusic-api`) with routes `posts`, `sections`,
   `tags`, `publish`, `buckets`, `library`, `metrics` and a service/repository layering. Secrets
-  are fetched from Secrets Manager `myblog/backend` and read via `settings.*` (pydantic-settings),
+  are fetched from `/myblog/backend` (SSM Parameter Store SecureString) and read via `settings.*` (pydantic-settings),
   cached on cold start. `app/core/auth.py:require_cognito_token` is the JWT dependency on writer
   routes; no-op under `ENV=local|dev`.
 - **A draft already resolves to its album's DB facts today** — `Post.albums` is a real M:N link

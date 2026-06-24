@@ -130,7 +130,7 @@ Core blog API. Owns the post and section domain and is fully isolated from music
 
 `POST/PUT/PATCH/DELETE /api/posts/*` and `POST /api/publish` flow through the API Gateway Cognito authorizer (`6eia7l`); other routes go through CloudFront with the `x-origin-verify` edge guard (CLAUDE.md "Auth — two entry points").
 
-**Publishing subsystem** — `POST /api/publish` receives the post payload, generates an MDX file, and commits it to the blog content repo via the GitHub API. GitHub Actions picks it up from there (Astro build → S3 → CloudFront). `GITHUB_TOKEN` is loaded from `myblog/backend` Secrets Manager at cold start.
+**Publishing subsystem** — `POST /api/publish` receives the post payload, generates an MDX file, and commits it to the blog content repo via the GitHub API. GitHub Actions picks it up from there (Astro build → S3 → CloudFront). `GITHUB_TOKEN` is loaded from `/myblog/backend` (SSM Parameter Store SecureString) at cold start.
 
 **Metrics subsystem** — `POST /api/metrics/batch` returns like/comment counters for blog posts. Backed by `SqlMetricsRepository`, which reads `likes` / `comments_count` from `post_metrics` joined on `posts.slug` (PR-metrics-real, 2026-05-28). `InMemoryMetricsRepository` is retained as a test/local fallback; `app/di.py` wires the SQL implementation by default.
 
@@ -228,12 +228,12 @@ Concrete IDs/ARNs in `infra/README.md`.
 | **Neon PostgreSQL** | `myblog_backend`, `myblog_music`, `myblog_worker` | Serverless Postgres; connection via pooler URL. Not AWS RDS. |
 | **Amazon SQS** | `myblog_music` + `myblog_backend` (enqueue), `myblog_worker` (consume) | **Standard** queue `blogSQS` (NOT FIFO; tfstate `fifo=False`) with DLQ `album-sync-dlq` (`maxReceiveCount=3`) + `ReportBatchItemFailures`; at-least-once + idempotent consumer. Carries album-sync (music) + `{job:...}` control messages (backend) |
 | **AWS Cognito** | `myblog_backend` and `myblog_music` (JWT validation), `myblog_front` (login) | JWKS-based validation; bypassed when `ENV=local\|dev` or `COGNITO_USER_POOL_ID` unset |
-| **AWS Secrets Manager** | All four Lambdas | One secret per service, loaded once per cold start via `@lru_cache` |
+| **AWS SSM Parameter Store (SecureString)** | All four Lambdas | One param per service, loaded once per cold start via `@lru_cache` |
 | **AWS EventBridge** | `myblog_worker` (alias generation schedule) | `rate(15 minutes)` — triggers `generate_and_save_aliases` (MusicBrainz only) |
 | **S3 + CloudFront** | `myblog_front` (static serving) | CloudFront function rewrites `uri` → `uri + '/index.html'` for Astro directory format |
 | **Spotify Web API** | `myblog_music` (search), `myblog_worker` (data collection) | Two separate clients by design — see ADR 0004 |
 | **MusicBrainz API** | `myblog_worker` (alias generation) | Looks up `musicbrainz_id` + aliases for artists; sentinel `MBID_NOT_FOUND` prevents repeat lookups. Score threshold 90 + 1 req/sec rate limit |
-| **GitHub API / Actions** | `myblog_backend` (MDX commits via `/api/publish`, build trigger) | `GITHUB_TOKEN` in `myblog/backend` secret (ARCH-11) |
+| **GitHub API / Actions** | `myblog_backend` (MDX commits via `/api/publish`, build trigger) | `GITHUB_TOKEN` in `/myblog/backend` SSM param (ARCH-11; moved SM→SSM per CHORE-secrets-ssm-migration) |
 
 ---
 

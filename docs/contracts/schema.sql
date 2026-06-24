@@ -11,11 +11,15 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V19 (V1–V13 prod-verified 2026-06-08;
+-- This file shows clean canonical DDL through V31 (V1–V13 prod-verified 2026-06-08;
 --   V14/V15 backfilled from migration DDL 2026-06-09; V16 backfilled 2026-06-12 —
 --   all prod-applied + prod-live. V17 prod-applied + prod-verified 2026-06-12; V18
 --   (review_buckets.is_public) prod-live 2026-06-15; V19 (spotify_track_play_events)
---   added 2026-06-15 — prod-apply PENDING before the worker deploy, FEAT-track-play-history).
+--   added 2026-06-15 — prod-apply PENDING before the worker deploy, FEAT-track-play-history.
+--   V28/V29/V30/V31 (FEAT-pocket-buckit generalized membership: review_bucket_items.item_type
+--   + typed FKs + per-kind partial uniques, bucket_item_snapshots side-table, 들을 것 folded to
+--   a kind='to_listen' system bucket) prod-live 2026-06-24. V20–V27 not separately backfilled
+--   here — see myblog_shared_db/migrations/ for the authoritative version-ordered set.
 -- NB — STAB-5 V13 renamed `categories`→`sections` and `posts.category_id`→`section_id`
 --   IN-PLACE (`ALTER TABLE ... RENAME`). Postgres carries constraints/indexes/FK across
 --   a rename by OID, so prod's PHYSICAL names still read the pre-V13 `categor*` form:
@@ -314,7 +318,7 @@ CREATE TABLE IF NOT EXISTS review_buckets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   parent_id  UUID        REFERENCES review_buckets(id) ON DELETE CASCADE,  -- V11
-  kind       TEXT        NOT NULL DEFAULT 'review',                        -- V15: marks the single spotify_library bucket
+  kind       TEXT        NOT NULL DEFAULT 'review',                        -- V15: marks the single spotify_library bucket; V31: 'to_listen' system bucket (들을 것) — free TEXT, same idiom as 'spotify_library'
   research_mode TEXT     NOT NULL DEFAULT 'off'
                          CHECK (research_mode IN ('off', 'all', 'selected')),  -- V16: auto-research scope (FEAT-album-research-notes)
   is_public  BOOLEAN     NOT NULL DEFAULT false                            -- V18: public bucket viewer opt-in (FEAT-public-bucket-multiuser)
@@ -326,10 +330,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_done
 CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_spotify_library
   ON review_buckets((true)) WHERE kind = 'spotify_library';
 
+-- V28/V30 (FEAT-pocket-buckit) generalized album-only membership to a TYPED relationship:
+--   V28 added item_type (DEFAULT 'album') + nullable typed FKs track_id/review_target_id;
+--   V30 dropped album_id NOT NULL, replaced the table-wide UNIQUE(bucket_id, album_id) with
+--   per-kind PARTIAL uniques (album/track/review reject dupes; playback/snapshot allow), and
+--   added ck_review_bucket_items_album_id_present so album-kind rows still must carry album_id.
+-- review_target_id (CASCADE) is DISTINCT from post_id (SET NULL): post_id = "the review this
+--   ALBUM produced"; review_target_id = "this item IS a review member" (item_type='review').
 CREATE TABLE IF NOT EXISTS review_bucket_items (
   id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   bucket_id  UUID         NOT NULL REFERENCES review_buckets(id) ON DELETE CASCADE,
-  album_id   UUID         NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+  album_id   UUID         REFERENCES albums(id) ON DELETE CASCADE,  -- V30: NOT NULL dropped (non-album kinds omit it)
+  item_type  TEXT         NOT NULL DEFAULT 'album'                  -- V28: typed membership discriminator
+             CONSTRAINT ck_review_bucket_items_item_type
+             CHECK (item_type IN ('album', 'track', 'review', 'playback', 'snapshot')),
+  track_id   UUID         REFERENCES tracks(id) ON DELETE CASCADE,  -- V28: target for item_type='track'
+  review_target_id UUID   REFERENCES posts(id) ON DELETE CASCADE,   -- V28: target for item_type='review' (DISTINCT from post_id)
   position   INTEGER      NOT NULL,
   note       TEXT,
   status     review_bucket_item_status NOT NULL DEFAULT 'candidate',
@@ -338,14 +354,61 @@ CREATE TABLE IF NOT EXISTS review_bucket_items (
   research_selected BOOLEAN NOT NULL DEFAULT FALSE,  -- V16: per-item checkbox under research_mode='selected'
   added_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  UNIQUE (bucket_id, album_id)
+  -- V30: album-kind rows must carry album_id (a NULL-album 'album' row would escape the
+  -- partial unique below, since NULLs are distinct in a unique index).
+  CONSTRAINT ck_review_bucket_items_album_id_present
+    CHECK (item_type <> 'album' OR album_id IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS idx_review_bucket_items_album_id  ON review_bucket_items(album_id);
 CREATE INDEX IF NOT EXISTS idx_review_bucket_items_bucket_id ON review_bucket_items(bucket_id);
 CREATE INDEX IF NOT EXISTS idx_review_bucket_items_post_id   ON review_bucket_items(post_id);
+CREATE INDEX IF NOT EXISTS idx_review_bucket_items_item_type ON review_bucket_items(item_type);  -- V28
+CREATE INDEX IF NOT EXISTS idx_review_bucket_items_track_id  ON review_bucket_items(track_id);   -- V28
+-- V30: per-kind PARTIAL uniques replace the old table-wide UNIQUE(bucket_id, album_id).
+-- album/track/review reject duplicate membership; playback (queue) + snapshot (append-only)
+-- get NO unique → duplicates allowed (D8).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_review_bucket_items_album
+  ON review_bucket_items (bucket_id, album_id) WHERE item_type = 'album';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_review_bucket_items_track
+  ON review_bucket_items (bucket_id, track_id) WHERE item_type = 'track';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_review_bucket_items_review
+  ON review_bucket_items (bucket_id, review_target_id) WHERE item_type = 'review';
+
+-- =============================================================================
+-- Bucket Item Snapshots — frozen capture for snapshot-kind members (V29; OQ7)
+-- A snapshot member (period / signal / trend / aggregate) preserves the contemporaneous
+-- period + filters + values in a SIDE table keyed to the membership row (mirrors the V15
+-- spotify_library_albums side-table idiom), so the album-membership hot path stays narrow
+-- and the snapshot can OUTLIVE volatile source rows. APPEND-ONLY: a "refresh with current
+-- data" is a NEW row (refreshed_from self-FK lineage), never an UPDATE.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bucket_item_snapshots (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id          UUID        NOT NULL REFERENCES review_bucket_items(id) ON DELETE CASCADE,
+  kind             TEXT        NOT NULL,                       -- snapshot discriminator (period|signal|trend|aggregate)
+  as_of            TIMESTAMPTZ NOT NULL,                       -- the labelled "as of" instant (shown to the user)
+  captured_at      TIMESTAMPTZ NOT NULL DEFAULT now(),         -- when this row was written
+  metric           TEXT,
+  range_from       TIMESTAMPTZ,                                -- 'from' is reserved → range_from
+  range_to         TIMESTAMPTZ,
+  unit             TEXT,
+  total            NUMERIC,
+  unresolved       INTEGER     NOT NULL DEFAULT 0,
+  unclassified     INTEGER     NOT NULL DEFAULT 0,
+  frozen           JSONB       NOT NULL,                       -- verbatim contemporaneous payload
+  source_album_ids UUID[]      NOT NULL DEFAULT '{}',          -- referenced albums (NO FK by design; may dangle)
+  schema_version   INTEGER     NOT NULL DEFAULT 1,
+  refreshed_from   UUID        REFERENCES bucket_item_snapshots(id) ON DELETE SET NULL,  -- append-only refresh lineage
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_bucket_item_snapshots_item_id ON bucket_item_snapshots(item_id);
+CREATE INDEX IF NOT EXISTS idx_bucket_item_snapshots_source_album_ids ON bucket_item_snapshots USING gin (source_album_ids);
 
 -- =============================================================================
 -- Library — "To Listen" queue (V8; supersedes the never-applied V7 library_items)
+-- V31 (FEAT-pocket-buckit) folded this queue into a review_buckets row with kind='to_listen'
+-- holding item_type='album' members — that bucket is now the canonical home for 들을 것.
+-- This legacy table is RETAINED as a deprecated read-through (kept, not dropped, by V31).
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS album_to_listen_items (
   id       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -524,7 +587,7 @@ CREATE TABLE IF NOT EXISTS track_genres (             -- override-only; row exis
 -- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
--- This file is current through V19. V1–V13 verified against prod 2026-06-08
+-- This file is current through V31. V1–V13 verified against prod 2026-06-08
 -- (categories→sections rename; see the section-rename note in the header for prod's
 -- legacy physical object names). V14 (spotify_recent_tracks) + V15 (spotify_library_albums
 -- + review_buckets.kind + 2 enums) backfilled from migration DDL 2026-06-09; V16
@@ -534,6 +597,11 @@ CREATE TABLE IF NOT EXISTS track_genres (             -- override-only; row exis
 -- shared_db v0.17.0). V18 (review_buckets.is_public) prod-live 2026-06-15
 -- (FEAT-public-bucket-multiuser Scope A). V19 (spotify_track_play_events — durable
 -- TRACK-level play log) added 2026-06-15, FEAT-track-play-history — prod-apply PENDING,
--- must hit Neon main BEFORE the worker deploy. Last full structural prod-verify
--- 2026-06-05 (STAB-4).
+-- must hit Neon main BEFORE the worker deploy. V28/V29 (review_bucket_items.item_type +
+-- typed FKs; bucket_item_snapshots side-table) + V30 (album_id NOT NULL dropped, per-kind
+-- partial uniques, ck_review_bucket_items_album_id_present) + V31 (들을 것 folded to a
+-- kind='to_listen' system bucket; album_to_listen_items retained as deprecated read-through)
+-- prod-applied + Neon-prod-live 2026-06-24 (FEAT-pocket-buckit). V20–V27 are not separately
+-- backfilled into this file — myblog_shared_db/migrations/ is the authoritative version set.
+-- Last full structural prod-verify 2026-06-05 (STAB-4).
 -- =============================================================================
