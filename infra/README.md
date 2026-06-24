@@ -11,8 +11,8 @@ Source of truth: Terraform state in **S3** (`myblog-terraform-state-338183196042
 | SQS | `blogSQS` + DLQ via redrive policy; consumer uses `ReportBatchItemFailures` |
 | S3 bucket | `myblog-prod-web` |
 | CloudFront | `d2y4n52sgjlrz6.cloudfront.net` → `www.ratemymusic.blog` |
-| Neon DB | Serverless Postgres; pooler URL stored in each service's Secrets Manager entry |
-| Secrets | `myblog/backend`, `myblog/music`, `myblog/worker` (one per service; `SECRETS_ARN` env var; fetched once per cold start via `@lru_cache`). Plus `myblog/spotify` — Spotify user OAuth client_id/secret + refresh_token (`SPOTIFY_SECRETS_ARN`; read by worker for `/me/player/*`, by backend for connection status). |
+| Neon DB | Serverless Postgres; pooler URL stored in each service's SSM Parameter Store SecureString param |
+| Secrets (SSM) | `/myblog/backend`, `/myblog/music`, `/myblog/worker` (one per service; SSM SecureString, leading slash; `SECRETS_PARAM` env var; fetched once per cold start via `@lru_cache`). Plus `/myblog/spotify` — Spotify user OAuth client_id/secret + refresh_token (`SPOTIFY_SECRETS_PARAM`; read by worker for `/me/player/*`, by backend for connection status). Secrets Manager emptied per CHORE-secrets-ssm-migration. |
 | EventBridge | `rate(15 min)` → `blogWorkerLambda` (alias mode — MusicBrainz lookup). `rate(1 hour)` → `blogWorkerLambda` with constant input `{"job":"spotify_listening"}` (Spotify recently-played + now-playing cache, FEAT-member-dashboard Step 3). |
 
 ## Lambda functions

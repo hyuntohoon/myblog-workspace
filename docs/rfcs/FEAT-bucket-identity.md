@@ -14,9 +14,9 @@
 > *existing* review buckets, the `들을 것` data, and the public-collection (Direction D)
 > work — it **aligns to** the Pocket Buckit bucket model rather than competing with it.
 > Direction C ("one shelf object") is **subsumed** by Pocket Buckit's generalized-membership
-> direction; the open part is the *technical migration*, tracked in
-> `FEAT-pocket-buckit` → Open questions → Technical-validation. Directions A/B/D stay valid
-> as legacy-surface work that must conform to the Pocket Buckit model.
+> direction; the technical migration **shipped as V30/V31 2026-06-24** (`들을 것` → `kind='to_listen'`
+> system bucket, Neon-prod-live), tracked in `FEAT-pocket-buckit` → D2 + Decisions log. Directions A/B/D
+> stay valid as legacy-surface work that must conform to the Pocket Buckit model.
 
 ---
 
@@ -76,7 +76,9 @@ Make the pipeline explicit and the board prominent:
   `ReviewsTab` cards and/or the published `/review/{slug}` (research note is
   album-keyed, already exists) so the bucket's role stays visible after publish.
 
-### Direction C — one shelf object (structural, L) — "if we commit", deferred
+### Direction C — one shelf object (structural, L) — subsumed + SHIPPED by FEAT-pocket-buckit V31
+> **Resolved 2026-06-24:** subsumed + SHIPPED by FEAT-pocket-buckit V31 (들을 것 → `kind='to_listen'` system bucket holding `item_type='album'` members, Neon-prod-live 2026-06-24). See `FEAT-pocket-buckit.md` → D2 + Decisions log. The original exploration below is kept for context.
+
 Merge `들을 것` (`album_to_listen_items`, V8) into the bucket model as a seeded
 system bucket so there is **one save target** and an album lives one place through
 its whole life (담을지/들을지/평론할지 are states, not separate tabs). Library
@@ -114,8 +116,9 @@ the public-collection bucket surfaces are the next concrete step here.
   instead of 개요?
 - Listen→review join: worth a backend change to put listened-state inside
   `GET /api/buckets`, or keep a client-side join?
-- Direction C: are `들을 것` (to-listen) and `평론 버킷` genuinely two intents, or
-  an accident of incremental building? (Decides whether C is desirable at all.)
+- ~~Direction C: are `들을 것` (to-listen) and `평론 버킷` genuinely two intents, or
+  an accident of incremental building? (Decides whether C is desirable at all.)~~
+  **SETTLED 2026-06-24:** FEAT-pocket-buckit D2 decided yes-merge (one shelf object); V31 executed it (`들을 것` → `kind='to_listen'` system bucket, prod-live).
 - Is the lifecycle (담음→조사→작성→완료) the real product spine, or should the board
   stay free-form crates the user names themselves? (If the latter, only A was
   needed and the name-regex `crMeta` is arguably fine.)

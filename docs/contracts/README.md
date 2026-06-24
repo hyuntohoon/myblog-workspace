@@ -18,4 +18,4 @@ Cross-service contracts that bind the 4 services together.
 1. Update `docs/contracts/schema.sql`.
 2. Update `myblog_shared_db/models.py`; regenerate `_generated_schema.sql`.
 3. Tag a new shared-db version; update pin in each consumer's `requirements.txt`.
-4. Run migrations on Neon (per-service `db/migrations/`).
+4. Add the migration as `myblog_shared_db/migrations/V{N}__<desc>.sql` (plain SQL; the canonical, version-ordered location) and apply it to Neon prod. (Service-local `db/migrations/` — e.g. `myblog_music` — only for that service.)

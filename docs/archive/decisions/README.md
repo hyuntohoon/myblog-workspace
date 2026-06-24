@@ -39,3 +39,7 @@ What becomes easier, harder, or different as a result.
 | [0001](0001-multi-repo-workspace.md) | Multi-Repo Workspace Meta-Management Pattern | Accepted |
 | [0002](0002-paused-pr5-pr6.md) | PR-5, PR-6 보류 | Paused |
 | [0003](0003-schema-canonical.md) | Single Canonical Database Schema | Accepted |
+| [0004](0004-spotify-client-duplication.md) | Accept Spotify Client Duplication | Accepted |
+| [0005](0005-shared-db-package.md) | Shared DB Models Package | Accepted |
+| [0006](0006-publish-absorbed-into-backend.md) | Absorb `myblog_publish` into `myblog_backend` | Accepted |
+| [0007](0007-contract-first-openapi.md) | Contract-first workflow with strict OpenAPI enforcement | Accepted |
