@@ -1,10 +1,11 @@
 # FEAT-spotify-streaming-playback: Spotify Premium playback, end-to-end
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈 (single-owner)
 - **Created**: 2026-06-25
 - **Accepted**: 2026-06-25
-- **Plan row**: `plan.md` → FEAT-spotify-streaming-playback (Backlog)
+- **Completed**: 2026-06-25 — all 4 steps prod-verified; ▶ plays real audio for the owner on a Spotify Premium session.
+- **Plan row**: dropped 2026-06-25 (history → `docs/archive/done/2026-06.md` + `git log`)
 
 ---
 
@@ -97,9 +98,11 @@ Real-browser CDP click-through on a **Premium** owner session: ▶ on the tray +
 
 ---
 
-### Step 4 — Prod verify + cutover
+### Step 4 — Prod verify + cutover — ✅ DONE 2026-06-25
 
 After Step 3 deploys, owner Premium session prod smoke: ▶ plays on prod (`www.ratemymusic.blog`), token route 200, resolve returns valid URIs, no console errors. Quote the result in the PR comment + drop the plan row.
+
+**Result (2026-06-25)**: owner confirmed ▶ on a Premium browser session plays **real audio** (Pocket tray + review tracklist). End-to-end prod-verified: token route 200 (Step 1), `/resolve` 200 via CloudFront returning the exact `spotify:album:<id>` (Step 2), deployed front bundle carries the wiring (Step 3). RFC closed (Status → done); plan row dropped.
 
 ---
 
@@ -121,4 +124,5 @@ Filled in during execution.
 | 2026-06-25 | Step 1 code shipped: `--streaming` mode added to `scripts/spotify_bootstrap_token.py` — requests scopes `streaming user-read-playback-state user-modify-playback-state`, writes the SSM JSON key `streaming_refresh_token` via the existing `_write_secret` merge (worker `refresh_token` + D30 markers `last_successful_refresh_at`/`needs_reauth` left untouched). No backend/front change. Local verify: py_compile + `--help` + static scope/key assertions + a fake-SSM `_write_secret` run proving the worker-token-preservation invariant (both paths). Adversarial 3-lens review (contract-match / regression-invariant / rfc-scope-security) = pass, 0 blockers. **NOT yet provisioned**: owner must run `--streaming --write` once on a **Premium** account (browser consent + local AWS `ssm:PutParameter` on `/myblog/spotify`) to flip `GET /api/playback/spotify-token` 503→200. OQ1 (which catalog account is Premium) blocks the owner-run. | 1 |
 | 2026-06-25 | **Step 1 DONE + prod-verified.** Owner ran `--streaming --write` (Premium consent); `streaming_refresh_token` written to SSM `/myblog/spotify`. Verified `GET /api/playback/spotify-token` on the API Gateway authed host (`ld8pjw3mx4`) with a smoke Cognito JWT → **HTTP 200**, body `{access_token (len 295), token_type: "Bearer", expires_in: 3600}` — i.e. the backend successfully exchanged the streaming refresh token against Spotify (token valid, scopes accepted), not merely "key present". **503→200 confirmed.** OQ1 resolved (account is Premium). | 1 |
 | 2026-06-25 | **Steps 2 + 3 code shipped in one session** — owner explicitly waived the rule #4 one-step gate ("전체 작업 시작"). OQ2 = (b) `/resolve` uniform, **edge_guard-only** (no JWT / no `apigateway.tf` / no terraform apply — `spotify_id` is public). OQ3/4/5 resolved (re-mint, `context_uri`, region notice). **Backend**: `GET /api/playback/resolve?type=&id=` + `PlaybackService.resolve_uri` + `PlaybackResolveResponse`; pytest 331 pass; `openapi.json` regenerated (resolve-only diff). **Contract**: `docs/contracts/openapi.json` + front `api.gen.ts` regenerated (resolve-only diff). **Front**: `resolveProviderUri` calls `/resolve` (plain fetch, not apiFetch); `getOAuthToken` re-mints; `account_error`→Premium msg, `auth_error`→error, resolve-fail / play-403/404 → notices; `pnpm lint` + `astro check` clean. Adversarial 3-lens review = pass. Merge order: backend → workspace contract → front. **Step 4 (prod audio verify) pending owner** — needs a Premium browser session to click ▶ post-deploy (the only thing code can't self-verify). | 2,3 |
+| 2026-06-25 | **Step 4 DONE — feature complete.** Owner confirmed ▶ on a Premium browser session at www.ratemymusic.blog plays **real audio** (tray + review tracklist). All 4 steps prod-verified end-to-end. RFC closed (Status → done — owner-confirmed close, the precondition I pre-stated; rule #5); plan row dropped → `docs/archive/done/2026-06.md`. | 4 |
 | 2026-06-25 | **Steps 2 + 3 merged + prod-verified (code half).** All three merged + deployed (backend #96, workspace #462, front #213); backend Lambda + front S3/CF deploys green. `GET /api/playback/resolve` **prod-verified via CloudFront** (the real front path — confirms query strings survive CloudFront + edge_guard-only works): `?type=album&id=9fd6f454…` → `{"uri":"spotify:album:3FNESeV6dJuSP1Rvli8hei"}` HTTP 200 (exact stored-spotify_id match), unknown id → 404, malformed id → 404 (the `str()` UUID guard), bad type → 422. Front deploy gates all passed (types-in-sync drift gate + `astro check` + `pnpm lint` + build), and the deployed bundle `/_astro/spotifyPlayback.*.js` carries the wiring (`playback/resolve`, `account_error`, `spotify-player.js`, `Premium 계정`). **Remaining = Step 4 only**: owner clicks ▶ on a **Premium** browser session at www.ratemymusic.blog (tray + review tracklist) to confirm real audio — the one piece not headless-verifiable. | 2,3,4 |
