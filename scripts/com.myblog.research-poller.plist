@@ -2,7 +2,7 @@
 <!--
   FEAT-album-research-notes Step 3 / OQ5 — launchd automation for the $0 poller.
 
-  Runs `research_poller.py --once` every 5 minutes (StartInterval). Each fire
+  Runs `research_poller.py --once` every 30 minutes (StartInterval). Each fire
   drains all queued album_research rows serially, then exits — no lingering
   daemon. launchd will NOT start a new run while the previous one is still going
   (a 50-album backlog drain can run for hours and that's fine), so this also
@@ -48,10 +48,10 @@
         <string>/Users/park_hyun/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
 
-    <!-- Fire every 5 minutes. Each run drains the queue then exits; overlapping
+    <!-- Fire every 30 minutes. Each run drains the queue then exits; overlapping
          runs are suppressed by launchd while the prior one is still alive. -->
     <key>StartInterval</key>
-    <integer>300</integer>
+    <integer>1800</integer>
 
     <!-- Run once at load so it doesn't wait 5 min for the first drain. -->
     <key>RunAtLoad</key>
