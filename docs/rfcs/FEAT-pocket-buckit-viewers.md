@@ -168,10 +168,10 @@ pnpm lint && pnpm exec astro check
 1. **Card Viewer member cap** — list mode shows `slice(0,8)`; card mode should show more (all, with the
    drawer's existing scroll) but a very large bucket could make the drawer tall. Blocks Step B polish —
    default: render all in the existing `maxHeight` scroll area; revisit only if a real bucket is unwieldy.
-2. **Reverse-drop move vs copy into a General Pocket bucket** — the board's own member→bucket drop does a
-   reorder/move within the same bucket and an add across buckets; `dropOnBucket` inherits whatever the
-   board does for a cross-bucket general drop. Confirm during Step A CDP that cross-bucket lands as an
-   add (membership), matching board behavior — no new policy introduced here.
+2. ~~**Reverse-drop move vs copy into a General Pocket bucket**~~ — **RESOLVED (Step A CDP, 2026-06-30):**
+   a board member dropped on a General Pocket bucket is a cross-bucket **MOVE** (`PUT /reorder` via
+   `ops.insertAlbum`) — the item leaves its origin bucket — exactly mirroring a board member→bucket drag.
+   A *copy* still happens only for recent-strip (`copy`) / library (`fromLib`) sources. No new policy.
 
 ## Decisions log
 
@@ -182,3 +182,4 @@ pnpm lint && pnpm exec astro check
 | 2026-06-30 | Reverse DnD reuses the board's `ops.*` via an extracted `dropOnBucket` + `PB_BOARD_DROP` event, so membership/General/Artist/expansion semantics are the board's verbatim (no duplicated routing). | A |
 | 2026-06-30 | Drop targets = tray chips + open drawers (both viewer modes share the drawer container). | A |
 | 2026-06-30 | Card Viewer styles live in `pocket.css` (self-contained), not `member.css` (which is /profile-only) — site-wide drawer must not depend on it. | B |
+| 2026-06-30 | Step A verified headless e2e (real Chrome synthetic DragEvents + mock backend, 0 console errors): General drop = cross-bucket move (`PUT /reorder`), Artist drop = source-expansion (`POST source_album_id`), accept-gate `data-droppable` correct, Step 6 `pb:dnd-start` intact. | A |
