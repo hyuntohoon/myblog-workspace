@@ -1,6 +1,6 @@
 # FEAT-pocket-buckit-viewers: bidirectional DnD + per-drawer Card Viewer
 
-- **Status**: in-progress (owner-approved 2026-06-30; Track A this session, Track B sequential)
+- **Status**: done (both tracks prod-live — Track A 2026-06-30 front #218, Track B 2026-07-01 front #219; owner-approved close 2026-07-01)
 - **Owner**: TBD
 - **Created**: 2026-06-30
 - **Plan row**: `plan.md` → FEAT-pocket-buckit-viewers
@@ -183,3 +183,4 @@ pnpm lint && pnpm exec astro check
 | 2026-06-30 | Drop targets = tray chips + open drawers (both viewer modes share the drawer container). | A |
 | 2026-06-30 | Card Viewer styles live in `pocket.css` (self-contained), not `member.css` (which is /profile-only) — site-wide drawer must not depend on it. | B |
 | 2026-06-30 | Step A verified headless e2e (real Chrome synthetic DragEvents + mock backend, 0 console errors): General drop = cross-bucket move (`PUT /reorder`), Artist drop = source-expansion (`POST source_album_id`), accept-gate `data-droppable` correct, Step 6 `pb:dnd-start` intact. | A |
+| 2026-07-01 | Step B shipped (front #219) + prod-live. `DrawerPanel` ephemeral per-drawer `viewMode` toggle; Card Viewer = `bucket.albums` as a board-style square-cover grid (album=cover, artist=square photo + 아티스트 badge, click→`/artist/[id]`); `Cover` gained `url`/`square` (site-wide global `.cover`/`.cover img`, no `member.css` dep); `pocket.css` self-supplies `.pb-cardgrid`/`.pb-card*`/`.pb-viewtoggle`. List rows + card tiles share `dragBind` so Step 6 drag-out + edit-− work in both. Verified headless CDP off-`/profile`: list⇄card toggle, 2 img-covers + 1 placeholder with `member.css` NOT loaded & `.bb-tile` rule absent, artist tiles + badge + click→`/artist/ar1`, two drawers independent per-window mode, edit-− live reflection (grid 3→2 + chip 3→2), console clean; prod bundle `PocketBuckit.BqMp8rYZ.js` + CSS `Cc5GMNRB.css` carry all markers (deploy 28479488342). Open-Q 1 resolved: render all members in the existing scroll area (no slice cap). | B |
