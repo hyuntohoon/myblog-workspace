@@ -1,6 +1,6 @@
 # FEAT-my-buckit-artist: My Buckit restructure + fixed bucket types (Artist Buckit)
 
-- **Status**: in-progress (promoted from draft 2026-06-25 with explicit owner approval — Phase-1 proposal + 3-agent adversarial RFC review done; all technical OQs resolved; Step 1 next session)
+- **Status**: done (all 6 steps shipped + prod-verified 2026-06-30; Step 6 tray-open DnD = front #217 `d2cfbeb`)
 - **Owner**: TBD
 - **Created**: 2026-06-25
 - **Plan row**: `plan.md` → FEAT-my-buckit-artist
