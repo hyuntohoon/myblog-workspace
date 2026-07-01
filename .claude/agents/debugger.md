@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Use when a bug is still unresolved after 2 fix attempts, or when the error/failure mode is unclear. Performs root-cause analysis with isolated context.
+description: Use proactively when a bug is still unresolved after 2 fix attempts, when an error/failure mode is unclear, or when a fix attempt would repeat a previous failed approach. Performs root-cause analysis with isolated context and returns the cause + fix + regression test.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
