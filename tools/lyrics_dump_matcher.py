@@ -179,11 +179,19 @@ def main():
         sys.exit(1)
 
     engine = create_engine(db_url, future=True)
-    session = sessionmaker(bind=engine)()
     client = httpx.Client(timeout=15.0, headers={"User-Agent": "myblog-lyrics-phase1/1.0"})
 
     logger.info("PHASE 1: representative sample validation (n=%d, LRCLIB /api/search)", args.sample_size)
-    sample = fetch_sample(session, args.sample_size)
+    # Materialize the sample and release the DB connection immediately — the
+    # LRCLIB loop below runs for minutes, and holding an idle Neon connection
+    # open that long gets it dropped server-side (ProtocolViolation on close,
+    # which would take down the whole run before metrics are written).
+    session = sessionmaker(bind=engine)()
+    try:
+        sample = fetch_sample(session, args.sample_size)
+    finally:
+        session.close()
+        engine.dispose()
     logger.info("sampled %d tracks", len(sample))
 
     rows = []
@@ -196,7 +204,6 @@ def main():
                 time.sleep(args.delay)
     finally:
         client.close()
-        session.close()
 
     metrics = compute_metrics(rows)
     payload = {

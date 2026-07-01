@@ -212,6 +212,16 @@ count = 0** on the sample before any full run. Manual audit of a random slice of
 
 **Rollback**: outcomes are additive per track; clear the corpus rows produced by the batch.
 
+**Phase 1 result (2026-07-01, N=100 random prod catalog, read-only, LRCLIB `/api/search`)**:
+matched 39 · no_lyrics 4 · not_found 39 · ambiguous 18 · review_required 0. Coverage
+(matched+no_lyrics)/total = 43%; ambiguous_rate 18%. **Consistency gate PASS** (0 inconsistent
+matched). **Precision audit of all 39 `matched` (denom = 39): 39/39 correct → 100%** — every row
+had duration Δ ≤ 1s vs the LRCLIB candidate and artist identity matched; the 5 version-token rows
+(Queen ×2 "Remastered 2011", Liam Gallagher / BIGBANG "Live", McCartney "Full Length") were all
+same-version → same-version (no cross-version merge). **Version-conflict false-match count = 0.**
+→ Phase 1 gate (precision ≥ bar, version-conflict = 0) **met**; Phase 2 (full dump batch) is the
+next step (rule #4 — separate session). Audit JSON is local-only (gitignored; contains lyric snippets).
+
 ---
 
 ### Step 3 — incremental collection for newly ingested tracks (worker)
