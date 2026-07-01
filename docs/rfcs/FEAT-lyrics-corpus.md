@@ -1,0 +1,310 @@
+# FEAT-lyrics-corpus: Private, correctness-first lyrics corpus
+
+- **Status**: draft
+- **Owner**: 박지훈
+- **Created**: 2026-07-01
+- **Plan row**: `plan.md` → FEAT-lyrics-corpus
+
+---
+
+## Goal
+
+After this RFC, the project has a **private, single-owner lyrics corpus** attached to tracks that
+already exist in its own catalog, built **correctness-first, not coverage-first**. Lyrics are
+collected from **LRCLIB** (plain + synced where available), matched to our tracks only when the
+evidence is strong enough to be safe, and stored as **internal research data that never appears in
+any public catalog API, public page, search result, or shared response**. Ambiguous, weak, or
+conflicting matches are **left unresolved / review-required rather than matched incorrectly**. A
+track that cannot be resolved today can be **re-evaluated later** as source coverage and our own
+catalog grow, and a lyric already matched is **never silently replaced** without stronger evidence.
+Translation, slang/meme analysis, interpretation, and album-level lyrical analysis are **explicitly
+out of scope** — this RFC builds only the trustworthy corpus those later capabilities will stand on.
+
+## Non-goals
+
+Anti-scope-creep insurance. Each is a **separate, later** RFC/step, explicitly **not** here:
+
+- **Any consumer of the lyrics.** No translation, no Korean rendering, no slang/meme/context
+  research, no per-track interpretation, no album-level lyrical analysis. This RFC produces the
+  corpus and its trust metadata; nothing reads it for a user-facing purpose.
+- **Any public exposure.** Lyrics do **not** enter `/api/music/*` responses, `TrackItem`, public
+  pages, the unified search index, buckets, posts, or any shared/edge-cached response. This mirrors
+  the existing private-data precedent (`artists.aliases` / `artists.musicbrainz_id` are stored but
+  never in a public schema; `album_research` is owner-only research text).
+- **Public redistribution of lyrics.** The corpus is private research data. This RFC does not build
+  a lyrics viewer, export, or any surface that republishes third-party lyric text.
+- **lyrics.ovh integration.** Excluded from this scope entirely (instability + romanizes Korean +
+  no album/version/duration metadata to match on — see the feasibility research).
+- **New catalog ingestion.** This RFC does not add albums/tracks/artists to the catalog. It only
+  evaluates and enriches **tracks already present in this project's database**.
+- **Treating any source as ground truth for facts.** LRCLIB lyric text is crowd-sourced with mixed
+  provenance; it is stored for private research, never asserted as authoritative.
+
+## Current state
+
+Verified against code in the feasibility research (2026-07-01):
+
+- **Track model** (`myblog_shared_db/.../models.py:270`): `Track` has `title`, `track_no`,
+  `duration_sec` (**seconds**, not ms), `spotify_id` (UNIQUE, the catalog idempotency key),
+  `ext_refs` (JSONB, effectively empty). **No** `isrc`, **no** recording MBID, **no** disc number,
+  **no** explicit flag, **no** version/subtitle/disambiguation column — remix / live / demo / edit /
+  remaster / rerecording are distinguished only by the **`title` string** plus distinct `spotify_id`.
+- **Artist model** (`models.py:167`): `aliases` (JSONB) and `musicbrainz_id` (+ `'not_found'`
+  sentinel + partial-unique index) exist and are **stored but not publicly exposed** — used
+  server-side only to widen search matching (`artist_repo.py`). `track_artists.role` (free-text)
+  exists for featured/credit modeling but is under-used.
+- **No lyrics column or table exists anywhere.** The closest precedent for private owner-only
+  research text is `album_research` (`models.py:1063`) — Korean markdown keyed by
+  `(album_id, prompt_version)`, album-scoped, not exposed publicly.
+- **Ownership**: the **worker** is the sole live writer of catalog tables
+  (`myblog_worker/.../sync_service.py`, `ON CONFLICT (spotify_id)` upsert). Music and backend are
+  read-only on the catalog. Any corpus-building write job therefore belongs in the **worker**.
+- **Reusable enrichment pattern**: the MusicBrainz **alias-fill** job (EventBridge, not SQS) is the
+  template for a periodic external-enrichment job — select N rows lacking the field, call the
+  external source, **commit per row, write a sentinel on miss** so the row leaves the pool, isolate
+  failures so an external outage never blocks album sync. `_request_with_retry` (429/5xx backoff,
+  `Retry-After`) and `musicbrainzngs` at `set_rate_limit(1.0)` already exist.
+- **Sources (live-probed, primary)**: LRCLIB serves real plain + synced lyrics for both English and
+  Korean tracks, flags instrumentals (`instrumental:true`), and publishes a **full SQLite dump
+  (~28.6 GiB compressed, refreshed ~weekly, `lrclib.net/db-dumps`)** enabling offline bulk matching
+  with no rate limit. Its `albumName` field is unreliable. MusicBrainz supplies structured artist
+  aliases (IU → 아이유 / 이지은 / Lee Ji-eun) and recording length/disambiguation but **no lyric
+  text**. lyrics.ovh is unstable and romanizes Korean.
+
+## Target state
+
+A **private corpus** that associates each evaluated catalog track with, at most, one **matched**
+lyric record (plain + synced where available) **or** an explicit **unresolved-state** record, plus
+the **evidence and confidence** behind that outcome. Concretely, at the principle level (detailed
+schema, columns, and any endpoint deferred to step-time — see Non-goals + Open questions):
+
+- **A private, track-scoped lyrics store**, owner-only, following the `album_research` / `aliases`
+  privacy precedent — never joined into a public response. Holds the lyric text (plain + synced),
+  the source + source record id, and the match evidence/confidence used.
+- **A match-status lifecycle per evaluated track**, reusing the alias-fill sentinel idea:
+  - `matched` — high-confidence, lyric attached.
+  - `no_lyrics` — source has the track but it is instrumental / genuinely has no lyrics.
+  - `not_found` — no candidate in the source at all (leaves the active pool; re-checkable later).
+  - `ambiguous` — multiple plausible candidates that evidence cannot separate → **not matched**.
+  - `review_required` — a candidate exists but confidence is below the auto-attach bar → **not
+    matched**, queued for owner decision.
+  A track is **never** auto-attached out of `ambiguous` / `review_required`; those are safer
+  resting states than a wrong match.
+- **Matching evidence, in priority order**: (1) **artist identity** resolved through
+  `artists.aliases` + MusicBrainz aliases (transliteration / punctuation / localized / credited
+  names); (2) **normalized track title**; (3) **`duration_sec` within a tight tolerance** (feasibility
+  probe: LRCLIB gates `/api/get` on duration within a few seconds); (4) **ISRC where available** as a
+  strong identity anchor (not stored today — see Open questions); (5) MusicBrainz **recording +
+  disambiguation + length** as version evidence. **Album name is a weak signal only — never a hard
+  match key** (LRCLIB `albumName` was empirically junk: `""`, `"TravisScottVEVO"`, etc.).
+- **Version safety**: remix / live / demo / edit / cover / remaster / rerecording are **never
+  silently merged**. A candidate whose version evidence (duration, disambiguation, version tokens in
+  the title) does not agree with our track is downgraded to `ambiguous` / `review_required`, not
+  attached.
+- **Periodic local LRCLIB processing** against the **~28.6 GiB dump**, run **locally / as a bounded
+  batch** (Lambda is unsuitable at that size; precedent: the existing local `claude -p` / launchd
+  jobs). The batch **only ever evaluates tracks already in this project's database** — it iterates
+  our catalog and looks each track up in the dump, never the reverse (it does not import the dump's
+  catalog). Only match outcomes + accepted lyric text land in the DB.
+- **Incremental collection** for **newly ingested** tracks, following the alias-fill worker pattern
+  (select recently-added tracks lacking a corpus record, evaluate, commit per row + sentinel).
+- **Periodic reassessment** of `not_found` / `ambiguous` / `review_required` (and previously
+  unmatched) tracks, because new releases and source coverage change over time — a re-check that can
+  *promote* an outcome but, under the replacement rule below, does not *downgrade or overwrite* a
+  good match without stronger evidence.
+- **Replacement policy**: a track already `matched` is **never silently replaced**. A re-evaluation
+  may only replace an existing lyric when it presents **strictly stronger evidence** (e.g. an ISRC or
+  MusicBrainz recording match supersedes a title+duration match); otherwise the existing match stands
+  and any competing candidate is recorded as review evidence, not applied.
+
+### Source trust boundary
+
+- **LRCLIB** — the **only lyric-text source** (primary). Crowd-sourced, mixed provenance →
+  **untrusted for factual correctness**, stored for **private research use only**, never
+  redistributed, never asserted as authoritative. Its structural signals (duration, instrumental
+  flag) are usable for matching; its `albumName` is not.
+- **MusicBrainz** — **identity + version evidence only**, never a lyric source. Higher trust for
+  structured identity (aliases, recording length, disambiguation) at 1 req/s.
+- **lyrics.ovh** — excluded.
+
+### Privacy boundary
+
+Lyrics are **owner-only internal research data**. No path — API schema, public page, search index,
+bucket, post, edge-cached response — exposes lyric text or its presence. Enforcement mirrors the
+existing pattern where `aliases` / `musicbrainz_id` are read server-side but excluded from every
+public schema. A pre-merge check that no public schema/response gained a lyrics field is an
+acceptance gate (see below).
+
+## Steps
+
+Milestone-level. Hard rule #4 — one step per session, prod-observe / direction-recheck gate between
+steps. Detailed schema/endpoint/DDL design is produced **at the start of each step**, reviewed, and
+not pre-committed here (per RFC scope: correctness principles now, implementation later).
+Branch/commit per repo (`feedback-nested-repo-branch-per-repo`).
+
+### Step 0 — RFC + plan.md pointer (this document, docs-only)
+
+This RFC + a one-line `plan.md` Backlog pointer + the `docs/rfcs/README.md` index entry. No code,
+no schema.
+
+**Verification**: doc review against `TEMPLATE.md` / README required sections. `git diff --stat`
+shows only the three doc files.
+
+---
+
+### Step 1 — private corpus store + match-status model (shared_db)
+
+Introduce the **private, track-scoped lyrics store + match-status lifecycle** (states above) as a
+`shared_db` migration, owner-only, with **no public exposure and no consumer**. Schema detail
+designed at step start. Nothing writes to it yet; this step only lands the storage + status vocabulary
+and confirms the privacy boundary holds (no public schema references it).
+
+**Verification**: migration applies cleanly on a test branch; a schema check confirms no public
+API/response type references the new store; `pytest` for shared_db parity passes
+(`reference-shared-db-test-pythonpath-src`).
+
+**Rollback**: drop the new store (no consumer depends on it yet).
+
+---
+
+### Step 2 — offline LRCLIB dump matcher (historical backfill, local batch)
+
+A **local, bounded batch** that downloads/refreshes the LRCLIB dump and, **iterating only tracks
+already in our catalog**, computes match outcomes (artist-alias + normalized title + duration
+tolerance; album ignored) and writes `matched` / `no_lyrics` / `not_found` / `ambiguous` /
+`review_required` + evidence/confidence. Conservative thresholds: **auto-attach only above a high
+confidence bar; everything else parks in a non-matching state.** Runs locally (dump size unfit for
+Lambda), writing only outcomes + accepted lyric text to the DB.
+
+**Verification**: run over a **representative labelled sample of N catalog tracks** (Korean +
+English + hard cases: aliases, non-Latin, featured, same-title, remix, live, rerelease, likely-missing)
+and report the six metrics below; **auto-match precision ≥ target and version-conflict false-match
+count = 0** on the sample before any full run. Manual audit of a random slice of `matched`.
+
+**Rollback**: outcomes are additive per track; clear the corpus rows produced by the batch.
+
+---
+
+### Step 3 — incremental collection for newly ingested tracks (worker)
+
+A periodic **worker** job (alias-fill pattern: EventBridge job string, select recently-added tracks
+lacking a corpus record, evaluate via the LRCLIB **API** for freshness, commit per row + sentinel on
+miss, failure-isolated so a source outage never blocks album sync). Same conservative matcher and
+states as Step 2. API (not dump) because increments are small and need current data.
+
+**Verification**: job processes a bounded batch on a test run; per-row commit + sentinel behavior
+observed; the six metrics on the incremental cohort; no impact on album sync latency.
+
+**Rollback**: disable the job (no catalog write path depends on it).
+
+---
+
+### Step 4 — periodic reassessment + replacement guard
+
+A periodic re-check of `not_found` / `ambiguous` / `review_required` / previously-unmatched tracks
+(coverage changes over time), enforcing the **replacement policy**: may *promote* an unresolved
+track to `matched`, may replace an existing match **only on strictly stronger evidence**, and
+**never silently overwrites** a good match. Ambiguity that persists stays parked.
+
+**Verification**: on a seeded set of previously-unresolved tracks, confirm promotions happen and
+that a weaker competing candidate does **not** replace an existing match; version-conflict
+false-match count stays 0.
+
+**Rollback**: disable the reassessment schedule; existing outcomes untouched.
+
+---
+
+## Metrics (denominators explicit)
+
+Evaluated on a labelled representative sample and tracked on each run:
+
+1. **Auto-match precision** — of tracks auto-attached (`matched`), the fraction whose lyric is
+   *correct for that exact track/version* under manual audit. *Denominator = auto-`matched` count.*
+   Primary gate.
+2. **Auto-match coverage** — fraction of evaluated tracks that reached `matched`.
+   *Denominator = all evaluated tracks.* (Reported, **not** maximized — never at precision's expense.)
+3. **Review-required rate** — fraction ending in `review_required`.
+   *Denominator = all evaluated tracks.*
+4. **Unresolved / no-lyrics rate** — fraction in `not_found` + `no_lyrics`.
+   *Denominator = all evaluated tracks.* (`not_found` and `no_lyrics` reported separately too.)
+5. **Version-conflict false-match count** — absolute number of audited cases where a wrong *version*
+   (remix / live / demo / edit / cover / remaster / rerecording) was attached. **Target = 0.**
+6. **Source-quality conflict rate** — fraction of `matched` where the lyric text is internally
+   suspect (e.g. romanized where original-script expected, truncated, or two sources disagree).
+   *Denominator = auto-`matched` count.*
+
+## Risks
+
+- **False-match on popular tracks** — crowd DBs carry many near-duplicate/junk uploads at slightly
+  different durations; the duration gate loosens on popular titles. Mitigation: tight tolerance +
+  version-token check + park-on-ambiguity.
+- **Album name unreliability** — designed around (album never a hard key).
+- **Provenance / legal** — mixed-source crowd text kept strictly private-research; no public
+  redistribution; explicit owner acceptance of that boundary required.
+- **Missing identity anchors** — no ISRC / recording MBID on tracks today weakens hardest cases
+  (same-title different-artist, covers). Open question below.
+- **Dump size / operational** — ~28.6 GiB local batch; must stay local and bounded (not Lambda).
+- **Silent corpus drift** — mitigated by the replacement guard (Step 4) + never-overwrite rule.
+
+## Open questions
+
+1. **Storage shape (blocks Step 1)** — dedicated private track-scoped table vs an extension of an
+   existing structure. Recommend a **dedicated private table** (mirrors `album_research`). Confirm.
+2. **Acquisition mode (blocks Step 2/3)** — recommend **both**: bulk dump for historical backfill
+   (Step 2) + API for increments (Step 3). Confirm the split, and confirm the dump batch runs
+   **local-only** (claude -p / launchd precedent), writing only outcomes to the DB.
+3. **Auto-attach thresholds (blocks Step 2)** — duration tolerance (proposed tight, ±~2s), title
+   normalization rules, and the confidence bar above which we auto-attach vs park. Owner sets the
+   precision-vs-coverage bar; default bias = **precision**.
+4. **synced (LRC) storage (blocks Step 1)** — store both plain **and** synced where available
+   (confirmed direction) — confirm no size/handling concern.
+5. **ISRC adoption (optional, affects hardest cases)** — Spotify track objects expose
+   `external_ids.isrc`; storing it during catalog sync would give a strong identity/version anchor
+   (and enable the MusicBrainz-recording cross-check). **Include as an optional later step or
+   exclude from this RFC?** Not required for v1; improves precision on covers / same-title.
+6. **Provenance/legal boundary (blocks acceptance)** — explicit owner sign-off that crowd-sourced
+   lyric text is stored for **private research only**, never redistributed publicly.
+7. **Review-required surface** — how the owner reviews the `review_required` queue (minimal owner-only
+   list vs deferred). Kept intentionally out of implementation detail here.
+
+## Acceptance criteria
+
+- On the labelled representative sample: **auto-match precision ≥ the owner-set bar** (proposed
+  ≥ 99%) with **version-conflict false-match count = 0**.
+- Every ambiguous/weak case demonstrably parks in `ambiguous` / `review_required` and is **never**
+  auto-attached.
+- **No public schema or response** references or exposes lyric text or its presence (privacy gate).
+- A previously-unresolved track can be promoted on re-check; a `matched` track is **not** replaced
+  without strictly stronger evidence (replacement guard).
+- All six metrics reported per run with denominators.
+
+## No-go conditions
+
+- Conservative matcher cannot hold precision at the bar (persistent false matches / version
+  bleed) → **halt auto-attach; corpus becomes review-only** (manual owner decisions).
+- LRCLIB dump/service access or licensing turns out to be unusable even for private research → the
+  feature is **shelved**.
+- Any design lands lyric text (or its presence) in a public API, page, or search response → **design
+  rejected** (privacy boundary is non-negotiable).
+
+## Relationship to later work
+
+This RFC deliberately stops at a **trustworthy corpus + trust metadata**. Translation, slang/meme /
+context research, per-track interpretation, and album-level lyrical analysis are **each a separate
+later RFC** that consumes this corpus. Keeping construction and analysis separate is the same
+discipline used by FEAT-ai-editorial-critique (build/prove the grounded substrate before any
+consumer).
+
+## Decisions log
+
+Filled in during execution.
+
+| Date | Decision | Step |
+|------|----------|------|
+| 2026-07-01 | Corpus is correctness-first, private, single-owner; lyrics never in any public API/page/search/shared response (aliases / album_research privacy precedent) | 0 |
+| 2026-07-01 | LRCLIB = only lyric-text source (primary); MusicBrainz = identity/version evidence only; lyrics.ovh excluded | 0 |
+| 2026-07-01 | Album name is never a hard match key; evidence = artist identity+aliases, normalized title, duration tolerance, ISRC where available, MB recording/version | 0 |
+| 2026-07-01 | Never silently merge remix/live/demo/edit/cover/remaster/rerecording; park ambiguity as ambiguous/review_required rather than mismatch | 0 |
+| 2026-07-01 | Periodic local dump batch evaluates only tracks already in this DB; never imports the dump's catalog | 0 |
+| 2026-07-01 | Previously matched lyric never silently replaced — only on strictly stronger evidence | 0 |
+| 2026-07-01 | Translation / slang-meme / interpretation / album-level analysis explicitly out of scope (later RFCs) | 0 |
