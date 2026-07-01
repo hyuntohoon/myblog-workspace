@@ -262,7 +262,7 @@ observed; the six metrics on the incremental cohort; no impact on album sync lat
 
 **Rollback**: disable the job (no catalog write path depends on it).
 
-**Implementation (2026-07-02, pending merge + prod verify)**: new worker
+**Implementation (2026-07-02, DONE — merged + prod-verified)**: new worker
 `LyricsIncrementalService` (`worker/service/lyrics_incremental_service.py`) + `LrclibClient`
 (`worker/clients/lrclib_client.py`), routed by `handler.py` on `{"job":"lyrics_incremental"}`
 (same pattern as `album_ingest` / `isrc_backfill`) and scheduled by a new EventBridge rule
@@ -280,7 +280,16 @@ over-budget run leaves leftovers for the next tick (per-row commits make it resu
 outcome with `version_agrees=False` (impossible by construction) is guarded — logged + not
 written. Tests (DB-free): `tests/test_lyrics_incremental.py` (12) + 2 handler-routing tests; full
 worker suite 238 passed / 34 skipped. Live LRCLIB `/api/search` smoke confirmed the contract
-(no-match → `[]` → `not_found`, no exception). `terraform plan`: 3 to add, 0 change, 0 destroy.
+(no-match → `[]` → `not_found`, no exception). Merged: worker #57 (deploy success) + workspace
+#481; `terraform apply` created the `worker-lyrics-incremental` rule (3 added, 0 changed, 0
+destroyed). **Prod smoke (2026-07-02)**: the incremental pool was empty (all 20,946 tracks
+corpus-covered from Phase 2), so one re-derivable `not_found` sentinel was deleted to seed a
+1-track gap; invoking the deployed `blogWorkerLambda` with `{"job":"lyrics_incremental"}`
+re-selected that track, evaluated it via LRCLIB `/api/search`, and committed a fresh row
+(`not_found`, `no_plausible_candidate`, `updated_at` fresh) — pool back to 0, no data loss.
+Full path (DB selection → API fetch → `decide_match` → per-row commit + sentinel) verified in
+prod. Verification used DB-state evidence, not logs (prod Lambda `LOG_LEVEL=WARNING` hides the
+`logger.info` metrics line).
 
 ---
 
@@ -412,4 +421,4 @@ Filled in during execution.
 | 2026-07-02 | Phase 2 ran via LRCLIB `/api/search` (not the dump): 30.68 GiB gz dump decompresses >60 GiB vs ~54 GiB free disk; same matcher + outcomes, dump only avoids latency (owner-approved) | 2 |
 | 2026-07-02 | Concurrency ceiling = LRCLIB, not local HW: effective ~2.5 req/s; 30 workers optimal, 60 → ~30% throttle-skip, higher is pointless | 2 |
 | 2026-07-02 | Step 2 DONE — 20,946 tracks: matched 38.0% / no_lyrics 2.0% / not_found 46.8% / ambiguous 13.1% / review_required 0.2%; consistency PASS, version-conflict false-match 0, precision 64/64=100% audited (gate MET) | 2 |
-| 2026-07-02 | Step 3 implemented (worker) — `lyrics_incremental` EventBridge job (`rate(12 hours)`), alias-fill pattern: recently-added tracks lacking a `track_lyrics` row → LRCLIB `/api/search` → same `decide_match` → per-row commit + sentinel; transient errors skip (never `not_found`), separate invocation isolates album sync; bounded by batch-limit(150)+time-budget(90s)+concurrency(20) for the 120s Lambda. Pending merge + prod verify | 3 |
+| 2026-07-02 | Step 3 DONE (worker) — `lyrics_incremental` EventBridge job (`rate(12 hours)`), alias-fill pattern: recently-added tracks lacking a `track_lyrics` row → LRCLIB `/api/search` → same `decide_match` → per-row commit + sentinel; transient errors skip (never `not_found`), separate invocation isolates album sync; bounded by batch-limit(150)+time-budget(90s)+concurrency(20) for the 120s Lambda. Merged (worker #57 + workspace #481), `terraform apply`-ed, prod-verified via a seeded 1-track gap (DB-state evidence) | 3 |
