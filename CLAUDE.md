@@ -13,7 +13,8 @@ myblog-workspace/
 ├── myblog_shared_db/ ← shared SQLAlchemy models (git-pinned by each service, ARCH-6)
 ├── infra/            ← Terraform (canonical AWS state; see infra/README.md for identifiers)
 ├── docs/{plan.md,contracts/,rfcs/,archive/}
-└── scripts/{smoke.sh,merge_openapi.py}
+├── scripts/{smoke.sh}            ← smoke test
+└── tools/merge_openapi.py        ← merged OpenAPI spec (docs/contracts/openapi.json)
 
 ## Service boundaries
 
