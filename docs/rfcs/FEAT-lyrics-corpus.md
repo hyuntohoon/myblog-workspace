@@ -262,6 +262,26 @@ observed; the six metrics on the incremental cohort; no impact on album sync lat
 
 **Rollback**: disable the job (no catalog write path depends on it).
 
+**Implementation (2026-07-02, pending merge + prod verify)**: new worker
+`LyricsIncrementalService` (`worker/service/lyrics_incremental_service.py`) + `LrclibClient`
+(`worker/clients/lrclib_client.py`), routed by `handler.py` on `{"job":"lyrics_incremental"}`
+(same pattern as `album_ingest` / `isrc_backfill`) and scheduled by a new EventBridge rule
+`worker-lyrics-incremental` (`rate(12 hours)`, `infra/eventbridge.tf`). Selects recently-added
+tracks (`created_at DESC`) lacking a `track_lyrics` row — the row itself is the sentinel that
+drops a track from the pool — evaluates each via LRCLIB `/api/search` with the **same canonical
+`decide_match`** as Step 2, and writes one outcome per row (`TrackLyricsWriter`, per-row commit).
+**Failure isolation**: transient LRCLIB errors (network/5xx/429, retried then raised as
+`LrclibTransientError`) *skip* the track (unwritten → retried next run, never poisoned as
+`not_found`); this is a separate Lambda invocation from the SQS album path, so a lyrics-source
+outage can never block album sync. **Bounded to the 120s worker timeout** by
+`settings.LYRICS_INCR_BATCH_LIMIT` (150) + a `LYRICS_INCR_TIME_BUDGET_SEC` (90s) wall-clock guard
++ `LYRICS_INCR_CONCURRENCY` (20, ≈ LRCLIB's ~2.5 req/s cap per the Phase 2 finding); an
+over-budget run leaves leftovers for the next tick (per-row commits make it resumable). A matched
+outcome with `version_agrees=False` (impossible by construction) is guarded — logged + not
+written. Tests (DB-free): `tests/test_lyrics_incremental.py` (12) + 2 handler-routing tests; full
+worker suite 238 passed / 34 skipped. Live LRCLIB `/api/search` smoke confirmed the contract
+(no-match → `[]` → `not_found`, no exception). `terraform plan`: 3 to add, 0 change, 0 destroy.
+
 ---
 
 ### Step 4 — periodic reassessment + replacement guard
@@ -392,3 +412,4 @@ Filled in during execution.
 | 2026-07-02 | Phase 2 ran via LRCLIB `/api/search` (not the dump): 30.68 GiB gz dump decompresses >60 GiB vs ~54 GiB free disk; same matcher + outcomes, dump only avoids latency (owner-approved) | 2 |
 | 2026-07-02 | Concurrency ceiling = LRCLIB, not local HW: effective ~2.5 req/s; 30 workers optimal, 60 → ~30% throttle-skip, higher is pointless | 2 |
 | 2026-07-02 | Step 2 DONE — 20,946 tracks: matched 38.0% / no_lyrics 2.0% / not_found 46.8% / ambiguous 13.1% / review_required 0.2%; consistency PASS, version-conflict false-match 0, precision 64/64=100% audited (gate MET) | 2 |
+| 2026-07-02 | Step 3 implemented (worker) — `lyrics_incremental` EventBridge job (`rate(12 hours)`), alias-fill pattern: recently-added tracks lacking a `track_lyrics` row → LRCLIB `/api/search` → same `decide_match` → per-row commit + sentinel; transient errors skip (never `not_found`), separate invocation isolates album sync; bounded by batch-limit(150)+time-budget(90s)+concurrency(20) for the 120s Lambda. Pending merge + prod verify | 3 |
