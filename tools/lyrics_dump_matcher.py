@@ -1,375 +1,232 @@
 #!/usr/bin/env python3
 """
-FEAT-lyrics-corpus Step 2: Representative sample validation via LRCLIB API.
+FEAT-lyrics-corpus Step 2 — Phase 1: representative-sample validator.
 
-PHASE 1 (this script): Validates matcher logic + metrics gate on representative
-sample using LRCLIB API. If metrics pass (auto-match precision ≥99%, no version
-conflicts), proceeds to PHASE 2 (offline dump batch on prod).
+Validates the canonical conservative matcher (worker.service.lyrics_matcher)
+against a random sample of REAL catalog tracks, using the LRCLIB **API**
+(`/api/search`, returns up to 20 candidates so ambiguity is observable). This
+is the cheap gate before Phase 2 (the ~28.6 GiB local dump batch).
 
-LRCLIB API: https://lrclib.net/api/get?artist=...&title=...&duration=...
-(Rate-limited, ~50 req/min estimated; fine for sample size ~100)
+What it does:
+  - read a random sample of catalog tracks (with artists + aliases), read-only;
+  - for each, fetch LRCLIB `/api/search` candidates and run `decide_match`;
+  - write a per-track **audit JSON** (lyric snippet included) for manual
+    correctness review;
+  - print honest metrics (coverage / parked rates / version-conflicts-caught)
+    and a consistency gate. Precision is NOT auto-claimed — the owner audits the
+    `matched` set in the JSON (denominator = matched count).
+
+Read-only. No `track_lyrics` writes. RFC: docs/rfcs/FEAT-lyrics-corpus.md.
 
 Usage:
-    # Validate on representative sample (API calls):
-    export DATABASE_URL='postgresql+psycopg://user:pw@host/db'
-    python tools/lyrics_dump_matcher.py --sample-size 100 --dry-run
-
-    # If metrics gate passes, save this output + plan PHASE 2
-    # (full dump batch runs locally, not in this script)
+    export DATABASE_URL='postgresql+psycopg://user:pw@host/db'   # prod, read-only
+    python tools/lyrics_dump_matcher.py --sample-size 50 \
+        --out tools/.lyrics-phase1-sample.json
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
-from dataclasses import dataclass
-import unicodedata
 
 import httpx
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "myblog_shared_db" / "src"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "myblog_worker"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_worker"))
 
-from myblog_shared_db.models import Track, Artist, TrackLyrics
-from worker.core.config import settings
+from worker.service.lyrics_matcher import (  # noqa: E402
+    Candidate,
+    decide_match,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-
-@dataclass
-class MatchResult:
-    """A single track's match outcome."""
-    track_id: str
-    match_status: str  # matched | no_lyrics | not_found | ambiguous | review_required
-    evidence: Dict
-    lyric_plain: Optional[str] = None
-    lyric_synced: Optional[str] = None
-    lrclib_track_id: Optional[int] = None
+LRCLIB_SEARCH = "https://lrclib.net/api/search"
+REQUEST_DELAY = 0.2  # polite; LRCLIB documents no rate limit
 
 
-class LyricsNormalizer:
-    """Normalize titles/artists for matching."""
-
-    @staticmethod
-    def normalize_title(title: str) -> str:
-        """Normalize track title: lowercase, remove diacritics, strip extra spaces."""
-        # Lowercase
-        title = title.lower()
-        # Remove accents/diacritics
-        title = "".join(
-            c for c in unicodedata.normalize("NFD", title)
-            if unicodedata.category(c) != "Mn"
-        )
-        # Remove non-ASCII punctuation, keep only a-z 0-9 and basic marks
-        title = "".join(c if c.isalnum() or c in " -'" else "" for c in title)
-        # Collapse whitespace
-        title = " ".join(title.split())
-        return title
-
-    @staticmethod
-    def normalize_artist_name(name: str) -> str:
-        """Normalize artist name for comparison."""
-        return LyricsNormalizer.normalize_title(name)
-
-    @staticmethod
-    def duration_matches(dur_sec: int, lrclib_dur_ms: int, tolerance_sec: float = 2.0) -> bool:
-        """Check if durations are within tolerance (±2 sec default)."""
-        lrclib_dur_sec = lrclib_dur_ms / 1000
-        return abs(dur_sec - lrclib_dur_sec) <= tolerance_sec
-
-
-class LRCLIBMatcher:
-    """Match catalog tracks against LRCLIB API (for sample validation)."""
-
-    API_BASE = "https://lrclib.net/api/get"
-    RATE_LIMIT = 0.05  # ~20 req/sec, conservative
-
-    def __init__(self):
-        self.client = httpx.Client(timeout=10.0)
-        self.last_request_time = 0
-
-    def _rate_limit(self):
-        """Simple rate limit: wait if needed."""
-        elapsed = time.time() - self.last_request_time
-        if elapsed < self.RATE_LIMIT:
-            time.sleep(self.RATE_LIMIT - elapsed)
-        self.last_request_time = time.time()
-
-    def search_track(
-        self,
-        title: str,
-        artist_names: List[str],
-        duration_sec: int,
-        isrc: Optional[str] = None,
-    ) -> Optional[Dict]:
-        """
-        Query LRCLIB API for a single track.
-
-        Returns: single best match or None.
-        """
-        if not artist_names:
-            return None
-
-        # Try primary artist first
-        artist = artist_names[0]
-
-        self._rate_limit()
-        try:
-            resp = self.client.get(
-                self.API_BASE,
-                params={
-                    "artist": artist,
-                    "title": title,
-                    "duration": duration_sec,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-            # LRCLIB returns a single track (best match) or null
-            if data:
-                return data
-
-        except httpx.HTTPError as e:
-            logger.debug(f"LRCLIB API error for {title} by {artist}: {e}")
-
-        return None
-
-    def close(self):
-        self.client.close()
-
-
-class RepresentativeSampler:
-    """Select representative sample of catalog tracks for validation."""
-
-    def __init__(self, session):
-        self.session = session
-
-    def select_sample(self, size: int = 100) -> List[Tuple[Track, List[str]]]:
-        """
-        Select representative sample covering:
-        - Korean + English tracks
-        - Various match difficulty: aliases, non-Latin, featured, same-title, remix, live, rerelease
-
-        Returns: list of (track, artist_names)
-        """
-        logger.info(f"Selecting representative sample of {size} tracks...")
-
-        # Query: tracks with track_artists populated, cover diverse cases
-        # Include both popular and obscure to catch edge cases
-        query = text("""
-            SELECT DISTINCT t.id, t.title, t.duration_sec, t.spotify_id, t.isrc,
-                   array_agg(DISTINCT a.name ORDER BY a.name) as artist_names
+def fetch_sample(session, size: int):
+    """Random catalog tracks with artist names + aliases (read-only)."""
+    rows = session.execute(
+        text(
+            """
+            SELECT t.id, t.title, t.spotify_id, t.isrc, t.duration_sec,
+                   ARRAY_REMOVE(ARRAY_AGG(DISTINCT a.name), NULL)     AS artist_names,
+                   ARRAY_REMOVE(ARRAY_AGG(DISTINCT al.alias), NULL)  AS aliases
             FROM tracks t
-            LEFT JOIN track_artists ta ON t.id = ta.track_id
-            LEFT JOIN artists a ON ta.artist_id = a.id
-            WHERE t.isrc IS NOT NULL  -- Step 1b backfill should have populated these
-            AND a.id IS NOT NULL  -- Has artist info
-            GROUP BY t.id, t.title, t.duration_sec, t.spotify_id, t.isrc
+            JOIN track_artists ta ON ta.track_id = t.id
+            JOIN artists a        ON a.id = ta.artist_id
+            LEFT JOIN LATERAL jsonb_array_elements_text(a.aliases) AS al(alias) ON true
+            GROUP BY t.id, t.title, t.spotify_id, t.isrc, t.duration_sec
             ORDER BY RANDOM()
-            LIMIT ?
-        """)
-
-        results = self.session.execute(query, [size]).fetchall()
-
-        samples = []
-        for row in results:
-            # Create minimal Track-like object
-            track = Track(
-                id=row[0],
-                title=row[1],
-                duration_sec=row[2],
-                spotify_id=row[3],
-                isrc=row[4],
-            )
-            artist_names = list(row[5]) if row[5] else []
-            samples.append((track, artist_names))
-
-        logger.info(f"Selected {len(samples)} tracks for sample")
-        return samples
+            LIMIT :n
+            """
+        ),
+        {"n": size},
+    ).fetchall()
+    return [
+        {
+            "id": r[0], "title": r[1], "spotify_id": r[2], "isrc": r[3],
+            "duration_sec": r[4], "artist_names": list(r[5] or []), "aliases": list(r[6] or []),
+        }
+        for r in rows
+    ]
 
 
-def evaluate_sample(
-    lrclib_matcher: LRCLIBMatcher,
-    catalog_session,
-    sample_size: int = 100,
-) -> Tuple[List[MatchResult], Dict]:
-    """
-    Evaluate representative sample against LRCLIB API.
+def search_lrclib(client: httpx.Client, title: str, artist: str):
+    """GET /api/search?track_name=&artist_name= → list of LRCLIB records (may be empty)."""
+    try:
+        resp = client.get(LRCLIB_SEARCH, params={"track_name": title, "artist_name": artist})
+        if resp.status_code == 404:
+            return []
+        resp.raise_for_status()
+        data = resp.json()
+        return data if isinstance(data, list) else []
+    except httpx.HTTPError as exc:
+        logger.debug("LRCLIB search error for %r by %r: %s", title, artist, exc)
+        return []
 
-    Returns: (match results, metrics dict with precision/coverage/etc.)
-    """
-    sampler = RepresentativeSampler(catalog_session)
-    samples = sampler.select_sample(sample_size)
 
-    results = []
-    metrics = {
-        "total_evaluated": len(samples),
-        "matched_count": 0,
-        "no_lyrics_count": 0,
-        "not_found_count": 0,
-        "ambiguous_count": 0,
-        "review_required_count": 0,
-        "version_conflict_false_matches": 0,
-        "source_quality_conflicts": 0,
+def evaluate_track(client: httpx.Client, track) -> dict:
+    candidates = [
+        Candidate.from_api(rec)
+        for rec in search_lrclib(client, track["title"], (track["artist_names"] or [""])[0])
+    ]
+    outcome = decide_match(
+        track_id=track["id"],
+        title=track["title"],
+        artist_names=track["artist_names"],
+        aliases=track["aliases"],
+        duration_sec=track["duration_sec"],
+        candidates=candidates,
+    )
+    snippet = None
+    if outcome.lyric_plain:
+        snippet = outcome.lyric_plain[:240]
+    return {
+        "spotify_id": track["spotify_id"],
+        "title": track["title"],
+        "artists": track["artist_names"],
+        "aliases": track["aliases"],
+        "isrc": track["isrc"],
+        "duration_sec": track["duration_sec"],
+        "status": outcome.match_status,
+        "match_basis": outcome.match_basis,
+        "version_tokens_track": outcome.version_tokens_track,
+        "version_tokens_candidate": outcome.version_tokens_candidate,
+        "version_agrees": outcome.version_agrees,
+        "reason": outcome.evidence.get("reason"),
+        "evidence": outcome.evidence,
+        "plain_lyrics_snippet": snippet,
     }
 
-    for i, (track, artist_names) in enumerate(samples):
-        if (i + 1) % 10 == 0:
-            logger.info(f"Evaluating sample: {i+1}/{len(samples)}")
 
-        if not artist_names:
-            # No artist info, cannot match
-            result = MatchResult(
-                track_id=str(track.id),
-                match_status="not_found",
-                evidence={"reason": "no_artist_names"},
-            )
-            results.append(result)
-            metrics["not_found_count"] += 1
-            continue
-
-        candidate = lrclib_matcher.search_track(
-            title=track.title,
-            artist_names=artist_names,
-            duration_sec=track.duration_sec,
-            isrc=track.isrc,
-        )
-
-        if not candidate:
-            result = MatchResult(
-                track_id=str(track.id),
-                match_status="not_found",
-                evidence={"reason": "no_lrclib_match"},
-            )
-            results.append(result)
-            metrics["not_found_count"] += 1
-        else:
-            has_plain = bool(candidate.get("plainLyrics"))
-            has_synced = bool(candidate.get("syncedLyrics"))
-
-            if not has_plain and not has_synced:
-                result = MatchResult(
-                    track_id=str(track.id),
-                    match_status="no_lyrics",
-                    evidence={
-                        "reason": "instrumental_or_no_lyrics",
-                        "lrclib_id": candidate.get("id"),
-                    },
-                )
-                results.append(result)
-                metrics["no_lyrics_count"] += 1
-            else:
-                result = MatchResult(
-                    track_id=str(track.id),
-                    match_status="matched",
-                    evidence={
-                        "lrclib_id": candidate.get("id"),
-                        "lrclib_artist": candidate.get("artist"),
-                        "lrclib_title": candidate.get("title"),
-                        "duration_ms": candidate.get("duration"),
-                    },
-                    lyric_plain=candidate.get("plainLyrics"),
-                    lyric_synced=candidate.get("syncedLyrics"),
-                    lrclib_track_id=candidate.get("id"),
-                )
-                results.append(result)
-                metrics["matched_count"] += 1
-
-    # Compute derived metrics
-    total = metrics["total_evaluated"]
-    if total == 0:
-        return results, metrics
-
-    metrics["auto_match_precision"] = metrics["matched_count"] / total
-    metrics["coverage"] = (metrics["matched_count"] + metrics["no_lyrics_count"]) / total
-    metrics["review_required_rate"] = metrics["review_required_count"] / total
-
-    return results, metrics
+def compute_metrics(rows: list) -> dict:
+    total = len(rows)
+    by_status = {}
+    for r in rows:
+        by_status[r["status"]] = by_status.get(r["status"], 0) + 1
+    matched = by_status.get("matched", 0)
+    no_lyrics = by_status.get("no_lyrics", 0)
+    review = by_status.get("review_required", 0)
+    ambiguous = by_status.get("ambiguous", 0)
+    not_found = by_status.get("not_found", 0)
+    version_conflicts_parked = sum(
+        1 for r in rows
+        if r["status"] == "review_required" and r["reason"] == "version_token_mismatch"
+    )
+    # Consistency gate: the matcher must never auto-attach something it flagged
+    # inconsistent. By construction `matched` has version_agrees True and artist
+    # identity passed; if any `matched` row violates that, the matcher is buggy.
+    inconsistent_matched = sum(
+        1 for r in rows if r["status"] == "matched" and r["version_agrees"] is False
+    )
+    return {
+        "total_evaluated": total,
+        "by_status": by_status,
+        "matched": matched,
+        "no_lyrics": no_lyrics,
+        "not_found": not_found,
+        "ambiguous": ambiguous,
+        "review_required": review,
+        "coverage": round((matched + no_lyrics) / total, 4) if total else 0,  # denom = total
+        "review_required_rate": round(review / total, 4) if total else 0,
+        "ambiguous_rate": round(ambiguous / total, 4) if total else 0,
+        "version_conflicts_detected_and_parked": version_conflicts_parked,
+        "inconsistent_matched": inconsistent_matched,
+        "consistency_gate_pass": inconsistent_matched == 0,
+        # precision: owner-audited from the `matched` rows below (denom = matched).
+        "precision_note": "audit `matched` rows manually; denominator = matched count",
+    }
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="FEAT-lyrics-corpus Step 2: Representative sample validation (LRCLIB API)"
-    )
-    parser.add_argument("--sample-size", type=int, default=20, help="Sample size for validation")
-    parser.add_argument("--dry-run", action="store_true", help="Don't write to DB (default: True)")
-
+    parser = argparse.ArgumentParser(description="FEAT-lyrics-corpus Step 2 Phase 1 validator")
+    parser.add_argument("--sample-size", type=int, default=50)
+    parser.add_argument("--out", default=str(Path(__file__).resolve().parent / ".lyrics-phase1-sample.json"))
+    parser.add_argument("--delay", type=float, default=REQUEST_DELAY)
     args = parser.parse_args()
 
-    # Setup DB connection
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        logger.error("DATABASE_URL not set")
+        logger.error("DATABASE_URL not set (read-only catalog connection)")
         sys.exit(1)
 
     engine = create_engine(db_url, future=True)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    session = sessionmaker(bind=engine)()
+    client = httpx.Client(timeout=15.0, headers={"User-Agent": "myblog-lyrics-phase1/1.0"})
 
-    # Matcher (API-based)
-    lrclib_matcher = LRCLIBMatcher()
+    logger.info("PHASE 1: representative sample validation (n=%d, LRCLIB /api/search)", args.sample_size)
+    sample = fetch_sample(session, args.sample_size)
+    logger.info("sampled %d tracks", len(sample))
 
+    rows = []
     try:
-        logger.info(f"PHASE 1: Representative sample validation ({args.sample_size} tracks via API)")
-        logger.info("=" * 60)
-
-        # Evaluate sample
-        results, metrics = evaluate_sample(lrclib_matcher, session, args.sample_size)
-
-        # Report metrics
-        logger.info("\n=== METRICS (Sample) ===")
-        logger.info(f"Total evaluated: {metrics['total_evaluated']}")
-        logger.info(f"Matched: {metrics['matched_count']} ({metrics['auto_match_precision']:.1%})")
-        logger.info(f"No lyrics: {metrics['no_lyrics_count']}")
-        logger.info(f"Not found: {metrics['not_found_count']}")
-        logger.info(f"Ambiguous: {metrics['ambiguous_count']}")
-        logger.info(f"Review required: {metrics['review_required_count']}")
-        logger.info(f"Coverage: {metrics['coverage']:.1%}")
-        logger.info(f"Version-conflict false-matches: {metrics['version_conflict_false_matches']}")
-
-        # Check acceptance gate (sample-level, not full-run threshold yet)
-        logger.info("\n=== ACCEPTANCE GATE ===")
-        passed = (
-            metrics['auto_match_precision'] >= 0.90  # Sample: 90% (full: 99%)
-            and metrics['version_conflict_false_matches'] == 0
-        )
-
-        if passed:
-            logger.info("✓ SAMPLE GATE PASSED (precision ≥90%, no version conflicts)")
-            logger.info("  → Next: Download LRCLIB dump + full batch run on prod data")
-        else:
-            logger.warning("✗ SAMPLE GATE FAILED")
-            if metrics['auto_match_precision'] < 0.90:
-                logger.warning(f"  Precision {metrics['auto_match_precision']:.1%} < 90%")
-                logger.warning("  → Matcher logic needs tuning before full run")
-            if metrics['version_conflict_false_matches'] > 0:
-                logger.warning(f"  Version conflicts: {metrics['version_conflict_false_matches']}")
-                logger.warning("  → Add version-token checks (remix/live/demo markers)")
-            sys.exit(1)
-
-        # Summary for copy-paste to RFC/plan
-        logger.info("\n=== SAMPLE RESULTS (copy to RFC/plan) ===")
-        logger.info(
-            f"API sample (N={metrics['total_evaluated']}): "
-            f"matched={metrics['matched_count']}, "
-            f"no_lyrics={metrics['no_lyrics_count']}, "
-            f"not_found={metrics['not_found_count']}, "
-            f"ambiguous={metrics['ambiguous_count']}, "
-            f"review_required={metrics['review_required_count']}, "
-            f"precision={metrics['auto_match_precision']:.1%}, "
-            f"coverage={metrics['coverage']:.1%}"
-        )
-
+        for i, track in enumerate(sample, 1):
+            rows.append(evaluate_track(client, track))
+            if i % 10 == 0:
+                logger.info("progress: %d/%d", i, len(sample))
+            if args.delay:
+                time.sleep(args.delay)
     finally:
-        lrclib_matcher.close()
+        client.close()
         session.close()
+
+    metrics = compute_metrics(rows)
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "sample_size": len(rows),
+        "matcher_version": "step2-v2",
+        "metrics": metrics,
+        "tracks": rows,
+    }
+    out_path = Path(args.out)
+    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+    logger.info("wrote audit JSON -> %s", out_path)
+
+    m = metrics
+    logger.info("=" * 60)
+    logger.info("METRICS (sample, N=%d)", m["total_evaluated"])
+    logger.info("  matched        : %d", m["matched"])
+    logger.info("  no_lyrics      : %d", m["no_lyrics"])
+    logger.info("  not_found      : %d", m["not_found"])
+    logger.info("  ambiguous      : %d", m["ambiguous"])
+    logger.info("  review_required: %d", m["review_required"])
+    logger.info("  coverage (matched+no_lyrics)/total : %.1f%%", m["coverage"] * 100)
+    logger.info("  review_required_rate : %.1f%%", m["review_required_rate"] * 100)
+    logger.info("  ambiguous_rate       : %.1f%%", m["ambiguous_rate"] * 100)
+    logger.info("  version-conflicts detected & parked : %d", m["version_conflicts_detected_and_parked"])
+    logger.info("-" * 60)
+    gate = "PASS" if m["consistency_gate_pass"] else "FAIL"
+    logger.info("CONSISTENCY GATE (no inconsistent matched): %s", gate)
+    logger.info("PRECISION: %s", m["precision_note"])
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

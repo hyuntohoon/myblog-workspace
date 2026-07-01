@@ -44,3 +44,7 @@ docs/buckit/**/*.md
 # UI/UX audit scratch — per-page screenshots + draft PR bodies from front audit runs.
 # One-off, regenerable; the audit's outcome lands in docs/archive + the front PR. Stays local.
 .uiux-audit/
+
+# FEAT-lyrics-corpus Step 2 Phase 1 audit JSON — per-run sample output for manual
+# precision review (includes lyric snippets). Regenerable, local-only, never committed.
+tools/.lyrics-phase1-*.json
