@@ -222,6 +222,32 @@ same-version → same-version (no cross-version merge). **Version-conflict false
 → Phase 1 gate (precision ≥ bar, version-conflict = 0) **met**; Phase 2 (full dump batch) is the
 next step (rule #4 — separate session). Audit JSON is local-only (gitignored; contains lyric snippets).
 
+**Phase 2 result (2026-07-02, full catalog = 20,946 tracks, all written to `track_lyrics`)**:
+The **local LRCLIB dump could not be used** — the current dump is **30.68 GiB gzip**
+(`db-dumps.lrclib.net/lrclib-db-dump-20260624T025818Z.sqlite3.gz`; the RFC's `lrclib.net/lrclib.db`
+URL is a stale SPA page) which **decompresses to >60 GiB** against **~54 GiB free disk**. Owner
+approved (2026-07-02) running the **same canonical matcher over the LRCLIB `/api/search` API** for
+the full backfill instead of the dump (identical `decide_match` logic + written outcomes; the dump
+would only have avoided per-request latency). `/api/search` is ~8 s/request server-side, so
+`tools/lyrics_batch_api.py` fetches candidates across a thread pool (`decide_match` + writes stay
+single-threaded), resumable per-row. **Concurrency finding**: LRCLIB caps effective throughput at
+~2.5 req/s — **30 workers** was optimal (~0.5% transient-skip); 60 hit ~30% throttle-skip with no
+good-throughput gain (100 would be strictly worse), so higher concurrency is pointless, not a win.
+
+**Outcomes**: matched **7,955 (38.0%)** · no_lyrics **417 (2.0%)** · not_found **9,798 (46.8%)** ·
+ambiguous **2,743 (13.1%)** · review_required **33 (0.2%)** (denominator = 20,946 evaluated).
+Resolved coverage (matched+no_lyrics)/eval = **40.0%**; synced (LRC) present on **7,253 / 7,955**
+matched (91%). **Consistency gate PASS** (inconsistent matched = 0). **Version-conflicts detected &
+parked = 13; version-conflict false-match count = 0** (every remix/live/remaster/instrumental
+candidate parked to `review_required`, never auto-attached). **Precision audit: 25 random `matched`
+(denom = 7,955) all correct (title + artist identity, duration Δ ≤ 2 s)** → with Phase 1's 39/39 =
+**64/64 = 100%** audited. **Acceptance gate (precision ≥ 99%, version-conflict = 0) MET.** Three
+latent `TrackLyricsWriter` bugs were found + fixed mid-run (JSONB dict bind → `CAST(:evidence AS
+jsonb)` + `json.dumps`; `matched`-with-only-synced → `lyric_plain` None→'' for the V33 CHECK;
+embedded NUL in LRCLIB crowd data → `_strip_nul`) — myblog_worker writer PR. Phase 2 report is
+local-only (gitignored; lyric snippets). → **Step 2 DONE**; Step 3 (worker incremental) next
+(rule #4 — separate session).
+
 ---
 
 ### Step 3 — incremental collection for newly ingested tracks (worker)
@@ -363,3 +389,6 @@ Filled in during execution.
 | 2026-07-01 | OQ5 resolved — adopt ISRC now: `Track.isrc` folded into Step 1 (shared_db col + worker populate + backfill), server-side identity evidence only, never public | 1 |
 | 2026-07-01 | OQ3 resolved (direction) — auto-attach bar stays conservative/precision-first (acceptance gate unchanged); coverage grown via the `review_required` queue, not by loosening auto-attach; exact numbers tuned at Step 2 | 2 |
 | 2026-07-01 | Status draft → accepted | 0 |
+| 2026-07-02 | Phase 2 ran via LRCLIB `/api/search` (not the dump): 30.68 GiB gz dump decompresses >60 GiB vs ~54 GiB free disk; same matcher + outcomes, dump only avoids latency (owner-approved) | 2 |
+| 2026-07-02 | Concurrency ceiling = LRCLIB, not local HW: effective ~2.5 req/s; 30 workers optimal, 60 → ~30% throttle-skip, higher is pointless | 2 |
+| 2026-07-02 | Step 2 DONE — 20,946 tracks: matched 38.0% / no_lyrics 2.0% / not_found 46.8% / ambiguous 13.1% / review_required 0.2%; consistency PASS, version-conflict false-match 0, precision 64/64=100% audited (gate MET) | 2 |

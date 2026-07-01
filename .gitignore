@@ -49,3 +49,5 @@ docs/buckit/**/*.md
 # manual precision review (includes lyric snippets). Regenerable, local-only, never committed.
 tools/.lyrics-phase1-*.json
 tools/.lyrics-phase1-*.log
+tools/.lyrics-phase2-*.txt
+tools/.lyrics-phase2-*.log
