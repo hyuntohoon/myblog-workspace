@@ -150,3 +150,39 @@ resource "aws_lambda_permission" "spotify_saved_tracks_full_events" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.spotify_saved_tracks_full.arn
 }
+
+# Incremental lyrics collection — FEAT-lyrics-corpus Step 3.
+#
+# Constant input {"job":"lyrics_incremental"} (same routing pattern as album_ingest /
+# isrc_backfill; the handler matches event["job"] before the alias source check). The job
+# follows the MusicBrainz alias-fill template: it selects recently-added tracks lacking a
+# track_lyrics row, evaluates each via the LRCLIB /api/search API with the Step 2 canonical
+# matcher, and writes exactly one outcome row per track (matched / no_lyrics / not_found /
+# ambiguous / review_required) — that row is the sentinel, dropping the track from the pool.
+# It is failure-isolated from album sync: a separate invocation from the SQS album path, a
+# lyrics-source outage only skips rows. Bounded per run (settings.LYRICS_INCR_BATCH_LIMIT +
+# a wall-clock budget) so it finishes inside the 120s worker timeout; per-row commits make an
+# over-budget run resumable. Runs twice daily to stay ahead of new ingest without a backlog.
+# Removing this rule stops scheduled collection; the job code is inert without it (the manual
+# blogSQS {"job":"lyrics_incremental"} message still works either way).
+resource "aws_cloudwatch_event_rule" "lyrics_incremental" {
+  name                = "worker-lyrics-incremental"
+  description         = "Incremental LRCLIB lyrics corpus collection for newly-ingested tracks"
+  schedule_expression = "rate(12 hours)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "lyrics_incremental" {
+  rule      = aws_cloudwatch_event_rule.lyrics_incremental.name
+  target_id = "blogWorkerLambda-lyrics-incremental"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "lyrics_incremental" })
+}
+
+resource "aws_lambda_permission" "lyrics_incremental_events" {
+  statement_id  = "AllowInvokeFromEventBridgeLyricsIncremental"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.lyrics_incremental.arn
+}
