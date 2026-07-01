@@ -1,6 +1,6 @@
 # FEAT-lyrics-corpus: Private, correctness-first lyrics corpus
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-07-01
 - **Plan row**: `plan.md` → FEAT-lyrics-corpus
@@ -93,8 +93,9 @@ schema, columns, and any endpoint deferred to step-time — see Non-goals + Open
 - **Matching evidence, in priority order**: (1) **artist identity** resolved through
   `artists.aliases` + MusicBrainz aliases (transliteration / punctuation / localized / credited
   names); (2) **normalized track title**; (3) **`duration_sec` within a tight tolerance** (feasibility
-  probe: LRCLIB gates `/api/get` on duration within a few seconds); (4) **ISRC where available** as a
-  strong identity anchor (not stored today — see Open questions); (5) MusicBrainz **recording +
+  probe: LRCLIB gates `/api/get` on duration within a few seconds); (4) **ISRC** as a strong
+  identity/version anchor — **added to `Track` in Step 1** (OQ5 resolved: adopt now, not deferred);
+  (5) MusicBrainz **recording +
   disambiguation + length** as version evidence. **Album name is a weak signal only — never a hard
   match key** (LRCLIB `albumName` was empirically junk: `""`, `"TravisScottVEVO"`, etc.).
 - **Version safety**: remix / live / demo / edit / cover / remaster / rerecording are **never
@@ -152,18 +153,46 @@ shows only the three doc files.
 
 ---
 
-### Step 1 — private corpus store + match-status model (shared_db)
+### Step 1 — private corpus store + match-status model + ISRC column (shared_db, schema-only)
 
 Introduce the **private, track-scoped lyrics store + match-status lifecycle** (states above) as a
 `shared_db` migration, owner-only, with **no public exposure and no consumer**. Schema detail
-designed at step start. Nothing writes to it yet; this step only lands the storage + status vocabulary
-and confirms the privacy boundary holds (no public schema references it).
+designed at step start. Nothing writes to the lyrics store yet; this step lands the storage + status
+vocabulary and confirms the privacy boundary holds (no public schema references it).
+
+Per **OQ5 (resolved: adopt ISRC now)**, this step **also** adds the **additive `Track.isrc` column**
+as an identity/version anchor — schema only, **no writer** (consistent with "storage only, nothing
+writes yet"). ISRC is **server-side identity evidence only** — same privacy precedent as `aliases` /
+`musicbrainz_id`, **not** exposed in any public schema/response. **Populating** `isrc` is deferred to
+**Step 1b** (below): a mechanism check (2026-07-01) found isrc **cannot** ride the album-sync path —
+`sync_service.py:99` documents that album-nested tracks are Spotify `SimplifiedTrackObject`s with
+**no `external_ids`**, and `spotify_client.py` has only `get_albums`/`get_artists`, **no
+`get_tracks`** — so population is non-trivial worker code and is kept out of this schema-only step.
+Step 1 is therefore a **single-repo (`shared_db`), purely additive** migration.
 
 **Verification**: migration applies cleanly on a test branch; a schema check confirms no public
-API/response type references the new store; `pytest` for shared_db parity passes
-(`reference-shared-db-test-pythonpath-src`).
+API/response type references the lyrics store or `isrc`; `pytest` for shared_db parity passes
+(`reference-shared-db-test-pythonpath-src`); `_generated_schema.sql` / canonical schema regenerated.
 
-**Rollback**: drop the new store (no consumer depends on it yet).
+**Rollback**: drop the lyrics store + `isrc` column (no consumer depends on either yet).
+
+---
+
+### Step 1b — ISRC population (worker: `get_tracks` fetch + bounded backfill)
+
+Populate the `Track.isrc` column added in Step 1. Adds a new `GET /v1/tracks?ids=` client method
+(≤50/call, reads `external_ids.isrc`) and a **bounded backfill job** over existing tracks lacking
+isrc (chunk 50, per-batch commit, alias-fill failure-isolation pattern). Going-forward population for
+newly ingested tracks rides the same `get_tracks` path (a follow-up full-track fetch after album
+sync, since the album path lacks track `external_ids`). Worker-only; the writer-bearing half of the
+ISRC adoption, split from Step 1 so the schema step stays additive/no-writer (hard rule #4).
+
+**Verification**: `get_tracks` returns `external_ids.isrc` on a stubbed response; backfill dry-run on
+a bounded sample writes isrc for tracks that have one and a sentinel (design at step start) for
+tracks Spotify returns without one; no impact on album sync; worker `pytest` passes.
+
+**Rollback**: disable the backfill job; the `isrc` column stays but unpopulated (no consumer depends
+on it until Step 2).
 
 ---
 
@@ -255,15 +284,27 @@ Evaluated on a labelled representative sample and tracked on each run:
    **local-only** (claude -p / launchd precedent), writing only outcomes to the DB.
 3. **Auto-attach thresholds (blocks Step 2)** — duration tolerance (proposed tight, ±~2s), title
    normalization rules, and the confidence bar above which we auto-attach vs park. Owner sets the
-   precision-vs-coverage bar; default bias = **precision**.
+   precision-vs-coverage bar; default bias = **precision**. **RESOLVED (2026-07-01, direction only —
+   exact numbers still tuned at Step 2 with the labelled sample)**: keep the **auto-attach bar
+   conservative** (artist-identity via aliases AND normalized-title exact match AND duration within a
+   tight tolerance AND no version-token conflict → `matched`; anything short → park); precision and
+   the ≥99% / version-conflict=0 acceptance gate are **unchanged**. Coverage is grown through the
+   **`review_required` queue**, not by loosening auto-attach: a weak-but-present candidate is parked
+   in `review_required` (owner can manually accept) rather than discarded to `not_found`. The review
+   queue is the coverage lever; auto-attach stays precision-first.
 4. **synced (LRC) storage (blocks Step 1)** — store both plain **and** synced where available
    (confirmed direction) — confirm no size/handling concern.
 5. **ISRC adoption (optional, affects hardest cases)** — Spotify track objects expose
    `external_ids.isrc`; storing it during catalog sync would give a strong identity/version anchor
-   (and enable the MusicBrainz-recording cross-check). **Include as an optional later step or
-   exclude from this RFC?** Not required for v1; improves precision on covers / same-title.
+   (and enable the MusicBrainz-recording cross-check). **RESOLVED (2026-07-01): adopt now — fold
+   `Track.isrc` into Step 1** (shared_db column + worker `sync_service` populate from
+   `external_ids.isrc` + bounded backfill), server-side identity evidence only, never publicly
+   exposed. The matcher gets the anchor from day one on covers / same-title / remaster cases.
 6. **Provenance/legal boundary (blocks acceptance)** — explicit owner sign-off that crowd-sourced
-   lyric text is stored for **private research only**, never redistributed publicly.
+   lyric text is stored for **private research only**, never redistributed publicly. **RESOLVED
+   (2026-07-01): owner signed off** — lyrics are single-owner private research data, never in any
+   public API/page/search/shared/edge-cached response, never redistributed, never asserted as
+   authoritative; residual legal risk accepted.
 7. **Review-required surface** — how the owner reviews the `review_required` queue (minimal owner-only
    list vs deferred). Kept intentionally out of implementation detail here.
 
@@ -308,3 +349,7 @@ Filled in during execution.
 | 2026-07-01 | Periodic local dump batch evaluates only tracks already in this DB; never imports the dump's catalog | 0 |
 | 2026-07-01 | Previously matched lyric never silently replaced — only on strictly stronger evidence | 0 |
 | 2026-07-01 | Translation / slang-meme / interpretation / album-level analysis explicitly out of scope (later RFCs) | 0 |
+| 2026-07-01 | OQ6 resolved — owner sign-off: lyrics are private single-owner research data, never public/redistributed, residual legal risk accepted | 0 |
+| 2026-07-01 | OQ5 resolved — adopt ISRC now: `Track.isrc` folded into Step 1 (shared_db col + worker populate + backfill), server-side identity evidence only, never public | 1 |
+| 2026-07-01 | OQ3 resolved (direction) — auto-attach bar stays conservative/precision-first (acceptance gate unchanged); coverage grown via the `review_required` queue, not by loosening auto-attach; exact numbers tuned at Step 2 | 2 |
+| 2026-07-01 | Status draft → accepted | 0 |
