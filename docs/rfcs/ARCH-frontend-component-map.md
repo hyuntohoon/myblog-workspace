@@ -1,0 +1,253 @@
+# ARCH-frontend-component-map: Frontend component structure map
+
+- **Status**: draft
+- **Owner**: 박지훈
+- **Created**: 2026-07-02
+- **Plan row**: `plan.md` → ARCH-frontend-component-map
+
+---
+
+## Goal
+
+After this RFC, future feature work can identify **component ownership, reuse, and
+impact before making changes**, instead of rediscovering the frontend's structure each
+time. It produces two artifacts: (1) a **developer/LLM reference** that pins real file
+paths, component responsibilities, state ownership, interaction ownership, and dependency
+relationships; (2) a **human-readable component structure map** of major routes, feature
+areas, shared components, global UI surfaces, and key data/state flows. Both are
+verified against code as of 2026-07-02 and kept as living docs (drift re-checked on
+change — same discipline as `reference-architecture-md-unreliable`).
+
+This RFC is one of three dependency RFCs pulled out of **FEAT-lyrics-viewer**. It owns
+**track-click ownership, shared interaction components, overlay state ownership, and
+affected routes** — the four contracts the lyrics viewer needs before wiring any entry.
+
+## Non-goals
+
+- **No code change.** This RFC documents what exists; it does not refactor, consolidate,
+  or create the (absent) shared track-click component. "Do not propose or create a common
+  track-click component" is explicit.
+- **No architecture.md replacement.** `architecture.md` is hand-maintained and lags code
+  every release (memory `reference-architecture-md-unreliable`); this map is the
+  verified, code-pinned alternative **for the frontend only**. It does not rewrite the
+  backend/infra stories.
+- **No design decisions on how the lyrics viewer binds entry.** That is FEAT-lyrics-viewer's
+  call. This RFC states *where* track-click and overlay state live so the viewer can decide.
+- **No exhaustive line-by-line audit.** The map names owners and load-bearing paths, not
+  every helper.
+- **Backend / worker / shared_db component maps.** Frontend (`myblog_front`) only.
+
+## Current state
+
+Verified against code 2026-07-02 (Astro 5 + React 19, `myblog_front/src/`). Full detail
+lives in the [Developer reference](#developer-reference-llm-reference) below; this section
+is the load-bearing summary.
+
+### Routes & islands
+
+| Route | Page | Primary island(s) | Authed? |
+|---|---|---|---|
+| `/` | `pages/index.astro` | `EditorialHome` (`client:load`), `PocketResume` (`client:only`) | Public |
+| `/reviews` | `pages/reviews/index.astro` | `ReviewsIndex` (`client:load`) | Public |
+| `/review/[slug]` | `pages/review/[slug].astro` | `AddToBucketMenu` (hero, `client:only`), `ReviewTrackAdder` (`client:only`) + **vanilla** `scripts/albumDetail.client.ts` | Public |
+| `/artist/[id]` | `pages/artist/[id].astro` | `ArtistHub` (`client:only`) | Public |
+| `/genres` | `pages/genres/index.astro` | `GenreMap` (`client:only`) | Public |
+| `/canon`, `/collection` | `canon.astro`, `collection.astro` | `CanonPage`, `CollectionView` (`client:load`) | Public (collection = edge_guard read) |
+| `/search` | `pages/search.astro` | `SearchPage` (`client:only`) | Public |
+| `/profile` | `pages/profile.astro` | `ProfileApp` (`client:only`) | **Authed** (`scripts/profile.guard.ts`) |
+| `/buckets` | `pages/buckets.astro` | — (meta-refresh → `/profile?tab=bucket`) | n/a |
+| `/drafts` | `pages/drafts.astro` | none (vanilla table) | Authed (inline `isLoggedIn()` → `goLogin`) |
+| `/write` | `pages/write.astro` | `WriterApp` (`client:load`) | **Authed** (`scripts/write.guard.ts`) |
+
+Shared chrome (`Header`/`Footer`/`PocketBuckit`) is mounted once in `layouts/layout.astro:35-38`.
+`write-layout.astro` is standalone (no Header/Footer/Pocket).
+
+### Track-click behavior — **no shared track-row component exists**
+
+Track interaction is fragmented across **≥6 independent code paths**. There is no common
+row component. The surfaces differ in whether they **play**, **navigate**, **open detail**, or
+**add to bucket** — only play is shared at the SDK layer (`requestPlayback`), never at the row layer.
+
+| Surface | File:component | Click does | Playback path | Shared with? |
+|---|---|---|---|---|
+| Review tracklist (vanilla, public) | `scripts/albumDetail.client.ts:145,522` | two buttons/row: `.lfq-tt-play` (▶) + `.lfq-tt-add` (＋) | ▶ → `requestPlayback({kind:'track',trackId,title})` (`:130`); ＋ → `window` event `pb:add-track` (`:144`) → `ReviewTrackAdder` | play only |
+| Pocket tray drawer members | `components/member/pocket/PocketTray.tsx:587` | React `<button onClick={onPlay}>` ▶ (list view) | `onPlay`→`playbackTargetFor` (`:53-59`)→`requestPlayback` (`:412`) | play (different wrapper) |
+| Member `AlbumDetail` tracklist | `components/member/AlbumDetail.tsx:154-178` | not clickable — read-only `<li>` | none | — |
+| `LikedBoard` rows | `components/member/LikedBoard.tsx:274-285` | cover/title → `onOpen` (opens `AlbumDetail`); ⋯ → 담기/평론쓰기 | none | detail/add (via `BucketPickerSheet`, not play) |
+| Search track rows + header | `components/search/SearchPage.tsx:67-91`, `HeaderSearch.tsx:295-308` | `ResultRow` `action` union — track rows are `action:'static'` (not clickable) | none | — |
+| Writer `RecommendedTracksBlock` / `ArtistDetail` | `components/writer/RecommendedTracksBlock.tsx:66-76`, `writer/ArtistDetail.tsx:43` | ★/☆ pick / `onPickTrack` (select-for-review) | none | selection (not play) |
+
+`requestPlayback` (from `lib/spotifyPlayback.ts:243`) — the **only** SDK owner — is imported
+in exactly **2 files**: `scripts/albumDetail.client.ts` and `components/member/pocket/PocketTray.tsx`.
+Every other surface has no play affordance.
+
+**Verdict (documented, not fixed):** play funnels through the shared `requestPlayback` SDK
+layer; the **row UI** around it is re-implemented per surface (vanilla delegated-click in the
+review tracklist vs React `onClick` in the tray), and navigation/detail-open/add-to-bucket are
+each separate paths. A future unified `<TrackRow action={...}>` would mirror the existing
+`search/atoms.tsx` `RowAction` union + call the already-shared `requestPlayback` — but that is
+**out of scope here**.
+
+### Overlay / drawer / store / context / cache ownership
+
+- **Overlay primitives** — `.lf-scrim` / `.lf-slideover` / `.lf-modal-card`
+  (`styles/member.css:193,203`), `--z-overlay: 80` (`styles/global.css`).
+  `useDismissable` (`lib/useDismissable.ts:24`) = ESC + focus trap/restore.
+  The centered-600px pattern (`StandardModal`) is **not** the Spotify-mobile full-bleed shape.
+- **Who mounts overlays** — `AlbumDetail` (`StandardModal` + `MemoWindow`), `OverviewDash`
+  (`RecentAlbumsModal`/`RecentTracksModal`), `ImportAnalysis`, `ReviewsTab` (DELETE scrim),
+  `BucketBoard` (`TrashDrawer`). `AddToBucketMenu` / `BucketPickerSheet` deliberately do **not**
+  use `useDismissable` (inline backdrop + manual ESC).
+- **State store** — `lib/pocketBuckit/bucketStore.ts`: framework-agnostic observable singleton
+  (user-scoped bucket tree, sessionStorage `pb:cache:buckets:<sub>`, SWR 5-min,
+  `useSyncExternalStore` via `useBucketStore()`).
+- **Cross-island events** — `lib/pocketBuckit/events.ts`: `pb:toggle`, `pb:closed`,
+  `pb:open-state`, `pb:dnd-start`/`pb:dnd-end`, `pb:board-dnd-start`/`end`/`dropped`.
+  `ProfileApp`'s `BucketBoard` and layout's `PocketBuckit` are **separate React roots** — no
+  shared context; they communicate only via `bucketStore` + `pb:*` window CustomEvents
+  (memory `reference-front-island-boundaries`).
+- **React context** — exactly one provider: `PocketBuckitProvider` (`components/member/pocket/PocketBuckitProvider.tsx:124`,
+  `PocketContext`/`usePocket`). `theme-provider.astro` is an inline `<script is:inline>`
+  (vanilla `data-theme`), not React context.
+- **Cache / data** — no React Query/SWR. `apiFetch` (`lib/api.ts:65-88`, 401→refresh→`goLogin`);
+  `safeFetch` (8s timeout); `useMusicSearch` (`lib/useMusicSearch.ts`, headless search + `seqRef`
+  race guard + 3s Spotify cooldown); `sessionCache` (`lib/sessionCache.ts`, two-tier GET cache);
+  `lib/albumDetail.ts` (in-memory + inflight-dedup album-detail cache, used by the React modal
+  — the vanilla review tracklist uses `sessionCache` directly).
+
+### Duplicate / overlapping responsibilities (load-bearing)
+
+1. **Two album-detail paths** — vanilla (`scripts/albumDetail.client.ts` → `#albumDetail` on
+   `/review/[slug]`, own `sessionCache` cache, ▶ + ＋) vs React (`components/member/AlbumDetail.tsx`,
+   mounted once by `ProfileApp.tsx:419`, own `lib/albumDetail.ts` cache, **read-only tracklist**).
+   Different caches, different entry points, different interactivity. **This is the load-bearing
+   duplication for track-click.**
+2. **Two "add to bucket" flows** — `AddToBucketMenu` (portable, public+authed, album-or-track,
+   logged-out intent handoff via `intent.ts`) vs `BucketPickerSheet` (member-only, resolves a
+   target bucket id; caller runs `ops.*`/`addBucketItem`). LikedBoard uses `BucketPickerSheet`;
+   the review page uses `AddToBucketMenu`.
+3. **Orphaned** — `components/search-bar.astro` + `scripts/searchBarDb.client.ts` have no importer
+   (superseded by `HeaderSearch`/`SearchPage`).
+
+## Target state
+
+Two living artifacts under `docs/` (path finalized at step-time), both code-pinned and marked
+with a "verified YYYY-MM-DD" stamp (re-verified on change):
+
+1. **Developer / LLM reference** — the [Developer reference](#developer-reference-llm-reference)
+   section of this RFC transposed into a standalone doc. File paths, component responsibilities,
+   state/interaction/cache ownership, dependency relationships. The artifact a future LLM reads to
+   know "who owns track click" without re-grepping.
+2. **Human-readable component structure map** — routes by feature area, the shared-chrome mount,
+   the two-island boundary, and a compact diagram of the three data/state flows (bucket tree,
+   `pb:*` events, `requestPlayback`). The artifact a human scans to see impact before a change.
+
+Neither artifact changes code. Both are the deliverable.
+
+## Component-map impact template (for future RFCs)
+
+A compact fill-in future RFCs paste into their "Current state"/"Affected components" section,
+so a change names its real touchpoints up front instead of "tweaks the frontend":
+
+```
+Component-map impact — <RFC-ID> <title>
+Verified: YYYY-MM-DD (re-verify if frontend changed since ARCH-frontend-component-map)
+Routes touched:        /path (island) — public|authed
+Track-click paths hit:  review-tracklist | pocket-tray | liked-board-onOpen | search-static | writer-pick | albumdetail-readonly
+Play path:              none | requestPlayback (shared SDK layer) — entry surface:
+Overlay changed:        none | new overlay (reuses useDismissable + .lf-scrim | new panel shape)
+State owner:            bucketStore | pocket-events | pocket-intent | profile-local | ad-hoc
+Cross-island?:          no | yes (pb:* event: ____ ; shared store: ____)
+Cache touched:          sessionCache | albumDetail | useMusicSearch | none
+Duplicate it overlaps:  album-detail paths | add-to-bucket flows | none
+```
+
+## Developer reference (LLM reference)
+
+> This is the source content for artifact (1). It is written so an LLM can answer "who owns X"
+> without re-grepping. File references are `path:line` anchors.
+
+### Ownership by domain
+
+- **track row rendering** — vanilla review tracklist (`scripts/albumDetail.client.ts:522`,
+  `data-track-id` attrs + delegated `root.addEventListener('click')`); React `AlbumDetail.Tracklist`
+  (`components/member/AlbumDetail.tsx:154`, read-only `<li>`); `LikedBoard.Row` (`components/member/LikedBoard.tsx:274`);
+  `search/atoms.tsx` `ResultRow` (shared by `SearchPage`/`HeaderSearch`/`CommandPalette`,
+  `action` union navigate/button/static); `writer/RecommendedTracksBlock.tsx:66` (★ toggle);
+  `writer/ArtistDetail.tsx:43` (`onPickTrack`). **No shared track-row component.**
+- **album detail** — vanilla `scripts/albumDetail.client.ts` + `albumDetail.fetch.client.ts`
+  (review tracklist, `sessionCache` cache) vs React `components/member/AlbumDetail.tsx` (member
+  modal/slide-over, `lib/albumDetail.ts` cache). `ArtistHub` renders catalog + reviewed-album cards.
+- **artist** — `components/artist/ArtistHub.tsx` (public hub, runtime fetch; top-tracks are plain
+  non-clickable `<li>`); `lib/artistNames.ts` (build-time link resolution); `AddArtistModal`
+  (member); aliases live backend-side (`artists.aliases`).
+- **bucket** — `components/member/BucketBoard.tsx` (board + `AlbumChip` tile + DnD + `TrashDrawer`);
+  `pocket/PocketTray.tsx` (site-wide tray drawer); `pocket/PocketBuckit.tsx` (root island,
+  `null` when `!isLoggedIn()`); `pocket/PocketBuckitProvider.tsx` (the one React context);
+  `pocket/AddToBucketMenu.tsx` (portable add, public+authed); `BucketPickerSheet.tsx` (member-only picker).
+- **playback** — `lib/spotifyPlayback.ts` (the **only** SDK/token owner: `ensureSdk`,
+  `requestPlayback`, `resolveProviderUri`, `getStreamingToken`); `components/member/NowPlaying.tsx`
+  (read-only now-playing snapshot — **not a player**, no ▶ button); `components/member/spotify.api.ts`
+  (worker-fed cache reads: now-playing/recent-tracks/library/sync).
+- **search** — `components/search/HeaderSearch.tsx` (⌘K header dropdown); `SearchPage.tsx` (`/search`);
+  `search/atoms.tsx` (`ResultRow`/`GCover`/`GStars` shared); `writer/CommandPalette.tsx` (⌘K palette,
+  reuses `ResultRow`); `lib/useMusicSearch.ts` (headless core). `search-bar.astro`+`searchBarDb.client.ts`
+  = orphaned.
+
+### Key data/state flows
+
+1. **Bucket tree flow** — `bucketStore` singleton holds the user-scoped tree; `PocketBuckitProvider`
+   calls `useBucketStore` (tray island) and `BucketBoard` calls `useBucketStore` (profile island).
+   Mutations (`setTree`/`ensureFresh`) notify both roots via `useSyncExternalStore`.
+2. **Cross-island `pb:*` events** — tray↔board open mirror (`pb:toggle`/`pb:closed`/`pb:open-state`)
+   and DnD handoff (`pb:dnd-start`/`pb:dnd-end` tray→board; `pb:board-dnd-*`/`pb:board-drop` board→tray).
+   Reverse DnD populates the board's module-level `dnd` synchronously (memory `project-my-buckit-artist`).
+3. **Playback flow** — a ▶ click → `requestPlayback(target)` → `getStreamingToken` (cached, JWT) →
+   `ensureConnectedDevice` (lazy SDK) → `resolveProviderUri` (DB-id→spotify URI via `/api/playback/resolve`,
+   edge_guard-only) → `PUT /v1/me/player/play`. Token+SDK load fire **only** on a real play action
+   (rule #9). `NowPlaying` is a separate read path off the worker snapshot (`GET /api/library/now-playing`).
+
+## Steps
+
+Docs-only RFC. Hard rule #4 — one step per session.
+
+### Step 0 — RFC + plan.md pointer (this document, docs-only)
+
+This RFC + one-line `plan.md` Backlog pointer + `docs/rfcs/README.md` index entry. No code,
+no schema. The reference content above is already code-verified; it transposes to the standalone
+artifact in Step 1.
+
+**Verification**: doc review against `TEMPLATE.md` / README required sections. `git diff --stat`
+shows only doc files.
+
+---
+
+### Step 1 — publish the two artifacts (docs-only)
+
+Create `docs/frontend/component-map.md` (developer/LLM reference) and `docs/frontend/structure.md`
+(human-readable map) from the [Developer reference](#developer-reference-llm-reference) + the
+route/ownership/flow tables above, each with a "Verified 2026-07-02" stamp. Add a one-line pointer
+from the top of each to this RFC. No code change.
+
+**Verification**: both files exist; every `path:line` anchor resolves; a spot re-verify of 3
+randomly-picked ownership claims against code confirms no drift; `git diff --stat` is docs-only.
+
+**Rollback**: delete the two files (no code references them).
+
+---
+
+## Open questions
+
+1. **Artifact location (blocks Step 1)** — `docs/frontend/` vs `docs/architecture/frontend/`.
+   Recommend `docs/frontend/` (sibling to `docs/contracts/`). Confirm.
+2. **Map refresh trigger (blocks longevity)** — when does the map get re-verified? Recommend:
+   any RFC whose [Component-map impact template](#component-map-impact-template-for-future-rfcs)
+   touches track-click/overlay/cross-island re-stamps both artifacts in its step. Confirm.
+
+## Decisions log
+
+| Date | Decision | Step |
+|------|----------|------|
+| 2026-07-02 | Map is dual-purpose (LLM reference + human map), code-pinned, separate from `architecture.md` (unreliable) | 0 |
+| 2026-07-02 | No shared track-click component exists; documented, NOT created — out of scope for this RFC | 0 |
+| 2026-07-02 | Template + impact section included so future RFCs name real touchpoints up front | 0 |
