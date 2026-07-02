@@ -330,6 +330,21 @@ resource "aws_apigatewayv2_route" "playback_spotify_token_get" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Lyrics read (FEAT-lyrics-viewer Step 1) ---
+# GET /api/lyrics/{spotify_track_id} returns normalized lyric segments for one catalog
+# track. Lyrics carry the corpus's "never in any shared response" privacy bar, so this is
+# its OWN explicit Cognito-JWT route — deliberately NOT the GET /api/{proxy+} edge_guard
+# catch-all (an edge-only request without a Bearer is rejected at the authorizer). HTTP API
+# prefers the more-specific variable path over {proxy+}. rule #9-safe: a direct catalog DB
+# read, never a synchronous Spotify call.
+resource "aws_apigatewayv2_route" "lyrics_get" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "GET /api/lyrics/{spotify_track_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;
