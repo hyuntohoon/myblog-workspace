@@ -246,7 +246,13 @@ only the doc files.
 
 ---
 
-### Step 1 — authenticated lyrics read API (backend)
+### Step 1 — authenticated lyrics read API (backend) — **DONE 2026-07-02**
+
+**Executed 2026-07-02** — backend PR hyuntohoon/myblog_backend#98 + workspace PR #491 (apigateway
+route + merged contract) + front PR hyuntohoon/myblog_front#220 (api.gen.ts regen), all squash-merged;
+`terraform apply` run owner-approved (re-plan: No changes); prod smoke **8/8 ALL PASS** (unauth 401,
+mixed ok/synced/trackable, plain-only ok/plain/untrackable, no_lyrics / unresolved / missing-row empty
+states, unknown id 404) quoted on PR #98. Reviewer subagent: approve, no must-fix.
 
 A new **JWT-gated (authenticated-only)** endpoint that reads `track_lyrics` by track id and returns
 the normalized lyric content + `match_status`. **Not** edge_guard-only — modeled on
@@ -427,3 +433,4 @@ separate future RFC.
 | 2026-07-02 | Dependency-RFC review: Step 1 endpoint keyed by `spotify_track_id` (server-side resolve → `Track.id`, one round trip); Step 3 track identity comes from the live playback read (`item.id`), not the snapshot (no track id column) — aligned to RESEARCH-playback-product-architecture OQ1/OQ2 | 0 |
 | 2026-07-02 | Status draft → in-progress (owner approval in session; all three dependency RFCs done) | 1 |
 | 2026-07-02 | Step 1 route = `GET /api/lyrics/{spotify_track_id}` (owner pick; own JWT route, not under `/api/tracks/*` — keeps lyrics off catalog-shaped public-looking paths) | 1 |
+| 2026-07-02 | Step 1 shipped + prod-verified (backend#98 / workspace#491 / front#220; apply owner-approved; smoke 8/8). Normalization implemented per the pinned spec; plain-only whitespace-only lines normalize to gap `""` (review adoption). Next: Step 2 (viewer overlay) in a later session — rule #4 gate | 1 |
