@@ -186,3 +186,39 @@ resource "aws_lambda_permission" "lyrics_incremental_events" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.lyrics_incremental.arn
 }
+
+# Periodic lyrics reassessment — FEAT-lyrics-corpus Step 4.
+#
+# Constant input {"job":"lyrics_reassessment"} (same routing pattern as lyrics_incremental;
+# handler matches event["job"] before the alias source check). Re-checks the UNRESOLVED corpus
+# pool (not_found / ambiguous / review_required, stalest first) against current LRCLIB coverage
+# with the Step 2 canonical matcher: promotes a track to matched/no_lyrics when evidence now
+# supports it, refreshes a still-unresolved row (bumps updated_at so the queue rotates), and
+# NEVER overwrites a good match (replacement guard — only strictly-stronger evidence replaces).
+# Failure-isolated from album sync (separate invocation) and bounded per run
+# (settings.LYRICS_REASSESS_BATCH_LIMIT + wall-clock budget) for the 120s worker timeout.
+# Daily cadence (lower than the incremental job): coverage changes slowly, so re-checks pay off
+# over weeks, and daily × batch-limit cycles the ~12.5k unresolved pool in ~2-3 months. Removing
+# this rule stops scheduled reassessment; the manual blogSQS {"job":"lyrics_reassessment"}
+# message still works either way.
+resource "aws_cloudwatch_event_rule" "lyrics_reassessment" {
+  name                = "worker-lyrics-reassessment"
+  description         = "Periodic LRCLIB re-check of unresolved lyrics rows (promote-only, guarded)"
+  schedule_expression = "rate(1 day)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "lyrics_reassessment" {
+  rule      = aws_cloudwatch_event_rule.lyrics_reassessment.name
+  target_id = "blogWorkerLambda-lyrics-reassessment"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "lyrics_reassessment" })
+}
+
+resource "aws_lambda_permission" "lyrics_reassessment_events" {
+  statement_id  = "AllowInvokeFromEventBridgeLyricsReassessment"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.lyrics_reassessment.arn
+}
