@@ -1,6 +1,6 @@
 # ARCH-frontend-component-map: Frontend component structure map
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → ARCH-frontend-component-map
@@ -227,7 +227,10 @@ shows only doc files.
 Create `docs/frontend/component-map.md` (developer/LLM reference) and `docs/frontend/structure.md`
 (human-readable map) from the [Developer reference](#developer-reference-llm-reference) + the
 route/ownership/flow tables above, each with a "Verified 2026-07-02" stamp. Add a one-line pointer
-from the top of each to this RFC. No code change.
+from the top of each to this RFC. **In the same step, replace this RFC's Developer-reference
+section body with a pointer to `docs/frontend/component-map.md`** (marking the section a Step-0
+snapshot) — the standalone artifacts become the **single canonical living copy**; the RFC never
+carries a second one to drift. No code change.
 
 **Verification**: both files exist; every `path:line` anchor resolves; a spot re-verify of 3
 randomly-picked ownership claims against code confirms no drift; `git diff --stat` is docs-only.
@@ -260,3 +263,5 @@ randomly-picked ownership claims against code confirms no drift; `git diff --sta
 | 2026-07-02 | Template + impact section included so future RFCs name real touchpoints up front | 0 |
 | 2026-07-02 | OQ1 resolved — artifacts go in `docs/frontend/` (new subdir; no existing frontend-reference doc; `architecture.md` nesting rejected as it's the unreliable doc this map avoids) | 0 |
 | 2026-07-02 | OQ2 resolved — re-verify on any RFC whose impact template touches track-click/overlay/cross-island/shared-chrome; stale "Verified" stamp = re-verify signal | 0 |
+| 2026-07-02 | Pre-acceptance review: at Step 1 the RFC's Developer-reference section is replaced by a pointer to `docs/frontend/component-map.md` — standalone artifacts are the single canonical living copy (no dual-copy drift) | 0 |
+| 2026-07-02 | Status draft → accepted (owner approval in session, post final review) | 0 |

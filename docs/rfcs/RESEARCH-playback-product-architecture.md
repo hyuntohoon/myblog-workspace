@@ -1,6 +1,6 @@
 # RESEARCH-playback-product-architecture: Playback product strategy
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → RESEARCH-playback-product-architecture
@@ -105,8 +105,10 @@ belong to the existing ▶ sites and to Spotify's own client).
   `spotify_track_id` — resolve to the catalog `tracks.id` via the same direct read
   `PlaybackService.resolve_uri` already does (reverse direction: spotify_id → `Track.id`); (b) add a
   `track_id` column to the snapshot. (a) needs no schema change and matches the "live read on
-  demand" model; (b) re-opens the D28 boundary. This is an FEAT-lyrics-viewer Step 1 decision, not
-  a playback-architecture one.
+  demand" model; (b) re-opens the D28 boundary. **Decided 2026-07-02 (pre-acceptance review,
+  recorded in FEAT-lyrics-viewer): (a)** — the lyrics endpoint accepts the `spotify_track_id`
+  from the live read and resolves it server-side to `Track.id` (one round trip, no separate
+  resolve endpoint).
 - **Position not exposed (D28, by design).** The D28 rationale ("a ≤1h-stale snapshot can't advance a
   progress bar") applies to *continuous* progress — but FEAT-lyrics-viewer's position need is
   *one-shot*, exactly the case D28's frozen-bar argument does not block. **Items requiring
@@ -259,3 +261,5 @@ Step 3 can bind position (expected yes) or ships track-only (its stated degradat
 | 2026-07-02 | OQ1 resolved (code) — position read is client-side `GET /v1/me/player`, mirroring `requestPlayback`'s existing `api.spotify.com` call (`spotifyPlayback.ts:276`); rule #9 (backend-only) not engaged; no backend proxy, no D/RFC decision | 0 |
 | 2026-07-02 | OQ2 resolved (code) — `SpotifyNowPlaying` (`models.py:766-785`) has no `track_id` column; lyrics read resolves id via the live `/v1/me/player` `item.id` → `Track.id` (reverse of `PlaybackService.resolve_uri`) | 0 |
 | 2026-07-02 | Only remaining check is a runtime probe (live Premium session returns `progress_ms` + `item.id`); matches FEAT-spotify-streaming-playback Step 4 "owner-confirms-on-Premium" pattern | 0 |
+| 2026-07-02 | Pre-acceptance review: lyrics endpoint keyed by `spotify_track_id` with server-side resolve → `Track.id` (option (a), one round trip) — recorded in FEAT-lyrics-viewer Step 1 | 0 |
+| 2026-07-02 | Status draft → accepted (owner approval in session, post final review) | 0 |
