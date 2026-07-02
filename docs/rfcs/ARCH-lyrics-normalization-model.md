@@ -1,6 +1,6 @@
 # ARCH-lyrics-normalization-model: Lyric normalization model
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → ARCH-lyrics-normalization-model
@@ -217,6 +217,110 @@ Mapped to the viewer's empty states (FEAT-lyrics-viewer defines the copy):
   is bumped (mirroring the corpus's `matcher_version` idea) so a cached normalized payload can be
   invalidated.
 
+## Normalized payload spec (Step 1, pinned 2026-07-02)
+
+This is the contract FEAT-lyrics-viewer Step 1 implements against. It resolves the "exact
+field names at step-time" deferrals above; the principles in [Target state](#target-state--the-normalization-model)
+remain the rationale. Written from the resolved OQ1–5 probes — no new data probe was needed.
+
+### Payload shape
+
+```jsonc
+// GET <authenticated lyrics read endpoint>  (route naming owned by FEAT-lyrics-viewer Step 1)
+// JWT-gated. Never public, never edge-cached.
+{
+  "availability": "ok" | "no_lyrics" | "unavailable",
+  "source_kind": "synced" | "plain",   // present iff availability == "ok"
+  "trackable": false,                   // true iff ≥1 segment has non-null start_ms
+  "normalizer_version": 1,              // bumped on any segment-shape/derivation change
+  "segments": [                         // [] unless availability == "ok"; file order preserved
+    { "i": 0, "text": "line content", "start_ms": 12340 }   // start_ms: int | null
+  ]
+}
+```
+
+- **`segments[].i`** — 0-based index; the viewer's nav/focus key (index-keyed, not id-keyed,
+  per [§5](#5-future-timing-estimation--line-restructuring-at-the-boundary)).
+- **`segments[].text`** — line content. **May be `""`**: an empty-text segment is a stanza
+  gap (the blank-timestamp LRC markers present in 93% of synced rows, and blank lines in
+  plain text). The viewer renders gaps as spacing and skips them in prev/next/tap focus;
+  `text == ""` is the gap discriminator — no extra field.
+- **`segments[].start_ms`** — millisecond offset from track start; `null` when derived from
+  plain-only. Optional-from-day-one so future estimated timing is an additive upgrade.
+- **`trackable`** — drives the viewer's optional one-shot initial focus; `false` → first-segment focus.
+- **`availability`** — `ok` (renderable segments) / `no_lyrics` (instrumental → "가사 없음 (연주곡)")
+  / `unavailable` (`not_found`/`ambiguous`/`review_required`/missing row/defensive empty →
+  "아직 연결된 가사가 없어요"). Derived from `match_status`; the raw status is not exposed.
+- **`normalizer_version`** — cache-invalidation hook (mirrors `matcher_version`); starts at `1`.
+
+### `normalize_lyrics` pseudocode (pure, replayable)
+
+```python
+def normalize_lyrics(row: TrackLyrics | None) -> NormalizedLyrics:
+    if row is None or row.match_status in ("not_found", "ambiguous", "review_required"):
+        return NormalizedLyrics(availability="unavailable", trackable=False, segments=[])
+    if row.match_status == "no_lyrics":
+        return NormalizedLyrics(availability="no_lyrics", trackable=False, segments=[])
+
+    # match_status == "matched"
+    if (row.lyric_synced or "").strip():
+        # synced-only AND mixed (91%): derive from synced ALONE — same code path.
+        # Plain is never aligned against synced (pre-acceptance correction, OQ3).
+        segments = parse_lrc(row.lyric_synced)
+        source_kind = "synced"
+        if (row.lyric_plain or "").strip() and plain_disagrees(row.lyric_plain, segments):
+            log.warning("lyrics normalize: plain != stripped synced (synced wins)", ...)  # ~2% residual; diagnostics only
+    elif (row.lyric_plain or "").strip():
+        # plain-only (9%): one segment per line, blank lines kept as gaps
+        segments = [Segment(i=i, text=t.rstrip("\r"), start_ms=None)
+                    for i, t in enumerate(row.lyric_plain.split("\n"))]
+        source_kind = "plain"
+    else:
+        return NormalizedLyrics(availability="unavailable", trackable=False, segments=[])  # defensive
+
+    trackable = any(s.start_ms is not None and s.text != "" for s in segments)
+    return NormalizedLyrics(availability="ok", source_kind=source_kind,
+                            trackable=trackable, segments=segments)
+```
+
+`parse_lrc` rules (pinned from the OQ probes):
+
+1. **One segment per LRC line with one leading timestamp** — multi-timestamp lines do not
+   occur (0/2000); if a future source introduces them, each timestamp becomes its own
+   segment (additive).
+2. **Timestamp grammar** — `[mm:ss]`, `[mm:ss.x]`, `[mm:ss.xx]`, `[mm:ss.xxx]` →
+   `start_ms = mm*60_000 + ss*1_000 + frac_ms` (2-digit frac ×10, 1-digit ×100). Minutes may
+   exceed 59.
+3. **Blank-timestamp lines** (`[mm:ss.xx]` + empty/whitespace text) → gap segments
+   (`text: ""`, `start_ms` kept).
+4. **Non-timestamp lines** — LRC ID tags (`[key:value]`, non-numeric key, e.g. `[ar:…]`) are
+   metadata → dropped; any other non-empty untimestamped line is kept as a segment with
+   `start_ms: null` + a diagnostics flag (text is never silently dropped).
+5. **File order preserved** — segments are not re-sorted; an out-of-order timestamp is a
+   diagnostics flag, not a re-order.
+6. **Text** — post-timestamp content, one leading space trimmed, `\r` stripped. No other
+   mutation (NUL was already stripped at ingest).
+
+`plain_disagrees` (diagnostics only, never merges): compare non-blank line counts and
+whitespace-normalized joined text of `lyric_plain` vs the parsed segments' non-gap text;
+any difference → one `log.warning` with track id + counts. **Synced always wins** — the
+payload is built from synced regardless.
+
+### Production/maintenance (restated as contract)
+
+Derived at read time behind the JWT-gated endpoint; no stored normalized column in v1
+(re-evaluate only on profiling or a second consumer). Raw `lyric_plain`/`lyric_synced` stay
+source-of-truth; any raw update flows through on the next read. A segment-shape or
+derivation change bumps `normalizer_version`.
+
+### Acceptance gate (checked by FEAT-lyrics-viewer Step 1 verification)
+
+- plain-only / synced-only / mixed all return the identical payload shape above.
+- A synced-bearing row's segments carry `start_ms` — synced-only is **never** raw text
+  (`lyric_plain=''` + synced present ⇒ `source_kind: "synced"`, parsed segments).
+- `no_lyrics` / unresolved / missing rows map to the two empty states, never to `availability: "ok"`.
+- The normalizer is pure: same row in ⇒ byte-identical payload out.
+
 ## Steps
 
 Docs-only RFC. Hard rule #4 — one step per session.
@@ -231,7 +335,7 @@ shows only doc files.
 
 ---
 
-### Step 1 — normalize model + read-path contract (docs/spec, no code)
+### Step 1 — normalize model + read-path contract (docs/spec, no code) — **DONE 2026-07-02**
 
 Pin the exact normalized payload shape (`segments[]`, `start_ms`, `trackable`, availability
 marker, `source_kind`) + the pseudocode for `normalize_lyrics` over the three paths. The data probe
@@ -239,7 +343,8 @@ marker, `source_kind`) + the pseudocode for `normalize_lyrics` over the three pa
 multi-timestamp lines absent (one segment per LRC line); blank-timestamp lines kept as stanza
 spacing; mixed rows derive from synced alone (plain ≡ timestamp-stripped synced in 98%). This
 step writes the spec from those resolved answers — **no new data probe needed**. Produces the spec
-FEAT-lyrics-viewer Step 1 implements against.
+FEAT-lyrics-viewer Step 1 implements against. **Executed 2026-07-02 → the
+[Normalized payload spec](#normalized-payload-spec-step-1-pinned-2026-07-02) section above.**
 
 **Verification**: spec review; `git diff --stat` is docs-only.
 
@@ -321,3 +426,4 @@ Resolved by the 2026-07-02 read-only prod probe (n=2000–3000):
 | 2026-07-02 | Prod probe resolves OQ1–5: mixed=91% (7,253) / plain-only=9% (702) / synced-only=0 rows (draft's "synced-only=91%" was wrong — that was mixed); line is the unit; multi-timestamp LRC absent (0/2000) → one segment/line; blank-timestamp stanza markers in 93% of rows → keep as spacing segments; plain/synced line-count divergence is the norm (exact match 15%, avg Δ 5 lines over n=3000) → follow synced structure, best-effort align plain by index; read-time derive confirmed (avg 59 lines, cheap) | 0 |
 | 2026-07-02 | **Pre-acceptance correction (supersedes the OQ3 alignment rule above)**: 2nd probe (n=1000) shows the "85% divergence" was blank stanza-marker counting — plain ≡ timestamp-stripped synced in 98.0% (99.5% same non-blank line count) → **mixed path derives segments from synced alone** (no index alignment; index alignment would shift text vs timestamps at every stanza marker + duplicate tail lines); plain used only in the plain-only path; ~2% residual mismatch → diagnostics, synced wins | 0 |
 | 2026-07-02 | Status draft → accepted (owner approval in session, post final review) | 0 |
+| 2026-07-02 | Step 1 executed — payload spec pinned (`availability`/`source_kind`/`trackable`/`normalizer_version`/`segments[]{i,text,start_ms}`; `text==""` = stanza gap, no extra field) + `normalize_lyrics`/`parse_lrc` pseudocode (synced-only & mixed share one path; ID-tag lines dropped, untimestamped text kept + flagged; file order preserved; `plain_disagrees` = diagnostics only, synced wins) + acceptance gate | 1 |

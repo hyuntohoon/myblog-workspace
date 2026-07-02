@@ -1,6 +1,6 @@
 # ARCH-frontend-component-map: Frontend component structure map
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → ARCH-frontend-component-map
@@ -164,48 +164,12 @@ Duplicate it overlaps:  album-detail paths | add-to-bucket flows | none
 
 ## Developer reference (LLM reference)
 
-> This is the source content for artifact (1). It is written so an LLM can answer "who owns X"
-> without re-grepping. File references are `path:line` anchors.
-
-### Ownership by domain
-
-- **track row rendering** — vanilla review tracklist (`scripts/albumDetail.client.ts:522`,
-  `data-track-id` attrs + delegated `root.addEventListener('click')`); React `AlbumDetail.Tracklist`
-  (`components/member/AlbumDetail.tsx:154`, read-only `<li>`); `LikedBoard.Row` (`components/member/LikedBoard.tsx:274`);
-  `search/atoms.tsx` `ResultRow` (shared by `SearchPage`/`HeaderSearch`/`CommandPalette`,
-  `action` union navigate/button/static); `writer/RecommendedTracksBlock.tsx:66` (★ toggle);
-  `writer/ArtistDetail.tsx:43` (`onPickTrack`). **No shared track-row component.**
-- **album detail** — vanilla `scripts/albumDetail.client.ts` + `albumDetail.fetch.client.ts`
-  (review tracklist, `sessionCache` cache) vs React `components/member/AlbumDetail.tsx` (member
-  modal/slide-over, `lib/albumDetail.ts` cache). `ArtistHub` renders catalog + reviewed-album cards.
-- **artist** — `components/artist/ArtistHub.tsx` (public hub, runtime fetch; top-tracks are plain
-  non-clickable `<li>`); `lib/artistNames.ts` (build-time link resolution); `AddArtistModal`
-  (member); aliases live backend-side (`artists.aliases`).
-- **bucket** — `components/member/BucketBoard.tsx` (board + `AlbumChip` tile + DnD + `TrashDrawer`);
-  `pocket/PocketTray.tsx` (site-wide tray drawer); `pocket/PocketBuckit.tsx` (root island,
-  `null` when `!isLoggedIn()`); `pocket/PocketBuckitProvider.tsx` (the one React context);
-  `pocket/AddToBucketMenu.tsx` (portable add, public+authed); `BucketPickerSheet.tsx` (member-only picker).
-- **playback** — `lib/spotifyPlayback.ts` (the **only** SDK/token owner: `ensureSdk`,
-  `requestPlayback`, `resolveProviderUri`, `getStreamingToken`); `components/member/NowPlaying.tsx`
-  (read-only now-playing snapshot — **not a player**, no ▶ button); `components/member/spotify.api.ts`
-  (worker-fed cache reads: now-playing/recent-tracks/library/sync).
-- **search** — `components/search/HeaderSearch.tsx` (⌘K header dropdown); `SearchPage.tsx` (`/search`);
-  `search/atoms.tsx` (`ResultRow`/`GCover`/`GStars` shared); `writer/CommandPalette.tsx` (⌘K palette,
-  reuses `ResultRow`); `lib/useMusicSearch.ts` (headless core). `search-bar.astro`+`searchBarDb.client.ts`
-  = orphaned.
-
-### Key data/state flows
-
-1. **Bucket tree flow** — `bucketStore` singleton holds the user-scoped tree; `PocketBuckitProvider`
-   calls `useBucketStore` (tray island) and `BucketBoard` calls `useBucketStore` (profile island).
-   Mutations (`setTree`/`ensureFresh`) notify both roots via `useSyncExternalStore`.
-2. **Cross-island `pb:*` events** — tray↔board open mirror (`pb:toggle`/`pb:closed`/`pb:open-state`)
-   and DnD handoff (`pb:dnd-start`/`pb:dnd-end` tray→board; `pb:board-dnd-*`/`pb:board-drop` board→tray).
-   Reverse DnD populates the board's module-level `dnd` synchronously (memory `project-my-buckit-artist`).
-3. **Playback flow** — a ▶ click → `requestPlayback(target)` → `getStreamingToken` (cached, JWT) →
-   `ensureConnectedDevice` (lazy SDK) → `resolveProviderUri` (DB-id→spotify URI via `/api/playback/resolve`,
-   edge_guard-only) → `PUT /v1/me/player/play`. Token+SDK load fire **only** on a real play action
-   (rule #9). `NowPlaying` is a separate read path off the worker snapshot (`GET /api/library/now-playing`).
+> **Step-0 snapshot — superseded 2026-07-02 (Step 1).** The canonical living copy is
+> **`docs/frontend/component-map.md`** (developer/LLM reference) + `docs/frontend/structure.md`
+> (human-readable map). This RFC no longer carries a second copy to drift; read and update
+> the standalone artifacts. Step-1 spot re-verification corrected two anchors vs the Step-0
+> body (`requestPlayback` def is `spotifyPlayback.ts:242`; the slide-over primitives stack at
+> `--z-panel: 90`, with `--z-overlay: 80` a separate token at `global.css:52`).
 
 ## Steps
 
@@ -265,3 +229,4 @@ randomly-picked ownership claims against code confirms no drift; `git diff --sta
 | 2026-07-02 | OQ2 resolved — re-verify on any RFC whose impact template touches track-click/overlay/cross-island/shared-chrome; stale "Verified" stamp = re-verify signal | 0 |
 | 2026-07-02 | Pre-acceptance review: at Step 1 the RFC's Developer-reference section is replaced by a pointer to `docs/frontend/component-map.md` — standalone artifacts are the single canonical living copy (no dual-copy drift) | 0 |
 | 2026-07-02 | Status draft → accepted (owner approval in session, post final review) | 0 |
+| 2026-07-02 | Step 1 executed — `docs/frontend/component-map.md` + `docs/frontend/structure.md` published (Verified 2026-07-02 stamps); RFC Developer-reference section replaced by a pointer (Step-0 snapshot). Spot re-verify (5 claims: `requestPlayback:242` + exactly-2 importers, `useDismissable:24`, `PocketBuckitProvider:124`, `resolveProviderUri:210`, albumDetail handlers `:130/:144`) — drift found+fixed in artifacts: `:243`→`:242`, scrim stacks at `--z-panel:90` not `--z-overlay` | 1 |

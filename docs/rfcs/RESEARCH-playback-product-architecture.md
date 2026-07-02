@@ -1,6 +1,6 @@
 # RESEARCH-playback-product-architecture: Playback product strategy
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → RESEARCH-playback-product-architecture
@@ -141,7 +141,8 @@ belong to the existing ▶ sites and to Spotify's own client).
    needed and no D/RFC decision is required — the position read is a **client-side fetch in the
    viewer/now-playing area on demand**, mirroring `requestPlayback`. What Step 1 still verifies is
    whether a *live* Premium session actually returns `progress_ms` + `item.id` (a runtime probe,
-   not a code question).
+   not a code question). **Runtime probe PASSED 2026-07-02** — see Step 1: `progress_ms` +
+   `item.id` + `is_playing` returned on a live session; idle returns 204 (empty).
 3. ~~**Is an on-demand live position read acceptable under rule #9?**~~ **Resolved 2026-07-02
    (same as #2):** client-side, mirroring `requestPlayback`'s existing `api.spotify.com` call.
    No backend proxy, no new rule-#9 decision.
@@ -219,7 +220,16 @@ shows only doc files.
 
 ---
 
-### Step 1 — runtime position-read probe (research, no code)
+### Step 1 — runtime position-read probe (research, no code) — **DONE 2026-07-02, probe PASSED**
+
+**Probe result (2026-07-02, live owner Premium session, iPhone device):** smoke JWT →
+`GET /api/playback/spotify-token` **200** → client-pattern `GET /v1/me/player` with the
+streaming token → **200** with `is_playing: true`, **`progress_ms: 23200`**,
+**`item.id: 0TFTAtCYhp2tQ9KcJIZb55`**, `item.duration_ms: 182088`,
+`currently_playing_type: track`. (Idle control observed earlier the same session: **204**
+empty body — the viewer's "hidden when idle" state maps to exactly this response.)
+**Outcome: FEAT-lyrics-viewer Step 3 can bind position** — one-shot focus init via the live
+read; track-only degradation stays the documented fallback for 204/failure.
 
 The code questions (#1–#3) are resolved 2026-07-02 (client-side read path; `track_id` via live
 `item.id`). Step 1 is now the **single remaining runtime probe**: on a live owner Premium session,
@@ -263,3 +273,4 @@ Step 3 can bind position (expected yes) or ships track-only (its stated degradat
 | 2026-07-02 | Only remaining check is a runtime probe (live Premium session returns `progress_ms` + `item.id`); matches FEAT-spotify-streaming-playback Step 4 "owner-confirms-on-Premium" pattern | 0 |
 | 2026-07-02 | Pre-acceptance review: lyrics endpoint keyed by `spotify_track_id` with server-side resolve → `Track.id` (option (a), one round trip) — recorded in FEAT-lyrics-viewer Step 1 | 0 |
 | 2026-07-02 | Status draft → accepted (owner approval in session, post final review) | 0 |
+| 2026-07-02 | **Live probe: progress_ms + item.id returned** — `GET /v1/me/player` (streaming token, client-side pattern) → 200 `{is_playing: true, progress_ms: 23200, item.id: 0TFTAtCYhp2tQ9KcJIZb55, duration_ms: 182088}` on a live owner Premium session (iPhone); idle = 204 empty. Final recommendation stands: **no custom playback RFC**; FEAT-lyrics-viewer Step 3 binds the one-shot position read, track-only on 204/failure | 1 |
