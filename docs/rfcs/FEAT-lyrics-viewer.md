@@ -1,9 +1,10 @@
 # FEAT-lyrics-viewer: Authenticated full-screen lyrics viewer overlay
 
-- **Status**: in-progress
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
-- **Plan row**: `plan.md` → FEAT-lyrics-viewer
+- **Completed**: 2026-07-03
+- **Plan row**: `plan.md` → FEAT-lyrics-viewer (archived to `docs/archive/done/2026-07.md`)
 
 ---
 
@@ -296,7 +297,12 @@ prod-realistic long lyrics — `feedback-ui-repro-realistic-data`).
 
 ---
 
-### Step 3 — dynamic entry + manual refresh (front, active-playback-only)
+### Step 3 — dynamic entry + manual refresh (front, active-playback-only) — **DONE 2026-07-03**
+
+**Executed 2026-07-03** — front PR hyuntohoon/myblog_front#222, squash-merged (`f097356`);
+auto-deploy run `28601305711` (Deploy Front, success); new bundle `ProfileApp.CiMU2LSE.js` live
+on prod carrying all Step 3 markers + the `v1/me/player` endpoint. No backend / contract / infra
+change (front-only — the Step 1 JWT read API + Step 2 overlay were already merged).
 
 Open the viewer from `NowPlaying` for the **currently playing track only**. **Track identity
 (including the track id — the now-playing snapshot stores no track id) and playback state/position**
@@ -307,6 +313,18 @@ position; on a track change the viewer swaps segments, on a position-only change
 re-initialized (one-shot). Continuous progression stays out of scope. If the playback contract hasn't
 settled position, ship track-only refresh (no position) and record the degradation — but still
 active-playback-only, never recent-history fallback.
+
+**Verification**: prod API gates green (unauth 401 / authed 200 ok with 45 synced segments all carrying
+numeric `start_ms`). Prod UI gates via isolatedContext CDP with a smoke JWT seeded to
+`localStorage.access_token`: idle-gate (NowPlaying "최근 재생" branch renders **no** `가사` entry — no
+recent-history fallback), unauth redirect to Cognito, and the debug-entry overlay (`?lyrics=<id>`)
+renders the full modal "가사 뷰어" + "LYRICS · SYNCED" + 45 segments incl. KR/EN + "간주" stanza gap +
+tap-to-focus + prev/next, console 0. Pre-merge `pnpm lint` / `astro check` / `pnpm build` all 0 errors.
+**Deferred to owner spot-check on an active Premium session**: the live dynamic-entry path (tap 가사 →
+`/v1/me/player` → load + one-shot position seed → refresh swap / "재생 중 아님"), which no headless
+method can synthesize; the three `readLivePlayback()` states map cleanly to the independently-verified
+gates (`playing` → 200+overlay, `idle` → entry-hidden, `unavailable` → retry-keep button). Result quoted
+on PR #222.
 
 **Dependency**: RESEARCH-playback-product-architecture must settle playback state/position source before
 position binding; ARCH-frontend-component-map must settle the track-click/overlay-state flow the
@@ -435,3 +453,4 @@ separate future RFC.
 | 2026-07-02 | Step 1 route = `GET /api/lyrics/{spotify_track_id}` (owner pick; own JWT route, not under `/api/tracks/*` — keeps lyrics off catalog-shaped public-looking paths) | 1 |
 | 2026-07-02 | Step 1 shipped + prod-verified (backend#98 / workspace#491 / front#220; apply owner-approved; smoke 8/8). Normalization implemented per the pinned spec; plain-only whitespace-only lines normalize to gap `""` (review adoption). Next: Step 2 (viewer overlay) in a later session — rule #4 gate | 1 |
 | 2026-07-02 | Step 2 shipped + prod-verified (front#221). Overlay per spec: focus-one-segment, manual nav (prev/next + swipe/drag + tap-to-focus + arrows/wheel), availability-aware empty states, isolated debug entry `/profile?lyrics=<id>`. Click-through gate caught a real-pointer bug — `setPointerCapture` on pointerdown retargeted pointerup/click to the scroll container, killing tap-to-focus for trusted input (JS `.click()` masked it); fix = defer capture until the 8px drag threshold. Prod smoke: API 4/4 (401 gate / ok+synced 52 seg / no_lyrics / 404) + prod overlay e2e incl. trusted-click tap + unauth → Cognito redirect. Next: Step 3 (dynamic entry) in a later session — rule #4 gate | 2 |
+| 2026-07-03 | Step 3 shipped + prod-verified (front#222, merge `f097356`). Dynamic entry on `NowPlaying` live branches only (idle/최근재생 branch gets no entry — no recent-history fallback); tap → 1-shot client-side `GET /v1/me/player` (token mint lazy on the explicit action; same sanctioned pattern as `requestPlayback`, rule #9 not engaged), `playing` opens with live `item.id`+`progress_ms`, `idle` hides entry, `unavailable` keeps a retry-able button. Viewer gains 1-shot position-seeded initial focus (`focusIndexForMs` skips plain rows — no `start_ms`) + manual refresh `↻` (track change swaps segments, position-only re-inits focus once, stopped → "지금 재생 중인 곡이 없어요"); no auto-advance anywhere. Front-only — no backend/contract/infra change. Prod smoke: API (unauth 401 + authed 200 ok / 45 synced seg w/ numeric `start_ms`) + UI (idle-gate entry-hidden + unauth→Cognito + debug-overlay 45 seg incl. KR/EN + "간주" stanza gap + tap-to-focus, console 0); live dynamic-entry path deferred to owner active-session spot-check. **RFC Status: in-progress → done** — all 3 steps complete | 3 |
