@@ -231,7 +231,7 @@ remain the rationale. Written from the resolved OQ1–5 probes — no new data p
 {
   "availability": "ok" | "no_lyrics" | "unavailable",
   "source_kind": "synced" | "plain",   // present iff availability == "ok"
-  "trackable": false,                   // true iff ≥1 segment has non-null start_ms
+  "trackable": false,                   // true iff ≥1 non-gap segment (text != "") has non-null start_ms
   "normalizer_version": 1,              // bumped on any segment-shape/derivation change
   "segments": [                         // [] unless availability == "ok"; file order preserved
     { "i": 0, "text": "line content", "start_ms": 12340 }   // start_ms: int | null
