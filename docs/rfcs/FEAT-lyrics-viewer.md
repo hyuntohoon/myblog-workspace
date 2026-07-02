@@ -252,7 +252,10 @@ A new **JWT-gated (authenticated-only)** endpoint that reads `track_lyrics` by t
 the normalized lyric content + `match_status`. **Not** edge_guard-only — modeled on
 `GET /api/playback/spotify-token` (`require_cognito_token`). New JWT GET route → matching
 `infra/apigateway.tf` entry + apply. No public schema/response type references it; no shared/edge-cached
-response carries lyric text.
+response carries lyric text. **Endpoint key (decided 2026-07-02, dependency-RFC review): the
+endpoint accepts the `spotify_track_id` the live playback read returns (`item.id`) and resolves
+it server-side to the catalog `Track.id`** (reverse of `PlaybackService.resolve_uri`'s direct
+read) — one round trip, no separate resolve endpoint.
 
 **Dependency**: the response shape conforms to the segment contract from ARCH-lyrics-normalization-model.
 If that contract is not yet produced, this step exposes the raw `match_status` + a marker that segments
@@ -289,9 +292,10 @@ prod-realistic long lyrics — `feedback-ui-repro-realistic-data`).
 
 ### Step 3 — dynamic entry + manual refresh (front, active-playback-only)
 
-Open the viewer from `NowPlaying` for the **currently playing track only**. Track identity comes from
-the now-playing snapshot; **playback state and position** come from the contract produced by
-RESEARCH-playback-product-architecture (not re-derived here). When there is **no active playback**, the
+Open the viewer from `NowPlaying` for the **currently playing track only**. **Track identity
+(including the track id — the now-playing snapshot stores no track id) and playback state/position**
+come from the contract produced by RESEARCH-playback-product-architecture (live `GET /v1/me/player`
+→ `item.id`; not re-derived here). When there is **no active playback**, the
 entry point is **hidden** — no recent-history fallback. A manual refresh re-reads track + (if available)
 position; on a track change the viewer swaps segments, on a position-only change the focus is
 re-initialized (one-shot). Continuous progression stays out of scope. If the playback contract hasn't
@@ -420,3 +424,4 @@ separate future RFC.
 | 2026-07-02 | Playback product strategy, Spotify SDK/API capability, custom control layer → RESEARCH-playback-product-architecture | 0 |
 | 2026-07-02 | Track-click ownership, shared interaction components, overlay state ownership, affected routes → ARCH-frontend-component-map | 0 |
 | 2026-07-02 | Plain/synced normalization, canonical segments, raw-source preservation, re-normalization, synced-only exposure rules → ARCH-lyrics-normalization-model | 0 |
+| 2026-07-02 | Dependency-RFC review: Step 1 endpoint keyed by `spotify_track_id` (server-side resolve → `Track.id`, one round trip); Step 3 track identity comes from the live playback read (`item.id`), not the snapshot (no track id column) — aligned to RESEARCH-playback-product-architecture OQ1/OQ2 | 0 |

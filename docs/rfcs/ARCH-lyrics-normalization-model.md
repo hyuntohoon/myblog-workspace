@@ -1,6 +1,6 @@
 # ARCH-lyrics-normalization-model: Lyric normalization model
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → ARCH-lyrics-normalization-model
@@ -56,17 +56,31 @@ created_at / updated_at
 
 - **V33 CHECK (`ck_track_lyrics_lyric_on_resolved`)** — `matched`/`no_lyrics` rows require
   `lyric_plain IS NOT NULL`; `ambiguous`/`review_required`/`not_found` require `lyric_plain IS NULL`.
-- **Corpus data state (FEAT-lyrics-corpus Phase 2, 2026-07-02)** — 7,955 `matched` rows;
-  **7,253 / 7,955 (91%) carry `lyric_synced` (LRC)**. So **all four source categories are real**:
-  - **plain-only** — `matched` with `lyric_synced IS NULL`.
-  - **synced-only** — `matched` with `lyric_plain = ''` and `lyric_synced` set. The matcher's
-    `_lyric_plain_for` (`lyrics_matcher.py:553-565`) **intentionally writes `lyric_plain=''`**
-    for a matched candidate that carried only synced lyrics (to satisfy the V33 non-NULL CHECK);
-    the actual text lives in `lyric_synced`. **This is the crux: a synced-only row's text is in
-    `lyric_synced`, and the viewer must not get it by stripping timestamps.**
-  - **plain-plus-synced** — `matched` with both populated.
-  - **unavailable / low-quality** — `no_lyrics` (`lyric_plain=''`, instrumental/empty),
-    `not_found`/`ambiguous`/`review_required` (no text by CHECK), missing row.
+- **Corpus data state (FEAT-lyrics-corpus Phase 2, 2026-07-02; distribution re-probed
+  2026-07-02 read-only against prod)** — 7,955 `matched` rows split across the four text-bearing
+  categories as actually observed:
+
+  | `match_status` | `lyric_plain` | `lyric_synced` | count | category |
+  |---|---|---|---|---|
+  | matched | non-empty | non-empty | 7,253 | **mixed** (plain + synced) |
+  | matched | non-empty | NULL/empty | 702 | **plain-only** |
+  | matched | non-empty='' / NULL | non-empty | **0** | **synced-only** (none observed) |
+  | no_lyrics | empty | empty | 417 | instrumental/empty |
+  | not_found | NULL | NULL | 9,798 | unresolved |
+  | ambiguous | NULL | NULL | 2,743 | unresolved |
+  | review_required | NULL | NULL | 33 | unresolved |
+
+  **Key correction to the 2026-07-02 draft**: it stated "synced-only = 91%"; that was wrong. The
+  91% figure is **mixed** (plain + synced). **`synced-only` rows are 0 in the actual corpus** —
+  LRCLIB supplies plain alongside synced whenever it supplies synced. The matcher's
+  `_lyric_plain_for` (`lyrics_matcher.py:553-565`) *can* coerce a synced-only candidate to
+  `lyric_plain=''`, but **no such row exists in production**. Three consequences:
+  - The pure normalizer's **mixed path is the dominant case (91%)**, not an edge case.
+  - The **plain-only path (702 rows, 9%)** is real and must be handled (segments with
+    `start_ms: null`, trackable=false → viewer first-segment focus).
+  - The **synced-only path is a defensive-only branch** — it must still be correct (parse LRC to
+    segments, never raw-text strip) because future LRCLIB data or an alternate source could
+    produce it, but it is not exercised by the current corpus.
 
 ### No normalization code exists today
 
@@ -111,16 +125,19 @@ produces the same segment list regardless of source category:
   repeated segments or a multi-timestamp segment — decided at step-time). **The viewer receives
   segments with their timestamps; it is forbidden from doing the parse itself.** This is the brief's
   hard rule: synced-only is not handled by stripping timestamps and passing raw text.
-- **plain-plus-synced** — the **line-break source is the synced LRC's line structure**
-  (it is the authoritative unit boundary; the plain text's line breaks may differ). Each segment
-  takes its `text` from the **plain** (preferred — plain is the cleaner text) **aligned to the
-  synced's line count/timestamps** when the counts match. When plain and synced line counts
-  disagree, the normalized output follows the source with the stronger unit structure (synced,
-  typically) and records the mismatch; it does not silently drop lines from either.
-
-The viewer always gets the same shape; only how the shape was derived differs (recorded as a
-`source_kind: 'plain'|'synced'|'mixed'` marker on the normalized payload, for diagnostics, never
-rendered to the user).
+- **plain-plus-synced (the dominant 91% case)** — **derive segments from the synced LRC alone**:
+  each LRC line → `{ text: <post-timestamp line content>, start_ms }`, i.e. the same code path as
+  synced-only. **Plain is not used in the mixed path.** **Second probe (2026-07-02 pre-acceptance
+  review, n=1000 mixed rows, prod read-only): after stripping timestamps from synced and removing
+  blank lines from both sides, plain ≡ synced text in 98.0% of rows (99.5% identical non-blank
+  line counts).** The first probe's "85% line-count divergence (avg Δ5)" was a **counting artifact
+  of the synced side's blank stanza-marker lines** (present in 93% of rows) — the two sources carry
+  the *same text*, and the "plain is the cleaner text" premise does not hold. An index-alignment
+  rule would have shifted text against timestamps at every stanza marker and duplicated tail
+  lines; deriving from synced alone eliminates the alignment problem entirely. The residual ~2%
+  (plain ≠ stripped synced) is recorded in diagnostics with synced preferred — its text and
+  timestamp come from the same line, so the pair is self-consistent; lines are never silently
+  dropped or guess-merged.
 
 ### 3. Minimum common payload required by the viewer
 
@@ -140,11 +157,13 @@ reads `start_ms` only for one-shot init.
 
 ### 4. How plain and synced information may conflict or combine
 
-- **Line-count mismatch** (plain N lines vs synced M lines) — common with crowd-sourced data; the
-  normalizer follows the stronger unit structure (synced's lines) and records the mismatch in
-  diagnostics; it does not merge mismatched lines by guess.
-- **Text disagreement** (plain line ≠ synced line at the same index) — plain is preferred for
-  `text` (closer to intended display), synced for `start_ms`; flagged, not silently swapped.
+- **Line-count mismatch** (plain N lines vs synced M lines) — almost entirely the synced side's
+  blank stanza-marker lines (probe: 99.5% of mixed rows have identical non-blank line counts).
+  Moot in the mixed path: segments derive from synced alone, so plain's line structure is never
+  aligned against synced's. Any residual real mismatch is recorded in diagnostics only.
+- **Text disagreement** (plain ≠ timestamp-stripped synced; ~2% of mixed rows) — **synced wins**:
+  its text and `start_ms` come from the same line, so the pair is self-consistent. The
+  disagreement is flagged in diagnostics, not silently merged.
 - **synced-only with `lyric_plain=''`** (the V33-driven stored state) — handled by path 2
   (parse LRC), never by treating `''` as the text.
 - **Future estimated sync (out of scope now)** — when a plain-only track later gets *estimated
@@ -212,17 +231,17 @@ shows only doc files.
 
 ---
 
-### Step 1 — normalize model + read-path contract (docs/spec, no code yet)
+### Step 1 — normalize model + read-path contract (docs/spec, no code)
 
 Pin the exact normalized payload shape (`segments[]`, `start_ms`, `trackable`, availability
-marker, `source_kind`) + the pseudocode for `normalize_lyrics` over the three paths, probed
-against real `track_lyrics` rows (plain-only, synced-only, mixed, `no_lyrics`). Confirms whether
-plain+synced line counts align often enough that "preferred text from plain, structure from
-synced" is viable, or whether a fallback rule is needed. **No code / no endpoint** — produces the
-spec FEAT-lyrics-viewer Step 1 will implement against.
+marker, `source_kind`) + the pseudocode for `normalize_lyrics` over the three paths. The data probe
+([Open questions](#open-questions) 1–4, resolved 2026-07-02) already confirmed: line is the unit;
+multi-timestamp lines absent (one segment per LRC line); blank-timestamp lines kept as stanza
+spacing; mixed rows derive from synced alone (plain ≡ timestamp-stripped synced in 98%). This
+step writes the spec from those resolved answers — **no new data probe needed**. Produces the spec
+FEAT-lyrics-viewer Step 1 implements against.
 
-**Verification**: spec review; a data probe (read-only) over a sample of each source category
-confirms the three paths produce the expected segments; `git diff --stat` is docs-only.
+**Verification**: spec review; `git diff --stat` is docs-only.
 
 **Rollback**: n/a (docs-only).
 
@@ -246,8 +265,9 @@ Step 1; plain-only/synced-only/mixed all return the same shape; synced-only is n
 - **Synced-only mishandled as raw text.** The single biggest risk. Mitigation: pure normalizer
   parses LRC server-side (path 2); the viewer contract forbids raw-text/timestamp-strip; the
   acceptance gate enforces it.
-- **Plain/synced line-count mismatch silently drops lines.** Mitigation: follow the stronger
-  structure, record mismatches in diagnostics, never merge by guess.
+- **Plain/synced text mismatch silently merged.** Mitigation: the mixed path derives from synced
+  alone (no cross-source alignment exists to get wrong); the ~2% real disagreements are flagged
+  in diagnostics, never guess-merged.
 - **Premature storage of a normalized column.** Mitigation: read-time derivation first; a stored
   column is a profiling-gated follow-on, not assumed — keeps re-normalization a non-issue.
 - **V33 `lyric_plain=''` confusion.** A future implementer may read `''` and render an empty
@@ -261,17 +281,32 @@ Step 1; plain-only/synced-only/mixed all return the same shape; synced-only is n
 
 ## Open questions
 
-1. **Segment granularity (blocks Step 1)** — line vs stanza vs LRC-grouped. The viewer's
-   "focus-one-line" suggests line; confirm against a batch of real synced lyrics whether stanzas
-   (blank-line / LRC gap-detection) are a better unit. Decide in Step 1 data probe.
-2. **Multi-timestamp LRC lines (blocks Step 1)** — one LRC line with several `[mm:ss.xx]` (word-level
-   karaoke). Decide: split into multiple segments (one per timestamp) vs one segment with sub-tokens.
-   Lean: one segment per timestamp (keeps focus-one-line semantics clean).
-3. **Plain text for mixed when counts mismatch (blocks Step 1)** — the rule "preferred text from
-   plain, structure from synced" needs a concrete alignment fallback when counts diverge. Resolve
-   in the Step 1 data probe against how often real mixed rows diverge.
-4. **Stored normalized column vs read-time derive (deferred)** — kept read-time unless profiling
-   shows otherwise. Re-open only with evidence.
+Resolved by the 2026-07-02 read-only prod probe (n=2000–3000):
+
+1. **Segment granularity** — **resolved: line, with stanza-aware grouping optional.** The viewer's
+   "focus-one-line" → line is the render unit. **Probe: 93% of synced rows (1,861/2,000) contain a
+   blank/empty LRC segment** (`^\[[0-9:.]+\]\s*$`) — i.e. LRCLIB uses empty lines as stanza break
+   markers pervasively. Decision: the **segment = one timestamped line**; blank-timestamp lines are
+   kept as inter-stanza spacing segments (not dropped), so the viewer can render natural stanza
+   gaps. A future "collapse to stanza" view is additive, not a schema change.
+2. **Multi-timestamp LRC lines** — **resolved: not present (0/2000 rows).** Word-level karaoke
+   (multiple `[mm:ss.xx]` on one line) does **not** occur in the corpus. Decision: **one segment per
+   LRC line** (one leading timestamp). No multi-timestamp handling needed; if a future source
+   introduces it, treat each timestamp as its own segment (additive, not breaking).
+3. **Plain/synced line-count divergence** — **resolved (corrected 2026-07-02, pre-acceptance
+   review): the divergence was a blank-line counting artifact, not text divergence.** Second probe
+   (n=1000 mixed rows): after timestamp-strip + blank-line removal, plain ≡ synced text in 98.0%
+   (99.5% identical non-blank line counts) — the first probe's "85% divergence" was the synced
+   side's stanza markers. Decision recorded in
+   [Normalization paths](#2-normalization-paths-for-plain-only-synced-only-and-mixed): the mixed
+   path derives segments from synced alone (no index alignment; same code path as synced-only);
+   the residual ~2% is flagged in diagnostics with synced preferred — never guess-merge.
+4. **Stored normalized column vs read-time derive** — **resolved: read-time derive.** No stored column
+   unless profiling shows the parse is hot or a second consumer appears. (Avg ~59 lines/lyric is
+   cheap to parse per read.)
+5. **`synced-only` path necessity** — **resolved: defensive-only.** 0 such rows in prod today; the
+   branch stays correct (parse LRC, never raw strip) but is not the focus. Mixed (91%) + plain-only
+   (9%) are the live paths.
 
 ## Decisions log
 
@@ -283,3 +318,6 @@ Step 1; plain-only/synced-only/mixed all return the same shape; synced-only is n
 | 2026-07-02 | Future estimated sync / line restructure kept out of scope, but the shape (`start_ms` optional, index-keyed segments, pure/replayable) does not preclude them | 0 |
 | 2026-07-02 | Translation / LLM translation explicitly out of scope (original lyrics only) | 0 |
 | 2026-07-02 | V33 `lyric_plain=''` synced-only stored state handled as path 2 (parse LRC), not as empty plain | 0 |
+| 2026-07-02 | Prod probe resolves OQ1–5: mixed=91% (7,253) / plain-only=9% (702) / synced-only=0 rows (draft's "synced-only=91%" was wrong — that was mixed); line is the unit; multi-timestamp LRC absent (0/2000) → one segment/line; blank-timestamp stanza markers in 93% of rows → keep as spacing segments; plain/synced line-count divergence is the norm (exact match 15%, avg Δ 5 lines over n=3000) → follow synced structure, best-effort align plain by index; read-time derive confirmed (avg 59 lines, cheap) | 0 |
+| 2026-07-02 | **Pre-acceptance correction (supersedes the OQ3 alignment rule above)**: 2nd probe (n=1000) shows the "85% divergence" was blank stanza-marker counting — plain ≡ timestamp-stripped synced in 98.0% (99.5% same non-blank line count) → **mixed path derives segments from synced alone** (no index alignment; index alignment would shift text vs timestamps at every stanza marker + duplicate tail lines); plain used only in the plain-only path; ~2% residual mismatch → diagnostics, synced wins | 0 |
+| 2026-07-02 | Status draft → accepted (owner approval in session, post final review) | 0 |
