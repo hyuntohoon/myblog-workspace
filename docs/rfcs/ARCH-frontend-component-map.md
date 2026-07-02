@@ -238,11 +238,18 @@ randomly-picked ownership claims against code confirms no drift; `git diff --sta
 
 ## Open questions
 
-1. **Artifact location (blocks Step 1)** — `docs/frontend/` vs `docs/architecture/frontend/`.
-   Recommend `docs/frontend/` (sibling to `docs/contracts/`). Confirm.
-2. **Map refresh trigger (blocks longevity)** — when does the map get re-verified? Recommend:
-   any RFC whose [Component-map impact template](#component-map-impact-template-for-future-rfcs)
-   touches track-click/overlay/cross-island re-stamps both artifacts in its step. Confirm.
+1. ~~**Artifact location (blocks Step 1)** — `docs/frontend/` vs `docs/architecture/frontend/`.~~
+   **Resolved 2026-07-02:** `docs/frontend/`. Confirmed no existing frontend-reference subdir or
+   doc exists (the `docs/` tree today is `archive/ buckit/ contracts/ editorial/ plans/ reviews/
+   rfcs/` — nothing frontend-scoped), so a new `docs/frontend/` is the natural, non-colliding home
+   (sibling to `docs/contracts/`). `docs/architecture/frontend/` is rejected — `architecture.md` is
+   the unreliable hand-maintained doc this map exists to *not* depend on
+   (memory `reference-architecture-md-unreliable`); nesting under it invites confusion.
+2. ~~**Map refresh trigger (blocks longevity)**~~ **Resolved 2026-07-02:** re-verify both artifacts
+   in the step of any RFC whose [Component-map impact template](#component-map-impact-template-for-future-rfcs)
+   touches track-click / overlay / cross-island / shared-chrome. Spot re-verify 3 ownership claims
+   on each such step (mirrors how the 2026-07-02 verification above was done). A stale "Verified
+   YYYY-MM-DD" stamp is the signal to re-verify, not to trust.
 
 ## Decisions log
 
@@ -251,3 +258,5 @@ randomly-picked ownership claims against code confirms no drift; `git diff --sta
 | 2026-07-02 | Map is dual-purpose (LLM reference + human map), code-pinned, separate from `architecture.md` (unreliable) | 0 |
 | 2026-07-02 | No shared track-click component exists; documented, NOT created — out of scope for this RFC | 0 |
 | 2026-07-02 | Template + impact section included so future RFCs name real touchpoints up front | 0 |
+| 2026-07-02 | OQ1 resolved — artifacts go in `docs/frontend/` (new subdir; no existing frontend-reference doc; `architecture.md` nesting rejected as it's the unreliable doc this map avoids) | 0 |
+| 2026-07-02 | OQ2 resolved — re-verify on any RFC whose impact template touches track-click/overlay/cross-island/shared-chrome; stale "Verified" stamp = re-verify signal | 0 |

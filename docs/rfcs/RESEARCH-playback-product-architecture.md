@@ -96,9 +96,17 @@ belong to the existing ▶ sites and to Spotify's own client).
 ## Gaps / constraints
 
 - **No `track_id` on the now-playing read path.** FEAT-lyrics-viewer needs a track-id to hit its
-  authenticated lyrics endpoint; `NowPlaying` carries `album_id` but not `track_id`. **Verify**
-  whether the worker snapshot stores the playing track's id and whether exposing it is acceptable
-  (it would not raise the now-playing read's tier unless it leaked non-public fields).
+  authenticated lyrics endpoint; `NowPlaying` carries `album_id` but not `track_id`. **Verified
+  2026-07-02 (code): the `SpotifyNowPlaying` table (`models.py:766-785`) stores `track_name`,
+  `artist_name`, `album_name`, `album_id` (FK), `progress_ms`, `duration_ms`, `updated_at` — and
+  **no `track_id` / `spotify_track_id` column**.** The worker writes the track *name* but not its
+  catalog id. So a lyrics lookup cannot get a track id from the cached snapshot alone. Options Step
+  1 weighs: (a) the live `/v1/me/player` read (resolution #2 above) returns `item.id` = the
+  `spotify_track_id` — resolve to the catalog `tracks.id` via the same direct read
+  `PlaybackService.resolve_uri` already does (reverse direction: spotify_id → `Track.id`); (b) add a
+  `track_id` column to the snapshot. (a) needs no schema change and matches the "live read on
+  demand" model; (b) re-opens the D28 boundary. This is an FEAT-lyrics-viewer Step 1 decision, not
+  a playback-architecture one.
 - **Position not exposed (D28, by design).** The D28 rationale ("a ≤1h-stale snapshot can't advance a
   progress bar") applies to *continuous* progress — but FEAT-lyrics-viewer's position need is
   *one-shot*, exactly the case D28's frozen-bar argument does not block. **Items requiring
@@ -115,21 +123,26 @@ belong to the existing ▶ sites and to Spotify's own client).
 
 ## Items requiring verification
 
-1. **Does the worker now-playing snapshot store a track id (`spotify_track_id` / DB track_id)?**
-   Read `worker/service/listening_sync_service.py` + the snapshot table. If absent, lyrics lookup
-   must resolve id another way.
-2. **Can the streaming token (already scoped for `user-read-playback-state`) read `GET /v1/me/player`
-   for position?** The scope is present per FEAT-spotify-streaming-playback OQ3, but **no code
-   calls it** — verify the endpoint returns `progress_ms` + `item.id` for an active Premium session,
-   and that a JWT-gated read mirrors `getStreamingToken`/`resolve` cleanly (cache briefly, fail
-   soft). This is the core open question; it determines whether position is "small UI/state work"
-   or "a new read path."
-3. **Is an on-demand live position read acceptable under rule #9?** Rule #9 bans a *synchronous
-   Spotify call on a user-facing endpoint*. The existing token mint and `/resolve` are the blessed
-   async exception (server-side auth mint, client-side content). A `GET /v1/me/player` read is a
-   *content* read — it must be client-side (front fetches spotify.com directly with the streaming
-   token, like `requestPlayback` already does for `PUT /me/player/play`), or it needs an explicit
-   D/RFC decision if proxied through the backend. **Verify the intended read path.**
+1. ~~**Does the worker now-playing snapshot store a track id (`spotify_track_id` / DB track_id)?**~~
+   **Resolved 2026-07-02 (code): no.** `SpotifyNowPlaying` (`models.py:766-785`) stores `track_name`
+   + `album_id` but **no track id column**. The lyrics read resolves a track id via the *live*
+   `/v1/me/player` `item.id` (spotify_track_id) → catalog `Track.id` (a reverse of the existing
+   `PlaybackService.resolve_uri` direct read), not from the cached snapshot. See [Gaps](#gaps--constraints).
+2. ~~**Can the streaming token (already scoped for `user-read-playback-state`) read `GET /v1/me/player`
+   for position?**~~ **Resolved 2026-07-02 (code): the scope is present, no code calls it, but the
+   read path is precedent-setting and rule-#9-clean.** `spotifyPlayback.ts:276` **already** makes a
+   direct client-side `fetch('https://api.spotify.com/v1/me/player/play?device_id=…')` with the
+   streaming token. A `GET /v1/me/player` (currently-playing) read is the **same pattern** — a
+   client-side Spotify *content* call with the JWT-minted token, not a backend proxy. Rule #9 bans a
+   *synchronous Spotify call on a user-facing **backend** endpoint*; client-side content calls
+   (already done by `requestPlayback`) are the sanctioned path. So no backend content-read proxy is
+   needed and no D/RFC decision is required — the position read is a **client-side fetch in the
+   viewer/now-playing area on demand**, mirroring `requestPlayback`. What Step 1 still verifies is
+   whether a *live* Premium session actually returns `progress_ms` + `item.id` (a runtime probe,
+   not a code question).
+3. ~~**Is an on-demand live position read acceptable under rule #9?**~~ **Resolved 2026-07-02
+   (same as #2):** client-side, mirroring `requestPlayback`'s existing `api.spotify.com` call.
+   No backend proxy, no new rule-#9 decision.
 4. **Does `NowPlaying` need an explicit "open lyrics" entry, or does it bind to the track-click flow
    from ARCH-frontend-component-map?** Document-only: which surface owns the viewer's open action
    (answers in ARCH-frontend-component-map).
@@ -147,28 +160,31 @@ belong to the existing ▶ sites and to Spotify's own client).
 
 ## Recommended next step (evidence-based)
 
-**Do not open a separate custom playback RFC yet.**
+**Do not open a separate custom playback RFC.** (Confirmed 2026-07-02.)
 
 Evidence: the pieces FEAT-lyrics-viewer needs that **already exist** are track identity +
 is-playing (`NowPlaying`) and on-demand play (`requestPlayback`, owner-Premium). The **one missing
 piece** is a one-shot position read — and the *capability* for it is already provisioned (the
-streaming token carries `user-read-playback-state`; it is just uncalled). The work to expose a
-one-shot position is a **small read path** (client-side `GET /v1/me/player` with the streaming
-token, mirroring how `requestPlayback` already calls `PUT /me/player/play` client-side — so it
-stays rule-#9-safe), bounded to the now-playing area, not a new product surface.
+streaming token carries `user-read-playback-state`) **plus the read path is already precedent**:
+`requestPlayback` (`spotifyPlayback.ts:276`) already makes a direct client-side
+`fetch('https://api.spotify.com/v1/me/player/play')` with the JWT-minted token. A `GET /v1/me/player`
+read is the **same client-side content-call pattern** — rule #9 (no synchronous Spotify call on a
+**backend** user-facing endpoint) is not engaged. So the position read is a small client-side fetch
+in the now-playing area on demand, not a new product surface and not a backend proxy.
 
-**Concrete next step (verification, not implementation):** resolve verification items #2 and #3 —
-probe `GET /v1/me/player` with the owner's streaming token on an active Premium session to confirm
-it returns `progress_ms` + `item.id`, and confirm the client-side read path honors rule #9
-(content reads go client-side, like the existing play call). Three outcomes:
+**Concrete next step (verification, not implementation):** resolved 2026-07-02 — the read path is
+**client-side** (verification items #1–#3 closed by code: `requestPlayback` already calls
+`api.spotify.com` client-side at `spotifyPlayback.ts:276`, so a `GET /v1/me/player` read is the same
+rule-#9-sanctioned client-side pattern; `track_id` is obtained from the live response's `item.id`,
+not the snapshot). The only remaining check is a **runtime** probe: does a live Premium session's
+`GET /v1/me/player` actually return `progress_ms` + `item.id`? That is the one thing code can't
+settle without a live owner session — it matches the FEAT-spotify-streaming-playback Step 4 pattern
+("owner confirms on a Premium session"). The two remaining outcomes:
 
-- **Position read works client-side (expected)** → no custom playback RFC; the position contract for
-  FEAT-lyrics-viewer is "front calls `/v1/me/player` on-demand on a manual refresh; degrades to
-  track-only if the call fails." FEAT-lyrics-viewer's Step 3 binds directly.
-- **Position read needs a backend proxy** → a narrow playback-read RFC (JWT-gated
-  `GET /api/playback/now-playing-live`, mirroring the `spotify-token`/`resolve` patterns), **not** a
-  full custom playback RFC. Smaller than FEAT-spotify-streaming-playback.
-- **Position read proves infeasible / out of scope** → ship FEAT-lyrics-viewer track-only (its stated
+- **Live probe returns position (expected — the scope is provisioned and the endpoint is standard)** →
+  no custom playback RFC; FEAT-lyrics-viewer's Step 3 binds client-side `/v1/me/player` for one-shot
+  position + track id, degrading to track-only if the call fails.
+- **Live probe fails / position unusable** → ship FEAT-lyrics-viewer track-only (its stated
   degradation); position waits. Still no custom playback RFC.
 
 A full custom playback RFC (SDK control layer, queue, seek, position tracking) is **not justified**
@@ -201,18 +217,17 @@ shows only doc files.
 
 ---
 
-### Step 1 — resolve the position-read verification (research, no code unless minimal)
+### Step 1 — runtime position-read probe (research, no code)
 
-Probe `GET /v1/me/player` with the owner's streaming token on an active Premium session; confirm
-the return of `progress_ms` + `item.id` and the rule-#9-clean read path (client-side, mirroring
-`requestPlayback`). Record the outcome under [Items requiring verification](#items-requiring-verification)
-+ a Decisions-log row. **No code is written in this step** — it produces the evidence that selects
-one of the three recommendation branches. A subsequent implementation (if any) is a **separate**
-RFC/step, scoped minimally to a now-playing read.
+The code questions (#1–#3) are resolved 2026-07-02 (client-side read path; `track_id` via live
+`item.id`). Step 1 is now the **single remaining runtime probe**: on a live owner Premium session,
+`GET /v1/me/player` with the streaming token returns `progress_ms` + `item.id` (and `is_playing`).
+Record the outcome under [Items requiring verification](#items-requiring-verification) + a
+Decisions-log row. **No code is written in this step** — it confirms whether FEAT-lyrics-viewer
+Step 3 can bind position (expected yes) or ships track-only (its stated degradation).
 
-**Verification**: the verification table above is updated with confirmed/confirmed-not for #2, #3
-(+ #1, #4 where code confirms); the recommended-next-step branch is recorded as decided or
-marked "still blocked on #X".
+**Verification**: a Decisions-log row records "live probe: progress_ms + item.id returned" or
+"live probe: unavailable → FEAT-lyrics-viewer ships track-only".
 
 **Rollback**: n/a (docs-only; no code committed).
 
@@ -220,13 +235,18 @@ marked "still blocked on #X".
 
 ## Open questions
 
-1. **Position read path (blocks the recommendation)** — client-side `GET /v1/me/player` vs a
-   backend read-proxy. Resolved by Step 1 verification.
-2. **`track_id` on now-playing (blocks FEAT-lyrics-viewer Step 1)** — whether the snapshot stores
-   the playing track's DB id and can expose it without raising the read's tier. Resolve in Step 1
-   code read.
+1. ~~**Position read path (blocks the recommendation)** — client-side `GET /v1/me/player` vs a
+   backend read-proxy.~~ **Resolved 2026-07-02 (code): client-side**, mirroring `requestPlayback`'s
+   existing direct `fetch('https://api.spotify.com/v1/me/player/play')` (`spotifyPlayback.ts:276`).
+   Rule #9 (no synchronous Spotify call on a **backend** user-facing endpoint) is not engaged — the
+   read is a client-side content call with the JWT-minted token, same as the existing play call. No
+   backend proxy, no D/RFC decision. Step 1's remaining check is a **runtime** probe (does a live
+   Premium session return `progress_ms` + `item.id`?), not a code/feasibility question.
+2. ~~**`track_id` on now-playing (blocks FEAT-lyrics-viewer Step 1)**~~ **Resolved 2026-07-02
+   (code): no `track_id` column on `SpotifyNowPlaying`.** The lyrics read resolves id via the live
+   `/v1/me/player` `item.id` → catalog `Track.id` (reverse of `PlaybackService.resolve_uri`).
 3. **Who owns the viewer's open action** — forwarded to ARCH-frontend-component-map (overlay +
-   track-click ownership), not this RFC.
+   track-click ownership), not this RFC. Resolved there when that RFC's map is published.
 
 ## Decisions log
 
@@ -236,3 +256,6 @@ marked "still blocked on #X".
 | 2026-07-02 | No assumption that custom playback is required — recommendation is evidence-conditional | 0 |
 | 2026-07-02 | Not a Spotify feature inventory — scoped to this project's listening/bucket/lyrics flows only | 0 |
 | 2026-07-02 | Initial recommendation: no separate custom playback RFC; verify the position read, then reuse or write a minimal playback-read step | 0 |
+| 2026-07-02 | OQ1 resolved (code) — position read is client-side `GET /v1/me/player`, mirroring `requestPlayback`'s existing `api.spotify.com` call (`spotifyPlayback.ts:276`); rule #9 (backend-only) not engaged; no backend proxy, no D/RFC decision | 0 |
+| 2026-07-02 | OQ2 resolved (code) — `SpotifyNowPlaying` (`models.py:766-785`) has no `track_id` column; lyrics read resolves id via the live `/v1/me/player` `item.id` → `Track.id` (reverse of `PlaybackService.resolve_uri`) | 0 |
+| 2026-07-02 | Only remaining check is a runtime probe (live Premium session returns `progress_ms` + `item.id`); matches FEAT-spotify-streaming-playback Step 4 "owner-confirms-on-Premium" pattern | 0 |
