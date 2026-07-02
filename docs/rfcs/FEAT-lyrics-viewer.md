@@ -1,6 +1,6 @@
 # FEAT-lyrics-viewer: Authenticated full-screen lyrics viewer overlay
 
-- **Status**: draft
+- **Status**: in-progress
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → FEAT-lyrics-viewer
@@ -425,3 +425,5 @@ separate future RFC.
 | 2026-07-02 | Track-click ownership, shared interaction components, overlay state ownership, affected routes → ARCH-frontend-component-map | 0 |
 | 2026-07-02 | Plain/synced normalization, canonical segments, raw-source preservation, re-normalization, synced-only exposure rules → ARCH-lyrics-normalization-model | 0 |
 | 2026-07-02 | Dependency-RFC review: Step 1 endpoint keyed by `spotify_track_id` (server-side resolve → `Track.id`, one round trip); Step 3 track identity comes from the live playback read (`item.id`), not the snapshot (no track id column) — aligned to RESEARCH-playback-product-architecture OQ1/OQ2 | 0 |
+| 2026-07-02 | Status draft → in-progress (owner approval in session; all three dependency RFCs done) | 1 |
+| 2026-07-02 | Step 1 route = `GET /api/lyrics/{spotify_track_id}` (owner pick; own JWT route, not under `/api/tracks/*` — keeps lyrics off catalog-shaped public-looking paths) | 1 |
