@@ -1,6 +1,6 @@
 # RESEARCH-playback-product-architecture: Playback product strategy
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → RESEARCH-playback-product-architecture

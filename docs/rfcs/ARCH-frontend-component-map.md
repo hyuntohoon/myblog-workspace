@@ -1,6 +1,6 @@
 # ARCH-frontend-component-map: Frontend component structure map
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → ARCH-frontend-component-map

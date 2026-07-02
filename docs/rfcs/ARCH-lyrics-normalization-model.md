@@ -1,6 +1,6 @@
 # ARCH-lyrics-normalization-model: Lyric normalization model
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-02
 - **Plan row**: `plan.md` → ARCH-lyrics-normalization-model
