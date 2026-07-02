@@ -1,6 +1,6 @@
 # FEAT-lyrics-corpus: Private, correctness-first lyrics corpus
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-01
 - **Plan row**: `plan.md` → FEAT-lyrics-corpus
@@ -453,3 +453,4 @@ Filled in during execution.
 | 2026-07-02 | Step 2 DONE — 20,946 tracks: matched 38.0% / no_lyrics 2.0% / not_found 46.8% / ambiguous 13.1% / review_required 0.2%; consistency PASS, version-conflict false-match 0, precision 64/64=100% audited (gate MET) | 2 |
 | 2026-07-02 | Step 3 DONE (worker) — `lyrics_incremental` EventBridge job (`rate(12 hours)`), alias-fill pattern: recently-added tracks lacking a `track_lyrics` row → LRCLIB `/api/search` → same `decide_match` → per-row commit + sentinel; transient errors skip (never `not_found`), separate invocation isolates album sync; bounded by batch-limit(150)+time-budget(90s)+concurrency(20) for the 120s Lambda. Merged (worker #57 + workspace #481), `terraform apply`-ed, prod-verified via a seeded 1-track gap (DB-state evidence) | 3 |
 | 2026-07-02 | Step 4 DONE (worker) — `lyrics_reassessment` EventBridge job (`rate(1 day)`): re-checks unresolved pool (not_found/ambiguous/review_required, stalest-first) → promote-or-refresh; **replacement guard** never downgrades/laterally-swaps a good match (basis ladder isrc>mb-recording>exact-title>fuzzy-title → matched never replaced by the current matcher). Shared eval loop extracted to `lyrics_eval_core.run_eval_batch` (Step 3 unchanged). Merged (worker #58 + workspace #483), `terraform apply`-ed, prod-verified (30/30 unresolved refreshed, 0 matched touched). **RFC functionally complete — all steps prod-verified.** | 4 |
+| 2026-07-02 | Status accepted → **done** (owner-approved in-session) — all steps (0/1/1b/2/3/4) implemented + prod-verified; plan.md row dropped (history in git log + `docs/archive/done/2026-07.md`). Consumer work (viewer/translation/interpretation) is separate later RFCs, e.g. FEAT-lyrics-viewer | — |
