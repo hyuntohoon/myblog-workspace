@@ -306,7 +306,7 @@ false-match count stays 0.
 
 **Rollback**: disable the reassessment schedule; existing outcomes untouched.
 
-**Implementation (2026-07-02, pending merge + prod verify)**: new worker
+**Implementation (2026-07-02, DONE — merged + prod-verified)**: new worker
 `LyricsReassessmentService` (`worker/service/lyrics_reassessment_service.py`) routed by
 `handler.py` on `{"job":"lyrics_reassessment"}` and scheduled by a new EventBridge rule
 `worker-lyrics-reassessment` (`rate(1 day)`, `infra/eventbridge.tf`). Selects the **unresolved
@@ -326,7 +326,15 @@ rule and future-proofs ISRC/MB-recording evidence. The subtle eval loop (threade
 `tests/test_lyrics_reassessment.py` (8 — `should_replace` ladder + promote/refresh/guard
 orchestration) + 2 handler-routing tests; full worker suite **248 passed / 34 skipped**. Step 4
 selection SQL (`GROUP BY` + jsonb `match_basis` extract + LATERAL alias join) validated read-only
-against prod. `terraform plan`: 3 to add, 0 change, 0 destroy.
+against prod. Merged: worker #58 (deploy success) + workspace #483; `terraform apply` created
+the `worker-lyrics-reassessment` rule (3 added, 0 changed, 0 destroyed). **Prod smoke
+(2026-07-02)**: snapshotted the 30 stalest unresolved rows + 5 `matched` rows, invoked the
+deployed `blogWorkerLambda` with `{"job":"lyrics_reassessment","limit":30}` → all **30 unresolved
+rows refreshed** (`updated_at` bumped = re-checked + rewritten, queue rotation confirmed), **0
+promotions** (expected — LRCLIB coverage unchanged same-day), and **0 `matched` rows changed**
+(replacement guard + unresolved-only selection leave good matches untouched). Full path verified
+in prod via DB-state evidence (`LOG_LEVEL=WARNING` hides the metrics log). **This completes the
+RFC — all steps (0/1/1b/2/3/4) implemented + prod-verified.**
 
 ---
 
@@ -444,4 +452,4 @@ Filled in during execution.
 | 2026-07-02 | Concurrency ceiling = LRCLIB, not local HW: effective ~2.5 req/s; 30 workers optimal, 60 → ~30% throttle-skip, higher is pointless | 2 |
 | 2026-07-02 | Step 2 DONE — 20,946 tracks: matched 38.0% / no_lyrics 2.0% / not_found 46.8% / ambiguous 13.1% / review_required 0.2%; consistency PASS, version-conflict false-match 0, precision 64/64=100% audited (gate MET) | 2 |
 | 2026-07-02 | Step 3 DONE (worker) — `lyrics_incremental` EventBridge job (`rate(12 hours)`), alias-fill pattern: recently-added tracks lacking a `track_lyrics` row → LRCLIB `/api/search` → same `decide_match` → per-row commit + sentinel; transient errors skip (never `not_found`), separate invocation isolates album sync; bounded by batch-limit(150)+time-budget(90s)+concurrency(20) for the 120s Lambda. Merged (worker #57 + workspace #481), `terraform apply`-ed, prod-verified via a seeded 1-track gap (DB-state evidence) | 3 |
-| 2026-07-02 | Step 4 implemented (worker) — `lyrics_reassessment` EventBridge job (`rate(1 day)`): re-checks unresolved pool (not_found/ambiguous/review_required, stalest-first) → promote-or-refresh; **replacement guard** never downgrades/laterally-swaps a good match (basis ladder isrc>mb-recording>exact-title>fuzzy-title → matched never replaced by the current matcher). Shared eval loop extracted to `lyrics_eval_core.run_eval_batch` (Step 3 unchanged). Pending merge + prod verify | 4 |
+| 2026-07-02 | Step 4 DONE (worker) — `lyrics_reassessment` EventBridge job (`rate(1 day)`): re-checks unresolved pool (not_found/ambiguous/review_required, stalest-first) → promote-or-refresh; **replacement guard** never downgrades/laterally-swaps a good match (basis ladder isrc>mb-recording>exact-title>fuzzy-title → matched never replaced by the current matcher). Shared eval loop extracted to `lyrics_eval_core.run_eval_batch` (Step 3 unchanged). Merged (worker #58 + workspace #483), `terraform apply`-ed, prod-verified (30/30 unresolved refreshed, 0 matched touched). **RFC functionally complete — all steps prod-verified.** | 4 |
