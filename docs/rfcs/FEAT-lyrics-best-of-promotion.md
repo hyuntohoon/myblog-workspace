@@ -308,6 +308,7 @@ pre-run snapshot) for the affected `track_id`s.
 1. **Best-of precision bar (blocks Step 1 acceptance).** The predecessor gates `exact-title` at ≥99%.
    Best-of promotions start from ambiguity, so a lower bar is honest — proposed **≥ 90%** (owner to
    set). *Denominator = best-of-promoted count.*
+   **Decided 2026-07-03 (owner): ≥ 90%.**
 2. **Gated tiers 2–4 — open at all, and on what evidence? (decided post-probe, not pre-Step-1).**
    v1 ships tier-1-only. The Step-1 probe reports the residual pool tiers 2–4 would cover (measure
    e); the owner decides whether that coverage justifies opening any of them — the duration
@@ -317,8 +318,11 @@ pre-run snapshot) for the affected `track_id`s.
    promotes only via a **version-agreeing sibling** — the version-bleed concern applies only to
    the gated tiers. Proposed: **include** `review_required` in v1 (`best-of-review`, safe by
    construction). Alternative: ambiguous-only. Owner call.
+   **Decided 2026-07-03 (owner): include `review_required` in v1.**
 4. **Retroactive delivery (blocks Step 3).** One-shot via the existing batch tool vs a one-off
    reassessment-style invocation. Confirm shape + whether it runs local or worker.
+   **Decided 2026-07-03 (owner): local one-shot** (`tools/lyrics_batch_api.py` shape, resumable) —
+   the ~19-min pool does not fit the 120 s worker Lambda budget; matches the predecessor's backfill.
 5. **Matcher noise cleanup — same RFC or a follow-on?** Two source fixes would *prevent* false
    parking before any promotion: (a) stripping `01 -` track-number prefixes + non-rendition
    parentheticals from the group key (shrinks false ambiguity); (b) making `decide_match`'s group
@@ -327,6 +331,7 @@ pre-run snapshot) for the affected `track_id`s.
    match** at the source, strictly better than a best-of tag (probe measure d sizes it). Proposed:
    **separate follow-on RFC** so this RFC's promotion semantics stay isolated and reviewable.
    Confirm.
+   **Decided 2026-07-03 (owner): separate follow-on RFC.**
 
 ## Acceptance criteria
 
@@ -373,3 +378,4 @@ Filled in during execution.
 |------|----------|------|
 | 2026-07-03 | RFC drafted — auto-promote best plausible candidate out of ambiguous/review_required as a tagged `best-of-*` basis; conservative `exact-title` matcher + evidence preserved; no manual UI; no schema change | 0 |
 | 2026-07-03 | Review revisions (pre-accept, code-audited): v1 scoped to **tier-1-only** (tiers 2–4 gated on probe evidence — tier-2's ≤4 s window is near-arbitrary for genuine ambiguity); **body filter** made a promotion precondition (no viewer-invisible empty matches); Step 2 gains two mandatory changes that were RFC-internal contradictions — the eval-loop **consistency invariant must go basis-aware** (`lyrics_eval_core.py:121` would refuse best-of-review writes) and the **reassessment selection must widen** to re-select `best-of-*` rows (current SQL selects unresolved only → promoted rows would never be superseded); Step-1 probe clarified as an LRCLIB re-fetch pass (+ measures d: version-agreeing-sibling class, e: gated-tier residual); `_richest` representative fix registered under OQ5 follow-on | 0 |
+| 2026-07-03 | Owner decisions: OQ1 precision bar **≥ 90%**; OQ3 **include `review_required`** in v1; OQ4 retroactive backfill = **local one-shot** (batch-tool shape); OQ5 matcher source fixes = **separate follow-on RFC**. OQ2 (gated tiers 2–4) stays open by design — decided post-probe | 0 |
