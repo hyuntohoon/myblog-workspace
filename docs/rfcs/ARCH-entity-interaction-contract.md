@@ -1,6 +1,6 @@
 # ARCH-entity-interaction-contract: Entity interaction contract (front)
 
-- **Status**: accepted
+- **Status**: done (all 3 steps prod-verified 2026-07-03)
 - **Owner**: 박지훈
 - **Created**: 2026-07-03
 - **Plan row**: `plan.md` → ARCH-entity-interaction-contract
@@ -201,3 +201,4 @@ resolve (redirect) + new artist links navigate. Prod smoke post-merge.
 | 2026-07-03 | OQ3 closed: canonical = **trailing slash**. Prod probe: slashless URLs are served 200 with **no redirect** (CloudFront viewer-request function rewrite; verified on a real `/artist/<id>` and `/reviews`) — so the drift was a cache-key/URL-form split, not a live 404 | 3 |
 | 2026-07-03 | Artist-affordance scope cut to **AlbumDetail only** (owner AFK — smallest honest option taken): `NowPlaying`/`LikedBoard` payloads carry artist **names only** (no ids — `Backend_SavedTrackItem`/`AlbumBrief` have `artist_name(s)` but no artist id), and LikedBoard rows additionally wrap the identity cell in TrackRow's `open` button (nested `<a>` invalid). Revival trigger = backend adds `artist_id` to those payloads; a runtime name→id map over `GET /api/music/artists/ids` was considered and rejected as speculative fuzzy matching | 3 |
 | 2026-07-03 | Latent `/artist/null/` links killed by the helper's `string` param: `SearchPage` ArtistCard now renders no href + no 허브 label for id-less artists (mirrors HeaderSearch's `static` row); PocketTray narrows `artistId` into a `const` before the closure | 3 |
+| 2026-07-03 | Step 3 merged (front #225, b5d2f55) + prod-smoked: deployed-CSS marker, slashless 200 re-probe, real-browser `/search` artist card → hub. RFC Status → done | 3 |
