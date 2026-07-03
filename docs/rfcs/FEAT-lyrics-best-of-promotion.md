@@ -1,6 +1,6 @@
 # FEAT-lyrics-best-of-promotion: auto-promote the best plausible candidate out of `ambiguous` / `review_required`
 
-- **Status**: draft
+- **Status**: accepted (2026-07-03, owner-approved in-session)
 - **Owner**: 박지훈
 - **Created**: 2026-07-03
 - **Plan row**: `plan.md` → FEAT-lyrics-best-of-promotion
@@ -379,3 +379,4 @@ Filled in during execution.
 | 2026-07-03 | RFC drafted — auto-promote best plausible candidate out of ambiguous/review_required as a tagged `best-of-*` basis; conservative `exact-title` matcher + evidence preserved; no manual UI; no schema change | 0 |
 | 2026-07-03 | Review revisions (pre-accept, code-audited): v1 scoped to **tier-1-only** (tiers 2–4 gated on probe evidence — tier-2's ≤4 s window is near-arbitrary for genuine ambiguity); **body filter** made a promotion precondition (no viewer-invisible empty matches); Step 2 gains two mandatory changes that were RFC-internal contradictions — the eval-loop **consistency invariant must go basis-aware** (`lyrics_eval_core.py:121` would refuse best-of-review writes) and the **reassessment selection must widen** to re-select `best-of-*` rows (current SQL selects unresolved only → promoted rows would never be superseded); Step-1 probe clarified as an LRCLIB re-fetch pass (+ measures d: version-agreeing-sibling class, e: gated-tier residual); `_richest` representative fix registered under OQ5 follow-on | 0 |
 | 2026-07-03 | Owner decisions: OQ1 precision bar **≥ 90%**; OQ3 **include `review_required`** in v1; OQ4 retroactive backfill = **local one-shot** (batch-tool shape); OQ5 matcher source fixes = **separate follow-on RFC**. OQ2 (gated tiers 2–4) stays open by design — decided post-probe | 0 |
+| 2026-07-03 | Status draft → **accepted** (explicit owner approval in-session: "승격"). Next: Step 1 (`promote_best` core + risk-quant probe + labelled sample, worker + offline) | 0 |
