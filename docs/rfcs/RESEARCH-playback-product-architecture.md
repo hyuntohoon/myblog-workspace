@@ -175,6 +175,13 @@ read is the **same client-side content-call pattern** — rule #9 (no synchronou
 **backend** user-facing endpoint) is not engaged. So the position read is a small client-side fetch
 in the now-playing area on demand, not a new product surface and not a backend proxy.
 
+> **Amendment 2026-07-03 (FEAT-nowplaying-live-sync).** "On demand" is extended by one case: a
+> **single one-shot `GET /v1/me/player` read on `/profile` entry** (owner-only authed page) is also
+> sanctioned, so the now-playing card can overlay its ~1h-stale worker snapshot with the live moment
+> (plus a 동기화 button that re-fires the same read). The token mint remains async and lazy
+> (`getStreamingToken` on that read only), rule #9 is still not engaged, and the read is **never
+> polled** — one shot per entry / per explicit tap, no continuous progression.
+
 **Concrete next step (verification, not implementation):** resolved 2026-07-02 — the read path is
 **client-side** (verification items #1–#3 closed by code: `requestPlayback` already calls
 `api.spotify.com` client-side at `spotifyPlayback.ts:276`, so a `GET /v1/me/player` read is the same
