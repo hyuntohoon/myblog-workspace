@@ -4,7 +4,7 @@
 - **Owner**: TBD
 - **Created**: 2026-06-25
 - **Plan row**: `plan.md` → FEAT-my-buckit-artist
-- **Related**: `docs/rfcs/FEAT-pocket-buckit.md` (canonical Buckit product — generalized membership; this RFC adds the **first bucket-level type discriminator**, a deliberate scoping of that model), `docs/rfcs/FEAT-bucket-identity.md` (Direction D public artist-collections — this RFC is the private, typed precursor), `docs/rfcs/FEAT-pocket-buckit-workspace.md` (the tray drawer workspace this builds on)
+- **Related**: `docs/rfcs/FEAT-pocket-buckit.md` (canonical Buckit product — generalized membership; this RFC adds the **first bucket-level type discriminator**, a deliberate scoping of that model), `docs/rfcs/FEAT-bucket-identity.md` (Direction D public artist-collections — this RFC is the private, typed precursor), `docs/archive/done/rfcs/FEAT-pocket-buckit-workspace.md` (the tray drawer workspace this builds on)
 
 > Renames the user-facing **Critique Buckit** management area to **My Buckit** (the full hierarchical
 > bucket tree), introduces a **closed, fixed set of bucket types** — **General Buckit** (today's behavior,

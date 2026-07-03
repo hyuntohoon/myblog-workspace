@@ -1,7 +1,7 @@
 # Frontend structure map — human-readable
 
 > **Verified 2026-07-02** against `myblog_front/src/` (Astro 5 + React 19).
-> Produced by `docs/rfcs/ARCH-frontend-component-map.md` Step 1. For file-pinned detail
+> Produced by `docs/archive/done/rfcs/ARCH-frontend-component-map.md` Step 1. For file-pinned detail
 > (exact `path:line` anchors, per-domain ownership), read [component-map.md](component-map.md).
 
 ## The big picture

@@ -1,7 +1,7 @@
 # Frontend component map — developer / LLM reference
 
 > **Verified 2026-07-03** against `myblog_front/src/` (Astro 5 + React 19).
-> Canonical living copy — produced by `docs/rfcs/ARCH-frontend-component-map.md` Step 1.
+> Canonical living copy — produced by `docs/archive/done/rfcs/ARCH-frontend-component-map.md` Step 1.
 > Re-verify (3 spot claims minimum) in the step of any RFC whose impact template touches
 > track-click / overlay / cross-island / shared-chrome. A stale "Verified" stamp is the
 > signal to re-verify, not to trust. Human-readable companion: [structure.md](structure.md).

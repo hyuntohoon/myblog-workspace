@@ -275,7 +275,7 @@ Stats.fm의 진짜 핵심 가치는 **개인 청취 분석**이며, 데이터가
 |---|---|---|
 | 아티스트 귀속 버그 수정 | plan.md row (단일 PR) | `FIX-analysis-artist-attribution` (Active) |
 | 좋아요 vs 재생 정직 분리·표기 | plan.md row (프론트 위주) | `FEAT-analysis-source-clarity` (Active) |
-| GDPR 평생 임포트 (core + 회고) | RFC draft (크로스레포 5스텝) | `docs/rfcs/FEAT-listening-history-import.md` (Backlog) |
+| GDPR 평생 임포트 (core + 회고) | RFC draft (크로스레포 5스텝) | `docs/archive/done/rfcs/FEAT-listening-history-import.md` (Backlog) |
 
 임포트 후 분석 버킷 1차 "favorite" 신호 = **임포트 평생재생(횟수 + 청취시간)**, 좋아요는 보조(의도). 구현은 owner go 대기(작은 둘) / owner accept 대기(RFC).
 

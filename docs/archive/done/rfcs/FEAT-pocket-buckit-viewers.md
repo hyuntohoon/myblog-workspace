@@ -4,7 +4,7 @@
 - **Owner**: TBD
 - **Created**: 2026-06-30
 - **Plan row**: `plan.md` → FEAT-pocket-buckit-viewers
-- **Related**: `docs/rfcs/FEAT-my-buckit-artist.md` (done — Step 6 **Pocket→board** tray-open DnD this RFC mirrors + the General/Artist type rules it preserves), `docs/rfcs/FEAT-pocket-buckit.md` (canonical Buckit product, in-progress), `docs/rfcs/FEAT-pocket-buckit-workspace.md` (the multi-drawer workspace Track B extends)
+- **Related**: `docs/archive/done/rfcs/FEAT-my-buckit-artist.md` (done — Step 6 **Pocket→board** tray-open DnD this RFC mirrors + the General/Artist type rules it preserves), `docs/rfcs/FEAT-pocket-buckit.md` (canonical Buckit product, in-progress), `docs/archive/done/rfcs/FEAT-pocket-buckit-workspace.md` (the multi-drawer workspace Track B extends)
 
 > Two front-only, additive extensions to Pocket Buckit, both over the existing shared `bucketStore`
 > (one source of truth → every island repaints off one optimistic update, so "reflected immediately
