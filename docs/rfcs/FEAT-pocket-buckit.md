@@ -4,7 +4,7 @@
 - **Owner**: TBD
 - **Created**: 2026-06-23
 - **Plan row**: `plan.md` → FEAT-pocket-buckit
-- **Related**: `docs/rfcs/FEAT-bucket-identity.md` (now reframed as the **compatibility / migration / integration** track — existing review buckets + `들을 것` + public collections — that aligns to *this* model), `docs/rfcs/FEAT-multi-user-accounts.md` (deferred multi-user scope), `docs/rfcs/FEAT-liked-tracks-workbench.md` (the `분석 버킷` track→album promote path)
+- **Related**: `docs/rfcs/FEAT-bucket-identity.md` (now reframed as the **compatibility / migration / integration** track — existing review buckets + `들을 것` + public collections — that aligns to *this* model), `docs/rfcs/FEAT-multi-user-accounts.md` (deferred multi-user scope), `docs/archive/done/rfcs/FEAT-liked-tracks-workbench.md` (the `분석 버킷` track→album promote path)
 
 > **This RFC is the latest, canonical product + interaction definition for Buckit, now IN PROGRESS.** Product
 > direction, technical-validation (OQ 6–12), and the Design-Atlas UI (OQ 1–5) are all **decided** — the latter
