@@ -162,13 +162,15 @@ resource "aws_lambda_permission" "spotify_saved_tracks_full_events" {
 # It is failure-isolated from album sync: a separate invocation from the SQS album path, a
 # lyrics-source outage only skips rows. Bounded per run (settings.LYRICS_INCR_BATCH_LIMIT +
 # a wall-clock budget) so it finishes inside the 120s worker timeout; per-row commits make an
-# over-budget run resumable. Runs twice daily to stay ahead of new ingest without a backlog.
+# over-budget run resumable. Runs every 15 minutes so newly-ingested tracks get lyrics within
+# minutes of landing (near-real-time); a run with an empty pool is a single SELECT and exits in
+# milliseconds, and total LRCLIB volume is unchanged — each track is still evaluated once.
 # Removing this rule stops scheduled collection; the job code is inert without it (the manual
 # blogSQS {"job":"lyrics_incremental"} message still works either way).
 resource "aws_cloudwatch_event_rule" "lyrics_incremental" {
   name                = "worker-lyrics-incremental"
   description         = "Incremental LRCLIB lyrics corpus collection for newly-ingested tracks"
-  schedule_expression = "rate(12 hours)"
+  schedule_expression = "rate(15 minutes)"
   state               = "ENABLED"
 }
 
