@@ -14,7 +14,7 @@ myblog-workspace/
 ├── infra/            ← Terraform (canonical AWS state; see infra/README.md for identifiers)
 ├── docs/{plan.md,contracts/,rfcs/,archive/}
 ├── scripts/          ← smoke test (smoke.sh/smoke.py) + Editor Buckit nightly pipeline (pollers, plists)
-└── tools/merge_openapi.py        ← merged OpenAPI spec (docs/contracts/openapi.json)
+└── tools/            ← merge_openapi.py (→ docs/contracts/openapi.json) + lyrics corpus/best-of batch tools
 
 ## Service boundaries
 
