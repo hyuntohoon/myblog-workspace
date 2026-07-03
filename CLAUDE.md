@@ -13,7 +13,7 @@ myblog-workspace/
 ├── myblog_shared_db/ ← shared SQLAlchemy models (git-pinned by each service, ARCH-6)
 ├── infra/            ← Terraform (canonical AWS state; see infra/README.md for identifiers)
 ├── docs/{plan.md,contracts/,rfcs/,archive/}
-├── scripts/{smoke.sh}            ← smoke test
+├── scripts/          ← smoke test (smoke.sh/smoke.py) + Editor Buckit nightly pipeline (pollers, plists)
 └── tools/merge_openapi.py        ← merged OpenAPI spec (docs/contracts/openapi.json)
 
 ## Service boundaries
@@ -36,7 +36,7 @@ Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.cla
 2. 🔒 Never commit secrets. Use AWS SSM Parameter Store (SecureString) / GitHub Actions Secrets — Secrets Manager was emptied; do not reintroduce it (CHORE-secrets-ssm-migration).
 3. Never run rollback migrations against prod directly — human approval required.
 4. Never run >1 RFC step per session — unless (a) the RFC marks steps as `parallel`/`additive` or declares a single-PR merge, or (b) the user explicitly OKs the next step (e.g. "next step", "go", "gogo"). Reason: each gap enforces a prod-observe + direction-recheck gate (see PR-reviews-polymorphic — 4 steps reached prod before full revert).
-5. Never self-promote RFC Status **without explicit in-session user approval**. `draft` → `accepted` (and `accepted` → `in-progress`) default to human-only; on explicit approval (e.g. "승격해" / "promote"), Claude may make the Status edit. Absent approval, default no. (Was 🔒 hook-enforced; relaxed to a self-policed convention 2026-06-05 — `block-rfc-self-promote.sh` removed.)
+5. Never self-promote RFC Status **without explicit in-session user approval**. `draft` → `accepted` (and `accepted` → `in-progress`) default to human-only; on explicit approval (e.g. "승격해" / "promote"), Claude may make the Status edit. Absent approval, default no.
 6. 🔒 Never `terraform apply -target=...` without explicit go-ahead. Always run full plan; stop on unexpected drift.
 7. 🔒 (partial — force-push to main) Never push or merge without explicit go-ahead. An explicit push approval covers PR open + CI pass + squash merge + branch delete as a single flow (stop and report on CI fail / merge conflict / unexpected drift). User can opt out per request with "push only" to halt at PR open. `git add` + `commit` need no approval.
 8. 🔒 Never skip git hooks (`--no-verify`, `--no-gpg-sign`) unless user says so.
@@ -56,7 +56,7 @@ Plan/spec markdown — `docs/plan.md`, `docs/rfcs/`, `docs/contracts/`, `docs/ar
 
 **Commit**: Conventional Commits, lowercase imperative subject ≤72 chars. `Co-Authored-By: Claude` trailer when AI-authored.
 
-**Cross-repo (≥2 repos)**: update `docs/plan.md` before code. API contract change → export `openapi.json` in service repo, commit in same PR; workspace merge regenerates `docs/contracts/openapi.json`; frontend types derived from merged spec (CI fails on drift).
+**Cross-repo (≥2 repos)**: update `docs/plan.md` before code. API contract change → export `openapi.json` in service repo, commit in same PR; then run `tools/merge_openapi.py` manually and commit the regenerated `docs/contracts/openapi.json` in workspace (the service→workspace notify-contract dispatch 401s — auto-merge is dead); frontend types derived from merged spec (CI fails on drift).
 
 **Multi-step migration**: write RFC in `docs/rfcs/`; plan.md row is one-line pointer.
 
