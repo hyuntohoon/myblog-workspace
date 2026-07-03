@@ -1,6 +1,6 @@
 # ARCH-entity-interaction-contract: Entity interaction contract (front)
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-07-03
 - **Plan row**: `plan.md` → ARCH-entity-interaction-contract
@@ -193,3 +193,4 @@ resolve (redirect) + new artist links navigate. Prod smoke post-merge.
 |------|----------|------|
 | 2026-07-03 | Scope cut from a 6-step full refactor to 3 steps after cold review: TrackRow is the only structural payoff; links become helpers not components; album-detail/add-to-bucket dedup rejected (nothing blocked); inventory folded into this RFC's Current state | 1 |
 | 2026-07-03 | Vanilla review tracklist explicitly excluded from TrackRow (no fake unification; revival trigger documented) | 1 |
+| 2026-07-03 | Status draft → accepted (explicit owner approval in session: "B도 승격해") | 1 |
