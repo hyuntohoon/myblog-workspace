@@ -1,6 +1,6 @@
 # FEAT-liked-tracks-workbench: 분석 버킷 redesign — Liked Tracks workbench
 
-- **Status**: v1 SHIPPED — Steps 1–3 live + prod-smoked 2026-06-21 (PRs: backend #82, front #187, N+1 hotfix #83). **Step 4 (duration) SHIPPED + prod-verified 2026-06-22** — shared_db #42 (tag v0.23.0) + V26 prod-applied + backfilled **1017/1017** rows; worker #49, backend #84, contract #410, front #192; prod CDP smoke on `/profile`: 길이 (m:ss) column + sort-by-length (longest-first) live. Hero total-duration dropped (hero banner removed in front #190). **Step 5 (unlike) DROPPED** 2026-06-22 (owner: "굳이 할 필요 없어").
+- **Status**: done (closed + archived 2026-07-04, ledger sweep — all remaining scope terminal). v1 SHIPPED — Steps 1–3 live + prod-smoked 2026-06-21 (PRs: backend #82, front #187, N+1 hotfix #83). **Step 4 (duration) SHIPPED + prod-verified 2026-06-22** — shared_db #42 (tag v0.23.0) + V26 prod-applied + backfilled **1017/1017** rows; worker #49, backend #84, contract #410, front #192; prod CDP smoke on `/profile`: 길이 (m:ss) column + sort-by-length (longest-first) live. Hero total-duration dropped (hero banner removed in front #190). **Step 5 (unlike) DROPPED** 2026-06-22 (owner: "굳이 할 필요 없어").
 - **Owner**: TBD
 - **Created**: 2026-06-21
 - **Plan row**: `plan.md` → FEAT-liked-tracks-workbench
