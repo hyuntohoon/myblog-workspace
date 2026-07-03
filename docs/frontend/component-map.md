@@ -62,6 +62,22 @@ existing `LyricsViewer` mount with `{trackId, progressMs: null, live: false}` �
 member island only; grep-verified no lyric affordance/import exists in any public-route
 component (FEAT-lyrics-viewer invariant unchanged).
 
+## Entity navigation — `lib/entityLinks.ts`
+
+**Contract point** (ARCH-entity-interaction-contract Step 3):
+`lib/entityLinks.ts` — `artistHref(id)` / `reviewHref(slug)` return the canonical
+**trailing-slash** form. Every artist/review href in `components/` and `scripts/` is built
+by these helpers; hand-rolled `/artist/${…}` / `/review/${…}` template literals exist only
+in `pages/` internals (grep-gated in the RFC). OQ3 probe (2026-07-03): the CloudFront
+viewer-request function serves the slashless form too (200, no redirect) — canonicalizing
+ends cache-key/URL drift, it does not fix a 404.
+
+Artist names link to `/artist/[id]` on: search surfaces (`SearchPage` card, `HeaderSearch`
+row), tray/board artist members (`window.location.assign`), the public review hero, and —
+new in Step 3 — the member `AlbumDetail` InfoBody (`.lf-artist-link`). **Not linkable**
+(payload carries names only, no artist ids): `NowPlaying`, `LikedBoard` rows — revival
+trigger = backend adds `artist_id` to saved-tracks / now-playing payloads.
+
 ## Ownership by domain
 
 - **track row rendering** — **shared `components/shared/TrackRow.tsx`** (declared actions
@@ -87,8 +103,8 @@ component (FEAT-lyrics-viewer invariant unchanged).
   `components/member/spotify.api.ts` (worker-fed cache reads: now-playing/recent-tracks/library/sync).
 - **search** — `components/search/HeaderSearch.tsx` (⌘K header dropdown); `SearchPage.tsx` (`/search`);
   `search/atoms.tsx` (`ResultRow`/`GCover`/`GStars` shared); `writer/CommandPalette.tsx` (⌘K palette,
-  reuses `ResultRow`); `lib/useMusicSearch.ts` (headless core). `search-bar.astro`+`searchBarDb.client.ts`
-  = orphaned.
+  reuses `ResultRow`); `lib/useMusicSearch.ts` (headless core). (`search-bar.astro` +
+  `searchBarDb.client.ts` were orphaned → deleted in ARCH-entity-interaction-contract Step 3.)
 
 ## Overlay / drawer / store / context / cache ownership
 
@@ -148,8 +164,6 @@ component (FEAT-lyrics-viewer invariant unchanged).
    logged-out intent handoff via `intent.ts`) vs `BucketPickerSheet` (member-only, resolves a
    target bucket id; caller runs `ops.*`/`addBucketItem`). LikedBoard uses `BucketPickerSheet`;
    the review page uses `AddToBucketMenu`.
-3. **Orphaned** — `components/search-bar.astro` + `scripts/searchBarDb.client.ts` have no importer
-   (superseded by `HeaderSearch`/`SearchPage`).
 
 ## Component-map impact template (paste into future RFCs)
 
