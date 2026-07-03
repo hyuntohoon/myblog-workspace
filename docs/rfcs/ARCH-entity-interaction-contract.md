@@ -194,3 +194,7 @@ resolve (redirect) + new artist links navigate. Prod smoke post-merge.
 | 2026-07-03 | Scope cut from a 6-step full refactor to 3 steps after cold review: TrackRow is the only structural payoff; links become helpers not components; album-detail/add-to-bucket dedup rejected (nothing blocked); inventory folded into this RFC's Current state | 1 |
 | 2026-07-03 | Vanilla review tracklist explicitly excluded from TrackRow (no fake unification; revival trigger documented) | 1 |
 | 2026-07-03 | Status draft → accepted (explicit owner approval in session: "B도 승격해") | 1 |
+| 2026-07-03 | OQ1 closed with the default (owner-confirmed): 가사 always shown on authed rows, viewer availability empty-state handles misses; AlbumDetail rows omit the button only when the track has no `spotify_id` (nothing to query) | 2 |
+| 2026-07-03 | OQ2 closed with the default (owner-confirmed): Step 2 declares only `lyrics` + what each surface already had (`open` on LikedBoard); `play`/`add` stay reserved TrackRow slots pending product approval | 2 |
+| 2026-07-03 | `useDismissable` gained a module-level open-overlay stack (top-most only handles ESC/Tab-trap) — required by the new lyrics-over-album-detail nesting; without it one ESC closed both layers (same-node capture listeners ignore `stopPropagation`) | 2 |
+| 2026-07-03 | LikedBoard **card view** not adopted (RFC scope says "rows"; cards keep ⋯ menu, no lyrics affordance); `SearchPage`'s unrelated local `TrackRow` renamed `SearchTrackRow` to keep the contract-point grep unambiguous | 2 |
