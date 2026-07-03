@@ -47,20 +47,23 @@ Retained for backward compatibility. Prefer Format A for new integrations.
 | `spotify_album_id` | `string` | yes | Single Spotify album ID |
 | `market` | `string` | no | Defaults to `KR` if omitted |
 
-### Format C — Job-control messages (`myblog_backend`)
+### Format C — Job-control messages (`myblog_backend` / worker self-chain)
 
-Dispatched by the **backend** (not `myblog_music`) onto the same `blogSQS` queue. The user-facing
-endpoint only **enqueues** (202 Accepted) — per hard rule #9 the worker performs all Spotify I/O.
+Dispatched by the **backend** (not `myblog_music`) — and, for the lyrics rows, by the **worker
+itself** — onto the same `blogSQS` queue. The user-facing endpoint only **enqueues** (202
+Accepted) — per hard rule #9 the worker performs all Spotify I/O.
 These carry a `job` key and **no** `album_ids`/`market` fields.
 
 ```json
 { "job": "spotify_library_sync" }
 ```
 
-| `job` value | Producer (backend) | Endpoint | Worker action |
+| `job` value | Producer | Endpoint | Worker action |
 |---|---|---|---|
-| `spotify_library_sync` | `SqsClient.send_library_sync` | `POST /api/buckets/spotify-library/sync` | mirror saved-albums Library (GET/PUT/DELETE `/me/albums`); writes gated on the worker's own `SPOTIFY_LIBRARY_WRITES_ENABLED` |
-| `spotify_refresh` | `SqsClient.send_listening_refresh` | `POST /api/library/refresh-recent` | re-pull recently-played → `spotify_recent_tracks` (V14) |
+| `spotify_library_sync` | backend `SqsClient.send_library_sync` | `POST /api/buckets/spotify-library/sync` | mirror saved-albums Library (GET/PUT/DELETE `/me/albums`); writes gated on the worker's own `SPOTIFY_LIBRARY_WRITES_ENABLED` |
+| `spotify_refresh` | backend `SqsClient.send_listening_refresh` | `POST /api/library/refresh-recent` | re-pull recently-played → `spotify_recent_tracks` (V14) |
+| `lyrics_incremental` | worker self-chain `sqs_producer.enqueue_lyrics_incremental` — sent once per invocation after an album-sync record lands (worker #62); also send-able manually | — | run one bounded incremental LRCLIB lyrics pass now (near-real-time; the 15-min EventBridge cron is the safety net). Optional `limit`. The lyrics branch never re-chains (no feedback loop). |
+| `lyrics_reassessment` | manual only | — | run one bounded reassessment pass over unresolved lyrics rows. Optional `limit`. |
 
 The worker dispatches on the `job` key (`handler.py`) **before** the Format A/B branches and before the
 unknown-format fallthrough — so these are recognized messages, not "unknown format".
