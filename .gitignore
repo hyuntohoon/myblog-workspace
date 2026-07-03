@@ -28,6 +28,8 @@ __pycache__/
 .claude/hooks/
 .claude/launch.json
 .claude/worktrees/
+# Plan-mode working files — session-local; the canonical plan lives in docs/rfcs/ + docs/plan.md
+.claude/plans/
 
 # Allure test artifacts (STAB-6)
 allure-results/
