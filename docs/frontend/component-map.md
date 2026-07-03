@@ -1,6 +1,6 @@
 # Frontend component map — developer / LLM reference
 
-> **Verified 2026-07-02** against `myblog_front/src/` (Astro 5 + React 19).
+> **Verified 2026-07-03** against `myblog_front/src/` (Astro 5 + React 19).
 > Canonical living copy — produced by `docs/rfcs/ARCH-frontend-component-map.md` Step 1.
 > Re-verify (3 spot claims minimum) in the step of any RFC whose impact template touches
 > track-click / overlay / cross-island / shared-chrome. A stale "Verified" stamp is the
@@ -28,41 +28,49 @@ File references are `path:line` anchors relative to `myblog_front/src/`.
 Shared chrome (`Header`/`Footer`/`PocketBuckit`) is mounted once in `layouts/layout.astro:35-38`.
 `write-layout.astro` is standalone (no Header/Footer/Pocket).
 
-## Track-click behavior — **no shared track-row component exists**
+## Track-click behavior — shared `TrackRow` for React member islands
 
-Track interaction is fragmented across **≥6 independent code paths**. There is no common
-row component. The surfaces differ in whether they **play**, **navigate**, **open detail**, or
-**add to bucket** — only play is shared at the SDK layer (`requestPlayback`), never at the row layer.
+**Contract point** (ARCH-entity-interaction-contract Step 2):
+`components/shared/TrackRow.tsx` — one row component with a **declared action set**
+`{lyrics?, open?}` (`play`/`add` are reserved slots — granting a surface a NEW play/add
+affordance is a product decision per RFC OQ2, implemented in TrackRow when approved).
+Consumers: `AlbumDetail` tracklist + `LikedBoard` list rows (both inside the `ProfileApp`
+island). A future track action on these surfaces is wired in TrackRow once, not per surface.
+`components/search/SearchPage.tsx` has an unrelated local `SearchTrackRow` (search-static).
 
-| Surface | File:component | Click does | Playback path | Shared with? |
+**Explicitly excluded:** the vanilla review tracklist (`scripts/albumDetail.client.ts`)
+stays hand-rolled (RFC non-goal: no vanilla → React migration; revival trigger = a track
+action that must ship on the public review page). Writer pick rows and search rows keep
+their own idioms (`RowAction` union in `search/atoms.tsx` — TrackRow promotes that idea
+to compound actions).
+
+| Surface | File:component | Click does | Playback path | Shared row? |
 |---|---|---|---|---|
-| Review tracklist (vanilla, public) | `scripts/albumDetail.client.ts` (row render `:66,:71`; delegated handlers `:124-144`) | two buttons/row: `.lfq-tt-play` (▶) + `.lfq-tt-add` (＋) | ▶ → `requestPlayback({kind:'track',trackId,title})` (`:130`); ＋ → `window` event `pb:add-track` (`:144`) → `ReviewTrackAdder` | play only |
-| Pocket tray drawer members | `components/member/pocket/PocketTray.tsx:587` | React `<button onClick={onPlay}>` ▶ (list view) | `onPlay`→`playbackTargetFor` (`:53-59`)→`requestPlayback` (`:412`) | play (different wrapper) |
-| Member `AlbumDetail` tracklist | `components/member/AlbumDetail.tsx:154-178` | not clickable — read-only `<li>` | none | — |
-| `LikedBoard` rows | `components/member/LikedBoard.tsx:274-285` | cover/title → `onOpen` (opens `AlbumDetail`); ⋯ → 담기/평론쓰기 | none | detail/add (via `BucketPickerSheet`, not play) |
-| Search track rows + header | `components/search/SearchPage.tsx:67-91`, `HeaderSearch.tsx:295-308` | `ResultRow` `action` union — track rows are `action:'static'` (not clickable) | none | — |
-| Writer `RecommendedTracksBlock` / `ArtistDetail` | `components/writer/RecommendedTracksBlock.tsx:66-76`, `writer/ArtistDetail.tsx:43` | ★/☆ pick / `onPickTrack` (select-for-review) | none | selection (not play) |
+| Review tracklist (vanilla, public) | `scripts/albumDetail.client.ts` (row render `:66,:71`; delegated handlers `:124-144`) | two buttons/row: `.lfq-tt-play` (▶) + `.lfq-tt-add` (＋) | ▶ → `requestPlayback({kind:'track',trackId,title})` (`:130`); ＋ → `window` event `pb:add-track` (`:144`) → `ReviewTrackAdder` | **no — excluded** |
+| Pocket tray drawer members | `components/member/pocket/PocketTray.tsx:587` | React `<button onClick={onPlay}>` ▶ (list view) | `onPlay`→`playbackTargetFor` (`:53-59`)→`requestPlayback` (`:412`) | no (tray lyrics deferred — RFC OQ4, separate React root) |
+| Member `AlbumDetail` tracklist | `components/member/AlbumDetail.tsx` `Tracklist` | `TrackRow` — 가사 (when track has `spotify_id`) → lyrics viewer non-live | none | **TrackRow** (`lyrics`) |
+| `LikedBoard` list rows | `components/member/LikedBoard.tsx` `Row` | `TrackRow` — identity → `onOpen` (detail); 가사 → lyrics viewer non-live; ⋯ → 담기/평론쓰기 (surface-specific trailing) | none | **TrackRow** (`open`+`lyrics`); card view NOT adopted (no lyrics affordance there) |
+| Search track rows + header | `components/search/SearchPage.tsx` (`SearchTrackRow`), `HeaderSearch.tsx:295-308` | `ResultRow` `action` union — track rows are `action:'static'` (not clickable) | none | no |
+| Writer `RecommendedTracksBlock` / `ArtistDetail` | `components/writer/RecommendedTracksBlock.tsx:66-76`, `writer/ArtistDetail.tsx:43` | ★/☆ pick / `onPickTrack` (select-for-review) | none | no |
 
 `requestPlayback` (`lib/spotifyPlayback.ts:242`) — the **only** SDK owner — is imported
 in exactly **2 files**: `scripts/albumDetail.client.ts` and `components/member/pocket/PocketTray.tsx`.
-Every other surface has no play affordance.
+TrackRow adds **no** play affordance anywhere (OQ2 default).
 
-**Verdict (documented, not fixed):** play funnels through the shared `requestPlayback` SDK
-layer; the **row UI** around it is re-implemented per surface (vanilla delegated-click in the
-review tracklist vs React `onClick` in the tray), and navigation/detail-open/add-to-bucket are
-each separate paths. A future unified `<TrackRow action={...}>` would mirror the existing
-`search/atoms.tsx` `RowAction` union + call the already-shared `requestPlayback` — documented
-here as the seam, deliberately **not created** (ARCH-frontend-component-map non-goal).
+**Static lyrics entry** (privacy-scoped): TrackRow's `lyrics` action opens `ProfileApp`'s
+existing `LyricsViewer` mount with `{trackId, progressMs: null, live: false}` — authed
+member island only; grep-verified no lyric affordance/import exists in any public-route
+component (FEAT-lyrics-viewer invariant unchanged).
 
 ## Ownership by domain
 
-- **track row rendering** — vanilla review tracklist (`scripts/albumDetail.client.ts:66,71`
-  render `data-track-id` buttons; delegated `root.addEventListener('click')` handlers `:124-144`);
-  React `AlbumDetail.Tracklist` (`components/member/AlbumDetail.tsx:154`, read-only `<li>`);
-  `LikedBoard.Row` (`components/member/LikedBoard.tsx:274`); `search/atoms.tsx` `ResultRow`
-  (shared by `SearchPage`/`HeaderSearch`/`CommandPalette`, `action` union navigate/button/static);
-  `writer/RecommendedTracksBlock.tsx:66` (★ toggle); `writer/ArtistDetail.tsx:43` (`onPickTrack`).
-  **No shared track-row component.**
+- **track row rendering** — **shared `components/shared/TrackRow.tsx`** (declared actions
+  `{lyrics?, open?}`; consumers `AlbumDetail.Tracklist` + `LikedBoard.Row` list view);
+  still hand-rolled: vanilla review tracklist (`scripts/albumDetail.client.ts:66,71` +
+  delegated handlers `:124-144`, excluded by RFC), `search/atoms.tsx` `ResultRow`
+  (shared by `SearchPage`/`HeaderSearch`/`CommandPalette`, `action` union navigate/button/static),
+  `writer/RecommendedTracksBlock.tsx:66` (★ toggle), `writer/ArtistDetail.tsx:43` (`onPickTrack`),
+  `LikedBoard` card view.
 - **album detail** — vanilla `scripts/albumDetail.client.ts` + `albumDetail.fetch.client.ts`
   (review tracklist, `sessionCache` cache) vs React `components/member/AlbumDetail.tsx` (member
   modal/slide-over, `lib/albumDetail.ts` cache). `ArtistHub` renders catalog + reviewed-album cards.
@@ -87,12 +95,17 @@ here as the seam, deliberately **not created** (ARCH-frontend-component-map non-
 - **Overlay primitives** — `.lf-scrim` / `.lf-slideover` (`styles/member.css:193,203`) and
   `.lf-modal-card`. Z-tokens in `styles/global.css:52-53`: `--z-overlay: 80`, `--z-panel: 90`
   — the scrim/slide-over primitives stack at `--z-panel`. `useDismissable`
-  (`lib/useDismissable.ts:24`) = ESC + focus trap/restore. The centered-600px pattern
-  (`StandardModal`) is **not** the Spotify-mobile full-bleed shape.
-- **Who mounts overlays** — `AlbumDetail` (`StandardModal` + `MemoWindow`), `OverviewDash`
-  (`RecentAlbumsModal`/`RecentTracksModal`), `ImportAnalysis`, `ReviewsTab` (DELETE scrim),
-  `BucketBoard` (`TrashDrawer`). `AddToBucketMenu` / `BucketPickerSheet` deliberately do **not**
-  use `useDismissable` (inline backdrop + manual ESC).
+  (`lib/useDismissable.ts`) = ESC + focus trap/restore **+ a module-level open-overlay
+  stack: only the top-most overlay handles ESC / traps Tab** (overlays nest — the lyrics
+  viewer opens OVER the album-detail modal; every instance holds a document-level capture
+  keydown listener, so without the stack one ESC would close all layers). The
+  centered-600px pattern (`StandardModal`) is **not** the Spotify-mobile full-bleed shape.
+- **Who mounts overlays** — `ProfileApp` (`AlbumDetail` + `LyricsViewer` — the lyrics mount
+  serves the dynamic NowPlaying entry (`live:true`), the `?lyrics=` debug entry, and the
+  TrackRow static entry (`live:false`)), `AlbumDetail` (`StandardModal` + `MemoWindow`),
+  `OverviewDash` (`RecentAlbumsModal`/`RecentTracksModal`), `ImportAnalysis`, `ReviewsTab`
+  (DELETE scrim), `BucketBoard` (`TrashDrawer`). `AddToBucketMenu` / `BucketPickerSheet`
+  deliberately do **not** use `useDismissable` (inline backdrop + manual ESC).
 - **State store** — `lib/pocketBuckit/bucketStore.ts`: framework-agnostic observable singleton
   (user-scoped bucket tree, sessionStorage `pb:cache:buckets:<sub>`, SWR 5-min,
   `useSyncExternalStore` via `useBucketStore()`).
