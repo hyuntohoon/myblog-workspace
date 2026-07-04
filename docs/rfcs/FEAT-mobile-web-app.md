@@ -111,7 +111,7 @@ pnpm lint && pnpm exec astro check && pnpm build   # sw.js + manifest in dist/
 
 ## Open questions
 
-1. **Nav pattern (blocks Step 1b)** — bottom tabs vs hamburger vs combo; deliberately deferred to the Step 1a mockup gate (owner re-confirmed 2026-07-05). Interaction with the Pocket tray is the deciding constraint.
+1. ~~**Nav pattern (blocks Step 1b)**~~ — RESOLVED 2026-07-05: **(B) compact header + hamburger drawer**, picked at the Step 1a mockup gate (390×844 injected mockups on live prod, logged-in state). Deciding factor: B leaves the bottom edge entirely to the Pocket tray (no dock/lift conflict), maximizing freedom for the workspace follow-on RFC; accepted trade-off is 2-tap nav reach.
 2. ~~**`/genres` mobile strategy**~~ — RESOLVED 2026-07-05: force layout A (outliner) on mobile; B/C stay desktop-only exploratory views (owner).
 3. ~~**SW cache scope for review HTML**~~ — RESOLVED 2026-07-05: shell + `/review/*` only, small cap; home stats change too often to cache (owner).
 4. **Workspace follow-on trigger** — after this RFC ships, does mobile usage of the board/tray justify drafting `FEAT-mobile-workspace-touch` (tray as full-width bottom sheet, drag → sheet actions)? Revisit with real usage.
@@ -126,3 +126,4 @@ pnpm lint && pnpm exec astro check && pnpm build   # sw.js + manifest in dist/
 | 2026-07-05 | `/genres` mobile = force layout A; no ≤480px work on B/C (owner, OQ2) | 2 |
 | 2026-07-05 | SW runtime cache = shell + `/review/*` only, small cap (owner, OQ3) | 4 |
 | 2026-07-05 | Status draft → accepted (owner: "업셉") | — |
+| 2026-07-05 | Step 1a gate: nav pattern = (B) compact header + hamburger drawer — bottom edge stays Pocket-tray-only (owner, OQ1; A/C rejected over tray dock conflict + 5-tab density at 390px) | 1 |
