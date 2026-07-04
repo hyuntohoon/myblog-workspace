@@ -11,14 +11,18 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V31 (V1–V13 prod-verified 2026-06-08;
+-- This file shows clean canonical DDL through V35 (V1–V13 prod-verified 2026-06-08;
 --   V14/V15 backfilled from migration DDL 2026-06-09; V16 backfilled 2026-06-12 —
 --   all prod-applied + prod-live. V17 prod-applied + prod-verified 2026-06-12; V18
 --   (review_buckets.is_public) prod-live 2026-06-15; V19 (spotify_track_play_events)
 --   added 2026-06-15 — prod-apply PENDING before the worker deploy, FEAT-track-play-history.
 --   V28/V29/V30/V31 (FEAT-pocket-buckit generalized membership: review_bucket_items.item_type
 --   + typed FKs + per-kind partial uniques, bucket_item_snapshots side-table, 들을 것 folded to
---   a kind='to_listen' system bucket) prod-live 2026-06-24. V20–V27 not separately backfilled
+--   a kind='to_listen' system bucket) prod-live 2026-06-24. V32 (My Buckit: review_buckets.type
+--   + review_bucket_items.artist_id + artist guards, FEAT-my-buckit-artist) prod-live 2026-06-30.
+--   V33 (track_lyrics) + V34 (tracks.isrc) (FEAT-lyrics-corpus Step 1) prod-live 2026-07-01.
+--   V35 (track_lyrics_translations, FEAT-lyrics-translation Step 1) prod-applied 2026-07-04.
+--   V20–V27 not separately backfilled
 --   here — see myblog_shared_db/migrations/ for the authoritative version-ordered set.
 -- NB — STAB-5 V13 renamed `categories`→`sections` and `posts.category_id`→`section_id`
 --   IN-PLACE (`ALTER TABLE ... RENAME`). Postgres carries constraints/indexes/FK across
@@ -215,6 +219,7 @@ CREATE TABLE IF NOT EXISTS tracks (
   spotify_id   TEXT        NOT NULL UNIQUE,
   views        INTEGER     NOT NULL DEFAULT 0,
   ext_refs     JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  isrc         TEXT,       -- V34: ISRC identity/version anchor — server-side matching evidence only (aliases/musicbrainz_id precedent, never public); no UNIQUE (optional, source gaps)
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_tracks_duration_nonneg CHECK (duration_sec IS NULL OR duration_sec >= 0),
   CONSTRAINT chk_tracks_trackno_pos     CHECK (track_no     IS NULL OR track_no     > 0),
@@ -321,7 +326,9 @@ CREATE TABLE IF NOT EXISTS review_buckets (
   kind       TEXT        NOT NULL DEFAULT 'review',                        -- V15: marks the single spotify_library bucket; V31: 'to_listen' system bucket (들을 것) — free TEXT, same idiom as 'spotify_library'
   research_mode TEXT     NOT NULL DEFAULT 'off'
                          CHECK (research_mode IN ('off', 'all', 'selected')),  -- V16: auto-research scope (FEAT-album-research-notes)
-  is_public  BOOLEAN     NOT NULL DEFAULT false                            -- V18: public bucket viewer opt-in (FEAT-public-bucket-multiuser)
+  is_public  BOOLEAN     NOT NULL DEFAULT false,                           -- V18: public bucket viewer opt-in (FEAT-public-bucket-multiuser)
+  type       TEXT        NOT NULL DEFAULT 'general'                        -- V32: General vs Artist Buckit (FEAT-my-buckit-artist); orthogonal to kind; immutable after create (app-layer)
+             CONSTRAINT ck_review_buckets_type CHECK (type IN ('general', 'artist'))
 );
 CREATE INDEX IF NOT EXISTS idx_review_buckets_parent_id ON review_buckets(parent_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_done
@@ -341,11 +348,12 @@ CREATE TABLE IF NOT EXISTS review_bucket_items (
   id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   bucket_id  UUID         NOT NULL REFERENCES review_buckets(id) ON DELETE CASCADE,
   album_id   UUID         REFERENCES albums(id) ON DELETE CASCADE,  -- V30: NOT NULL dropped (non-album kinds omit it)
-  item_type  TEXT         NOT NULL DEFAULT 'album'                  -- V28: typed membership discriminator
+  item_type  TEXT         NOT NULL DEFAULT 'album'                  -- V28: typed membership discriminator; V32 widened to admit 'artist'
              CONSTRAINT ck_review_bucket_items_item_type
-             CHECK (item_type IN ('album', 'track', 'review', 'playback', 'snapshot')),
+             CHECK (item_type IN ('album', 'track', 'review', 'playback', 'snapshot', 'artist')),
   track_id   UUID         REFERENCES tracks(id) ON DELETE CASCADE,  -- V28: target for item_type='track'
   review_target_id UUID   REFERENCES posts(id) ON DELETE CASCADE,   -- V28: target for item_type='review' (DISTINCT from post_id)
+  artist_id  UUID         REFERENCES artists(id) ON DELETE CASCADE, -- V32: target for item_type='artist' (Artist Buckit member)
   position   INTEGER      NOT NULL,
   note       TEXT,
   status     review_bucket_item_status NOT NULL DEFAULT 'candidate',
@@ -357,7 +365,14 @@ CREATE TABLE IF NOT EXISTS review_bucket_items (
   -- V30: album-kind rows must carry album_id (a NULL-album 'album' row would escape the
   -- partial unique below, since NULLs are distinct in a unique index).
   CONSTRAINT ck_review_bucket_items_album_id_present
-    CHECK (item_type <> 'album' OR album_id IS NOT NULL)
+    CHECK (item_type <> 'album' OR album_id IS NOT NULL),
+  -- V32: artist-kind rows must carry artist_id (mirrors the V30 album guard), and artist_id
+  -- may ONLY sit on an 'artist' row (inverse guard) — together with uq_review_bucket_items_artist
+  -- the no-duplicate-artist invariant is airtight at the schema level.
+  CONSTRAINT ck_review_bucket_items_artist_id_present
+    CHECK (item_type <> 'artist' OR artist_id IS NOT NULL),
+  CONSTRAINT ck_review_bucket_items_artist_id_only_on_artist
+    CHECK (item_type = 'artist' OR artist_id IS NULL)
 );
 CREATE INDEX IF NOT EXISTS idx_review_bucket_items_album_id  ON review_bucket_items(album_id);
 CREATE INDEX IF NOT EXISTS idx_review_bucket_items_bucket_id ON review_bucket_items(bucket_id);
@@ -373,6 +388,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_review_bucket_items_track
   ON review_bucket_items (bucket_id, track_id) WHERE item_type = 'track';
 CREATE UNIQUE INDEX IF NOT EXISTS uq_review_bucket_items_review
   ON review_bucket_items (bucket_id, review_target_id) WHERE item_type = 'review';
+-- V32: one artist per bucket (same kind-scoped partial-unique idiom as the V30 set).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_review_bucket_items_artist
+  ON review_bucket_items (bucket_id, artist_id) WHERE item_type = 'artist';
 
 -- =============================================================================
 -- Bucket Item Snapshots — frozen capture for snapshot-kind members (V29; OQ7)
@@ -585,9 +603,74 @@ CREATE TABLE IF NOT EXISTS track_genres (             -- override-only; row exis
 );
 
 -- =============================================================================
+-- Lyrics Corpus — track_lyrics (V33, FEAT-lyrics-corpus)
+-- Owner-only research data (album_research/aliases privacy precedent): NEVER joined into
+-- any public response, search index, bucket, post, or edge-cached response. Read leaves
+-- the server only via the JWT-gated GET /api/lyrics/{spotify_track_id} (FEAT-lyrics-viewer).
+-- Match-status lifecycle: matched | no_lyrics | not_found | ambiguous | review_required —
+-- only 'matched'/'no_lyrics' carry lyric_plain; evidence JSONB holds match evidence
+-- (artist resolution, normalized-title, duration tolerance, version tokens, ISRC/MB);
+-- matcher_version enables re-evaluation on matcher change.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS track_lyrics (
+  track_id        UUID        PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+  match_status    TEXT        NOT NULL,
+  evidence        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  lyric_plain     TEXT,       -- populated iff match_status ∈ ('matched','no_lyrics')
+  lyric_synced    TEXT,       -- LRC synced lyrics where the source has them
+  matcher_version TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_track_lyrics_match_status
+    CHECK (match_status IN ('matched', 'no_lyrics', 'not_found', 'ambiguous', 'review_required')),
+  CONSTRAINT ck_track_lyrics_lyric_on_resolved
+    CHECK (
+      (match_status IN ('matched', 'no_lyrics') AND lyric_plain IS NOT NULL)
+      OR (match_status NOT IN ('matched', 'no_lyrics') AND lyric_plain IS NULL)
+    )
+);
+
+-- =============================================================================
+-- Lyrics Translations — track_lyrics_translations (V35, FEAT-lyrics-translation)
+-- Korean translation store + request lifecycle for owner-designated lyrics tracks; one row
+-- per track, request and result in the same row. Derivative work of track_lyrics → same
+-- owner-only privacy bar. Lifecycle: requested | done | failed (pending = 'requested' AND
+-- claimed_at IS NULL — partial index below; local launchd poller claims via FOR UPDATE
+-- SKIP LOCKED + 20-min re-claim). Staleness is computed at READ time by comparing
+-- source_fingerprint against a fresh normalize — never stored as a flag.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS track_lyrics_translations (
+  track_id           UUID        PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+  status             TEXT        NOT NULL,
+  claimed_at         TIMESTAMPTZ,                     -- poller claim gate (20-min re-claim)
+  lang               TEXT        NOT NULL DEFAULT 'ko',
+  segments           JSONB,                           -- [{i, text_ko}], 1:1 with normalized source segments
+  source_fingerprint TEXT,                            -- sha256(normalizer_version + source segment texts)
+  normalizer_version INTEGER,                         -- lyrics_service NORMALIZER_VERSION at translation time
+  origin             TEXT,                            -- 'poller' | 'manual' (NULL until a result lands)
+  model              TEXT,                            -- e.g. 'sonnet'
+  translator_version TEXT,                            -- poller prompt/pipeline version
+  error              TEXT,                            -- failure reason on status='failed'
+  requested_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  translated_at      TIMESTAMPTZ,
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_track_lyrics_translations_status
+    CHECK (status IN ('requested', 'done', 'failed')),
+  CONSTRAINT ck_track_lyrics_translations_origin
+    CHECK (origin IS NULL OR origin IN ('poller', 'manual')),
+  CONSTRAINT ck_track_lyrics_translations_done_payload
+    CHECK (status <> 'done' OR (segments IS NOT NULL AND source_fingerprint IS NOT NULL))
+);
+
+-- The poller's "next pending request" lookup (V25 pending-index pattern).
+CREATE INDEX IF NOT EXISTS idx_track_lyrics_translations_pending
+  ON track_lyrics_translations (requested_at)
+  WHERE status = 'requested' AND claimed_at IS NULL;
+
+-- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
--- This file is current through V31. V1–V13 verified against prod 2026-06-08
+-- This file is current through V35. V1–V13 verified against prod 2026-06-08
 -- (categories→sections rename; see the section-rename note in the header for prod's
 -- legacy physical object names). V14 (spotify_recent_tracks) + V15 (spotify_library_albums
 -- + review_buckets.kind + 2 enums) backfilled from migration DDL 2026-06-09; V16
@@ -601,7 +684,11 @@ CREATE TABLE IF NOT EXISTS track_genres (             -- override-only; row exis
 -- typed FKs; bucket_item_snapshots side-table) + V30 (album_id NOT NULL dropped, per-kind
 -- partial uniques, ck_review_bucket_items_album_id_present) + V31 (들을 것 folded to a
 -- kind='to_listen' system bucket; album_to_listen_items retained as deprecated read-through)
--- prod-applied + Neon-prod-live 2026-06-24 (FEAT-pocket-buckit). V20–V27 are not separately
+-- prod-applied + Neon-prod-live 2026-06-24 (FEAT-pocket-buckit). V32 (review_buckets.type +
+-- review_bucket_items.artist_id + artist partial-unique/guards) prod-live 2026-06-30
+-- (FEAT-my-buckit-artist). V33 (track_lyrics) + V34 (tracks.isrc) prod-live 2026-07-01
+-- (FEAT-lyrics-corpus Step 1). V35 (track_lyrics_translations + pending partial index)
+-- prod-applied 2026-07-04 (FEAT-lyrics-translation Step 1). V20–V27 are not separately
 -- backfilled into this file — myblog_shared_db/migrations/ is the authoritative version set.
 -- Last full structural prod-verify 2026-06-05 (STAB-4).
 -- =============================================================================
