@@ -1,6 +1,6 @@
 ---
 name: wrap
-description: Session wrap — verify repo states, report unfinished work, write the next-session prompt, then auto-spawn the next session in a new terminal window
+description: Session wrap — verify repo states, report unfinished work, write the next-session prompt, then auto-spawn the next session in a new tab of the current terminal window
 disable-model-invocation: true
 ---
 
@@ -29,30 +29,32 @@ Write `~/.claude/myblog-next-session.md`, under 30 lines:
 - 2–3 sentence context recap (what just finished, what state the repos are in)
 - explicit task list for the next session, most important first
 - pointers: the plan.md row / RFC path / memory names the next session should load
+- MANDATORY final block — approval gate. The prompt must end with this instruction (verbatim, Korean), so the new session briefs first and only works after the user picks an option:
+
+  ```
+  ## 시작 규칙 (반드시 지킬 것)
+  위 작업을 바로 시작하지 마라. 먼저:
+  1. 위 작업 목록을 읽고, 각 작업을 무엇을/왜/어떻게 할지 한두 줄로 정리해 보여줘라.
+  2. AskUserQuestion 도구로 "어떤 작업부터 시작할까요?"를 물어라 — 선택지는 위 작업들(+ "다른 것 먼저"), 추천 항목을 1번에 둬라.
+  3. 사용자가 선택한 뒤에만 실제 작업을 시작해라. 선택 전에는 파일 수정/커밋/실행 금지.
+  ```
 
 ## 4. Spawn the next session (one-shot)
 
-Detect the environment and run exactly ONE of these:
+Run this EXACTLY ONCE, sandbox disabled (osascript automation needs it):
 
-- Inside tmux (`$TMUX` set):
-  ```bash
-  tmux new-window -c /Users/park_hyun/myblog-workspace 'claude "$(cat ~/.claude/myblog-next-session.md)"'
-  ```
-- iTerm2 (`$TERM_PROGRAM` = `iTerm.app`):
-  ```bash
-  osascript -e 'tell application "iTerm" to create window with default profile' \
-            -e 'tell current session of current window of application "iTerm" to write text "cd /Users/park_hyun/myblog-workspace && claude \"$(cat ~/.claude/myblog-next-session.md)\""'
-  ```
-- Terminal.app (default):
-  ```bash
-  osascript -e 'tell application "Terminal" to do script "cd /Users/park_hyun/myblog-workspace && claude \"$(cat ~/.claude/myblog-next-session.md)\""' \
-            -e 'tell application "Terminal" to activate'
-  ```
+```bash
+bash ~/.claude/skills/wrap/spawn-next-session.sh
+```
 
-The `$(cat …)` must reach the NEW shell unexpanded (single-quote the osascript args; escape inner quotes as `\"`), so the freshly written prompt is read at spawn time.
+The script opens a new TAB in the current terminal window (tmux window / iTerm tab / Terminal.app Cmd+T), starts `claude --dangerously-skip-permissions` with the prompt, and is idempotent: it writes a lock (`~/.claude/.wrap-spawn.lock`) keyed to the prompt file BEFORE spawning, so re-running it can never open a second tab for the same prompt.
 
-If the spawn fails (macOS automation consent denied, sandbox block): do NOT retry silently — print the exact one-line command for the user to paste into their shell, and say why it failed.
+HARD RULES — these prevent the duplicate-terminal bug:
+- Call the script exactly once per wrap. NEVER retry it, even if it errors — a window may already be open despite the error.
+- NEVER hand-compose tmux/osascript spawn commands yourself; the script is the only spawn path.
+- `ALREADY_SPAWNED` output means a session is already up — report that and stop.
+- `FAILED` output: relay the script's manual one-line command to the user verbatim, say why it failed, and stop.
 
 ## 5. Final line
 
-Tell the user: 새 창에서 다음 세션이 시작됐고, 이 세션은 닫아도 된다. (First-ever run may pop a macOS "Terminal을 제어하려고 합니다" consent — allow once, it's cached.)
+Tell the user: 같은 창의 새 탭에서 다음 세션이 시작됐고, 이 탭은 닫아도 된다. (First-ever run may pop macOS consent dialogs — 자동화(Terminal/iTerm 제어) and, for Terminal.app's Cmd+T keystroke, 손쉬운 사용(Accessibility) — allow once, it's cached.)
