@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FEAT-lyrics-translation Step 3 — launchd automation for the lyrics-translation poller.
+
+  Fires lyrics_translate_poller.py every 60 seconds (StartInterval — OQ1, owner-pinned).
+  Each run claims ONE pending track_lyrics_translations row (filled by the lyrics
+  viewer's 번역 요청 button), translates it line-by-line with Amazon Translate
+  (auto→ko, engine swap — see the poller header / RFC decisions log 2026-07-04),
+  then exits. With no pending request it exits in milliseconds (one Neon SELECT
+  against the pending partial index); launchd suppresses overlapping runs while a
+  translation is still going, so a >60s run is safe.
+
+  This is the LOCAL half of the GUI flow: the cloud endpoint only upserts the request
+  row; the MT calls run here on the owner's AWS credentials — no Lambda dependency,
+  no new secret (translate:TranslateText inline policy on claude_aws_manager).
+  boto3 resolves DATABASE_URL from SSM /myblog/backend. Uses the backend venv python
+  (needs the local myblog_backend checkout on merged main — fingerprint parity).
+
+  INSTALL (owner's machine):
+    cp scripts/com.myblog.lyrics-translate-poller.plist ~/Library/LaunchAgents/
+    launchctl load -w ~/Library/LaunchAgents/com.myblog.lyrics-translate-poller.plist
+
+  STATUS / LOGS:
+    launchctl list | grep lyrics-translate
+    tail -f ~/Library/Logs/myblog-lyrics-translate-poller.log
+
+  STOP (kill switch — requested rows stay inert; the viewer just shows 번역 요청 again):
+    launchctl unload -w ~/Library/LaunchAgents/com.myblog.lyrics-translate-poller.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.myblog.lyrics-translate-poller</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/park_hyun/myblog-workspace/myblog_backend/.venv/bin/python</string>
+        <string>/Users/park_hyun/myblog-workspace/scripts/lyrics_translate_poller.py</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/park_hyun</string>
+        <key>PATH</key>
+        <string>/Users/park_hyun/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- Fire every 60s (OQ1); each run claims one request then exits. -->
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/park_hyun/myblog-workspace</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-lyrics-translate-poller.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-lyrics-translate-poller.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>

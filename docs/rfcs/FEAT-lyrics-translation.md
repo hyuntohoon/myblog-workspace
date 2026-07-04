@@ -12,9 +12,10 @@
 Owner-designated tracks gain a segment-aligned Korean translation, rendered in the existing
 lyrics viewer as a 원문+번역 toggle. The flow is fully GUI-driven: a **번역 요청** button in the
 viewer enqueues a request row; a **local launchd poller** (genre-heal-poller pattern) claims it
-and runs `claude -p --model sonnet` on the owner's subscription; the next viewer open shows the
-translation. No terminal step, no new AWS infra, no API key, and no synchronous LLM call in any
-user-facing endpoint (rule #9 spirit). Translations carry the corpus's owner-only privacy bar —
+and translates line-by-line with **Amazon Translate** on the owner's AWS credentials (engine
+swapped from `claude -p` 2026-07-04 — decisions log); the next viewer open shows the
+translation. No terminal step, no new AWS infra, no new secret, and no synchronous MT/LLM call
+in any user-facing endpoint (rule #9 spirit). Translations carry the corpus's owner-only privacy bar —
 as derivative works they are *more* copyright-sensitive than the originals, never less.
 
 ## Non-goals
@@ -31,8 +32,11 @@ as derivative works they are *more* copyright-sensitive than the originals, neve
 - **LLM in Lambda / a new secret.** The worker gains no Anthropic dependency; no SSM key is
   provisioned. `claude -p` runs only on the owner's machine (same boundary as genre backfill /
   research notes).
-- **MT libraries / translation APIs** (DeepL, Google Translate, Argos…). Engine is the Claude
-  model itself — decision log 2026-07-04.
+- **MT libraries / non-AWS translation APIs** (DeepL, Papago, Google Translate, Argos…). The
+  engine was originally the Claude model itself; after headless `claude -p` proved unusable
+  (copyright refusal — decisions log 2026-07-04) the engine moved to **Amazon Translate**
+  (existing AWS credentials, no new signup/secret). Other MT providers stay out of scope
+  unless the pilot gate fails on Amazon Translate quality.
 - **Other target languages**, interpretation / slang / per-line commentary (still a separate
   future RFC), auto re-translation on staleness, and any change to `track_lyrics` or the
   matcher.
@@ -84,16 +88,15 @@ as derivative works they are *more* copyright-sensitive than the originals, neve
   with `text_ko` omitted).
 - **Poller**: `scripts/lyrics_translate_poller.py` + `com.myblog.lyrics-translate-poller.plist`
   (launchd `--once`, **60s `StartInterval`** — a no-pending run is one Neon connection + one
-  SELECT, exiting in ms; effective designate→readable latency ≈ 1.5–2 min, floored by the
-  ~30s translation itself) — claim one pending row → load `track_lyrics` → normalize with the SAME
-  `normalize_lyrics` imported from the local `myblog_backend` checkout (fingerprint parity by
-  construction) → numbered non-gap lines → one `claude -p --model sonnet` call demanding a JSON
-  array of exactly N strings (line-faithful, no commentary, repetitions repeated identically,
-  explicitness/profanity preserved at source register) → validate length (1 retry, then
-  `failed` + `error`) → re-insert gaps → upsert `done` + fingerprint. Belt-and-suspenders
-  Korean guard: a Korean-dominant source (same Hangul-ratio heuristic as the viewer) is never
-  sent to the model — the row is closed as `failed` + `error='korean_source'` without an LLM
-  call.
+  SELECT, exiting in ms; effective designate→readable latency ≈ 1–2 min) — claim one pending
+  row → load `track_lyrics` → normalize with the SAME `normalize_lyrics` imported from the
+  local `myblog_backend` checkout (fingerprint parity by construction) → **per-line Amazon
+  Translate** (`auto`→`ko`, `Formality=INFORMAL` for lyric register; 1:1 alignment by
+  construction so no length validation; already-Korean lines pass through untouched) →
+  re-insert gaps → upsert `done` + fingerprint (`model='amazon.translate'`).
+  Belt-and-suspenders Korean guard: a Korean-dominant source (same Hangul-ratio heuristic as
+  the viewer) is never sent to the engine — the row is closed as `failed` +
+  `error='korean_source'` without an MT call.
 - **Viewer**: when `translation.status == 'done'` a 번역 toggle interleaves each `text_ko`
   dimmed under its original line (focus/nav unit stays the original segment — existing focus
   logic untouched); when `none`/`failed`/`stale` a 번역 요청 button fires the POST and flips to
@@ -145,8 +148,9 @@ curl "$APIGW/api/lyrics/<sid>" -H ... | jq .translation.status                  
 Step 2 endpoint (curl — steady-state stays GUI-only). **Pilot gate before calling the step
 done**: the first **15** poller-translated tracks are owner-audited in full; pass bar **≥90% of
 audited tracks with zero mistranslated lines** (denominator = the 15 audited tracks); the
-sample must include ≥3 non-English-source tracks (multilingual check at Sonnet tier). Fail →
-tune the prompt, reset rows to `requested`, repeat.
+sample must include ≥3 non-English-source tracks (multilingual check of the MT engine). Fail →
+tune engine settings or swap provider (Papago named fallback), reset rows to `requested`,
+repeat.
 
 **Verification**:
 ```
@@ -202,3 +206,4 @@ CDP: toggle renders text_ko under each line; focus nav unchanged; request button
 | 2026-07-04 | OQ2 resolved — pilot gate 15 tracks, ≥90% of audited tracks mistranslation-free (denominator = audited tracks), ≥3 non-English sources | 3 |
 | 2026-07-04 | Step 1 executed — shared_db #51 (`V35__track_lyrics_translations.sql` + `TrackLyricsTranslation`, tag `v0.27.0`), V35 prod-applied (owner-approved) | 1 |
 | 2026-07-04 | Step 2 executed — backend #99 (POST translation-request + additive `translation`/`text_ko` on the read; pin bump `v0.27.0`), ws #520 (JWT route + merged contract), front #229 (`api.gen.ts` regen). Route terraform-applied same day (1 add, 0 change/destroy; owner-approved in session). Prod smoke: full suite 28/0; GET unauth 401 / authed `translation:{status:"none"}`; POST unauth 401 / authed `requested` / idempotent; GET reflects `requested`; smoke row deleted (poller not yet deployed) | 2 |
+| 2026-07-04 | **Engine swapped Claude → Amazon Translate** (owner-approved). Headless `claude -p` consistently REFUSES full-lyrics translation on copyright grounds — sonnet (2 prompts + honest private-use context) and opus (same context) both; the in-session Berghain 43/43 evidence does not replicate headless, and prompt-engineering around a consistent principled refusal was ruled out. Amazon Translate chosen over DeepL/Papago: no new signup or secret (owner AWS creds + a `translate:TranslateText` inline policy on `claude_aws_manager`), per-line calls give 1:1 alignment by construction (length validation obsolete), 12-month free tier then ~$0.02/track. Quality bar unchanged — the 15-track pilot gate now audits MT output; Papago is the named fallback if it fails | 3 |
