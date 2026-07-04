@@ -83,7 +83,9 @@ as derivative works they are *more* copyright-sensitive than the originals, neve
   `text_ko` (populated only when `done` and the fingerprint matches; mismatch reads as `stale`
   with `text_ko` omitted).
 - **Poller**: `scripts/lyrics_translate_poller.py` + `com.myblog.lyrics-translate-poller.plist`
-  (launchd `--once`) — claim one pending row → load `track_lyrics` → normalize with the SAME
+  (launchd `--once`, **60s `StartInterval`** — a no-pending run is one Neon connection + one
+  SELECT, exiting in ms; effective designate→readable latency ≈ 1.5–2 min, floored by the
+  ~30s translation itself) — claim one pending row → load `track_lyrics` → normalize with the SAME
   `normalize_lyrics` imported from the local `myblog_backend` checkout (fingerprint parity by
   construction) → numbered non-gap lines → one `claude -p --model sonnet` call demanding a JSON
   array of exactly N strings (line-faithful, no commentary, repetitions repeated identically,
@@ -173,9 +175,11 @@ CDP: toggle renders text_ko under each line; focus nav unchanged; request button
 
 ## Open questions
 
-1. **Poller cadence** — 10 min proposed (genre-heal uses 30 min `--once`; translation is more
-   "waiting for it" shaped). Blocks Step 3 plist.
-2. **Pilot gate size** — 15 tracks / ≥90% proposed above; owner may resize. Blocks Step 3 done.
+1. ~~**Poller cadence**~~ — RESOLVED 2026-07-04 (owner): **60s `StartInterval`** (no-op runs
+   are ~free; latency floor is the ~30s translation, so designate→readable ≈ 1.5–2 min).
+2. ~~**Pilot gate size**~~ — RESOLVED 2026-07-04 (owner): **15 tracks**, pass ≥90% of audited
+   tracks with zero mistranslated lines (denominator = the 15 audited tracks), ≥3
+   non-English-source tracks included.
 3. ~~**Korean-dominant tracks**~~ — RESOLVED 2026-07-04 (owner): Korean lyrics need no
    translation. Viewer hides the request button on Korean-dominant tracks (Hangul-ratio
    heuristic); poller double-guards with a no-op `failed('korean_source')` close.
@@ -194,3 +198,5 @@ CDP: toggle renders text_ko under each line; focus nav unchanged; request button
 | 2026-07-04 | Manual override kept: `origin='manual'` rows written via owner-driven Claude session; poller overwrites them only on an explicit re-request | 0 |
 | 2026-07-04 | Status draft → **accepted** (explicit owner approval in-session: "이걸로 rfc 승격") | — |
 | 2026-07-04 | OQ3 resolved — Korean-dominant tracks are excluded: no request button in the viewer (Hangul-ratio heuristic) + poller no-op guard (`failed('korean_source')`); designated-only flow means nothing else auto-translates | 3, 4 |
+| 2026-07-04 | OQ1 resolved — poller cadence 60s `StartInterval` (owner wanted the shortest sensible; no-op runs cost one Neon SELECT, latency floor is the ~30s translation) | 3 |
+| 2026-07-04 | OQ2 resolved — pilot gate 15 tracks, ≥90% of audited tracks mistranslation-free (denominator = audited tracks), ≥3 non-English sources | 3 |
