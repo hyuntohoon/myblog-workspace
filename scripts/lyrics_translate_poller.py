@@ -167,8 +167,13 @@ def translate_lines(lines: list[str], target_lang: str) -> list[str]:
     Already-Korean lines pass through untouched (nothing to translate; also
     avoids auto-detect picking ko as both source and target). Formality
     INFORMAL keeps lyric register (반말) rather than 습니다-style prose.
+
+    A line whose detected language has no →ko pair (auto-detect can land on
+    Latin etc. for short interjections — LUX 'Porcelana' pilot) passes through
+    untranslated instead of failing the whole track.
     """
     import boto3
+    from botocore.exceptions import ClientError
 
     client = boto3.client("translate", region_name=REGION)
     out: list[str] = []
@@ -176,12 +181,21 @@ def translate_lines(lines: list[str], target_lang: str) -> list[str]:
         if hangul_ratio(ln) >= HANGUL_DOMINANT_RATIO:
             out.append(ln)
             continue
-        r = client.translate_text(
-            Text=ln,
-            SourceLanguageCode="auto",
-            TargetLanguageCode=target_lang,
-            Settings={"Formality": "INFORMAL"},
-        )
+        try:
+            r = client.translate_text(
+                Text=ln,
+                SourceLanguageCode="auto",
+                TargetLanguageCode=target_lang,
+                Settings={"Formality": "INFORMAL"},
+            )
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            if code in ("UnsupportedLanguagePairException",
+                        "DetectedLanguageLowConfidenceException"):
+                log.warning("line passthrough (%s): %r", code, ln[:60])
+                out.append(ln)
+                continue
+            raise
         out.append(r["TranslatedText"].strip() or ln)
     return out
 
