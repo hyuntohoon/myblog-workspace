@@ -1,6 +1,6 @@
 # FIX-lyrics-matcher-noise: matcher false-ambiguity source fixes (best-of OQ5 follow-on)
 
-- **Status**: draft
+- **Status**: in-progress
 - **Owner**: 박지훈
 - **Created**: 2026-07-04
 - **Plan row**: `plan.md` → FIX-lyrics-matcher-noise
@@ -170,19 +170,21 @@ identifiable via `matcher_version` and re-evaluated by reassessment on revert.
 
 ## Open questions
 
-1. **OQ1 — strip scope**: group-key only (most conservative; fixes false ambiguity but
-   NOT the 26-row `title_fuzzy_only`/`no_tier1_candidate` class) vs **full comparison
-   pipeline** (recommended — needed to touch the 26 rows; precision guarded by the
-   Step-1 probe + labelled gate). Blocks Step 1.
-2. **OQ2 — symmetric catalog-side strip**: candidate-only vs **both sides**
-   (recommended — feat-credit parity cuts both ways). Blocks Step 1.
-3. **OQ3 — precision gate**: proposed **≥90%** on a stratified n≥40 labelled sample of
-   *changed-outcome* rows (denominator stated above), mirroring best-of OQ1. Owner sets
-   the bar. Blocks Step 2 (merge gate).
-4. **OQ4 — `MATCHER_VERSION` value**: proposed `step3-v1`. Cosmetic; blocks nothing.
+All resolved 2026-07-04 (owner: "추천하는걸로 다하고" — recommendations adopted wholesale):
+
+1. **OQ1 — strip scope**: ~~group-key only vs full pipeline~~ → **full comparison
+   pipeline** (needed to touch the 26 rows; precision guarded by the Step-1 probe +
+   labelled gate).
+2. **OQ2 — symmetric catalog-side strip**: ~~candidate-only vs both sides~~ →
+   **both sides** (feat-credit parity cuts both ways).
+3. **OQ3 — precision gate**: **≥90%** on a stratified n≥40 labelled sample of
+   *changed-outcome* rows (denominator: the sampled changed-outcome rows). Merge gate
+   for Step 2.
+4. **OQ4 — `MATCHER_VERSION` value**: **`step3-v1`**.
 
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-07-04 | RFC drafted from best-of OQ5 (owner 2026-07-03: source fixes = separate follow-on RFC) — 3 fixes: `01 -` prefix strip, non-rendition parenthetical strip, `_richest`→version-agreeing representative; targets the 26 parked review rows + the ≈40:1 duplicate-noise inflow | 0 |
+| 2026-07-04 | Owner decisions (explicit in-session: "추천하는걸로 다하고 승격 및 모든 step 다 작업하고 머지하자"): OQ1 **full comparison pipeline**, OQ2 **symmetric both-side strip**, OQ3 gate **≥90%** (changed-outcome sample n≥40), OQ4 `step3-v1`. Status draft → **accepted** → **in-progress** (single-session all-steps run + merge pre-approved — rule #4/#5/#7 explicit opt-in) | 0 |
