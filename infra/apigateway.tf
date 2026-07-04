@@ -345,6 +345,20 @@ resource "aws_apigatewayv2_route" "lyrics_get" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Lyrics translation request (FEAT-lyrics-translation Step 2) ---
+# POST /api/lyrics/{spotify_track_id}/translation-request upserts a 'requested' row the
+# local launchd poller claims — no LLM call in the Lambda (rule #9 spirit). Translations
+# are derivative works of track_lyrics and inherit the same owner-only privacy bar, so
+# this is its OWN explicit Cognito-JWT route like lyrics_get. Until applied, the POST
+# 404s at the edge (reference-apigateway-post-route-required).
+resource "aws_apigatewayv2_route" "lyrics_translation_request_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/lyrics/{spotify_track_id}/translation-request"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;
