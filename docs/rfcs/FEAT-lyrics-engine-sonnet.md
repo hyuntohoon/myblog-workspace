@@ -1,6 +1,6 @@
 # FEAT-lyrics-engine-sonnet: swap the translation poller engine Amazon Translate → Claude Sonnet
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-07-05
 - **Plan row**: `plan.md` → FEAT-lyrics-engine-sonnet
