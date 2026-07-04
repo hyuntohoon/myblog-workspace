@@ -88,11 +88,16 @@ as derivative works they are *more* copyright-sensitive than the originals, neve
   construction) → numbered non-gap lines → one `claude -p --model sonnet` call demanding a JSON
   array of exactly N strings (line-faithful, no commentary, repetitions repeated identically,
   explicitness/profanity preserved at source register) → validate length (1 retry, then
-  `failed` + `error`) → re-insert gaps → upsert `done` + fingerprint.
+  `failed` + `error`) → re-insert gaps → upsert `done` + fingerprint. Belt-and-suspenders
+  Korean guard: a Korean-dominant source (same Hangul-ratio heuristic as the viewer) is never
+  sent to the model — the row is closed as `failed` + `error='korean_source'` without an LLM
+  call.
 - **Viewer**: when `translation.status == 'done'` a 번역 toggle interleaves each `text_ko`
   dimmed under its original line (focus/nav unit stays the original segment — existing focus
   logic untouched); when `none`/`failed`/`stale` a 번역 요청 button fires the POST and flips to
-  a passive 요청됨 state; `requested` shows 요청됨.
+  a passive 요청됨 state; `requested` shows 요청됨. **Korean-dominant tracks get no request
+  button** (client-side Hangul-ratio heuristic over the non-gap segment text, ~≥50% → treated
+  as already-Korean; nothing to translate).
 
 ## Steps
 
@@ -171,8 +176,9 @@ CDP: toggle renders text_ko under each line; focus nav unchanged; request button
 1. **Poller cadence** — 10 min proposed (genre-heal uses 30 min `--once`; translation is more
    "waiting for it" shaped). Blocks Step 3 plist.
 2. **Pilot gate size** — 15 tracks / ≥90% proposed above; owner may resize. Blocks Step 3 done.
-3. **Korean-dominant tracks** — allow requesting anyway (owner curates) vs a soft warning in
-   the viewer before POSTing. Proposal: allow, no gate. Blocks nothing hard (Step 4 copy).
+3. ~~**Korean-dominant tracks**~~ — RESOLVED 2026-07-04 (owner): Korean lyrics need no
+   translation. Viewer hides the request button on Korean-dominant tracks (Hangul-ratio
+   heuristic); poller double-guards with a no-op `failed('korean_source')` close.
 4. **Later poller consolidation** — 4 launchd jobs now exist; folding lyrics translation into a
    single multi-queue poller is a possible later chore, out of scope here.
 
@@ -187,3 +193,4 @@ CDP: toggle renders text_ko under each line; focus nav unchanged; request button
 | 2026-07-04 | Storage = segment-aligned JSONB + read-time `source_fingerprint` staleness (stale → hidden + re-request); raw lyrics stay source of truth | 0 |
 | 2026-07-04 | Manual override kept: `origin='manual'` rows written via owner-driven Claude session; poller overwrites them only on an explicit re-request | 0 |
 | 2026-07-04 | Status draft → **accepted** (explicit owner approval in-session: "이걸로 rfc 승격") | — |
+| 2026-07-04 | OQ3 resolved — Korean-dominant tracks are excluded: no request button in the viewer (Hangul-ratio heuristic) + poller no-op guard (`failed('korean_source')`); designated-only flow means nothing else auto-translates | 3, 4 |
