@@ -1,6 +1,6 @@
 # FEAT-lyrics-auto-progression: Clock-based auto-advancing lyrics + Spotify-style redesign
 
-- **Status**: draft
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-04
 - **Plan row**: `plan.md` → FEAT-lyrics-auto-progression
@@ -121,8 +121,8 @@ Rewrite the `.lyv-*` CSS in `layout.css` (lines 529-701) and the JSX class wirin
 
 ## Open questions
 
-1. **Estimate loop cadence (Step 1).** `requestAnimationFrame` (~60Hz, paused on tab-hidden — most efficient, but computes every frame even when the line hasn't changed) vs a ~250ms `setInterval` (fewer computations, line-grain resolution is ~3-8s so 250ms is plenty). **Leans interval** (simpler, line-grain doesn't need 60Hz, easier to pause/resume). Blocks Step 1 implementation only — pick at step-time.
-2. **Prev/next buttons in the new rail (Step 1).** The redesign drops the dedicated prev/next rail in favor of the mode toggle. Manual nav remains via swipe/drag/tap/arrow-keys, but losing the explicit ↑/↓ buttons may hurt desktop discoverability. **Options**: (a) drop them entirely (cleanest, matches Spotify mobile which has no prev/next); (b) keep them but move them into a smaller secondary control. **Leans (a)** — Spotify's reference has no prev/next and swipe/keys cover it. Blocks Step 1/2 finalization — confirm at step-time.
+1. **Estimate loop cadence (Step 1).** **Resolved 2026-07-04 (Step 1): ~250ms `setInterval`.** Line-grain resolution is ~3-8s, so 250ms is plenty; `setInterval` is simpler to pause/resume (`document.hidden` + manual mode) than `requestAnimationFrame` and avoids computing every frame when the index hasn't changed. Landed as `ESTIMATE_INTERVAL_MS = 250` in `LyricsViewer.tsx`.
+2. **Prev/next buttons in the new rail (Step 1).** **Resolved 2026-07-04 (Step 1): dropped entirely (option a).** Manual nav stays via swipe/drag/tap/arrow-keys, matching Spotify mobile; the dedicated ↑/↓ rail is replaced by the auto/manual segmented toggle (`.lyv-mode` / `.lyv-mode-btn`).
 
 ## Decisions log
 
@@ -135,4 +135,7 @@ Filled in during execution.
 | 2026-07-04 | Background = real album cover as CSS `background-image` + `filter: blur()` (CORS-free), NOT `SubjectHero`'s hash-based fake hue and NOT canvas `getImageData` extraction | 0 |
 | 2026-07-04 | Visual direction = design preview "A" (Spotify full style: dark + album-blur + large sans-serif), owner-approved in session | 0 |
 | 2026-07-04 | D28 "position not exposed server-side" stays honored — position reaches the viewer only via the existing client-side one-shot REST read, never via server progress field or polling | 0 |
+| 2026-07-04 | RFC promoted to **accepted** (owner-approved in session); OQ1 → ~250ms `setInterval` (`ESTIMATE_INTERVAL_MS`), OQ2 → drop the prev/next rail (swipe/keys/tap cover manual nav) | 0→1 |
+| 2026-07-04 | Step 1 (clock-estimate engine + auto/manual) done (`c487933`): `mode` state (auto if `trackable`, else manual + toggle locked), `{ ms, wallMs }` anchor ref seeded from `initialProgressMs` and each re-sync, ~250ms loop advances `focus` via `focusIndexForMs()` only on index change, paused on `document.hidden`; manual nav (`moveFocusTo`) re-anchors against the jumped line's `start_ms` (drift correction); `↻` re-sync now seeds the continuous anchor instead of a one-shot focus. Plain-only rows degrade to manual-only. Verified: `pnpm lint` + `astro check` + `pnpm build` 0 errors | 1 |
 | 2026-07-04 | Step 2 (visual redesign) done: `.lyv-*` rewritten in `layout.css` — album-blur backdrop (`.lyv-bg` + `.lyv-bg-overlay`), always-dark viewer (site-theme-independent), large sans-serif 3-level typography (focus `clamp(34px,7vw,50px)`/700/white; near `clamp(24px,4.4vw,30px)`/600/70%-white; far `clamp(20px,3.6vw,26px)`/18%-white), strengthened dark fade masks, minimal chrome (eyebrow + ↻ + ✕; rail = mode toggle only). `coverUrl` state seeded from a new `initialAlbumCoverUrl` prop (passed via `LyricsOpenTarget` ← `readLivePlayback().albumCoverUrl`) and refreshed on each re-sync. `prefers-reduced-motion` honored; `focus-visible` outlines kept. No behavior change. Verified: `pnpm lint` + `astro check` + `pnpm build` 0 errors | 2 |
+| 2026-07-04 | Steps 1+2 merged as front #231 (`4200877`, squash). Both steps shipped in a single PR per owner decision. RFC Status → **done** (all steps merged, no remaining work). plan.md row marks done | 1+2 |
