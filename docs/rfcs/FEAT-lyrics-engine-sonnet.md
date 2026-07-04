@@ -1,6 +1,6 @@
 # FEAT-lyrics-engine-sonnet: swap the translation poller engine Amazon Translate → Claude Sonnet
 
-- **Status**: accepted
+- **Status**: in-progress
 - **Owner**: 박지훈
 - **Created**: 2026-07-05
 - **Plan row**: `plan.md` → FEAT-lyrics-engine-sonnet
@@ -181,3 +181,4 @@ pipeline involved — the poller runs from the local checkout on merged `main`).
 | Date | Decision | Step |
 | ---- | -------- | ---- |
 | 2026-07-05 | RFC drafted from the 2026-07-04 LUX benchmark (15/15 PASS headless — prompt shape, not headless-ness, caused the 07-04 refusals). Engine = Sonnet (owner: "sonnet으로 가자"); failure policy = failed-marking only, **no Amazon fallback** (owner-selected); backfill = all 13 existing rows (owner-selected) | — |
+| 2026-07-05 | Status → accepted (owner-approved in session, ws #529), then Step 1 built same session (owner: "Step 1 진행"). Poller engine swapped to `claude -p --model sonnet`; local verification: offline engine-path harness 5/5 (fake CLI: ok/out-of-order/fence/empty-ko, count-mismatch retry→terminal, refusal prose, exit-1 transient), forced-failure check PASS (bogus alias → claim kept, row untouched), 2-pilot re-request `--drain` PASS (Mundo Nuevo 8 lines 15.0s, Porcelana 75 lines 37.4s → `done\|claude.sonnet\|v2`, segment/gap/fingerprint parity vs pre-state dump, authed prod GET attaches all `text_ko`) | 1 |
