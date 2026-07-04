@@ -1,6 +1,6 @@
 # FEAT-lyrics-engine-sonnet: swap the translation poller engine Amazon Translate → Claude Sonnet
 
-- **Status**: in-progress
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-05
 - **Plan row**: `plan.md` → FEAT-lyrics-engine-sonnet
@@ -183,3 +183,4 @@ pipeline involved — the poller runs from the local checkout on merged `main`).
 | 2026-07-05 | RFC drafted from the 2026-07-04 LUX benchmark (15/15 PASS headless — prompt shape, not headless-ness, caused the 07-04 refusals). Engine = Sonnet (owner: "sonnet으로 가자"); failure policy = failed-marking only, **no Amazon fallback** (owner-selected); backfill = all 13 existing rows (owner-selected) | — |
 | 2026-07-05 | Status → accepted (owner-approved in session, ws #529), then Step 1 built same session (owner: "Step 1 진행"). Poller engine swapped to `claude -p --model sonnet`; local verification: offline engine-path harness 5/5 (fake CLI: ok/out-of-order/fence/empty-ko, count-mismatch retry→terminal, refusal prose, exit-1 transient), forced-failure check PASS (bogus alias → claim kept, row untouched), 2-pilot re-request `--drain` PASS (Mundo Nuevo 8 lines 15.0s, Porcelana 75 lines 37.4s → `done\|claude.sonnet\|v2`, segment/gap/fingerprint parity vs pre-state dump, authed prod GET attaches all `text_ko`) | 1 |
 | 2026-07-05 | Step 2 run same session (owner: "Step 2 진행"): `tools/lyrics_retranslate_backfill.py` (imports the Step-1 poller functions verbatim — no logic fork; per-track commit; UPDATE guarded by `status='done' AND model='amazon.translate'`). Pre-state dump `tools/out/retranslate_prestate_20260705-013142.json` → **11/11 PASS** (denominator = all 11 rows still `amazon.translate` at run start; ~25–65s/track, 0 refusals) → prod now **13/13 `done\|claude.sonnet\|v2`, 0 amazon rows**; authed prod GET spot check (Berghain 43/43 `text_ko`). Owner 3-track viewer spot-audit pending → close-out after | 2 |
+| 2026-07-05 | Owner 3-track viewer spot-audit **PASSED** (owner-confirmed in session) — the Step 2 success gate is fully met. Status → done; RFC archived to `docs/archive/done/rfcs/`, plan.md row dropped (close-out PR) | — |
