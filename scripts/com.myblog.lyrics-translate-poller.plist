@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  FEAT-lyrics-translation Step 3 — launchd automation for the lyrics-translation poller.
+  Launchd automation for the lyrics-translation poller (FEAT-lyrics-translation
+  Step 3; engine since FEAT-lyrics-engine-sonnet Step 1 = headless claude -p sonnet).
 
   Fires lyrics_translate_poller.py every 60 seconds (StartInterval — OQ1, owner-pinned).
   Each run claims ONE pending track_lyrics_translations row (filled by the lyrics
-  viewer's 번역 요청 button), translates it line-by-line with Amazon Translate
-  (auto→ko, engine swap — see the poller header / RFC decisions log 2026-07-04),
+  viewer's 번역 요청 button), translates it whole-lyric with headless
+  `claude -p --model sonnet` (see the poller header / docs/rfcs/FEAT-lyrics-engine-sonnet.md),
   then exits. With no pending request it exits in milliseconds (one Neon SELECT
   against the pending partial index); launchd suppresses overlapping runs while a
   translation is still going, so a >60s run is safe.
 
   This is the LOCAL half of the GUI flow: the cloud endpoint only upserts the request
-  row; the MT calls run here on the owner's AWS credentials — no Lambda dependency,
-  no new secret (translate:TranslateText inline policy on claude_aws_manager).
-  boto3 resolves DATABASE_URL from SSM /myblog/backend. Uses the backend venv python
+  row; the engine call runs here via the owner's claude subscription (the PATH below
+  must include the claude binary — ~/.local/bin). boto3 resolves DATABASE_URL from
+  SSM /myblog/backend (owner AWS creds). Uses the backend venv python
   (needs the local myblog_backend checkout on merged main — fingerprint parity).
 
   INSTALL (owner's machine):

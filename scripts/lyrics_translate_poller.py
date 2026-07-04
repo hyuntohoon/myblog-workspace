@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""FEAT-lyrics-translation Step 3 — local lyrics-translation poller.
+"""FEAT-lyrics-engine-sonnet Step 1 — local lyrics-translation poller.
 
 Drains `track_lyrics_translations(status='requested')` rows (filled by the lyrics
 viewer's 번역 요청 button via POST /api/lyrics/{sid}/translation-request) and
-translates each designated track line-by-line with **Amazon Translate**
-(auto→ko, Formality=INFORMAL) — the genre-heal/research poller claim pattern
+translates each designated track whole-lyric with headless
+**`claude -p --model sonnet`** (benchmark-frozen 의역 prompt, 1:1 line mapping,
+JSON-only output contract) — the genre-heal/research poller claim pattern
 (launchd fires it every 60s; claim via FOR UPDATE SKIP LOCKED + a 20-min
-claimed_at re-claim window). RFC: docs/rfcs/FEAT-lyrics-translation.md.
+claimed_at re-claim window). RFC: docs/rfcs/FEAT-lyrics-engine-sonnet.md.
 
-Engine note (decisions log 2026-07-04): the original engine, headless
-`claude -p --model sonnet`, consistently REFUSES full-lyrics translation on
-copyright grounds (sonnet and opus both, private-use context included) — the
-RFC's in-session engine evidence does not replicate headless. Engine swapped to
-Amazon Translate: per-line calls give 1:1 segment alignment by construction (no
-length validation needed), the existing owner AWS credentials cover auth (no
-new secret), and cost is ~$0.02/track after the 12-month free tier. Quality is
-re-validated by the Step 3 pilot gate (15 tracks, ≥90% mistranslation-free).
+Engine history:
+  - Original plan (FEAT-lyrics-translation): `claude -p` — dropped 2026-07-04
+    after headless refusals on copyright grounds (sonnet AND opus).
+  - v1 shipped: per-line Amazon Translate (auto→ko, Formality=INFORMAL) —
+    FEAT-lyrics-translation decisions log 2026-07-04.
+  - v2 (this file): back to `claude -p --model sonnet`. The 2026-07-04 LUX
+    benchmark (5 tracks × opus/sonnet/haiku, 194 non-gap lines) ran 15/15 PASS
+    with 0 refusals — the earlier refusal keyed on PROMPT SHAPE (의역 framing +
+    numbered lines + JSON-only output passes), not on headless-ness. Owner
+    decision 2026-07-05: Sonnet, NO Amazon fallback — terminal engine failures
+    are marked visibly (`failed`); transient CLI failures (session limit,
+    timeout) leave the claim in place so the stale-claim window retries.
 
 Fingerprint parity by construction: this script imports `normalize_lyrics` +
 `compute_source_fingerprint` from the LOCAL myblog_backend checkout, so the
@@ -25,18 +30,21 @@ fingerprint stored at translate time equals what the read path re-derives in
 
 Flow per claimed row:
   load track_lyrics → normalize (same code as the read) → Korean-dominant guard
-  (nothing to translate; closed as failed('korean_source')) → per-line Amazon
-  Translate (already-Korean lines pass through untouched) → re-insert gaps as ""
-  → upsert done + fingerprint (origin='poller').
+  (nothing to translate; closed as failed('korean_source')) → one `claude -p`
+  call over all non-gap lines (already-Korean lines come back verbatim per the
+  prompt contract) → validate JSON/count/index alignment (retry once) →
+  re-insert gaps as "" → upsert done + fingerprint (origin='poller').
 
-REQUIRES the backend venv (psycopg v3 + boto3 + the shared_db pin) and
-`translate:TranslateText` on the local AWS identity (claude_aws_manager inline
-policy — console-managed, like claude-ssm-myblog):
+REQUIRES the backend venv (psycopg v3 + boto3 for SSM + the shared_db pin) and
+the `claude` CLI on PATH (owner subscription; the launchd plist puts
+~/.local/bin on PATH):
 
     myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py           # one row
     myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py --drain   # until empty
 
-Env: DATABASE_URL overrides; else resolved from SSM /myblog/backend (owner AWS creds).
+Env: DATABASE_URL overrides; else resolved from SSM /myblog/backend (owner AWS
+creds). LYRICS_CLAUDE_MODEL overrides the CLI model alias — test hook only
+(a bogus alias exercises the transient-failure/claim-kept path end-to-end).
 """
 from __future__ import annotations
 
@@ -45,6 +53,8 @@ import json
 import logging
 import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -66,11 +76,23 @@ from app.services.lyrics_service import (  # noqa: E402
 
 REGION = "ap-northeast-2"
 SSM_PARAM = "/myblog/backend"          # SecureString JSON holding DATABASE_URL
-MT_MODEL = "amazon.translate"          # `model` column value — decisions log 2026-07-04
-TRANSLATOR_VERSION = "v1"              # bump on any engine/pipeline change
+MT_MODEL = "claude.sonnet"             # `model` column value — RFC provenance section
+TRANSLATOR_VERSION = "v2"              # bump on any engine/pipeline change
+ENGINE_CLI_MODEL = os.environ.get("LYRICS_CLAUDE_MODEL", "sonnet")  # CLI alias (OQ2: unpinned)
+ENGINE_TIMEOUT_S = 300                 # per-track subprocess ceiling (bench max 43s @ 75 lines)
 STALE_CLAIM = "20 minutes"             # crash-recovery re-claim window
 HANGUL_DOMINANT_RATIO = 0.5            # viewer heuristic mirror (OQ3)
 INTER_RUN_SLEEP_S = 5                  # serial spacing in --drain mode
+
+# Benchmark-frozen 의역 prompt (RFC Target state — verbatim; 15/15 PASS 2026-07-04).
+# Tuning it is a future change that bumps TRANSLATOR_VERSION.
+PROMPT_HEADER = (
+    "각 줄을 한국어로 **의역**해줘 — 축자적 직역이 아니라, 글의 정서와 핵심 의미를 자연스러운\n"
+    "한국어로 옮겨. 단 반드시 원문 1줄 ↔ 번역 1줄로 대응시켜(줄 합치기·재배치·삭제 금지).\n"
+    "이미 한국어인 줄은 그대로 둬. 출력은 오직 JSON 배열만, 설명 금지:\n"
+    '[{"i":<원문 줄번호>,"ko":"<의역>"}]. 원문:\n'
+    "---\n"
+)
 
 
 # --- secrets / db -----------------------------------------------------------
@@ -160,44 +182,82 @@ def hangul_ratio(text: str) -> float:
     return hangul / len(letters)
 
 
-# --- engine: Amazon Translate --------------------------------------------------
-def translate_lines(lines: list[str], target_lang: str) -> list[str]:
-    """Per-line Amazon Translate — 1:1 alignment by construction.
+# --- engine: headless claude -p (Sonnet) ----------------------------------------
+class TransientEngineError(RuntimeError):
+    """CLI-level failure (non-zero exit / timeout / missing binary) — the claim
+    is left in place so the 20-min stale-claim window retries automatically
+    (session budget exhaustion is self-healing, not a translation verdict)."""
 
-    Already-Korean lines pass through untouched (nothing to translate; also
-    avoids auto-detect picking ko as both source and target). Formality
-    INFORMAL keeps lyric register (반말) rather than 습니다-style prose.
 
-    A line whose detected language has no →ko pair (auto-detect can land on
-    Latin etc. for short interjections — LUX 'Porcelana' pilot) passes through
-    untranslated instead of failing the whole track.
-    """
-    import boto3
-    from botocore.exceptions import ClientError
+class EngineValidationError(RuntimeError):
+    """The engine replied but the output failed the contract (refusal prose,
+    bad JSON, line-count or index-alignment break) — terminal after one retry."""
 
-    client = boto3.client("translate", region_name=REGION)
-    out: list[str] = []
-    for ln in lines:
-        if hangul_ratio(ln) >= HANGUL_DOMINANT_RATIO:
-            out.append(ln)
-            continue
-        try:
-            r = client.translate_text(
-                Text=ln,
-                SourceLanguageCode="auto",
-                TargetLanguageCode=target_lang,
-                Settings={"Formality": "INFORMAL"},
-            )
-        except ClientError as e:
-            code = e.response.get("Error", {}).get("Code", "")
-            if code in ("UnsupportedLanguagePairException",
-                        "DetectedLanguageLowConfidenceException"):
-                log.warning("line passthrough (%s): %r", code, ln[:60])
-                out.append(ln)
-                continue
-            raise
-        out.append(r["TranslatedText"].strip() or ln)
-    return out
+
+def _extract_json_array(stdout: str) -> str | None:
+    """Bench-scorer extraction: strip an optional ```fence```, then take the
+    outermost `[`..`]` span. Refusal prose has no array and returns None."""
+    text = stdout.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    start, end = text.find("["), text.rfind("]")
+    if start == -1 or end <= start:
+        return None
+    return text[start : end + 1]
+
+
+def _claude_translate_once(lines: list[str]) -> list[str]:
+    """One `claude -p --model sonnet` call over ALL non-gap lines; returns the
+    translations in input order. Raises TransientEngineError (claim kept) or
+    EngineValidationError (retried once by the caller)."""
+    claude_bin = shutil.which("claude")
+    if claude_bin is None:
+        raise TransientEngineError("claude CLI not on PATH")
+    prompt = PROMPT_HEADER + "\n".join(f"{n}: {ln}" for n, ln in enumerate(lines, 1))
+    try:
+        proc = subprocess.run(
+            [claude_bin, "-p", "--model", ENGINE_CLI_MODEL],
+            input=prompt, capture_output=True, text=True, timeout=ENGINE_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        raise TransientEngineError(f"engine timeout >{ENGINE_TIMEOUT_S}s") from None
+    if proc.returncode != 0:
+        detail = (proc.stderr.strip() or proc.stdout.strip())[:200]
+        raise TransientEngineError(f"claude exit {proc.returncode}: {detail}")
+
+    head = proc.stdout.strip()[:200]  # diagnostic capture (refusal prose lands here)
+    raw = _extract_json_array(proc.stdout)
+    if raw is None:
+        raise EngineValidationError(f"no JSON array in output: {head}")
+    try:
+        items = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise EngineValidationError(f"bad JSON ({e}): {head}") from None
+    if not isinstance(items, list) or len(items) != len(lines):
+        got = len(items) if isinstance(items, list) else type(items).__name__
+        raise EngineValidationError(f"line count {got} != {len(lines)}: {head}")
+    ko_by_n: dict[int, str] = {}
+    for it in items:
+        if not (isinstance(it, dict) and isinstance(it.get("i"), int)
+                and isinstance(it.get("ko"), str)):
+            raise EngineValidationError(f"bad item shape {it!r:.80}: {head}")
+        ko_by_n[it["i"]] = it["ko"]
+    if set(ko_by_n) != set(range(1, len(lines) + 1)):
+        raise EngineValidationError(f"index set != 1..{len(lines)}: {head}")
+    # Empty translation falls back to the source line (mirrors the v1 behavior;
+    # "" is the stored-gap sentinel and must not appear for a non-gap line).
+    return [ko_by_n[n].strip() or lines[n - 1] for n in range(1, len(lines) + 1)]
+
+
+def claude_translate(lines: list[str]) -> list[str]:
+    """Engine call with the RFC failure policy: validation failure retries the
+    call once; TransientEngineError propagates immediately (claim kept)."""
+    try:
+        return _claude_translate_once(lines)
+    except EngineValidationError as e:
+        log.warning("engine validation failed, retrying once: %s", e)
+        return _claude_translate_once(lines)
 
 
 # --- orchestration ------------------------------------------------------------
@@ -233,15 +293,31 @@ def process_one(conn) -> bool:
         joined = " ".join(s.text for s in non_gap)
         if hangul_ratio(joined) >= HANGUL_DOMINANT_RATIO:
             mark_failed(conn, track_id, "korean_source")
-            log.info("row %s Korean-dominant (%.0f%%) — closed without MT call",
+            log.info("row %s Korean-dominant (%.0f%%) — closed without engine call",
                      track_id, hangul_ratio(joined) * 100)
+            return True
+
+        if target_lang != "ko":
+            # The frozen prompt translates into Korean only (viewer only requests ko).
+            mark_failed(conn, track_id, f"unsupported_target_lang: {target_lang}")
+            log.warning("row %s target lang %r unsupported — failed", track_id, target_lang)
             return True
 
         log.info("claimed %s — %s / %s (%d lines, %d segments)",
                  track_id, src["title"], ", ".join(src["artists"]), len(non_gap),
                  len(out.segments))
         t0 = time.monotonic()
-        texts_ko = translate_lines([s.text for s in non_gap], target_lang)
+        try:
+            texts_ko = claude_translate([s.text for s in non_gap])
+        except TransientEngineError as e:
+            # NOT a translation verdict — leave the claim in place; the 20-min
+            # stale-claim window retries on a later cycle (RFC failure policy).
+            log.warning("transient engine failure on %s — claim kept: %s", track_id, e)
+            return True
+        except EngineValidationError as e:
+            mark_failed(conn, track_id, f"engine_validation: {e}")
+            log.error("engine validation FAILED %s (both attempts): %s", track_id, e)
+            return True
         dt = time.monotonic() - t0
 
         ko_by_i = {s.i: t for s, t in zip(non_gap, texts_ko)}
@@ -258,7 +334,7 @@ def process_one(conn) -> bool:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Local lyrics-translation poller (Step 3).")
+    ap = argparse.ArgumentParser(description="Local lyrics-translation poller (engine: claude -p sonnet).")
     ap.add_argument("--drain", action="store_true",
                     help="process rows until the queue is empty (default: one row, exit)")
     args = ap.parse_args()
