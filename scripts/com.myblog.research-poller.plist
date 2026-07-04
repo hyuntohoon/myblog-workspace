@@ -53,7 +53,7 @@
     <key>StartInterval</key>
     <integer>1800</integer>
 
-    <!-- Run once at load so it doesn't wait 5 min for the first drain. -->
+    <!-- Run once at load so it doesn't wait 30 min for the first drain. -->
     <key>RunAtLoad</key>
     <true/>
 

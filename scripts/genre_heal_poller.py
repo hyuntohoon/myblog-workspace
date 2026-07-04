@@ -6,7 +6,7 @@ Drains the genre_backfill_requests queue (filled by the /profile 분석 버킷
     backfill_genres.py --incremental --label --execute   (S1 mapping → S2 iTunes → S3 LLM)
 — the SAME pipeline as the daily 04:00 launchd, just triggered by the web button.
 
-Mirrors research_poller: launchd fires it `--once` every 5 min; it claims any pending
+Mirrors research_poller: launchd fires it `--once` every 30 min; it claims any pending
 request (single-flight via FOR UPDATE SKIP LOCKED + the claimed_at gate), stamps
 claimed_at, runs the backfill, stamps finished_at, exits. The S3 LLM (`claude -p`) runs
 HERE on the owner's Max subscription — never in the cloud (the backend endpoint only
