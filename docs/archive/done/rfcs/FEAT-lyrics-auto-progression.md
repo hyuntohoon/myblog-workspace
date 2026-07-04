@@ -1,6 +1,6 @@
 # FEAT-lyrics-auto-progression: Clock-based auto-advancing lyrics + Spotify-style redesign
 
-- **Status**: done
+- **Status**: done (2026-07-04 — Steps 1+2 shipped in a single PR, front #231; prod-smoked 28/0)
 - **Owner**: 박지훈
 - **Created**: 2026-07-04
 - **Plan row**: `plan.md` → FEAT-lyrics-auto-progression
@@ -139,3 +139,4 @@ Filled in during execution.
 | 2026-07-04 | Step 1 (clock-estimate engine + auto/manual) done (`c487933`): `mode` state (auto if `trackable`, else manual + toggle locked), `{ ms, wallMs }` anchor ref seeded from `initialProgressMs` and each re-sync, ~250ms loop advances `focus` via `focusIndexForMs()` only on index change, paused on `document.hidden`; manual nav (`moveFocusTo`) re-anchors against the jumped line's `start_ms` (drift correction); `↻` re-sync now seeds the continuous anchor instead of a one-shot focus. Plain-only rows degrade to manual-only. Verified: `pnpm lint` + `astro check` + `pnpm build` 0 errors | 1 |
 | 2026-07-04 | Step 2 (visual redesign) done: `.lyv-*` rewritten in `layout.css` — album-blur backdrop (`.lyv-bg` + `.lyv-bg-overlay`), always-dark viewer (site-theme-independent), large sans-serif 3-level typography (focus `clamp(34px,7vw,50px)`/700/white; near `clamp(24px,4.4vw,30px)`/600/70%-white; far `clamp(20px,3.6vw,26px)`/18%-white), strengthened dark fade masks, minimal chrome (eyebrow + ↻ + ✕; rail = mode toggle only). `coverUrl` state seeded from a new `initialAlbumCoverUrl` prop (passed via `LyricsOpenTarget` ← `readLivePlayback().albumCoverUrl`) and refreshed on each re-sync. `prefers-reduced-motion` honored; `focus-visible` outlines kept. No behavior change. Verified: `pnpm lint` + `astro check` + `pnpm build` 0 errors | 2 |
 | 2026-07-04 | Steps 1+2 merged as front #231 (`4200877`, squash). Both steps shipped in a single PR per owner decision. RFC Status → **done** (all steps merged, no remaining work). plan.md row marks done | 1+2 |
+| 2026-07-04 | Post-merge close-out: deploy run `28704710047` success; new bundle confirmed live (`collection.D4iALjeu.css` `.lyv-bg` ×4, `ProfileApp.CtLz5xxK.js` `initialAlbumCoverUrl`); prod smoke **28/0** quoted on #231. plan.md row dropped; RFC archived to `docs/archive/done/rfcs/` | 1+2 |
