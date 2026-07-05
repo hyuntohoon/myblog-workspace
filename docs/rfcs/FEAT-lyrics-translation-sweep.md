@@ -1,6 +1,6 @@
 # FEAT-lyrics-translation-sweep: Auto-queue lyrics translation for research-note albums
 
-- **Status**: draft
+- **Status**: in-progress
 - **Owner**: 박지훈
 - **Created**: 2026-07-05
 - **Plan row**: `plan.md` → FEAT-lyrics-translation-sweep

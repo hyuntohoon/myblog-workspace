@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """FEAT-lyrics-engine-sonnet Step 1 — local lyrics-translation poller.
 
-Drains `track_lyrics_translations(status='requested')` rows (filled by the lyrics
-viewer's 번역 요청 button via POST /api/lyrics/{sid}/translation-request) and
-translates each designated track whole-lyric with headless
+Drains `track_lyrics_translations(status='requested')` rows — filled by the
+lyrics viewer's 번역 요청 button (POST /api/lyrics/{sid}/translation-request)
+and, since FEAT-lyrics-translation-sweep, by a state-based sweep that runs at
+the start of every firing: any track on an `album_research` album with viewable
+matched lyrics and no translation row yet is INSERTed as `requested` (idempotent
+— existing rows of any status are never touched). Each claimed track is
+translated whole-lyric with headless
 **`claude -p --model sonnet`** (benchmark-frozen 의역 prompt, 1:1 line mapping,
 JSON-only output contract) — the genre-heal/research poller claim pattern
 (launchd fires it every 60s; claim via FOR UPDATE SKIP LOCKED + a 20-min
@@ -39,8 +43,9 @@ REQUIRES the backend venv (psycopg v3 + boto3 for SSM + the shared_db pin) and
 the `claude` CLI on PATH (owner subscription; the launchd plist puts
 ~/.local/bin on PATH):
 
-    myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py           # one row
-    myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py --drain   # until empty
+    myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py               # one firing: sweep + up to BATCH_PER_RUN rows
+    myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py --drain       # sweep + rows until empty
+    myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py --sweep-only  # sweep only, no claims (dry observation)
 
 Env: DATABASE_URL overrides; else resolved from SSM /myblog/backend (owner AWS
 creds). LYRICS_CLAUDE_MODEL overrides the CLI model alias — test hook only
@@ -82,7 +87,8 @@ ENGINE_CLI_MODEL = os.environ.get("LYRICS_CLAUDE_MODEL", "sonnet")  # CLI alias 
 ENGINE_TIMEOUT_S = 300                 # per-track subprocess ceiling (bench max 43s @ 75 lines)
 STALE_CLAIM = "20 minutes"             # crash-recovery re-claim window
 HANGUL_DOMINANT_RATIO = 0.5            # viewer heuristic mirror (OQ3)
-INTER_RUN_SLEEP_S = 5                  # serial spacing in --drain mode
+INTER_RUN_SLEEP_S = 5                  # serial spacing between claims
+BATCH_PER_RUN = 5                      # claims per non-drain firing (sweep RFC OQ1: drop to 2-3 if Max sessions throttle)
 
 # Benchmark-frozen 의역 prompt (RFC Target state — verbatim; 15/15 PASS 2026-07-04).
 # Tuning it is a future change that bumps TRANSLATOR_VERSION.
@@ -115,6 +121,37 @@ def connect():
 
     # connect_timeout=30 absorbs Neon cold-start (reference-database-url-psql).
     return psycopg.connect(database_url(), connect_timeout=30, row_factory=dict_row)
+
+
+# --- sweep (FEAT-lyrics-translation-sweep) ------------------------------------
+# The lyrics-body predicate mirrors normalize_lyrics availability=="ok" exactly
+# (matched + non-blank synced or plain), so the sweep can never enqueue a track
+# the claim path would reject as untranslatable. NOT EXISTS + ON CONFLICT DO
+# NOTHING = never touch existing rows (done/failed/requested, any origin).
+SWEEP_SQL = """
+INSERT INTO track_lyrics_translations (track_id, status)
+SELECT t.id, 'requested'
+FROM tracks t
+JOIN track_lyrics tl ON tl.track_id = t.id
+WHERE tl.match_status = 'matched'
+  AND (btrim(coalesce(tl.lyric_synced, '')) <> ''
+       OR btrim(coalesce(tl.lyric_plain, '')) <> '')
+  AND EXISTS (SELECT 1 FROM album_research ar WHERE ar.album_id = t.album_id)
+  AND NOT EXISTS (SELECT 1 FROM track_lyrics_translations x WHERE x.track_id = t.id)
+ON CONFLICT (track_id) DO NOTHING;
+"""
+
+
+def sweep(conn) -> int:
+    """Derive the queue from state: enqueue every research-album track with
+    viewable lyrics and no translation row. Returns the number inserted."""
+    with conn.cursor() as cur:
+        cur.execute(SWEEP_SQL)
+        inserted = cur.rowcount
+    conn.commit()
+    if inserted > 0:
+        log.info("sweep enqueued %d track(s) for translation", inserted)
+    return inserted
 
 
 # --- claim / writeback ------------------------------------------------------
@@ -335,18 +372,29 @@ def process_one(conn) -> bool:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Local lyrics-translation poller (engine: claude -p sonnet).")
-    ap.add_argument("--drain", action="store_true",
-                    help="process rows until the queue is empty (default: one row, exit)")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--drain", action="store_true",
+                      help="process rows until the queue is empty "
+                           f"(default: one firing, up to {BATCH_PER_RUN} rows)")
+    mode.add_argument("--sweep-only", action="store_true",
+                      help="run the sweep, report the inserted count, exit without claiming")
     args = ap.parse_args()
 
     conn = connect()
     try:
-        handled = process_one(conn)
-        if not handled:
-            log.info("no pending translation request")
+        sweep(conn)
+        if args.sweep_only:
             return 0
-        while args.drain and process_one(conn):
-            time.sleep(INTER_RUN_SLEEP_S)
+        limit = None if args.drain else BATCH_PER_RUN
+        handled = 0
+        while limit is None or handled < limit:
+            if not process_one(conn):
+                break
+            handled += 1
+            if limit is None or handled < limit:
+                time.sleep(INTER_RUN_SLEEP_S)
+        if handled == 0:
+            log.info("no pending translation request")
     finally:
         conn.close()
     return 0
