@@ -13,6 +13,17 @@ locals {
   origin_req_policy_all_viewer = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
 }
 
+# --- Security response headers: DEFERRED (FIX-bug-audit-2026-07 WS-F) ---
+# Intended an aws_cloudfront_response_headers_policy (HSTS/XFO/nosniff/referrer/
+# permissions + report-only CSP) on the default behavior to close the XSS→
+# localStorage-token-theft chain. AWS rejected it at apply: this distribution is
+# on the CloudFront FREE pricing plan, where a custom response-headers policy is
+# a Business-tier feature — the SAME constraint that blocked custom cache policies
+# and ElastiCache (see the FEAT-music-edge-cache note below). On the Free plan the
+# only route to these headers is a viewer-response CloudFront Function, which runs
+# on every response and needs its own isolated verification before prod. Deferred
+# to a dedicated follow-up so it is not shipped untested in this batch.
+
 # --- FEAT-music-edge-cache Step 2 (Free-plan fallback, 2026-06-05) ---
 # The original design used a CUSTOM aws_cloudfront_cache_policy keyed on query
 # strings (so /search/unified?q=… and /artists/{id}/albums?offset=… could be

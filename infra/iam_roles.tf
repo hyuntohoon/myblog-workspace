@@ -44,28 +44,12 @@ resource "aws_iam_role_policy" "backend_s3" {
   })
 }
 
-resource "aws_iam_role_policy" "backend_ssm" {
-  name = "ssm"
-  role = aws_iam_role.backend.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid      = "GetDbParams"
-        Effect   = "Allow"
-        Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParameterHistory"]
-        Resource = "arn:aws:ssm:ap-northeast-2:${var.account_id}:parameter/myblog/prod/db/*"
-      },
-      {
-        Sid       = "KmsDecryptForSecureString"
-        Effect    = "Allow"
-        Action    = "kms:Decrypt"
-        Resource  = "*"
-        Condition = { StringEquals = { "kms:ViaService" = "ssm.ap-northeast-2.amazonaws.com" } }
-      }
-    ]
-  })
-}
+# backend inline "ssm" policy: REMOVED (FIX-bug-audit-2026-07 WS-F). Its
+# GetDbParams statement pointed at parameter/myblog/prod/db/* — a path that holds
+# nothing (real params are /myblog/backend + /myblog/spotify). The backend role's
+# actual SSM read + kms:Decrypt come from aws_iam_policy.backend_ssm_read
+# (secrets.tf, attached), which is tighter (key-ARN-scoped). This block was fully
+# dead and invited "fixing" code toward the wrong path.
 
 # --- music: LambdaRDSControlRole ---
 # Producer-only (no SQS ESM) — send-only grant is the inline music_sqs_produce below.

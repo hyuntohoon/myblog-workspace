@@ -9,16 +9,16 @@
 # Usage:
 #   DATABASE_URL=postgresql+psycopg://USER:PASS@HOST/DB ./scripts/health.sh
 #
-# DATABASE_URL 출처 (Secrets Manager):
+# DATABASE_URL 출처 (SSM Parameter Store SecureString — Secrets Manager는 비워짐, CHORE-secrets-ssm-migration):
 #   aws ssm get-parameter --name /myblog/backend --with-decryption \
-#     --query SecretString --output text | jq -r .DATABASE_URL
+#     --query Parameter.Value --output text | jq -r .DATABASE_URL
 #
 # psql 가 postgresql+psycopg:// scheme 을 못 받으므로 자동 변환 (reference-database-url-psql).
 set -euo pipefail
 
 if [ -z "${DATABASE_URL:-}" ]; then
   cat >&2 <<'EOF'
-DATABASE_URL 미설정. Secrets Manager 에서 가져와 export 후 재실행:
+DATABASE_URL 미설정. SSM Parameter Store 에서 가져와 export 후 재실행:
 
   export DATABASE_URL="$(aws ssm get-parameter --name /myblog/backend \
       --with-decryption --query Parameter.Value --output text \

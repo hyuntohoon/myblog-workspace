@@ -83,11 +83,11 @@ resource "aws_apigatewayv2_route" "api_get_proxy" {
   target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
 }
 
-resource "aws_apigatewayv2_route" "categories_post" {
-  api_id    = aws_apigatewayv2_api.lambda_api.id
-  route_key = "POST /api/categories"
-  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
-}
+# POST /api/categories: REMOVED (FIX-bug-audit-2026-07 WS-F). The backend has no
+# categories router (STAB-5) and this route carried NO JWT authorizer — the only
+# authorizer-less mutating route left on the API. Dead today (edge_guard 403s a
+# direct call; FastAPI 404s), removed so it can't silently go live if a future
+# /api/categories router is added.
 
 resource "aws_apigatewayv2_route" "metrics_batch_post" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
