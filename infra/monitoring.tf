@@ -66,12 +66,18 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
 }
 
 # --- DLQ alarm: messages reaching the DLQ mean the worker failed after retries ---
+# FIX-bug-audit-2026-07 WS-A: was NumberOfMessagesSent, which AWS does NOT
+# increment for messages moved to a DLQ by a redrive policy — and redrive is the
+# only way messages enter this DLQ (no direct producer). The alarm could never
+# fire; poisoned messages aged out silently after 14 days. ApproximateNumberOf-
+# MessagesVisible reflects the actual backlog. Use Maximum over the period (a
+# Sum of a gauge metric is meaningless) and keep firing while anything is parked.
 resource "aws_cloudwatch_metric_alarm" "dlq_messages" {
   alarm_name          = "album-sync-dlq-messages"
-  alarm_description   = "Album sync messages reached DLQ — worker failing after retries"
+  alarm_description   = "Album sync messages visible in DLQ — worker failed after retries"
   namespace           = "AWS/SQS"
-  metric_name         = "NumberOfMessagesSent"
-  statistic           = "Sum"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  statistic           = "Maximum"
   period              = 300
   evaluation_periods  = 1
   threshold           = 1
