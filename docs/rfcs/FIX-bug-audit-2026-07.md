@@ -1,6 +1,6 @@
 # FIX-bug-audit-2026-07 — Consolidated fixes from the 2026-07-07 six-track audit
 
-- **Status**: accepted (2026-07-07, owner-approved in session)
+- **Status**: in-progress (accepted + implementation started 2026-07-07, owner-approved in session)
 - **Date**: 2026-07-07
 - **Owner**: 박지훈
 - **Source**: six parallel audit agents (frontend / backend / SQL / architecture / infra / security), findings cross-verified between tracks. No CRITICAL found.
@@ -32,7 +32,7 @@ All workstreams are **parallel/additive** (independent repos/files) unless noted
 ### WS-B — Post data integrity (H3 + PK + N+1) — repos: backend, shared_db (sequenced internally)
 
 1. backend: make `update()` single-transaction (no per-field-group commits); on album replacement, diff instead of delete-all/re-insert (or snapshot+restore recommended-track rows and `is_classic`); add `selectinload(Post.section, Post.tags)` to the posts list (2N+1 today, `posts.py:37-51`).
-2. shared_db V36: `post_recommended_tracks` PK `(track_id)` → `(post_id, track_id)` (one track currently recommendable by only one post globally). Rollout per the established order: migration → prod apply → service pin bump → workspace contract → frontend. **This sub-step is NOT parallel with other shared_db changes.**
+2. shared_db (next free `V{N}__` — V36 is already taken by FEAT-multi-user-accounts `users`, so V37+): `post_recommended_tracks` PK `(track_id)` → `(post_id, track_id)` (one track currently recommendable by only one post globally). Rollout per the established order: migration → prod apply → service pin bump → workspace contract → frontend. **This sub-step is NOT parallel with other shared_db changes, and must be sequenced against any in-flight multi-user shared_db migration to avoid a version-number collision.**
 
 ### WS-C — Worker DB robustness (H2 + session lifecycle + upsert sort) — repo: worker
 
@@ -86,6 +86,10 @@ All workstreams are **parallel/additive** (independent repos/files) unless noted
 > Bulk `ON CONFLICT` upserts sort rows by conflict key (deadlock avoidance under SQS concurrency).
 > Outbound HTTP always sets an explicit timeout.
 > Fixing a pattern-shaped bug in duplicated cross-repo code (guards, clients, settings)? Grep all service repos for the twin and fix every hit in the same PR.
+
+## 5a. Progress log
+
+- **2026-07-07 — WS-A in flight.** music fail-closed + CORS ENV-gate (myblog_music PR #49, pytest 54p), backend edge_guard truthy-secret (myblog_backend PR #101, pytest 388p), infra DLQ alarm metric → `ApproximateNumberOfMessagesVisible/Maximum` (this workspace PR; `terraform fmt`+`validate` clean, **owner applies**). H1, H4, and the edge_guard MED land here; H2/H3/H5 remain (WS-B/C/D).
 
 ## 6. Exit gates
 
