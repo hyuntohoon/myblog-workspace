@@ -89,7 +89,16 @@ All workstreams are **parallel/additive** (independent repos/files) unless noted
 
 ## 5a. Progress log
 
-- **2026-07-07 — WS-A in flight.** music fail-closed + CORS ENV-gate (myblog_music PR #49, pytest 54p), backend edge_guard truthy-secret (myblog_backend PR #101, pytest 388p), infra DLQ alarm metric → `ApproximateNumberOfMessagesVisible/Maximum` (this workspace PR; `terraform fmt`+`validate` clean, **owner applies**). H1, H4, and the edge_guard MED land here; H2/H3/H5 remain (WS-B/C/D).
+All workstreams implemented 2026-07-07 (owner drove push+merge+apply in-session). Status by workstream:
+
+- **WS-A — MERGED + prod-verified.** music fail-closed + CORS ENV-gate (myblog_music #49, pytest 54p; prod `/candidates`→401, `/unified`→200), backend edge_guard truthy-secret (myblog_backend #101, pytest 388p; prod smoke 28/0), infra DLQ alarm→`ApproximateNumberOfMessagesVisible/Maximum` (ws #552, **applied** — alarm live, State OK). H1, H4, edge_guard MED. ✅
+- **WS-B — backend H3 MERGED-pending** (myblog_backend #103, pytest 388p): atomic `update()` + album **diff** (stops CASCADE pick/`is_classic` loss) + posts-list `selectinload`. **WS-B.2 (PK widening `post_recommended_tracks (track_id)→(post_id,track_id)`) NOT done** — a shared_db migration (V37+, must not collide with in-flight multi-user migrations); tracked as a follow-up.
+- **WS-C — worker MERGED-pending** (myblog_worker #66, pytest 308p +1 DB-gated integration test): isrc_backfill txn fix (H2; `Session`-owned commit/rollback, dropped handler `session.begin()`), 3 idle-in-txn sites → fetch/materialize/close, albums+tracks upserts sorted.
+- **WS-D — front MERGED-pending** (myblog_front #247, `pnpm lint`+`astro check` clean): bucketStore force-refresh (H5) + monotonic seq guard, trash non-album block + conditional undo, `todayISO` KST, routeAlbumDrop self-drop guard. **Real-browser click-through of DnD/trash/undo OUTSTANDING** (owner spot-check — CLAUDE.md UI DoD).
+- **WS-E — CI hygiene MERGED-pending** (4 PRs: backend #102, music #50, worker #65, front #246): `concurrency` + `permissions: contents:read` + `workflow_dispatch` ref-guard where missing.
+- **WS-F — infra MERGED-pending + applied** (ws #554): deleted dead `POST /api/categories` route (prod 404), removed dead backend `ssm` IAM, imported `myblog-prod-web` bucket policy, health.sh SSM fix. **Security response headers DEFERRED** — CloudFront Free plan rejects a custom response-headers policy (needs a viewer-response Function; needs isolated verification). Per-route music throttle skipped (stage `$default` throttle already covers it).
+- **WS-G — MERGED + applied** (ws #553): researchSQS/DLQ/researchWorkerLambda/IAM torn down (8 resources destroyed).
+- **WS-H — this PR**: CLAUDE.md conventions + worker/music/infra README gotchas + this log.
 
 ## 6. Exit gates
 

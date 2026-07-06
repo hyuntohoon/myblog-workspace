@@ -2,6 +2,13 @@
 
 Source of truth: Terraform state in **S3** (`myblog-terraform-state-338183196042`, key `infra/terraform.tfstate`, region `ap-northeast-2`, versioned + AES256 + public-access-blocked) — migrated 2026-06-06 (STAB-6 Step 5). **S3-only, no DynamoDB state lock** (owner decision: single-author, no auto-apply → lock value low; `claude_aws_manager` also lacks `dynamodb:CreateTable`). The old local `infra/terraform.tfstate` is now a stale backup. The values below are a human-readable mirror; if they disagree with `terraform show`, Terraform wins. Refresh this file after any `terraform apply` that adds, replaces, or renames a resource.
 
+**Recurring gotchas (FIX-bug-audit-2026-07 WS-F):**
+
+- **DLQ alarms must use `ApproximateNumberOfMessagesVisible`, not `NumberOfMessagesSent`.** AWS does not increment `NumberOfMessagesSent` for messages moved to a DLQ by a redrive policy — and redrive is the only way messages enter these DLQs. A `NumberOfMessagesSent` alarm can never fire (`monitoring.tf`).
+- **The `myblog-prod-web` public-read bucket policy is now Terraform-managed** (`s3.tf`, imported from the console) — do not delete it console-side thinking it's unmanaged.
+- **This distribution is on the CloudFront Free pricing plan.** Custom cache policies AND custom response-headers policies are Business-tier — both rejected at apply. Security response headers (HSTS/CSP/XFO) therefore need a viewer-response CloudFront **Function**, not a response-headers policy (deferred).
+- The `researchSQS`/`researchWorkerLambda` stack was torn down (WS-G) — research runs `$0`/local-poller.
+
 | Resource | Identifier |
 |----------|------------|
 | AWS region | `ap-northeast-2` (Seoul); Neon in `ap-southeast-1` (separate by design — Neon Free-tier availability) |
