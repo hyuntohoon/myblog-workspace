@@ -1,9 +1,9 @@
 # FEAT-lyrics-translation-sweep: Auto-queue lyrics translation for research-note albums
 
-- **Status**: in-progress
+- **Status**: done (closed 2026-07-06)
 - **Owner**: 박지훈
 - **Created**: 2026-07-05
-- **Plan row**: `plan.md` → FEAT-lyrics-translation-sweep
+- **Plan row**: dropped at close-out (was `plan.md` → FEAT-lyrics-translation-sweep)
 
 ---
 
@@ -150,3 +150,4 @@ all swept rows (no stuck `requested` older than 1 day while the laptop was awake
 | 2026-07-05 | Mechanism = state-based sweep in the poller, NOT an event trigger in `ResearchService.enqueue_album` — corpus lags the research trigger (manual `tools/` batches), so event coupling misses late-arriving lyrics; sweep also *is* the backfill. Workspace-only, no deploy | 1 |
 | 2026-07-05 | Drain rate: `BATCH_PER_RUN = 5` per 60s firing, serial + inter-run sleep (research-poller posture) | 1 |
 | 2026-07-05 | Korean-dominant tracks: no enqueue-time pre-filter; claim-time guard closes them once as `failed('korean_source')` (row-absence predicate → never re-swept; $0; no viewer exposure) | 1 |
+| 2026-07-06 | **CLOSED.** Backlog fully drained in ~1 day (RFC's ~2h estimate was optimistic — real rate ~55–65 rows/h): sweep-candidate count **0** (Verification #1 SQL, checked twice on 07-06), ledger **484 done (all `poller\|claude.sonnet\|v2`) + 36 `failed('korean_source')`**, no stuck `requested`. The 4 transient `engine_validation` failures (3 bad-JSON — one from unescaped inner quotes, one hey-yeah repetition; 1 copyright refusal) were re-requested with owner approval (status→`requested`, error/claim cleared) and **all 4 re-ran to `done`** — refusals are per-run nondeterministic, so a plain re-request is the cheap first remedy. With that, `done + korean_source` accounts for every swept row (the gate's ledger leg). The exit gate's **2-consecutive-day-stability leg was waived by the owner 2026-07-06** ("다 done으로") — the sweep + poller keep running under launchd regardless (new research albums / late-arriving lyrics auto-enqueue as designed); the gate only gated this paperwork. OQ1 never bit (no observed session-cap throttling; `BATCH_PER_RUN` stayed 5). Status → done, archived to `docs/archive/done/rfcs/`, plan row dropped. | — |
