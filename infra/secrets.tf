@@ -5,40 +5,8 @@
 # provision myblog/anthropic as an SSM SecureString (RFC Step 6) + an ANTHROPIC_PARAM
 # dual-source read — do NOT reintroduce a Secrets Manager secret.
 
-# Research worker needs: consume researchSQS + write its own log group. (anthropic
-# read dropped with the secret — re-add an SSM read when the feature ships.)
-resource "aws_iam_policy" "research_worker_extras" {
-  name        = "myblog-research-worker"
-  description = "researchWorkerLambda: consume researchSQS + own logs"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes",
-          "sqs:ChangeMessageVisibility",
-        ]
-        Resource = aws_sqs_queue.research_sqs.arn
-      },
-      {
-        Effect = "Allow"
-        Action = ["logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = [
-          "arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/lambda/researchWorkerLambda:*"
-        ]
-      },
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "worker_research_extras" {
-  role       = aws_iam_role.worker.name
-  policy_arn = aws_iam_policy.research_worker_extras.arn
-}
+# Research worker IAM (consume researchSQS + own log group): REMOVED
+# (FIX-bug-audit-2026-07 WS-G) — torn down with researchWorkerLambda + the queue.
 
 # ============================================================================
 # CHORE-secrets-ssm-migration — SSM Parameter Store (SecureString) access.
@@ -144,29 +112,6 @@ resource "aws_iam_role_policy_attachment" "worker_ssm_attach" {
   policy_arn = aws_iam_policy.worker_ssm.arn
 }
 
-# --- research worker role: read /myblog/worker, decrypt ---
-# (anthropic dropped — add ${local.ssm_param_arn_prefix}/anthropic back when FEAT-ai-editorial-critique ships)
-resource "aws_iam_policy" "research_worker_ssm_read" {
-  name        = "myblog-research-worker-ssm-read"
-  description = "Allow researchWorkerLambda to read its SSM param (worker)"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["ssm:GetParameter"]
-        Resource = ["${local.ssm_param_arn_prefix}/worker"]
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["kms:Decrypt"]
-        Resource = [data.aws_kms_alias.ssm.target_key_arn]
-      },
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "research_worker_ssm" {
-  role       = aws_iam_role.worker.name
-  policy_arn = aws_iam_policy.research_worker_ssm_read.arn
-}
+# research worker SSM-read role: REMOVED (FIX-bug-audit-2026-07 WS-G) —
+# torn down with researchWorkerLambda. The shared worker role (aws_iam_role.worker)
+# is untouched; only the research-specific attachment + policy are gone.
