@@ -1,6 +1,6 @@
 # FIX-bug-audit-2026-07 — Consolidated fixes from the 2026-07-07 six-track audit
 
-- **Status**: draft
+- **Status**: accepted (2026-07-07, owner-approved in session)
 - **Date**: 2026-07-07
 - **Owner**: 박지훈
 - **Source**: six parallel audit agents (frontend / backend / SQL / architecture / infra / security), findings cross-verified between tracks. No CRITICAL found.
@@ -27,7 +27,7 @@ All workstreams are **parallel/additive** (independent repos/files) unless noted
 
 1. music: mirror backend's fail-closed guard — missing pool id ⇒ 503, never `return {}`. Gate localhost CORS origins behind `ENV in ("local","dev")` (currently always on with `allow_credentials=True`).
 2. backend `app/main.py:51`: require `settings.EDGE_SECRET` truthy before comparing (empty secret + empty header currently passes edge_guard).
-3. infra: alarm both DLQs on `ApproximateNumberOfMessagesVisible >= 1` (research DLQ per WS-G decision).
+3. infra: alarm the album-sync DLQ on `ApproximateNumberOfMessagesVisible >= 1` (research DLQ is removed by WS-G teardown — no alarm needed).
 
 ### WS-B — Post data integrity (H3 + PK + N+1) — repos: backend, shared_db (sequenced internally)
 
@@ -65,7 +65,7 @@ All workstreams are **parallel/additive** (independent repos/files) unless noted
 
 ### WS-G — Research stack decision + shared_db pins — repos: infra, worker, music (**needs owner decision**)
 
-1. **Decision**: researchWorkerLambda is live-wired to researchSQS but worker CI never deploys it and the handler has no research branch — messages would be logged and silently deleted. Options: (a) **tear down** function + queue + ESM + IAM (recommended: research runs $0/local-poller mode), or (b) add the second deploy call + a handler branch. Pick before WS-A.3 touches the research DLQ alarm.
+1. **Decision (owner, 2026-07-07): (a) tear down.** researchWorkerLambda is live-wired to researchSQS but worker CI never deploys it and the handler has no research branch — messages would be logged and silently deleted. Research is settled on the $0/local-poller mode, so delete the function + queue + DLQ + ESM + related IAM from Terraform (full plan, no `-target`; a human applies locally). Consequence: WS-A.3 covers the album-sync DLQ only — no research-DLQ alarm is needed.
 2. Align shared_db pins: bump music + worker `v0.26.0` (V32) → current (V35+); unify pin style (tags, not raw SHAs) so pin comparison is greppable. Optional: a workspace CI step that fails on pin divergence.
 
 ### WS-H — Conventions + docs — repos: workspace, worker, music, infra READMEs
