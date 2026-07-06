@@ -46,6 +46,14 @@ Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.cla
 
 Use `settings.*` (pydantic-settings), not `os.getenv()`. Use `logging.getLogger(__name__)`, not `print()`. Frontend authed requests go through `apiFetch` from `src/lib/api.ts`. Backend/music URLs always prefixed `/api`. Never log `GITHUB_TOKEN`, `DATABASE_URL`, `EDGE_SECRET`, Spotify creds.
 
+Hardened after FIX-bug-audit-2026-07 (all are recurring bug classes — the audit found each already-fixed once and re-broken elsewhere):
+
+- **Auth guards fail closed.** Missing config (e.g. `COGNITO_USER_POOL_ID`, `EDGE_SECRET`) ⇒ 503/reject, never a silent bypass. The auth guard is duplicated in **both** backend and music (`app/core/auth.py`) — a guard fix must land in both in the same PR.
+- **Never hold an open DB session/transaction across an external-API loop** (Neon drops idle-in-txn conns → ProtocolViolation) — fetch → materialize → close, then loop, then a fresh short write session. The lyrics pipeline is the reference.
+- **Bulk `ON CONFLICT` upserts sort rows by conflict key** (row-lock deadlock avoidance under SQS concurrency).
+- **Outbound HTTP always sets an explicit `timeout`.**
+- **Fixing a pattern-shaped bug in duplicated cross-repo code** (auth guards, SQS/S3 clients, settings loaders, session lifecycle)? Grep every service repo for the twin and fix all hits in the same PR — name the sweep in the PR body.
+
 ## Doc language
 
 Plan/spec markdown — `docs/plan.md`, `docs/rfcs/`, `docs/contracts/`, `docs/archive/`, PR bodies — always in English. Token-efficient context loading; conversation/chat can stay in Korean. **Questions directed at the user — ask in Korean** (decision points where the user has to read and respond; reduces user-side cognitive load).
