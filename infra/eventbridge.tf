@@ -224,3 +224,61 @@ resource "aws_lambda_permission" "lyrics_reassessment_events" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.lyrics_reassessment.arn
 }
+
+# API Lambda warm ping — FIX-front-audit-2026-07 item 3.
+#
+# ratemymusic-api cold-starts at ~3.0-3.2s Init (CloudWatch, 2026-07-06 3-day
+# sample), and the single-owner traffic pattern means the lyrics viewer (and any
+# first authed action) usually lands on a cold instance → 4-6s opens. This rule
+# invokes the backend Lambda every 5 minutes with a constant, Mangum-shaped
+# API Gateway v2 event for GET /health (a PUBLIC_PATHS route: no auth, no DB
+# round trip), keeping one execution environment resident for ~$0 (≈8.6k
+# invocations/mo × ~10ms billed). The payload shape was validated against the
+# live function pre-merge (200 {"ok":true}). Removing this rule just brings the
+# cold starts back; nothing depends on it.
+resource "aws_cloudwatch_event_rule" "backend_warm_ping" {
+  name                = "backend-api-warm-ping"
+  description         = "Keep ratemymusic-api warm (5-min GET /health via constant Mangum event)"
+  schedule_expression = "rate(5 minutes)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "backend_warm_ping" {
+  rule      = aws_cloudwatch_event_rule.backend_warm_ping.name
+  target_id = "ratemymusic-api-warm-ping"
+  arn       = aws_lambda_function.backend.arn
+  input = jsonencode({
+    version        = "2.0"
+    routeKey       = "$default"
+    rawPath        = "/health"
+    rawQueryString = ""
+    headers        = { host = "warm.internal", "user-agent" = "eventbridge-warm-ping" }
+    requestContext = {
+      accountId    = "warm"
+      apiId        = "warm"
+      domainName   = "warm.internal"
+      domainPrefix = "warm"
+      http = {
+        method    = "GET"
+        path      = "/health"
+        protocol  = "HTTP/1.1"
+        sourceIp  = "127.0.0.1"
+        userAgent = "eventbridge-warm-ping"
+      }
+      requestId = "warm-ping"
+      routeKey  = "$default"
+      stage     = "$default"
+      time      = "01/Jan/2026:00:00:00 +0000"
+      timeEpoch = 0
+    }
+    isBase64Encoded = false
+  })
+}
+
+resource "aws_lambda_permission" "backend_warm_ping_events" {
+  statement_id  = "AllowInvokeFromEventBridgeWarmPing"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.backend.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.backend_warm_ping.arn
+}
