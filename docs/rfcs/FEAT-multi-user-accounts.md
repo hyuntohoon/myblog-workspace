@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: accepted (2026-07-06, owner in-session approval)
+- **Status**: in-progress (2026-07-07, owner in-session approval — Phase 0 started)
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
@@ -142,6 +142,16 @@ Spotify live sync is capped at a 5-user tier (see constraints).
   limited; a self-built login page can deep-link per-IdP via the `identity_provider` authorize
   param. Pricing: Essentials $0.015/MAU, 10k free MAU indefinitely — $0 at our scale. Naver:
   still not OIDC — dropped (decision 4).
+- **Cognito pool immutability risk (found 2026-07-07 current-state audit, blocks the infra
+  sub-step)**: the existing pool has `username_attributes = ["email"]` + email schema
+  `required = true` — both immutable after creation (change = pool replacement; pool holds the
+  owner account, `deletion_protection = ACTIVE`). A Kakao user who declines the optional email
+  consent cannot satisfy the required-attribute check on federated sign-in. Resolution options
+  to research before Phase 0's infra sub-step: (a) Kakao app email as 필수 동의 (requires 비즈앱
+  conversion — verify current eligibility for solo/personal developers), (b) a separate member
+  pool without required email (backend then validates two issuers), (c) placeholder-email
+  mapping (last resort — pollutes email semantics). Re-verify Cognito's federated
+  required-attribute enforcement behavior at the same time.
 - **Compliance/ops (Korean users)**: 개인정보처리방침 (privacy policy) is required by both the
   Google OAuth consent screen and Kakao production review — author it + budget review lead time
   in Phase 0. Account deletion is a 개인정보보호법 obligation → Phase 0 feature, not polish.
@@ -182,11 +192,18 @@ Re-sequenced 2026-07-06 (cold review): ship the core loop first, scope existing 
 ### Phase 0 — Identity minimum
 `users` table keyed on Cognito `sub` (email nullable — Kakao; handle unique; display name +
 avatar URL from IdP claims only — **no image uploads**). Cognito: self-signup on, Google native
-IdP + Kakao generic-OIDC IdP, user-row provisioning on first login (post-confirmation trigger or
-lazy-create). **Settings page**: handle/display name, connected-integrations list (empty at
-first), **account deletion** (개인정보보호법 — deletes user row + owned rows + Cognito user).
-개인정보처리방침 page (blocks Google consent screen + Kakao production review). No existing
-table is touched.
+IdP + Kakao generic-OIDC IdP, user-row provisioning on first login (**lazy-create on first
+authed API call — decided 2026-07-07**; post-confirmation trigger rejected: extra Lambda +
+federated-flow quirks + sign-up-blocking failure mode). **Settings page**: handle/display name,
+connected-integrations list (empty at first), **account deletion** (개인정보보호법 — deletes
+user row + owned rows + Cognito user). 개인정보처리방침 page (blocks Google consent screen +
+Kakao production review). No existing table is touched.
+
+Sub-steps (started 2026-07-07): **0a** shared_db V36 `users` + model + prod apply → **0b**
+개인정보처리방침 page (front-only; unblocks owner-side Google/Kakao console setup) → **0c**
+infra Cognito self-signup + IdPs (blocked on the pool-immutability research above + owner
+console prerequisites: Google OAuth client, Kakao app) → **0d** backend `GET/PATCH /api/me`
+lazy-provisioning + account deletion → **0e** front settings page + signup entry.
 
 ### Phase 1 — RYM-style reviews (the differentiation) → Gate G1
 `album_reviews` (user_id, album_id, rating half-steps 0.5–5.0, optional comment text,
@@ -256,8 +273,8 @@ rejected — an always-on service costs more than it polices at this scale). Own
 
 ## Open questions
 
-1. **Handle model** (blocks Phase 0): derive from IdP nickname with uniquifier vs user-chosen at
-   first login (Kakao nickname collisions likely). Lean: user-chosen with IdP-derived default.
+1. ~~**Handle model** (blocks Phase 0)~~ — **RESOLVED 2026-07-07 (owner)**: user-chosen with an
+   IdP-nickname-derived unique default, editable in settings.
 2. **Rating aggregate placement** (blocks Phase 1): live query vs denormalized counters on
    `albums` — decide at implementation with real read QPS in mind; live query is fine at launch.
 3. **BYOK provider set for v1** (blocks Phase 4): all four (Anthropic/OpenAI/Gemini/OpenRouter)
@@ -280,3 +297,6 @@ rejected — an always-on service costs more than it polices at this scale). Own
 | 2026-07-06 | **Last.fm promoted to primary listening source; BYOA demoted to cold** (owner reversed the earlier 3-hop-UX rejection after the cold review) | decision 6 revised |
 | 2026-07-06 | Final completeness sweep: settings page + account deletion made explicit (Phase 0), charts + review-upvotes added as cold, no-image-uploads + no-notifications made explicit non-goals | owner: "no more features" |
 | 2026-07-06 | **Status draft → accepted** (owner in-session approval: "draft 은 승격하자") — accepting = platform takes priority over FEAT-ai-editorial-critique for the program's duration | |
+| 2026-07-07 | **Status accepted → in-progress** (owner in-session approval) — Phase 0 started, plan row promoted to Active | |
+| 2026-07-07 | OQ1 resolved: handle = user-chosen with IdP-derived unique default. Provisioning = backend lazy-create (no post-confirmation Lambda). Phase 0 split into sub-steps 0a–0e; session scope 0a+0b | owner picks via AskUserQuestion |
+| 2026-07-07 | Current-state audit found the Cognito pool-immutability risk (required email × Kakao optional consent) — research gate added before sub-step 0c | |
