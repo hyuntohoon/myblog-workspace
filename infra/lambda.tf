@@ -130,54 +130,11 @@ resource "aws_lambda_event_source_mapping" "worker_sqs" {
   function_response_types = ["ReportBatchItemFailures"]
 }
 
-# --- researchWorkerLambda (myblog_worker, FEAT-album-research-notes) ---
-# Same codebase/image as blogWorkerLambda (worker CI must update BOTH functions
-# from Step 3 on), but a separate function because research runs are 3–8 min
-# Anthropic API calls (timeout 900s vs 120s).
-#
-# Concurrency cap lives on the SQS event source mapping (scaling_config below),
-# NOT as function reserved_concurrent_executions: this account's total concurrent
-# execution limit is 10, and any function-level reservation drops the account's
-# UnreservedConcurrentExecution below its hard floor of 10 (PutFunctionConcurrency
-# 400). ESM maximum_concurrency throttles the researchSQS poller without carving
-# out the shared account pool — the SQS-native, recommended mechanism.
-resource "aws_lambda_function" "research_worker" {
-  function_name = "researchWorkerLambda"
-  role          = aws_iam_role.worker.arn
-  handler       = "worker.handler.lambda_handler"
-  runtime       = "python3.12"
-  architectures = ["arm64"]
-  timeout       = 900
-  memory_size   = 512
-  filename      = "placeholder.zip"
-
-  environment {
-    variables = {
-      SECRETS_PARAM = "/myblog/worker" # CHORE-secrets-ssm-migration: SSM Parameter Store
-      # anthropic credential removed (empty/unused; feature not shipped). When
-      # FEAT-ai-editorial-critique ships, add ANTHROPIC_PARAM=/myblog/anthropic (SSM).
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [filename, source_code_hash, layers]
-  }
-}
-
-# --- SQS event source: researchSQS -> research worker ---
-# batch_size 1: one album per invocation; a failure retries only itself.
-# maximum_concurrency 2: caps concurrent research runs so a research_mode='all'
-# burst (dozens of enqueues) drains ≤2-at-a-time — smooths Anthropic rate limits
-# and spend ramp. Min allowed value is 2. Does not touch account reserved pool.
-resource "aws_lambda_event_source_mapping" "research_worker_sqs" {
-  event_source_arn = aws_sqs_queue.research_sqs.arn
-  function_name    = aws_lambda_function.research_worker.arn
-  batch_size       = 1
-  enabled          = true
-
-  scaling_config {
-    maximum_concurrency = 2
-  }
-
-  function_response_types = ["ReportBatchItemFailures"]
-}
+# --- researchWorkerLambda / researchSQS: REMOVED (FIX-bug-audit-2026-07 WS-G) ---
+# The research pipeline runs in $0/local-poller mode (myblog_backend
+# research_service.py: "NO SQS send"; scripts/research_poller.py reads the DB).
+# The function was live-wired to researchSQS but worker CI only ever deployed
+# blogWorkerLambda and the worker has no research handler branch — any message
+# reaching researchSQS was logged "Unknown message format" and silently deleted.
+# Owner decision 2026-07-07: tear down the whole unused path (function + ESM +
+# both queues + dedicated IAM) rather than build a consumer for a dormant queue.
