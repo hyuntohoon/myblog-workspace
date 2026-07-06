@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: draft
+- **Status**: accepted (2026-07-06, owner in-session approval)
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
@@ -279,3 +279,4 @@ rejected — an always-on service costs more than it polices at this scale). Own
 | 2026-07-06 | Cold review: phases re-sequenced (users-only Phase 0, reviews before bucket scoping), per-phase gates G1/G2 added, strategic conflict with FEAT-ai-editorial-critique surfaced | decision 9 |
 | 2026-07-06 | **Last.fm promoted to primary listening source; BYOA demoted to cold** (owner reversed the earlier 3-hop-UX rejection after the cold review) | decision 6 revised |
 | 2026-07-06 | Final completeness sweep: settings page + account deletion made explicit (Phase 0), charts + review-upvotes added as cold, no-image-uploads + no-notifications made explicit non-goals | owner: "no more features" |
+| 2026-07-06 | **Status draft → accepted** (owner in-session approval: "draft 은 승격하자") — accepting = platform takes priority over FEAT-ai-editorial-critique for the program's duration | |
