@@ -152,6 +152,27 @@ Spotify live sync is capped at a 5-user tier (see constraints).
   pool without required email (backend then validates two issuers), (c) placeholder-email
   mapping (last resort — pollutes email semantics). Re-verify Cognito's federated
   required-attribute enforcement behavior at the same time.
+  **RESOLVED 2026-07-07 — option (a) adopted (owner approval in-session); existing pool kept,
+  no replacement.** Research findings:
+  - Cognito enforcement re-verified (AWS docs + re:Post): every *required* pool attribute must
+    have an IdP attribute mapping, and if the IdP omits the claim, federated sign-in fails with
+    `attributes required: [email]`. So the fix must guarantee the email claim is always present.
+  - Kakao: a solo developer **without a 사업자등록번호 can self-serve convert to a 개인 개발자
+    비즈앱** — requirements are only app-owner phone 본인인증 (계정 설정 > 본인인증) + 카카오
+    비즈니스 통합 서비스 약관 동의, via [앱] > [일반] > [비즈니스 정보] > [개인 개발자 비즈 앱].
+    Only documented limitation: no 비즈니스 채널 연결 (irrelevant — we use no KakaoTalk channel).
+    Email as 필수 동의 is available to 개인 개발자 비즈앱.
+  - With 필수 동의 + the "카카오계정으로 수집 후 제공" option, a user whose Kakao account lacks
+    an email is prompted to register one during login → the email claim is always present.
+  - (b) rejected: two issuers means touching the duplicated auth guard in backend **and** music,
+    double JWKS, front pool-selection — unjustified when (a) is self-serve. (c) rejected:
+    pollutes email semantics in a `username_attributes = ["email"]` pool.
+  - Residual check at 0c implementation: Cognito maps federated emails as *unverified* unless an
+    `email_verified` claim is mapped; Kakao OIDC docs don't confirm `email_verified` in the
+    userinfo response (JS-rendered docs) → verify with one live `/v1/oidc/userinfo` call. Not
+    sign-in-blocking either way, and email-based auto-link is already excluded (decision 5).
+  - New owner console prerequisites (before 0c infra apply): phone 본인인증 → 개인 개발자 비즈앱
+    전환 → 동의항목에서 email = 필수 동의 (수집 후 제공) 설정.
 - **Compliance/ops (Korean users)**: 개인정보처리방침 (privacy policy) is required by both the
   Google OAuth consent screen and Kakao production review — author it + budget review lead time
   in Phase 0. Account deletion is a 개인정보보호법 obligation → Phase 0 feature, not polish.
@@ -201,8 +222,9 @@ Kakao production review). No existing table is touched.
 
 Sub-steps (started 2026-07-07): **0a** shared_db V36 `users` + model + prod apply → **0b**
 개인정보처리방침 page (front-only; unblocks owner-side Google/Kakao console setup) → **0c**
-infra Cognito self-signup + IdPs (blocked on the pool-immutability research above + owner
-console prerequisites: Google OAuth client, Kakao app) → **0d** backend `GET/PATCH /api/me`
+infra Cognito self-signup + IdPs (pool-immutability research RESOLVED 2026-07-07 — option (a),
+existing pool kept; still blocked on owner console prerequisites: Google OAuth client, Kakao
+app + 개인 개발자 비즈앱 전환 + email 필수 동의 설정) → **0d** backend `GET/PATCH /api/me`
 lazy-provisioning + account deletion → **0e** front settings page + signup entry.
 
 ### Phase 1 — RYM-style reviews (the differentiation) → Gate G1
@@ -300,3 +322,4 @@ rejected — an always-on service costs more than it polices at this scale). Own
 | 2026-07-07 | **Status accepted → in-progress** (owner in-session approval) — Phase 0 started, plan row promoted to Active | |
 | 2026-07-07 | OQ1 resolved: handle = user-chosen with IdP-derived unique default. Provisioning = backend lazy-create (no post-confirmation Lambda). Phase 0 split into sub-steps 0a–0e; session scope 0a+0b | owner picks via AskUserQuestion |
 | 2026-07-07 | Current-state audit found the Cognito pool-immutability risk (required email × Kakao optional consent) — research gate added before sub-step 0c | |
+| 2026-07-07 | **0c research gate resolved: option (a) — Kakao 개인 개발자 비즈앱 + email 필수 동의; existing pool kept** (owner approval via AskUserQuestion). Solo devs convert self-serve via phone 본인인증; "수집 후 제공" guarantees the email claim. (b)/(c) rejected. Residual: verify `email_verified` in Kakao OIDC userinfo at implementation | web research, sources in risk bullet |
