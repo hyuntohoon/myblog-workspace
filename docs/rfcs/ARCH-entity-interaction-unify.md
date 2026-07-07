@@ -23,8 +23,10 @@ hand-rolling:
 - **Artist** → route to `/artist/[id]` (already true via `artistHref`; this RFC
   only closes the remaining not-linkable gaps).
 - **Album** → open **one** global album-detail overlay window (mounted app-wide,
-  opened by a CustomEvent), on **public and member surfaces alike**. The current
-  vanilla-vs-React duplication is removed.
+  opened by a CustomEvent), on **public and member surfaces alike**. Public album
+  cards that were dead (artist-catalog, search) gain this overlay; the read-only
+  detail body is shared with the member modal (Step 1). The review page's inline
+  editorial tracklist is a distinct surface and stays as-is (see Step 2 audit).
 - **Track** → open the album-detail window for the track's album (the album
   window is the canonical track destination in v1; play/add stay reserved).
 
@@ -58,17 +60,30 @@ overlay host, entityLinks surface) at Step 1 per the map's re-verify rule.
   and `reviewHref(slug)` (trailing-slash canonical). **No album or track
   dispatch exists.** Album/track "navigation" is an `onOpen(DetailTarget)`
   callback threaded through the member islands, not a route or a shared helper.
-- **Album click = two implementations** (the load-bearing duplication):
+- **Album detail = two implementations, but NOT interchangeable** (Step-2
+  audit 2026-07-08 corrected the original "delete the duplication" framing):
   1. React `components/member/AlbumDetail.tsx`, mounted **once** by
-     `ProfileApp.tsx:419` (member island only), cache `lib/albumDetail.ts`.
-     Branches: `MemoWindow` (writable bucket) / `StandardModal` info / edit
-     (`AlbumDetail.tsx:52-64`). Opened via the `onOpen(DetailTarget)` callback
-     (`DetailTarget` shape at `lib/member.ts:51`).
-  2. Vanilla `scripts/albumDetail.client.ts` on the **public** `/review/[slug]`
-     page (renders `#albumDetail`, own `sessionCache`, ▶ + ＋ buttons).
-  Different caches, different entry points, different interactivity. The React
-  modal is **member-coupled** (lives inside `ProfileApp`) — this coupling is the
-  central risk this RFC must resolve (see OQ1).
+     `ProfileApp.tsx` (member island only), cache `lib/albumDetail.ts`.
+     Branches: `MemoWindow` (writable bucket) / `StandardModal` info / edit.
+     Opened via the `onOpen(DetailTarget)` callback. Now composes the shared
+     read-only `AlbumDetailView` for its info body (Step 1).
+  2. Vanilla `scripts/albumDetail.client.ts` +
+     `scripts/albumDetail.fetch.client.ts` on the **public** `/review/[slug]`
+     page. **CORRECTION:** this is NOT a click-to-open modal — it renders the
+     album's **inline editorial tracklist** (`#albumDetail` inside
+     `.lfq-tracklist`, always visible, with ★ recommended-track highlighting +
+     per-track ▶/＋ buttons; `sessionCache` lives in the fetch client). It is a
+     first-class editorial section of the review article, not a duplicate
+     surface that can be deleted. Deleting it would regress the review page.
+     So Step 2 does **not** touch it.
+- **The real public gap is DEAD album cards, not the review page.** The album
+  cards that today have NO interaction and that `openAlbum` was built to serve:
+  - `/artist/[id]` **catalog albums** (`ArtistHub` `.art-disco-item`, the
+    "아직 평론 없음" grid) — plain `<div>`, no click, no href.
+  - Search **album cards** (`SearchPage` `AlbumCard`) — explicitly
+    "non-navigable (no album page) — static figure".
+  These are the Step-2 targets: wire them to `openAlbum`. Home
+  `TodayAlbumBuckit` already does this (the one existing consumer).
 - **Track click** varies per surface (`component-map.md` track table):
   member `AlbumDetail`/`LikedBoard` use shared `components/shared/TrackRow.tsx`
   with declared actions `{lyrics?, open?}` (`open` → album detail; `lyrics` →
@@ -146,22 +161,39 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ---
 
-### Step 2 — Public `/review` album click → global event (kill the duplication)
+### Step 2 — Dead public album cards → `openAlbum` (RESCOPED 2026-07-08)
 
-Redirect `scripts/albumDetail.client.ts` album-open to dispatch `ent:open-album`;
-delete its `#albumDetail` render + `sessionCache` album-detail path. Public
-visitors now get the same read-only overlay. Keep ▶/＋ buttons as-is.
+**Original framing (redirect the `/review` vanilla path, delete `#albumDetail`)
+was dropped:** the Step-2 current-state audit found the review page's
+`albumDetail.client.ts` renders an **inline editorial tracklist** (★ picks +
+▶/＋), not a click-to-open modal — deleting it is a UX regression, and the
+read-only overlay is not a substitute (it renders neither ★ picks nor ▶/＋).
+The review page keeps its inline tracklist untouched.
+
+**Rescoped work:** wire the genuinely non-navigable public album cards to
+`openAlbum` so a click opens the app-wide read-only overlay (Step 1's host):
+- `ArtistHub` catalog albums (`.art-disco-item`) → `<button>` calling
+  `openAlbum({albumId, title, artist, cover, year})`; id-less (Spotify-only)
+  rows stay static `<div>`.
+- `SearchPage` `AlbumCard` → same, keyed on the DB `id`; null-id hits stay a
+  static figure (OQ3 non-navigable payloads).
+- Button-reset CSS so the interactive card is visually identical to the prior
+  div (`button.art-disco-item`, `button.gs-albcard`); hover selectors widened
+  from `a.…:hover` to `.…:not(.is-static):hover`.
 
 **Verification**:
 ```
 cd myblog_front && pnpm lint && pnpm exec astro check
-# real-browser on a public /review/[slug]: album card click opens the shared
-# overlay (read-only, no MemoWindow when logged out); ▶/＋ still work; no
-# #albumDetail duplicate node; console 0.
-# prod smoke (post-deploy): public review album click opens overlay.
+# real-browser (temp page mounting real ArtistHub + fetch-mock, no local
+# backend): catalog album click → app-wide overlay opens read-only (header +
+# artists + tracklist, NO 가사 affordance = privacy); ESC closes; scroll lock
+# restored; button-reset keeps layout identical; console clean bar offline
+# backend (buckets/me/community-ratings, fail-soft).
+# prod smoke (post-deploy): /artist/[id] catalog album + /search album card
+# click → overlay opens.
 ```
 
-**Rollback**: revert PR (restores the vanilla path exactly).
+**Rollback**: revert PR (cards return to non-navigable div/figure).
 
 ---
 
@@ -241,3 +273,4 @@ Duplicate it overlaps:  album-detail paths (RESOLVED by this RFC)
 | 2026-07-08 | OQ1 resolved — architect rec **(b)**: `AlbumDetail` uses ZERO React context (usePocket/bucketStore = 0), so the crash worry was moot; but the event can't carry member types, so the app-wide overlay is inherently read-only. Extract a read-only `AlbumDetailView`; keep MemoWindow/edit member-side. Eval → `docs/archive/reviews/ARCH-entity-interaction-unify-step1-eval.md` | Step 1 |
 | 2026-07-08 | OQ2 resolved — `ent:open-album` carries **primitives** `{albumId, title?, artist?, cover?, year?}` (host re-fetches via lib/albumDetail); public callers import no member types | Step 1 |
 | 2026-07-08 | Step 1 SHIPPED — front #255 (`a549ec5`, deploy 28882687379). New `components/album/AlbumDetailView` + `AlbumOverlay` (un-gated, layout-mounted) + `lib/entityEvents.openAlbum`; member `AlbumDetail` delegates read-only body to the shared view. Public prod smoke: overlay opens on event, fetch 200/15 tracks, header+artists+tracklist render, **0 lyrics affordance** (privacy), artist link `/artist/…/`, ESC closes. Member live MemoWindow/edit gesture deferred to owner spot-check (shared view prod-proven; extraction behavior-preserving; MemoWindow untouched) | Step 1 |
+| 2026-07-08 | **Step 2 RESCOPED (owner)** — current-state audit found the `/review` album detail is an inline editorial tracklist (★ picks + ▶/＋), NOT a click-to-open modal → the "delete the vanilla duplication" premise was wrong; review page stays untouched. Real public gap = **dead album cards** (artist-catalog `.art-disco-item` + search `AlbumCard`, both non-navigable today). Step 2 wires those to `openAlbum`. | Step 2 |
