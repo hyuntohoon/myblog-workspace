@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS post_recommended_tracks (
   track_id UUID     NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
   position SMALLINT,
   note     TEXT,
-  PRIMARY KEY (track_id),
+  PRIMARY KEY (post_id, track_id),  -- V37 (WS-B.2): per-post uniqueness
   FOREIGN KEY (post_id, album_id) REFERENCES post_albums(post_id, album_id) ON DELETE CASCADE
 );
 
