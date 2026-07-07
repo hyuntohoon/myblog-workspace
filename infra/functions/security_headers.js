@@ -4,9 +4,12 @@
 // every response of the associated behavior — default S3 behavior only; /api/*
 // responses come from the backend and are not in scope here).
 //
-// CSP is REPORT-ONLY: violations log to the browser console, nothing is blocked.
-// Promotion to an enforcing Content-Security-Policy is a separate step after a
-// soak period. Allowlist sources (verified against myblog_front/src 2026-07-07):
+// CSP is ENFORCING (promoted from Report-Only 2026-07-07, owner-approved):
+// shipped Report-Only in ws #557; zero violations in the ship-time authed
+// Playwright sweep (home/reviews/detail/search/profile+SDK/write) and a
+// pre-promotion public-page re-sweep. Rollback = rename the header back to
+// content-security-policy-report-only and re-apply.
+// Allowlist sources (verified against myblog_front/src 2026-07-07):
 //   script/frame  sdk.scdn.co + *.spotify.com  (Spotify Web Playback SDK + EME iframe)
 //   connect       *.spotify.com (Web API), *.amazoncognito.com (token endpoint)
 //   style/font    fonts.googleapis.com / fonts.gstatic.com (layout.astro)
@@ -23,7 +26,7 @@ function handler(event) {
     headers['x-content-type-options'] = { value: 'nosniff' };
     headers['referrer-policy'] = { value: 'strict-origin-when-cross-origin' };
     headers['permissions-policy'] = { value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' };
-    headers['content-security-policy-report-only'] = { value:
+    headers['content-security-policy'] = { value:
         "default-src 'self'; " +
         "script-src 'self' 'unsafe-inline' https://sdk.scdn.co; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
