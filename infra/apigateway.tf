@@ -175,6 +175,35 @@ resource "aws_apigatewayv2_route" "me_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Album reviews (FEAT-multi-user-accounts Phase 1) ---
+# The public reads — GET /api/reviews/albums/{id}, GET /api/members[/{handle}] —
+# ride the edge_guard GET catch-all (api_get_proxy). Only the member/owner
+# mutations are Cognito-JWT gated here (me_patch pattern). A member's review is
+# lazy-provisioning at the Lambda; owner delete-any is require_owner in-app.
+resource "aws_apigatewayv2_route" "reviews_album_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/reviews/albums/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "reviews_album_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/reviews/albums/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "reviews_owner_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/reviews/{review_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Album research notes (FEAT-album-research-notes Step 4) ---
 # Writer-facing AI research notes (never public). The manual trigger / restart /
 # refine POST is Cognito-JWT here. GET /api/research/albums/{id} rides the
