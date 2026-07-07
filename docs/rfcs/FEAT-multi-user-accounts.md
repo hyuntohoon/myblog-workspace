@@ -258,6 +258,22 @@ Cloud project**, then click 문제를 해결함 → 브랜딩 재인증; (2) Kak
 (개인정보처리방침 + 비즈앱 심사). Both gate opening signup to the general **public**, not the 0c IdP
 wiring or owner-account testing.
 
+**0c hardening — owner-gate before self-signup (found 2026-07-08 current-state audit; NOT
+optional).** The backend gated all editorial-authoring, publish, genre-taxonomy, and (unscoped)
+bucket/library/playback routes on `require_cognito_token` alone — i.e. "any valid pool token ==
+owner", true only while the pool holds one account. Turning on self-signup fills the pool with
+federated members, so those 27 routes would become member-reachable (a member could publish/delete
+the owner's editorial and clobber the owner's buckets — the edge_guard routes don't check
+`client_id`, so a separate member client would not have helped). Fix (backend, myblog_backend PR):
+a fail-closed `require_owner` (`sub == OWNER_SUB`; local/dev bypass; 503 on unset `OWNER_SUB`; 403
+non-owner) applied to all 27 single-owner routes; `/api/me`, `/api/lyrics`, and music search stay
+on `require_cognito_token`. **Deploy ordering (hard):** the backend owner-gate must reach prod
+(auto-deploy on merge) **before** the infra `terraform apply` flips `allow_admin_create_user_only`
+to false — otherwise there is an authoring window. 0c is therefore two coordinated PRs: backend
+gate merges + deploys + prod-smokes first, then the owner applies the Cognito infra. Per-user
+scoping (buckets P2, listening P3) later relaxes the gate route-by-route as those tables gain
+`user_id`.
+
 ### Phase 1 — RYM-style reviews (the differentiation) → Gate G1
 `album_reviews` (user_id, album_id, rating half-steps 0.5–5.0, optional comment text,
 timestamps; UNIQUE(user_id, album_id)) — new table, born scoped. Write UI on album pages,
@@ -355,3 +371,4 @@ rejected — an always-on service costs more than it polices at this scale). Own
 | 2026-07-07 | Current-state audit found the Cognito pool-immutability risk (required email × Kakao optional consent) — research gate added before sub-step 0c | |
 | 2026-07-07 | **0c research gate resolved: option (a) — Kakao 개인 개발자 비즈앱 + email 필수 동의; existing pool kept** (owner approval via AskUserQuestion). Solo devs convert self-serve via phone 본인인증; "수집 후 제공" guarantees the email claim. (b)/(c) rejected. Residual: verify `email_verified` in Kakao OIDC userinfo at implementation | web research, sources in risk bullet |
 | 2026-07-07 | OAuth creds stored in SSM `/myblog/oauth/*`; Google web client created. **Public-launch gates deferred** (not 0c blockers): Google brand/domain verification (Route53 TXT + Search Console, owner-only — `claude_aws_manager` has no route53 perm) + Kakao production review. 0c builds/tests in Google Testing + Kakao dev mode with owner as test user | console setup this session |
+| 2026-07-08 | **0c audit found a privilege-escalation gap: self-signup would expose 27 single-owner backend routes to any member** (they gated on `require_cognito_token` = any pool token). Added fail-closed `require_owner`; backend PR must deploy BEFORE the infra apply (owner approval via AskUserQuestion). 0c = 2 coordinated PRs (backend gate → infra) | current-state audit; auth boundary |

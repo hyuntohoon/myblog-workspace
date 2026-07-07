@@ -1,14 +1,17 @@
 resource "aws_cognito_user_pool" "myblog_admin" {
-  name              = "MyBlogAdminPool"
-  mfa_configuration = "OFF"
+  name                = "MyBlogAdminPool"
+  mfa_configuration   = "OFF"
   deletion_protection = "ACTIVE"
 
   # email as login identifier — forces replacement if removed, do not change
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
+  # FEAT-multi-user-accounts 0c: self-signup ON so Google/Kakao federated users
+  # auto-provision on first login (open platform; reviews gated by per-user caps
+  # in Phase 1). In-place UpdateUserPool — NOT a pool replacement. Reversible.
   admin_create_user_config {
-    allow_admin_create_user_only = true
+    allow_admin_create_user_only = false
   }
 
   password_policy {
@@ -99,5 +102,14 @@ resource "aws_cognito_user_pool_client" "spa_client" {
     "https://www.ratemymusic.blog",
   ]
 
-  supported_identity_providers = ["COGNITO"]
+  # 0c: members federate via Google/Kakao on the SAME client so their access
+  # tokens carry client_id = spa_client.id and clear the API GW JWT authorizer
+  # (audience-pinned to this client). Member login reuses the /admin/callback
+  # route (generic code→token→home); a dedicated /auth route is a cosmetic
+  # follow-on, not needed for the flow. COGNITO stays for the owner's SRP login.
+  supported_identity_providers = [
+    "COGNITO",
+    aws_cognito_identity_provider.google.provider_name,
+    aws_cognito_identity_provider.kakao.provider_name,
+  ]
 }
