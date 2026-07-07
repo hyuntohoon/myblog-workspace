@@ -47,6 +47,16 @@ resource "aws_cognito_identity_provider" "google" {
     name           = "name"
     username       = "sub"
   }
+
+  # Cognito auto-derives the endpoint fields (authorize_url/token_url/oidc_issuer/
+  # attributes_url/...) for a native social provider and returns them on read, so
+  # a config that only sets client_id/secret/scopes shows a perpetual "remove
+  # these -> null" diff. Ignore provider_details drift to keep `plan` clean. NB:
+  # this also stops Terraform tracking client_id/secret edits — rotate via SSM +
+  # `terraform apply -replace=aws_cognito_identity_provider.google` (or console).
+  lifecycle {
+    ignore_changes = [provider_details]
+  }
 }
 
 resource "aws_cognito_identity_provider" "kakao" {
@@ -78,5 +88,12 @@ resource "aws_cognito_identity_provider" "kakao" {
     email    = "email"
     username = "sub"
     name     = "nickname"
+  }
+
+  # Same perpetual-diff remedy as the Google IdP: Cognito normalizes/echoes the
+  # OIDC endpoint fields on read. Rotate the Kakao secret via SSM + a targeted
+  # `-replace` if ever needed.
+  lifecycle {
+    ignore_changes = [provider_details]
   }
 }
