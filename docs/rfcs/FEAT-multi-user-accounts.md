@@ -242,6 +242,22 @@ Phase 0 remaining: owner console setup (Google OAuth client; Kakao 본인인증 
 비즈앱 → email 필수 동의) → **0c infra** (self-signup + IdPs + signup entry link-up). All other
 sub-steps (0a/0b/0d/0e-settings) are live in prod.
 
+**Console setup progress + deferred public-launch gate (2026-07-07).** OAuth credentials for
+both IdPs are stored in SSM SecureString — `/myblog/oauth/{google-client-id, google-client-secret,
+kakao-rest-api-key, kakao-client-secret}` (0c Terraform reads these; the Kakao value is the **카카오
+로그인** client secret, not 비즈니스 인증). Google OAuth web client created (redirect
+`https://<cognito-hosted-domain>/oauth2/idpresponse`). **For 0c build + test, the Google consent
+screen stays in Testing mode with the owner added as a test user, and Kakao stays in dev mode** —
+federated login works for the owner without any verification, so this does **not** block 0c.
+**Deferred to the public-signup launch step (a later Phase 0 task, NOT a 0c blocker):** (1) Google
+publish-to-production triggers brand verification, which requires Google Search Console **domain
+ownership verification of `ratemymusic.blog`** — add the Search-Console TXT record to the Route53
+hosted zone (DNS is on AWS Route53, console-managed / not in Terraform; `claude_aws_manager` has
+**no `route53` IAM permission** → owner-only), verify under the **same Google account that owns the
+Cloud project**, then click 문제를 해결함 → 브랜딩 재인증; (2) Kakao production review
+(개인정보처리방침 + 비즈앱 심사). Both gate opening signup to the general **public**, not the 0c IdP
+wiring or owner-account testing.
+
 ### Phase 1 — RYM-style reviews (the differentiation) → Gate G1
 `album_reviews` (user_id, album_id, rating half-steps 0.5–5.0, optional comment text,
 timestamps; UNIQUE(user_id, album_id)) — new table, born scoped. Write UI on album pages,
@@ -338,3 +354,4 @@ rejected — an always-on service costs more than it polices at this scale). Own
 | 2026-07-07 | OQ1 resolved: handle = user-chosen with IdP-derived unique default. Provisioning = backend lazy-create (no post-confirmation Lambda). Phase 0 split into sub-steps 0a–0e; session scope 0a+0b | owner picks via AskUserQuestion |
 | 2026-07-07 | Current-state audit found the Cognito pool-immutability risk (required email × Kakao optional consent) — research gate added before sub-step 0c | |
 | 2026-07-07 | **0c research gate resolved: option (a) — Kakao 개인 개발자 비즈앱 + email 필수 동의; existing pool kept** (owner approval via AskUserQuestion). Solo devs convert self-serve via phone 본인인증; "수집 후 제공" guarantees the email claim. (b)/(c) rejected. Residual: verify `email_verified` in Kakao OIDC userinfo at implementation | web research, sources in risk bullet |
+| 2026-07-07 | OAuth creds stored in SSM `/myblog/oauth/*`; Google web client created. **Public-launch gates deferred** (not 0c blockers): Google brand/domain verification (Route53 TXT + Search Console, owner-only — `claude_aws_manager` has no route53 perm) + Kakao production review. 0c builds/tests in Google Testing + Kakao dev mode with owner as test user | console setup this session |
