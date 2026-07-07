@@ -223,8 +223,8 @@ Kakao production review). No existing table is touched.
 Sub-steps (started 2026-07-07): **0a** shared_db V36 `users` + model + prod apply → **0b**
 개인정보처리방침 page (front-only; unblocks owner-side Google/Kakao console setup) → **0c**
 infra Cognito self-signup + IdPs (pool-immutability research RESOLVED 2026-07-07 — option (a),
-existing pool kept; still blocked on owner console prerequisites: Google OAuth client, Kakao
-app + 개인 개발자 비즈앱 전환 + email 필수 동의 설정) → **0d** backend `GET/PATCH /api/me`
+existing pool kept; **APPLIED + verified 2026-07-08**, ws #565/#566 — see the 0c status block
+below) → **0d** backend `GET/PATCH /api/me`
 lazy-provisioning + account deletion (**implemented 2026-07-07**: backend
 `feat/multi-user-0d-api-me` — GET also lazy-provisions and rides the API GW GET catch-all;
 DELETE goes Cognito-first (ListUsers by sub → AdminDeleteUser, idempotent) then the DB row so
@@ -235,12 +235,24 @@ access-token bearers carry no email/name claims, so provisioned defaults degrade
 `user-<sub8>` — the 0e settings page prompts a handle pick anyway) → **0e** front settings page
 + signup entry (**settings slice SHIPPED 2026-07-07**, front #249 prod-smoked: `/settings/` —
 profile edit with handle-format mirror, 연동 empty state, account deletion armed by typing the
-member's own @handle; ProfileApp tab row 설정 ↗ entry. **Signup entry deliberately deferred to
-0c** — no self-signup flow exists to link until the IdPs land).
+member's own @handle; ProfileApp tab row 설정 ↗ entry. **Signup entry SHIPPED 2026-07-08 as a
+front follow-on to 0c** — front #253: `goLogin(force, identityProvider?)` appends
+`identity_provider=Google|Kakao` to /oauth2/authorize (omit → hosted UI); the Login button opens
+a popover (카카오/Google/이메일) reusing the existing `/admin/callback`. Prod clickthrough:
+Login→popover→Google lands accounts.google.com, Kakao lands kauth.kakao.com — both via Cognito
+`/oauth2/idpresponse`, hosted-UI picker skipped).
 
-Phase 0 remaining: owner console setup (Google OAuth client; Kakao 본인인증 → 개인 개발자
-비즈앱 → email 필수 동의) → **0c infra** (self-signup + IdPs + signup entry link-up). All other
-sub-steps (0a/0b/0d/0e-settings) are live in prod.
+**Phase 0 is code-complete (2026-07-08).** 0a/0b/0c(infra+backend gate)/0d/0e + the front signup
+entry are all live in prod. Everything that remains is owner-only and does not block the code:
+(1) **Kakao `email_verified`** — confirm the claim on the owner's first real Kakao login
+(`/v1/oidc/userinfo`; prod authorize already requests `scope=account_email`) and map it into the
+IdP `attribute_mapping` if present; missing does not block sign-in. (2) **Public-launch gate** —
+Google publish-to-production (Route53 TXT + Search Console domain verification, owner-only) +
+Kakao production review (see the deferred-gate paragraph below). (3) **OAuth secret re-issue** —
+the Google client secret + Kakao secret were pasted in-transcript during console setup; rotate
+them (SSM `/myblog/oauth/*` update + targeted `terraform -replace` on the IdP, per the drift
+caveat) when convenient. Opening signup to the general public is gated on (1)+(2); Phase 1 begins
+independently.
 
 **Console setup progress + deferred public-launch gate (2026-07-07).** OAuth credentials for
 both IdPs are stored in SSM SecureString — `/myblog/oauth/{google-client-id, google-client-secret,
@@ -273,6 +285,18 @@ to false — otherwise there is an authoring window. 0c is therefore two coordin
 gate merges + deploys + prod-smokes first, then the owner applies the Cognito infra. Per-user
 scoping (buckets P2, listening P3) later relaxes the gate route-by-route as those tables gain
 `user_id`.
+
+**0c status — SHIPPED + APPLIED + verified 2026-07-08.** Two coordinated PRs both merged:
+backend **#107** (fail-closed `require_owner` on 27 single-owner routes; deployed; prod smoke
+19/0 — a member `sub ≠ OWNER_SUB` now 403s on `POST /api/posts` + `/api/publish`, hole closed)
+then workspace **#565** (`infra/cognito_idp.tf` — Google native + Kakao OIDC IdPs, self-signup
+on, spa_client += Google/Kakao). **`terraform apply` run by Claude with owner go-ahead**:
+`2 added, 2 changed, 0 destroyed`, pool id unchanged (no replacement). Live-verified: both IdPs
+present, `AllowAdminCreateUserOnly=False`, spa_client `SupportedIdentityProviders=COGNITO+Google
++Kakao`; IdP handoff curl-probed (Google→302 accounts.google.com, Kakao→302 kauth.kakao.com).
+Post-apply drift fix ws **#566** (`lifecycle.ignore_changes=[provider_details]` on both IdPs —
+Cognito auto-derives endpoint fields on read → was a perpetual 2-change plan; now plan clean).
+Caveat: secret rotation now needs an SSM update + a targeted `-replace`.
 
 ### Phase 1 — RYM-style reviews (the differentiation) → Gate G1
 `album_reviews` (user_id, album_id, rating half-steps 0.5–5.0, optional comment text,
@@ -372,3 +396,5 @@ rejected — an always-on service costs more than it polices at this scale). Own
 | 2026-07-07 | **0c research gate resolved: option (a) — Kakao 개인 개발자 비즈앱 + email 필수 동의; existing pool kept** (owner approval via AskUserQuestion). Solo devs convert self-serve via phone 본인인증; "수집 후 제공" guarantees the email claim. (b)/(c) rejected. Residual: verify `email_verified` in Kakao OIDC userinfo at implementation | web research, sources in risk bullet |
 | 2026-07-07 | OAuth creds stored in SSM `/myblog/oauth/*`; Google web client created. **Public-launch gates deferred** (not 0c blockers): Google brand/domain verification (Route53 TXT + Search Console, owner-only — `claude_aws_manager` has no route53 perm) + Kakao production review. 0c builds/tests in Google Testing + Kakao dev mode with owner as test user | console setup this session |
 | 2026-07-08 | **0c audit found a privilege-escalation gap: self-signup would expose 27 single-owner backend routes to any member** (they gated on `require_cognito_token` = any pool token). Added fail-closed `require_owner`; backend PR must deploy BEFORE the infra apply (owner approval via AskUserQuestion). 0c = 2 coordinated PRs (backend gate → infra) | current-state audit; auth boundary |
+| 2026-07-08 | **0c SHIPPED + APPLIED + verified**: backend #107 (owner-gate deployed, prod smoke 19/0) → ws #565 (Cognito self-signup + Google/Kakao IdPs, apply 2 add/2 change/0 destroy, no pool replacement) → drift fix ws #566 (`ignore_changes=provider_details`). IdP handoff curl-probed both IdPs | Claude applied with owner go-ahead |
+| 2026-07-08 | **Front signup entry SHIPPED** (front #253): `goLogin` optional `identity_provider` deep-link + Login popover (카카오/Google/이메일), reuses `/admin/callback`. Prod clickthrough — Google→accounts.google.com, Kakao→kauth.kakao.com, hosted-UI picker skipped. **Phase 0 code-complete.** Residual (owner-only): Kakao `email_verified` live-check, public-launch gate (Google prod publish + Kakao 심사), OAuth secret rotation | popover placement picked by owner via AskUserQuestion |
