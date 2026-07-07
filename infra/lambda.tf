@@ -31,6 +31,10 @@ resource "aws_lambda_function" "backend" {
       # because this was never set. With auth.py now fail-closed, APPLY THIS
       # (and verify JWKS reachable) BEFORE deploying the fail-closed backend.
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
+      # FEAT-multi-user-accounts 0d: DELETE /api/me refuses this sub (403) so the
+      # blog-admin identity can't self-delete via the member flow. Value = the
+      # owner account's Cognito sub (zlxlgus123@naver.com in MyBlogAdminPool).
+      OWNER_SUB            = "9488ed3c-90b1-70b7-9425-61c0434a9fd7"
       GITHUB_REPO_OWNER    = "hyuntohoon"
       GITHUB_REPO_NAME     = "myblog_front"
       GITHUB_REPO_BRANCH   = "main"
