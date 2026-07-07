@@ -306,6 +306,27 @@ old stub) with review feed. All public. Anti-abuse minimum: per-user daily revie
 delete-any-review (admin claim on the owner account). Public profiles + reviews in the sitemap
 (SEO = the growth channel). **Then evaluate Gate G1.**
 
+**Phase 1 SHIPPED + prod-verified 2026-07-08** (code-complete; Gate G1 evaluation follows real
+public signups). OQ2 resolved: **aggregates computed live at read time** (no denormalized counter
+on `albums`). Cross-repo spine, all merged + deployed:
+- **shared_db V38** `album_reviews` (born user-scoped; both FKs `ON DELETE CASCADE` so account
+  deletion drops owned reviews at the schema level; `mod(rating,0.5)=0` half-step CHECK;
+  UNIQUE(user_id,album_id) = the "edit my review" upsert key). Prod-applied + verified (#54).
+- **backend #108** reviews API: `PUT`/`DELETE /api/reviews/albums/{album_id}` (member, lazy-
+  provision), `DELETE /api/reviews/{review_id}` (owner `require_owner`), public `GET
+  /api/reviews/albums/{album_id}` aggregate + `GET /api/members[/{handle}]`. Anti-abuse =
+  per-member rolling-24h create cap (`REVIEW_DAILY_CAP=50`; edits exempt) → 429. GET routes ride
+  the edge_guard catch-all; the 3 mutations got API GW JWT routes (ws #573 apply, 3 add/0/0).
+- **front #257**: `AlbumRatingBlock` (aggregate + 0.5-step write panel) on every album surface via
+  `AlbumDetailView.topSlot`; `MemberProfile` island + `/members/[handle].astro` (getStaticPaths
+  prebuild, in the sitemap). **Static-generation caveat**: a new member's profile page appears
+  only on the next deploy (no SSR — infra re-platform is a non-goal); the album-overlay aggregate
+  + write work immediately. At launch the member index is empty by design.
+- **Prod smoke (via CloudFront + minted member JWT)**: PUT→aggregate 4.0/1→profile feed→member
+  index→edit(in-place, count stays 1)→delete→0; invalid half-step 4.3→422; real-browser
+  clickthrough (overlay write panel + `/members/[handle]` render) then cleaned up (album_reviews
+  back to 0). Owner-only residual: none — Gate G1 is a post-public-launch metric.
+
 ### Phase 2 — Per-user buckets/to-listen
 `user_id` on `review_buckets` + `review_bucket_items` + `album_to_listen_items` (nullable →
 backfill owner → NOT NULL; plain `V{N}__` SQL, rollout order per
@@ -368,8 +389,9 @@ rejected — an always-on service costs more than it polices at this scale). Own
 
 1. ~~**Handle model** (blocks Phase 0)~~ — **RESOLVED 2026-07-07 (owner)**: user-chosen with an
    IdP-nickname-derived unique default, editable in settings.
-2. **Rating aggregate placement** (blocks Phase 1): live query vs denormalized counters on
-   `albums` — decide at implementation with real read QPS in mind; live query is fine at launch.
+2. ~~**Rating aggregate placement** (blocks Phase 1)~~ — **RESOLVED 2026-07-08 (implementation)**:
+   live query (avg/count over `album_reviews`, `idx_album_reviews_album_id`). No denormalized
+   counter on `albums`; revisit only if read QPS proves it out (it won't at launch scale).
 3. **BYOK provider set for v1** (blocks Phase 4): all four (Anthropic/OpenAI/Gemini/OpenRouter)
    vs Anthropic-only first. Lean: Anthropic-only first, adapter designed for four.
 4. **`user_integrations` shape** (blocks Phase 3): one table for Last.fm username + Spotify
@@ -398,3 +420,4 @@ rejected — an always-on service costs more than it polices at this scale). Own
 | 2026-07-08 | **0c audit found a privilege-escalation gap: self-signup would expose 27 single-owner backend routes to any member** (they gated on `require_cognito_token` = any pool token). Added fail-closed `require_owner`; backend PR must deploy BEFORE the infra apply (owner approval via AskUserQuestion). 0c = 2 coordinated PRs (backend gate → infra) | current-state audit; auth boundary |
 | 2026-07-08 | **0c SHIPPED + APPLIED + verified**: backend #107 (owner-gate deployed, prod smoke 19/0) → ws #565 (Cognito self-signup + Google/Kakao IdPs, apply 2 add/2 change/0 destroy, no pool replacement) → drift fix ws #566 (`ignore_changes=provider_details`). IdP handoff curl-probed both IdPs | Claude applied with owner go-ahead |
 | 2026-07-08 | **Front signup entry SHIPPED** (front #253): `goLogin` optional `identity_provider` deep-link + Login popover (카카오/Google/이메일), reuses `/admin/callback`. Prod clickthrough — Google→accounts.google.com, Kakao→kauth.kakao.com, hosted-UI picker skipped. **Phase 0 code-complete.** Residual (owner-only): Kakao `email_verified` live-check, public-launch gate (Google prod publish + Kakao 심사), OAuth secret rotation | popover placement picked by owner via AskUserQuestion |
+| 2026-07-08 | **Phase 1 (RYM reviews) SHIPPED + prod-verified** — shared_db V38 `album_reviews` (prod-applied #54) → backend #108 (reviews CRUD + live aggregate + `/members` feed + daily cap; API GW routes ws #573 apply 3/0/0) → front #257 (album rating block + `/members/[handle]`). OQ2 = live query. Full prod smoke + browser clickthrough, cleaned up. Gate G1 evaluation deferred to post-public-launch. Owner OK'd running all steps + push/merge this session (rule #4 gate waived, DB prod-apply observed) | cross-repo spine, 4 PRs |
