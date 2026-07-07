@@ -1,6 +1,6 @@
 # ARCH-entity-interaction-unify: One entity → one interaction, everywhere
 
-- **Status**: draft
+- **Status**: in-progress (Step 1 shipped + prod-verified 2026-07-08)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → ARCH-entity-interaction-unify
@@ -238,3 +238,6 @@ Duplicate it overlaps:  album-detail paths (RESOLVED by this RFC)
 | 2026-07-08 | Album click → single global overlay window (not a route page); resolve the vanilla/React duplication onto it (owner) | design |
 | 2026-07-08 | Track click → open the album window for the track's album; no new play/add (owner) | design |
 | 2026-07-08 | Artist click stays route `/artist/[id]` (unchanged) | design |
+| 2026-07-08 | OQ1 resolved — architect rec **(b)**: `AlbumDetail` uses ZERO React context (usePocket/bucketStore = 0), so the crash worry was moot; but the event can't carry member types, so the app-wide overlay is inherently read-only. Extract a read-only `AlbumDetailView`; keep MemoWindow/edit member-side. Eval → `docs/archive/reviews/ARCH-entity-interaction-unify-step1-eval.md` | Step 1 |
+| 2026-07-08 | OQ2 resolved — `ent:open-album` carries **primitives** `{albumId, title?, artist?, cover?, year?}` (host re-fetches via lib/albumDetail); public callers import no member types | Step 1 |
+| 2026-07-08 | Step 1 SHIPPED — front #255 (`a549ec5`, deploy 28882687379). New `components/album/AlbumDetailView` + `AlbumOverlay` (un-gated, layout-mounted) + `lib/entityEvents.openAlbum`; member `AlbumDetail` delegates read-only body to the shared view. Public prod smoke: overlay opens on event, fetch 200/15 tracks, header+artists+tracklist render, **0 lyrics affordance** (privacy), artist link `/artist/…/`, ESC closes. Member live MemoWindow/edit gesture deferred to owner spot-check (shared view prod-proven; extraction behavior-preserving; MemoWindow untouched) | Step 1 |
