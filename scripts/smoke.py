@@ -161,9 +161,10 @@ def run_unauth_tests(host: dict[str, str]) -> None:
               bool(b and b.get("artists") and b["artists"][0].get("id")))
 
 
-def run_authed_tests(host: dict[str, str], token: str | None) -> None:
-    # In local mode, token can be None — backend bypasses on ENV=local.
-    print("\n[post CRUD round-trip]")
+def _run_owner_post_crud(host: dict[str, str], token: str | None) -> None:
+    # Owner-only post CRUD. Reached only when token is None (local ENV, where
+    # require_owner bypasses); in prod a member token would 403 at the gate.
+    print("\n[post CRUD round-trip — owner routes]")
     # Title must be unique per run: backend now hard-rejects duplicate slugs
     # with 409 (BUG-9), so re-runs after a previous run leaked a row would
     # otherwise collide.
@@ -236,6 +237,37 @@ def run_authed_tests(host: dict[str, str], token: str | None) -> None:
     s, _ = request_json(host["backend_authed"] + f"/api/posts/{post_id}?hard=true",
                         method="DELETE", token=token)
     check("DELETE /api/posts/{id}?hard=true → 204", s == 204, f"status={s}")
+
+
+def _run_member_gate(host: dict[str, str], token: str) -> None:
+    # FEAT-multi-user 0c: the prod smoke user (test@ratemymusic.blog) is NOT the
+    # owner (its sub != OWNER_SUB), so it is a plain member. require_owner must
+    # block it from owner routes (403 — reaching the in-app gate, not a 401 at the
+    # authorizer) while member routes (/api/me) still 200. Owner-authoring
+    # happy-path is owner-verified in normal use (we do not automate owner creds).
+    print("\n[require_owner gate — member blocked from owner routes]")
+    payload = {
+        "title": f"SMOKE gate probe {int(time.time())}",
+        "description": "smoke", "body_mdx": "# smoke",
+        "posted_date": str(datetime.date.today()), "status": "draft",
+        "category": "Reviews", "album_ids": [], "artist_ids": [],
+        "rating": None, "album_classics": {}, "recommended_tracks": [],
+    }
+    s, _ = request_json(host["backend_authed"] + "/api/posts", method="POST", body=payload, token=token)
+    check("POST /api/posts as member → 403 (owner-gate)", s == 403, f"status={s}")
+    s, _ = request_json(host["backend_authed"] + "/api/publish", method="POST", body={}, token=token)
+    check("POST /api/publish as member → 403 (owner-gate)", s == 403, f"status={s}")
+
+    print("\n[member routes — signed-in member is allowed]")
+    s, b = request_json(host["backend_authed"] + "/api/me", token=token)
+    check("GET /api/me as member → 200", s == 200, f"status={s}, body={str(b)[:120]}")
+
+
+def run_authed_tests(host: dict[str, str], token: str | None) -> None:
+    if token is None:
+        _run_owner_post_crud(host, token)  # local: auth bypassed, exercise full CRUD
+    else:
+        _run_member_gate(host, token)      # prod: token is a member, verify the gate
 
 
 # ---------- Entry point -----------------------------------------------------
