@@ -158,8 +158,16 @@ renders an honest "no announced releases — add more artists" state.
 
 The UI shape is a later design-gate decision with the owner (`frontend-design`
 skill applies; real-browser click-through incl. 390px mobile per DoD). Range
-selection (day / week / month) is an open question. The design exploration is
-not embedded here (ephemeral artifact).
+selection (day / week / month) is an open question.
+
+Design exploration (claude.ai artifacts, owner-private — "더 다듬을 것", not
+final):
+
+- Almanac v3 (current — calendar navigator + riso duotone cards, stress-tested
+  on adversarial data):
+  <https://claude.ai/code/artifact/fa5fd24d-b9cf-47fe-b021-24560876b016>
+- v1 grid mockup (rejected — read as a stiff dashboard):
+  <https://claude.ai/code/artifact/3421b1cf-3227-4b18-93ab-7ff36a1c2258>
 
 ## Relationship to existing infra — reuse vs separate
 
