@@ -229,9 +229,18 @@ lazy-provisioning + account deletion (**implemented 2026-07-07**: backend
 `feat/multi-user-0d-api-me` — GET also lazy-provisions and rides the API GW GET catch-all;
 DELETE goes Cognito-first (ListUsers by sub → AdminDeleteUser, idempotent) then the DB row so
 retries converge; `OWNER_SUB` env 403-guards the admin identity. Workspace infra: PATCH/DELETE
-JWT routes + pool-scoped IAM + OWNER_SUB — owner `terraform apply` pending. Note: access-token
-bearers carry no email/name claims, so provisioned defaults degrade to `user-<sub8>` — the 0e
-settings page prompts a handle pick anyway) → **0e** front settings page + signup entry.
+JWT routes + pool-scoped IAM + OWNER_SUB — **applied + e2e-verified 2026-07-07** (backend #105,
+ws #561; PATCH 401/200 probes, throwaway-user DELETE → 204, Cognito+DB both empty). Note:
+access-token bearers carry no email/name claims, so provisioned defaults degrade to
+`user-<sub8>` — the 0e settings page prompts a handle pick anyway) → **0e** front settings page
++ signup entry (**settings slice SHIPPED 2026-07-07**, front #249 prod-smoked: `/settings/` —
+profile edit with handle-format mirror, 연동 empty state, account deletion armed by typing the
+member's own @handle; ProfileApp tab row 설정 ↗ entry. **Signup entry deliberately deferred to
+0c** — no self-signup flow exists to link until the IdPs land).
+
+Phase 0 remaining: owner console setup (Google OAuth client; Kakao 본인인증 → 개인 개발자
+비즈앱 → email 필수 동의) → **0c infra** (self-signup + IdPs + signup entry link-up). All other
+sub-steps (0a/0b/0d/0e-settings) are live in prod.
 
 ### Phase 1 — RYM-style reviews (the differentiation) → Gate G1
 `album_reviews` (user_id, album_id, rating half-steps 0.5–5.0, optional comment text,
