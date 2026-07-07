@@ -1,6 +1,6 @@
 # FEAT-today-buckit: Two "today" buckit tiles on the home
 
-- **Status**: draft
+- **Status**: in-progress (Step 1 shipped + prod-verified 2026-07-08)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → FEAT-today-buckit
@@ -306,3 +306,4 @@ cd myblog_front && pnpm lint && pnpm exec astro check && pnpm build
 | 2026-07-08 | Placement = home / EditorialHome sections (owner) | scope |
 | 2026-07-08 | Buckit (not Bucket) spelling; `today ( ) buckit` naming convention (owner) | design |
 | 2026-07-08 | Entity clicks route through ARCH-entity-interaction-unify (album → overlay, artist → route) (owner) | dep |
+| 2026-07-08 | Step 1 SHIPPED — music `GET /api/music/albums/on-this-day` (music #52, deploy 28880892242); prod smoke 8/8 (07/07 slice, years_ago correct, no null/current-year, dedup); leap-day = exact match (OQ7 default) | Step 1 |
