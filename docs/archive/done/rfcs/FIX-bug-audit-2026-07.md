@@ -1,6 +1,6 @@
 # FIX-bug-audit-2026-07 — Consolidated fixes from the 2026-07-07 six-track audit
 
-- **Status**: in-progress (accepted + implementation started 2026-07-07, owner-approved in session)
+- **Status**: done (closed 2026-07-07 — all 8 workstreams + 3 deferred items complete; owner-approved close in session)
 - **Date**: 2026-07-07
 - **Owner**: 박지훈
 - **Source**: six parallel audit agents (frontend / backend / SQL / architecture / infra / security), findings cross-verified between tracks. No CRITICAL found.
