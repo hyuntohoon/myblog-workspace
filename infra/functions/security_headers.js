@@ -1,0 +1,41 @@
+// FIX-bug-audit-2026-07 WS-F: security response headers.
+// CloudFront Free plan rejects a custom response_headers_policy (Business-tier),
+// so the headers are stamped by this viewer-response Function instead (runs on
+// every response of the associated behavior — default S3 behavior only; /api/*
+// responses come from the backend and are not in scope here).
+//
+// CSP is REPORT-ONLY: violations log to the browser console, nothing is blocked.
+// Promotion to an enforcing Content-Security-Policy is a separate step after a
+// soak period. Allowlist sources (verified against myblog_front/src 2026-07-07):
+//   script/frame  sdk.scdn.co + *.spotify.com  (Spotify Web Playback SDK + EME iframe)
+//   connect       *.spotify.com (Web API), *.amazoncognito.com (token endpoint)
+//   style/font    fonts.googleapis.com / fonts.gstatic.com (layout.astro)
+//   img           *.scdn.co (covers), *.spotifycdn.com, placehold.co, data:/blob:
+// X-Frame-Options DENY governs who may frame THIS site; framing sdk.scdn.co
+// ourselves is unaffected.
+
+function handler(event) {
+    var response = event.response;
+    var headers = response.headers;
+
+    headers['strict-transport-security'] = { value: 'max-age=63072000; includeSubDomains; preload' };
+    headers['x-frame-options'] = { value: 'DENY' };
+    headers['x-content-type-options'] = { value: 'nosniff' };
+    headers['referrer-policy'] = { value: 'strict-origin-when-cross-origin' };
+    headers['permissions-policy'] = { value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' };
+    headers['content-security-policy-report-only'] = { value:
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' https://sdk.scdn.co; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+        "font-src 'self' data: https://fonts.gstatic.com; " +
+        "img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://placehold.co; " +
+        "connect-src 'self' https://*.spotify.com https://*.amazoncognito.com https://sdk.scdn.co; " +
+        "frame-src https://sdk.scdn.co https://*.spotify.com; " +
+        "media-src 'self' blob: https://*.scdn.co; " +
+        "worker-src 'self' blob:; " +
+        "base-uri 'self'; " +
+        "form-action 'self'; " +
+        "object-src 'none'" };
+
+    return response;
+}

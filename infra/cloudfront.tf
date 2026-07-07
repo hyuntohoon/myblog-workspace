@@ -13,16 +13,21 @@ locals {
   origin_req_policy_all_viewer = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
 }
 
-# --- Security response headers: DEFERRED (FIX-bug-audit-2026-07 WS-F) ---
-# Intended an aws_cloudfront_response_headers_policy (HSTS/XFO/nosniff/referrer/
-# permissions + report-only CSP) on the default behavior to close the XSS→
-# localStorage-token-theft chain. AWS rejected it at apply: this distribution is
-# on the CloudFront FREE pricing plan, where a custom response-headers policy is
-# a Business-tier feature — the SAME constraint that blocked custom cache policies
-# and ElastiCache (see the FEAT-music-edge-cache note below). On the Free plan the
-# only route to these headers is a viewer-response CloudFront Function, which runs
-# on every response and needs its own isolated verification before prod. Deferred
-# to a dedicated follow-up so it is not shipped untested in this batch.
+# --- Security response headers (FIX-bug-audit-2026-07 WS-F) ---
+# A custom aws_cloudfront_response_headers_policy is a Business-tier feature and
+# was rejected at apply on this distribution's FREE pricing plan (same constraint
+# that blocked custom cache policies — see the FEAT-music-edge-cache note below).
+# Free-plan route: a viewer-response CloudFront Function stamping the headers.
+# It runs on every response of the default (S3) behavior, so it was verified in
+# isolation with `aws cloudfront test-function` before the association landed.
+# CSP ships REPORT-ONLY; enforcing is a separate later step.
+resource "aws_cloudfront_function" "security_headers" {
+  name    = "myblog-security-headers"
+  runtime = "cloudfront-js-2.0"
+  comment = "WS-F security response headers (Free plan blocks response_headers_policy)"
+  publish = true
+  code    = file("${path.module}/functions/security_headers.js")
+}
 
 # --- FEAT-music-edge-cache Step 2 (Free-plan fallback, 2026-06-05) ---
 # The original design used a CUSTOM aws_cloudfront_cache_policy keyed on query
@@ -99,6 +104,13 @@ resource "aws_cloudfront_distribution" "myblog" {
     function_association {
       event_type   = "viewer-request"
       function_arn = "arn:aws:cloudfront::${var.account_id}:function/handler"
+    }
+
+    # WS-F: security response headers (see aws_cloudfront_function above).
+    # Verified with `aws cloudfront test-function` before this association.
+    function_association {
+      event_type   = "viewer-response"
+      function_arn = aws_cloudfront_function.security_headers.arn
     }
   }
 
