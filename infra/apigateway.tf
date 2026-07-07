@@ -155,6 +155,26 @@ resource "aws_apigatewayv2_route" "buckets_patch" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Member self-profile (FEAT-multi-user-accounts Phase 0 / 0d) ---
+# GET /api/me rides the edge_guard catch-all (api_get_proxy) — the Lambda's
+# require_cognito_token validates the JWT and lazy-provisions the users row.
+# The mutations are Cognito-JWT gated here (buckets_patch pattern).
+resource "aws_apigatewayv2_route" "me_patch" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PATCH /api/me"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "me_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/me"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Album research notes (FEAT-album-research-notes Step 4) ---
 # Writer-facing AI research notes (never public). The manual trigger / restart /
 # refine POST is Cognito-JWT here. GET /api/research/albums/{id} rides the

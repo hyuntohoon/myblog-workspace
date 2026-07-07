@@ -44,6 +44,23 @@ resource "aws_iam_role_policy" "backend_s3" {
   })
 }
 
+# FEAT-multi-user-accounts 0d: DELETE /api/me removes the member's Cognito user
+# (개인정보보호법 account deletion). ListUsers resolves sub → Username first (a
+# sub is not a Username). Pool-ARN-scoped; no other cognito-idp action granted.
+resource "aws_iam_role_policy" "backend_cognito_member_delete" {
+  name = "cognito-member-delete"
+  role = aws_iam_role.backend.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "MemberDelete"
+      Effect   = "Allow"
+      Action   = ["cognito-idp:ListUsers", "cognito-idp:AdminDeleteUser"]
+      Resource = aws_cognito_user_pool.myblog_admin.arn
+    }]
+  })
+}
+
 # backend inline "ssm" policy: REMOVED (FIX-bug-audit-2026-07 WS-F). Its
 # GetDbParams statement pointed at parameter/myblog/prod/db/* — a path that holds
 # nothing (real params are /myblog/backend + /myblog/spotify). The backend role's

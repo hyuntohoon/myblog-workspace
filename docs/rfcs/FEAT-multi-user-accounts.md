@@ -225,7 +225,13 @@ Sub-steps (started 2026-07-07): **0a** shared_db V36 `users` + model + prod appl
 infra Cognito self-signup + IdPs (pool-immutability research RESOLVED 2026-07-07 — option (a),
 existing pool kept; still blocked on owner console prerequisites: Google OAuth client, Kakao
 app + 개인 개발자 비즈앱 전환 + email 필수 동의 설정) → **0d** backend `GET/PATCH /api/me`
-lazy-provisioning + account deletion → **0e** front settings page + signup entry.
+lazy-provisioning + account deletion (**implemented 2026-07-07**: backend
+`feat/multi-user-0d-api-me` — GET also lazy-provisions and rides the API GW GET catch-all;
+DELETE goes Cognito-first (ListUsers by sub → AdminDeleteUser, idempotent) then the DB row so
+retries converge; `OWNER_SUB` env 403-guards the admin identity. Workspace infra: PATCH/DELETE
+JWT routes + pool-scoped IAM + OWNER_SUB — owner `terraform apply` pending. Note: access-token
+bearers carry no email/name claims, so provisioned defaults degrade to `user-<sub8>` — the 0e
+settings page prompts a handle pick anyway) → **0e** front settings page + signup entry.
 
 ### Phase 1 — RYM-style reviews (the differentiation) → Gate G1
 `album_reviews` (user_id, album_id, rating half-steps 0.5–5.0, optional comment text,
