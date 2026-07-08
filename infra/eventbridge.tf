@@ -62,6 +62,34 @@ resource "aws_lambda_permission" "spotify_listening_events" {
   source_arn    = aws_cloudwatch_event_rule.spotify_listening.arn
 }
 
+# FEAT-multi-user Phase 3a: per-user Last.fm recent-tracks poll. Constant input
+# {"job":"lastfm_recent_tracks"} (handler checks event["job"] first, before the
+# alias source check). The worker reads user.getRecentTracks for each connected
+# user and upserts the lastfm_recent_tracks cache + now-playing row. NO-OP until
+# the owner sets LASTFM_API_KEY in the SSM /myblog/worker blob (the handler guards
+# on it). Never a synchronous Last.fm call from a user-facing endpoint (rule #9).
+resource "aws_cloudwatch_event_rule" "lastfm_recent_tracks" {
+  name                = "worker-lastfm-recent-tracks"
+  description         = "Per-user Last.fm recent-tracks + now-playing poll (15 min)"
+  schedule_expression = "rate(15 minutes)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "lastfm_recent_tracks" {
+  rule      = aws_cloudwatch_event_rule.lastfm_recent_tracks.name
+  target_id = "blogWorkerLambda-lastfm-recent-tracks"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "lastfm_recent_tracks" })
+}
+
+resource "aws_lambda_permission" "lastfm_recent_tracks_events" {
+  statement_id  = "AllowInvokeFromEventBridgeLastfmRecentTracks"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.lastfm_recent_tracks.arn
+}
+
 # Album-catalog ingest — daily scheduled invocation of the worker Lambda
 # (FEAT-album-catalog-ingest Step 3).
 #
