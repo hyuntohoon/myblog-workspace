@@ -1,6 +1,6 @@
 # ARCH-entity-interaction-unify: One entity → one interaction, everywhere
 
-- **Status**: in-progress (Step 1 shipped + prod-verified 2026-07-08)
+- **Status**: **done** — all 4 steps shipped + prod-verified 2026-07-08 (owner-promoted)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → ARCH-entity-interaction-unify
