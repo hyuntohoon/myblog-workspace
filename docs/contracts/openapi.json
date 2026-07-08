@@ -7304,6 +7304,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "List To Listen",
         "tags": [
           "library"
