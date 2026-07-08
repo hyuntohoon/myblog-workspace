@@ -33,8 +33,11 @@ resource "aws_lambda_function" "backend" {
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
       # FEAT-multi-user-accounts 0d: DELETE /api/me refuses this sub (403) so the
       # blog-admin identity can't self-delete via the member flow. Value = the
-      # owner account's Cognito sub (zlxlgus123@naver.com in MyBlogAdminPool).
-      OWNER_SUB            = "9488ed3c-90b1-70b7-9425-61c0434a9fd7"
+      # owner account's Cognito sub. Points at zlxlgus123@gmail.com (CONFIRMED),
+      # the account actually used to sign in; the original naver.com native user
+      # (9488ed3c…) is stuck in FORCE_CHANGE_PASSWORD, so require_owner 403'd the
+      # live admin on all owner-gated routes (buckets/library/posts) until repointed.
+      OWNER_SUB            = "0468fd3c-2011-70f5-0681-b852ddaade41"
       GITHUB_REPO_OWNER    = "hyuntohoon"
       GITHUB_REPO_NAME     = "myblog_front"
       GITHUB_REPO_BRANCH   = "main"
