@@ -147,6 +147,24 @@ resource "aws_apigatewayv2_route" "buckets_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# FEAT-multi-user Phase 3a: Last.fm connect/disconnect (member mutations). The
+# GET /api/integrations[/lastfm/now-playing] reads ride the edge_guard GET catch-all.
+resource "aws_apigatewayv2_route" "integrations_lastfm_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/integrations/lastfm"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "integrations_lastfm_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/integrations/lastfm"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "buckets_patch" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "PATCH /api/buckets/{id}"
