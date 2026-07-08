@@ -1,6 +1,7 @@
 # Frontend component map — developer / LLM reference
 
-> **Verified 2026-07-03** against `myblog_front/src/` (Astro 5 + React 19).
+> **Verified 2026-07-08** against `myblog_front/src/` (Astro 5 + React 19).
+> (ARCH-entity-interaction-unify Steps 1–3: app-wide album overlay + album/track dispatch.)
 > Canonical living copy — produced by `docs/archive/done/rfcs/ARCH-frontend-component-map.md` Step 1.
 > Re-verify (3 spot claims minimum) in the step of any RFC whose impact template touches
 > track-click / overlay / cross-island / shared-chrome. A stale "Verified" stamp is the
@@ -34,9 +35,12 @@ Shared chrome (`Header`/`Footer`/`PocketBuckit`) is mounted once in `layouts/lay
 `components/shared/TrackRow.tsx` — one row component with a **declared action set**
 `{lyrics?, open?}` (`play`/`add` are reserved slots — granting a surface a NEW play/add
 affordance is a product decision per RFC OQ2, implemented in TrackRow when approved).
-Consumers: `AlbumDetail` tracklist + `LikedBoard` list rows (both inside the `ProfileApp`
-island). A future track action on these surfaces is wired in TrackRow once, not per surface.
-`components/search/SearchPage.tsx` has an unrelated local `SearchTrackRow` (search-static).
+Consumers: `AlbumDetail` tracklist (via the shared `AlbumDetailView`, Step 1) + `LikedBoard`
+list rows (both inside the `ProfileApp` island). A future track action on these surfaces is
+wired in TrackRow once, not per surface.
+Bespoke **public** track rows (`SearchPage.SearchTrackRow`, `HeaderSearch` `ResultRow`,
+`ArtistHub` top-tracks) are NOT TrackRow — they dispatch `openTrackAlbum` directly
+(ARCH-entity-interaction-unify Step 3; a track opens the app-wide album overlay).
 
 **Explicitly excluded:** the vanilla review tracklist (`scripts/albumDetail.client.ts`)
 stays hand-rolled (RFC non-goal: no vanilla → React migration; revival trigger = a track
@@ -49,8 +53,9 @@ to compound actions).
 | Review tracklist (vanilla, public) | `scripts/albumDetail.client.ts` (row render `:66,:71`; delegated handlers `:124-144`) | two buttons/row: `.lfq-tt-play` (▶) + `.lfq-tt-add` (＋) | ▶ → `requestPlayback({kind:'track',trackId,title})` (`:130`); ＋ → `window` event `pb:add-track` (`:144`) → `ReviewTrackAdder` | **no — excluded** |
 | Pocket tray drawer members | `components/member/pocket/PocketTray.tsx:587` | React `<button onClick={onPlay}>` ▶ (list view) | `onPlay`→`playbackTargetFor` (`:53-59`)→`requestPlayback` (`:412`) | no (tray lyrics deferred — RFC OQ4, separate React root) |
 | Member `AlbumDetail` tracklist | `components/member/AlbumDetail.tsx` `Tracklist` | `TrackRow` — 가사 (when track has `spotify_id`) → lyrics viewer non-live | none | **TrackRow** (`lyrics`) |
-| `LikedBoard` list rows | `components/member/LikedBoard.tsx` `Row` | `TrackRow` — identity → `onOpen` (detail); 가사 → lyrics viewer non-live; ⋯ → 담기/평론쓰기 (surface-specific trailing) | none | **TrackRow** (`open`+`lyrics`); card view NOT adopted (no lyrics affordance there) |
-| Search track rows + header | `components/search/SearchPage.tsx` (`SearchTrackRow`), `HeaderSearch.tsx:295-308` | `ResultRow` `action` union — track rows are `action:'static'` (not clickable) | none | no |
+| `LikedBoard` list rows | `components/member/LikedBoard.tsx` `Row` | `TrackRow` — identity → `onOpen` (detail, **member modal** — writable path, NOT the event); 가사 → lyrics viewer non-live; ⋯ → 담기/평론쓰기 (surface-specific trailing) | none | **TrackRow** (`open`+`lyrics`); card view NOT adopted (no lyrics affordance there) |
+| Search track rows (public) | `components/search/SearchPage.tsx` (`SearchTrackRow`), `HeaderSearch` `ResultRow` (dropdown 트랙 rows) | **Step 3**: a track with a DB `albumId` opens the app-wide album overlay (`openTrackAlbum`); id-less (Spotify-only) rows stay static | none | no (bespoke → `openTrackAlbum`) |
+| Artist top-tracks (public) | `components/artist/ArtistHub.tsx` `art-tt-open` | **Step 3**: `<button>` → `openTrackAlbum` (Music_TrackItem.album_id always set) | none | no (bespoke → `openTrackAlbum`) |
 | Writer `RecommendedTracksBlock` / `ArtistDetail` | `components/writer/RecommendedTracksBlock.tsx:66-76`, `writer/ArtistDetail.tsx:43` | ★/☆ pick / `onPickTrack` (select-for-review) | none | no |
 
 `requestPlayback` (`lib/spotifyPlayback.ts:242`) — the **only** SDK owner — is imported
@@ -78,6 +83,18 @@ new in Step 3 — the member `AlbumDetail` InfoBody (`.lf-artist-link`). **Not l
 (payload carries names only, no artist ids): `NowPlaying`, `LikedBoard` rows — revival
 trigger = backend adds `artist_id` to saved-tracks / now-playing payloads.
 
+**Album & track have no route — they open the app-wide overlay** (ARCH-entity-interaction-unify).
+`entityLinks` re-exports `openAlbum(detail)` and `openTrackAlbum(track)` from the public-safe
+`lib/entityEvents.ts` (window event `ent:open-album` → the layout-mounted `AlbumOverlay`, a
+read-only view — no member types, no lyrics affordance). Public callers: `TodayAlbumBuckit`
+(home), `ArtistHub` catalog albums + top-tracks, `SearchPage` album cards + track rows,
+`HeaderSearch` dropdown album + track rows. `openTrackAlbum` is a no-op when the track has no
+DB `albumId` (Spotify-only hit → non-navigable, OQ4). **Member** track/album opens stay on the
+prop path (`onOpen(DetailTarget)` → the writable `AlbumDetail` modal), NOT the event — the event
+can't carry writable/bucket context (architect Step-1 rule; do not "unify" member call sites
+onto the lossy event). The public `/review/[slug]` inline editorial tracklist is a distinct
+surface and is untouched (Step 2 audit).
+
 ## Ownership by domain
 
 - **track row rendering** — **shared `components/shared/TrackRow.tsx`** (declared actions
@@ -87,12 +104,15 @@ trigger = backend adds `artist_id` to saved-tracks / now-playing payloads.
   (shared by `SearchPage`/`HeaderSearch`/`CommandPalette`, `action` union navigate/button/static),
   `writer/RecommendedTracksBlock.tsx:66` (★ toggle), `writer/ArtistDetail.tsx:43` (`onPickTrack`),
   `LikedBoard` card view.
-- **album detail** — vanilla `scripts/albumDetail.client.ts` + `albumDetail.fetch.client.ts`
-  (review tracklist, `sessionCache` cache) vs React `components/member/AlbumDetail.tsx` (member
-  modal/slide-over, `lib/albumDetail.ts` cache). `ArtistHub` renders catalog + reviewed-album cards.
-- **artist** — `components/artist/ArtistHub.tsx` (public hub, runtime fetch; top-tracks are plain
-  non-clickable `<li>`); `lib/artistNames.ts` (build-time link resolution); `AddArtistModal`
-  (member); aliases live backend-side (`artists.aliases`).
+- **album detail** — the read-only body is the shared `components/album/AlbumDetailView.tsx`
+  (Step 1), rendered by BOTH the app-wide `components/album/AlbumOverlay.tsx` (public, event-opened,
+  `lib/albumDetail.ts` cache) and the member `components/member/AlbumDetail.tsx` (writable modal:
+  `MemoWindow`/edit stay member-side). Separately, the public `/review/[slug]` keeps its **inline
+  editorial tracklist** (vanilla `scripts/albumDetail.client.ts` + `albumDetail.fetch.client.ts`,
+  ★ picks + ▶/＋, `sessionCache`) — a distinct surface, not a modal (Step 2 audit).
+- **artist** — `components/artist/ArtistHub.tsx` (public hub, runtime fetch; catalog albums →
+  `openAlbum`, top-tracks (`art-tt-open`) → `openTrackAlbum` — Step 2/3); `lib/artistNames.ts`
+  (build-time link resolution); `AddArtistModal` (member); aliases live backend-side (`artists.aliases`).
 - **bucket** — `components/member/BucketBoard.tsx` (board + `AlbumChip` tile + DnD + `TrashDrawer`);
   `pocket/PocketTray.tsx` (site-wide tray drawer); `pocket/PocketBuckit.tsx` (root island,
   `null` when `!isLoggedIn()`); `pocket/PocketBuckitProvider.tsx` (the one React context);
@@ -116,7 +136,9 @@ trigger = backend adds `artist_id` to saved-tracks / now-playing payloads.
   viewer opens OVER the album-detail modal; every instance holds a document-level capture
   keydown listener, so without the stack one ESC would close all layers). The
   centered-600px pattern (`StandardModal`) is **not** the Spotify-mobile full-bleed shape.
-- **Who mounts overlays** — `ProfileApp` (`AlbumDetail` + `LyricsViewer` — the lyrics mount
+- **Who mounts overlays** — `layouts/layout.astro` mounts the **app-wide read-only `AlbumOverlay`**
+  (sibling to `PocketBuckit`, un-gated, `transition:persist`; opens on `ent:open-album`, closes on
+  ESC/scrim/✕ and `astro:before-swap`). `ProfileApp` (`AlbumDetail` + `LyricsViewer` — the lyrics mount
   serves the dynamic NowPlaying entry (`live:true`), the `?lyrics=` debug entry, and the
   TrackRow static entry (`live:false`)), `AlbumDetail` (`StandardModal` + `MemoWindow`),
   `OverviewDash` (`RecentAlbumsModal`/`RecentTracksModal`), `ImportAnalysis`, `ReviewsTab`
@@ -155,11 +177,14 @@ trigger = backend adds `artist_id` to saved-tracks / now-playing payloads.
 
 ## Duplicate / overlapping responsibilities (load-bearing)
 
-1. **Two album-detail paths** — vanilla (`scripts/albumDetail.client.ts` → `#albumDetail` on
-   `/review/[slug]`, own `sessionCache` cache, ▶ + ＋) vs React (`components/member/AlbumDetail.tsx`,
-   mounted once by `ProfileApp.tsx:419`, own `lib/albumDetail.ts` cache, **read-only tracklist**).
-   Different caches, different entry points, different interactivity. **This is the load-bearing
-   duplication for track-click.**
+1. **Album-detail paths — REFRAMED/RESOLVED (ARCH-entity-interaction-unify).** The read-only
+   detail body is now the single shared `components/album/AlbumDetailView.tsx` (Step 1), used by
+   both the public app-wide `AlbumOverlay` and the member writable `AlbumDetail` modal. The
+   Step-2 audit established these are NOT interchangeable with the third path — the vanilla
+   `/review/[slug]` `#albumDetail` (`scripts/albumDetail.client.ts`, ▶/＋, `sessionCache`) — which
+   is an **inline editorial tracklist**, not a click-to-open modal, and stays as its own surface
+   (deleting it = UX regression). So there is no remaining "delete the dup" action: the read view
+   is shared; the review inline tracklist is intentionally separate.
 2. **Two "add to bucket" flows** — `AddToBucketMenu` (portable, public+authed, album-or-track,
    logged-out intent handoff via `intent.ts`) vs `BucketPickerSheet` (member-only, resolves a
    target bucket id; caller runs `ops.*`/`addBucketItem`). LikedBoard uses `BucketPickerSheet`;
@@ -178,4 +203,19 @@ State owner:            bucketStore | pocket-events | pocket-intent | profile-lo
 Cross-island?:          no | yes (pb:* event: ____ ; shared store: ____)
 Cache touched:          sessionCache | albumDetail | useMusicSearch | none
 Duplicate it overlaps:  album-detail paths | add-to-bucket flows | none
+```
+
+### Filled — ARCH-entity-interaction-unify (Steps 1–3, 2026-07-08)
+
+```
+Component-map impact — ARCH-entity-interaction-unify (one entity → one interaction)
+Verified: 2026-07-08
+Routes touched:        / (layout AlbumOverlay host) — public ; /artist/[id], /search, header — public ; /profile — authed (unchanged prop path)
+Track-click paths hit:  search-static → openTrackAlbum ; artist top-tracks → openTrackAlbum ; albumdetail-readonly (shared view) ; liked-board-onOpen (member modal, unchanged) ; review-tracklist (vanilla, untouched)
+Play path:              none (▶/＋ on review tracklist unchanged)
+Overlay changed:        new app-wide AlbumOverlay host (reuses useDismissable + .lf-modal-card + useScrollLock)
+State owner:            ad-hoc (host-local open target) + ent:open-album window event
+Cross-island?:          yes (ent:open-album — public-safe, NOT in pocketBuckit/events.ts ; shared store: none)
+Cache touched:          albumDetail (shared, sole) ; review sessionCache path untouched
+Duplicate it overlaps:  album-detail paths (read body shared; review inline tracklist intentionally separate — see #1)
 ```

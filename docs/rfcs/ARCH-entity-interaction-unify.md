@@ -197,7 +197,17 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 
 ---
 
-### Step 3 — Track click → album window on shared surfaces
+### Step 3 — Track click → album window (RESCOPED 2026-07-08)
+
+**Audit finding:** the "wire `TrackRow`'s `open`" framing didn't match reality —
+`LikedBoard` **already** wires `TrackRow` `open` (→ `onOpen(DetailTarget)` → the
+**writable member modal**), and per the Step-1 architect rule member surfaces must
+stay on that prop path (the event can't carry writable context). So member
+surfaces are left as-is. The real gaps were **bespoke public track rows** with no
+album-open: `SearchPage` `SearchTrackRow`, `HeaderSearch` dropdown track rows,
+`ArtistHub` top-tracks. Rescoped work: add `openTrackAlbum(track)` (no-op when
+`albumId` null, OQ4) and wire those three surfaces to it; also wired `HeaderSearch`
+**album** rows (Step-2 leftover the dropdown surface missed). Original text below:
 
 Wire `TrackRow`'s `open` action to `openTrackAlbum` and extend to any surface
 carrying an album id per the component-map table (search track rows stay static
@@ -219,8 +229,10 @@ cd myblog_front && pnpm lint && pnpm exec astro check
 Fill the impact template (below), strike load-bearing duplication #1, update the
 entity-navigation + track-click sections, re-stamp Verified.
 
-**Verification**: doc-only; grep-gate that no `#albumDetail` vanilla render or
-second album-detail cache remains.
+**Verification**: doc-only. (The original grep-gate "no `#albumDetail` vanilla
+render remains" is **void** — the Step-2 audit established the `/review` inline
+editorial tracklist stays; the vanilla render and its `sessionCache` path are
+intentionally kept, not a leftover.)
 
 ---
 
@@ -274,3 +286,4 @@ Duplicate it overlaps:  album-detail paths (RESOLVED by this RFC)
 | 2026-07-08 | OQ2 resolved — `ent:open-album` carries **primitives** `{albumId, title?, artist?, cover?, year?}` (host re-fetches via lib/albumDetail); public callers import no member types | Step 1 |
 | 2026-07-08 | Step 1 SHIPPED — front #255 (`a549ec5`, deploy 28882687379). New `components/album/AlbumDetailView` + `AlbumOverlay` (un-gated, layout-mounted) + `lib/entityEvents.openAlbum`; member `AlbumDetail` delegates read-only body to the shared view. Public prod smoke: overlay opens on event, fetch 200/15 tracks, header+artists+tracklist render, **0 lyrics affordance** (privacy), artist link `/artist/…/`, ESC closes. Member live MemoWindow/edit gesture deferred to owner spot-check (shared view prod-proven; extraction behavior-preserving; MemoWindow untouched) | Step 1 |
 | 2026-07-08 | **Step 2 RESCOPED (owner)** — current-state audit found the `/review` album detail is an inline editorial tracklist (★ picks + ▶/＋), NOT a click-to-open modal → the "delete the vanilla duplication" premise was wrong; review page stays untouched. Real public gap = **dead album cards** (artist-catalog `.art-disco-item` + search `AlbumCard`, both non-navigable today). Step 2 wires those to `openAlbum`. | Step 2 |
+| 2026-07-08 | **Steps 3+4 shipped together (owner-approved single PR).** Step 3 RESCOPED — `LikedBoard` already wires `TrackRow` `open` → the writable **member modal** (kept, per architect rule); real gaps were bespoke **public** track rows. Added `openTrackAlbum` (no-op on null `albumId`, OQ4); wired `SearchPage` track rows, `HeaderSearch` dropdown **track + album** rows (album = Step-2 leftover), `ArtistHub` top-tracks. Step 4 — component-map re-verified/stamped 2026-07-08: track-click table + entity-nav album/track dispatch + overlay host + duplication #1 reframed (read body shared; review inline tracklist intentionally separate → the original "no `#albumDetail`" grep-gate is void). | Steps 3–4 |
