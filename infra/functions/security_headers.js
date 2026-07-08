@@ -11,7 +11,11 @@
 // content-security-policy-report-only and re-apply.
 // Allowlist sources (verified against myblog_front/src 2026-07-07):
 //   script/frame  sdk.scdn.co + *.spotify.com  (Spotify Web Playback SDK + EME iframe)
-//   connect       *.spotify.com (Web API), *.amazoncognito.com (token endpoint)
+//   connect       *.spotify.com (Web API), *.amazoncognito.com (token endpoint),
+//                 *.scdn.co / *.spotifycdn.com (cover CDNs — the service worker
+//                 revalidates cover <img>s via fetch(), which CSP governs as
+//                 connect-src, NOT img-src; omitting them net::ERR_FAILEDs every
+//                 SW-cached cover, see FIX-csp-connect-src-cover-cdn)
 //   style/font    fonts.googleapis.com / fonts.gstatic.com (layout.astro)
 //   img           *.scdn.co (covers), *.spotifycdn.com, placehold.co, data:/blob:
 // X-Frame-Options DENY governs who may frame THIS site; framing sdk.scdn.co
@@ -32,7 +36,7 @@ function handler(event) {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
         "font-src 'self' data: https://fonts.gstatic.com; " +
         "img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://placehold.co; " +
-        "connect-src 'self' https://*.spotify.com https://*.amazoncognito.com https://sdk.scdn.co; " +
+        "connect-src 'self' https://*.spotify.com https://*.amazoncognito.com https://sdk.scdn.co https://*.scdn.co https://*.spotifycdn.com; " +
         "frame-src https://sdk.scdn.co https://*.spotify.com; " +
         "media-src 'self' blob: https://*.scdn.co; " +
         "worker-src 'self' blob:; " +
