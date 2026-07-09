@@ -255,6 +255,28 @@ resource "aws_apigatewayv2_route" "genres_put" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Today's song pick (FEAT-today-buckit Step 5) ---
+# Owner-curated "song of the day" store. The two public reads —
+# GET /api/todays-pick and GET /api/todays-pick/history — ride the edge_guard
+# GET catch-all (api_get_proxy) like GET /api/buckets, no route here. Only the
+# owner mutations are Cognito-JWT gated (integrations_lastfm_put/delete pattern:
+# literal path, no {id}). The Lambda's require_owner enforces single-owner.
+resource "aws_apigatewayv2_route" "todays_pick_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/todays-pick"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "todays_pick_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/todays-pick"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # FEAT-spotify-library-sync: manual "동기화" enqueues an async Spotify-Library sync
 # job; the worker does the Spotify reads/diffs/writes (rule #9 — never sync here).
 # The GET /api/buckets/spotify-library/state read rides the edge_guard catch-all
