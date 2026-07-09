@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: in-progress (2026-07-07, owner in-session approval — Phase 0 started)
+- **Status**: in-progress (2026-07-08 — Phase 0~3a code-complete + prod-verified; Phase 4 design merged, implementation awaits owner confirm)
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
@@ -334,6 +334,18 @@ backfill owner → NOT NULL; plain `V{N}__` SQL, rollout order per
 routes (`resolve_owner()` output finally consumed), `/api/buckets/public` + `/collection` grow a
 user dimension. Spotify-lane tables are NOT touched here.
 
+**Phase 2 (step 1) SHIPPED + prod-verified 2026-07-08** — per-user scoping of the existing
+bucket/to-listen surfaces (NOT NULL flip = step 2, after a backfill soak):
+- **shared_db V40** — nullable `user_id` on `review_buckets` + `album_to_listen_items`, owner
+  backfill, per-user unique re-scope; `review_bucket_items` transitive (inherits owner via the
+  bucket). Prod-applied + verified (#56).
+- **backend #109** — `provisioned_member_id` scoping threaded through the bucket routes; the
+  owner's Spotify-library sync stays owner-only (Phase 3 scopes its tables).
+- **ws #582** — `GET /to-listen` moved from the catch-all onto HTTPBearer (member-scoped read).
+**Prod smoke**: a member `GET /api/buckets` returns 0 buckets — their own empty board, NOT the
+owner's 6 → per-user scoping confirmed live. The NOT NULL flip is deliberately step 2 (post-
+backfill soak); the nullable column is the safe additive state.
+
 ### Phase 3 — Listening personalization → Gate G2
 **3a Last.fm (primary)**: settings-page connect = username input (+ optional profile-privacy
 probe), worker EventBridge poll per connected user via `user.getRecentTracks` (incremental,
@@ -346,6 +358,32 @@ upload**: user-facing upload of the official Spotify data export into `spotify_s
 Spotify-lane tables get `user_id` here (same nullable→backfill→NOT NULL pattern). **Then
 evaluate Gate G2.**
 
+**Phase 3a (Last.fm) SHIPPED + prod-verified 2026-07-08** — the username-only connect + now-
+playing read, worker per-user poll, and the front now-playing widget are all live; **no sync
+Last.fm call on any user-facing endpoint** (rule #9 — the worker pulls, the API only reads). 3b
+(Spotify 5-user tier) and 3c (GDPR-export upload) remain unbuilt.
+- **shared_db V41** — `user_integrations` (OQ4 = one table; holds Last.fm username now, the
+  Spotify-token + AI-key shapes later) + `lastfm_recent_tracks` (per-user recent-tracks cache).
+  Prod-applied + verified (#57).
+- **backend #110** — `/api/integrations` connect/disconnect/list + `/lastfm/now-playing`
+  (self-scoped GET; reuses the reviews pattern — member lazy-provision). Connect writes the
+  username; disconnect clears the row.
+- **worker #67** — per-user `user.getRecentTracks` poll: raw SQL/no pin bump, fetch→close,
+  NOT-EXISTS dedup, prod-SQL-validated. The poll is **dormant until the owner sets
+  `LASTFM_API_KEY`** in SSM `/myblog/worker` (the handler guards on it) — by design, so the
+  live-scrobble path is only observable post-key.
+- **ws #583** — contract + apigateway JWT routes for the two member mutations
+  (PUT/DELETE `/api/integrations/lastfm`; the GETs ride the edge_guard catch-all) + the
+  EventBridge rule (15-min `lastfm_recent_tracks` job, copies the spotify_listening pattern —
+  no-op until the key lands). Terraform applied by the owner: 5/0/0.
+- **front #260 + #261** — #260 settings 연동 Last.fm connect field + `api.gen.ts`; #261
+  `LastfmNowPlaying` opt-in dashboard widget (states 미연동·오류·재생 중·재생 중 아님).
+**Prod smoke**: connect→list→now-playing→disconnect all 200/204; real-browser CDP click-through
+of the widget's 4 states (0 console errors); prod bundle carries the wiring.
+**OWNER RESIDUAL (non-blocking, sole remaining 3a item)**: set `LASTFM_API_KEY` in SSM
+`/myblog/worker` — until then the worker poll + the dormant eventbridge rule no-op and the
+widget rests on idle/미연동 (by design).
+
 ### Phase 4 — Model-agnostic AI (BYOK + owner-central; BYOK half gated on G2)
 One `LLMEngine` job interface (feature, prompt_template_id, output JSON schema, engine, model,
 user_id): `CliEngine` = existing launchd `claude -p` pollers, owner-only, same schema contract;
@@ -357,6 +395,19 @@ encrypted ciphertext, live-probe validation on save, masked display (last-4), de
 never logged. Metering: per-user/per-feature DB counters checked pre-dispatch (LiteLLM proxy
 rejected — an always-on service costs more than it polices at this scale). Owner-mode note:
 `claude -p` is now metered credit — plan eventual owner migration onto `ApiEngine` too.
+
+**Phase 4 design — MERGED 2026-07-08 (ws #584), implementation awaits owner confirm.** An
+`architect` subagent evaluated the §Phase 4 design against all 5 live `claude -p` call sites +
+the 3 service `requirements.txt` + shared_db `pyproject.toml`. Decisions (full detail in
+`docs/rfcs/FEAT-multi-user-accounts-p4-llmengine.md`): engine home =
+`myblog_shared_db/src/myblog_shared_db/llm/` (the one shared import surface both poller
+families already reach via local src → **zero git pin bump**); interface = one ABC
+`LLMEngine.run(job: LLMJob) -> LLMResult` with `output_schema` defaulting None (the 5 live sites
+keep their bespoke extractors; structured output fires only for new ApiEngine callers); error
+split = a raised exception hierarchy (`LLMTransientError`/`LLMValidationError`/`LLMQuotaError`,
+lifted from the existing `lyrics_translate_poller`), not a buried flag. **This pass scopes to
+owner-central scaffolding only; BYOK / `user_api_keys` deferred to Gate G2.** No code lands
+until the owner confirms the design.
 
 ### Cold (recorded, not planned)
 - **Multi-author editorial** — requires DB-based posts replacing GitHub-MDX static publishing.
@@ -421,4 +472,7 @@ rejected — an always-on service costs more than it polices at this scale). Own
 | 2026-07-08 | **0c SHIPPED + APPLIED + verified**: backend #107 (owner-gate deployed, prod smoke 19/0) → ws #565 (Cognito self-signup + Google/Kakao IdPs, apply 2 add/2 change/0 destroy, no pool replacement) → drift fix ws #566 (`ignore_changes=provider_details`). IdP handoff curl-probed both IdPs | Claude applied with owner go-ahead |
 | 2026-07-08 | **Front signup entry SHIPPED** (front #253): `goLogin` optional `identity_provider` deep-link + Login popover (카카오/Google/이메일), reuses `/admin/callback`. Prod clickthrough — Google→accounts.google.com, Kakao→kauth.kakao.com, hosted-UI picker skipped. **Phase 0 code-complete.** Residual (owner-only): Kakao `email_verified` live-check, public-launch gate (Google prod publish + Kakao 심사), OAuth secret rotation | popover placement picked by owner via AskUserQuestion |
 | 2026-07-08 | **Phase 1 (RYM reviews) SHIPPED + prod-verified** — shared_db V38 `album_reviews` (prod-applied #54) → backend #108 (reviews CRUD + live aggregate + `/members` feed + daily cap; API GW routes ws #573 apply 3/0/0) → front #257 (album rating block + `/members/[handle]`). OQ2 = live query. Full prod smoke + browser clickthrough, cleaned up. Gate G1 evaluation deferred to post-public-launch. Owner OK'd running all steps + push/merge this session (rule #4 gate waived, DB prod-apply observed) | cross-repo spine, 4 PRs |
+| 2026-07-08 | **Phase 2 (per-user buckets, step 1) SHIPPED + prod-verified** — shared_db V40 (nullable `user_id` on `review_buckets` + `album_to_listen_items`, owner backfill, per-user unique re-scope; prod-applied #56) → backend #109 (`provisioned_member_id` scoping; Spotify-library owner-only) → ws #582 (`GET /to-listen` → HTTPBearer). Prod smoke: a member `GET /api/buckets` returns 0 (their own board, not the owner's 6). NOT NULL flip = step 2, post-backfill soak (the nullable column is the safe additive state) | cross-repo spine, 3 PRs |
+| 2026-07-08 | **Phase 3a (Last.fm) backend+worker+contract+infra SHIPPED + prod-verified** — shared_db V41 (`user_integrations` [OQ4=one table] + `lastfm_recent_tracks`; prod-applied #57) → backend #110 (`/api/integrations` connect/disconnect/list + `/lastfm/now-playing`, self-scoped; **no sync call** — rule #9) → worker #67 (per-user `user.getRecentTracks` poll, raw SQL/no pin bump, fetch→close, NOT-EXISTS dedup) → ws #583 (contract + apigw PUT/DELETE JWT routes + eventbridge rule 15min; terraform applied 5/0/0) → front #260 (settings connect field + `api.gen.ts`). Prod smoke: connect→list→now-playing→disconnect 200/204. **Owner residual (non-blocking)**: `LASTFM_API_KEY` in SSM `/myblog/worker` — until then the worker poll + dormant eventbridge rule no-op, the widget rests on idle/미연동 (by design) | cross-repo spine, 5 PRs |
 | 2026-07-08 | **Phase 3a now-playing widget SHIPPED** (front #261) — `LastfmNowPlaying` opt-in `OverviewDash` dashboard widget consuming the existing self-scoped `GET /api/integrations/lastfm/now-playing` + `getIntegrations`. Front-only (type already in `api.gen.ts`; no contract/infra). States 미연동(→/settings)·오류·재생 중·재생 중 아님 + ↻. Not in `DEFAULT_ROWS` (opt-in, no owner/Spotify-dashboard clutter). Endpoint self-scoped → own `/profile` only; public `/members/[handle]` now-playing = later follow-on (needs a handle-scoped route). Verified: lint + astro check + build + real-browser CDP all 4 states (0 console err); prod bundle carries the wiring. This closes the last Phase 3a code item — sole remaining 3a residual = owner sets `LASTFM_API_KEY` in SSM `/myblog/worker` (live scrobble path dormant until then) | front-only, opt-in dashboard widget |
+| 2026-07-08 | **Phase 4 (LLMEngine) design MERGED** (ws #584) — `architect` eval of §Phase 4 against all 5 live `claude -p` call sites + service deps. Engine home = `myblog_shared_db/.../llm/` (zero pin bump), interface = one ABC `LLMEngine.run(job) -> LLMResult` (`output_schema` defaults None so live sites keep bespoke extractors), errors = raised exception hierarchy. This pass = owner-central scaffolding only; BYOK/`user_api_keys` → Gate G2. **Implementation awaits owner confirm — no code lands yet.** Full detail → `docs/rfcs/FEAT-multi-user-accounts-p4-llmengine.md` | design doc, architect eval |
