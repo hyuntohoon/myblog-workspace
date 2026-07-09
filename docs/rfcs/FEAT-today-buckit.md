@@ -1,6 +1,6 @@
 # FEAT-today-buckit: Two "today" buckit tiles on the home
 
-- **Status**: in-progress (Steps 1–3 shipped/merged 2026-07-08 — Step 3 prod-apply owner-gated; Step 4 PRs open 2026-07-09)
+- **Status**: in-progress (Steps 1–4 shipped/merged 2026-07-09 — Step 3 V39 prod-applied 2026-07-09; Step 5 next)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → FEAT-today-buckit
@@ -311,3 +311,5 @@ cd myblog_front && pnpm lint && pnpm exec astro check && pnpm build
 | 2026-07-08 | Step 3 MERGED — shared_db V39 `daily_picks` table + `DailyPick` model + version 0.29.0→0.30.0 (shared_db #55, `PYTHONPATH=src pytest` 58/0). Track-primary (OQ3), denormalized display cols, `pick_date` UNIQUE upsert key, no note col, both FKs ON DELETE CASCADE. Additive/no-consumer. **Prod apply owner-gated (rule #3) — deferred; harmless unapplied until Step 4** | Step 3 |
 | 2026-07-09 | OQ4 resolved — **include `DELETE /api/todays-pick` in v1** (owner). re-PUT overwrites so delete is only for "unpost today"; cheap to ship alongside PUT. Resolves the OQ4 "blocks Step 4/5" gate | OQ4 |
 | 2026-07-09 | Step 4 PRs OPEN — backend pick store routes (backend #111): GET/PUT/DELETE `/api/todays-pick` + GET `/history`; owner gate (`require_owner`) on PUT/DELETE, public GETs ride edge_guard; upsert via `on_conflict_do_update(constraint=uq_daily_picks_pick_date)`, server pins `pick_date=today`; `pytest` 452/0 (+18 new). Contract merged (workspace #590) + front `api.gen.ts` regen (front #263). Empty today = `200 + null` (front hides tile); no-pick is normal, not 404. **V39 prod apply + Step 5 infra remain owner-gated — routes not live in prod yet** | Step 4 |
+| 2026-07-09 | Step 4 MERGED — backend #111 (squash → main `fd375b3`, Lambda deploy success), workspace #590, front #263 all merged. Pre-apply smoke: public GETs 500 (daily_picks table absent in prod) — the V39 gate | Step 4 |
+| 2026-07-09 | **V39 prod-applied (owner-approved, executed by Claude)** — `daily_picks` table created via V39 SQL (psycopg, file's own BEGIN/COMMIT txn) against the Neon pooler URL from SSM `/myblog/backend`. Verified: 10 cols match V39, constraints PK + 2 FKs(ON DELETE CASCADE) + `uq_daily_picks_pick_date` UNIQUE. Post-apply prod smoke: `GET /api/todays-pick` → **200 + null** (was 500), `GET /history` → **200 + []**. Forward apply only (no rollback — rule #3). Table empty/no-consumer until Step 6 posts a pick | Step 3/4 |
