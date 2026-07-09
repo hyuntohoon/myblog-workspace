@@ -1,6 +1,6 @@
 # FEAT-today-buckit: Two "today" buckit tiles on the home
 
-- **Status**: in-progress (Steps 1–4 shipped/merged 2026-07-09 — Step 3 V39 prod-applied 2026-07-09; Step 5 next)
+- **Status**: in-progress (Steps 1–6 merged 2026-07-09 — V39 prod-applied; Step 5 apigateway apply pending, then shipped)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → FEAT-today-buckit
@@ -286,11 +286,15 @@ cd myblog_front && pnpm lint && pnpm exec astro check && pnpm build
    optional.
 5. **History surface** (blocks Step 6) — overlay vs a `/today` page. A page is
    linkable/SEO-friendly and simpler than a new overlay; recommend a light
-   `/today` archive page (agenda list of past picks).
+   `/today` archive page (agenda list of past picks). **RESOLVED 2026-07-09
+   (owner): overlay modal** — the "지난 추천곡 →" header link opens a date-desc
+   history overlay (`TodayPickHistory`), no page navigation.
 6. **Home placement slot** (blocks Step 2/6 layout) — where in the
    `EditorialHome` flow (Hero → Latest → **here?** → BrowseGenres → ByTheNumbers).
    Owner eyeball at implementation; the two tiles are separate sections (owner:
-   keep them separate, not merged). Record in the Decisions log.
+   keep them separate, not merged). Record in the Decisions log. **RESOLVED
+   2026-07-09 (owner): song tile ABOVE the album tile** — 오늘의 곡 → 오늘, 이
+   앨범들, each its own `Measure` section.
 7. **Leap-day / Feb-29 picks** (blocks Step 1) — an album released 02-29 only
    "matches" on leap years. Decide: exact month/day (02-29 shows every 4 years)
    vs fold 02-29 into 02-28 on non-leap years. Recommend exact for v1 (rare;
@@ -313,3 +317,6 @@ cd myblog_front && pnpm lint && pnpm exec astro check && pnpm build
 | 2026-07-09 | Step 4 PRs OPEN — backend pick store routes (backend #111): GET/PUT/DELETE `/api/todays-pick` + GET `/history`; owner gate (`require_owner`) on PUT/DELETE, public GETs ride edge_guard; upsert via `on_conflict_do_update(constraint=uq_daily_picks_pick_date)`, server pins `pick_date=today`; `pytest` 452/0 (+18 new). Contract merged (workspace #590) + front `api.gen.ts` regen (front #263). Empty today = `200 + null` (front hides tile); no-pick is normal, not 404. **V39 prod apply + Step 5 infra remain owner-gated — routes not live in prod yet** | Step 4 |
 | 2026-07-09 | Step 4 MERGED — backend #111 (squash → main `fd375b3`, Lambda deploy success), workspace #590, front #263 all merged. Pre-apply smoke: public GETs 500 (daily_picks table absent in prod) — the V39 gate | Step 4 |
 | 2026-07-09 | **V39 prod-applied (owner-approved, executed by Claude)** — `daily_picks` table created via V39 SQL (psycopg, file's own BEGIN/COMMIT txn) against the Neon pooler URL from SSM `/myblog/backend`. Verified: 10 cols match V39, constraints PK + 2 FKs(ON DELETE CASCADE) + `uq_daily_picks_pick_date` UNIQUE. Post-apply prod smoke: `GET /api/todays-pick` → **200 + null** (was 500), `GET /history` → **200 + []**. Forward apply only (no rollback — rule #3). Table empty/no-consumer until Step 6 posts a pick | Step 3/4 |
+| 2026-07-09 | OQ5/OQ6 resolved (owner) — history = **overlay modal** (`TodayPickHistory`, opened from "지난 추천곡 →" header link); home placement = **song tile ABOVE album tile** (오늘의 곡 → 오늘, 이 앨범들); owner control = **inline on the home tile** (not a /write panel). `isLoggedIn` is the client hint; `require_owner` is the real gate | OQ5/OQ6 |
+| 2026-07-09 | Step 5 MERGED — infra #592 (workspace): `PUT`/`DELETE /api/todays-pick` apigateway routes (Cognito JWT, `integrations_lastfm` pattern). `terraform plan` 2 to add / 0 change / 0 destroy / no drift. Public GETs need no route (edge_guard catch-all). **Apply owner-gated (rule #6 🔒) — deferred** | Step 5 |
+| 2026-07-09 | Step 6 MERGED — front #264: `TodaySongBuckit` home tile (identity-only card; cover/title→`openAlbum`, "지난 추천곡"→history overlay) + inline owner control (올리기/바꾸기/삭제) + `TodaySongPicker` track-picker modal (`useMusicSearch['track','artist']`, TrackHit→PUT body, DB-id resolution, track_id NOT NULL guard) + `TodayPickHistory` overlay. SSR fix: `isLoggedIn()` (localStorage) moved to `useEffect` — was crashing the prod build. `pnpm lint`/`astro check` 0 errors, `pnpm build` 15pp OK, home SSR-renders the section. Mounted ABOVE `TodayAlbumBuckit` (OQ6) | Step 6 |
