@@ -1,6 +1,6 @@
 # FEAT-today-buckit: Two "today" buckit tiles on the home
 
-- **Status**: in-progress (Steps 1–3 shipped/merged 2026-07-08 — Step 3 prod-apply owner-gated)
+- **Status**: in-progress (Steps 1–3 shipped/merged 2026-07-08 — Step 3 prod-apply owner-gated; Step 4 PRs open 2026-07-09)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → FEAT-today-buckit
@@ -309,3 +309,5 @@ cd myblog_front && pnpm lint && pnpm exec astro check && pnpm build
 | 2026-07-08 | Step 1 SHIPPED — music `GET /api/music/albums/on-this-day` (music #52, deploy 28880892242); prod smoke 8/8 (07/07 slice, years_ago correct, no null/current-year, dedup); leap-day = exact match (OQ7 default) | Step 1 |
 | 2026-07-08 | Step 2 SHIPPED — front `TodayAlbumBuckit` home tile (front #256, deploy 28903782888). Horizontal cover strip; cover→`openAlbum` overlay, artist→`artistHref`; hides on empty/error. Prod smoke: 8 real albums render (07/07 slice), cover click → overlay full render (15 tracks, 0 lyrics affordance), ESC closes | Step 2 |
 | 2026-07-08 | Step 3 MERGED — shared_db V39 `daily_picks` table + `DailyPick` model + version 0.29.0→0.30.0 (shared_db #55, `PYTHONPATH=src pytest` 58/0). Track-primary (OQ3), denormalized display cols, `pick_date` UNIQUE upsert key, no note col, both FKs ON DELETE CASCADE. Additive/no-consumer. **Prod apply owner-gated (rule #3) — deferred; harmless unapplied until Step 4** | Step 3 |
+| 2026-07-09 | OQ4 resolved — **include `DELETE /api/todays-pick` in v1** (owner). re-PUT overwrites so delete is only for "unpost today"; cheap to ship alongside PUT. Resolves the OQ4 "blocks Step 4/5" gate | OQ4 |
+| 2026-07-09 | Step 4 PRs OPEN — backend pick store routes (backend #111): GET/PUT/DELETE `/api/todays-pick` + GET `/history`; owner gate (`require_owner`) on PUT/DELETE, public GETs ride edge_guard; upsert via `on_conflict_do_update(constraint=uq_daily_picks_pick_date)`, server pins `pick_date=today`; `pytest` 452/0 (+18 new). Contract merged (workspace #590) + front `api.gen.ts` regen (front #263). Empty today = `200 + null` (front hides tile); no-pick is normal, not 404. **V39 prod apply + Step 5 infra remain owner-gated — routes not live in prod yet** | Step 4 |
