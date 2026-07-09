@@ -1,6 +1,6 @@
 # FEAT-today-buckit: Two "today" buckit tiles on the home
 
-- **Status**: in-progress (Steps 1–2 shipped + prod-verified 2026-07-08)
+- **Status**: in-progress (Steps 1–3 shipped/merged 2026-07-08 — Step 3 prod-apply owner-gated)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → FEAT-today-buckit
