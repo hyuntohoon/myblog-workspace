@@ -1,6 +1,6 @@
 # FEAT-public-bucket-multiuser: Public read-only bucket viewer + multi-user accounts
 
-- **Status**: **Scope A done + prod-live** (A1–A5, 2026-06-15) — the public-bucket viewer shipped end-to-end (opt-in `is_public` → public read endpoint + board hardening → `/profile` 공개 toggle → read-only `/collection` viewer). **Scope B (multi-user accounts) not started** — separate owner-gated program.
+- **Status**: **done + archived 2026-07-10** — Scope A shipped + prod-live (A1–A5, 2026-06-15); Scope B (multi-user accounts) fully absorbed + implemented by `FEAT-multi-user-accounts` (V36 `users`, per-user scoping, `/members/[handle]`, Google/Kakao signup — all prod-live). Only B5 (social graph: follows/lists) remains, carried forward as post-launch future-work under `FEAT-multi-user-accounts`. RFC → `docs/archive/done/rfcs/`.
 - **Owner**: TBD
 - **Created**: 2026-06-14 (overnight Task 3)
 - **Plan row**: pointer under `FEAT-multi-user-accounts` (Backlog)
@@ -249,3 +249,4 @@ decouple before Scope A is sequenced.**
 | 2026-06-14 | **Cleanup DONE** — shared_db `v0.19.0` tag (#31) + backend repinned to tag (be #71) + pyproject `0.19.0` | resolves the be #70 SHA hotfix; repin = version-line-only no-op, prod re-verified |
 | 2026-06-15 | **A4 DONE + prod-live** — read-only `/collection` viewer (slim grid, public endpoint, sitemap, header+footer link) | front #156; prod e2e: publish throwaway → renders on /collection → delete → empty |
 | 2026-06-15 | **Scope A COMPLETE** — A1–A5 all prod-live | Scope B (accounts) remains a separate, owner-gated program; RFC `Status:` promotion left to owner |
+| 2026-07-10 | **RFC closed + archived** — Scope B (multi-user accounts) was fully absorbed and implemented by `FEAT-multi-user-accounts` (V36 `users` + per-user scoping + `/members/[handle]` + Google/Kakao signup, all prod-live). The public-bucket viewer half (Scope A) and the accounts half (Scope B) are both live. Only B5 (social graph — follows/lists) remains, carried forward as post-launch future-work under `FEAT-multi-user-accounts`. RFC → `docs/archive/done/rfcs/` | close |
