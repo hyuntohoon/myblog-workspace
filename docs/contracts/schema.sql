@@ -1,9 +1,12 @@
 -- =============================================================================
 -- Canonical Database Schema
 -- Source of truth: docs/contracts/schema.sql (myblog-workspace repo)
+-- Mirror: myblog_shared_db/tests/canonical_schema.sql — kept BYTE-IDENTICAL to
+--   the workspace copy since the 2026-07-11 reconciliation (CHORE-canonical-
+--   schema-sync); edit both in the same change.
 --
 -- Change policy:
---   1. Update THIS file first.
+--   1. Update THIS file first (both copies).
 --   2. Write a migration script for the running DB (never DROP/TRUNCATE in prod).
 --   3. Update the affected service's ORM models and local schema file.
 --   4. Deploy consumer services before or simultaneously with producer services.
@@ -11,28 +14,36 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V35 (V1–V13 prod-verified 2026-06-08;
---   V14/V15 backfilled from migration DDL 2026-06-09; V16 backfilled 2026-06-12 —
---   all prod-applied + prod-live. V17 prod-applied + prod-verified 2026-06-12; V18
---   (review_buckets.is_public) prod-live 2026-06-15; V19 (spotify_track_play_events)
---   added 2026-06-15 — prod-apply PENDING before the worker deploy, FEAT-track-play-history.
---   V28/V29/V30/V31 (FEAT-pocket-buckit generalized membership: review_bucket_items.item_type
---   + typed FKs + per-kind partial uniques, bucket_item_snapshots side-table, 들을 것 folded to
---   a kind='to_listen' system bucket) prod-live 2026-06-24. V32 (My Buckit: review_buckets.type
---   + review_bucket_items.artist_id + artist guards, FEAT-my-buckit-artist) prod-live 2026-06-30.
---   V33 (track_lyrics) + V34 (tracks.isrc) (FEAT-lyrics-corpus Step 1) prod-live 2026-07-01.
---   V35 (track_lyrics_translations, FEAT-lyrics-translation Step 1) prod-applied 2026-07-04.
---   V20–V27 not separately backfilled
---   here — see myblog_shared_db/migrations/ for the authoritative version-ordered set.
--- NB — STAB-5 V13 renamed `categories`→`sections` and `posts.category_id`→`section_id`
---   IN-PLACE (`ALTER TABLE ... RENAME`). Postgres carries constraints/indexes/FK across
---   a rename by OID, so prod's PHYSICAL names still read the pre-V13 `categor*` form:
+-- This file shows clean canonical DDL through V43, reconciled against a full
+--   prod introspection 2026-07-11 (CHORE-canonical-schema-sync): every table,
+--   column type, constraint and index below was verified against Neon prod
+--   pg_catalog on that date. Per-version history lives in
+--   myblog_shared_db/migrations/ (the authoritative version-ordered set) and in
+--   the footer note.
+--
+-- NB (V13 rename, STAB-5) — V13 renamed `categories`→`sections` and
+--   `posts.category_id`→`section_id` IN-PLACE (`ALTER TABLE ... RENAME`).
+--   Postgres carries constraints/indexes/FK across a rename by OID, so prod's
+--   PHYSICAL names still read the pre-V13 `categor*` form (prod-verified
+--   2026-07-11):
 --     • index   `idx_posts_category_id`        (now on `posts(section_id)`)
 --     • uniques `categories_pkey/_name_key/_slug_key`  (now on `sections`)
 --     • FK      `posts_category_id_fkey`        (now `section_id` → `sections(id)`)
---   The DDL below uses the clean `section_*` names; a fresh bootstrap therefore yields
---   `section_*`-named objects rather than prod's legacy names — cosmetic only (object
---   shape is identical). Do NOT reintroduce a `categories` table / `category_id` column.
+--   The DDL below uses the clean `section_*` names; a fresh bootstrap therefore
+--   yields `section_*`-named objects rather than prod's legacy names — cosmetic
+--   only (object shape is identical). Do NOT reintroduce a `categories` table /
+--   `category_id` column.
+--
+-- NB (legacy timestamp columns) — the ORIGINAL bootstrap tables predate the
+--   TIMESTAMPTZ convention: in prod, the timestamp columns of posts
+--   (last_updated_at), sections, artists, albums, tracks (created_at),
+--   op_logs (occurred_at), outbox_events (created_at, processed_at),
+--   publishing_runs (triggered_at, finished_at), post_comments (created_at),
+--   post_likes (created_at) and post_metrics (updated_at) are
+--   `timestamp WITHOUT time zone` (prod-verified 2026-07-11). Every V6+ table
+--   uses TIMESTAMPTZ. The DDL below keeps the clean TIMESTAMPTZ form (services
+--   treat all stored instants as UTC either way); do not "fix" prod — an
+--   ALTER would rewrite large tables for zero behavior change.
 -- =============================================================================
 
 -- =============================================================================
@@ -58,12 +69,26 @@ BEGIN
   END IF;
 END$$;
 
+-- V15 (FEAT-spotify-library-sync) — provenance + sync state for spotify_library_albums.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'spotify_library_source') THEN
+    CREATE TYPE spotify_library_source AS ENUM ('myblog_added', 'preexisting');
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'spotify_library_state') THEN
+    CREATE TYPE spotify_library_state AS ENUM ('pending', 'synced', 'failed', 'needs_attention');
+  END IF;
+END $$;
+
 -- =============================================================================
 -- Sections & Tags
 -- =============================================================================
 -- `sections` (V13, STAB-5) — curated public post taxonomy, one section per post
 -- (single FK). Seeded by V13: Reviews / Best New Music / Features / Tracks. No
--- get-or-create, no public create API. Renamed in place from `categories` (V12).
+-- get-or-create, no public create API. Renamed in place from `categories` (V12);
+-- prod physical constraint names are still categories_pkey/_name_key/_slug_key
+-- (see header NB).
 CREATE TABLE IF NOT EXISTS sections (
   id         BIGSERIAL    PRIMARY KEY,
   name       TEXT         NOT NULL UNIQUE,
@@ -95,15 +120,21 @@ CREATE TABLE IF NOT EXISTS posts (
   extra           JSONB        NOT NULL DEFAULT '{}'::jsonb,
 
   -- Music review fields
+  -- V5 widened rating (3,1)→(3,2); the bound is rating_scale, not a literal.
+  -- Prod physical CHECK name: chk_rating_range.
   album_cover_url TEXT,
-  rating          NUMERIC(3,2) CHECK (rating IS NULL OR (rating >= 0 AND rating <= rating_scale)),  -- V5 widened (3,1)→(3,2); bound is rating_scale, not a literal
+  rating          NUMERIC(3,2) CONSTRAINT chk_rating_range
+                               CHECK (rating IS NULL OR (rating >= 0 AND rating <= rating_scale)),
   rating_scale    SMALLINT     NOT NULL DEFAULT 5 CHECK (rating_scale >= 1 AND rating_scale <= 10)
 );
 
 CREATE INDEX IF NOT EXISTS idx_posts_posted_date  ON posts(posted_date);
-CREATE INDEX IF NOT EXISTS idx_posts_section_id  ON posts(section_id);  -- prod physical name still idx_posts_category_id (OID-carried across V13 rename)
-CREATE INDEX IF NOT EXISTS idx_posts_status        ON posts(status);
-CREATE INDEX IF NOT EXISTS idx_posts_slug          ON posts(slug);
+CREATE INDEX IF NOT EXISTS idx_posts_section_id   ON posts(section_id);  -- prod physical name still idx_posts_category_id (OID-carried across V13 rename)
+CREATE INDEX IF NOT EXISTS idx_posts_status       ON posts(status);
+-- Public-list hot path; prod-verified 2026-07-11 (was previously missing from this file).
+CREATE INDEX IF NOT EXISTS idx_posts_search_index ON posts(search_index) WHERE search_index = true;
+-- NB: no separate idx_posts_slug — posts_slug_key (the UNIQUE constraint's index)
+-- serves slug lookups; prod has no such extra index (verified 2026-07-11).
 
 -- =============================================================================
 -- Post Tags (M:N)
@@ -150,7 +181,7 @@ CREATE TABLE IF NOT EXISTS artists (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT        NOT NULL,
   spotify_id      TEXT        NOT NULL UNIQUE,
-  musicbrainz_id  TEXT,                                    -- nullable; UNIQUE only when present (see partial index below). 'MBID_NOT_FOUND' sentinel = lookup attempted and failed.
+  musicbrainz_id  TEXT,                                    -- nullable; UNIQUE only when present AND not the 'not_found' sentinel (see partial index below)
   genres          JSONB       NOT NULL DEFAULT '[]'::jsonb,
   aliases         JSONB       NOT NULL DEFAULT '[]'::jsonb, -- Korean/alternate name aliases (MusicBrainz-generated; PR-13)
   photo_url       TEXT,
@@ -163,12 +194,19 @@ CREATE TABLE IF NOT EXISTS artists (
   CONSTRAINT chk_artists_views_nonneg CHECK (views >= 0)
 );
 
-CREATE INDEX IF NOT EXISTS idx_artists_spotify_id ON artists(spotify_id);
+-- Partial UNIQUE on musicbrainz_id: NULL and the 'not_found' sentinel are
+-- excluded so worker alias_fill can batch-mark lookup failures without
+-- violating UNIQUE (BUG-13). Migration: V3__partial_unique_excl_not_found.sql.
+-- Prod predicate verified 2026-07-11: (musicbrainz_id IS NOT NULL AND
+-- musicbrainz_id <> 'not_found').
 CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_musicbrainz_id
-  ON artists(musicbrainz_id) WHERE musicbrainz_id IS NOT NULL;
+  ON artists(musicbrainz_id)
+  WHERE musicbrainz_id IS NOT NULL AND musicbrainz_id <> 'not_found';
 CREATE INDEX IF NOT EXISTS idx_artists_popularity_followers_views
   ON artists(popularity DESC, followers DESC, views DESC);
 CREATE INDEX IF NOT EXISTS idx_artists_name_trgm ON artists USING gin (name gin_trgm_ops);  -- V12
+-- NB: no separate idx_artists_spotify_id — artists_spotify_id_key (the UNIQUE
+-- constraint's index) serves lookups; prod has no such extra index (verified 2026-07-11).
 
 -- =============================================================================
 -- Music Catalog — Albums
@@ -190,12 +228,13 @@ CREATE TABLE IF NOT EXISTS albums (
   CONSTRAINT chk_albums_views_nonneg CHECK (views >= 0)
 );
 
-CREATE INDEX IF NOT EXISTS idx_albums_spotify_id ON albums(spotify_id);
 CREATE INDEX IF NOT EXISTS idx_albums_popularity_views
   ON albums(popularity DESC, views DESC);
 CREATE INDEX IF NOT EXISTS idx_albums_best_new
   ON albums(best_new) WHERE best_new = true;
 CREATE INDEX IF NOT EXISTS idx_albums_title_trgm ON albums USING gin (title gin_trgm_ops);  -- V12
+-- NB: no separate idx_albums_spotify_id — albums_spotify_id_key serves lookups
+-- (prod-verified 2026-07-11).
 
 -- =============================================================================
 -- Music Catalog — Album ↔ Artist (M:N)
@@ -228,8 +267,11 @@ CREATE TABLE IF NOT EXISTS tracks (
 
 CREATE INDEX IF NOT EXISTS idx_tracks_album_id ON tracks(album_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_track_no ON tracks(track_no);
-CREATE INDEX IF NOT EXISTS idx_tracks_spotify_id ON tracks(spotify_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_title_trgm ON tracks USING gin (title gin_trgm_ops);  -- V12
+-- NB: no separate idx_tracks_spotify_id — tracks_spotify_id_key serves lookups.
+-- Prod ALSO carries a redundant second UNIQUE constraint uq_tracks_spotify_id on
+-- the same column (verified 2026-07-11; harmless duplicate from an early apply —
+-- dropping it would need its own approved migration; intentionally not modeled here).
 
 -- =============================================================================
 -- Music Catalog — Track ↔ Artist (M:N)
@@ -250,6 +292,7 @@ CREATE TABLE IF NOT EXISTS post_albums (
   is_classic BOOLEAN NOT NULL DEFAULT false,
   PRIMARY KEY (post_id, album_id)
 );
+CREATE INDEX IF NOT EXISTS idx_post_albums_album_id ON post_albums(album_id);  -- prod-verified 2026-07-11 (previously unlisted)
 
 -- =============================================================================
 -- Post ↔ Artist (M:N)
@@ -259,6 +302,7 @@ CREATE TABLE IF NOT EXISTS post_artists (
   artist_id UUID NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
   PRIMARY KEY (post_id, artist_id)
 );
+CREATE INDEX IF NOT EXISTS idx_post_artists_artist_id ON post_artists(artist_id);  -- prod-verified 2026-07-11 (previously unlisted)
 
 -- =============================================================================
 -- Post Recommended Tracks
@@ -272,6 +316,8 @@ CREATE TABLE IF NOT EXISTS post_recommended_tracks (
   PRIMARY KEY (post_id, track_id),  -- V37 (WS-B.2): per-post uniqueness
   FOREIGN KEY (post_id, album_id) REFERENCES post_albums(post_id, album_id) ON DELETE CASCADE
 );
+-- track_id is not the leading PK column; the tracks.id ON DELETE CASCADE lookup needs this (V37).
+CREATE INDEX IF NOT EXISTS idx_post_recommended_tracks_track_id ON post_recommended_tracks(track_id);
 
 -- =============================================================================
 -- Outbox & Publishing
@@ -311,11 +357,34 @@ CREATE TABLE IF NOT EXISTS op_logs (
 CREATE INDEX IF NOT EXISTS idx_op_logs_occurred_at ON op_logs(occurred_at);
 
 -- =============================================================================
+-- Users — member identity keyed on Cognito sub (V36; FEAT-multi-user-accounts Phase 0)
+-- Rows are lazy-created by the backend on a member's first authed API call.
+-- email NULLABLE (Kakao consent optional) and NOT unique (no account linking).
+-- display_name/avatar_url from IdP claims only (no uploads); avatar NULL = initials.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS users (
+  id           UUID        PRIMARY KEY,               -- Cognito sub (externally minted — no default)
+  email        TEXT,                                  -- NULL for consent-declined Kakao members
+  handle       TEXT        NOT NULL,                  -- lowercase; public profile URL component (/members/[handle])
+  display_name TEXT        NOT NULL,                  -- IdP nickname default, user-editable
+  avatar_url   TEXT,                                  -- IdP profile-picture URL only (no uploads)
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_users_handle UNIQUE (handle),
+  CONSTRAINT ck_users_handle_format
+    CHECK (handle ~ '^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$')
+);
+
+-- =============================================================================
 -- Review Buckets — private review-writing kanban (V6; parent_id V11)
 -- (Backfilled 2026-06-05 from prod introspection — STAB-4. NOT public taxonomy.)
+-- Per-user since FEAT-multi-user Phase 2: V40 added user_id (nullable + owner
+-- backfill) and re-scoped the two global singleton partial-uniques to per-user;
+-- V42 flipped user_id NOT NULL after the prod soak.
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS review_buckets (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- V40 nullable+backfill → V42 NOT NULL
   name       TEXT        NOT NULL,
   position   INTEGER     NOT NULL,
   color      TEXT,
@@ -331,11 +400,12 @@ CREATE TABLE IF NOT EXISTS review_buckets (
              CONSTRAINT ck_review_buckets_type CHECK (type IN ('general', 'artist'))
 );
 CREATE INDEX IF NOT EXISTS idx_review_buckets_parent_id ON review_buckets(parent_id);
+-- At most one "작성 완료" (done) bucket PER USER (V40 re-scope; was a global (true) singleton).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_done
-  ON review_buckets((true)) WHERE is_done;
--- V15: at most one kind='spotify_library' bucket (constant-expression partial unique)
+  ON review_buckets (user_id) WHERE is_done;
+-- At most one kind='spotify_library' mirror bucket PER USER (V15; V40 re-scope).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_spotify_library
-  ON review_buckets((true)) WHERE kind = 'spotify_library';
+  ON review_buckets (user_id) WHERE kind = 'spotify_library';
 
 -- V28/V30 (FEAT-pocket-buckit) generalized album-only membership to a TYPED relationship:
 --   V28 added item_type (DEFAULT 'album') + nullable typed FKs track_id/review_target_id;
@@ -344,6 +414,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_spotify_library
 --   added ck_review_bucket_items_album_id_present so album-kind rows still must carry album_id.
 -- review_target_id (CASCADE) is DISTINCT from post_id (SET NULL): post_id = "the review this
 --   ALBUM produced"; review_target_id = "this item IS a review member" (item_type='review').
+-- Items are NOT user_id-scoped (V40 decision): ownership is transitive via
+--   bucket_id → review_buckets.user_id, and the per-kind partial-uniques key on
+--   bucket_id, so they became per-user for free when buckets gained user_id.
 CREATE TABLE IF NOT EXISTS review_bucket_items (
   id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   bucket_id  UUID         NOT NULL REFERENCES review_buckets(id) ON DELETE CASCADE,
@@ -360,6 +433,7 @@ CREATE TABLE IF NOT EXISTS review_bucket_items (
   post_id    UUID         REFERENCES posts(id) ON DELETE SET NULL,
   rec_reason TEXT,
   research_selected BOOLEAN NOT NULL DEFAULT FALSE,  -- V16: per-item checkbox under research_mode='selected'
+  prep_tonight BOOLEAN     NOT NULL DEFAULT FALSE,   -- V22: "오늘 밤 키우기" gate for the nightly memo→skeleton job (FEAT-editor-buckit)
   added_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
   -- V30: album-kind rows must carry album_id (a NULL-album 'album' row would escape the
@@ -427,17 +501,22 @@ CREATE INDEX IF NOT EXISTS idx_bucket_item_snapshots_source_album_ids ON bucket_
 -- V31 (FEAT-pocket-buckit) folded this queue into a review_buckets row with kind='to_listen'
 -- holding item_type='album' members — that bucket is now the canonical home for 들을 것.
 -- This legacy table is RETAINED as a deprecated read-through (kept, not dropped, by V31).
+-- Per-user since FEAT-multi-user Phase 2 (V40 user_id + per-user unique → V42 NOT NULL).
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS album_to_listen_items (
   id       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  album_id UUID        NOT NULL UNIQUE REFERENCES albums(id) ON DELETE CASCADE,
+  user_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- V40 nullable+backfill → V42 NOT NULL
+  album_id UUID        NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
   position INTEGER     NOT NULL,
   note     TEXT,
-  added_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- V40: was a global UNIQUE(album_id); two members may queue the same album.
+  CONSTRAINT uq_album_to_listen_items_user_album UNIQUE (user_id, album_id)
 );
 
 -- =============================================================================
 -- Spotify Listening Cache — now-playing + recent albums (V9), play events (V10), recent tracks (V14)
+-- Worker/EventBridge-fed; no synchronous Spotify call from any user-facing endpoint (hard rule #9).
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS spotify_now_playing (
   id          SMALLINT    PRIMARY KEY DEFAULT 1,
@@ -454,26 +533,30 @@ CREATE TABLE IF NOT EXISTS spotify_now_playing (
 
 CREATE TABLE IF NOT EXISTS spotify_recent_albums (
   id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  album_id       UUID        NOT NULL UNIQUE REFERENCES albums(id) ON DELETE CASCADE,
+  album_id       UUID        NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
   last_played_at TIMESTAMPTZ NOT NULL,
   source         TEXT        NOT NULL DEFAULT 'spotify',
-  synced_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  synced_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_spotify_recent_albums_album UNIQUE (album_id)
 );
 CREATE INDEX IF NOT EXISTS idx_spotify_recent_albums_last_played_at
   ON spotify_recent_albums(last_played_at);
 
+-- Append-only ALBUM-level play history (V10) — durable listen-count source;
+-- spotify_recent_albums above prunes its rolling window and keeps no history.
 CREATE TABLE IF NOT EXISTS spotify_play_events (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   album_id    UUID        NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
   played_at   TIMESTAMPTZ NOT NULL,
   source      TEXT        NOT NULL DEFAULT 'spotify',
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (album_id, played_at)
+  CONSTRAINT uq_spotify_play_events_album_played UNIQUE (album_id, played_at)
 );
 CREATE INDEX IF NOT EXISTS idx_spotify_play_events_played_at ON spotify_play_events(played_at);
 
 -- V14: rolling TRACK-level cache of the recently-played window (album-level = spotify_recent_albums).
 -- DENORMALIZED text + nullable album_id FK so tracks whose album isn't catalogued still display.
+-- Cache, not a log: worker upserts the window and prunes to N.
 CREATE TABLE IF NOT EXISTS spotify_recent_tracks (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   spotify_track_id TEXT        NOT NULL,
@@ -505,21 +588,73 @@ CREATE TABLE IF NOT EXISTS spotify_track_play_events (
 CREATE INDEX IF NOT EXISTS idx_spotify_track_play_events_played_at
   ON spotify_track_play_events(played_at);
 
+-- V24 (FEAT-genre-artist-distribution) — cache of the owner's Spotify 좋아요(saved)
+-- tracks (GET /me/tracks); source for the /profile 분석 버킷 genre/artist
+-- distribution. Denormalized + nullable catalog FKs so non-catalog tracks still
+-- display. Keyed by the track itself (natural PK) — worker upserts per track, prunes
+-- on un-like. Genre resolves at read time via track_genres → else album_genres.
+-- duration_ms added by V26 (FEAT-liked-tracks-workbench Step 4).
+CREATE TABLE IF NOT EXISTS spotify_saved_tracks (
+  spotify_track_id  TEXT        PRIMARY KEY,
+  track_name        TEXT        NOT NULL,
+  artist_name       TEXT,
+  album_name        TEXT,
+  album_sid         TEXT,
+  track_id          UUID        REFERENCES tracks(id) ON DELETE SET NULL,
+  album_id          UUID        REFERENCES albums(id) ON DELETE SET NULL,
+  added_at          TIMESTAMPTZ NOT NULL,
+  duration_ms       INTEGER,                                    -- V26
+  synced_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_saved_tracks_added_at ON spotify_saved_tracks(added_at);
+
+-- V27 (FEAT-listening-history-import) — lifetime per-stream history from the
+-- owner's Spotify Extended Streaming History (GDPR export); the only source of
+-- true lifetime play counts + listening time (no API exposes them). Denormalized +
+-- nullable catalog FKs (resolved best-effort at import + by --resolve-only).
+-- spotify_track_uri is the full URI (dedup anchor + music/podcast prefix predicate).
+-- ms_played BIGINT (lifetime sum > INT4). Dedup UNIQUE (ts, spotify_track_uri),
+-- idempotent re-import. NO IP / user-agent columns (privacy).
+CREATE TABLE IF NOT EXISTS spotify_stream_history (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  ts                 TIMESTAMPTZ NOT NULL,                       -- stream END (export `ts`, UTC)
+  ms_played          BIGINT      NOT NULL,                       -- ms listened; lifetime sum → BIGINT
+  spotify_track_uri  TEXT        NOT NULL,                       -- full "spotify:track:…" / "spotify:episode:…"
+  track_name         TEXT,
+  artist_name        TEXT,
+  album_name         TEXT,
+  track_id           UUID        REFERENCES tracks(id) ON DELETE SET NULL,
+  album_id           UUID        REFERENCES albums(id) ON DELETE SET NULL,
+  skipped            BOOLEAN,
+  offline            BOOLEAN,
+  shuffle            BOOLEAN,
+  incognito          BOOLEAN,
+  reason_start       TEXT,
+  reason_end         TEXT,
+  imported_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_spotify_stream_history_stream UNIQUE (ts, spotify_track_uri)
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_stream_history_album_id ON spotify_stream_history(album_id);
+CREATE INDEX IF NOT EXISTS idx_spotify_stream_history_track_id ON spotify_stream_history(track_id);
+CREATE INDEX IF NOT EXISTS idx_spotify_stream_history_ts ON spotify_stream_history(ts);
+
+-- Per-import ledger for spotify_stream_history (one row per export file): parsed vs
+-- inserted counts + as_of (max(ts) = staleness horizon) + run time.
+CREATE TABLE IF NOT EXISTS stream_import_runs (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_name      TEXT        NOT NULL,
+  rows_total     INTEGER     NOT NULL DEFAULT 0,
+  rows_inserted  INTEGER     NOT NULL DEFAULT 0,
+  as_of          TIMESTAMPTZ,                                    -- NULL if the file had no valid streams
+  imported_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- =============================================================================
 -- Spotify Library Sync — two-way saved-albums mirror (V15; FEAT-spotify-library-sync)
--- review_buckets.kind='spotify_library' (above) + this immutable provenance side-table.
+-- review_buckets.kind='spotify_library' (above) + this immutable provenance side-table
+-- (enum types defined in the Enums section). Side table so the 'preexisting' source
+-- fact outlives a bucket-remove (never delete a pre-existing saved album).
 -- =============================================================================
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'spotify_library_source') THEN
-    CREATE TYPE spotify_library_source AS ENUM ('myblog_added', 'preexisting');
-  END IF;
-END $$;
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'spotify_library_state') THEN
-    CREATE TYPE spotify_library_state AS ENUM ('pending', 'synced', 'failed', 'needs_attention');
-  END IF;
-END $$;
-
 CREATE TABLE IF NOT EXISTS spotify_library_albums (
   id             UUID                   PRIMARY KEY DEFAULT gen_random_uuid(),
   album_id       UUID                   NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
@@ -564,10 +699,10 @@ CREATE TABLE IF NOT EXISTS album_research (
 
 -- =============================================================================
 -- Genres — tier-0 vocabulary + machine attachments (V17; FEAT-genre-system)
--- genres: fixed 12-genre English vocabulary, seeded by V17 (the migration is
---   the source of truth for slugs/labels). parent_id NULL = tier-0; the future
---   tier-1 (sub-genre) RFC attaches via parent_id with no migration.
---   definition_md is owner-edited in place on the public /genres page.
+-- genres: fixed 12-genre English tier-0 vocabulary, seeded by V17; V20
+--   (FEAT-genre-subgenres) seeded 211 tier-1 sub-genres via parent_id.
+--   definition_md is owner-edited in place on the public /genres page (V23
+--   seeded tier-0 definitions).
 -- album_genres: MACHINE-ONLY attachments (source 'mapping'|'itunes'|'llm',
 --   never 'manual'); confidence 'high' (2+ pipeline parts agree) | 'low'.
 -- track_genres: override-only — a row exists iff the track deviates from its
@@ -578,7 +713,7 @@ CREATE TABLE IF NOT EXISTS genres (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   slug          TEXT        NOT NULL UNIQUE,          -- 'k-pop', 'rnb-soul'
   label         TEXT        NOT NULL,                 -- 'K-Pop' (English only)
-  parent_id     UUID        REFERENCES genres(id) ON DELETE RESTRICT,  -- NULL = tier-0
+  parent_id     UUID        REFERENCES genres(id) ON DELETE RESTRICT,  -- NULL = tier-0; tier-1 attaches here (V20)
   definition_md TEXT        NOT NULL DEFAULT '',      -- owner-edited on /genres
   position      INTEGER     NOT NULL DEFAULT 0,       -- display order on /genres
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -601,6 +736,45 @@ CREATE TABLE IF NOT EXISTS track_genres (             -- override-only; row exis
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (track_id, genre_id)
 );
+
+-- V20 (FEAT-genre-subgenres): tier-1 relationship layer + editorial review tags.
+-- genre_edges — ego-view + related-review rec engine; type ∈ parent|influenced_by|related
+--   (influenced_by = directed, related = lateral see-also, 'parent' = multi-parent
+--   fallback, 0 rows in v1). RESTRICT on both FKs per V17's rule.
+-- post_genres — editorial review↔sub-genre link, per-post (humans never edit the
+--   machine album_genres); populated by the /write picker.
+CREATE TABLE IF NOT EXISTS genre_edges (
+  from_genre_id UUID        NOT NULL REFERENCES genres(id) ON DELETE RESTRICT,
+  to_genre_id   UUID        NOT NULL REFERENCES genres(id) ON DELETE RESTRICT,
+  type          TEXT        NOT NULL CHECK (type IN ('parent','influenced_by','related')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (from_genre_id, to_genre_id, type)
+);
+
+CREATE TABLE IF NOT EXISTS post_genres (
+  post_id    UUID        NOT NULL REFERENCES posts(id)  ON DELETE CASCADE,
+  genre_id   UUID        NOT NULL REFERENCES genres(id) ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (post_id, genre_id)
+);
+
+-- V25 (FEAT-genre-autoheal) — on-demand "장르 채우기" request queue. The /profile
+-- button (backend POST) inserts a pending row; the local genre-heal poller claims
+-- it and runs the existing genre pipeline, then stamps finished_at. NOT a per-album
+-- queue (the backfill is marker-based); backend writes + poller reads via raw SQL —
+-- deliberately NO ORM model (no pin bump), which is why this table lives only here
+-- and in prod.
+CREATE TABLE IF NOT EXISTS genre_backfill_requests (
+  id            BIGSERIAL   PRIMARY KEY,
+  requested_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  claimed_at    TIMESTAMPTZ,                         -- set when the poller starts a run
+  finished_at   TIMESTAMPTZ,                         -- set when the backfill run returns
+  source        TEXT                                 -- requesting surface, e.g. '분석 버킷'
+);
+-- The poller's "next unclaimed request" lookup.
+CREATE INDEX IF NOT EXISTS idx_genre_backfill_requests_pending
+  ON genre_backfill_requests (requested_at)
+  WHERE claimed_at IS NULL;
 
 -- =============================================================================
 -- Lyrics Corpus — track_lyrics (V33, FEAT-lyrics-corpus)
@@ -668,27 +842,150 @@ CREATE INDEX IF NOT EXISTS idx_track_lyrics_translations_pending
   WHERE status = 'requested' AND claimed_at IS NULL;
 
 -- =============================================================================
+-- Album Reviews — RYM-style public member reviews (V38; FEAT-multi-user-accounts Phase 1)
+-- One review per member per album: 0.5–5.0 half-step rating + optional comment.
+-- All reviews public (no visibility column). Aggregates computed LIVE at read
+-- time (no denormalized counter on albums); idx_album_reviews_album_id keeps the
+-- scan cheap, idx_album_reviews_user_created serves the newest-first profile feed.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS album_reviews (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users (id)  ON DELETE CASCADE,
+  album_id   UUID        NOT NULL REFERENCES albums (id) ON DELETE CASCADE,
+  rating     NUMERIC(2,1) NOT NULL,
+  comment    TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_album_reviews_user_album UNIQUE (user_id, album_id),
+  CONSTRAINT ck_album_reviews_rating_halfstep
+    CHECK (rating >= 0.5 AND rating <= 5.0 AND mod(rating, 0.5) = 0)
+);
+CREATE INDEX IF NOT EXISTS idx_album_reviews_album_id
+  ON album_reviews (album_id);
+CREATE INDEX IF NOT EXISTS idx_album_reviews_user_created
+  ON album_reviews (user_id, created_at);
+
+-- =============================================================================
+-- Daily Picks — owner-curated "song of the day" store (V39; FEAT-today-buckit Step 3)
+-- One pick per calendar day (upsert on pick_date); track-primary (a pick is always
+-- a TRACK; album_id carried for the album-window click target). Denormalized
+-- display columns make the public GET self-contained; no note/impression column.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS daily_picks (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  pick_date        DATE        NOT NULL,               -- one pick per day (upsert key)
+  track_id         UUID        NOT NULL REFERENCES tracks (id) ON DELETE CASCADE,
+  album_id         UUID        NOT NULL REFERENCES albums (id) ON DELETE CASCADE,
+  title            TEXT        NOT NULL,               -- denormalized track title
+  artist           TEXT        NOT NULL,               -- denormalized primary-artist display
+  cover_url        TEXT,                               -- album art (nullable — source gaps)
+  spotify_track_id TEXT        NOT NULL,               -- click/play target (mirrors tracks.spotify_id)
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_daily_picks_pick_date UNIQUE (pick_date)
+);
+
+-- =============================================================================
+-- User Integrations — the ONE connect store for listening/AI sources (V41;
+-- FEAT-multi-user-accounts Phase 3a — OQ4: single table). One row per
+-- (user, provider). Last.fm = username-only (no OAuth/token custody); Spotify
+-- (3b) / AI keys (P4 BYOK) use the KMS-encrypted `payload` (never logged).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS user_integrations (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  provider       TEXT        NOT NULL,               -- 'lastfm' | 'spotify' | 'ai_key'
+  username       TEXT,                               -- Last.fm handle (public reads, no OAuth)
+  payload        TEXT,                               -- KMS ciphertext (Spotify 3b / AI key P4); never logged
+  status         TEXT        NOT NULL DEFAULT 'connected',
+  last_synced_at TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_user_integrations_user_provider UNIQUE (user_id, provider),
+  CONSTRAINT ck_user_integrations_provider CHECK (provider IN ('lastfm', 'spotify', 'ai_key')),
+  CONSTRAINT ck_user_integrations_status CHECK (status IN ('connected', 'reauth', 'error', 'disconnected'))
+);
+-- Poller iterates connected rows for a provider.
+CREATE INDEX IF NOT EXISTS idx_user_integrations_provider_status
+  ON user_integrations (provider, status);
+
+-- V41: per-user Last.fm scrobbles + the single now-playing row, written by the
+-- worker EventBridge poll (user.getRecentTracks incremental). Last.fm returns
+-- TEXT names + optional MBIDs (not our catalog UUIDs) → denormalized text store
+-- (mirrors spotify_stream_history); catalog resolution is a later concern.
+-- A now-playing track has no timestamp (@attr nowplaying) → played_at NULL +
+-- is_now_playing TRUE; at most one per user.
+CREATE TABLE IF NOT EXISTS lastfm_recent_tracks (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  artist_name    TEXT        NOT NULL,
+  track_name     TEXT        NOT NULL,
+  album_name     TEXT,
+  artist_mbid    TEXT,
+  track_mbid     TEXT,
+  album_mbid     TEXT,
+  image_url      TEXT,
+  played_at      TIMESTAMPTZ,                         -- NULL only for the now-playing row
+  is_now_playing BOOLEAN     NOT NULL DEFAULT FALSE,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- A completed scrobble always has a timestamp; only now-playing may omit it.
+  CONSTRAINT ck_lastfm_recent_played_at CHECK (is_now_playing OR played_at IS NOT NULL)
+);
+-- One completed scrobble per (user, instant) — the incremental-upsert dedup key.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_lastfm_recent_user_played
+  ON lastfm_recent_tracks (user_id, played_at) WHERE NOT is_now_playing;
+-- At most one now-playing row per user (poller replaces it each run).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_lastfm_recent_now_playing
+  ON lastfm_recent_tracks (user_id) WHERE is_now_playing;
+-- Profile feed: a member's scrobbles newest-first (btree scans backward for DESC).
+CREATE INDEX IF NOT EXISTS idx_lastfm_recent_user_played
+  ON lastfm_recent_tracks (user_id, played_at);
+
+-- =============================================================================
+-- LLM Usage — append-only usage metering (V43; FEAT-multi-user-accounts Phase 4)
+-- One audit row per LLM dispatch, written by the shared engine's single
+-- record_usage() path (CliEngine records non-blocking owner audit; ApiEngine
+-- also runs a PRE-dispatch cap check as a live aggregate over this table —
+-- the shipped Phase-1 review-cap pattern, no denormalized counter).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS llm_usage (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        REFERENCES users (id) ON DELETE CASCADE,  -- NULL = owner/system run
+  feature    TEXT        NOT NULL,               -- caller tag (e.g. 'editorial_critique')
+  engine     TEXT        NOT NULL,               -- 'cli' | 'api'
+  model      TEXT,                               -- resolved model id/alias (NULL = CLI default)
+  tokens_in  INTEGER     NOT NULL DEFAULT 0,     -- 0 in CLI text mode (honest gap)
+  tokens_out INTEGER     NOT NULL DEFAULT 0,
+  is_error   BOOLEAN     NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_llm_usage_engine CHECK (engine IN ('cli', 'api'))
+);
+-- Serves the pre-dispatch window count (WHERE user_id = ? AND feature = ? AND created_at > cutoff).
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_feature_created
+  ON llm_usage (user_id, feature, created_at);
+
+-- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
--- This file is current through V35. V1–V13 verified against prod 2026-06-08
--- (categories→sections rename; see the section-rename note in the header for prod's
--- legacy physical object names). V14 (spotify_recent_tracks) + V15 (spotify_library_albums
--- + review_buckets.kind + 2 enums) backfilled from migration DDL 2026-06-09; V16
--- (album_research + research scope columns) backfilled from migration DDL 2026-06-12 —
--- all prod-applied + prod-live. V17 (genres + album_genres + track_genres + 12-row seed)
--- added 2026-06-12, prod-applied + prod-verified same day (FEAT-genre-system Step 1,
--- shared_db v0.17.0). V18 (review_buckets.is_public) prod-live 2026-06-15
--- (FEAT-public-bucket-multiuser Scope A). V19 (spotify_track_play_events — durable
--- TRACK-level play log) added 2026-06-15, FEAT-track-play-history — prod-apply PENDING,
--- must hit Neon main BEFORE the worker deploy. V28/V29 (review_bucket_items.item_type +
--- typed FKs; bucket_item_snapshots side-table) + V30 (album_id NOT NULL dropped, per-kind
--- partial uniques, ck_review_bucket_items_album_id_present) + V31 (들을 것 folded to a
--- kind='to_listen' system bucket; album_to_listen_items retained as deprecated read-through)
--- prod-applied + Neon-prod-live 2026-06-24 (FEAT-pocket-buckit). V32 (review_buckets.type +
--- review_bucket_items.artist_id + artist partial-unique/guards) prod-live 2026-06-30
--- (FEAT-my-buckit-artist). V33 (track_lyrics) + V34 (tracks.isrc) prod-live 2026-07-01
--- (FEAT-lyrics-corpus Step 1). V35 (track_lyrics_translations + pending partial index)
--- prod-applied 2026-07-04 (FEAT-lyrics-translation Step 1). V20–V27 are not separately
--- backfilled into this file — myblog_shared_db/migrations/ is the authoritative version set.
--- Last full structural prod-verify 2026-06-05 (STAB-4).
+--
+-- This file is current through V43 — fully reconciled against a prod
+-- introspection 2026-07-11 (CHORE-canonical-schema-sync; the introspection also
+-- backfilled the V20–V27 objects this file previously skipped: genre_edges +
+-- post_genres (V20, tier-1 seed V20/V21, definitions V23), prep_tonight (V22),
+-- spotify_saved_tracks (V24, duration_ms V26), genre_backfill_requests (V25),
+-- spotify_stream_history + stream_import_runs (V27)).
+--
+-- Earlier verification history: V1–V13 prod-verified 2026-06-08 (categories→
+-- sections rename; see header NB for prod's legacy physical names); V14/V15
+-- backfilled 2026-06-09; V16 backfilled 2026-06-12; V17 prod-verified
+-- 2026-06-12; V18 prod-live 2026-06-15; V19 prod-live 2026-06-15
+-- (FEAT-track-play-history); V28–V31 prod-live 2026-06-24 (FEAT-pocket-buckit);
+-- V32 prod-live 2026-06-30 (FEAT-my-buckit-artist); V33/V34 prod-live
+-- 2026-07-01 (FEAT-lyrics-corpus); V35 prod-applied 2026-07-04
+-- (FEAT-lyrics-translation); V36 (users) / V37 (post_recommended_tracks
+-- composite PK) / V38 (album_reviews) / V39 (daily_picks) / V40+V42
+-- (bucket user_id, NOT NULL) / V41 (user_integrations + lastfm_recent_tracks) /
+-- V43 (llm_usage) prod-applied 2026-07-07 – 2026-07-11 (FEAT-multi-user-accounts
+-- Phases 0–4 scaffolding + FIX-bug-audit-2026-07 WS-B.2 + FEAT-today-buckit).
+-- Last full structural prod-verify: 2026-07-11.
 -- =============================================================================
