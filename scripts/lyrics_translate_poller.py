@@ -59,7 +59,6 @@ import logging
 import os
 import re
 import shutil
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -72,12 +71,18 @@ ROOT = Path(__file__).resolve().parent.parent  # myblog-workspace/
 BACKEND = ROOT / "myblog_backend"
 sys.path.insert(0, str(BACKEND))
 
+# shared_db is read from the LOCAL checkout via src-path injection (not the git
+# pin) — same pattern as the backend injection above; works from the launchd
+# runtime (the workspace main checkout) with zero pin bump.
+sys.path.insert(0, str(ROOT / "myblog_shared_db" / "src"))
+
 # Same normalizer + fingerprint as the read path (parity by construction — see header).
 from app.services.lyrics_service import (  # noqa: E402
     NORMALIZER_VERSION,
     compute_source_fingerprint,
     normalize_lyrics,
 )
+from myblog_shared_db.llm import CliEngine, LLMJob, LLMTransientError  # noqa: E402
 
 REGION = "ap-northeast-2"
 SSM_PARAM = "/myblog/backend"          # SecureString JSON holding DATABASE_URL
@@ -247,24 +252,35 @@ def _extract_json_array(stdout: str) -> str | None:
 def _claude_translate_once(lines: list[str]) -> list[str]:
     """One `claude -p --model sonnet` call over ALL non-gap lines; returns the
     translations in input order. Raises TransientEngineError (claim kept) or
-    EngineValidationError (retried once by the caller)."""
+    EngineValidationError (retried once by the caller).
+
+    P4 cutover (FEAT-multi-user-accounts-p4-llmengine): the subprocess body is
+    shared_db CliEngine; argv byte-parity with the previous inline call is
+    pinned by shared_db tests/test_llm_engine.py::test_golden_argv_lyrics_translate.
+    The quirk-tuned output validator below stays local and untouched — the
+    engine runs text-mode (output_mode=None, no schema), so it only maps
+    dispatch failures. Known delta: empty stdout was engine_validation
+    (terminal after one retry), now transient/claim-kept — the RFC decision-3
+    classification, lifted from this poller's own split.
+    """
     claude_bin = shutil.which("claude")
     if claude_bin is None:
         raise TransientEngineError("claude CLI not on PATH")
     prompt = PROMPT_HEADER + "\n".join(f"{n}: {ln}" for n, ln in enumerate(lines, 1))
     try:
-        proc = subprocess.run(
-            [claude_bin, "-p", "--model", ENGINE_CLI_MODEL],
-            input=prompt, capture_output=True, text=True, timeout=ENGINE_TIMEOUT_S,
-        )
-    except subprocess.TimeoutExpired:
-        raise TransientEngineError(f"engine timeout >{ENGINE_TIMEOUT_S}s") from None
-    if proc.returncode != 0:
-        detail = (proc.stderr.strip() or proc.stdout.strip())[:200]
-        raise TransientEngineError(f"claude exit {proc.returncode}: {detail}")
+        res = CliEngine(binary=claude_bin).run(LLMJob(
+            feature="lyrics_translate",
+            prompt=prompt,
+            model=ENGINE_CLI_MODEL,
+            output_mode=None,
+            timeout_s=ENGINE_TIMEOUT_S,
+        ))
+    except LLMTransientError as e:
+        raise TransientEngineError(str(e)) from None
+    stdout = res.result
 
-    head = proc.stdout.strip()[:200]  # diagnostic capture (refusal prose lands here)
-    raw = _extract_json_array(proc.stdout)
+    head = stdout.strip()[:200]  # diagnostic capture (refusal prose lands here)
+    raw = _extract_json_array(stdout)
     if raw is None:
         raise EngineValidationError(f"no JSON array in output: {head}")
     try:
