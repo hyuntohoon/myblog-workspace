@@ -29,3 +29,12 @@ output "cloudfront_distribution_id" {
 output "s3_website_endpoint" {
   value = aws_s3_bucket_website_configuration.myblog_prod_web.website_endpoint
 }
+
+# FEAT-multi-user-accounts 3b-a — consumed by 3b-c/3b-d Lambda env wiring.
+output "user_tokens_kms_key_arn" {
+  value = aws_kms_key.user_tokens.arn
+}
+
+output "user_tokens_kms_alias_name" {
+  value = aws_kms_alias.user_tokens.name
+}
