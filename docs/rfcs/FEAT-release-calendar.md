@@ -1,6 +1,6 @@
 # FEAT-release-calendar: New-release calendar (신보 캘린더)
 
-- **Status**: draft
+- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session — see Decisions log)
 - **Owner**: TBD
 - **Created**: 2026-07-06
 - **Plan row**: `plan.md` → FEAT-release-calendar
@@ -399,3 +399,5 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
 | 2026-07-06 | Home card: albums only, 30-day window (owner; surface-specific — the calendar keeps all types) | Track A |
 | 2026-07-06 | Discovery = MB per-artist future queries + Spotify day-0 diff; Spotify `/browse/new-releases` removed Feb 2026 (and content stale — newest 2025-07-31 — for surviving apps), global MB sweep rejected (long-tail) | design |
 | 2026-07-07 | Parallel draft RFC `FEAT-new-release-feed` (6a886a8) absorbed (owner): its endpoint + home card become Track A; its `album_ingest` probe redesigns the released path as confirm-on-ingest (Step 5) instead of a new worker job; draft branch discarded | scope |
+| 2026-07-11 | Promoted draft → accepted (owner in-session) | status |
+| 2026-07-11 | Owner reconcile with #549: the 2026-07-06 discovery lock is **re-opened** — Track B discovery to be **redesigned multi-source** (corroborating hard-ID sources within watchlist scope, e.g. Apple/iTunes pre-order, per #549's Divergences), not MB per-artist + Spotify day-0 only. Track B Steps 3–5 need a design-revision pass before Step 3 starts; Track A is unaffected and still ships first | design |

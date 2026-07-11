@@ -181,6 +181,13 @@ final):
 
 ### Divergences from #548 (need owner reconciliation at accept)
 
+> **Divergence 1 resolved 2026-07-11 (owner)**: #548's discovery lock was
+> re-opened — its Track B discovery will be **redesigned multi-source**
+> (corroborating hard-ID sources within watchlist scope), absorbing this RFC's
+> source-expansion proposal at the shared `artist_release_events` layer (see
+> #548 Decisions log 2026-07-11). OQ2 (per-source ToS review) and the H1
+> density measurement remain open here.
+
 - #548 locked discovery = **MB per-artist future queries + Spotify day-0 diff**,
   explicitly **rejecting a global MB sweep** (long-tail) and **not** integrating
   Spotify `/browse/new-releases` (removed / stale). This RFC proposes
