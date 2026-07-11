@@ -88,13 +88,20 @@ import json
 import logging
 import os
 import re
-import subprocess
 import sys
 import time
 import unicodedata
 import urllib.error
 import urllib.request
 from datetime import date
+
+# shared_db is read from the LOCAL checkout via src-path injection (not the git
+# pin) — same pattern as research_poller (P4 cutover #1). Resolves relative to
+# this script so it works from the launchd runtime (workspace main checkout).
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "myblog_shared_db", "src"))
+
+from myblog_shared_db.llm import CliEngine, LLMJob, ToolPolicy, build_argv  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -118,8 +125,8 @@ RECENT_DAYS = 30                        # play-event recency window
 # context are inlined; the script does all DB read + file write. We disallow the full
 # file/network/exec surface as belt-and-suspenders so even a default-on tool can't fire, and
 # pin setting-sources so the project-local broad Bash allow-list is never merged in.
-DISALLOWED_TOOLS = ["Bash", "Edit", "Read", "Write", "WebSearch", "WebFetch",
-                    "Glob", "Grep", "NotebookEdit", "Task", "TodoWrite"]
+DISALLOWED_TOOLS = ("Bash", "Edit", "Read", "Write", "WebSearch", "WebFetch",
+                    "Glob", "Grep", "NotebookEdit", "Task", "TodoWrite")
 SETTING_SOURCES = "user"
 # Output framing: the model emits each file as `<DELIM> <basename>` on its own line, then the
 # file body, until the next delimiter. The script splits, validates the basename, and writes.
@@ -462,48 +469,45 @@ def build_prompt(context: str) -> str:
 
 
 # --- claude -p (pure text transform — NO tools; the script writes the files) -----------
+# P4 cutover (FEAT-multi-user-accounts-p4-llmengine): argv byte-parity with the
+# previous inline subprocess call is pinned by shared_db
+# tests/test_llm_engine.py::test_golden_argv_buckit_nightly, and --dry-run still
+# prints the exact argv (built by the same build_argv the engine dispatches).
+# No metering session_factory — this script never wrote llm_usage.
+ENGINE = CliEngine()
+
+
+def _job(prompt: str) -> LLMJob:
+    return LLMJob(
+        feature="buckit_nightly",
+        prompt=prompt,
+        model=CLAUDE_MODEL,
+        tools=ToolPolicy(disallowed=DISALLOWED_TOOLS),
+        output_mode="json",
+        timeout_s=CLAUDE_TIMEOUT_S,
+        setting_sources=SETTING_SOURCES,
+        cwd=_repo_root(),
+    )
+
+
 def claude_argv() -> list[str]:
-    return ["claude", "-p", "--output-format", "json", "--model", CLAUDE_MODEL,
-            "--setting-sources", SETTING_SOURCES,
-            "--disallowed-tools", *DISALLOWED_TOOLS]
+    return build_argv(_job(""))
 
 
 def run_claude(prompt: str) -> dict:
-    """Run headless Claude Code as a pure text transformer (NO tools) and return parsed
-    {result, tokens_in, tokens_out, model}. `result` is the delimited multi-file payload the
-    caller splits + writes. Raises on non-zero exit, timeout, JSON/parse failure, an
-    `is_error` result, or an empty result. (Lifted from research_poller.py JSON path.)"""
-    proc = subprocess.run(
-        claude_argv(),
-        input=prompt,
-        capture_output=True,
-        text=True,
-        timeout=CLAUDE_TIMEOUT_S,
-        cwd=_repo_root(),
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(f"claude exit {proc.returncode}: {proc.stderr.strip()[:500]}")
-    try:
-        data = json.loads(proc.stdout)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"claude JSON parse failed: {e}; stdout head: {proc.stdout[:300]!r}")
-    if data.get("is_error"):
-        raise RuntimeError(f"claude reported error: {str(data.get('result'))[:500]}")
-    result = (data.get("result") or "").strip()
-    if not result:
-        raise RuntimeError("claude returned an empty result")
-
-    usage = data.get("usage", {}) or {}
-    tokens_in = (
-        (usage.get("input_tokens") or 0)
-        + (usage.get("cache_read_input_tokens") or 0)
-        + (usage.get("cache_creation_input_tokens") or 0)
-    )
-    tokens_out = usage.get("output_tokens") or 0
-    model_usage = data.get("modelUsage", {}) or {}
-    model = max(model_usage, key=lambda k: model_usage[k].get("outputTokens", 0), default=None) \
-        or CLAUDE_MODEL
-    return {"result": result, "tokens_in": tokens_in, "tokens_out": tokens_out, "model": model}
+    """Run headless Claude Code as a pure text transformer (NO tools) via shared_db
+    CliEngine and return parsed {result, tokens_in, tokens_out, model}. `result` is the
+    delimited multi-file payload the caller splits + writes. Raises LLMTransientError /
+    LLMValidationError on non-zero exit, timeout, JSON/parse failure, an `is_error`
+    result, or an empty result (uncaught in main, same crash-and-log outcome as the
+    RuntimeErrors it replaces)."""
+    res = ENGINE.run(_job(prompt))
+    return {
+        "result": res.result,
+        "tokens_in": res.tokens_in,
+        "tokens_out": res.tokens_out,
+        "model": res.model or CLAUDE_MODEL,
+    }
 
 
 # --- output: split the delimited payload + write files (the script is the only writer) ---
