@@ -36,10 +36,17 @@ import argparse
 import json
 import logging
 import os
-import subprocess
 import sys
 import time
 from datetime import date
+from pathlib import Path
+
+# shared_db is read from the LOCAL checkout via src-path injection (not the git
+# pin) — same pattern as research_poller.py. Resolves relative to this script
+# so it works from any checkout that carries the nested myblog_shared_db repo.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_shared_db" / "src"))
+
+from myblog_shared_db.llm import CliEngine, LLMJob, ToolPolicy  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -364,52 +371,41 @@ def build_prompt(base: str, context: str) -> str:
     )
 
 
-def run_claude(prompt: str) -> dict:
-    """Run headless Claude Code; return parsed {result, tokens_in, tokens_out,
-    search_count, model}. Raises on non-zero exit, timeout, JSON/parse failure,
-    or an `is_error` result. (Lifted from research_poller.py — same JSON path.)"""
-    proc = subprocess.run(
-        [
-            "claude", "-p",
-            "--output-format", "json",
-            "--allowed-tools", "WebSearch,WebFetch",
-            "--model", CLAUDE_MODEL,
-        ],
-        input=prompt,
-        capture_output=True,
-        text=True,
-        timeout=CLAUDE_TIMEOUT_S,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(f"claude exit {proc.returncode}: {proc.stderr.strip()[:500]}")
-    try:
-        data = json.loads(proc.stdout)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"claude JSON parse failed: {e}; stdout head: {proc.stdout[:300]!r}")
-    if data.get("is_error"):
-        raise RuntimeError(f"claude reported error: {str(data.get('result'))[:500]}")
-    result = (data.get("result") or "").strip()
-    if not result:
-        raise RuntimeError("claude returned an empty result")
+# P4 cutover (FEAT-multi-user-accounts-p4-llmengine): argv byte-parity with
+# the previous inline subprocess call is pinned by shared_db
+# tests/test_llm_engine.py::test_golden_argv_editor_buckit. No metering
+# session_factory — this script never wrote llm_usage (its DB conn is
+# read-only by design); wiring metering is a separate decision.
+ENGINE = CliEngine()
 
-    usage = data.get("usage", {}) or {}
-    tools = usage.get("server_tool_use", {}) or {}
-    search_count = (tools.get("web_search_requests") or 0) + (tools.get("web_fetch_requests") or 0)
-    tokens_in = (
-        (usage.get("input_tokens") or 0)
-        + (usage.get("cache_read_input_tokens") or 0)
-        + (usage.get("cache_creation_input_tokens") or 0)
-    )
-    tokens_out = usage.get("output_tokens") or 0
-    model_usage = data.get("modelUsage", {}) or {}
-    model = max(model_usage, key=lambda k: model_usage[k].get("outputTokens", 0), default=None) \
-        or CLAUDE_MODEL
+
+def run_claude(prompt: str) -> dict:
+    """Run headless Claude Code via CliEngine; return {result, tokens_in,
+    tokens_out, search_count, model}. Raises LLMTransientError /
+    LLMValidationError (previously RuntimeError — equally fatal to this
+    manual single-fire run).
+
+    search_count: LLMResult does not surface `usage.server_tool_use`, so this
+    now always records 0 — same documented delta as the research_poller
+    cutover (the CLI aggregate was already unreliable, 2026-06-11); the links
+    inside the report remain the real grounding evidence. tokens_in stays
+    cache-inclusive (an order-of-magnitude audit field, not a bill — $0 on
+    the subscription).
+    """
+    res = ENGINE.run(LLMJob(
+        feature="editor_buckit",
+        prompt=prompt,
+        model=CLAUDE_MODEL,
+        tools=ToolPolicy(allowed=("WebSearch", "WebFetch")),
+        output_mode="json",
+        timeout_s=CLAUDE_TIMEOUT_S,
+    ))
     return {
-        "result": result,
-        "tokens_in": tokens_in,
-        "tokens_out": tokens_out,
-        "search_count": search_count,
-        "model": model,
+        "result": res.result,
+        "tokens_in": res.tokens_in,
+        "tokens_out": res.tokens_out,
+        "search_count": 0,
+        "model": res.model or CLAUDE_MODEL,
     }
 
 
