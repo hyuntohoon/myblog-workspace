@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts Phase 4 — LLMEngine design decision
 
-- **Status**: **confirmed + scaffolding shipped 2026-07-11** — owner confirmed the design + OQ3 (Anthropic-only v1) in-session; the "Session deliverable" below landed as shared_db **#59** (V43 numbered in place of V44 — V42 went to the parallel NOT-NULL flip; `llm_usage` prod-applied). Remaining: `/myblog/anthropic` SSM provisioning at first real ApiEngine caller; live-site cutover + BYOK per "Explicitly deferred".
+- **Status**: **confirmed + scaffolding shipped 2026-07-11** — owner confirmed the design + OQ3 (Anthropic-only v1) in-session; the "Session deliverable" below landed as shared_db **#59** (V43 numbered in place of V44 — V42 went to the parallel NOT-NULL flip; `llm_usage` prod-applied). Remaining: `/myblog/anthropic` SSM provisioning at first real ApiEngine caller; BYOK per "Explicitly deferred". **Live-site cutover COMPLETE 2026-07-11 (5/5 — see Cutover log).**
 - **Scope this pass**: owner-central scaffolding ONLY. BYOK / `user_api_keys` **deferred to Gate G2** (owner decision, 2026-07-08).
 - **Parent**: `docs/rfcs/FEAT-multi-user-accounts.md` §Phase 4.
 - **Method**: an `architect` subagent read RFC §Phase 4 + all 5 `claude -p` call sites + the 3 service `requirements.txt` + shared_db `pyproject.toml` (spot-checked, not trusted blind).
@@ -44,7 +44,7 @@
 ## Explicitly deferred
 
 - BYOK / `user_api_keys` + KMS envelope custody + live-probe-on-save + masked display — **Gate G2** (after Phase 3).
-- Live-site cutover (all 5 `run_claude` bodies stay verbatim; one-at-a-time golden-diff migration later). → **started 2026-07-11; see Cutover log.**
+- Live-site cutover (all 5 `run_claude` bodies stay verbatim; one-at-a-time golden-diff migration later). → **completed 2026-07-11 (5/5); see Cutover log.**
 - Owner `claude -p` → ApiEngine migration.
 - Non-Anthropic providers (adapter shaped for them; none built).
 
@@ -57,6 +57,8 @@
 3. **buckit_nightly — 2026-07-11 (ws #602).** Secret-guard site: 11-disallow + `--setting-sources user` kept atomic; `DISALLOWED_TOOLS` → tuple (frozen `ToolPolicy`), guard comment in place. `claude_argv()` retained as `build_argv(_job(""))` so `--dry-run` still prints the real dispatched argv. Gate: pre-edit vs post-edit `--dry-run` argv **byte-identical** (captured to files and diffed), plus `test_golden_argv_buckit_nightly`. Live trivial dispatch with exact site axes (pure text transform): `OK`/opus. Known deltas: exception types → `LLMTransientError`/`LLMValidationError` (caller has no try/except — same crash-and-log outcome); JSON-parse failure now gets CliEngine's one internal retry before raising. Post-merge `--dry-run` from the launchd main checkout confirmed the argv line verbatim.
 
 4. **lyrics_translate — 2026-07-11 (ws #603).** Argv-sensitive prod-data site. `shutil.which("claude")` pre-check kept, passed as engine `binary` (argv[0] preserved); no `--output-format` modeled by `output_mode=None`; prompt delivery identical (stdin `input=` both sides). Quirk-tuned validator + `MT_MODEL` provenance untouched; poller keeps its own `TransientEngineError`/`EngineValidationError` + retry-once/claim-kept semantics — engine `LLMTransientError` re-raised as `TransientEngineError` at the boundary. Live parity: `claude_translate(["Hello","World"])` → `["안녕","세상"]` validator-clean; `--sweep-only` rc=0 clean (queue empty — no real row exercised, none fabricated). Known deltas (in code): empty stdout was terminal `EngineValidationError` → now transient/claim-kept (the RFC decision-3 classification, itself lifted from this poller); non-zero-exit diagnostic now `stderr[:500]` only (log-message-only). **Remaining site: backfill_genres only** (shared_db repo, prod-data validator — next one-at-a-time pass).
+
+5. **backfill_genres — 2026-07-11 (shared_db #61).** Final site — **cutover COMPLETE (5/5)**. `claude_batch()`'s inline subprocess → the sibling `llm.CliEngine.run(LLMJob(feature="backfill_genres", model=None, output_mode="text", timeout_s=900))`; argv byte-parity audited against the inline call before editing (`["claude","-p","--output-format","text"]`, stdin `input=`, timeout 900 — exact match) and pinned by `test_golden_argv_backfill_genres` (model=None ⇒ NO `--model`; 91/91 green). Closed-vocabulary validator, prompt-hash cache, and `_store_lock` untouched; CliEngine statelessness keeps `LLM_PARALLELISM=4` thread-safety by construction. Verified: live trivial dispatch through `claude_batch` returned validator-clean JSON. Known deltas: engine timeout / non-zero exit / empty stdout now raise `LLMTransientError`, caught as a failed attempt (retry once → None → combine fails closed) — previously `TimeoutExpired` escaped and killed the whole run; warning log line loses the `rc=` field. Pollers still write no `llm_usage` metering — separate decision, unchanged.
 
 ## Open items for owner
 

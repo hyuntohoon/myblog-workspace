@@ -1,6 +1,6 @@
 # FEAT-release-calendar: New-release calendar (신보 캘린더)
 
-- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session — see Decisions log)
+- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; Track B Step 3 starts after owner reviews the revision)
 - **Owner**: TBD
 - **Created**: 2026-07-06
 - **Plan row**: `plan.md` → FEAT-release-calendar
@@ -22,9 +22,11 @@ Two public surfaces (no user concept), fed by the same catalog:
    2026-06-10 (see Current state).
 2. **Calendar page (Track B)** — **announced (예정)** and **released (발매)**
    albums / EPs / singles for a watchlist of artists derived from our own
-   catalog. Upcoming entries come from MusicBrainz future-dated release data;
-   release-day confirmation reuses the existing `album_ingest` discography
-   sweep (Step 5). The calendar read path is **DB-only** (rule #9).
+   catalog. Upcoming entries come from **per-artist multi-source discovery**
+   (MusicBrainz future-dated release groups + iTunes pre-order lookups —
+   redesigned 2026-07-11, see Track B target state); release-day confirmation
+   reuses the existing `album_ingest` discography sweep (Step 5). The calendar
+   read path is **DB-only** (rule #9).
 
 After this RFC: the home page surfaces what just dropped, and a visitor can
 open a calendar view and see what is coming for the artists this blog covers.
@@ -133,6 +135,24 @@ code claims re-verified 2026-07-07).
   - **Year-only partial dates (`2026`) match date-range queries** — they
     cannot be placed on a calendar day and must be filtered to full
     `YYYY-MM-DD` (or surfaced separately as "date TBA", OQ3).
+- Multi-source probe (2026-07-11, live — grounds the discovery redesign):
+  - **iTunes per-artist lookup exposes pre-orders as future-dated albums with
+    a hard ID**: `lookup?id=<artistId>&entity=album` for As It Is returned
+    the announced album "As It Is" with `releaseDate 2026-07-17` and
+    `collectionId 1884980968`, six days pre-release. Same keyless iTunes
+    Search API the genre pipeline already calls daily (`lookup?upc=`); rate
+    etiquette ~20 req/min (`ITUNES_THROTTLE_S` 3.5 s in
+    `backfill_genres.py`).
+  - **No editorial "coming soon" feed survives**: the Apple marketing-tools
+    v2 RSS has no coming-soon feed (404) and the legacy
+    `itunes.apple.com/*/rss/comingsoon` endpoint is dead (400). Apple Music
+    API proper is developer-token-gated (paid program) — out for v1.
+  - iTunes lookup responses carry **no UPC**, so an MB row and an iTunes row
+    for the same upcoming album share **no hard key pre-release**; hard-key
+    merge across those sources is only possible at catalog confirmation.
+  - iTunes `artistId` is resolvable by a **hard-ID chain with no fuzzy name
+    match**: any catalog album with `ext_refs.upc` → `lookup?upc=` → the
+    collection's `artistId` (the exact call the genre pipeline makes today).
 
 ## Target state
 
@@ -171,35 +191,69 @@ code claims re-verified 2026-07-07).
   fetch failure or 0 items → the card renders nothing (home degrades to
   exactly today's layout).
 
-### Track B — calendar
+### Track B — calendar (discovery redesigned multi-source, 2026-07-11)
 
-- New shared_db table `artist_release_events`:
+Discovery is **multi-source within watchlist scope** (owner re-opened the
+2026-07-06 lock on reconcile with FEAT-personal-release-tracking): per-artist
+queries against sources that return **hard IDs**, never a global sweep. v1
+sources: `musicbrainz` (release-group future dates) + `itunes` (per-artist
+pre-order lookup — probed live 2026-07-11, see Current state) + `spotify`
+(release-day confirmation via `album_ingest`). Consistency posture lifted
+from FEAT-personal-release-tracking's locked strategy: **one row per source
+observation, hard-key merge only** (under-merge bias — never fuzzy-merge
+rows), display-level soft grouping, catalog confirmation as the
+collapse-to-one-truth point.
+
+- New shared_db table `artist_release_events` — **one row per
+  (source, source_key) observation**:
   - `id` PK, `artist_id` FK → `artists.id`
-  - `mb_release_group_id` text NULL (dedupe key for MB-discovered entries)
-  - `spotify_album_id` text NULL (set on release-day confirmation)
+  - `source` text (`musicbrainz` | `itunes` | `spotify`)
+  - `source_key` text NOT NULL (MB release-group MBID / iTunes
+    `collectionId` / Spotify album id) — **UNIQUE(source, source_key)**, a
+    full unique so plain `ON CONFLICT` infers it (the partial-index trap of
+    memory `reference-onconflict-partial-index-break` doesn't apply; bulk
+    upserts still sort rows by the conflict key)
+  - `spotify_album_id` text NULL (set on release-day confirmation — the
+    cross-source collapse key)
   - `title` text NOT NULL
   - `release_type` text (`album` | `ep` | `single` | `other`)
   - `release_date` date NOT NULL (full dates only in v1)
   - `status` text (`announced` | `released`)
-  - `source` text (`musicbrainz` | `spotify`)
   - `first_seen_at` / `updated_at` timestamptz
-  - Dedup via NOT-EXISTS guard in the poller, **not** bare `ON CONFLICT`
-    against a partial index (memory `reference-onconflict-partial-index-break`).
-- Worker: a daily EventBridge-scheduled **MB upcoming poller** — watchlist =
-  artists with valid `musicbrainz_id` above a popularity floor (OQ1); one MB
-  release-group query per artist over `[today, today + horizon]` (OQ2);
-  upserts `announced` rows. Watchlist is fetched → materialized → session
-  closed before the external loop (memory
-  `reference-db-session-across-long-external-loop`).
+- New shared_db table `artist_source_ids` — per-source artist-id resolution
+  cache: `artist_id` FK, `source` text, `source_artist_id` text,
+  `resolved_via` text, `resolved_at` timestamptz; UNIQUE(artist_id, source).
+  v1 rows are `itunes` only (MB/Spotify ids already live on `artists`).
+  Resolution = the UPC hard-ID chain probed in Current state; artists with no
+  UPC-bearing catalog album stay unresolved and simply skip the iTunes source
+  (coverage reported, not fudged).
+- **Same-album rows from different sources stay separate rows** (no shared
+  hard key exists pre-release). The read path (Step 6) **soft-groups for
+  display** on `(artist_id, release_date, normalized title)` — reversible
+  presentation logic, not a data merge; a 2-source group can render as a
+  corroboration hint. On confirmation the matching rows all receive the same
+  `spotify_album_id` and grouping keys on it.
+- Worker: a daily EventBridge-scheduled **upcoming poller** — watchlist =
+  artists above a popularity floor (OQ1); per artist, one MB release-group
+  query over `[today, today + horizon]` (OQ2, ~1 req/s) plus one iTunes
+  lookup for `artist_source_ids`-resolved artists (~3.5 s throttle); filter
+  official + full-date + future-window; upsert `announced` rows per source.
+  Watchlist fetched → materialized → session closed before the external loop
+  (memory `reference-db-session-across-long-external-loop`); the two source
+  passes fit the worker's 120 s Lambda limit only chunked (SQS fan-out or
+  EventBridge cursor — Step 4 design).
 - Worker: **release-day confirmation inside `album_ingest`** (not a new job —
   see Step 5): when the daily ingest sees a release by a watchlist artist, it
-  flips the matching `announced` row to `released` + `spotify_album_id` (or
-  inserts `released` directly for releases never announced in MB). Day-0
-  auto-catalog comes free — the ingest already enqueues catalog sync (chunked
-  per memory `reference-sqs-fanout-burst-pitfalls`).
+  flips the matching `announced` rows (all sources; match by artist + fuzzy
+  title + date proximity — a confirm-time match, not a data merge) to
+  `released` + `spotify_album_id`, or inserts a `spotify`-source `released`
+  row for releases never announced by any source. Day-0 auto-catalog comes
+  free — the ingest already enqueues catalog sync (chunked per memory
+  `reference-sqs-fanout-burst-pitfalls`).
 - Music API: `GET /api/music/releases/calendar?from=&to=` — DB-only,
   edge_guard read (consistent with other public music reads), returns events
-  grouped by date with artist + type + status. Contract exported + merged.
+  grouped by date with artist + type + status + soft-grouping. Contract
+  exported + merged.
 - Front: a public calendar view (month grid or agenda list — design decision
   at Step 7) fed by the new endpoint.
 
@@ -258,37 +312,63 @@ cd myblog_front && pnpm lint && pnpm exec astro check && pnpm build
 
 ---
 
-### Step 3 (Track B) — shared_db `artist_release_events` migration
+### Step 3 (Track B) — shared_db release-events migration
 
-Plain `V{N}__artist_release_events.sql` + ORM model + version bump. Rollout
+Plain `V{N}__artist_release_events.sql` — **both tables** of the multi-source
+design (`artist_release_events` one-row-per-source-observation +
+`artist_source_ids` resolution cache) + ORM models + version bump. Rollout
 order per memory `reference-shared-db-cross-repo-rollout`: migration → prod
 apply (pre-merge, owner-approved) → service pin bumps land with Steps 4/6.
 
 **Verification**:
 ```
 cd myblog_shared_db && PYTHONPATH=src pytest   # schema parity
-psql "$DATABASE_URL" -c "\d artist_release_events"
+psql "$DATABASE_URL" -c "\d artist_release_events" -c "\d artist_source_ids"
 ```
 
-**Rollback**: `DROP TABLE artist_release_events` (no consumer yet at this step).
+**Rollback**: `DROP TABLE artist_release_events, artist_source_ids` (no
+consumer yet at this step).
 
 ---
 
-### Step 4 (Track B) — worker MB upcoming poller (announced path)
+### Step 4 (Track B) — worker multi-source upcoming poller (announced path)
 
-New EventBridge rate(1 day) rule → worker handler: load watchlist, query MB
-release-groups per artist (`arid` + `firstreleasedate` range — exact
-field/endpoint choice probed at implementation, OQ3), filter official +
-full-date, upsert `announced` events. Reuses `musicbrainz_client.py`
-throttling. At 1 req/s: popularity≥50 tier ≈ 1,518 req ≈ 25 min; full
-valid-MBID set ≈ 4,044 req ≈ 68 min — both fit a daily Lambda-chunked batch,
-but chunking/timeout design must respect the worker's 120 s limit (fan-out in
-SQS chunks like the catalog sync, or an EventBridge-driven cursor).
+**Starts with a one-shot density probe** (before the full poller ships): run
+the top ~200 watchlist artists through both sources once — MB release-group
+future window + iTunes pre-order lookup (resolving `artistId` via the UPC
+chain on the fly) — and record upcoming density, lead time, and the iTunes
+`artistId` resolution rate in this RFC. This is the cheap empirical check on
+whether multi-source actually fixes the thin-Upcoming problem
+(FEAT-personal-release-tracking H1 shares the question) before the schedule
+and chunking design is committed.
+
+Then: new EventBridge rate(1 day) rule → worker handler, two source passes
+per artist:
+
+- **iTunes artistId resolution pre-pass** for watchlist artists missing an
+  `artist_source_ids` row: catalog UPC → `lookup?upc=` → `artistId`
+  (hard-ID chain, no fuzzy name match); unresolved artists skip the iTunes
+  source.
+- **MB**: release-group query per artist (`arid` + `firstreleasedate` range —
+  exact field/endpoint choice probed at implementation, OQ3), filter
+  official + full-date; reuses `musicbrainz_client.py` throttling. At
+  1 req/s: popularity≥50 tier ≈ 1,518 req ≈ 25 min; full valid-MBID set ≈
+  4,044 req ≈ 68 min.
+- **iTunes**: `lookup?id=<artistId>&entity=album` per resolved artist,
+  keep future-dated collections (`ITUNES_THROTTLE_S` 3.5 s ⇒ ≈ 89 min for
+  the ≥50 tier — the slower of the two passes).
+
+Upsert `announced` rows per source on UNIQUE(source, source_key). Both
+passes exceed the worker's 120 s Lambda limit — chunk via SQS fan-out (like
+catalog sync, rows sorted by conflict key) or an EventBridge-driven cursor;
+the two sources may also run as separate schedules if one lagging must not
+delay the other.
 
 **Verification**:
 ```
 pytest myblog_worker  # handler unit + upsert idempotency (re-run = 0 new rows)
-# one manual prod invoke → SELECT count(*), min/max(release_date) FROM artist_release_events;
+# one manual prod invoke → SELECT source, count(*), min/max(release_date)
+#   FROM artist_release_events GROUP BY source;
 ```
 
 ---
@@ -300,10 +380,12 @@ Spotify discographies for catalog artists — a separate "release-day confirmer"
 job (the original design here) would duplicate it. This step **extends
 `album_ingest_service.py`** instead: when the ingest encounters a release
 within the calendar window by a watchlist artist, upsert/flip the matching
-`artist_release_events` row to `status=released` + `spotify_album_id` (match
-by artist + fuzzy title + date proximity; insert `released` directly when
-never announced in MB). Catalog sync for novel albums already happens in this
-job — no extra enqueue path needed.
+`artist_release_events` rows — all sources — to `status=released` +
+`spotify_album_id` (match by artist + fuzzy title + date proximity — a
+confirm-time match that collapses the soft group, not a data merge; insert a
+`spotify`-source `released` row when never announced by any source). Catalog
+sync for novel albums already happens in this job — no extra enqueue path
+needed.
 
 Two coverage gaps, resolved at implementation (OQ5):
 
@@ -388,6 +470,12 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
    where in the home flow (above/below Best New Music), and does a cover
    click open the `AlbumDetail` overlay, the artist page, or Spotify? Owner
    eyeball at implementation; record the answer in the Decisions log.
+8. **iTunes source posture** (review at the Step 4 probe) — coverage: what
+   share of watchlist artists have a UPC-bearing catalog album (bounds iTunes
+   discovery; report the resolution rate in the Step 4 probe). ToS: the
+   keyless iTunes Search API is the same surface the genre pipeline already
+   calls daily; the formal per-source ToS review stays
+   FEAT-personal-release-tracking OQ2 — one review covers both RFCs.
 
 ## Decisions log
 
@@ -401,3 +489,4 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
 | 2026-07-07 | Parallel draft RFC `FEAT-new-release-feed` (6a886a8) absorbed (owner): its endpoint + home card become Track A; its `album_ingest` probe redesigns the released path as confirm-on-ingest (Step 5) instead of a new worker job; draft branch discarded | scope |
 | 2026-07-11 | Promoted draft → accepted (owner in-session) | status |
 | 2026-07-11 | Owner reconcile with #549: the 2026-07-06 discovery lock is **re-opened** — Track B discovery to be **redesigned multi-source** (corroborating hard-ID sources within watchlist scope, e.g. Apple/iTunes pre-order, per #549's Divergences), not MB per-artist + Spotify day-0 only. Track B Steps 3–5 need a design-revision pass before Step 3 starts; Track A is unaffected and still ships first | design |
+| 2026-07-11 | **Discovery design-revision pass done** (same night, per the re-open): v1 sources = MB + iTunes pre-order + Spotify confirm, all per-artist within watchlist scope. Live probes: iTunes lookup surfaces pre-orders future-dated with hard `collectionId` (As It Is 2026-07-17); no coming-soon RSS survives; Apple Music API token-gated; iTunes returns no UPC ⇒ no cross-source hard key pre-release. Data model = one row per (source, source_key) observation, hard-key merge only, display soft-grouping, confirm = collapse point; new `artist_source_ids` cache for UPC-anchored `artistId` resolution; Step 4 gains a top-200 density probe gate. Steps 3–5 revised accordingly — pending owner review of this revision before Step 3 starts | design |
