@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: in-progress (2026-07-08 — Phase 0~3a code-complete + prod-verified; Phase 4 design merged, implementation awaits owner confirm)
+- **Status**: in-progress (Phases 0–3a shipped + prod-verified; Phase 4 engine shipped + live-site cutover 5/5 complete 2026-07-12; Phase 3b/3c design locked 2026-07-12 — next concrete step: 3b-a KMS infra)
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
@@ -384,6 +384,49 @@ of the widget's 4 states (0 console errors); prod bundle carries the wiring.
 `/myblog/worker` — until then the worker poll + the dormant eventbridge rule no-op and the
 widget rests on idle/미연동 (by design).
 
+**Phase 3b/3c design — LOCKED 2026-07-12 (current-state audit + owner decisions in-session;
+implementation not started).** Audit verified: V41 pre-provisioned 3b's token store
+(`user_integrations` provider CHECK already allows `'spotify'`, status CHECK already models
+`'reauth'`, `payload TEXT` reserved for KMS-envelope ciphertext) — no schema change for token
+custody; `spotify_stream_history` has NO `user_id` (V27 unique = `(ts, spotify_track_uri)`);
+infra has NO customer-managed KMS key (only the AWS-managed SSM alias); the Spotify app is
+dashboard console-managed (zero TF); 분석 `library_service` stream readers are global-scoped
+(fine while owner-only). Owner decisions (2026-07-12, AskUserQuestion):
+
+1. **3b member listening data = born-scoped NEW tables** (mirror the 3a
+   `lastfm_recent_tracks` pattern: per-user recent rows + single now-playing row) — the
+   owner-global `spotify_*` caches and their 3 worker jobs stay untouched; folding the owner
+   lane in is a later pass.
+2. **3b token custody = new customer-managed KMS CMK** (per the original Phase-3 lock):
+   `aws_kms_key` + alias in TF, Encrypt grant to the backend role (connect path),
+   Encrypt+Decrypt to the worker role (poll + rotation re-encrypt). Owner applies
+   (`claude_aws_manager` may lack kms:* — warn at PR).
+3. **3c intake v1 = owner-run `import_streaming_history.py --user <sub>` mode** (zero infra;
+   GDPR delivery lag makes this a power-user ritual, demand-validating). Self-serve upload
+   (S3 presigned + async parse — export zips can exceed the API GW 10 MB limit) deferred
+   until demand.
+4. Scope note: 3b v1 syncs **now-playing + recently-played reads only**; member saved-tracks
+   sync and member ▶ playback (Premium-per-listener) are explicitly NOT in the first spine —
+   revisit inside the 5-user tier after the read path proves out.
+
+Sub-steps (each rule-4 gated): **3b-a** infra KMS CMK + grants (owner apply) → **3b-b**
+shared_db V{N} born-scoped member listening tables → **3b-c** backend
+`PUT/DELETE /api/integrations/spotify` (server-side code exchange — front callback page
+captures `?code` and PUTs it authed; client_secret stays in SSM `/myblog/spotify`; encrypt →
+`payload`; +2 `apigateway.tf` JWT routes + apply) → **3b-d** worker per-user poll
+(EventBridge; decrypt → refresh → rotate/re-encrypt → row update; `invalid_grant` ⇒
+`status='reauth'`, never retry; bounded per tick; fetch→materialize→close) → **3b-e** front
+`SpotifyConnect` + callback + reconnect badge (`status==='reauth'`) + `api.gen.ts`.
+**3c-a** shared_db V{N} `user_id` on `spotify_stream_history` + `stream_import_runs`
+(nullable → owner backfill → unique re-scope `(user_id, ts, spotify_track_uri)` → NOT NULL
+flip after soak, the V40/V42 pattern; FK CASCADE so account deletion reaches listening
+history) → **3c-b** `--user` mode threading user_id through parse/insert/resolve/ledger →
+(**3c-c** self-serve upload — deferred). Cross-cutting before member exposure of 분석:
+user-scope the `library_service` stream readers; update 개인정보처리방침 for member
+listening-history custody + the deletion path. **Owner console prerequisites (can run
+anytime before 3b-c)**: Spotify dashboard — add the front callback redirect URI + register
+the ≤5 allowlist users (User Management); owner stays Premium.
+
 ### Phase 4 — Model-agnostic AI (BYOK + owner-central; BYOK half gated on G2)
 One `LLMEngine` job interface (feature, prompt_template_id, output JSON schema, engine, model,
 user_id): `CliEngine` = existing launchd `claude -p` pollers, owner-only, same schema contract;
@@ -482,3 +525,5 @@ until the owner confirms the design.
 | 2026-07-11 | **Kakao login LIVE-VERIFIED — Phase 0 `email_verified` residual CLOSED.** Owner fixed the console per the KOE205 checklist and completed a real Kakao login: Cognito federated user `kakao_4986059004` created (sub `14d89d7c-…`), **email claim present** (`zlxldgus123@naver.com` — the 0c "수집 후 제공" guarantee confirmed live), **`email_verified=false`** as designed (claim intentionally unmapped in `cognito_idp.tf`; Kakao OIDC userinfo doesn't provide it; not sign-in-blocking, no member flow depends on Cognito email verification). DB lazy-provisioning confirmed: `users` row id=sub, `handle user-14d89d7c`, email NULL (access token carries no email claim — 0d design). **Remaining Phase 0 = public-launch gates only** (Google brand verification, Kakao 프로덕션 심사, OAuth secret reissue) | live Cognito + prod DB evidence |
 | 2026-07-11 | **P4 cutover #1 SHIPPED** — `research_poller` moved off inline `claude -p` onto `myblog_shared_db.llm.CliEngine` (ws #597; argv byte-identical per golden tests 25/25; launchd pipeline uninterrupted — 2 post-merge cycles clean). Known delta: `search_count` always 0 (field documented unreliable since 2026-06-11). Remaining 4 sites (lyrics/genre prod-data validators, buckit_nightly secret guard, editor_buckit) = later one-at-a-time PRs. Detail → `FEAT-multi-user-accounts-p4-llmengine.md` Cutover log | parallel-batch Track 1 |
 | 2026-07-11 | **Phase 3a follow-on SHIPPED — public `/members/[handle]` now-playing** (the handle-scoped route anticipated in the 07-08 widget entry). `GET /api/members/{handle}/now-playing` (backend #112, reuses `LastfmNowPlayingResponse`; unknown handle 404; 미연동 and idle both `{is_playing:false}` — integration status stays private; rule #9 clean — reads only worker-written `lastfm_recent_tracks`; rides the GET catch-all, no apigateway.tf change) → contract ws #599 → front #265 strip on the member profile (renders only on `is_playing:true`, else fully hidden). pytest 457 pass; both UI states CDP-verified pre-merge; prod: route live (404 body from the route), member pages structurally absent until a member posts a review (`getStaticPaths` off the empty member index) | parallel-batch Track 2, 3 PRs |
+| 2026-07-12 | **P4 live-site cutover COMPLETE (5/5)** — final site `backfill_genres` → CliEngine (shared_db #61; golden-argv byte-parity + live trivial dispatch pre- and post-merge; known delta: timeout/exit≠0/empty now transient-retried→fail-closed None instead of killing the run). All 5 `claude -p` sites now dispatch through `myblog_shared_db.llm.CliEngine`. Detail → `FEAT-multi-user-accounts-p4-llmengine.md` Cutover log 5 | shared_db #61, parallel-batch |
+| 2026-07-12 | **Phase 3b/3c design LOCKED (owner in-session, AskUserQuestion ×4)** — (1) 3b member listening = born-scoped new tables (3a pattern; owner-global `spotify_*` untouched); (2) token custody = new customer-managed KMS CMK + role grants (V41 `payload` was pre-provisioned — no schema change); (3) 3c intake v1 = owner-run `import_streaming_history.py --user` mode (self-serve S3 upload deferred until demand); (4) tonight = design recorded only, implementation next sessions. Current-state audit facts + sub-steps 3b-a…3b-e / 3c-a…3c-b recorded in §Phase 3. Owner console prereqs: Spotify dashboard redirect URI + ≤5-user allowlist | design pass, no code |
