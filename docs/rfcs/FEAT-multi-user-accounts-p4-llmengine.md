@@ -44,9 +44,13 @@
 ## Explicitly deferred
 
 - BYOK / `user_api_keys` + KMS envelope custody + live-probe-on-save + masked display — **Gate G2** (after Phase 3).
-- Live-site cutover (all 5 `run_claude` bodies stay verbatim; one-at-a-time golden-diff migration later).
+- Live-site cutover (all 5 `run_claude` bodies stay verbatim; one-at-a-time golden-diff migration later). → **started 2026-07-11; see Cutover log.**
 - Owner `claude -p` → ApiEngine migration.
 - Non-Anthropic providers (adapter shaped for them; none built).
+
+## Cutover log (one-at-a-time, golden-argv-gated)
+
+1. **research_poller — 2026-07-11.** `run_claude()` body → `CliEngine.run(LLMJob(...))`; argv byte-parity pinned by `tests/test_llm_engine.py::test_golden_argv_research_poller` (25/25 green at cutover). shared_db reached via script-relative src-path injection (`scripts/` → `../myblog_shared_db/src`, the lyrics-poller pattern) — works from the launchd runtime (workspace main checkout) with zero pin bump. Verified: `--once` empty-queue startup (SSM → Neon → claim → exit clean) + a live trivial dispatch through the engine (envelope parsed, `model=claude-opus-4-8` from modelUsage, cache-inclusive tokens_in). **Known delta**: `search_count` now always 0 — `LLMResult` doesn't surface `usage.server_tool_use`; the field was already documented unreliable (CLI aggregate reported 0 on runs with live citations, 2026-06-11); citations in `result_md` remain the grounding evidence. No metering `session_factory` wired — this poller never wrote `llm_usage`; poller metering is a separate decision. Remaining sites: editor_buckit, buckit_nightly (secret-guard argv — extra care), lyrics_translate + backfill_genres (prod-data validators — argv-sensitive).
 
 ## Open items for owner
 
