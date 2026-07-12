@@ -1,6 +1,6 @@
 # FEAT-release-calendar: New-release calendar (신보 캘린더)
 
-- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; **revision approved by owner 2026-07-12**. **Track A COMPLETE 2026-07-12** — Step 1 music #53 + ws #605, Step 2 front #267 prod-smoked; **Track B Step 3 shipped 2026-07-12** — V44 prod-applied + shared_db #62; **Step 4 density probe done + OQ1/2/3 decided 2026-07-12** (floor ≥50, 180 d, RG full-date-only); **Step 4 poller SHIPPED + ARMED 2026-07-12** (worker #70 / ws #615, EventBridge bucket rotation live, first ticks clean) — next = full-cycle density check (~2026-07-13 16:00 KST) → Step 5)
+- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; **revision approved by owner 2026-07-12**. **Track A COMPLETE 2026-07-12** — Step 1 music #53 + ws #605, Step 2 front #267 prod-smoked; **Track B Step 3 shipped 2026-07-12** — V44 prod-applied + shared_db #62; **Step 4 density probe done + OQ1/2/3 decided 2026-07-12** (floor ≥50, 180 d, RG full-date-only); **Step 4 poller SHIPPED + ARMED 2026-07-12** (worker #70 / ws #615, EventBridge bucket rotation live, first ticks clean); **Step 6 calendar endpoint SHIPPED 2026-07-13** (music #54 + contract ws #617 + types front #271, prod-smoked over live poller data) — next = full-cycle density check (~2026-07-13 16:00 KST) → Step 5; Step 7 after Step 6 data accumulates)
 - **Owner**: TBD
 - **Created**: 2026-07-06
 - **Plan row**: `plan.md` → FEAT-release-calendar
@@ -343,7 +343,7 @@ consumer yet at this step).
 
 ---
 
-### Step 4 (Track B) — worker multi-source upcoming poller (announced path)
+### Step 4 (Track B) — worker multi-source upcoming poller (announced path) — **SHIPPED + ARMED 2026-07-12 (worker #70 / ws #615)**
 
 **Density probe DONE 2026-07-12** (read-only; top-200 valid-MBID by
 popularity — sample floor pop 79; 180-day window; 0 errors, both sources on
@@ -455,7 +455,7 @@ pytest myblog_worker
 
 ---
 
-### Step 6 (Track B) — music API calendar endpoint + contract
+### Step 6 (Track B) — music API calendar endpoint + contract — **SHIPPED + prod-smoked 2026-07-13 (music #54 / ws #617 / front #271)**
 
 `GET /api/music/releases/calendar?from=&to=` in myblog_music (DB-only,
 edge_guard). Export `openapi.json`, merge contract, regen front types.
@@ -557,3 +557,4 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
 | 2026-07-12 | **Step 4 fan-out design decided** (implementation session): EventBridge stateless time-bucket rotation, two rules (MB hourly ×70 / iTunes half-hourly ×22 + 90 s budget guard) — SQS fan-out rejected to keep MB/iTunes outages off the album-sync queue (alias-fill boundary); failed iTunes resolutions sentinel-cached 30 d; event upsert never touches `status`/`spotify_album_id` | Step 4 |
 | 2026-07-12 | **Step 7 entry point** (owner): the home `NewReleasesCard` is the calendar's entry point — card/header click-through lands on the calendar page (exact affordance at the Step 7 mockup gate); in-card cover → overlay behavior stays | Step 7 |
 | 2026-07-12 | **Step 4 poller SHIPPED + ARMED** (worker #70, ws #615) — EventBridge bucket rotation live (MB hourly 70/tick over 1,533 eligible; iTunes half-hourly ~10/tick over 1,593); released-flip invariant prod-proven; first ticks clean, errors=0 | Step 4 |
+| 2026-07-13 | **Step 6 calendar endpoint SHIPPED + prod-smoked** (music #54) — `GET /api/music/releases/calendar` DB-only raw `text()` SQL (no shared_db pin bump); defaults = current month, 93-day range cap (both RFC-silent choices, flagged to owner in the PR); display soft-grouping on (artist_id, release_date, normalized title), normalization strips trailing " - Single"/" - EP"; `Cache-Control` 60 s + SWR. Contract ws #617, types front #271. Prod smoke: 200 over live Step-4 poller data | Step 6 |
