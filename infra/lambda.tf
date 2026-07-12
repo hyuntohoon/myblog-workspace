@@ -121,6 +121,10 @@ resource "aws_lambda_function" "worker" {
       # reconcile. "false" = plan-only (reads + DB writes + logs intended writes, no
       # Spotify mutation). Flip to "false" + apply to pause real writes.
       SPOTIFY_LIBRARY_WRITES_ENABLED = "true"
+      # FEAT-multi-user 3b-d: member token rotation re-encrypt (Decrypt needs no key
+      # id). References the 3b-a alias → rides the owner's pending CMK apply, same
+      # as the backend twin in this file.
+      USER_TOKENS_KMS_KEY_ID = aws_kms_alias.user_tokens.name
     }
   }
 

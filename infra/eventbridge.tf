@@ -90,6 +90,34 @@ resource "aws_lambda_permission" "lastfm_recent_tracks_events" {
   source_arn    = aws_cloudwatch_event_rule.lastfm_recent_tracks.arn
 }
 
+# FEAT-multi-user 3b-d: per-user Spotify listening poll (5-user tier). Constant
+# input {"job":"spotify_member_poll"} — KMS-decrypt each connected member's
+# refresh token, refresh, rotate/re-encrypt, write the V45 member listening
+# tables. Naturally dormant until the 3b-a CMK is applied AND members connect
+# (3b-c fails closed pre-CMK, so no connected rows can pre-exist the key).
+# rate(15 minutes) = the lastfm precedent; ~3 req/user/tick, trivial at <=5 users.
+resource "aws_cloudwatch_event_rule" "spotify_member_poll" {
+  name                = "worker-spotify-member-poll"
+  description         = "Per-member Spotify now-playing + recently-played poll (15 min)"
+  schedule_expression = "rate(15 minutes)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "spotify_member_poll" {
+  rule      = aws_cloudwatch_event_rule.spotify_member_poll.name
+  target_id = "blogWorkerLambda-spotify-member-poll"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "spotify_member_poll" })
+}
+
+resource "aws_lambda_permission" "spotify_member_poll_events" {
+  statement_id  = "AllowInvokeFromEventBridgeSpotifyMemberPoll"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.spotify_member_poll.arn
+}
+
 # Album-catalog ingest — daily scheduled invocation of the worker Lambda
 # (FEAT-album-catalog-ingest Step 3).
 #
