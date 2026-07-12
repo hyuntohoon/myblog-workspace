@@ -240,8 +240,8 @@ collapse-to-one-truth point.
   official + full-date + future-window; upsert `announced` rows per source.
   Watchlist fetched → materialized → session closed before the external loop
   (memory `reference-db-session-across-long-external-loop`); the two source
-  passes fit the worker's 120 s Lambda limit only chunked (SQS fan-out or
-  EventBridge cursor — Step 4 design).
+  passes fit the worker's 120 s Lambda limit only chunked (decided 2026-07-12:
+  EventBridge stateless time-bucket rotation, two rules — see Step 4).
 - Worker: **release-day confirmation inside `album_ingest`** (not a new job —
   see Step 5): when the daily ingest sees a release by a watchlist artist, it
   flips the matching `announced` rows (all sources; match by artist + fuzzy
@@ -391,10 +391,28 @@ per artist:
   the ≥50 tier — the slower of the two passes).
 
 Upsert `announced` rows per source on UNIQUE(source, source_key). Both
-passes exceed the worker's 120 s Lambda limit — chunk via SQS fan-out (like
-catalog sync, rows sorted by conflict key) or an EventBridge-driven cursor;
-the two sources may also run as separate schedules if one lagging must not
-delay the other.
+passes exceed the worker's 120 s Lambda limit — chunked fan-out required.
+
+**Fan-out design (DECIDED 2026-07-12, implementation session): EventBridge
+stateless time-bucket rotation, two rules — one per source.** SQS chunk
+fan-out was rejected: the shared blogSQS queue is the album-sync path, and an
+MB/iTunes outage must never clog album sync (the same boundary that keeps
+the alias fill on EventBridge); a dedicated queue would fix that but adds a
+queue + DLQ + alarm for a daily-cadence job. Instead each source gets its own
+schedule (`worker-release-upcoming-mb` rate(1 hour) /
+`worker-release-upcoming-itunes` rate(30 minutes) — separate so one source
+lagging never delays the other) and each tick processes a stateless bucket of
+the stable-ordered watchlist: bucket index = ticks-since-epoch mod bucket
+count (`album_ingest` rotation precedent — no cursor row to migrate or
+corrupt; a failed tick's bucket is revisited next cycle, harmless at
+median-43-day announcement lead). Per-tick bounds: MB 70 artists (~70 s at
+1 req/s) / iTunes 22 (~77 s at 3.5 s throttle), plus a 90 s wall-clock budget
+guard — full ≥50-tier coverage ≈ 22 h (MB) / ≈ 21 h (iTunes), i.e. about
+daily. Failed iTunes resolutions are sentinel-cached in `artist_source_ids`
+(`not_found`, MBID_NOT_FOUND precedent) and re-attempted after 30 days;
+transient resolution errors leave no sentinel. The event upsert's
+`DO UPDATE` deliberately never touches `status`/`spotify_album_id`, so a
+Step-5 `released` confirmation can never be downgraded by a later poll.
 
 **Verification**:
 ```
@@ -456,6 +474,12 @@ Public page consuming the endpoint. UI shape (month grid vs agenda) decided at
 a mockup gate with the owner; `frontend-design` skill applies. Real-browser
 click-through pre-merge (DoD).
 
+**Entry point (owner decision 2026-07-12)**: the home `NewReleasesCard`
+(Track A) is the calendar's entry point — clicking through the card/header
+should land on the calendar page (exact affordance decided at the mockup
+gate). The card's current in-card behavior (cover → AlbumDetail overlay)
+stays.
+
 **Verification**:
 ```
 pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
@@ -488,12 +512,12 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
    `artist_release_events` rows with `release_date` in those 14 days)** and
    the owner finds the view noisy, add a type filter toggle rather than
    dropping data.
-5. **Ingest extension coverage** (blocks Step 5) — align `ARTIST_POP_MIN`
-   with the watchlist floor (OQ1)? Widen `include_groups` beyond `"album"`
-   for watchlist artists so announced singles/EPs can be confirmed, or ship
-   album-only confirmation in v1? Widening also changes what the ingest
-   catalogs — singles are cheap to sync and searchable later (recommend
-   widen), but decide with the floor question as one Step 5 design pass.
+5. **Ingest extension coverage** — **DECIDED 2026-07-12** (owner via
+   AskUserQuestion): **both widened** — align the ingest floor
+   `ARTIST_POP_MIN` 60 → 50 with the watchlist floor (OQ1) AND widen
+   `include_groups` to singles/EPs for watchlist artists, so `announced`
+   entries of every type can flip to `released`. Implementation lands in
+   Step 5; the added ingest volume stays bounded to watchlist scope.
 6. **Feed noise beyond `album_type='album'`** (blocks nothing; Track A) — is
    artist-pop ranking enough, or do classical/compilation-style albums still
    pollute the top-N? Ship simple, judge on the first prod feed, tighten in a
@@ -529,3 +553,6 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
 | 2026-07-12 | **Step 3 prod DDL applied pre-merge** (owner-approved in-session): V44 dry-run BEGIN…ROLLBACK → apply → `\d` verified; rollback stays `DROP TABLE` ×2 until Step 4 consumers land | Step 3 |
 | 2026-07-12 | **Step 4 density probe run** (top-200, both sources, 0 errors): MB 5.5% / combined 7.0% density (+27% from iTunes), max full-date lead 82 d, RG==release dates 11/11, iTunes resolution 61%; results recorded in Step 4 | Step 4 |
 | 2026-07-12 | **OQ1/OQ2/OQ3 decided** (owner, probe-informed): floor pop≥50; query horizon 180 d; MB release-group `firstreleasedate`, full-date-only v1. OQ8 coverage half resolved (iTunes stays, next-newest-UPC fallback caveat) | OQ1–3, OQ8 |
+| 2026-07-12 | **OQ5 decided** (owner via AskUserQuestion): both coverage gaps widened — ingest floor `ARTIST_POP_MIN` 60→50 aligned with OQ1 AND `include_groups` widened to singles/EPs for watchlist artists; implementation in Step 5, volume bounded to watchlist scope | OQ5 |
+| 2026-07-12 | **Step 4 fan-out design decided** (implementation session): EventBridge stateless time-bucket rotation, two rules (MB hourly ×70 / iTunes half-hourly ×22 + 90 s budget guard) — SQS fan-out rejected to keep MB/iTunes outages off the album-sync queue (alias-fill boundary); failed iTunes resolutions sentinel-cached 30 d; event upsert never touches `status`/`spotify_album_id` | Step 4 |
+| 2026-07-12 | **Step 7 entry point** (owner): the home `NewReleasesCard` is the calendar's entry point — card/header click-through lands on the calendar page (exact affordance at the Step 7 mockup gate); in-card cover → overlay behavior stays | Step 7 |
