@@ -1,6 +1,6 @@
 # FEAT-release-calendar: New-release calendar (신보 캘린더)
 
-- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; **revision approved by owner 2026-07-12**. **Track A COMPLETE 2026-07-12** — Step 1 music #53 + ws #605, Step 2 front #267 prod-smoked; **Track B Step 3 shipped 2026-07-12** — V44 prod-applied + shared_db #62; next = Step 4 poller, starts with the density probe)
+- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; **revision approved by owner 2026-07-12**. **Track A COMPLETE 2026-07-12** — Step 1 music #53 + ws #605, Step 2 front #267 prod-smoked; **Track B Step 3 shipped 2026-07-12** — V44 prod-applied + shared_db #62; **Step 4 density probe done + OQ1/2/3 decided 2026-07-12** (floor ≥50, 180 d, RG full-date-only) — next = Step 4 poller implementation)
 - **Owner**: TBD
 - **Created**: 2026-07-06
 - **Plan row**: `plan.md` → FEAT-release-calendar
@@ -345,14 +345,34 @@ consumer yet at this step).
 
 ### Step 4 (Track B) — worker multi-source upcoming poller (announced path)
 
-**Starts with a one-shot density probe** (before the full poller ships): run
-the top ~200 watchlist artists through both sources once — MB release-group
-future window + iTunes pre-order lookup (resolving `artistId` via the UPC
-chain on the fly) — and record upcoming density, lead time, and the iTunes
-`artistId` resolution rate in this RFC. This is the cheap empirical check on
-whether multi-source actually fixes the thin-Upcoming problem
-(FEAT-personal-release-tracking H1 shares the question) before the schedule
-and chunking design is committed.
+**Density probe DONE 2026-07-12** (read-only; top-200 valid-MBID by
+popularity — sample floor pop 79; 180-day window; 0 errors, both sources on
+all 200; raw artifacts were session-scratchpad-only — these numbers are the
+durable record):
+
+- **MB density**: 11/200 (5.5%) with ≥1 future release-group (13 RGs). Hit
+  rate flat across pop 79–94 (4–12%/bucket — no collapse), so the ≥50 tier
+  (1,530) extrapolates to **~75–105 artists with upcoming entries**.
+  Full-date lead time: median 43.5 d / p90 68 d / **max 82 d — nothing real
+  beyond 90 d** (91–180 d = year-only placeholders). Partial dates 5/13,
+  all bare "2026" placeholders — full-date-only loses nothing placeable.
+- **OQ3 head-to-head** (all 11 future-RG artists re-queried at release
+  level): **11/11 RG `firstreleasedate` == release `date`** where both
+  exist; release-level MISSES 2 announce-stage albums (Gracie Abrams, Sam
+  Smith — RG exists, no release rows yet) and adds 10–14× edition rows.
+- **iTunes**: UPC-bearing catalog album 157/200 (78.5%, via
+  `albums.ext_refs->>'upc'`); `lookup?upc=` resolved **122/200 = 61%** (35
+  stored UPCs miss in iTunes → the resolution pre-pass should fall back to
+  the next-newest UPC before marking unresolved). 6/122 with future-dated
+  entries; **3 iTunes-only finds MB missed (Stray Kids, ENHYPEN, Green Day
+  OST — K-pop/OST lanes)**, 3 corroborate MB. Combined 14/200 (7.0%) =
+  **+27% coverage over MB alone**.
+- Watchlist counts refreshed: valid-MBID 4,208 / ≥50 1,530 / ≥60 985.
+
+**OQ1/OQ2/OQ3 DECIDED 2026-07-12 (owner)**: floor **popularity ≥ 50**;
+**query horizon 180 d** (displayable content concentrates ≤90 d); **MB unit
+= release-group `firstreleasedate`, full-date-only v1**. Poller
+implementation is unblocked — next session.
 
 Then: new EventBridge rate(1 day) rule → worker handler, two source passes
 per artist:
@@ -451,17 +471,17 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
 
 ## Open questions
 
-1. **Watchlist floor** (blocks Step 4) — `popularity ≥ 50` (1,518 artists,
-   ~25 min/day) vs all valid-MBID (4,044, ~68 min/day). Recommend starting at
-   ≥50 and widening if coverage feels thin; the floor is one constant. Note
+1. **Watchlist floor** — **DECIDED 2026-07-12** (owner, probe-informed):
+   **popularity ≥ 50** (1,530 artists). Probe hit rate was flat down to pop
+   79 with no data below; widening below 50 stays a live-data revisit. Note
    the existing ingest floor is 60 (`ARTIST_POP_MIN`) — interacts with OQ5.
-2. **Horizon** (blocks Step 4) — how far ahead to query. Recommend 180 days;
-   MB entries typically appear ≤2 months before release, so longer horizons
-   are nearly free but mostly empty.
-3. **MB granularity + partial dates** (blocks Step 4) — release-group
-   `firstreleasedate` (dedupes editions, recommended) vs release `date`;
-   and whether year-only dates get dropped (recommended for v1) or shown as
-   "date TBA". Probe both queries at Step 4 start.
+2. **Horizon** — **DECIDED 2026-07-12** (owner): **query 180 days** (single
+   request either way); probe shows real content all sits ≤90 d (max lead
+   82 d), so the UI can default to a ~3-month view.
+3. **MB granularity + partial dates** — **DECIDED 2026-07-12** (owner,
+   probe-informed): **release-group `firstreleasedate`, full-date-only v1**
+   (11/11 date match; RG catches announce-stage entries release-level
+   misses; the only partial dates seen were year-only placeholders).
 4. **Single-type noise gate** (blocks nothing; review gate after Step 7) —
    owner chose include-all for the calendar. Re-check after **14 days of live
    data**: if singles exceed ~50% of calendar entries **(denominator: all
@@ -482,11 +502,13 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
    AskUserQuestion): card sits **between the BNM hero and Latest**; cover
    click opens the **AlbumDetail overlay** (artist caption still routes to
    the artist hub). Recorded in the Decisions log.
-8. **iTunes source posture** (review at the Step 4 probe) — coverage: what
-   share of watchlist artists have a UPC-bearing catalog album (bounds iTunes
-   discovery; report the resolution rate in the Step 4 probe). ToS: the
-   keyless iTunes Search API is the same surface the genre pipeline already
-   calls daily; the formal per-source ToS review stays
+8. **iTunes source posture** — coverage half **RESOLVED by the 2026-07-12
+   probe**: 61% artistId resolution on top-200, and iTunes contributed 3
+   upcoming artists MB missed (K-pop/OST) + corroborated 3 → **iTunes stays
+   a v1 source**. Impl caveats recorded: per-album multiple edition
+   `collectionId`s (display soft-grouping handles it); ~22% of UPC-bearing
+   artists miss on `lookup?upc=` → fall back to the next-newest UPC before
+   marking unresolved. ToS: the formal per-source review stays
    FEAT-personal-release-tracking OQ2 — one review covers both RFCs.
 
 ## Decisions log
@@ -505,3 +527,5 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
 | 2026-07-12 | **Track B multi-source revision APPROVED** (owner in-session, AskUserQuestion) — Step 3 cleared and shipped same session | design |
 | 2026-07-12 | **OQ7 answered** (owner): home card between the BNM hero and Latest; cover click opens the AlbumDetail overlay | OQ7 |
 | 2026-07-12 | **Step 3 prod DDL applied pre-merge** (owner-approved in-session): V44 dry-run BEGIN…ROLLBACK → apply → `\d` verified; rollback stays `DROP TABLE` ×2 until Step 4 consumers land | Step 3 |
+| 2026-07-12 | **Step 4 density probe run** (top-200, both sources, 0 errors): MB 5.5% / combined 7.0% density (+27% from iTunes), max full-date lead 82 d, RG==release dates 11/11, iTunes resolution 61%; results recorded in Step 4 | Step 4 |
+| 2026-07-12 | **OQ1/OQ2/OQ3 decided** (owner, probe-informed): floor pop≥50; query horizon 180 d; MB release-group `firstreleasedate`, full-date-only v1. OQ8 coverage half resolved (iTunes stays, next-newest-UPC fallback caveat) | OQ1–3, OQ8 |
