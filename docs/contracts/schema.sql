@@ -14,9 +14,10 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V44 (V44 authored 2026-07-12,
---   prod apply pending — FEAT-release-calendar Track B Step 3); V1–V43 were
---   reconciled against a full
+-- This file shows clean canonical DDL through V45 (V45 authored + prod-applied
+--   2026-07-12 — FEAT-multi-user-accounts Phase 3b-b; V44 authored +
+--   prod-applied 2026-07-12 — FEAT-release-calendar Track B Step 3);
+--   V1–V43 were reconciled against a full
 --   prod introspection 2026-07-11 (CHORE-canonical-schema-sync): every table,
 --   column type, constraint and index below was verified against Neon prod
 --   pg_catalog on that date. Per-version history lives in
@@ -1013,12 +1014,55 @@ CREATE TABLE IF NOT EXISTS artist_source_ids (
 );
 
 -- =============================================================================
+-- Member Spotify Listening — born-user-scoped tables (V45; FEAT-multi-user-
+-- accounts Phase 3b-b, mirrors the V41 lastfm_recent_tracks pattern). The
+-- owner-global spotify_* caches and their worker jobs stay untouched (owner
+-- decision #1). v1 = now-playing + recently-played READS only. Written by the
+-- 3b-d worker per-user poll (decrypt refresh token → fetch → dedup insert).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS spotify_member_recent_tracks (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  spotify_track_id TEXT        NOT NULL,        -- hard Spotify ID (unlike Last.fm)
+  track_name       TEXT        NOT NULL,
+  artist_name      TEXT        NOT NULL,
+  album_name       TEXT,
+  image_url        TEXT,                        -- album cover (mirrors lastfm_recent_tracks)
+  played_at        TIMESTAMPTZ NOT NULL,        -- Spotify always timestamps completed plays
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Poller dedup key (NOT-EXISTS insert, V41 philosophy). FULL constraint (not
+  -- partial) so a future ON CONFLICT can infer it; leads (user_id, played_at)
+  -- so the newest-first profile feed needs no extra index.
+  CONSTRAINT uq_spotify_member_recent_user_played
+    UNIQUE (user_id, played_at, spotify_track_id)
+);
+
+-- V45: one now-playing row per user — the per-user analog of the V9 id=1
+-- singleton spotify_now_playing (user_id PK; poller upserts ON CONFLICT
+-- (user_id)). Track fields NULL until the first observed play; is_playing
+-- FALSE keeps the last snapshot (owner-singleton shape incl. progress/duration).
+CREATE TABLE IF NOT EXISTS spotify_member_now_playing (
+  user_id          UUID        PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  is_playing       BOOLEAN     NOT NULL DEFAULT FALSE,
+  spotify_track_id TEXT,                        -- NULL when nothing has played yet
+  track_name       TEXT,
+  artist_name      TEXT,
+  album_name       TEXT,
+  image_url        TEXT,
+  progress_ms      INTEGER,
+  duration_ms      INTEGER,
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
--- This file is current through V44 (artist_release_events + artist_source_ids,
--- FEAT-release-calendar Track B Step 3 — authored 2026-07-12, prod apply
--- pending). V1–V43 fully reconciled against a prod
+-- This file is current through V45 (spotify_member_recent_tracks +
+-- spotify_member_now_playing, FEAT-multi-user-accounts Phase 3b-b — authored +
+-- prod-applied 2026-07-12), after V44 (artist_release_events +
+-- artist_source_ids, FEAT-release-calendar Track B Step 3 — authored +
+-- prod-applied 2026-07-12). V1–V43 fully reconciled against a prod
 -- introspection 2026-07-11 (CHORE-canonical-schema-sync; the introspection also
 -- backfilled the V20–V27 objects this file previously skipped: genre_edges +
 -- post_genres (V20, tier-1 seed V20/V21, definitions V23), prep_tonight (V22),
