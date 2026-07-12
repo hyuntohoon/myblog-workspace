@@ -14,7 +14,9 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V43, reconciled against a full
+-- This file shows clean canonical DDL through V44 (V44 authored 2026-07-12,
+--   prod apply pending — FEAT-release-calendar Track B Step 3); V1–V43 were
+--   reconciled against a full
 --   prod introspection 2026-07-11 (CHORE-canonical-schema-sync): every table,
 --   column type, constraint and index below was verified against Neon prod
 --   pg_catalog on that date. Per-version history lives in
@@ -965,10 +967,58 @@ CREATE INDEX IF NOT EXISTS idx_llm_usage_user_feature_created
   ON llm_usage (user_id, feature, created_at);
 
 -- =============================================================================
+-- Release Calendar — multi-source release events (V44; FEAT-release-calendar
+-- Track B). artist_release_events = ONE ROW PER (source, source_key)
+-- observation; same-album rows from different sources stay separate rows
+-- (soft-grouped for display only) until release-day confirmation stamps the
+-- shared spotify_album_id. artist_source_ids = per-source artist-id resolution
+-- cache (v1: 'itunes' only; source deliberately un-CHECKed — MB/Spotify artist
+-- ids already live on artists).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS artist_release_events (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id        UUID        NOT NULL REFERENCES artists (id) ON DELETE CASCADE,
+  source           TEXT        NOT NULL,        -- 'musicbrainz' | 'itunes' | 'spotify'
+  source_key       TEXT        NOT NULL,        -- MB release-group MBID / iTunes collectionId / Spotify album id
+  spotify_album_id TEXT,                        -- set on release-day confirmation (cross-source collapse key)
+  title            TEXT        NOT NULL,
+  release_type     TEXT,                        -- 'album' | 'ep' | 'single' | 'other'; NULL = source gave none
+  release_date     DATE        NOT NULL,        -- full dates only in v1
+  status           TEXT        NOT NULL DEFAULT 'announced',
+  first_seen_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- FULL unique (deliberately not partial) — the poller's upsert conflict key.
+  CONSTRAINT uq_artist_release_events_source_key UNIQUE (source, source_key),
+  CONSTRAINT ck_artist_release_events_source CHECK (source IN ('musicbrainz', 'itunes', 'spotify')),
+  CONSTRAINT ck_artist_release_events_type CHECK (release_type IN ('album', 'ep', 'single', 'other')),
+  CONSTRAINT ck_artist_release_events_status CHECK (status IN ('announced', 'released'))
+);
+-- Calendar read path: events in a date window, optionally by status.
+CREATE INDEX IF NOT EXISTS idx_artist_release_events_status_date
+  ON artist_release_events (status, release_date);
+-- Confirmation match + per-artist listing (the UNIQUE above leads with source).
+CREATE INDEX IF NOT EXISTS idx_artist_release_events_artist
+  ON artist_release_events (artist_id);
+
+CREATE TABLE IF NOT EXISTS artist_source_ids (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id        UUID        NOT NULL REFERENCES artists (id) ON DELETE CASCADE,
+  source           TEXT        NOT NULL,        -- v1: 'itunes' only; no CHECK by design
+  source_artist_id TEXT        NOT NULL,
+  resolved_via     TEXT,                        -- e.g. 'upc' (the hard-ID resolution chain)
+  resolved_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- One resolved id per (artist, source); leads with artist_id so per-artist
+  -- lookups need no extra index.
+  CONSTRAINT uq_artist_source_ids_artist_source UNIQUE (artist_id, source)
+);
+
+-- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
--- This file is current through V43 — fully reconciled against a prod
+-- This file is current through V44 (artist_release_events + artist_source_ids,
+-- FEAT-release-calendar Track B Step 3 — authored 2026-07-12, prod apply
+-- pending). V1–V43 fully reconciled against a prod
 -- introspection 2026-07-11 (CHORE-canonical-schema-sync; the introspection also
 -- backfilled the V20–V27 objects this file previously skipped: genre_edges +
 -- post_genres (V20, tier-1 seed V20/V21, definitions V23), prep_tonight (V22),
