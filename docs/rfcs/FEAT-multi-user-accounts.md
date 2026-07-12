@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: in-progress (Phases 0–3a shipped + prod-verified — **3a residual CLOSED 2026-07-12**: owner connected Last.fm, poller filled 60 real scrobble rows; Phase 4 engine shipped + cutover 5/5; **3b-a/3b-b/3b-c ALL SHIPPED 2026-07-12** — 3b-a ws #608, 3b-b V45 prod-applied + shared_db #64, 3b-c backend #113 + ws #610 + front #268, prod-smoked 401/503-fail-closed/204. Owner `terraform apply` pending (KMS ×4 + backend env, one batch) — next concrete step: 3b-d worker per-user poll)
+- **Status**: in-progress (Phases 0–3a shipped + prod-verified — **3a residual CLOSED 2026-07-12**: owner connected Last.fm, poller filled 60 real scrobble rows; Phase 4 engine shipped + cutover 5/5; **3b-a/3b-b/3b-c ALL SHIPPED 2026-07-12** — 3b-a ws #608, 3b-b V45 prod-applied + shared_db #64, 3b-c backend #113 + ws #610 + front #268, prod-smoked 401/503-fail-closed/204. **3b-d SHIPPED 2026-07-12 too** (worker #69 + ws #612; prod invoke = clean 0-user no-op). Owner ADMIN apply pending — the owner's local shell uses claude_aws_manager (no kms:CreateKey), so the batch (KMS ×4 + 2 lambda envs + eventbridge target/permission) needs a console policy grant or an admin AWS profile — next concrete step: 3b-e front SpotifyConnect)
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
@@ -424,9 +424,13 @@ dormant-but-safe while the CMK is unapplied** (config gate fires before any outb
 the one-time code is not burned) / DELETE 204; `SPOTIFY_MEMBER_REDIRECT_URI` =
 `https://www.ratemymusic.blog/settings/spotify/callback` — the exact string the owner must
 register in the Spotify dashboard; lambda env `USER_TOKENS_KMS_KEY_ID` rides the owner's
-pending CMK apply) → **3b-d** worker per-user poll
-(EventBridge; decrypt → refresh → rotate/re-encrypt → row update; `invalid_grant` ⇒
-`status='reauth'`, never retry; bounded per tick; fetch→materialize→close) → **3b-e** front
+pending CMK apply) → **3b-d** worker per-user poll (**SHIPPED 2026-07-12** worker #69 +
+ws #612: `{"job":"spotify_member_poll"}` rate(15 min), KMS decrypt → refresh →
+rotate/re-encrypt (persisted before player reads) → V45 writes; `invalid_grant` ⇒
+`status='reauth'` never retried, infra failures never touch status, plaintext never
+written; raw SQL/no pin bump; 328 tests; prod manual invoke = clean 0-user no-op —
+dormant until CMK + connected members; eventbridge target/permission ride the owner
+apply batch) → **3b-e** front
 `SpotifyConnect` + callback + reconnect badge (`status==='reauth'`) + `api.gen.ts`.
 **3c-a** shared_db V{N} `user_id` on `spotify_stream_history` + `stream_import_runs`
 (nullable → owner backfill → unique re-scope `(user_id, ts, spotify_track_uri)` → NOT NULL
