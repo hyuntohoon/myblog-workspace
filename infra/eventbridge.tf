@@ -118,6 +118,63 @@ resource "aws_lambda_permission" "spotify_member_poll_events" {
   source_arn    = aws_cloudwatch_event_rule.spotify_member_poll.arn
 }
 
+# FEAT-release-calendar Step 4: multi-source upcoming-release poller. TWO rules,
+# one per source ({"job":"release_upcoming_poll","mode":...} — handler routes on
+# event["job"] then event["mode"], saved_tracks pattern), so one source lagging
+# or failing never delays the other. Deliberately EventBridge-only, never the
+# blogSQS queue — an MB/iTunes outage must not clog album sync (the same
+# boundary that keeps the MusicBrainz alias fill off SQS). Each tick processes
+# a stateless time-bucket of the pop>=50 watchlist bounded for the 120 s Lambda;
+# the rates below are COUPLED to the tick-index divisors in
+# worker/service/release_upcoming_service.py (MB_TICK_SECONDS=3600 /
+# ITUNES_TICK_SECONDS=1800): at 70 artists/tick hourly the ~1,530-artist MB
+# cycle completes in ~22 h, at 22 artists/tick half-hourly the iTunes cycle in
+# ~21 h — full watchlist coverage about once a day. Removing a rule stops that
+# source's polling; the job code is inert without it.
+resource "aws_cloudwatch_event_rule" "release_upcoming_mb" {
+  name                = "worker-release-upcoming-mb"
+  description         = "Upcoming-release poll, MusicBrainz release-group pass (hourly bucket)"
+  schedule_expression = "rate(1 hour)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "release_upcoming_mb" {
+  rule      = aws_cloudwatch_event_rule.release_upcoming_mb.name
+  target_id = "blogWorkerLambda-release-upcoming-mb"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "release_upcoming_poll", mode = "musicbrainz" })
+}
+
+resource "aws_lambda_permission" "release_upcoming_mb_events" {
+  statement_id  = "AllowInvokeFromEventBridgeReleaseUpcomingMb"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.release_upcoming_mb.arn
+}
+
+resource "aws_cloudwatch_event_rule" "release_upcoming_itunes" {
+  name                = "worker-release-upcoming-itunes"
+  description         = "Upcoming-release poll, iTunes pre-order pass (half-hourly bucket)"
+  schedule_expression = "rate(30 minutes)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "release_upcoming_itunes" {
+  rule      = aws_cloudwatch_event_rule.release_upcoming_itunes.name
+  target_id = "blogWorkerLambda-release-upcoming-itunes"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "release_upcoming_poll", mode = "itunes" })
+}
+
+resource "aws_lambda_permission" "release_upcoming_itunes_events" {
+  statement_id  = "AllowInvokeFromEventBridgeReleaseUpcomingItunes"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.release_upcoming_itunes.arn
+}
+
 # Album-catalog ingest — daily scheduled invocation of the worker Lambda
 # (FEAT-album-catalog-ingest Step 3).
 #
