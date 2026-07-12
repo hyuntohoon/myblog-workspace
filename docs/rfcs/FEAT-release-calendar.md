@@ -1,6 +1,6 @@
 # FEAT-release-calendar: New-release calendar (신보 캘린더)
 
-- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; Track B Step 3 starts after owner reviews the revision)
+- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; **revision approved by owner 2026-07-12**. **Track A COMPLETE 2026-07-12** — Step 1 music #53 + ws #605, Step 2 front #267 prod-smoked; **Track B Step 3 shipped 2026-07-12** — V44 prod-applied + shared_db #62; next = Step 4 poller, starts with the density probe)
 - **Owner**: TBD
 - **Created**: 2026-07-06
 - **Plan row**: `plan.md` → FEAT-release-calendar
@@ -291,7 +291,15 @@ curl 'https://www.ratemymusic.blog/api/music/feed/new-releases?days=30&limit=12'
 
 ---
 
-### Step 2 (Track A) — front home card
+### Step 2 (Track A) — front home card — **SHIPPED + prod-smoked 2026-07-12 (front #267)**
+
+`NewReleasesCard` inside `EditorialHome` between the BNM hero and Latest (OQ7);
+cover click opens the app-wide AlbumDetail overlay (`openAlbum`; host already in
+`layout.astro`), artist caption → artist hub, ★ 평론 chip on `reviewed_artist`.
+Verified: lint / astro check / build + CDP click-through (overlay open, marker
+via fetch-mock — prod top-12 all `false` today, mobile 390×844 + desktop,
+dark + light, degradation = renders nothing); prod smoke: card live with 12
+releases, bundle marker `EditorialHome.BE6ribxQ.js`, console 0.
 
 - Regen `src/lib/api.gen.ts` (`pnpm generate:types`) off the merged contract.
 - New island (e.g. `src/components/home/NewReleasesCard.tsx`) mounted from
@@ -312,7 +320,11 @@ cd myblog_front && pnpm lint && pnpm exec astro check && pnpm build
 
 ---
 
-### Step 3 (Track B) — shared_db release-events migration
+### Step 3 (Track B) — shared_db release-events migration — **SHIPPED 2026-07-12 (shared_db #62, V44 prod-applied pre-merge)**
+
+V44 = both tables + ORM + parity fixtures + v0.35.0; pytest 91/91; prod
+BEGIN…ROLLBACK dry-run → apply → `\d` verified. Workspace `docs/contracts/
+schema.sql` mirrored byte-identical in the same-day docs PR.
 
 Plain `V{N}__artist_release_events.sql` — **both tables** of the multi-source
 design (`artist_release_events` one-row-per-source-observation +
@@ -466,10 +478,10 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
    artist-pop ranking enough, or do classical/compilation-style albums still
    pollute the top-N? Ship simple, judge on the first prod feed, tighten in a
    follow-up if needed.
-7. **Card placement + click behavior** (blocks Step 2 layout only; Track A) —
-   where in the home flow (above/below Best New Music), and does a cover
-   click open the `AlbumDetail` overlay, the artist page, or Spotify? Owner
-   eyeball at implementation; record the answer in the Decisions log.
+7. **Card placement + click behavior** — **ANSWERED 2026-07-12** (owner,
+   AskUserQuestion): card sits **between the BNM hero and Latest**; cover
+   click opens the **AlbumDetail overlay** (artist caption still routes to
+   the artist hub). Recorded in the Decisions log.
 8. **iTunes source posture** (review at the Step 4 probe) — coverage: what
    share of watchlist artists have a UPC-bearing catalog album (bounds iTunes
    discovery; report the resolution rate in the Step 4 probe). ToS: the
@@ -490,3 +502,6 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
 | 2026-07-11 | Promoted draft → accepted (owner in-session) | status |
 | 2026-07-11 | Owner reconcile with #549: the 2026-07-06 discovery lock is **re-opened** — Track B discovery to be **redesigned multi-source** (corroborating hard-ID sources within watchlist scope, e.g. Apple/iTunes pre-order, per #549's Divergences), not MB per-artist + Spotify day-0 only. Track B Steps 3–5 need a design-revision pass before Step 3 starts; Track A is unaffected and still ships first | design |
 | 2026-07-11 | **Discovery design-revision pass done** (same night, per the re-open): v1 sources = MB + iTunes pre-order + Spotify confirm, all per-artist within watchlist scope. Live probes: iTunes lookup surfaces pre-orders future-dated with hard `collectionId` (As It Is 2026-07-17); no coming-soon RSS survives; Apple Music API token-gated; iTunes returns no UPC ⇒ no cross-source hard key pre-release. Data model = one row per (source, source_key) observation, hard-key merge only, display soft-grouping, confirm = collapse point; new `artist_source_ids` cache for UPC-anchored `artistId` resolution; Step 4 gains a top-200 density probe gate. Steps 3–5 revised accordingly — pending owner review of this revision before Step 3 starts | design |
+| 2026-07-12 | **Track B multi-source revision APPROVED** (owner in-session, AskUserQuestion) — Step 3 cleared and shipped same session | design |
+| 2026-07-12 | **OQ7 answered** (owner): home card between the BNM hero and Latest; cover click opens the AlbumDetail overlay | OQ7 |
+| 2026-07-12 | **Step 3 prod DDL applied pre-merge** (owner-approved in-session): V44 dry-run BEGIN…ROLLBACK → apply → `\d` verified; rollback stays `DROP TABLE` ×2 until Step 4 consumers land | Step 3 |

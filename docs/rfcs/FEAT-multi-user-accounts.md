@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: in-progress (Phases 0–3a shipped + prod-verified; Phase 4 engine shipped + live-site cutover 5/5 complete 2026-07-12; Phase 3b/3c design locked 2026-07-12 — next concrete step: 3b-a KMS infra)
+- **Status**: in-progress (Phases 0–3a shipped + prod-verified; Phase 4 engine shipped + live-site cutover 5/5 complete 2026-07-12; Phase 3b/3c design locked 2026-07-12; **3b-a KMS infra shipped 2026-07-12** — ws #608, plan 4add/0/0, owner `terraform apply` pending — next concrete step: 3b-b born-scoped member listening tables)
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
@@ -409,7 +409,10 @@ dashboard console-managed (zero TF); 분석 `library_service` stream readers are
    sync and member ▶ playback (Premium-per-listener) are explicitly NOT in the first spine —
    revisit inside the 5-user tier after the read path proves out.
 
-Sub-steps (each rule-4 gated): **3b-a** infra KMS CMK + grants (owner apply) → **3b-b**
+Sub-steps (each rule-4 gated): **3b-a** infra KMS CMK + grants (**SHIPPED 2026-07-12** ws #608:
+`aws_kms_key.user_tokens` rotation-on/30d-window + `alias/myblog-user-tokens` + key-ARN-scoped
+role policies — backend Encrypt+GenerateDataKey, worker +Decrypt; plan 4add/0/0; **owner
+`terraform apply` pending** — merging changed nothing in prod) → **3b-b**
 shared_db V{N} born-scoped member listening tables → **3b-c** backend
 `PUT/DELETE /api/integrations/spotify` (server-side code exchange — front callback page
 captures `?code` and PUTs it authed; client_secret stays in SSM `/myblog/spotify`; encrypt →
