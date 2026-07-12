@@ -165,6 +165,24 @@ resource "aws_apigatewayv2_route" "integrations_lastfm_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# FEAT-multi-user 3b-c: member Spotify connect/disconnect (server-side code
+# exchange + KMS token custody). Same JWT shape as the lastfm pair above.
+resource "aws_apigatewayv2_route" "integrations_spotify_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/integrations/spotify"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "integrations_spotify_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/integrations/spotify"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "buckets_patch" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "PATCH /api/buckets/{id}"

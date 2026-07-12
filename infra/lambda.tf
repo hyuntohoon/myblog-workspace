@@ -47,6 +47,10 @@ resource "aws_lambda_function" "backend" {
       # CHORE-secrets-ssm-migration: secrets read from SSM Parameter Store (SM removed Step 7).
       SECRETS_PARAM         = "/myblog/backend"
       SPOTIFY_SECRETS_PARAM = "/myblog/spotify" # status read only; worker owns write-back
+      # FEAT-multi-user 3b-c: member refresh-token custody. References the 3b-a
+      # alias, so this env update applies together with the owner's CMK apply;
+      # until then the backend fails closed (503) on member Spotify connect.
+      USER_TOKENS_KMS_KEY_ID = aws_kms_alias.user_tokens.name
       # FEAT-spotify-library-sync: read-only mirror for the /profile "검토 모드" banner
       # (backend never writes Spotify — rule #9). Keep in sync with the worker value.
       SPOTIFY_LIBRARY_WRITES_ENABLED = "true"
