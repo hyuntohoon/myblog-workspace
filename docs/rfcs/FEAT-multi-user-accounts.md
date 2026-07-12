@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: in-progress (Phases 0–3a shipped + prod-verified; Phase 4 engine shipped + live-site cutover 5/5 complete 2026-07-12; Phase 3b/3c design locked 2026-07-12; **3b-a KMS infra shipped 2026-07-12** — ws #608, plan 4add/0/0, owner `terraform apply` pending — next concrete step: 3b-b born-scoped member listening tables)
+- **Status**: in-progress (Phases 0–3a shipped + prod-verified — **3a residual CLOSED 2026-07-12**: owner connected Last.fm, poller filled 60 real scrobble rows; Phase 4 engine shipped + cutover 5/5; **3b-a/3b-b/3b-c ALL SHIPPED 2026-07-12** — 3b-a ws #608, 3b-b V45 prod-applied + shared_db #64, 3b-c backend #113 + ws #610 + front #268, prod-smoked 401/503-fail-closed/204. Owner `terraform apply` pending (KMS ×4 + backend env, one batch) — next concrete step: 3b-d worker per-user poll)
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
@@ -413,10 +413,18 @@ Sub-steps (each rule-4 gated): **3b-a** infra KMS CMK + grants (**SHIPPED 2026-0
 `aws_kms_key.user_tokens` rotation-on/30d-window + `alias/myblog-user-tokens` + key-ARN-scoped
 role policies — backend Encrypt+GenerateDataKey, worker +Decrypt; plan 4add/0/0; **owner
 `terraform apply` pending** — merging changed nothing in prod) → **3b-b**
-shared_db V{N} born-scoped member listening tables → **3b-c** backend
-`PUT/DELETE /api/integrations/spotify` (server-side code exchange — front callback page
-captures `?code` and PUTs it authed; client_secret stays in SSM `/myblog/spotify`; encrypt →
-`payload`; +2 `apigateway.tf` JWT routes + apply) → **3b-d** worker per-user poll
+shared_db V45 born-scoped member listening tables (**SHIPPED 2026-07-12** shared_db #64,
+prod-applied pre-merge: `spotify_member_recent_tracks` FULL UNIQUE(user_id, played_at,
+spotify_track_id) + `spotify_member_now_playing` PK=user_id; pytest 91/91) → **3b-c** backend
+`PUT/DELETE /api/integrations/spotify` (**SHIPPED 2026-07-12** backend #113 + ws #610 routes
+applied + front #268 api.gen.ts; server-side code exchange, KMS-envelope →
+`user_integrations.payload` `{v, ciphertext, scope, expires_in, obtained_at}` — the 3b-d
+decrypt contract; fail-closed matrix prod-smoked: unauth 401 / authed **503
+dormant-but-safe while the CMK is unapplied** (config gate fires before any outbound call —
+the one-time code is not burned) / DELETE 204; `SPOTIFY_MEMBER_REDIRECT_URI` =
+`https://www.ratemymusic.blog/settings/spotify/callback` — the exact string the owner must
+register in the Spotify dashboard; lambda env `USER_TOKENS_KMS_KEY_ID` rides the owner's
+pending CMK apply) → **3b-d** worker per-user poll
 (EventBridge; decrypt → refresh → rotate/re-encrypt → row update; `invalid_grant` ⇒
 `status='reauth'`, never retry; bounded per tick; fetch→materialize→close) → **3b-e** front
 `SpotifyConnect` + callback + reconnect badge (`status==='reauth'`) + `api.gen.ts`.
