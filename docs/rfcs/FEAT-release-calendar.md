@@ -1,6 +1,6 @@
 # FEAT-release-calendar: New-release calendar (신보 캘린더)
 
-- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; **revision approved by owner 2026-07-12**. **Track A COMPLETE 2026-07-12** — Step 1 music #53 + ws #605, Step 2 front #267 prod-smoked; **Track B Step 3 shipped 2026-07-12** — V44 prod-applied + shared_db #62; **Step 4 density probe done + OQ1/2/3 decided 2026-07-12** (floor ≥50, 180 d, RG full-date-only); **Step 4 poller SHIPPED + ARMED 2026-07-12** (worker #70 / ws #615, EventBridge bucket rotation live, first ticks clean); **Step 6 calendar endpoint SHIPPED 2026-07-13** (music #54 + contract ws #617 + types front #271, prod-smoked over live poller data) — next = full-cycle density check (~2026-07-13 16:00 KST) → Step 5; Step 7 after Step 6 data accumulates)
+- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; **revision approved by owner 2026-07-12**. **Track A COMPLETE 2026-07-12** — Step 1 music #53 + ws #605, Step 2 front #267 prod-smoked; **Track B Step 3 shipped 2026-07-12** — V44 prod-applied + shared_db #62; **Step 4 density probe done + OQ1/2/3 decided 2026-07-12** (floor ≥50, 180 d, RG full-date-only); **Step 4 poller SHIPPED + ARMED 2026-07-12** (worker #70 / ws #615, EventBridge bucket rotation live, first ticks clean); **Step 6 calendar endpoint SHIPPED 2026-07-13** (music #54 + contract ws #617 + types front #271); **density verdict recorded 2026-07-13** (methodology-limited, gate reset ≥40/cycle — see Step 4); **Step 5 SHIPPED + prod-smoked 2026-07-13** (worker #71 + insert-gate fix #72, first live confirm tick); **Step 7 calendar page SHIPPED + prod-smoked 2026-07-13** (front #273, /releases/ live) — remaining: OQ4 noise review ~14 d after Step 5 (denominator = that window's release_date rows, now incl. confirm_gate_skipped), FEAT-personal-release-tracking H1 uses the recorded density verdict)
 - **Owner**: TBD
 - **Created**: 2026-07-06
 - **Plan row**: `plan.md` → FEAT-release-calendar
@@ -421,6 +421,40 @@ pytest myblog_worker  # handler unit + upsert idempotency (re-run = 0 new rows)
 #   FROM artist_release_events GROUP BY source;
 ```
 
+**Full-cycle density verdict (2026-07-13, read-only investigation — CloudWatch
+tick logs + prod DB slices + code audit; supersedes the probe's extrapolation
+above, which stays as the historical record):**
+
+- **Observed**: 26 distinct artists with events at ~63% of the first MB cycle
+  (20 MB + 9 iTunes announced rows), extrapolating **~41/cycle** vs the
+  probe's 75–105. The shortfall is **~80% methodology, ~20% operational — no
+  data-losing bug exists** (errors=0 on all 44 ticks; sentinel code path
+  audited clean: no transient/throttle path can write `not_found`).
+- **Methodology (1) — flat-density assumption fails below the probe tier.**
+  The probe measured pop 79–94 and assumed flatness; prod replication over the
+  exactly-reconstructed polled set (825 artists): pop≥79 density **4.7%**
+  (probe said 5.5% — replicates), but pop 50–78 is **1.9%** (2.5× lower).
+  Corrected model: ~36 MB + iTunes-only uplift ≈ **40–47 artists/cycle** —
+  matching observation.
+- **Methodology (2) — the iTunes 61% resolve prediction was top-200 tier
+  bias.** UPC-bearing catalog coverage collapses by tier: 77% at pop 80–89
+  (probe tier) but 37.5% at pop 50–59 / 44% at 60–69 / 55% at 70–79 →
+  whole-tier resolve 41%. The resolver itself beats the probe among
+  UPC-holders (**85%** live vs 78% probe; next-newest fallback works). 312 of
+  355 sentinels are `no_upc` (catalog ingest depth), not iTunes misses.
+- **Operational bug (moderate): MB budget_stop tail starvation.** The 90 s
+  budget stops 8/14 ticks at positions 35–64/70, and buckets always restart
+  at offset 0 → the **same ~16% of bucket-tail artists are skipped every
+  cycle** (not "revisited next cycle" as designed). Fix shipped with Step 5.
+- **Doc fix**: the iTunes full cycle is **≈36.5 h** (`ceil(1593/22)` = 73
+  buckets × 30 min), not ≈21 h — the 16:00 KST checkpoint was MB-complete
+  only.
+- **Density gate RESET (2026-07-13)**: success for the announced path =
+  **≥40 artists with upcoming events per full MB cycle, denominator = the
+  1,533-artist pop≥50 valid-MBID watchlist** (was 75–105, an extrapolation
+  artifact). Reaching 75+ *displayed* artists is a product-scope lever
+  (pop floor, source expansion), not a poller defect.
+
 ---
 
 ### Step 5 (Track B) — release-day confirm via `album_ingest` (released path)
@@ -446,6 +480,13 @@ Two coverage gaps, resolved at implementation (OQ5):
   while the calendar includes all types. Widen `include_groups` for watchlist
   artists, or accept album-only confirmation in v1 (announced singles/EPs
   would then never flip to `released`).
+
+**GO decision 2026-07-13 (owner, post-investigation)**: Step 5 proceeds with
+the OQ5 scope (floor 60→50 + watchlist `include_groups` singles/EPs) **plus
+two companion fixes**: (a) the MB budget-stop tail-starvation fix (stateless
+intra-bucket offset rotation or equivalent); (b) a one-time clear of the
+`no_upc` sentinels after the catalog widens (post-deploy, owner-approved ops
+step — 312 rows would otherwise wait up to 30 d to re-resolve).
 
 **Verification**:
 ```
@@ -558,3 +599,9 @@ pnpm lint && pnpm exec astro check  # + CDP click-through incl. 390px mobile
 | 2026-07-12 | **Step 7 entry point** (owner): the home `NewReleasesCard` is the calendar's entry point — card/header click-through lands on the calendar page (exact affordance at the Step 7 mockup gate); in-card cover → overlay behavior stays | Step 7 |
 | 2026-07-12 | **Step 4 poller SHIPPED + ARMED** (worker #70, ws #615) — EventBridge bucket rotation live (MB hourly 70/tick over 1,533 eligible; iTunes half-hourly ~10/tick over 1,593); released-flip invariant prod-proven; first ticks clean, errors=0 | Step 4 |
 | 2026-07-13 | **Step 6 calendar endpoint SHIPPED + prod-smoked** (music #54) — `GET /api/music/releases/calendar` DB-only raw `text()` SQL (no shared_db pin bump); defaults = current month, 93-day range cap (both RFC-silent choices, flagged to owner in the PR); display soft-grouping on (artist_id, release_date, normalized title), normalization strips trailing " - Single"/" - EP"; `Cache-Control` 60 s + SWR. Contract ws #617, types front #271. Prod smoke: 200 over live Step-4 poller data | Step 6 |
+| 2026-07-13 | **Full-cycle density verdict** (read-only investigation): ~41 artists/cycle observed-extrapolated vs 75–105 expected — ~80% methodology (probe's flat-density + top-200 UPC-tier bias; corrected model 40–47 matches), ~20% operational (MB budget_stop tail starvation, same ~16% skipped each cycle); zero data-losing bugs (44/44 ticks errors=0, sentinel path audited). **Density gate reset to ≥40/full MB cycle over the 1,533 pop≥50 watchlist.** iTunes cycle corrected ≈36.5 h (not ≈21 h). Full findings in Step 4 | Step 4 |
+| 2026-07-13 | **Step 5 GO** (owner via AskUserQuestion, post-investigation): OQ5 scope + companion fixes — MB budget fairness (stateless intra-bucket offset rotation) + one-time `no_upc` sentinel clear after catalog widening (post-deploy ops step) | Step 5 |
+| 2026-07-13 | **Step 7 mockup gate PASSED** (owner via AskUserQuestion over two live-data mockups): default view = "발매 장부" chronological ledger (month sections, big serif date numerals, 오늘 hairline, past faded) **+ month-grid 달력 toggle; grid day-cell click opens that day's events as cards**. Entry affordance = quiet mono "캘린더 →" link right of the NewReleasesCard section title. Implementation approved same session despite thin data (27 events — empty/past states are part of the design) | Step 7 |
+| 2026-07-13 | **Step 5 SHIPPED + prod-smoked** (worker #71, deploy 29214115447): confirm-on-ingest (`release_confirm_service`, artist + normalized-title + ±7d, all-source flip / spotify-source insert, IS-DISTINCT-FROM idempotency guards) + OQ5 (floor 60→50, watch-scoped `include_groups=album,single`) + MB budget fairness (stateless intra-bucket offset rotation) + `no_upc` sentinel retry-gate bypass. 374→378 pytest. First live invoke: eligible=1593 swept=30 confirm_inserted=103. `SWEEP_ARTISTS_PER_TICK` stays 30 (owner 관망; ~51 d rotation ⇒ confirm lag flagged) | Step 5 |
+| 2026-07-13 | **First-live-tick incident + same-session fix (worker #72)**: the never-announced confirm INSERT bypassed the ingest `ALBUM_POP_MIN` gate → 103 rows incl. Schubert-class credit-farm compilations hit the calendar from one 30-artist sweep. Fix (owner-approved immediately): candidates carry `passes_gate` (external-phase popularity fetch, novel-probe reuse, fail-closed), INSERTs gated, flips exempt (MB/iTunes observation = curation), new `confirm_gate_skipped` counter. One-time cleanup DELETE of ungated rows (catalog-membership criterion; dry-run 48). **Known residual for OQ4**: comps scoring ≥20 pass the bar (35 in-catalog Schubert rows survive) — evaluate with `confirm_gate_skipped` data at the 14-day review | Step 5 |
+| 2026-07-13 | **Step 7 SHIPPED + prod-smoked** (front #273, deploy 29214166053): `/releases/` — ledger default + month-grid toggle + day-cell card panel per the mockup gate; `?view=&month=` URL state; 93 d cap respected (one month per fetch); NewReleasesCard 캘린더 → link (degradation contract intact); released rows resolve via `GET /albums/by-spotify/{id}` → openAlbum. lint/astro check/build + live-data CDP both views + mobile; reviewer merge-with-nits (nits logged in PR) | Step 7 |
