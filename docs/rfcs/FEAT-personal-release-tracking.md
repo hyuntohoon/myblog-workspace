@@ -221,6 +221,16 @@ its payoff is exactly what H1 must measure.
   volume and lead-time for a realistic tracked set across candidate sources.
   #548's probe already suggests MB-only is near-empty for the popular tier;
   measure whether adding sources changes this.
+  **MEASURED 2026-07-14** (read-only probe over #548's live `artist_release_events`,
+  ~46 h of poller data): future rows 57 across **47 / 1,533 = 3.1%** of the
+  watchlist (MB 38 rows/37 artists + iTunes 19/17, overlap 7 → iTunes adds
+  **+45% artist coverage** over MB-only); lead time p50 **31 d** / p90 62 d /
+  max 80 d; type split 48 album / 6 single / 2 EP / 1 other; confirm link
+  0/57 (all `announced`, expected pre-release). **Verdict: thin-but-usable,
+  NOT first-class** — supports OQ1's "appears-only-when-present strip" over a
+  tab. Caveat: ~46 h ≈ currently-announced inventory, not steady-state
+  discovery; re-measure at #548's OQ4 checkpoint (~2026-07-27) before final
+  placement.
 - **H2** — new-release detection latency after release + dedup accuracy.
 - **H3** — album/EP/single classification disagreement across sources.
 - **H4** — release-event → catalog match rate (drives how often "confirmed →
@@ -269,3 +279,4 @@ shape (each step gated per rule 4, with #548 Track B as prerequisite):
 | 2026-07-08 | Trust badges reduced to 3 (확정/예정/불확실); empty-Upcoming shown honestly, no fallback-to-recent; collab shows "추적: {artist}" (owner, rebuttal round) | UX |
 | 2026-07-08 | "New since last visit" marker deferred (owner) | scope |
 | 2026-07-08 | Naming: personal feed / watchlist, not "Calendar" (owner) | naming |
+| 2026-07-14 | **H1 measured against live #548 poller data** (46 h): 3.1% watchlist coverage, iTunes +45% artists over MB-only, lead p50 31 d — **thin-but-usable, not first-class**; details inline at the H1 hypothesis. Re-measure ~07-27 (initial-inventory caveat). H2–H6 + owner accept still open — RFC stays draft | H1 |
