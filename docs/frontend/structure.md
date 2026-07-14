@@ -1,6 +1,8 @@
 # Frontend structure map — human-readable
 
 > **Verified 2026-07-02** against `myblog_front/src/` (Astro 5 + React 19).
+> **Multi-user surfaces re-verified 2026-07-14** (routes table + auth notes below); other
+> sections may lag the FEAT-multi-user-accounts program — check code for member specifics.
 > Produced by `docs/archive/done/rfcs/ARCH-frontend-component-map.md` Step 1. For file-pinned detail
 > (exact `path:line` anchors, per-domain ownership), read [component-map.md](component-map.md).
 
@@ -34,13 +36,19 @@ in the tray and on the profile board crosses this boundary.
 
 | Area | Routes | Interactivity |
 |---|---|---|
-| Editorial (public) | `/`, `/reviews`, `/review/[slug]`, `/canon`, `/collection` | Review page tracklist is **vanilla JS** (`albumDetail.client.ts`), not React |
-| Catalog (public) | `/artist/[id]`, `/genres`, `/search` | React islands, runtime fetch |
-| Member (authed) | `/profile` (+ `/buckets` → redirect), `/drafts` | `ProfileApp` root; drafts is vanilla |
-| Writer (authed) | `/write` | Own layout (`write-layout.astro`), no shared chrome |
+| Editorial (public) | `/`, `/reviews`, `/review/[slug]`, `/canon`, `/collection` | Review page tracklist is **vanilla JS** (`albumDetail.client.ts`), not React; `/collection` = owner-attributed public buckets (`CollectionView`) |
+| Catalog (public) | `/artist/[id]`, `/genres`, `/search`, `/releases` | React islands, runtime fetch (`ReleaseCalendar`) |
+| Members (public+self) | `/members/` (runtime: no param = directory, `?u=<handle>` = any provisioned user's profile, `?me` = self) + `/members/[handle]` (static SEO prebuild, reviewers only) | `MembersHub` → `MemberProfile`; authed `isSelf` gate lazy-loads `SelfDashboard` (개요/평론/My Buckit/분석/연동) |
+| Member account | `/settings/` (+ `/settings/spotify/callback`), `/privacy` | `SettingsApp` (profile edit, integrations, account deletion) |
+| Owner dashboard (authed) | `/profile` (+ `/buckets` → redirect to `/members/?me&tab=bucket`), `/drafts` | `ProfileApp` root; retirement → profile-merge PR3 (RFC OQ5) |
+| Writer (owner) | `/write` | Own layout (`write-layout.astro`), no shared chrome |
 
 Auth guards are per-page scripts (`profile.guard.ts`, `write.guard.ts`); everything else is
-public, with edge_guard-only reads for member-ish data (buckets, library).
+public. Member data reads/writes (buckets, library, reviews, integrations) are **JWT
+member-scoped** (`apiFetch` Bearer; rows scoped by `user_id` server-side). Owner-only UI
+affordances (글쓰기, 오늘의 곡 controls, Pocket ▶) are gated by `lib/owner.ts`
+`isOwnerUser()` (cached `getMe().handle === OWNER_HANDLE`) — `isLoggedIn()` alone is NOT an
+owner signal. Post-login returns to the captured pre-login URL (`auth.ts` returnTo).
 
 ## The three data/state flows
 
@@ -53,7 +61,9 @@ public, with edge_guard-only reads for member-ish data (buckets, library).
 3. **Playback** — every ▶ goes through one SDK owner, `lib/spotifyPlayback.ts`
    (`requestPlayback`): JWT-minted streaming token → lazy Spotify SDK → catalog-id→URI
    resolve → direct client-side `api.spotify.com` call. Nothing loads until a real ▶ click
-   (rule #9). `NowPlaying` is a separate, read-only snapshot display — **not a player**.
+   (rule #9). **Owner-only** (single owner streaming token; the ▶ buttons render only for
+   the owner since 2026-07-14). `NowPlaying` is a separate, read-only snapshot display —
+   **not a player**.
 
 ## What is shared vs duplicated (impact hotspots)
 

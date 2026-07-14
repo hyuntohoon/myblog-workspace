@@ -25,7 +25,8 @@ myblog-workspace/
 ## Auth — two entry points
 
 - **CloudFront → backend** (most routes): `edge_guard` checks `x-origin-verify: <EDGE_SECRET>`. Bypassed when `ENV=local|dev`. Bearer tokens skip this check.
-- **API Gateway → backend** (`POST/PUT/DELETE /api/posts/*`, `POST /api/publish`): Cognito JWT validated at the API Gateway authorizer before Lambda (authorizer ID → `infra/README.md`).
+- **API Gateway → backend** (every mutation route — posts/publish/buckets/items/me/reviews/integrations/library-writes/genres/research/todays-pick — plus `GET /api/playback/spotify-token` and `GET /api/lyrics/*`): Cognito JWT validated at the API Gateway authorizer before Lambda (authorizer ID → `infra/README.md`; full route list → `infra/apigateway.tf`). A new authed mutation 404s until added there (probe: 401 = live, 404 = missing route).
+- **Authorization inside backend** (multi-user since FEAT-multi-user-accounts): `require_owner` fail-closed (`sub == OWNER_SUB`) on the ~27 single-owner routes (editorial/publish/genres/playback/library-ops); member routes use `require_cognito_token` + lazy user provisioning (`provisioned_member_id`), row-scoped by `user_id`.
 - **Local**: backend/music/worker bypass JWT when `ENV=local|dev`. Frontend on `localhost` uses dummy token `'local-dev'`; `isLoggedIn()` returns true.
 
 ## Hard rules
