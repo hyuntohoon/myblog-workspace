@@ -2,6 +2,8 @@
 
 > **Verified 2026-07-08** against `myblog_front/src/` (Astro 5 + React 19).
 > (ARCH-entity-interaction-unify Steps 1–3: app-wide album overlay + album/track dispatch.)
+> **Routes table re-verified 2026-07-14** (multi-user surfaces added); per-domain sections
+> below may predate FEAT-multi-user-accounts — the stale-stamp rule applies.
 > Canonical living copy — produced by `docs/archive/done/rfcs/ARCH-frontend-component-map.md` Step 1.
 > Re-verify (3 spot claims minimum) in the step of any RFC whose impact template touches
 > track-click / overlay / cross-island / shared-chrome. A stale "Verified" stamp is the
@@ -21,8 +23,13 @@ File references are `path:line` anchors relative to `myblog_front/src/`.
 | `/genres` | `pages/genres/index.astro` | `GenreMap` (`client:only`) | Public |
 | `/canon`, `/collection` | `canon.astro`, `collection.astro` | `CanonPage`, `CollectionView` (`client:load`) | Public (collection = edge_guard read) |
 | `/search` | `pages/search.astro` | `SearchPage` (`client:only`) | Public |
-| `/profile` | `pages/profile.astro` | `ProfileApp` (`client:only`) | **Authed** (`scripts/profile.guard.ts`) |
-| `/buckets` | `pages/buckets.astro` | — (meta-refresh → `/profile?tab=bucket`) | n/a |
+| `/profile` | `pages/profile.astro` | `ProfileApp` (`client:only`) | **Authed** (`scripts/profile.guard.ts`) — owner dashboard; retirement = profile-merge PR3 |
+| `/members/` | `pages/members/index.astro` | `MembersHub` (`client:only`) — no param = directory, `?u=<handle>` = runtime profile, `?me` = self | Public (self view authed via `isSelf`) |
+| `/members/[handle]` | `pages/members/[handle].astro` | `MemberProfile` (`client:only`) → lazy `SelfDashboard` on `isSelf` | Public (static SEO prebuild, reviewers-only index) |
+| `/settings/` | `pages/settings.astro` (+ `settings/spotify/callback`) | `SettingsApp` (`client:only`) | **Authed** |
+| `/releases/` | `pages/releases/index.astro` | `ReleaseCalendar` (`client:load`) | Public |
+| `/privacy` | `pages/privacy.astro` | none (static) | Public |
+| `/buckets` | `pages/buckets.astro` | — (redirect → `/members/?me&tab=bucket`) | n/a |
 | `/drafts` | `pages/drafts.astro` | none (vanilla table) | Authed (inline `isLoggedIn()` → `goLogin`) |
 | `/write` | `pages/write.astro` | `WriterApp` (`client:load`) | **Authed** (`scripts/write.guard.ts`) |
 

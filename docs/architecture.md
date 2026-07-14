@@ -1,10 +1,10 @@
 # MyBlog + Music Review — System Architecture
 
-> ⚠️ **Verify against code — this doc drifts.** The 2026-06-05 review (STAB-1) found ≥4 load-bearing errors here; the ones found were corrected (2026-06-05, STAB-4), but treat any specific claim (pins, queue type, auth, imports) as needing a code/tfstate check before relying on it. Source of truth: `docs/contracts/schema.sql` (current through V15) + `infra/`.
+> ⚠️ **Verify against code — this doc drifts.** The 2026-06-05 review (STAB-1) found ≥4 load-bearing errors here; the ones found were corrected (2026-06-05, STAB-4), but treat any specific claim (pins, queue type, auth, imports) as needing a code/tfstate check before relying on it. Source of truth: `docs/contracts/schema.sql` + `infra/`.
 
 ## Overview
 
-A personal blog combined with a music review feature. Blog authoring, music search and sync, and static site publishing are each owned by an independent service.
+A music-review platform: the owner's long-form editorial blog plus, since FEAT-multi-user-accounts (2026-07), public multi-user membership — Google/Kakao signup, RYM-style album ratings, per-user buckets, opt-in listening integrations (Last.fm / Spotify). Blog authoring, music search and sync, and static site publishing are each owned by an independent service.
 
 > Concrete resource IDs (pool IDs, distribution IDs, ARNs, queue URLs) live in `infra/README.md`, not here. This document describes intent and structure; that one describes what currently exists.
 
@@ -95,8 +95,9 @@ Astro-based static site hosted on S3 and served through CloudFront. GitHub Actio
 
 **Role separation**
 
-- **Public users** — read blog posts and use the music search UI via CloudFront cache
-- **Admins** — write posts, link albums, and trigger publishing after Cognito authentication
+- **Public users** — read editorial, album pages, member profiles, and the music search UI via CloudFront cache
+- **Members** (multi-user, self-signup via Google/Kakao → Cognito) — rate/comment albums (`album_reviews`), own per-user buckets/to-listen, connect listening sources, manage their account (`/api/me`); rows scoped by `user_id`, lazily provisioned on first authed call
+- **Owner** — everything members can do, plus editorial authoring/publishing and ops routes, fail-closed behind `require_owner` (`sub == OWNER_SUB`)
 
 **APIs called**
 
@@ -128,7 +129,7 @@ Core blog API. Owns the post and section domain and is fully isolated from music
 | `POST` | `/api/publish` | Cognito JWT |
 | `POST` | `/api/metrics/batch` | None |
 
-`POST/PUT/PATCH/DELETE /api/posts/*` and `POST /api/publish` flow through the API Gateway Cognito authorizer (`6eia7l`); other routes go through CloudFront with the `x-origin-verify` edge guard (CLAUDE.md "Auth — two entry points").
+The table above is the editorial core only. Multi-user families added by FEAT-multi-user-accounts (full contract → `docs/contracts/openapi.json`): `/api/me` (GET/PATCH/DELETE — lazy provision + account deletion), `/api/reviews/albums/*` (member PUT/DELETE + public live aggregate), `/api/members[/{handle}]` (+ `/now-playing` with source provenance), `/api/integrations/*` (Last.fm username / Spotify OAuth+KMS), member-scoped `/api/buckets/*` + `/api/library/*`, public `/api/buckets/public` (opt-in `is_public`, owner-attributed). Every mutation flows through the API Gateway Cognito authorizer (route list → `infra/apigateway.tf`); reads go through CloudFront with the `x-origin-verify` edge guard (CLAUDE.md "Auth — two entry points"). Owner-only routes are additionally gated by `require_owner`.
 
 **Publishing subsystem** — `POST /api/publish` receives the post payload, generates an MDX file, and commits it to the blog content repo via the GitHub API. GitHub Actions picks it up from there (Astro build → S3 → CloudFront). `GITHUB_TOKEN` is loaded from `/myblog/backend` (SSM Parameter Store SecureString) at cold start.
 
