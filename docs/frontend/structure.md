@@ -21,16 +21,20 @@ layouts/layout.astro  (every page except /write)
    └─ PocketBuckitProvider ← the ONE React context
       └─ PocketTray        ← drawer with bucket members, ▶ play
 
-pages/profile.astro
-└─ ProfileApp              ← SEPARATE React root (authed)
-   ├─ OverviewDash / LikedBoard / ImportAnalysis / ReviewsTab …
-   ├─ BucketBoard (+ TrashDrawer)
-   └─ AlbumDetail (React modal/slide-over)
+pages/members/index.astro, pages/members/[handle].astro
+└─ MemberProfile           ← public root; lazy-loads SelfDashboard when isSelf
+   └─ SelfDashboard        ← SEPARATE authed React root (the self view; profile-merge)
+      ├─ OverviewDash / LikedBoard / ImportAnalysis / ReviewsTab …
+      ├─ BucketBoard (+ TrashDrawer)
+      ├─ AlbumDetail (React modal/slide-over)
+      └─ LyricsViewer / LyricsSheet (overlay, PR3)
 ```
 
 **The two roots never share React context.** They talk through (a) the `bucketStore`
 observable singleton and (b) `pb:*` window CustomEvents. Any feature that must work both
-in the tray and on the profile board crosses this boundary.
+in the tray and on the members self-dashboard crosses this boundary. (The old
+`pages/profile.astro` → `ProfileApp` root was retired by profile-merge PR3; `/profile`
+now redirects to `/members/?me`.)
 
 ## Routes by feature area
 
@@ -40,7 +44,7 @@ in the tray and on the profile board crosses this boundary.
 | Catalog (public) | `/artist/[id]`, `/genres`, `/search`, `/releases` | React islands, runtime fetch (`ReleaseCalendar`) |
 | Members (public+self) | `/members/` (runtime: no param = directory, `?u=<handle>` = any provisioned user's profile, `?me` = self) + `/members/[handle]` (static SEO prebuild, reviewers only) | `MembersHub` → `MemberProfile`; authed `isSelf` gate lazy-loads `SelfDashboard` (개요/평론/My Buckit/분석/연동) |
 | Member account | `/settings/` (+ `/settings/spotify/callback`), `/privacy` | `SettingsApp` (profile edit, integrations, account deletion) |
-| Owner dashboard (authed) | `/profile` (+ `/buckets` → redirect to `/members/?me&tab=bucket`), `/drafts` | `ProfileApp` root; retirement → profile-merge PR3 (RFC OQ5) |
+| Self-dashboard (authed) | `/members/?me` (self view of `/members/`); `/profile` + `/buckets` redirect into it (`?tab=` preserved), `/drafts` | `SelfDashboard` (lazy under `MemberProfile`); the standalone `ProfileApp`/`/profile` root was retired by profile-merge PR3 (RFC OQ5, front #280) |
 | Writer (owner) | `/write` | Own layout (`write-layout.astro`), no shared chrome |
 
 Auth guards are per-page scripts (`profile.guard.ts`, `write.guard.ts`); everything else is
