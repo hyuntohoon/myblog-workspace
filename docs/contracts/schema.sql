@@ -1014,6 +1014,27 @@ CREATE TABLE IF NOT EXISTS artist_source_ids (
 );
 
 -- =============================================================================
+-- Personal Release Tracking — per-user tracked-artist edge (V47; FEAT-personal-
+-- release-tracking Step 1). The personalization layer on top of the shared
+-- artist_release_events above: one row per (user, artist). Buckit import is a
+-- snapshot source only — after import the tracked list is independent (no FK
+-- back to a Buckit). Anchored to the catalog artist entity so a release from
+-- any source attaches to the same artist the user tracked. Born user-scoped;
+-- CASCADE on both FKs (privacy §2 deletion path).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS user_artist_tracks (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  artist_id  UUID        NOT NULL REFERENCES artists (id) ON DELETE CASCADE,
+  added_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- One tracked edge per (user, artist); FULL unique so the import upsert can
+  -- use plain ON CONFLICT (user_id, artist_id) DO NOTHING.
+  CONSTRAINT uq_user_artist_tracks_user_artist UNIQUE (user_id, artist_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_artist_tracks_artist
+  ON user_artist_tracks (artist_id);
+
+-- =============================================================================
 -- Member Spotify Listening — born-user-scoped tables (V45; FEAT-multi-user-
 -- accounts Phase 3b-b, mirrors the V41 lastfm_recent_tracks pattern). The
 -- owner-global spotify_* caches and their worker jobs stay untouched (owner
