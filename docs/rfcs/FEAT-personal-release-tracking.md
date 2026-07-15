@@ -1,6 +1,12 @@
 # FEAT-personal-release-tracking: Personal release tracking (개인 발매 피드 / Release Radar)
 
-- **Status**: draft
+- **Status**: accepted (2026-07-15, owner in-session approval — "시작하자"; H1 measured
+  2026-07-14 against live #548 poller data: **thin-but-usable, not first-class**.
+  **Step 1–3 착수 2026-07-15** — 2-phase execution: Step 1 schema → Steps 2∥3
+  parallel via codex worktrees. **Step 4** (multi-source upcoming ingestion)
+  remains gated on **OQ2 (per-source ToS) + OQ5 (#548 reconcile)** — owner
+  decisions; **Step 5** (front) remains gated on an **owner design gate**.
+  These stay open under `accepted`; they do not block Steps 1–3.)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → FEAT-personal-release-tracking
@@ -16,11 +22,12 @@
   discovery), that divergence is called out explicitly and left for owner
   reconciliation at accept — see **Divergences from #548**.
 
-> **Status note.** This RFC captures a 2026-07-08 brainstorm + one rebuttal
-> round + a UI design exploration. It is intentionally **not an implementation
-> plan**. Several load-bearing decisions depend on real data quality (see
-> Hypotheses) and on owner reconciliation with #548. Do not begin
-> implementation before owner accept.
+> **Status note.** Captures a 2026-07-08 brainstorm + one rebuttal round + a
+> UI design exploration. **Accepted 2026-07-15** (owner) after H1 was measured
+> against live #548 poller data (2026-07-14: thin-but-usable, **not**
+> first-class). Steps 1–3 are implementation-ready and began 2026-07-15.
+> Step 4 remains gated on OQ2/OQ5 (owner) and Step 5 on an owner design gate;
+> both stay open under `accepted`.
 
 ---
 
@@ -280,3 +287,4 @@ shape (each step gated per rule 4, with #548 Track B as prerequisite):
 | 2026-07-08 | "New since last visit" marker deferred (owner) | scope |
 | 2026-07-08 | Naming: personal feed / watchlist, not "Calendar" (owner) | naming |
 | 2026-07-14 | **H1 measured against live #548 poller data** (46 h): 3.1% watchlist coverage, iTunes +45% artists over MB-only, lead p50 31 d — **thin-but-usable, not first-class**; details inline at the H1 hypothesis. Re-measure ~07-27 (initial-inventory caveat). H2–H6 + owner accept still open — RFC stays draft | H1 |
+| 2026-07-15 | **RFC accepted** (owner "시작하자") — H1 verdict (thin-but-usable, not first-class) recorded; **Step 1–3 착수**; **Step 4** (OQ2 per-source ToS + OQ5 #548 reconcile) and **Step 5** (owner design gate) deferred as separate gates under `accepted`. 2-phase execution: Step 1 schema → Steps 2∥3 parallel via codex worktrees; Claude authors the critical-path Step 1, codex owns the parallel Phase B legs | accept |
