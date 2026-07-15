@@ -23,7 +23,7 @@ File references are `path:line` anchors relative to `myblog_front/src/`.
 | `/genres` | `pages/genres/index.astro` | `GenreMap` (`client:only`) | Public |
 | `/canon`, `/collection` | `canon.astro`, `collection.astro` | `CanonPage`, `CollectionView` (`client:load`) | Public (collection = edge_guard read) |
 | `/search` | `pages/search.astro` | `SearchPage` (`client:only`) | Public |
-| `/profile` | `pages/profile.astro` | `ProfileApp` (`client:only`) | **Authed** (`scripts/profile.guard.ts`) — owner dashboard; retirement = profile-merge PR3 |
+| `/profile` | `pages/profile.astro` | — (noindex redirect → `/members/?me`, preserves `?tab=`) | n/a — retired by profile-merge PR3 (front #280); the self-dashboard now lives at `/members/?me`. `profile.guard.ts` survives guarding `/settings` |
 | `/members/` | `pages/members/index.astro` | `MembersHub` (`client:only`) — no param = directory, `?u=<handle>` = runtime profile, `?me` = self | Public (self view authed via `isSelf`) |
 | `/members/[handle]` | `pages/members/[handle].astro` | `MemberProfile` (`client:only`) → lazy `SelfDashboard` on `isSelf` | Public (static SEO prebuild, reviewers-only index) |
 | `/settings/` | `pages/settings.astro` (+ `settings/spotify/callback`) | `SettingsApp` (`client:only`) | **Authed** |
@@ -43,7 +43,7 @@ Shared chrome (`Header`/`Footer`/`PocketBuckit`) is mounted once in `layouts/lay
 `{lyrics?, open?}` (`play`/`add` are reserved slots — granting a surface a NEW play/add
 affordance is a product decision per RFC OQ2, implemented in TrackRow when approved).
 Consumers: `AlbumDetail` tracklist (via the shared `AlbumDetailView`, Step 1) + `LikedBoard`
-list rows (both inside the `ProfileApp` island). A future track action on these surfaces is
+list rows (both inside the `SelfDashboard` island). A future track action on these surfaces is
 wired in TrackRow once, not per surface.
 Bespoke **public** track rows (`SearchPage.SearchTrackRow`, `HeaderSearch` `ResultRow`,
 `ArtistHub` top-tracks) are NOT TrackRow — they dispatch `openTrackAlbum` directly
@@ -69,8 +69,8 @@ to compound actions).
 in exactly **2 files**: `scripts/albumDetail.client.ts` and `components/member/pocket/PocketTray.tsx`.
 TrackRow adds **no** play affordance anywhere (OQ2 default).
 
-**Static lyrics entry** (privacy-scoped): TrackRow's `lyrics` action opens `ProfileApp`'s
-existing `LyricsViewer` mount with `{trackId, progressMs: null, live: false}` — authed
+**Static lyrics entry** (privacy-scoped): TrackRow's `lyrics` action opens `SelfDashboard`'s
+`LyricsViewer` mount with `{trackId, progressMs: null, live: false}` — authed
 member island only; grep-verified no lyric affordance/import exists in any public-route
 component (FEAT-lyrics-viewer invariant unchanged).
 
@@ -145,7 +145,7 @@ surface and is untouched (Step 2 audit).
   centered-600px pattern (`StandardModal`) is **not** the Spotify-mobile full-bleed shape.
 - **Who mounts overlays** — `layouts/layout.astro` mounts the **app-wide read-only `AlbumOverlay`**
   (sibling to `PocketBuckit`, un-gated, `transition:persist`; opens on `ent:open-album`, closes on
-  ESC/scrim/✕ and `astro:before-swap`). `ProfileApp` (`AlbumDetail` + `LyricsViewer` — the lyrics mount
+  ESC/scrim/✕ and `astro:before-swap`). `SelfDashboard` (`AlbumDetail` + `LyricsViewer` — the lyrics mount
   serves the dynamic NowPlaying entry (`live:true`), the `?lyrics=` debug entry, and the
   TrackRow static entry (`live:false`)), `AlbumDetail` (`StandardModal` + `MemoWindow`),
   `OverviewDash` (`RecentAlbumsModal`/`RecentTracksModal`), `ImportAnalysis`, `ReviewsTab`
@@ -156,7 +156,7 @@ surface and is untouched (Step 2 audit).
   `useSyncExternalStore` via `useBucketStore()`).
 - **Cross-island events** — `lib/pocketBuckit/events.ts`: `pb:toggle`, `pb:closed`,
   `pb:open-state`, `pb:dnd-start`/`pb:dnd-end`, `pb:board-dnd-start`/`end`/`dropped`.
-  `ProfileApp`'s `BucketBoard` and layout's `PocketBuckit` are **separate React roots** — no
+  `SelfDashboard`'s `BucketBoard` and layout's `PocketBuckit` are **separate React roots** — no
   shared context; they communicate only via `bucketStore` + `pb:*` window CustomEvents.
 - **React context** — exactly one provider: `PocketBuckitProvider`
   (`components/member/pocket/PocketBuckitProvider.tsx:124`, `PocketContext`/`usePocket`).
