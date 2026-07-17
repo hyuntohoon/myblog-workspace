@@ -119,8 +119,8 @@ curl -X POST https://<api-gw-host>/api/todays-pick/queue   # 401 = route live, 4
 
 ## Open questions
 
-1. **Queue scope: owner-only, or `user_id`-scoped?** — this RFC assumes **owner-only, no `user_id`** (mirrors `daily_picks`, which is `require_owner` with no user column). Cheap to future-proof with a `user_id` column now (V40–V42 bucket precedent), but nothing consumes it — members have no 오늘의 곡. Blocks Step 1 (column set). **Recommend: owner-only; revisit if members ever get a pick.**
-2. **Spotify-only hits in the queue?** — `track_id NOT NULL` means a Spotify candidate can't be queued until its SQS absorb lands, so "큐에 담기" fails on exactly the rows the 검색 tab shows a green Spotify tag on. Options: (a) inherit the current refusal + surface the same notice (simplest, consistent); (b) relax `track_id` to nullable + store `spotify_track_id` only, resolving at promote time (more useful — you can stash a just-discovered track — but promote can then fail late). Blocks Step 1 (nullability). **Recommend (a) for v1.**
+1. ~~**Queue scope: owner-only, or `user_id`-scoped?**~~ — **RESOLVED 2026-07-17 (owner): owner-only, no `user_id`.** Mirrors `daily_picks` (`require_owner`, no user column). Nothing would consume a `user_id` — members have no 오늘의 곡. Revisit only if members ever get a pick; the V40–V42 bucket migrations are the precedent for adding the column later.
+2. ~~**Spotify-only hits in the queue?**~~ — **RESOLVED 2026-07-17 (owner): option (a) — keep the refusal for v1.** `track_id` stays `NOT NULL`; "큐에 담기" on a Spotify-tagged row surfaces the picker's existing "이 곡은 아직 DB에 없어요" notice. Keeps the queue schema an exact `daily_picks` mirror and guarantees promote can never fail late. **Known cost, accepted:** you cannot stash a just-discovered track until its SQS absorb lands — 큐에 담기 requires a Spotify 싱크 first, then a re-search. If that friction bites in practice, option (b) (nullable `track_id`, resolve at promote) is the escape hatch and would be a follow-on migration.
 3. **Does promote consume the queue row?** — this RFC says yes (promote deletes it). If the owner wants to re-post a song later they'd re-queue it. Blocks Step 2. **Recommend: yes.**
 4. **Queue size cap?** — none proposed. If it grows unbounded the 큐 tab needs paging. Blocks nothing now; revisit if it passes ~50 rows.
 
@@ -129,3 +129,5 @@ curl -X POST https://<api-gw-host>/api/todays-pick/queue   # 401 = route live, 4
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-07-17 | Storage = DB table (not localStorage); queue UI = tab inside the existing picker modal, not a new home section | — |
+| 2026-07-17 | OQ1 — queue is owner-only, no `user_id` column (mirrors `daily_picks`) | 1 |
+| 2026-07-17 | OQ2 — `track_id` stays `NOT NULL`; Spotify-only hits keep the existing refusal for v1. Accepted cost: no stashing a track until its absorb lands | 1 |
