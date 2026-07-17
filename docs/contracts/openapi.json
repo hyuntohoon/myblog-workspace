@@ -132,6 +132,38 @@
         "title": "AddToListenRequest",
         "type": "object"
       },
+      "Backend_AddTrackedArtistsRequest": {
+        "properties": {
+          "artist_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Artist Ids",
+            "type": "array"
+          }
+        },
+        "title": "AddTrackedArtistsRequest",
+        "type": "object"
+      },
+      "Backend_AddTrackedArtistsResponse": {
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "already_tracked": {
+            "title": "Already Tracked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "added",
+          "already_tracked"
+        ],
+        "title": "AddTrackedArtistsResponse",
+        "type": "object"
+      },
       "Backend_AlbumBrief": {
         "properties": {
           "artist_names": {
@@ -2676,6 +2708,93 @@
         "title": "RefreshRecentResponse",
         "type": "object"
       },
+      "Backend_ReleaseFeedItem": {
+        "properties": {
+          "artist_id": {
+            "format": "uuid",
+            "title": "Artist Id",
+            "type": "string"
+          },
+          "artist_name": {
+            "title": "Artist Name",
+            "type": "string"
+          },
+          "release_date": {
+            "format": "date",
+            "title": "Release Date",
+            "type": "string"
+          },
+          "release_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Type"
+          },
+          "spotify_album_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotify Album Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "trust": {
+            "enum": [
+              "\ud655\uc815",
+              "\uc608\uc815",
+              "\ubd88\ud655\uc2e4"
+            ],
+            "title": "Trust",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artist_id",
+          "artist_name",
+          "title",
+          "release_date",
+          "status",
+          "trust"
+        ],
+        "title": "ReleaseFeedItem",
+        "type": "object"
+      },
+      "Backend_ReleaseFeedResponse": {
+        "properties": {
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_ReleaseFeedItem"
+            },
+            "title": "Recent",
+            "type": "array"
+          },
+          "upcoming": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_ReleaseFeedItem"
+            },
+            "title": "Upcoming",
+            "type": "array"
+          }
+        },
+        "title": "ReleaseFeedResponse",
+        "type": "object"
+      },
       "Backend_ReorderBucket": {
         "properties": {
           "id": {
@@ -3797,6 +3916,104 @@
           "title"
         ],
         "title": "TrackBrief",
+        "type": "object"
+      },
+      "Backend_TrackedArtistCandidate": {
+        "properties": {
+          "already_tracked": {
+            "title": "Already Tracked",
+            "type": "boolean"
+          },
+          "artist_id": {
+            "format": "uuid",
+            "title": "Artist Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          }
+        },
+        "required": [
+          "artist_id",
+          "name",
+          "already_tracked"
+        ],
+        "title": "TrackedArtistCandidate",
+        "type": "object"
+      },
+      "Backend_TrackedArtistPreviewRequest": {
+        "properties": {
+          "bucket_id": {
+            "format": "uuid",
+            "title": "Bucket Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bucket_id"
+        ],
+        "title": "TrackedArtistPreviewRequest",
+        "type": "object"
+      },
+      "Backend_TrackedArtistPreviewResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_TrackedArtistCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          }
+        },
+        "title": "TrackedArtistPreviewResponse",
+        "type": "object"
+      },
+      "Backend_TrackedArtistResponse": {
+        "properties": {
+          "added_at": {
+            "format": "date-time",
+            "title": "Added At",
+            "type": "string"
+          },
+          "artist_id": {
+            "format": "uuid",
+            "title": "Artist Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          }
+        },
+        "required": [
+          "artist_id",
+          "name",
+          "added_at"
+        ],
+        "title": "TrackedArtistResponse",
         "type": "object"
       },
       "Backend_UnclassifiedBreakdown": {
@@ -8476,6 +8693,235 @@
         "summary": "Update Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/me/release-feed": {
+      "get": {
+        "operationId": "get_release_feed_api_me_release_feed_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "upcoming",
+                "recent",
+                "all"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "album",
+                "single",
+                "all"
+              ],
+              "title": "Category",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_ReleaseFeedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Release Feed",
+        "tags": [
+          "release-feed"
+        ]
+      }
+    },
+    "/api/me/tracked-artists": {
+      "get": {
+        "operationId": "list_tracked_artists_api_me_tracked_artists_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Backend_TrackedArtistResponse"
+                  },
+                  "title": "Response List Tracked Artists Api Me Tracked Artists Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Tracked Artists",
+        "tags": [
+          "tracked-artists"
+        ]
+      },
+      "post": {
+        "operationId": "add_tracked_artists_api_me_tracked_artists_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Backend_AddTrackedArtistsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_AddTrackedArtistsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Tracked Artists",
+        "tags": [
+          "tracked-artists"
+        ]
+      }
+    },
+    "/api/me/tracked-artists/preview": {
+      "post": {
+        "operationId": "preview_tracked_artists_api_me_tracked_artists_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Backend_TrackedArtistPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_TrackedArtistPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Preview Tracked Artists",
+        "tags": [
+          "tracked-artists"
+        ]
+      }
+    },
+    "/api/me/tracked-artists/{artist_id}": {
+      "delete": {
+        "operationId": "delete_tracked_artist_api_me_tracked_artists__artist_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artist_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artist Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Tracked Artist",
+        "tags": [
+          "tracked-artists"
         ]
       }
     },
