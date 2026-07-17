@@ -14,9 +14,11 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V45 (V45 authored + prod-applied
---   2026-07-12 — FEAT-multi-user-accounts Phase 3b-b; V44 authored +
---   prod-applied 2026-07-12 — FEAT-release-calendar Track B Step 3);
+-- This file shows clean canonical DDL through V47 (V47 authored + prod-applied
+--   2026-07-15 — FEAT-personal-release-tracking Step 1; V46 authored +
+--   prod-applied 2026-07-12 — FEAT-multi-user-accounts Phase 3c-a; V45 authored
+--   + prod-applied 2026-07-12 — FEAT-multi-user-accounts Phase 3b-b; V44
+--   authored + prod-applied 2026-07-12 — FEAT-release-calendar Track B Step 3);
 --   V1–V43 were reconciled against a full
 --   prod introspection 2026-07-11 (CHORE-canonical-schema-sync): every table,
 --   column type, constraint and index below was verified against Neon prod
@@ -616,10 +618,13 @@ CREATE INDEX IF NOT EXISTS idx_spotify_saved_tracks_added_at ON spotify_saved_tr
 -- true lifetime play counts + listening time (no API exposes them). Denormalized +
 -- nullable catalog FKs (resolved best-effort at import + by --resolve-only).
 -- spotify_track_uri is the full URI (dedup anchor + music/podcast prefix predicate).
--- ms_played BIGINT (lifetime sum > INT4). Dedup UNIQUE (ts, spotify_track_uri),
--- idempotent re-import. NO IP / user-agent columns (privacy).
+-- ms_played BIGINT (lifetime sum > INT4). Dedup UNIQUE (user_id, ts, spotify_track_uri)
+-- since V46 (per-user re-scope; was global (ts, uri)), idempotent re-import.
+-- NO IP / user-agent columns (privacy). user_id nullable until the post-soak
+-- NOT NULL flip (V40/V42 pattern).
 CREATE TABLE IF NOT EXISTS spotify_stream_history (
   id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID        REFERENCES users(id) ON DELETE CASCADE,  -- V46; NOT NULL after soak
   ts                 TIMESTAMPTZ NOT NULL,                       -- stream END (export `ts`, UTC)
   ms_played          BIGINT      NOT NULL,                       -- ms listened; lifetime sum → BIGINT
   spotify_track_uri  TEXT        NOT NULL,                       -- full "spotify:track:…" / "spotify:episode:…"
@@ -635,7 +640,7 @@ CREATE TABLE IF NOT EXISTS spotify_stream_history (
   reason_start       TEXT,
   reason_end         TEXT,
   imported_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT uq_spotify_stream_history_stream UNIQUE (ts, spotify_track_uri)
+  CONSTRAINT uq_spotify_stream_history_user_stream UNIQUE (user_id, ts, spotify_track_uri)
 );
 CREATE INDEX IF NOT EXISTS idx_spotify_stream_history_album_id ON spotify_stream_history(album_id);
 CREATE INDEX IF NOT EXISTS idx_spotify_stream_history_track_id ON spotify_stream_history(track_id);
@@ -645,6 +650,7 @@ CREATE INDEX IF NOT EXISTS idx_spotify_stream_history_ts ON spotify_stream_histo
 -- inserted counts + as_of (max(ts) = staleness horizon) + run time.
 CREATE TABLE IF NOT EXISTS stream_import_runs (
   id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID        REFERENCES users(id) ON DELETE CASCADE,  -- V46; whose export; NOT NULL after soak
   file_name      TEXT        NOT NULL,
   rows_total     INTEGER     NOT NULL DEFAULT 0,
   rows_inserted  INTEGER     NOT NULL DEFAULT 0,
@@ -1079,7 +1085,11 @@ CREATE TABLE IF NOT EXISTS spotify_member_now_playing (
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
--- This file is current through V45 (spotify_member_recent_tracks +
+-- This file is current through V47 (user_artist_tracks, FEAT-personal-release-
+-- tracking Step 1 — authored + prod-applied 2026-07-15), after V46 (user_id on
+-- spotify_stream_history + stream_import_runs, FEAT-multi-user-accounts Phase
+-- 3c-a — authored + prod-applied 2026-07-12; user_id stays nullable until the
+-- post-soak NOT NULL flip), after V45 (spotify_member_recent_tracks +
 -- spotify_member_now_playing, FEAT-multi-user-accounts Phase 3b-b — authored +
 -- prod-applied 2026-07-12), after V44 (artist_release_events +
 -- artist_source_ids, FEAT-release-calendar Track B Step 3 — authored +
