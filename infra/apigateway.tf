@@ -324,6 +324,34 @@ resource "aws_apigatewayv2_route" "todays_pick_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# FEAT-todays-pick-queue Step 3: private owner staging queue for 오늘의 곡.
+# GET /api/todays-pick/queue deliberately has NO route here — it rides the
+# edge_guard GET catch-all (api_get_proxy) and stays owner-gated in-Lambda
+# (require_owner verifies the JWT itself; no token → 401, non-owner → 403).
+resource "aws_apigatewayv2_route" "todays_pick_queue_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/todays-pick/queue"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "todays_pick_queue_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/todays-pick/queue/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "todays_pick_queue_promote_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/todays-pick/queue/{id}/promote"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # FEAT-spotify-library-sync: manual "동기화" enqueues an async Spotify-Library sync
 # job; the worker does the Spotify reads/diffs/writes (rule #9 — never sync here).
 # The GET /api/buckets/spotify-library/state read rides the edge_guard catch-all
