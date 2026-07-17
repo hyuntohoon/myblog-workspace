@@ -211,6 +211,35 @@ resource "aws_apigatewayv2_route" "me_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Tracked artists (FEAT-personal-release-tracking Step 2) ---
+# GET /api/me/tracked-artists and GET /api/me/release-feed ride the edge_guard
+# GET catch-all (api_get_proxy) — JWT validated in-Lambda via
+# provisioned_member_id. Only the mutations are Cognito-JWT gated here
+# (me_patch pattern).
+resource "aws_apigatewayv2_route" "tracked_artists_preview_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/me/tracked-artists/preview"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "tracked_artists_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/me/tracked-artists"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "tracked_artists_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/me/tracked-artists/{artist_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Album reviews (FEAT-multi-user-accounts Phase 1) ---
 # The public reads — GET /api/reviews/albums/{id}, GET /api/members[/{handle}] —
 # ride the edge_guard GET catch-all (api_get_proxy). Only the member/owner
