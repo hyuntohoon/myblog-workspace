@@ -1,7 +1,7 @@
 # FEAT-todays-pick-queue: staging queue for 오늘의 곡
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: accepted
+- **Owner**: 박지훈
 - **Created**: 2026-07-17
 - **Plan row**: `plan.md` → FEAT-todays-pick-queue
 
@@ -131,3 +131,4 @@ curl -X POST https://<api-gw-host>/api/todays-pick/queue   # 401 = route live, 4
 | 2026-07-17 | Storage = DB table (not localStorage); queue UI = tab inside the existing picker modal, not a new home section | — |
 | 2026-07-17 | OQ1 — queue is owner-only, no `user_id` column (mirrors `daily_picks`) | 1 |
 | 2026-07-17 | OQ2 — `track_id` stays `NOT NULL`; Spotify-only hits keep the existing refusal for v1. Accepted cost: no stashing a track until its absorb lands | 1 |
+| 2026-07-17 | RFC accepted (owner, in-session). Steps 1–3 developed in parallel worktrees; merge order stays V48 → backend → infra/contract → front | 1–3 |
