@@ -327,7 +327,10 @@ resource "aws_apigatewayv2_route" "todays_pick_delete" {
 # FEAT-todays-pick-queue Step 3: private owner staging queue for 오늘의 곡.
 # GET /api/todays-pick/queue deliberately has NO route here — it rides the
 # edge_guard GET catch-all (api_get_proxy) and stays owner-gated in-Lambda
-# (require_owner verifies the JWT itself; no token → 401, non-owner → 403).
+# (require_owner verifies the JWT itself; no token → 403 "Forbidden" — FastAPI
+# HTTPBearer's missing-credential response — and non-owner → 403. Observed on
+# the raw API GW host post-Step-4; via CloudFront no-token is 401. Fail-closed
+# either way; only the mutation routes below 401 at the API GW authorizer).
 resource "aws_apigatewayv2_route" "todays_pick_queue_post" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "POST /api/todays-pick/queue"
