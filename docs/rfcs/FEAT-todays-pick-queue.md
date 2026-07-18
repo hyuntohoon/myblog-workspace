@@ -121,7 +121,7 @@ curl -X POST https://<api-gw-host>/api/todays-pick/queue   # 401 = route live, 4
 
 1. ~~**Queue scope: owner-only, or `user_id`-scoped?**~~ — **RESOLVED 2026-07-17 (owner): owner-only, no `user_id`.** Mirrors `daily_picks` (`require_owner`, no user column). Nothing would consume a `user_id` — members have no 오늘의 곡. Revisit only if members ever get a pick; the V40–V42 bucket migrations are the precedent for adding the column later.
 2. ~~**Spotify-only hits in the queue?**~~ — **RESOLVED 2026-07-17 (owner): option (a) — keep the refusal for v1.** `track_id` stays `NOT NULL`; "큐에 담기" on a Spotify-tagged row surfaces the picker's existing "이 곡은 아직 DB에 없어요" notice. Keeps the queue schema an exact `daily_picks` mirror and guarantees promote can never fail late. **Known cost, accepted:** you cannot stash a just-discovered track until its SQS absorb lands — 큐에 담기 requires a Spotify 싱크 first, then a re-search. If that friction bites in practice, option (b) (nullable `track_id`, resolve at promote) is the escape hatch and would be a follow-on migration.
-3. **Does promote consume the queue row?** — this RFC says yes (promote deletes it). If the owner wants to re-post a song later they'd re-queue it. Blocks Step 2. **Recommend: yes.**
+3. ~~**Does promote consume the queue row?**~~ — **RESOLVED 2026-07-18 (shipped as recommended): yes.** Promote deletes the queue row in the same transaction as the pick upsert (backend #123); re-posting later means re-queueing.
 4. **Queue size cap?** — none proposed. If it grows unbounded the 큐 tab needs paging. Blocks nothing now; revisit if it passes ~50 rows.
 
 ## Decisions log
@@ -132,3 +132,4 @@ curl -X POST https://<api-gw-host>/api/todays-pick/queue   # 401 = route live, 4
 | 2026-07-17 | OQ1 — queue is owner-only, no `user_id` column (mirrors `daily_picks`) | 1 |
 | 2026-07-17 | OQ2 — `track_id` stays `NOT NULL`; Spotify-only hits keep the existing refusal for v1. Accepted cost: no stashing a track until its absorb lands | 1 |
 | 2026-07-17 | RFC accepted (owner, in-session). Steps 1–3 developed in parallel worktrees; merge order stays V48 → backend → infra/contract → front | 1–3 |
+| 2026-07-18 | Steps 1–3 shipped + prod-verified: shared_db #68 (V48 prod-applied pre-consumer, owner-approved), backend #123 (pin @50d33c3; TEST_DB-gated promote-atomicity integration tests), ws #637 (tf apply 3/0/0, owner-approved). Probes: no-token 401 / member JWT 403 on all four queue routes; full prod smoke 19/0. OQ3 resolved as recommended (promote consumes the row). Step 4 (front) remains | 1–3 |
