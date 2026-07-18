@@ -1,6 +1,6 @@
 # FEAT-lyrics-viewer-controls: header/controls redesign — scroll-to-manual + return affordances
 
-- **Status**: draft
+- **Status**: in-progress (Step 1 shipped 2026-07-19)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → FEAT-lyrics-viewer-controls
@@ -71,6 +71,14 @@ status line (SR counter :825 stays).
 **Verification**: real-browser click-through — wheel mid-track suspends; pill returns; idle
 returns; D un-dims + taps re-anchor; `prefers-reduced-motion` path.
 
+> **Shipped 2026-07-19** — front #289 (squash `5f7f184`). Key implementation choice: browse
+> inputs (wheel/drag/keys) no longer re-anchor the clock estimate — tap is the only
+> re-anchoring nav, so the live position survives browsing and return = `focusIndexForMs`
+> over the untouched anchor. Interim [필|브라우즈] rail segment until the Step 2 popover.
+> Verified: `pnpm lint` + `astro check` clean; CDP fetch-mock click-through 27/27
+> (suspend/pill/idle-return/tap-re-anchor/browse dim-lift+snap-back/reduced-motion/390px
+> touch); prod smoke post-deploy (bundle marker + /members/ 200) quoted in PR comment.
+
 ### Step 2 — ⚙ popover + header regroup (front)
 
 Popover hosts style (블러/플랫 as icons) + behavior (A/D); rail removed; header regrouped per
@@ -92,3 +100,5 @@ translation cluster states (done/requested/failed/stale) all render.
 |------|----------|------|
 | 2026-07-18 | Owner: implement BOTH A and D, switchable; final pick after prod use | 1 |
 | 2026-07-18 | Owner: 블러/플랫 → ⚙ 설정 popover | 2 |
+| 2026-07-19 | Step 1 ships an interim [필|브라우즈] rail segment (A/D switch) — absorbed into the ⚙ popover in Step 2 | 1 |
+| 2026-07-19 | Browse nav (wheel/drag/keys) does NOT re-anchor the estimate; line tap is the only re-anchoring nav (return needs the live anchor) | 1 |
