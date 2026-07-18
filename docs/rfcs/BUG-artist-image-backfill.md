@@ -1,6 +1,6 @@
 # BUG-artist-image-backfill: artist photo NULL backlog + missing backfill loop
 
-- **Status**: draft
+- **Status**: in-progress (Steps 1+2 shipped + prod-smoked 2026-07-19 — worker #74/#75; Step 3 infra sweep remaining)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → BUG-artist-image-backfill
@@ -71,7 +71,7 @@ Owner decision (13, 2026-07-18): the full 3-piece set — one-shot + sentinel + 
 with individual-GET fallback. Single service repo (worker) + small infra touch → Steps 1–2 are
 one PR; Step 3 is the infra PR.
 
-### Step 1 — sentinel + shared enrich routine + batch fallback (worker)
+### Step 1 — sentinel + shared enrich routine + batch fallback (worker) — ✅ DONE 2026-07-19 (worker #74 + test-fix #75)
 
 Extract the enrich block from `sync_service.py` into a reusable
 `enrich_artists(spotify_ids: list[str])` routine: chunk 50 → `get_artists_batch` → on batch
@@ -82,7 +82,7 @@ error, fall back to per-id `GET /artists/{id}` → write `photo_url` (or `''` se
 **Verification**: worker pytest (new unit: no-image artist → `''` written, second run skips it;
 batch-403 → individual fallback used); local run against TEST_DB.
 
-### Step 2 — one-shot backlog job (worker, same PR as Step 1 allowed)
+### Step 2 — one-shot backlog job (worker, same PR as Step 1 allowed) — ✅ DONE 2026-07-19 (worker #74; prod one-shot executed)
 
 A worker-side entry (SQS message type or CLI/管理 script consistent with existing worker job
 patterns) that selects `photo_url IS NULL` artists (463 today), runs `enrich_artists` over them.
@@ -110,8 +110,9 @@ accumulation (`still_null` stays ≈ 0 week-over-week).
 1. **App mode confirmation** (owner, dashboard) — Extended Quota Mode or Dev Mode? Blocks
    nothing here (fallback covers both) but sets the urgency of the fallback path and feeds
    FEAT-member-player risk. 
-2. **Job transport** — SQS message type vs EventBridge-direct payload for the one-shot: pick
-   whichever matches the existing worker job dispatch in implementation; blocks Step 2 shape only.
+2. **Job transport** — RESOLVED 2026-07-19 (Step 2): `{"job": "artist_photo_backfill", "limit"?}`
+   routed in both the EventBridge constant-input check and the SQS record-body section
+   (`lyrics_incremental` pattern) — Step 3's weekly rule reuses the payload as-is.
 3. **`ab677269`-prefix rows (109) + ~10 non-scdn singletons** — inspect during Step 2; decide
    re-enrich or leave. Blocks nothing.
 
@@ -120,3 +121,5 @@ accumulation (`still_null` stays ≈ 0 week-over-week).
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-07-18 | Owner: 3-piece set (one-shot + sentinel + weekly sweep + individual-GET fallback); S3 mirroring rejected | all |
+| 2026-07-19 | Job transport = `{"job": "artist_photo_backfill"}` via EventBridge + SQS body routing (OQ2) | 2 |
+| 2026-07-19 | Steps 1+2 shipped (worker #74; #75 test-only fix — sync integration tests' spotify patch target no longer covered the extracted enrich, CI-only failure). Prod one-shot: still_null 463→**0**, sentinel 0→**460**, 3 real photos filled. Sentinel ground-truthed vs live API (popularity-63 artist genuinely `images: []`) — backlog was overwhelmingly "Spotify has no artist image", now permanently excluded from re-fetch. Gate met (still_null ≈ 0, denominator = 5,107 artists) | 1+2 |
