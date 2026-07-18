@@ -1,6 +1,6 @@
 # SEO-review-structured-data: Review + MusicAlbum JSON-LD on review pages
 
-- **Status**: draft
+- **Status**: in-progress
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → SEO-review-structured-data
@@ -85,14 +85,20 @@ stars are at Google's discretion — the exit gate is "valid + eligible", not "s
 
 ## Open questions
 
-1. **bestRating** — emit the native 0–10 scale or normalize to 5-star (matching the visible
-   star UI)? Default: native scale with `bestRating` set per `ratingScale` (Google normalizes).
-   Blocks Step 1 constant only.
-2. **reviewBody source** — `description` vs first N chars of the MDX body. Default:
-   `description`.
+1. ~~**bestRating**~~ — RESOLVED 2026-07-19: default adopted — native scale, `bestRating` =
+   `ratingScale` (5|10), `worstRating` 0.
+2. ~~**reviewBody source**~~ — RESOLVED 2026-07-19: default adopted — `description` (omitted
+   when empty).
+3. **Live-URL Rich Results Test** — deferred: the `blog` content collection is currently
+   empty on `main` (publish service writes `content/blog/` via the GitHub contents API; prod
+   sitemap has zero `/review/<slug>` URLs), and RRT's code-snippet mode requires Google
+   sign-in (headless automation blocked). Run RRT against the first live review URL after the
+   first publish and quote the result in front PR #288. Until then the exit gate rests on the
+   Schema Markup Validator pass (0 errors / 0 warnings) + Google policy field checklist.
 
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-07-18 | Owner: JSON-LD only; OG image generation deferred | scope |
+| 2026-07-19 | Step 1 shipped (front #288): `review-jsonld.astro` behind `isReview`, inside the `<Seo>` head slot; posts without `musicReview.title` emit nothing (Review requires `itemReviewed`). Verified via local MDX fixture (collection empty on `main`): build grep = exactly 1 emission site-wide; validator.schema.org `Review` detected, 0 errors/0 warnings; `<`-escape confirmed against `</script>` breakout. Live-URL RRT deferred → OQ3. | 1 |
