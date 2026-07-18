@@ -1,6 +1,6 @@
 # FEAT-home-strip-ranking: hybrid ordering + visible horizontal-scroll affordances
 
-- **Status**: draft
+- **Status**: in-progress
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → FEAT-home-strip-ranking
@@ -54,11 +54,13 @@ the music service layer only; affordances are front-only.
 
 ## Steps
 
-### Step 1 — service-layer ordering (myblog_music)
+### Step 1 — service-layer ordering (myblog_music) — SHIPPED 2026-07-19 (music #55, prod-smoked)
 
 Implement the two scores in `feed_service.py` / `album_service.py`. No router/schema change ⇒
 no openapi regen. Unit tests pin the formula (fixture albums: fresh-unknown vs old-popular).
 **Verification**: pytest; prod smoke = strips return re-ranked order (spot-check one known pair).
+Prod smoke 2026-07-19: new-releases — artist-pop-95 album (old #1) ranks #9 below fresher
+releases; on-this-day — `years_ago` non-monotonic (`1,1,1,1,10,8,15,4`). Both scores active.
 
 ### Step 2 — strip affordances (myblog_front)
 
