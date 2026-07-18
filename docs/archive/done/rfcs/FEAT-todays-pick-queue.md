@@ -1,6 +1,6 @@
 # FEAT-todays-pick-queue: staging queue for 오늘의 곡
 
-- **Status**: accepted
+- **Status**: done
 - **Owner**: 박지훈
 - **Created**: 2026-07-17
 - **Plan row**: `plan.md` → FEAT-todays-pick-queue
@@ -133,3 +133,4 @@ curl -X POST https://<api-gw-host>/api/todays-pick/queue   # 401 = route live, 4
 | 2026-07-17 | OQ2 — `track_id` stays `NOT NULL`; Spotify-only hits keep the existing refusal for v1. Accepted cost: no stashing a track until its absorb lands | 1 |
 | 2026-07-17 | RFC accepted (owner, in-session). Steps 1–3 developed in parallel worktrees; merge order stays V48 → backend → infra/contract → front | 1–3 |
 | 2026-07-18 | Steps 1–3 shipped + prod-verified: shared_db #68 (V48 prod-applied pre-consumer, owner-approved), backend #123 (pin @50d33c3; TEST_DB-gated promote-atomicity integration tests), ws #637 (tf apply 3/0/0, owner-approved). Probes: no-token 401 / member JWT 403 on all four queue routes; full prod smoke 19/0. OQ3 resolved as recommended (promote consumes the row). Step 4 (front) remains | 1–3 |
+| 2026-07-18 | **Step 4 shipped + prod-verified — RFC DONE** (owner-approved close). front #284 (2fb89ee): 검색/큐 tabs in `TodaySongPicker`, queue client in `lib/todaysPick.ts` (all `apiFetch`), promote finishes via new `onPromoted` (server-atomic, adopt+close like `onPick`), `api.gen.ts` regenerated in-PR. Verified: lint + astro check 0 errors; real-browser click-through (playwright-core + system Chrome, backend network-mocked) against dev AND production build, incl. mobile-390px long-title 0-overflow; deploy 29633026595; prod smoke 19/0; owner did a live 큐에 담기 → promote round-trip. Correction to the Step-1–3 record: on the raw API GW host, no-token GET `/queue` is **403** (`{"detail":"Forbidden"}`, FastAPI HTTPBearer) not 401 — via CloudFront (the front's path) it is 401; fail-closed either way (`infra/apigateway.tf` comment fixed in this PR). OQ4 (size cap) stays open-by-design — revisit past ~50 rows | 4 |
