@@ -3,12 +3,14 @@
 - **Status**: accepted (2026-07-15, owner in-session approval — "시작하자"; H1 measured
   2026-07-14 against live #548 poller data: **thin-but-usable, not first-class**.
   **Step 1–3 착수 2026-07-15** — 2-phase execution: Step 1 schema → Steps 2∥3
-  parallel via codex worktrees. **Steps 4+5 착수 2026-07-18** (owner "4,5 둘 다
-  진행하자"): OQ5 closed (absorbed by #548's multi-source redesign), OQ2 closed
-  (Wikidata rejected on a zero-contribution live probe), Step 4 rescoped to
-  poller-scope-only (watchlist ∪ tracked artists); Step 5 design gate resolved
-  (shared visual base with /releases + `/radar` page, Upcoming as an
-  appears-only-when-present strip). See Decisions log 2026-07-18.)
+  parallel via codex worktrees. **Steps 4+5 shipped + prod-smoked 2026-07-18**
+  (owner "4,5 둘 다 진행하자"): OQ5 closed (absorbed by #548's multi-source
+  redesign), OQ2 closed (Wikidata rejected on a zero-contribution live probe),
+  Step 4 = worker #73 (poller-scope widened to watchlist ∪ tracked artists),
+  Step 5 = front #285 (`/radar` page sharing the /releases visual base via
+  `releaseShared.tsx`, Upcoming as an appears-only-when-present strip). All 5
+  steps DONE; H1 re-measure ~07-27 stands as a separate observation gate. See
+  Decisions log 2026-07-18.)
 - **Owner**: TBD
 - **Created**: 2026-07-08
 - **Plan row**: `plan.md` → FEAT-personal-release-tracking
@@ -27,11 +29,12 @@
 > **Status note.** Captures a 2026-07-08 brainstorm + one rebuttal round + a
 > UI design exploration. **Accepted 2026-07-15** (owner) after H1 was measured
 > against live #548 poller data (2026-07-14: thin-but-usable, **not**
-> first-class). Steps 1–3 shipped + prod-smoked 2026-07-17. **Steps 4+5 착수
-> 2026-07-18** (owner "4,5 둘 다 진행하자"): OQ2/OQ5 closed (Wikidata rejected
-> on a zero-contribution live probe; multi-source absorbed by #548), Step 4
-> rescoped to poller-scope-only (worker), Step 5 = `/radar` page sharing the
-> /releases visual base. See Decisions log 2026-07-18.
+> first-class). Steps 1–3 shipped + prod-smoked 2026-07-17. **Steps 4+5 shipped
+> + prod-smoked 2026-07-18** (owner "4,5 둘 다 진행하자"): OQ2/OQ5 closed
+> (Wikidata rejected on a zero-contribution live probe; multi-source absorbed by
+> #548), Step 4 = worker #73 (poller scope), Step 5 = front #285 (`/radar`
+> page). All 5 steps DONE; H1 re-measure ~07-27 stands as a separate
+> observation gate, not a closeout blocker.
 
 ---
 
@@ -281,18 +284,23 @@ its payoff is exactly what H1 must measure.
 3. ✅ Per-user visibility query + personalized feed endpoint (DB-only read).
    **DONE + prod-smoked 2026-07-17** (backend #121 + #122 added-count hotfix;
    ws #632 apigw routes + contract; front #282 types).
-4. ⏳ **Poller-scope widening** (rescoped 2026-07-18 from "multi-source
-   upcoming ingestion"): widen MB + iTunes upcoming-poll eligibility to
-   watchlist ∪ user-tracked artists, so a tracked long-tail artist below the
+4. ✅ **Poller-scope widening** (rescoped 2026-07-18 from "multi-source
+   upcoming ingestion") — **DONE + prod-smoked 2026-07-18** (worker #73):
+   MB + iTunes upcoming-poll eligibility widened to `popularity >= 50 OR
+   EXISTS(user_artist_tracks)` so a tracked long-tail artist below the
    popularity floor still gets discovery. No new source — OQ2 (Wikidata) and
-   OQ5 (#548 reconcile) are closed (see Decisions log). Touches worker.
-5. ⏳ **`/radar` personal feed page** (design gate resolved 2026-07-18, NOT the
-   almanac v3 riso mockup): shares the /releases calendar's visual system
-   (`releaseShared.tsx`: rcal-* stylesheet + event/ledger components) as one
-   base, with radar-specific parts layered on top. Upcoming = appears-only-
-   when-present strip; Recently Released = default surface. `noindex` + JWT
-   member scope; public /releases unchanged. OQ6 (range selection) dropped for
-   v1 (windowed server-side).
+   OQ5 (#548 reconcile) closed (see Decisions log). 2 guard tests; 26/26 pass.
+5. ✅ **`/radar` personal feed page** (design gate resolved 2026-07-18) —
+   **DONE + prod-smoked 2026-07-18** (front #285): shares the /releases
+   calendar's visual system (`releaseShared.tsx`: rcal-* stylesheet +
+   event/ledger components) as one base, with radar-specific parts layered on
+   top. Upcoming = appears-only-when-present strip; Recently Released =
+   default surface. `noindex` + JWT member scope; public /releases unchanged.
+   Real-browser CDP verified (desktop + 390 px mobile + light/dark); prod
+   smoke confirmed static delivery + authed add/remove/feed-shape cycle.
+
+**All 5 steps DONE.** RFC implementation closed; H1 re-measure ~07-27 still
+stands as a separate observation gate (does not block closeout).
 
 ## Decisions log
 
@@ -311,3 +319,4 @@ its payoff is exactly what H1 must measure.
 | 2026-07-18 | **OQ5 closed** (owner): #548's 2026-07-11 multi-source redesign (MB + iTunes live at the shared `artist_release_events` layer) IS the reconciliation — Step 4's "multi-source ingestion" is absorbed; what remained was poller *scope*. **Step 4 rescoped to scope-only**: poll eligibility widened to watchlist ∪ user-tracked artists (both MB + iTunes passes) so a tracked long-tail artist below the popularity floor still gets discovery | OQ5 / Step 4 |
 | 2026-07-18 | **OQ2 closed — Wikidata rejected on live probe** (owner picked "scope + Wikidata", then approved skip on the evidence). Probe: SPARQL P434 (MBID hard-ID chain) over 1,629 watchlist MBIDs → future-dated (P577) releases for **4/1,629 artists (0.25%)**, and **all 4 already present** in `artist_release_events` from MB/iTunes (new contribution = 0; live pollers held 61 future rows / 51 artists same day). ToS itself was fine (CC0 + UA etiquette) — rejected on payoff, not licensing. Re-evaluable later if member-tracked long-tail data suggests otherwise | OQ2 |
 | 2026-07-18 | **Step 5 design gate resolved** (owner): NOT the almanac v3 riso mockup — the personal feed **shares the /releases calendar's visual system as one object-oriented base** (`releaseShared.tsx`: rcal-* stylesheet + event/ledger components; an edit there restyles both pages), with radar-specific parts layered on top. **OQ1 → strip**: Upcoming renders only when non-empty (H1-consistent), Recently Released is the default surface. **Page = /radar** (separate page, noindex, JWT member scope; public /releases unchanged). OQ6 (range selection) dropped for v1 — the feed is windowed server-side | Step 5 / OQ1 / OQ6 |
+| 2026-07-18 | **Steps 4+5 shipped + prod-smoked** — worker #73 (MB + iTunes eligibility widened to `popularity >= 50 OR EXISTS(user_artist_tracks)`; 2 guard tests; prod release-feed endpoint confirmed), front #285 (`releaseShared.tsx` shared base extracted, `/radar` page shipped, CDP-verified desktop + 390 px mobile + light/dark). Prod smoke: static `/radar` 200 + noindex meta + authed add/remove/feed-shape cycle against `/api/me/tracked-artists` + `/api/me/release-feed`. **All 5 steps DONE; RFC implementation closed.** H1 re-measure ~07-27 stands as a separate observation gate | ship |
