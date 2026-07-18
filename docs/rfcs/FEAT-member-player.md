@@ -1,6 +1,6 @@
 # FEAT-member-player: rebuild '지금 듣는 음악' as a real player bar (capability-tiered controls)
 
-- **Status**: draft
+- **Status**: in-progress
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → FEAT-member-player
@@ -74,10 +74,17 @@ anywhere; control calls are client-side with the user's token (CLAUDE.md rule 9)
   access token from *that member's* refresh token; `require_cognito_token` + row-scoped);
   `getStreamingToken()` body swapped per the seam; `readLivePlayback()` owner gate removed.
 - **Layout**: 2–3 mockups per variant at implementation time (frontend-design skill), grounded
-  in the researched anatomy — Spotify (identity-left / transport-center / utilities-right) vs
-  Apple ("LCD" center) references; mini-variant drop order (progress→transport→rest, keep
-  cover+title+play). Research notes: scratchpad `ux-research-player-lyrics.md` (2026-07-18) —
-  fold into the RFC on promotion.
+  in the researched anatomy below.
+
+### Design references (UX research, 2026-07-18 — folded in on promotion)
+
+- **Spotify bar anatomy**: left = identity (cover ~56px + title/artist), center = transport
+  (circular play button + progress bar), right = utilities.
+- **Apple Music**: single centered "LCD" block integrating identity + progress.
+- **Miniaturization drop order**: progress bar → prev/next → everything else; the last
+  survivors are cover + title + play.
+- **Connect hint**: "Listening on <device>" banner along the bar's bottom edge
+  (Spotify Connect idiom) — model for Step 4's device line.
 
 ## Steps
 
@@ -135,3 +142,6 @@ becomes selectable output. Premium-gated by SDK init failure (second capability 
 | 2026-07-18 | D1 (owner, pre-session): capability-tiered controls; D11 repealed, D28 upheld | all |
 | 2026-07-18 | Owner: both Connect remote AND SDK device in this RFC, phased | 3, 5 |
 | 2026-07-18 | Owner: 403-probe capability detection, no `product` dependency | 3 |
+| 2026-07-19 | Owner: Status draft → in-progress approved; Step 1 started | 1 |
+| 2026-07-19 | File ownership: `NowPlaying.tsx` / `playback.api.ts` / `spotifyPlayback.ts` / `LyricsOpenTarget` are owned by this stream — RFC-ui-surface-unification's NowPlaying items (album `openAlbum` click-through + `artists[].id` plumbing) will be executed here in later steps, not in that stream | 3+ |
+| 2026-07-19 | Step 1: granted-scope string was already stored in `payload` since 3b-c → exposed read-only as `scope` on `GET /api/integrations` rows (spotify only; ciphertext still never serializes). OQ3 resolved minimally: re-consent banner lives on the integrations tab only for now; player-inline surfacing deferred to Step 3 | 1 |
