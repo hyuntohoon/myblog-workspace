@@ -1,6 +1,6 @@
 # RFC-ui-surface-unification: album/artist interaction rules + profile polish (areas 4·5·9)
 
-- **Status**: draft
+- **Status**: in-progress (Step 1 shipped + prod-smoked 2026-07-19, front #290)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → RFC-ui-surface-unification
@@ -106,10 +106,17 @@ member components bypass it; no line-height tokens.
 Steps 1–3 are front-only and independently mergeable; Step 4 is cross-repo (contract); Step 5 is
 front-only. UI changes require real-browser click-through (DoD) and the frontend-design skill.
 
-### Step 1 — profile width + 평가 typography (area 9)
+### Step 1 — profile width + 평가 typography (area 9) — ✅ SHIPPED (front #290, 2026-07-19)
 `MemberProfile` container → 1200 always; 평가 list column 680; tokens + shared components;
 artist line added if the profile payload already carries it (else deferred into Step 4).
 **Verification**: CDP desktop + 390px, light/dark; tab switch shows no width jump.
+**Shipped**: container 1200 fixed (no jump, measured 1200→1200), 680 column, SectionTitle +
+AlbumArt adopted, title italic at `--text-md`, date `--text-2xs`, comment
+`--text-base`/`--leading-normal`; new `--leading-{tight,snug,normal,relaxed}` tokens live in
+prod CSS. OQ1 answered: payload has no artist field → artist line moved to Step 4.
+Implementation note: leading tokens must live in a plain `:root` block, NOT `@theme` —
+Tailwind v4 prunes @theme tokens with no var() reference (`--leading-relaxed` vanished from
+the build) and `--leading-*` would override the `leading-*` utility namespace.
 
 ### Step 2 — album dead-spot fixes (review page, pocket tray, NowPlaying)
 **Verification**: click-through each surface; overlay opens with correct data.
@@ -128,8 +135,9 @@ Masthead/discography/top-tracks visual pass only.
 
 ## Open questions
 
-1. **평가 list artist field** — does the profile ratings payload already include artist? Checked
-   at Step 1; if absent, moves to Step 4. Blocks Step 1 scope only.
+1. **평가 list artist field** — ~~does the profile ratings payload already include artist?~~
+   **Resolved at Step 1 (2026-07-19)**: `Backend_MemberReviewResponse` carries no artist field
+   → 평가 artist line moves to Step 4 (contract addition alongside 오늘의곡 `artist_id`).
 2. **Search album rows** — do unified-search album items carry `artist_id` today? Blocks the
    Step 3 meta-link (falls back to Step 4 if a contract add is needed).
 3. **OverviewDash/BucketBoard artist linking** — opportunistic or explicit step? Default:
@@ -141,3 +149,4 @@ Masthead/discography/top-tracks visual pass only.
 |------|----------|------|
 | 2026-07-18 | D4 (owner, pre-session): container 1200px, comfortable inner measure | 1 |
 | 2026-07-18 | Owner: dual-modal kept + rule codified; 4 immediate fixes; full id plumbing; 404 fallback shell; honesty rules stay; 680px + token normalization | all |
+| 2026-07-19 | Owner: Status → in-progress approved; Step 1 shipped (front #290). OQ1: no artist field in profile payload → Step 4 | 1 |
