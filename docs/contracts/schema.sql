@@ -895,6 +895,28 @@ CREATE TABLE IF NOT EXISTS daily_picks (
 );
 
 -- =============================================================================
+-- Daily Pick Queue — private owner staging queue for 오늘의 곡 (V48;
+-- FEAT-todays-pick-queue Step 1). Superset-free mirror of the daily_picks
+-- payload columns: a queue row IS a staged daily_picks row, so promote is a
+-- pure column copy (upsert pick + delete queue row in one transaction).
+-- Owner-only, no user_id (OQ1); track_id NOT NULL keeps the Spotify-only
+-- refusal (OQ2). UNIQUE(track_id) → re-queue is ON CONFLICT DO NOTHING.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS daily_pick_queue (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  track_id         UUID        NOT NULL REFERENCES tracks (id) ON DELETE CASCADE,
+  album_id         UUID        NOT NULL REFERENCES albums (id) ON DELETE CASCADE,
+  title            TEXT        NOT NULL,               -- denormalized track title
+  artist           TEXT        NOT NULL,               -- denormalized primary-artist display
+  cover_url        TEXT,                               -- album art (nullable — source gaps)
+  spotify_track_id TEXT        NOT NULL,               -- click/play target (mirrors tracks.spotify_id)
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_daily_pick_queue_track UNIQUE (track_id)
+);
+CREATE INDEX IF NOT EXISTS ix_daily_pick_queue_created_at
+  ON daily_pick_queue (created_at DESC);
+
+-- =============================================================================
 -- User Integrations — the ONE connect store for listening/AI sources (V41;
 -- FEAT-multi-user-accounts Phase 3a — OQ4: single table). One row per
 -- (user, provider). Last.fm = username-only (no OAuth/token custody); Spotify
@@ -1085,8 +1107,10 @@ CREATE TABLE IF NOT EXISTS spotify_member_now_playing (
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
--- This file is current through V47 (user_artist_tracks, FEAT-personal-release-
--- tracking Step 1 — authored + prod-applied 2026-07-15), after V46 (user_id on
+-- This file is current through V48 (daily_pick_queue, FEAT-todays-pick-queue
+-- Step 1 — authored 2026-07-18; prod apply pending human approval), after V47
+-- (user_artist_tracks, FEAT-personal-release-tracking Step 1 — authored +
+-- prod-applied 2026-07-15), after V46 (user_id on
 -- spotify_stream_history + stream_import_runs, FEAT-multi-user-accounts Phase
 -- 3c-a — authored + prod-applied 2026-07-12; user_id stays nullable until the
 -- post-soak NOT NULL flip), after V45 (spotify_member_recent_tracks +
