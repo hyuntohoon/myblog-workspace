@@ -34,7 +34,10 @@
 > (Wikidata rejected on a zero-contribution live probe; multi-source absorbed by
 > #548), Step 4 = worker #73 (poller scope), Step 5 = front #285 (`/radar`
 > page). All 5 steps DONE; H1 re-measure ~07-27 stands as a separate
-> observation gate, not a closeout blocker.
+> observation gate, not a closeout blocker. A same-day post-merge audit opened
+> `FIX-personal-release-tracking-postmerge-guards`: the shipped feature steps
+> stay closed, but the public-read boundary and radar failure/trust states are
+> not considered fully hardened until that follow-up is deployed and smoked.
 
 ---
 
@@ -320,3 +323,4 @@ stands as a separate observation gate (does not block closeout).
 | 2026-07-18 | **OQ2 closed — Wikidata rejected on live probe** (owner picked "scope + Wikidata", then approved skip on the evidence). Probe: SPARQL P434 (MBID hard-ID chain) over 1,629 watchlist MBIDs → future-dated (P577) releases for **4/1,629 artists (0.25%)**, and **all 4 already present** in `artist_release_events` from MB/iTunes (new contribution = 0; live pollers held 61 future rows / 51 artists same day). ToS itself was fine (CC0 + UA etiquette) — rejected on payoff, not licensing. Re-evaluable later if member-tracked long-tail data suggests otherwise | OQ2 |
 | 2026-07-18 | **Step 5 design gate resolved** (owner): NOT the almanac v3 riso mockup — the personal feed **shares the /releases calendar's visual system as one object-oriented base** (`releaseShared.tsx`: rcal-* stylesheet + event/ledger components; an edit there restyles both pages), with radar-specific parts layered on top. **OQ1 → strip**: Upcoming renders only when non-empty (H1-consistent), Recently Released is the default surface. **Page = /radar** (separate page, noindex, JWT member scope; public /releases unchanged). OQ6 (range selection) dropped for v1 — the feed is windowed server-side | Step 5 / OQ1 / OQ6 |
 | 2026-07-18 | **Steps 4+5 shipped + prod-smoked** — worker #73 (MB + iTunes eligibility widened to `popularity >= 50 OR EXISTS(user_artist_tracks)`; 2 guard tests; prod release-feed endpoint confirmed), front #285 (`releaseShared.tsx` shared base extracted, `/radar` page shipped, CDP-verified desktop + 390 px mobile + light/dark). Prod smoke: static `/radar` 200 + noindex meta + authed add/remove/feed-shape cycle against `/api/me/tracked-artists` + `/api/me/release-feed`. **All 5 steps DONE; RFC implementation closed.** H1 re-measure ~07-27 stands as a separate observation gate | ship |
+| 2026-07-18 | **Post-merge hardening opened** — a review of the shipped commits plus local worktree exposed gaps not present in the deployed revisions: tracked-only low-popularity announcements could enter the public calendar after Step 4 widened poll scope; trust display was coupled to overlay availability; tracked-list and Buckit-import failures degraded the personal feed; and the RFC-locked category split / `추적:` cue was absent. Follow-up work is tracked as `FIX-personal-release-tracking-postmerge-guards`; feature-step closeout remains historical, while full hardening waits for its deploy + prod smoke | follow-up |
