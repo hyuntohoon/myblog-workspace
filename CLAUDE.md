@@ -107,8 +107,11 @@ Triggers are **signals for when delegation is likely cheaper than direct work** 
 | ≥3 files in a service repo OR any contract/infra touch             | `reviewer` subagent (myblog-specific contract / boundary checks) |
 | UI change in `myblog_front`                                        | `frontend-design` skill   |
 | Security-sensitive change (auth, secrets, input)                   | `security-review` skill   |
+| Any non-trivial code implementation leg                            | `codex` MCP tool — see **Codex delegation** below |
 
 Subagents that produce code must run that repo's verification and quote the result.
+
+**Codex delegation.** Default executor for code implementation is the `codex` MCP tool (`mcp__codex__codex`, workspace-write, `cwd` = target repo) — not Claude writing the code directly. Claude keeps branch management, diff review, verification, and push. Codex runs without this workspace's git hooks — always instruct it **not to commit**; Claude reviews the diff and commits. Fall back to direct implementation (and say so) when: codex hits a rate-limit/quota error, or the change is a trivial edit to files already in context.
 
 **Trigger bypass rule.** If the main agent already has the relevant files loaded in context, do not spawn a subagent solely to satisfy a trigger — subagents exist to load context the main agent lacks, not to mirror context it already has. When bypassing a trigger, say so out loud (e.g. "explorer trigger matched but files already loaded — handling directly"). Invisible bypass = no bypass.
 
