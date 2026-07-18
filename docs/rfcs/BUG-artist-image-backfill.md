@@ -1,6 +1,6 @@
 # BUG-artist-image-backfill: artist photo NULL backlog + missing backfill loop
 
-- **Status**: in-progress (Steps 1+2 shipped + prod-smoked 2026-07-19 — worker #74/#75; Step 3 infra sweep remaining)
+- **Status**: done (all 3 steps shipped + prod-smoked 2026-07-19 — worker #74/#75, infra ws #647 applied; weekly `still_null ≈ 0` stays as an observation gate)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → BUG-artist-image-backfill
@@ -97,13 +97,20 @@ FROM artists;   -- expect still_null ≈ 0, sentinel > 0
 ```
 Quote before/after counts in the PR comment.
 
-### Step 3 — weekly sweep (infra + worker trigger)
+### Step 3 — weekly sweep (infra + worker trigger) — ✅ DONE 2026-07-19 (ws #647, applied)
 
 EventBridge schedule (weekly) → existing worker Lambda with the Step-2 job payload.
 `infra/` change: rule + target + permission; full `terraform plan`, no `-target`.
 
 **Verification**: `terraform plan` clean; after first scheduled run, the Step-2 SQL shows no
 accumulation (`still_null` stays ≈ 0 week-over-week).
+
+**Shipped**: `worker-artist-photo-backfill`, `cron(0 20 ? * SUN *)` (1 h after the saved-tracks
+full reconcile), constant input `{"job":"artist_photo_backfill"}` → blogWorkerLambda. Full plan
+= exactly 3 add / 0 change / 0 destroy; applied same day. Post-apply smoke: `describe-rule`
+ENABLED + target input verified, manual `lambda invoke` → 200 with DB unchanged (still_null 0,
+sentinel 460 / 5,107) — expected no-op. First scheduled run = Sun 20:00 UTC; weekly
+`still_null ≈ 0` (denominator = all `artists` rows) remains as the observation gate.
 
 ## Open questions
 
@@ -123,3 +130,4 @@ accumulation (`still_null` stays ≈ 0 week-over-week).
 | 2026-07-18 | Owner: 3-piece set (one-shot + sentinel + weekly sweep + individual-GET fallback); S3 mirroring rejected | all |
 | 2026-07-19 | Job transport = `{"job": "artist_photo_backfill"}` via EventBridge + SQS body routing (OQ2) | 2 |
 | 2026-07-19 | Steps 1+2 shipped (worker #74; #75 test-only fix — sync integration tests' spotify patch target no longer covered the extracted enrich, CI-only failure). Prod one-shot: still_null 463→**0**, sentinel 0→**460**, 3 real photos filled. Sentinel ground-truthed vs live API (popularity-63 artist genuinely `images: []`) — backlog was overwhelmingly "Spotify has no artist image", now permanently excluded from re-fetch. Gate met (still_null ≈ 0, denominator = 5,107 artists) | 1+2 |
+| 2026-07-19 | Step 3 shipped + applied (ws #647): weekly rule `cron(0 20 ? * SUN *)`, plan 3/0/0, post-apply manual invoke = clean no-op. RFC done; weekly still_null ≈ 0 observation gate + OQ1 (owner app-mode check) remain | 3 |
