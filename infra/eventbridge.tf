@@ -338,6 +338,44 @@ resource "aws_lambda_permission" "lyrics_reassessment_events" {
   source_arn    = aws_cloudwatch_event_rule.lyrics_reassessment.arn
 }
 
+# Weekly artist-photo backfill sweep — BUG-artist-image-backfill Step 3.
+#
+# Constant input {"job":"artist_photo_backfill"} (same routing pattern as
+# lyrics_incremental; the handler matches event["job"] before the alias source
+# check — worker/handler.py). The job selects artists with photo_url IS NULL and
+# runs the Step-1 enrich routine over them: photo filled when Spotify has one,
+# '' sentinel written when it doesn't, so a swept row never re-enters the pool.
+# The Step-2 one-shot cleared the 463-row backlog (still_null 463→0, 2026-07-19);
+# this sweep only catches artists created outside an album-sync enrich window
+# (insert-then-enrich-failed, candidates-path upsert_min), so a normal week
+# selects ~0 rows and exits in milliseconds. Weekly cadence, offset one hour
+# from the saved-tracks full reconcile (19:00 SUN) to keep the two scheduled
+# Spotify consumers apart. Failure-isolated from album sync and from the
+# MusicBrainz alias fill (separate invocations). Removing this rule stops the
+# sweep; the manual blogSQS {"job":"artist_photo_backfill"} message still works
+# either way.
+resource "aws_cloudwatch_event_rule" "artist_photo_backfill" {
+  name                = "worker-artist-photo-backfill"
+  description         = "Weekly enrich sweep of artists with photo_url IS NULL (fill or '' sentinel)"
+  schedule_expression = "cron(0 20 ? * SUN *)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "artist_photo_backfill" {
+  rule      = aws_cloudwatch_event_rule.artist_photo_backfill.name
+  target_id = "blogWorkerLambda-artist-photo-backfill"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "artist_photo_backfill" })
+}
+
+resource "aws_lambda_permission" "artist_photo_backfill_events" {
+  statement_id  = "AllowInvokeFromEventBridgeArtistPhotoBackfill"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.artist_photo_backfill.arn
+}
+
 # API Lambda warm ping — FIX-front-audit-2026-07 item 3.
 #
 # ratemymusic-api cold-starts at ~3.0-3.2s Init (CloudWatch, 2026-07-06 3-day
