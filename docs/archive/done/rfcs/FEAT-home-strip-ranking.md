@@ -1,6 +1,6 @@
 # FEAT-home-strip-ranking: hybrid ordering + visible horizontal-scroll affordances
 
-- **Status**: in-progress
+- **Status**: done (steps 1–2 shipped + prod-smoked 2026-07-19; archived)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → FEAT-home-strip-ranking
@@ -62,12 +62,18 @@ no openapi regen. Unit tests pin the formula (fixture albums: fresh-unknown vs o
 Prod smoke 2026-07-19: new-releases — artist-pop-95 album (old #1) ranks #9 below fresher
 releases; on-this-day — `years_ago` non-monotonic (`1,1,1,1,10,8,15,4`). Both scores active.
 
-### Step 2 — strip affordances (myblog_front)
+### Step 2 — strip affordances (myblog_front) — SHIPPED 2026-07-19 (front #291, prod-smoked)
 
 Shared strip-affordance treatment on `.nrl-strip`/`.otd-strip`: arrows (hover, hidden on
 touch/coarse pointers), edge fade masks, thin scrollbar, peek padding.
 **Verification**: real-browser click-through desktop + 390px CDP (arrows absent on touch,
 swipe unaffected); `pnpm lint` + `astro check`.
+Shipped as a shared `HomeStrip` component (both strips' duplicated container CSS absorbed;
+future strips inherit). Two review/verify catches: edge arrows `disabled` (an invisible
+button must not take keyboard focus) and a 4px edge threshold (scroll-snap rests on the 2px
+track padding). Prod smoke 2026-07-19: desktop full arrow/fade cycle on the 12-card strip;
+5-card on-this-day correctly dormant (no overflow); 390px touch = arrows `display:none`,
+swipe + snap unchanged.
 
 ## Open questions
 
