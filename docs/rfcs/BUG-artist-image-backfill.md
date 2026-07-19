@@ -114,9 +114,9 @@ sentinel 460 / 5,107) — expected no-op. First scheduled run = Sun 20:00 UTC; w
 
 ## Open questions
 
-1. **App mode confirmation** (owner, dashboard) — Extended Quota Mode or Dev Mode? Blocks
-   nothing here (fallback covers both) but sets the urgency of the fallback path and feeds
-   FEAT-member-player risk. 
+1. **App mode confirmation** — RESOLVED 2026-07-19: owner confirmed **Extended Quota Mode** in
+   the Spotify dashboard. Matches the 2026-07-18 empirical read (batch endpoint + removed
+   fields still served); the per-id fallback stays as defense-in-depth only.
 2. **Job transport** — RESOLVED 2026-07-19 (Step 2): `{"job": "artist_photo_backfill", "limit"?}`
    routed in both the EventBridge constant-input check and the SQS record-body section
    (`lyrics_incremental` pattern) — Step 3's weekly rule reuses the payload as-is.

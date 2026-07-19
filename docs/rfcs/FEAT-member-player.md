@@ -126,9 +126,9 @@ becomes selectable output. Premium-gated by SDK init failure (second capability 
 
 ## Open questions
 
-1. **App mode** (owner, Spotify dashboard) — Extended Quota vs Dev Mode. Dev Mode would (a)
-   eventually break nothing in this RFC's player calls (unaffected) but (b) matters for the
-   25-user cap on who can connect at all. Blocks nothing; informs rollout.
+1. **App mode** — RESOLVED 2026-07-19: owner confirmed **Extended Quota Mode** in the Spotify
+   dashboard (checked during BUG-artist-image-backfill closeout). No Dev-Mode 25-user cap;
+   rollout is not gated on user-allowlisting.
 2. **Seek granularity in fallback→full transition** — after a seek, re-anchor from the PUT
    response (no body) requires a follow-up one-shot read; accept 1 extra read per seek?
    Blocks Step 3 detail only.
