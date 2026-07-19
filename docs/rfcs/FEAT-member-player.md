@@ -95,13 +95,24 @@ members whose stored grant lacks them (store granted-scope string server-side if
 **Verification**: re-connect flow grants union; old token path still works for not-yet-reconsented
 members (fallback tier).
 
-### Step 2 — per-member streaming/access token route (backend)
+### Step 2 — per-member streaming/access token route (backend) — ✅ DONE 2026-07-19 (backend #125)
 
 Generalize `GET /api/playback/spotify-token` → per-member mint (owner path unchanged as a
 special case). Fail closed on missing config; guard change lands in backend only (music has no
 twin for this route — verify with the cross-repo grep sweep anyway). apigateway.tf already
 routes this GET through the authorizer — confirm no new route needed.
 **Verification**: member JWT → 200 + token scoped to that member; anonymous → 401; smoke quoted.
+
+**Shipped**: route `require_owner` → `require_cognito_token`; owner sub + local/dev bypass keep
+the owner credential path (`playback_service.py` byte-identical to main); other verified subs
+mint via new `IntegrationService.mint_member_access_token` — fail-closed gates (KMS key/app
+creds/custody → 503 before any outbound call), row-scoped by JWT sub, refresh-token rotation
+persisted (worker `_rotated_payload` twin shape), `invalid_grant` → row `status='error'` for
+the reconnect banner. Shared `app/core/kms_envelope.py` extracted. No contract change (openapi
+byte-identical), no infra change (route pre-existing in apigateway.tf). Music grep: no twin.
+Prod smoke: anon 401; member-without-Spotify 503 (pre-merge this sub got 403 = member branch
+proven live); full suite 19/19. Member-with-Spotify 200 mint is exercised in Step 3's
+real-browser pass (owner decision: no prod member token provisioned to the smoke user).
 
 ### Step 3 — player bar UI + Connect remote controls + clock-estimate progress (front)
 
@@ -146,3 +157,5 @@ becomes selectable output. Premium-gated by SDK init failure (second capability 
 | 2026-07-19 | File ownership: `NowPlaying.tsx` / `playback.api.ts` / `spotifyPlayback.ts` / `LyricsOpenTarget` are owned by this stream — RFC-ui-surface-unification's NowPlaying items (album `openAlbum` click-through + `artists[].id` plumbing) will be executed here in later steps, not in that stream | 3+ |
 | 2026-07-19 | Step 1: granted-scope string was already stored in `payload` since 3b-c → exposed read-only as `scope` on `GET /api/integrations` rows (spotify only; ciphertext still never serializes). OQ3 resolved minimally: re-consent banner lives on the integrations tab only for now; player-inline surfacing deferred to Step 3 | 1 |
 | 2026-07-19 | **Step 1 SHIPPED + prod-smoked** — backend #124, front #287, ws #644 (contract). Prod: full smoke 19/19, `/api/integrations` member 200 / anon 401, new bundle live with both playback scopes. Verified pre-merge by 3-scenario real-browser clickthrough (authorize URL carries the 4-scope union). Security review: no findings | 1 |
+| 2026-07-19 | OQ1 RESOLVED: owner confirmed **Extended Quota Mode** in the Spotify dashboard — no Dev-Mode 25-user connect cap; rollout not gated on allowlisting | all |
+| 2026-07-19 | **Step 2 SHIPPED + prod-smoked** — backend #125. Member mint lives in `IntegrationService` (payload-schema single-owner; avoids playback→integration circular import via extracted `kms_envelope`); member-without-connection → 503 same-detail as dormant (single front handling path); `invalid_grant` flags `status='error'` (reconnect UX seam for Step 3). 550 pytest pass; prod anon 401 / member 503 / suite 19/19. NB: first codex pass timed out mid-refactor and an orphaned executor kept rewriting the worktree — final code hand-completed after kill | 2 |
