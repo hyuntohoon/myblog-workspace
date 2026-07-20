@@ -1,6 +1,6 @@
 # SEO-review-structured-data: Review + MusicAlbum JSON-LD on review pages
 
-- **Status**: in-progress
+- **Status**: done (2026-07-21, archived — Step 1 shipped + prod-deployed 2026-07-19 front #288; only OQ3 remains as an external observation gate: live-URL Rich Results Test after the first review is published, indefinite. Implementation complete → moved to `docs/archive/done/rfcs/`.)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → SEO-review-structured-data

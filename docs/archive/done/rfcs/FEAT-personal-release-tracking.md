@@ -1,6 +1,7 @@
 # FEAT-personal-release-tracking: Personal release tracking (개인 발매 피드 / Release Radar)
 
-- **Status**: accepted (2026-07-15, owner in-session approval — "시작하자"; H1 measured
+- **Status**: done (2026-07-21, archived — all 5 steps SHIPPED + prod-smoked by 2026-07-18; implementation closed → moved to `docs/archive/done/rfcs/`. H1 re-measure ~2026-07-27 stands as a separate observation gate, does not block closeout. Original accept line below.)
+  <br>_Accepted_ (2026-07-15, owner in-session approval — "시작하자"; H1 measured
   2026-07-14 against live #548 poller data: **thin-but-usable, not first-class**.
   **Step 1–3 착수 2026-07-15** — 2-phase execution: Step 1 schema → Steps 2∥3
   parallel via codex worktrees. **Steps 4+5 shipped + prod-smoked 2026-07-18**
