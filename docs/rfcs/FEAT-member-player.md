@@ -95,7 +95,7 @@ members whose stored grant lacks them (store granted-scope string server-side if
 **Verification**: re-connect flow grants union; old token path still works for not-yet-reconsented
 members (fallback tier).
 
-### Step 2 — per-member streaming/access token route (backend) — ✅ DONE 2026-07-19 (backend #125)
+### Step 2 — per-member streaming/access token route (backend) — ✅ DONE 2026-07-19 (backend #125 + #126 follow-up)
 
 Generalize `GET /api/playback/spotify-token` → per-member mint (owner path unchanged as a
 special case). Fail closed on missing config; guard change lands in backend only (music has no
@@ -113,6 +113,11 @@ byte-identical), no infra change (route pre-existing in apigateway.tf). Music gr
 Prod smoke: anon 401; member-without-Spotify 503 (pre-merge this sub got 403 = member branch
 proven live); full suite 19/19. Member-with-Spotify 200 mint is exercised in Step 3's
 real-browser pass (owner decision: no prod member token provisioned to the smoke user).
+
+> **NB (superseded same day by #126 — see Decisions log):** the consolidation follow-up moved
+> the member mint into `PlaybackService.mint_member_streaming_token` and remapped
+> member-without-connection **503 → 404** (`Spotify not connected`), so the front branches
+> quiet-fallback (404) vs outage (503). The paragraph above records #125 as shipped.
 
 ### Step 3 — player bar UI + Connect remote controls + clock-estimate progress (front) — ✅ DONE 2026-07-19 (front #293)
 
