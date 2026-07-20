@@ -1,6 +1,6 @@
 # RFC-ui-surface-unification: album/artist interaction rules + profile polish (areas 4·5·9)
 
-- **Status**: in-progress (Steps 1–4 shipped + prod-smoked — #290 #292 2026-07-19, #296 2026-07-20, Step 4 cross-repo ws #673 / backend #127 / music #57 / front #299 2026-07-21; next = Step 5)
+- **Status**: done (2026-07-21 — Steps 1–5 all shipped + prod-smoked; Step 4 ws #673 / backend #127 / music #57 / front #299, Step 5 ws #676 / music #58 / front #300)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → RFC-ui-surface-unification
@@ -192,7 +192,7 @@ lyrics-header link remains from that chain.
   prod has no reviewed member yet), mobile 390 + light scheme, artist links
   land on the live ArtistHub.
 
-### Step 5 — ArtistHub refresh + genre-map integration (rules intact; scope expanded 2026-07-21)
+### Step 5 — ArtistHub refresh + genre-map integration (rules intact; scope expanded 2026-07-21) — ✅ SHIPPED (workspace #676, music #58, front #300 — 2026-07-21)
 Original scope: masthead/discography/top-tracks visual pass only. Owner-expanded
 at the Step 5 go (2026-07-21 session):
 1. **Visual pass** — typography normalized onto `--text-*`/`--leading-*` tokens,
@@ -218,6 +218,16 @@ at the Step 5 go (2026-07-21 session):
 **Verification**: click-through incl. sort orders + chip → genre-map ego view +
 deep-link URL direct-load; honesty-rule elements unchanged (stars only,
 footnote metrics); mobile 390.
+**Shipped**: all five legs as scoped. CDP-verified against prod DB (chips →
+Pop ego view lands, three sort orders + default restore, `/genres/?g=pop`
+direct load, BrowseGenres rows re-targeted `/reviews?genre=` → genre map,
+LikedBoard card view upgraded 1,003 chips with analysis-panel/filter chips
+untouched, mobile 390 dark + desktop light). CanonPage skipped (genre sits
+inside the whole-card anchor); review-page build-time links covered by
+astro-check + offline fallback (content collection empty — no live review
+URLs yet). Prod smoke 19/19; prod `catalog_genres` live (Charli xcx →
+[Pop, Electronic]); deployed ArtistHub chunk + artist CSS carry the step-5
+markers.
 
 ## Open questions
 
