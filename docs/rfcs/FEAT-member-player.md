@@ -76,6 +76,50 @@ anywhere; control calls are client-side with the user's token (CLAUDE.md rule 9)
 - **Layout**: 2–3 mockups per variant at implementation time (frontend-design skill), grounded
   in the researched anatomy below.
 
+### User-situation capability matrix (added 2026-07-20, owner request)
+
+The Full/Fallback pair above is the *engineering* tier model; real member situations are
+finer. This matrix is the canonical map of **which features apply to whom** — every new
+player feature (Step 5/6/7 included) must add a column or amend rows here in the same PR.
+Row behavior asserted at design level; re-verify current code per row when Step 7 promotes.
+
+| 상황 | snapshot 표시 | live 바 (one-shot+estimate) | 재생/일시정지/seek | device hint | 가사 live 진입 | S5 in-page 기기 | S6a-c/e 컨트롤 | S6d 좋아요 |
+|------|--------------|---------------------------|-------------------|-------------|---------------|-----------------|----------------|-----------|
+| 멤버, 연동 없음 | — (idle) | — (`disconnected` quiet fallback) | — | — | — | — | — | — |
+| 멤버, **Last.fm만** | ✅ (worker poll 경유, 표시 전용) | — (Spotify 토큰 없음) | — | — | — (Spotify track id 없음) | — | — | — |
+| 멤버, Spotify **구스코프** (Step 1 재동의 전) | ✅ | ✅ (`currently-playing`은 구grant에 포함) | — | — (`playback-state` 필요) | ✅ | — | — | — |
+| 멤버, Spotify 신스코프 + **무료** | ✅ | ✅ | — (403-probe → fallback) | ✅ (읽기 scope, 무료 OK) | ✅ | — (SDK init 실패) | — (Premium) | ✅ (**무료 가능**) |
+| 멤버, Spotify 신스코프 + **Premium** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (opt-in) | ✅ | ✅ |
+| 방문자 (남의 공개 멤버 페이지) | ✅ 공개 now-playing strip (`via Last.fm/Spotify` provenance)만 | — | — | — | — | — | — | — |
+
+Key asymmetries worth stating to users (Step 7 surfaces them): **좋아요(6d)는 무료 계정도
+됨**, 컨트롤(재생 조작)은 Premium 전용; **device hint는 무료도 됨** (Premium이 아니라 scope
+문제); Last.fm 연동은 표시 전용 (라이브 바·가사·컨트롤은 전부 Spotify 연동 필요); 구스코프
+멤버는 재동의 한 번으로 무료여도 device hint까지 올라옴.
+
+### Step 7 (candidate) — capability transparency: 설정 안내 + 설명서 + 상태 확인
+
+Recorded 2026-07-20 (owner: "언젠가 설정이나 설명서를 통해 알 수 있도록, 기능 상으로도 확인
+및 추가할 수 있도록"). Today the only capability feedback is the degrade toast + reconnect
+banner — a member has no way to learn *why* controls are missing or *what a re-consent /
+Premium / Spotify connect would unlock*. Scope when promoted (owner picks the subset):
+
+- **7a 연동 tab 기능 안내** — per-provider "이 연동으로 열리는 기능" list on the integrations
+  tab, driven by the matrix above; shows the member's CURRENT standing (connected / scope
+  generation / last probe outcome) and what the next action (연동/재동의) would add. Server
+  already stores the granted-scope string (Step 1) and token status; probe outcome is
+  session-local — persist last-known tier client-side only (no new contract).
+- **7b 플레이어 인라인 안내** — the fallback-tier bar gets a quiet "왜 컨트롤이 없나요?"
+  affordance (tooltip/popover reusing the matrix rows relevant to the member's situation),
+  replacing the one-shot degrade toast as the durable explanation.
+- **7c 설명서 페이지** — a static help page (e.g. `/help/player` or a 설정 내 섹션) rendering
+  the user-facing version of the matrix; the RFC matrix is the single source — regenerate the
+  page content from it when either changes.
+
+**Verification (whichever subset ships)**: per-situation CDP fixture matrix (each row of the
+capability table = one mocked session, assert the announced feature set matches); 설명서
+content diffed against the RFC matrix in review.
+
 ### Design references (UX research, 2026-07-18 — folded in on promotion)
 
 - **Spotify bar anatomy**: left = identity (cover ~56px + title/artist), center = transport
@@ -238,3 +282,4 @@ degrade + mobile 390; owner real-device clickthrough for the shipped subset.
 | 2026-07-19 | **Step 3 SHIPPED + prod-smoked** — front #293 (+ review-nit follow-up in-PR). Hairline transport across banner/full/list; Connect remote `sendPlayerCommand`; 403-probe degrade + toast; fallback estimate bar; `disconnected` token status (404 branch per #126); owner gate removed. CDP 33 asserts + mobile 390 PASS pre-merge; prod deploy 29682764996, bundle markers live, **owner real-device clickthrough: play/pause/seek control an active device, bar syncs, all 3 variants** | 3 |
 | 2026-07-20 | **Step 4 SHIPPED + prod-smoked** — front #297. Device hint costs zero extra requests (the `device` object rides the existing one-shot `GET /me/player` body); `DeviceHintLine` in the panel-bottom-edge slot, full/banner only; D28 by construction (call-count asserted: rename without ↻ = 0 extra GETs). CDP 18/18 + mobile 390 PASS; prod markers `Listening on`/`deviceName` in `SelfDashboard.*.js`. Owner real-active-device line check pending. Remaining scope = Step 5 only | 4 |
 | 2026-07-20 | **Step 4 owner real-device check CONFIRMED** ("2번 동작한다") — Step 4 fully closed. Same message: owner asked what else the player could control → **Step 6 candidate menu recorded** (6a next/prev, 6b play specific track/album, 6c queue, 6d 좋아요 Liked Songs [only item needing re-consent: `user-library-read/modify`], 6e shuffle/repeat/volume/transfer) — owner selects the subset when the step is promoted; nothing scoped-in yet. Remaining scope = Step 5 + Step 6 selection, both rule-4 gated | 4/6 |
+| 2026-07-20 | **Capability-classification audit (owner request)**: the RFC's Full/Fallback pair under-specified real member situations (Last.fm-only, free-vs-Premium, old-scope generation were implicit or absent) and no user-facing surface explains per-situation availability. Added the **user-situation capability matrix** (canonical; every new player feature must amend it in the same PR) + **Step 7 candidate** (7a 연동 tab 기능 안내 / 7b 플레이어 인라인 "왜 컨트롤이 없나요?" / 7c 설명서 페이지, matrix-driven). Notable user-facing asymmetries: 좋아요·device hint work on FREE accounts (controls alone are Premium); Last.fm = display-only | 7 |
