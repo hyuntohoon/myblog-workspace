@@ -1,11 +1,11 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: in-progress (Phases 0–3a shipped + prod-verified — **3a residual CLOSED 2026-07-12**: owner connected Last.fm, poller filled 60 real scrobble rows; Phase 4 engine shipped + cutover 5/5; **3b-a/3b-b/3b-c ALL SHIPPED 2026-07-12** — 3b-a ws #608, 3b-b V45 prod-applied + shared_db #64, 3b-c backend #113 + ws #610 + front #268, prod-smoked 401/503-fail-closed/204. **3b-d SHIPPED + INFRA FULLY APPLIED 2026-07-12** (worker #69 + ws #612; apply complete 6add/2change — owner-directed in-session self-grant via iam:PutUserPolicy, policy trimmed to key-read-only after; authed PUT flipped 503→400 = connect path LIVE, poll armed). **3b SPINE + owner connect e2e COMPLETE 2026-07-12** — 3b-e front #269 (SpotifyConnect UI) + owner real-account connect end-to-end: first real KMS encrypt/decrypt, 50 `spotify_member_recent_tracks` rows polled, rotation re-encrypt verified. **3c-a/3c-b COMPLETE 2026-07-12** — shared_db #65: V46 prod-applied (`user_id` on `spotify_stream_history`+`stream_import_runs`, 4,523+6 owner backfill) + `--user` import mode. **library_service user-scope SHIPPED 2026-07-13** — backend #114 (8 stream-history readers JWT + member-scoped) + pin hotfix #115; prod-smoked member 200×8 / unauth 401 / suite 19/0. **Privacy §2 SHIPPED 2026-07-13** (front #270). **OQ5 direction = Option 1 full merge (owner 2026-07-13) + profile-merge PR1 SHIPPED** (front #272 — dormant until member pages prebuild); contract ws #617 + front #271. **profile-merge PR2 SHIPPED + prod-smoked 2026-07-13** (front #274 — 평론 tab runtime, static-JSON owner leg, member memo path preserved). **2026-07-14 product-surface coherence audit → remediation batch SHIPPED same day** (owner adopted the recommendation set; OQ6–OQ9 resolved): public-bucket attribution (backend #116 + front #275), runtime member surface + login intent + owner-gated UI (front #276), now-playing provenance + source merge + review-author sub removal (backend #117 + front #277, ws #620/#621) — all prod-verified. PR3 preconditions (reachability, login flow, owner gating) are now met. **profile-merge PR3 SHIPPED + prod-smoked 2026-07-14** (front #279 lyrics dock parity + #280 /profile retirement; Pocket ▶ gate residual verified live same session). **Minor-backlog #281 + mutation-caps #119 SHIPPED + prod-smoked 2026-07-14** — #281 owner-gates the playback-token mint (members fire zero 403 probes) + `isPlaceholderIdentity()` renders `user-<sub8>` defaults as mono `@handle`; #119 extends the `REVIEW_DAILY_CAP` rolling-24h pattern to `POST /api/buckets` (30) + `POST /api/buckets/{id}/items` (500 rows), integrations connect uncapped, openapi zero-diff. Next: launch gates G1/G2)
+- **Status**: in-progress — Phases 0–4 + 3b/3c spine + library user-scope + 2026-07-14 surface-audit remediation + profile-merge PR1–3 + minor-backlog/mutation-caps **ALL SHIPPED & prod-verified** (full per-phase log lives in Target state / phases + the Decisions log; digest → `docs/archive/done/2026-07.md`). **Remaining: launch gates G1/G2 (owner-only)** + owner live-login returnTo observation + the deferred canonical-link decision (necessity-gated while prod `/api/members` is empty).
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
   re-sequencing, per-phase gates, Last.fm promoted, BYOA demoted, ops items added)
-- **Plan row**: `plan.md` → FEAT-multi-user-accounts (Backlog)
+- **Plan row**: `plan.md` → FEAT-multi-user-accounts (Active)
 - **Absorbs**: Scope B sketch of `FEAT-public-bucket-multiuser.md` (B1–B5; its Scope A — the
   public `/collection` viewer + `is_public` + API hardening — shipped 2026-06-15 and is prior art
   for the "public by default" read model here)
@@ -437,7 +437,9 @@ rotate/re-encrypt (persisted before player reads) → V45 writes; `invalid_grant
 `status='reauth'` never retried, infra failures never touch status, plaintext never
 written; raw SQL/no pin bump; 328 tests; prod manual invoke = clean 0-user no-op —
 dormant until CMK + connected members; eventbridge target/permission ride the owner
-apply batch) → **3b-e** front
+apply batch) → **3b-e** front (shipped as front #269, 2026-07-12 — owner real-account
+connect e2e: first real KMS encrypt/decrypt, 50 `spotify_member_recent_tracks` rows,
+rotation re-encrypt verified)
 `SpotifyConnect` + callback + reconnect badge (`status==='reauth'`) + `api.gen.ts`.
 **3c-a** shared_db V{N} `user_id` on `spotify_stream_history` + `stream_import_runs`
 (nullable → owner backfill → unique re-scope `(user_id, ts, spotify_track_uri)` → NOT NULL
