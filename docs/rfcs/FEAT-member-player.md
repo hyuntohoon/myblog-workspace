@@ -143,11 +143,25 @@ horizontal overflow). Prod: deploy run 29682764996 success; markers `np-spotify-
 clickthrough confirmed play/pause/seek control an active device + bar sync across all three
 variants (2026-07-19).
 
-### Step 4 — 'playing elsewhere' device hint
+### Step 4 — 'playing elsewhere' device hint — ✅ DONE 2026-07-20 (front #297)
 
 `GET /me/player` one-shot (with playback-state scope) supplies device name → Connect-style
 "Listening on <device>" line in full/banner variants. No polling — refreshed only on the
 existing ↻ sync action.
+
+**Shipped**: zero extra requests — the existing one-shot `GET /me/player` body already
+carries `device`, so `playback.api.ts` just parses `device.name` into `LivePlayback`,
+threaded through `LiveMoment`. New `DeviceHintLine`: faded-mono "Listening on <device>"
+line + device glyph in the panel-bottom-edge slot (the Step 3 reconnect-line idiom),
+full/banner variants only; list omits it. D28 upheld by construction (name refreshes only
+when the one-shot fires: mount / ↻ / seek confirm — verified by call-count assert).
+Scope-limited members never see it: their `/me/player` read fails before a live moment
+exists — no separate branch. Pre-merge: lint + astro check clean; CDP 18/18 asserts
+(banner/full show + list omits, rename-without-sync stays + 0 extra GET, ↻ updates with
+exactly 1 GET, pause survives, device-less body omits, disconnected = zero reads, mobile
+390 no overflow). Prod: deploy 29721956735; markers `Listening on` + `deviceName` in
+`SelfDashboard.*.js`. Owner real-active-device clickthrough pending (Step 3 close-out
+pattern).
 
 ### Step 5 — in-page SDK device (opt-in output)
 
@@ -188,3 +202,4 @@ becomes selectable output. Premium-gated by SDK init failure (second capability 
 | 2026-07-19 | OQ2 accepted (1 confirmation read per seek, skipped while paused) + OQ3 fully resolved (inline reconnect line on 502, sessionStorage-bridged over the 502→404 sequence; fresh sessions covered by the integrations-tab banner only) — see Open questions | 3 |
 | 2026-07-19 | ui-unify NowPlaying plumb executed in this stream per the file-ownership decision: `LivePlayback` now carries `artists[{id,name}]` + `albumSpotifyId`; catalog resolution via new `@lib/spotifyCatalog` (`artists|albums/by-spotify`, promise-cached, no contract change — endpoints pre-existed). Lyrics-header artist links remain with RFC-ui-surface-unification Step 4 | 3 |
 | 2026-07-19 | **Step 3 SHIPPED + prod-smoked** — front #293 (+ review-nit follow-up in-PR). Hairline transport across banner/full/list; Connect remote `sendPlayerCommand`; 403-probe degrade + toast; fallback estimate bar; `disconnected` token status (404 branch per #126); owner gate removed. CDP 33 asserts + mobile 390 PASS pre-merge; prod deploy 29682764996, bundle markers live, **owner real-device clickthrough: play/pause/seek control an active device, bar syncs, all 3 variants** | 3 |
+| 2026-07-20 | **Step 4 SHIPPED + prod-smoked** — front #297. Device hint costs zero extra requests (the `device` object rides the existing one-shot `GET /me/player` body); `DeviceHintLine` in the panel-bottom-edge slot, full/banner only; D28 by construction (call-count asserted: rename without ↻ = 0 extra GETs). CDP 18/18 + mobile 390 PASS; prod markers `Listening on`/`deviceName` in `SelfDashboard.*.js`. Owner real-active-device line check pending. Remaining scope = Step 5 only | 4 |
