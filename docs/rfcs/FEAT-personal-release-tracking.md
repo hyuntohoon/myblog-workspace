@@ -35,9 +35,9 @@
 > #548), Step 4 = worker #73 (poller scope), Step 5 = front #285 (`/radar`
 > page). All 5 steps DONE; H1 re-measure ~07-27 stands as a separate
 > observation gate, not a closeout blocker. A same-day post-merge audit opened
-> `FIX-personal-release-tracking-postmerge-guards`: the shipped feature steps
-> stay closed, but the public-read boundary and radar failure/trust states are
-> not considered fully hardened until that follow-up is deployed and smoked.
+> `FIX-personal-release-tracking-postmerge-guards`; that hardening **shipped +
+> prod-smoked 2026-07-20** (music #56 + front #286 + ws #659) — public-read
+> boundary, radar failure/trust states, and category split are now hardened.
 
 ---
 
@@ -324,3 +324,4 @@ stands as a separate observation gate (does not block closeout).
 | 2026-07-18 | **Step 5 design gate resolved** (owner): NOT the almanac v3 riso mockup — the personal feed **shares the /releases calendar's visual system as one object-oriented base** (`releaseShared.tsx`: rcal-* stylesheet + event/ledger components; an edit there restyles both pages), with radar-specific parts layered on top. **OQ1 → strip**: Upcoming renders only when non-empty (H1-consistent), Recently Released is the default surface. **Page = /radar** (separate page, noindex, JWT member scope; public /releases unchanged). OQ6 (range selection) dropped for v1 — the feed is windowed server-side | Step 5 / OQ1 / OQ6 |
 | 2026-07-18 | **Steps 4+5 shipped + prod-smoked** — worker #73 (MB + iTunes eligibility widened to `popularity >= 50 OR EXISTS(user_artist_tracks)`; 2 guard tests; prod release-feed endpoint confirmed), front #285 (`releaseShared.tsx` shared base extracted, `/radar` page shipped, CDP-verified desktop + 390 px mobile + light/dark). Prod smoke: static `/radar` 200 + noindex meta + authed add/remove/feed-shape cycle against `/api/me/tracked-artists` + `/api/me/release-feed`. **All 5 steps DONE; RFC implementation closed.** H1 re-measure ~07-27 stands as a separate observation gate | ship |
 | 2026-07-18 | **Post-merge hardening opened** — a review of the shipped commits plus local worktree exposed gaps not present in the deployed revisions: tracked-only low-popularity announcements could enter the public calendar after Step 4 widened poll scope; trust display was coupled to overlay availability; tracked-list and Buckit-import failures degraded the personal feed; and the RFC-locked category split / `추적:` cue was absent. Follow-up work is tracked as `FIX-personal-release-tracking-postmerge-guards`; feature-step closeout remains historical, while full hardening waits for its deploy + prod smoke | follow-up |
+| 2026-07-20 | **Post-merge hardening shipped + prod-smoked** — music #56 (public calendar predicate `popularity >= 50 OR status = 'released'`; SQLite boundary cases incl. NULL/below-floor/floor/released), front #286 (trust rendering decoupled from overlay availability, feed survives tracked-list/import failures with retry state, Albums & EPs / Singles split + `추적:` cue restored), ws #659 (tracking row). Prod smoke: calendar window 07-01→07-31 = 113 events, 0 boundary violations; `/radar` 200 + noindex + new bundle marker in `ReleaseRadar` chunk; `/releases` 200. Hardening closed | follow-up |
