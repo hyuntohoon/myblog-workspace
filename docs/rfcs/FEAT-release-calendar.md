@@ -1,6 +1,6 @@
 # FEAT-release-calendar: New-release calendar (신보 캘린더)
 
-- **Status**: accepted (2026-07-11, owner in-session approval; discovery re-opened same session and **design-revision pass done 2026-07-11** — multi-source, see Decisions log; **revision approved by owner 2026-07-12**. **Track A COMPLETE 2026-07-12** — Step 1 music #53 + ws #605, Step 2 front #267 prod-smoked; **Track B Step 3 shipped 2026-07-12** — V44 prod-applied + shared_db #62; **Step 4 density probe done + OQ1/2/3 decided 2026-07-12** (floor ≥50, 180 d, RG full-date-only); **Step 4 poller SHIPPED + ARMED 2026-07-12** (worker #70 / ws #615, EventBridge bucket rotation live, first ticks clean); **Step 6 calendar endpoint SHIPPED 2026-07-13** (music #54 + contract ws #617 + types front #271); **density verdict recorded 2026-07-13** (methodology-limited, gate reset ≥40/cycle — see Step 4); **Step 5 SHIPPED + prod-smoked 2026-07-13** (worker #71 + insert-gate fix #72, first live confirm tick); **Step 7 calendar page SHIPPED + prod-smoked 2026-07-13** (front #273, /releases/ live) — remaining: OQ4 noise review ~14 d after Step 5 (denominator = that window's release_date rows, now incl. confirm_gate_skipped), FEAT-personal-release-tracking H1 uses the recorded density verdict)
+- **Status**: accepted — **Tracks A+B Steps 1–7 ALL SHIPPED + prod-smoked 2026-07-12→13** (per-step ship notes → Steps; design revision, density verdict, insert-gate incident → Decisions log; digest → `docs/archive/done/2026-07.md`). **Remaining: OQ4 singles/noise review ~2026-07-27** (denominator = that window's `release_date` rows) + `no_upc` sentinel re-check after the catalog widens.
 - **Owner**: TBD
 - **Created**: 2026-07-06
 - **Plan row**: `plan.md` → FEAT-release-calendar
@@ -265,7 +265,7 @@ visible value first; recommend landing A before B. Within each track, steps
 are sequential. Each step independently mergeable; rule 4 (one step per
 session) applies as usual.
 
-### Step 1 (Track A) — musicApi feed endpoint + contract
+### Step 1 (Track A) — musicApi feed endpoint + contract — **SHIPPED 2026-07-12 (music #53 / ws #605)**
 
 - New `app/api/routers/feed.py` + service-layer query + response schemas;
   register `app.include_router(feed.router, prefix="/api/music/feed",

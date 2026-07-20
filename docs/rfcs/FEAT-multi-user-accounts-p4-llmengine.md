@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts Phase 4 — LLMEngine design decision
 
-- **Status**: **confirmed + scaffolding shipped 2026-07-11** — owner confirmed the design + OQ3 (Anthropic-only v1) in-session; the "Session deliverable" below landed as shared_db **#59** (V43 numbered in place of V44 — V42 went to the parallel NOT-NULL flip; `llm_usage` prod-applied). Remaining: `/myblog/anthropic` SSM provisioning at first real ApiEngine caller; BYOK per "Explicitly deferred". **Live-site cutover COMPLETE 2026-07-11 (5/5 — see Cutover log).**
+- **Status**: done — design confirmed + scaffolding shipped 2026-07-11 (shared_db #59; V43 numbered in place of V44, `llm_usage` prod-applied); **live-site cutover COMPLETE 2026-07-11 (5/5 — see Cutover log)**. Necessity-gated residue: `/myblog/anthropic` SSM provisioning at the first real ApiEngine caller; BYOK per "Explicitly deferred".
 - **Scope this pass**: owner-central scaffolding ONLY. BYOK / `user_api_keys` **deferred to Gate G2** (owner decision, 2026-07-08).
 - **Parent**: `docs/rfcs/FEAT-multi-user-accounts.md` §Phase 4.
 - **Method**: an `architect` subagent read RFC §Phase 4 + all 5 `claude -p` call sites + the 3 service `requirements.txt` + shared_db `pyproject.toml` (spot-checked, not trusted blind).

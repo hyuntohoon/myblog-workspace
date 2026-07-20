@@ -1,6 +1,6 @@
 # FEAT-blog-to-review-migration: `/blog/*` → `/review/*` URL migration
 
-- **Status**: **Step 1 done + prod-live 2026-06-14** (front #153 / ws #344; zero 404s) — only the **optional Step 2** (true HTTP 301 via the console-managed CloudFront Function, owner-applied) remains; RFC kept open for it.
+- **Status**: in-progress — **Step 1 done + prod-live 2026-06-14** (front #153 / ws #344; zero 404s). Remaining: the **optional Step 2** (true HTTP 301 via the console-managed CloudFront Function, owner-applied) — necessity-gated on inbound `/blog` links accumulating; RFC kept open for it.
 - **Owner**: TBD
 - **Created**: 2026-06-14
 - **Plan row**: `plan.md` → FEAT-blog-to-review-migration (Backlog)

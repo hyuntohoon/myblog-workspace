@@ -56,3 +56,7 @@ tools/.lyrics-phase2-*.log
 
 # lyrics probe outputs (Step-1 read-only probe artifacts)
 tools/out/
+
+# tool caches (codex MCP home, pnpm store)
+.codex/
+.pnpm-store/
