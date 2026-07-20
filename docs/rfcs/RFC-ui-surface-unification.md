@@ -157,13 +157,40 @@ noIndex, excluded from sitemap; `sw.js` has no navigation fallback to shadow it.
 - OQ3 answered → no opportunistic OverviewDash/BucketBoard link possible (no unlinked
   artist render has an id).
 
-### Step 4 — id plumbing (contract): 오늘의곡 `artist_id`, lyrics chain (`LyricsOpenTarget` + lyrics header), 평가 artist, search album meta `artist_id`, saved-tracks artist id (LikedBoard)
+### Step 4 — id plumbing (contract): 오늘의곡 `artist_id`, lyrics chain (`LyricsOpenTarget` + lyrics header), 평가 artist, search album meta `artist_id`, saved-tracks artist id (LikedBoard) — ✅ SHIPPED (workspace #673, backend #127, music #57, front #299 — 2026-07-21)
 Music/backend response additions → openapi regen in service repo(s) → `tools/merge_openapi.py`
 → front `pnpm generate:types` (api.gen.ts commit). Workspace-first merge order per memory.
 NB the NowPlaying leg of the playback plumb is already DONE (member-player #293, 2026-07-19):
 `LivePlayback` carries `artists[{id,name}]` + `albumSpotifyId`; only the `LyricsOpenTarget` →
 lyrics-header link remains from that chain.
 **Verification**: openapi-verify CI green; lyrics header links live.
+**Shipped**: NO DB migration — every leg resolves at read time from stored album ids.
+- Backend (all Optional/additive): `DailyPickItem.artist_id` (batch
+  `albums→album_artists` resolve per page, both today + history + write echoes),
+  `MemberReviewResponse.artist_name/artist_id` (one batch resolve per profile
+  feed), `SavedTrackItem.artist_id` (in-memory pick over the already-eager-loaded
+  `album.artists`). Shared deterministic primary pick in
+  `app/services/artist_primary.py` mirrors musicApi's BUG-19 ordering
+  (popularity DESC NULLS LAST, name ASC) so both services present the same
+  primary artist.
+- Music: `AlbumItem.artist_id` via `get_primary_artist_map` now also selecting
+  `Artist.id`; candidate rows (pre-catalog Spotify data) stay None.
+- Front: lyrics chain plumbed (`LyricsOpenTarget`/`LiveLyrics.artists` →
+  viewer header renders the exported `ArtistNames`, resolvable-only links);
+  오늘의곡 tile + history artist links (album buttons and artist anchors
+  restructured as siblings — no nested interactives); search album-card meta
+  artist link (**HeaderSearch dropdown rows intentionally unchanged** —
+  single-action keyboard rows, artists have their own group); LikedBoard
+  **card view** artist link (primary-artist href under the denormalized
+  multi-artist name string; **list view stays text** — shared `TrackRow.sub`
+  is string-only); 평가 artist line (linked with id / plain with name only /
+  omitted when absent).
+- Verified: backend 550 pass, music 92 pass (one pre-existing localstack env
+  failure reproduced on clean main, deselected), lint/astro-check 0; CDP
+  click-through on local backend+music against prod DB (todays-pick history,
+  search, LikedBoard = real rows; member profile + live playback via mocks —
+  prod has no reviewed member yet), mobile 390 + light scheme, artist links
+  land on the live ArtistHub.
 
 ### Step 5 — ArtistHub layout refresh (rules intact)
 Masthead/discography/top-tracks visual pass only.
@@ -195,3 +222,4 @@ Masthead/discography/top-tracks visual pass only.
 | 2026-07-19 | Owner: Step 2 approved + shipped (front #292). Inventory corrected: review dead spot lives in `[slug].astro` lfq hero, not review-hero. NowPlaying snapshot already carries `album_id` → clickable now; live-read path deferred to Step 4 | 2 |
 | 2026-07-20 | Owner (pre-session): Step 3 approved + shipped (front #296) as 404-shell-only. OQ2: no `artist_id` in search album rows → Step 4. OQ3: nothing opportunistic. Inventory corrected: LikedBoard has no artist id (`buckets.ts:52` is BucketItem, artist-type only) → Step 4 contract add. error.html was missing from the build — site-wide 404 fixed as a side effect, no CloudFront change | 3 |
 | 2026-07-20 | **Cross-stream sync (consistency tidy)**: the NowPlaying live-path plumb SHIPPED 2026-07-19 in FEAT-member-player Step 3 (front #293) per the file-ownership decision — `LivePlayback` carries `artists[{id,name}]` + `albumSpotifyId`; NowPlaying renders real `artistHref` links via `@lib/spotifyCatalog` by-spotify pre-resolve (the OQ2 "no-contract alternative", resolvable-only so no dead clicks — and it KEEPS real-href semantics, contra the OQ2 note, because resolution happens at render not on click). Step 4 scope narrowed accordingly (NowPlaying leg removed; lyrics header + contract adds remain); surface table NowPlaying row marked done | 2, 4 |
+| 2026-07-20 | Owner (session go): Step 4 approved + shipped. Contract shape decision: read-time primary-artist resolve (no DB migration, no denormalized artist_id columns); primary pick = musicApi's BUG-19 deterministic ordering, now shared verbatim by backend `artist_primary.py`. At the approval gate the owner kept **Step 5 in scope** (a same-session descope proposal was declined) — RFC stays open, next = Step 5 | 4 |
