@@ -1,6 +1,11 @@
 # FEAT-for-you-releases — home "나를 위한 새 앨범" strip + Spotify follow import
 
 - Status: draft (Step 1 owner-approved in-session 2026-07-21)
+- Step 1 SHIPPED + prod-smoked 2026-07-21 — ws #677 + backend #128 + front
+  #301. Prod smoke: authed track→feed→untrack cycle returned both new fields
+  (album_id + cover_url) on real releases (Masego); authed prod-home CDP
+  rendered the strip (cover→overlay, artist link, '· 싱글' tag); logged-out
+  home hides the strip. Remaining: Step 2 only.
 - Owner decisions (2026-07-21): existing 새 앨범 strip ordering stays as-is
   (recency 60% × popularity 40%); the new strip is named **"나를 위한 새 앨범"**
   (Spotify "New Releases for You" analog); "follow" = the existing
