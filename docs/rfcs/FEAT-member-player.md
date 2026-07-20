@@ -81,7 +81,10 @@ anywhere; control calls are client-side with the user's token (CLAUDE.md rule 9)
 The Full/Fallback pair above is the *engineering* tier model; real member situations are
 finer. This matrix is the canonical map of **which features apply to whom** — every new
 player feature (Step 5/6/7 included) must add a column or amend rows here in the same PR.
-Row behavior asserted at design level; re-verify current code per row when Step 7 promotes.
+Row behavior asserted at design level; re-verified 2026-07-21 for the shipped S6a/S6d columns
+via the #302 CDP fixture matrix (free-account row: transport 403 degrade + heart survives;
+구스코프 row: library read 403 → 재동의 link heart). S6b rides the S6a-c/e column. S5 and the
+unshipped 6c/6e remain design-level.
 
 | 상황 | snapshot 표시 | live 바 (one-shot+estimate) | 재생/일시정지/seek | device hint | 가사 live 진입 | S5 in-page 기기 | S6a-c/e 컨트롤 | S6d 좋아요 |
 |------|--------------|---------------------------|-------------------|-------------|---------------|-----------------|----------------|-----------|
@@ -97,7 +100,7 @@ Key asymmetries worth stating to users (Step 7 surfaces them): **좋아요(6d)�
 문제); Last.fm 연동은 표시 전용 (라이브 바·가사·컨트롤은 전부 Spotify 연동 필요); 구스코프
 멤버는 재동의 한 번으로 무료여도 device hint까지 올라옴.
 
-### Step 7 (candidate) — capability transparency: 설정 안내 + 설명서 + 상태 확인
+### Step 7 (candidate) — capability transparency — 7a PROMOTED + ✅ SHIPPED 2026-07-21 (front #302); 7b/7c stay candidates
 
 Recorded 2026-07-20 (owner: "언젠가 설정이나 설명서를 통해 알 수 있도록, 기능 상으로도 확인
 및 추가할 수 있도록"). Today the only capability feedback is the degrade toast + reconnect
@@ -119,6 +122,16 @@ Premium / Spotify connect would unlock*. Scope when promoted (owner picks the su
 **Verification (whichever subset ships)**: per-situation CDP fixture matrix (each row of the
 capability table = one mocked session, assert the announced feature set matches); 설명서
 content diffed against the RFC matrix in review.
+
+**7a shipped (front #302)**: "이 연동으로 열리는 기능" guide on both integration surfaces
+(설정 panel + dashboard 연동 tab), matrix-driven, with current standing = connected state +
+scope generation derived from the stored grant string (`none/legacy/playback/library` via new
+`spotifyScopeGeneration`) + last probe outcome persisted client-side only (sessionStorage
+`myblog:spotify-capability-v1`, written at the existing 403-probe sites; no contract change).
+Last.fm row marked 표시 전용. Note: the dashboard 연동 tab was re-sourced from the member
+integrations contract — its old data source (`GET /api/library/spotify-connection`) is the
+owner-only D27 surface, dead for members. CDP: 3 scope-generation fixtures asserted (part of
+the 37/37 matrix).
 
 ### Design references (UX research, 2026-07-18 — folded in on promotion)
 
@@ -218,12 +231,13 @@ Swap `getStreamingToken()` per the seam for members with `streaming` scope; 'Buc
 becomes selectable output. Premium-gated by SDK init failure (second capability signal).
 **Verification**: SDK connects for a Premium member; non-Premium init failure degrades cleanly.
 
-### Step 6 (candidate menu) — Connect control extensions — owner SELECTS at promotion
+### Step 6 (candidate menu) — Connect control extensions — PROMOTED 2026-07-21, subset 6a+6b+6d ✅ SHIPPED (front #302 + bucket-row entry in #303)
 
 Recorded 2026-07-20 on owner request ("rfc 작성해두고, 해당 스텝 진행할 때 선택할 수 있도록").
-Not scoped-in yet: when this step is promoted, the owner picks any subset below; unpicked
-items stay here. All are client-side Spotify Web API calls with the member token (rule #9
-clean, same 403-probe degrade + 401 re-mint as Step 3). Feasibility verified 2026-07-20:
+**Owner selected 6a+6b+6d at promotion (2026-07-21 go, same message as the 7a pick); 6c/6e
+stay candidates below.** All are client-side Spotify Web API calls with the member token
+(rule #9 clean, same 403-probe degrade + 401 re-mint as Step 3). Feasibility verified
+2026-07-20:
 
 - **6a 다음/이전 곡** — `POST /v1/me/player/{next,previous}`. Scope already granted
   (`user-modify-playback-state`, Step 1) → NO re-consent. ⏮ ⏭ on full/banner (list follows
@@ -246,6 +260,23 @@ clean, same 403-probe degrade + 401 re-mint as Step 3). Feasibility verified 202
 Scope impact summary: only 6d re-consents; 6a/6b/6c/6e ride the Step 1 grant as-is.
 **Verification (whichever subset ships)**: CDP assert matrix per control incl. 403/404
 degrade + mobile 390; owner real-device clickthrough for the shipped subset.
+
+**Shipped (6a+6b+6d, front #302; bucket-row 6b entry in front #303)**: 6a = `sendPlayerCommand`
+next/previous (POST verb branch), ⏮ ⏭ on full/banner only (drop order), exactly one
+confirmation one-shot after success. 6b = new `sendConnectPlay` (Connect active-device play:
+no SDK, no `device_id`; `context_uri`/`uris`; distinct `no-active-device` 404 outcome →
+toast) with entries on the album overlay ("이 앨범 재생 ▶", members only) and the bucket-row
+action sheet (#303, file-ownership split); success dispatches `myblog:playback-changed` →
+NowPlaying does one event-driven re-sync. 6d = heart on full/banner, liked-state `contains`
+read once per track identity, optimistic toggle w/ rollback; library 403 =
+`library-scope-missing`, fully independent of the transport probe (free accounts keep 좋아요,
+transport degrade never hides the heart); scope union + separate
+`spotifyGrantLacksLibraryScopes` + library re-consent banner (Step 1 idiom). Pre-merge: lint +
+astro check clean; CDP fetch-mock matrix 37/37 (asymmetry asserts, D28 call counts, scope
+generations, mobile 390) + 6/6 bucket-row entry. Prod: deploy 29783059420; markers
+`no-active-device`/`이 앨범 재생` in `AlbumOverlay.*.js`, `다음 곡`/`좋아요 권한 재동의하기` in
+`SelfDashboard.*.js`, `myblog:playback-changed` in `spotifyPlayback.*.js`. Owner real-device
+clickthrough pending (checklist in #302 body).
 
 ## Open questions
 
@@ -282,4 +313,6 @@ degrade + mobile 390; owner real-device clickthrough for the shipped subset.
 | 2026-07-19 | **Step 3 SHIPPED + prod-smoked** — front #293 (+ review-nit follow-up in-PR). Hairline transport across banner/full/list; Connect remote `sendPlayerCommand`; 403-probe degrade + toast; fallback estimate bar; `disconnected` token status (404 branch per #126); owner gate removed. CDP 33 asserts + mobile 390 PASS pre-merge; prod deploy 29682764996, bundle markers live, **owner real-device clickthrough: play/pause/seek control an active device, bar syncs, all 3 variants** | 3 |
 | 2026-07-20 | **Step 4 SHIPPED + prod-smoked** — front #297. Device hint costs zero extra requests (the `device` object rides the existing one-shot `GET /me/player` body); `DeviceHintLine` in the panel-bottom-edge slot, full/banner only; D28 by construction (call-count asserted: rename without ↻ = 0 extra GETs). CDP 18/18 + mobile 390 PASS; prod markers `Listening on`/`deviceName` in `SelfDashboard.*.js`. Owner real-active-device line check pending. Remaining scope = Step 5 only | 4 |
 | 2026-07-20 | **Step 4 owner real-device check CONFIRMED** ("2번 동작한다") — Step 4 fully closed. Same message: owner asked what else the player could control → **Step 6 candidate menu recorded** (6a next/prev, 6b play specific track/album, 6c queue, 6d 좋아요 Liked Songs [only item needing re-consent: `user-library-read/modify`], 6e shuffle/repeat/volume/transfer) — owner selects the subset when the step is promoted; nothing scoped-in yet. Remaining scope = Step 5 + Step 6 selection, both rule-4 gated | 4/6 |
+| 2026-07-21 | Owner go (batch prompt): Step 6 promoted with subset **6a+6b+6d** + Step 7 promoted as **7a only** — explicit candidate-promotion approval in the same message; both steps executed in one PR per the owner's parallel-batch instruction | 6/7 |
+| 2026-07-21 | **Step 6 (6a/6b/6d) + 7a SHIPPED + prod-smoked** — front #302 (+ bucket-row 6b entry in front #303 per the BucketBoard file-ownership split with FEAT-bucket-identity B). CDP 37/37 + 6/6; prod deploy 29783059420, markers verified. Free-like/Premium-control asymmetry enforced end-to-end (library 403 never degrades transport; transport 403 never hides the heart). Owner real-device checklist pending in #302. Remaining scope = Step 5 + candidates 6c/6e + 7b/7c | 6/7 |
 | 2026-07-20 | **Capability-classification audit (owner request)**: the RFC's Full/Fallback pair under-specified real member situations (Last.fm-only, free-vs-Premium, old-scope generation were implicit or absent) and no user-facing surface explains per-situation availability. Added the **user-situation capability matrix** (canonical; every new player feature must amend it in the same PR) + **Step 7 candidate** (7a 연동 tab 기능 안내 / 7b 플레이어 인라인 "왜 컨트롤이 없나요?" / 7c 설명서 페이지, matrix-driven). Notable user-facing asymmetries: 좋아요·device hint work on FREE accounts (controls alone are Premium); Last.fm = display-only | 7 |

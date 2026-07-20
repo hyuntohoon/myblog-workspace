@@ -1,6 +1,6 @@
 # FEAT-bucket-identity: strengthen the "bucket" as the core workflow unit
 
-- **Status**: in-progress (Direction A DONE 2026-06-16; Direction B not started)
+- **Status**: in-progress (Direction A DONE 2026-06-16; **Direction B SHIPPED 2026-07-21, front #303** — landing-tab promotion left as an owner-pending proposal; Direction D surfaces remain)
 - **Owner**: 박지훈
 - **Created**: 2026-06-16
 - **Plan row**: `plan.md` → FEAT-bucket-identity
@@ -60,7 +60,29 @@ board kicker/comment; the tab is already `평론 버킷`), and align the `is_don
 409 message to the board's `평론 완료` tag. Shipped: front #173 + backend #77.
 The internal `crate`/`crMeta` code identifiers are not user-visible and were left.
 
-### Direction B — the board is the workspace (front-mostly, M) — **NEXT**
+### Direction B — the board is the workspace (front-mostly, M) — ✅ SHIPPED 2026-07-21 (front #303, front-only)
+
+> **Shipped scope + judgment calls (2026-07-21):** `crMeta` name-regex fully removed; the
+> lifecycle tag derives only from typed fields, precedence 완료(`is_done`) → 작성 중 (subtree
+> item has `post_id` and not `already_reviewed`) → 조사 중 (subtree item research
+> queued/running/**done** — a completed note still marks the research phase; `failed` does
+> not elevate) → 담음; parent buckets aggregate their whole subtree; 청취 예정 stays
+> kind-based. The name-regex urgency accent (급한/마감) was **dropped** — no typed deadline
+> field exists; accent now comes only from the explicit bucket color. `post_id` was already
+> on the item contract → mapped as `postId` in `buckets.ts`, zero backend change. Listened
+> join = client-side (`GET /api/library/listened-albums` once per board mount, quiet on
+> 401/404) → hollow-ring "이미 들음 → 평론 가능" hint on not-yet-reviewed covers. Reverse
+> links on ReviewsTab only (버킷 chip: `postId` match, album-id fallback via the shared
+> bucketStore; 조사 노트 chip: one batched `/api/research/status` GET), navigating to
+> `?tab=bucket`; nothing on public `/review/{slug}` (privacy — owner call). Bonus rider:
+> the member-player 6b bucket-row entry ("이 앨범 재생 ▶" in the album action sheet) landed
+> in this PR per the file-ownership split with front #302. Verified: lint + astro check
+> clean; CDP at prod scale (10 buckets/~200 items) 18/18 + 6/6; prod markers in
+> `SelfDashboard.*.js` post-deploy 29783059420.
+>
+> **Owner-pending (proposed, NOT shipped):** (1) board → `/profile` landing tab promotion;
+> (2) research-note deep link from the review chip (needs a board `?album=` param);
+> (3) in-place tab switch for the 버킷 chip (one `onSelectTab` prop through SelfDashboard).
 Make the pipeline explicit and the board prominent:
 - Replace the name-regex `crMeta` with a status **derived from real fields already
   on the contract**: `research_status` (per item), `already_reviewed`,
@@ -113,9 +135,10 @@ the public-collection bucket surfaces are the next concrete step here.
 ## Open questions
 
 - Direction B prominence: should the board become the `/profile` **landing tab**
-  instead of 개요?
-- Listen→review join: worth a backend change to put listened-state inside
-  `GET /api/buckets`, or keep a client-side join?
+  instead of 개요? **(still open — proposed to the owner at B ship, 2026-07-21)**
+- ~~Listen→review join: worth a backend change to put listened-state inside
+  `GET /api/buckets`, or keep a client-side join?~~ **SETTLED 2026-07-21: client-side**
+  (one archive GET per board mount was cheap; keeps B front-only).
 - ~~Direction C: are `들을 것` (to-listen) and `평론 버킷` genuinely two intents, or
   an accident of incremental building? (Decides whether C is desirable at all.)~~
   **SETTLED 2026-06-24:** FEAT-pocket-buckit D2 decided yes-merge (one shelf object); V31 executed it (`들을 것` → `kind='to_listen'` system bucket, prod-live).
