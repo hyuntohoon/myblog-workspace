@@ -466,7 +466,7 @@ rejected — an always-on service costs more than it polices at this scale). Own
 **Phase 4 design — MERGED 2026-07-08 (ws #584), implementation awaits owner confirm.** An
 `architect` subagent evaluated the §Phase 4 design against all 5 live `claude -p` call sites +
 the 3 service `requirements.txt` + shared_db `pyproject.toml`. Decisions (full detail in
-`docs/rfcs/FEAT-multi-user-accounts-p4-llmengine.md`): engine home =
+`docs/archive/done/rfcs/FEAT-multi-user-accounts-p4-llmengine.md`): engine home =
 `myblog_shared_db/src/myblog_shared_db/llm/` (the one shared import surface both poller
 families already reach via local src → **zero git pin bump**); interface = one ABC
 `LLMEngine.run(job: LLMJob) -> LLMResult` with `output_schema` defaulting None (the 5 live sites
