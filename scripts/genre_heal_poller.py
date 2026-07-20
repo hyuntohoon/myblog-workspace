@@ -25,6 +25,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import psycopg
@@ -34,6 +35,45 @@ log = logging.getLogger("genre-heal-poller")
 ROOT = Path(__file__).resolve().parent.parent  # myblog-workspace/
 BACKFILL = ROOT / "myblog_shared_db" / "scripts" / "backfill_genres.py"
 PY = ROOT / "myblog_worker" / ".venv" / "bin" / "python"
+NW_SHIM = Path(__file__).resolve().parent / "neuralwatt_claude_shim.py"
+
+
+def _neuralwatt_env() -> dict | None:
+    """CHORE-neuralwatt-credit-burn: opt-in (GENRE_HEAL_LLM=neuralwatt) env for
+    the backfill subprocess that puts a `claude`-named wrapper around
+    neuralwatt_claude_shim.py at the front of PATH, so the S3 LLM stage
+    dispatches to NeuralWatt glm-5.2 instead of the local Claude CLI (removes
+    the shared Anthropic usage-limit collision with the 03:00 nightlies).
+    Returns None (= inherit env unchanged, claude -p as before) when the flag
+    is off or no key is reachable; the shim itself also falls back to the real
+    binary on any API failure, so this path can only degrade to status quo."""
+    if os.environ.get("GENRE_HEAL_LLM") != "neuralwatt":
+        return None
+    env = dict(os.environ)
+    if not env.get("NEURALWATT_API_KEY"):
+        # launchd env has no .zshrc — pull the key from an interactive zsh,
+        # delimited so rc-file chatter on stdout can't pollute it.
+        try:
+            out = subprocess.run(
+                ["zsh", "-ic", 'print -r -- "__NW__${NEURALWATT_API_KEY}__NW__"'],
+                capture_output=True, text=True, timeout=15,
+            ).stdout
+            m = re.search(r"__NW__(.*?)__NW__", out, re.DOTALL)
+            key = (m.group(1).strip() if m else "")
+        except (subprocess.TimeoutExpired, OSError):
+            key = ""
+        if not key:
+            log.warning("GENRE_HEAL_LLM=neuralwatt but no NEURALWATT_API_KEY — claude -p path")
+            return None
+        env["NEURALWATT_API_KEY"] = key
+    shim_dir = Path(tempfile.mkdtemp(prefix="myblog-nw-shim-"))
+    wrapper = shim_dir / "claude"
+    wrapper.write_text(f'#!/bin/sh\nexec "{PY}" "{NW_SHIM}" "$@"\n')
+    wrapper.chmod(0o755)
+    env["PATH"] = f"{shim_dir}{os.pathsep}{env.get('PATH', '')}"
+    env["NEURALWATT_SHIM_DIR"] = str(shim_dir)
+    log.info("S3 LLM stage routed to NeuralWatt (shim dir %s)", shim_dir)
+    return env
 
 
 def _db_url() -> str:
@@ -52,8 +92,9 @@ def _db_url() -> str:
 def _run_backfill() -> int:
     """Run the existing genre pipeline over the marker-less (un-classified) catalog."""
     cmd = [str(PY), str(BACKFILL), "--incremental", "--label", "--execute"]
-    log.info("running: %s", " ".join(cmd))
-    return subprocess.run(cmd, cwd=str(BACKFILL.parent)).returncode
+    env = _neuralwatt_env()
+    log.info("running: %s (LLM=%s)", " ".join(cmd), "neuralwatt" if env else "claude-cli")
+    return subprocess.run(cmd, cwd=str(BACKFILL.parent), env=env).returncode
 
 
 def run_once() -> int:
