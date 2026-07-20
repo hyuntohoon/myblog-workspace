@@ -114,7 +114,7 @@ Prod smoke: anon 401; member-without-Spotify 503 (pre-merge this sub got 403 = m
 proven live); full suite 19/19. Member-with-Spotify 200 mint is exercised in Step 3's
 real-browser pass (owner decision: no prod member token provisioned to the smoke user).
 
-### Step 3 — player bar UI + Connect remote controls + clock-estimate progress (front)
+### Step 3 — player bar UI + Connect remote controls + clock-estimate progress (front) — ✅ DONE 2026-07-19 (front #293)
 
 Rebuild the three variants' internals (keep outer variant structure + Seg). Extract the clock
 estimator from LyricsViewer into a shared util (no behavior change to lyrics). Controls call
@@ -122,6 +122,26 @@ estimator from LyricsViewer into a shared util (no behavior change to lyrics). C
 fallback tier (probe model). Fallback tier renders estimate-driven bar from the one-shot.
 **Verification**: real-browser click-through (DoD): full-tier member controls an active device;
 fallback member sees moving bar, no controls; CDP mobile 390px pass.
+
+**Shipped**: hairline-LCD design (owner pick from 3 mockup directions; the EQ-as-progress
+signature option was declined). Estimator extracted to `@lib/clockEstimate`
+(`ClockAnchor`/`estimateMs`/`useClockEstimate`); LyricsViewer refactored onto it,
+behavior-identical (review-verified). Connect remote via `sendPlayerCommand`
+(`@lib/spotifyPlayback`, single 401 re-mint retry); pause freezes the anchor client-side (a
+paused player reads as `idle` in the one-shot contract — no confirming read); tier probe per D5
+with optimistic controls. Token-route mapping branched per #126: 404 → new `disconnected`
+status (quiet fallback), 503 → dormant, 502 → inline reconnect line (bridged over the 502→404
+sequence with a sessionStorage flag; fresh sessions rely on the Step 1 integrations-tab
+banner). `readLivePlayback` owner gate removed; concurrent mints dedup in-flight. ui-unify
+playback plumb executed here (ownership decision): live `artists[]`/album Spotify ids resolve
+via new `@lib/spotifyCatalog` (`by-spotify`, promise-cached; `releaseShared` moved onto the
+shared resolver) — artist names link only when resolvable, album links light post-resolve.
+Reviewer subagent: no blockers. Pre-merge: lint + astro check clean; CDP fetch-mocked
+clickthrough 33 asserts PASS (full/degrade/disconnected/reconnect/lyrics + mobile 390, no
+horizontal overflow). Prod: deploy run 29682764996 success; markers `np-spotify-reconnect` +
+`재생 위치` in `SelfDashboard.*.js`, `position_ms=` in `spotifyPlayback.*.js`; owner real-device
+clickthrough confirmed play/pause/seek control an active device + bar sync across all three
+variants (2026-07-19).
 
 ### Step 4 — 'playing elsewhere' device hint
 
@@ -140,11 +160,15 @@ becomes selectable output. Premium-gated by SDK init failure (second capability 
 1. **App mode** — RESOLVED 2026-07-19: owner confirmed **Extended Quota Mode** in the Spotify
    dashboard (checked during BUG-artist-image-backfill closeout). No Dev-Mode 25-user cap;
    rollout is not gated on user-allowlisting.
-2. **Seek granularity in fallback→full transition** — after a seek, re-anchor from the PUT
-   response (no body) requires a follow-up one-shot read; accept 1 extra read per seek?
-   Blocks Step 3 detail only.
-3. **Where the re-consent banner lives** (integrations tab only vs also inline on the player) —
-   Step 1 detail.
+2. **Seek granularity** — RESOLVED 2026-07-19 (owner): accept 1 extra one-shot read per seek
+   (event-driven, D28-compatible — same precedent as end-of-track re-sync). Implementation
+   detail: the confirmation read is skipped while paused, since a paused player reads as
+   `idle` in the one-shot contract and would collapse the card; the optimistic anchor is
+   exact there anyway.
+3. **Where the re-consent banner lives** — RESOLVED fully 2026-07-19 (owner): integrations tab
+   (Step 1) + inline player line on grant breakage (Step 3): a mint 502 (or a 404 following a
+   same-session 502, sessionStorage-bridged) renders a panel-bottom-edge reconnect line
+   linking `/settings/` — the same slot idiom Step 4's Connect device hint will use.
 
 ## Decisions log
 
@@ -160,3 +184,7 @@ becomes selectable output. Premium-gated by SDK init failure (second capability 
 | 2026-07-19 | OQ1 RESOLVED: owner confirmed **Extended Quota Mode** in the Spotify dashboard — no Dev-Mode 25-user connect cap; rollout not gated on allowlisting | all |
 | 2026-07-19 | **Step 2 SHIPPED + prod-smoked** — backend #125. Member mint lives in `IntegrationService` (payload-schema single-owner; avoids playback→integration circular import via extracted `kms_envelope`); member-without-connection → 503 same-detail as dormant (single front handling path); `invalid_grant` flags `status='error'` (reconnect UX seam for Step 3). 550 pytest pass; prod anon 401 / member 503 / suite 19/19. NB: first codex pass timed out mid-refactor and an orphaned executor kept rewriting the worktree — final code hand-completed after kill | 2 |
 | 2026-07-19 | **Step 2 follow-up SHIPPED + prod-smoked** — backend #126, a consolidation on top of #125 (two parallel sessions shipped the same step; #125 landed first). Member mint moved to `PlaybackService.mint_member_streaming_token` sharing `_exchange_refresh_token` with the owner path — the refresh-grant exchange exists once (no circular import: playback imports only `kms_envelope`). **Supersedes #125's 503-same-detail choice: member-without-connection → 404 `Spotify not connected`** — a normal member state stays out of 5xx monitoring and Step 3's tier probe can distinguish quiet-fallback (404) from outage (503); front must branch on 404 vs 503 accordingly. `invalid_grant` row-flagging kept (`PlaybackGrantRevokedError`, still 502; next mint 404s). openapi no diff. 550 pytest pass; prod: suite 19/19, anon 401, member 404 | 2 |
+| 2026-07-19 | Step 3 design: owner picked **direction A "hairline LCD"** from 3 mockup directions (A hairline / B 3-zone transport / C EQ-as-progress signature) — quietest delta from the existing card; banner keeps its decorative 32-bar equalizer. Narrow banners hoist the transport below the identity row (full card width) for a usable touch seek surface | 3 |
+| 2026-07-19 | OQ2 accepted (1 confirmation read per seek, skipped while paused) + OQ3 fully resolved (inline reconnect line on 502, sessionStorage-bridged over the 502→404 sequence; fresh sessions covered by the integrations-tab banner only) — see Open questions | 3 |
+| 2026-07-19 | ui-unify NowPlaying plumb executed in this stream per the file-ownership decision: `LivePlayback` now carries `artists[{id,name}]` + `albumSpotifyId`; catalog resolution via new `@lib/spotifyCatalog` (`artists|albums/by-spotify`, promise-cached, no contract change — endpoints pre-existed). Lyrics-header artist links remain with RFC-ui-surface-unification Step 4 | 3 |
+| 2026-07-19 | **Step 3 SHIPPED + prod-smoked** — front #293 (+ review-nit follow-up in-PR). Hairline transport across banner/full/list; Connect remote `sendPlayerCommand`; 403-probe degrade + toast; fallback estimate bar; `disconnected` token status (404 branch per #126); owner gate removed. CDP 33 asserts + mobile 390 PASS pre-merge; prod deploy 29682764996, bundle markers live, **owner real-device clickthrough: play/pause/seek control an active device, bar syncs, all 3 variants** | 3 |
