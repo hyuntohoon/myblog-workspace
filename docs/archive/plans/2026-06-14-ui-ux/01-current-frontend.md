@@ -12,7 +12,7 @@
 
 **Scope.** A complete, citation-backed audit of the `myblog_front` page/routing/IA layer, the component tree, the bucket feature, and what the home page surfaces today. Every code claim cites `file_path:line`; anything not verified against code is marked *speculation*.
 
-**Relationship to prior art.** This builds on `docs/reviews/2026-06-13/01-code-audit-myblog_front.md` (the structural code audit). It does **not** redo that audit. The new angle here is the **UI/UX + information-architecture lens** and a **bucket-vs-magazine reality check** — i.e. what the user actually sees and navigates, where the "담기" (bucket) foundation surfaces (or fails to surface) to readers, and where the IA diverges from the editorial-publication goal. File paths below are relative to `/Users/park_hyun/myblog-workspace/myblog_front/` unless otherwise noted.
+**Relationship to prior art.** This builds on `docs/archive/reviews/2026-06-13/01-code-audit-myblog_front.md` (the structural code audit). It does **not** redo that audit. The new angle here is the **UI/UX + information-architecture lens** and a **bucket-vs-magazine reality check** — i.e. what the user actually sees and navigates, where the "담기" (bucket) foundation surfaces (or fails to surface) to readers, and where the IA diverges from the editorial-publication goal. File paths below are relative to `/Users/park_hyun/myblog-workspace/myblog_front/` unless otherwise noted.
 
 All routing is file-based: `output: 'static'`, `trailingSlash: 'always'`, `build.format: 'directory'` (`astro.config.ts:37-39`). There are **no `Astro.redirect` calls and no `redirects` config** anywhere (grep of `src/` + `astro.config.ts`). Every route is a static directory page or a prerendered dynamic page.
 

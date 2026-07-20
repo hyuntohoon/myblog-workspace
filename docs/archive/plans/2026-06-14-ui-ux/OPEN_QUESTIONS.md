@@ -23,7 +23,7 @@ absent from the entire workspace, all 4 service repos, and git history.
 **Assumption adopted:** The intent of rule 6 ("don't re-propose already-decided items")
 is served by the actual decided-items sources: `docs/plan.md`, `docs/rfcs/` (esp.
 `FEAT-home-redesign.md`), `docs/archive/done/`, the **2026-06-13 overnight review bundle**
-(`docs/reviews/2026-06-13/` — code audit + market research + feature candidates), and the
+(`docs/archive/reviews/2026-06-13/` — code audit + market research + feature candidates), and the
 project memory roadmap. This task **builds on** the 2026-06-13 bundle rather than redoing
 its audit/market-research; the new angle is UI/UX & IA through the bucket↔magazine lens.
 Same conclusion was reached as OQ-0 in the 2026-06-13 bundle. If the owner has a v2 doc
