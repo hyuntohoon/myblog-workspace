@@ -1,6 +1,6 @@
 # RFC-ui-surface-unification: album/artist interaction rules + profile polish (areas 4·5·9)
 
-- **Status**: in-progress (Steps 1–3 shipped + prod-smoked — #290 #292 2026-07-19, #296 2026-07-20)
+- **Status**: in-progress (Steps 1–4 shipped + prod-smoked — #290 #292 2026-07-19, #296 2026-07-20, Step 4 cross-repo ws #673 / backend #127 / music #57 / front #299 2026-07-21; next = Step 5)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → RFC-ui-surface-unification
