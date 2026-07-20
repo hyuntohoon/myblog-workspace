@@ -1,6 +1,6 @@
 # FEAT-lyrics-viewer-controls: header/controls redesign — scroll-to-manual + return affordances
 
-- **Status**: in-progress (Steps 1–2 shipped; awaiting owner A/D pick after prod use)
+- **Status**: done (Steps 1–2 shipped; owner keeper pick 2026-07-20 = **D + A's ring**, loser-removal chore front #298 shipped + prod-smoked same day)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → FEAT-lyrics-viewer-controls
@@ -112,3 +112,5 @@ translation cluster states (done/requested/failed/stale) all render.
 | 2026-07-19 | Step 1 ships an interim [필|브라우즈] rail segment (A/D switch) — absorbed into the ⚙ popover in Step 2 | 1 |
 | 2026-07-19 | Browse nav (wheel/drag/keys) does NOT re-anchor the estimate; line tap is the only re-anchoring nav (return needs the live anchor) | 1 |
 | 2026-07-20 | OQ3: popover trigger = header ⚙ (owner pick via mockup comparison) | 2 |
+| 2026-07-20 | **Owner keeper pick: D (browse), with A's circular countdown grafted on** ("d, 원위치 시간 표시 원형으로 돌아가는 건 a처럼 하자") — browse mode keeps un-dim + 3s snap-back, and A's ring becomes a compact floating browse-mode control (clocks the snap-back, restarts per browse input, tap = immediate return). Behavior A (pill), the ⚙ 복귀 section, and `lyv:behavior` storage removed | close |
+| 2026-07-20 | **Keeper chore SHIPPED + prod-smoked** — front #298 (+32/−131). CDP 14/14 vs the real SelfDashboard flow (browse ring 42px circular @3000ms, restart, snap-back, tap-return, popover style-only, stale storage key harmless, mobile 390 clean). RFC CLOSED → archived | close |

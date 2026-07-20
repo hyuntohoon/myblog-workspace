@@ -165,14 +165,43 @@ exists — no separate branch. Pre-merge: lint + astro check clean; CDP 18/18 as
 (banner/full show + list omits, rename-without-sync stays + 0 extra GET, ↻ updates with
 exactly 1 GET, pause survives, device-less body omits, disconnected = zero reads, mobile
 390 no overflow). Prod: deploy 29721956735; markers `Listening on` + `deviceName` in
-`SelfDashboard.*.js`. Owner real-active-device clickthrough pending (Step 3 close-out
-pattern).
+`SelfDashboard.*.js`. Owner real-active-device clickthrough CONFIRMED 2026-07-20 ("2번
+동작한다") — Step 4 fully closed.
 
 ### Step 5 — in-page SDK device (opt-in output)
 
 Swap `getStreamingToken()` per the seam for members with `streaming` scope; 'Buckit' device
 becomes selectable output. Premium-gated by SDK init failure (second capability signal).
 **Verification**: SDK connects for a Premium member; non-Premium init failure degrades cleanly.
+
+### Step 6 (candidate menu) — Connect control extensions — owner SELECTS at promotion
+
+Recorded 2026-07-20 on owner request ("rfc 작성해두고, 해당 스텝 진행할 때 선택할 수 있도록").
+Not scoped-in yet: when this step is promoted, the owner picks any subset below; unpicked
+items stay here. All are client-side Spotify Web API calls with the member token (rule #9
+clean, same 403-probe degrade + 401 re-mint as Step 3). Feasibility verified 2026-07-20:
+
+- **6a 다음/이전 곡** — `POST /v1/me/player/{next,previous}`. Scope already granted
+  (`user-modify-playback-state`, Step 1) → NO re-consent. ⏮ ⏭ on full/banner (list follows
+  the miniaturization drop order). Track change warrants one confirmation one-shot
+  (event-driven, OQ2 seek precedent — D28-compatible).
+- **6b 특정 곡/앨범 재생** — `PUT /v1/me/player/play` with `context_uri` (album) /
+  `uris` (tracks). Same scope, no re-consent. Unlocks "이 앨범 재생 ▶" entries on album
+  overlay / bucket rows — the listen→review-loop tie-in, highest product value of the menu.
+  Needs an active device (404 → toast; Step 5's in-page device is the natural complement).
+- **6c 대기열에 추가** — `POST /v1/me/player/queue?uri=`. Same scope. "다음에 듣기" affordance
+  on the same surfaces as 6b.
+- **6d 좋아요 (Spotify Liked Songs)** — heart on the player bar for the current track:
+  `PUT/DELETE /v1/me/tracks?ids=` + liked-state via `GET /v1/me/tracks/contains`. **Requires
+  NEW scopes `user-library-read` + `user-library-modify`** → member re-consent (Step 1
+  banner idiom, granted-scope string already stored). NOT Premium-gated (free accounts can
+  like). Liked-state read = one extra GET per track change, event-driven (D28-compatible).
+- **6e 셔플/반복/볼륨/기기 전환** — `PUT /v1/me/player/{shuffle,repeat,volume}` +
+  `/v1/me/player` transfer. Same scope, no re-consent. Lowest value; grouped as one item.
+
+Scope impact summary: only 6d re-consents; 6a/6b/6c/6e ride the Step 1 grant as-is.
+**Verification (whichever subset ships)**: CDP assert matrix per control incl. 403/404
+degrade + mobile 390; owner real-device clickthrough for the shipped subset.
 
 ## Open questions
 
@@ -208,3 +237,4 @@ becomes selectable output. Premium-gated by SDK init failure (second capability 
 | 2026-07-19 | ui-unify NowPlaying plumb executed in this stream per the file-ownership decision: `LivePlayback` now carries `artists[{id,name}]` + `albumSpotifyId`; catalog resolution via new `@lib/spotifyCatalog` (`artists|albums/by-spotify`, promise-cached, no contract change — endpoints pre-existed). Lyrics-header artist links remain with RFC-ui-surface-unification Step 4 | 3 |
 | 2026-07-19 | **Step 3 SHIPPED + prod-smoked** — front #293 (+ review-nit follow-up in-PR). Hairline transport across banner/full/list; Connect remote `sendPlayerCommand`; 403-probe degrade + toast; fallback estimate bar; `disconnected` token status (404 branch per #126); owner gate removed. CDP 33 asserts + mobile 390 PASS pre-merge; prod deploy 29682764996, bundle markers live, **owner real-device clickthrough: play/pause/seek control an active device, bar syncs, all 3 variants** | 3 |
 | 2026-07-20 | **Step 4 SHIPPED + prod-smoked** — front #297. Device hint costs zero extra requests (the `device` object rides the existing one-shot `GET /me/player` body); `DeviceHintLine` in the panel-bottom-edge slot, full/banner only; D28 by construction (call-count asserted: rename without ↻ = 0 extra GETs). CDP 18/18 + mobile 390 PASS; prod markers `Listening on`/`deviceName` in `SelfDashboard.*.js`. Owner real-active-device line check pending. Remaining scope = Step 5 only | 4 |
+| 2026-07-20 | **Step 4 owner real-device check CONFIRMED** ("2번 동작한다") — Step 4 fully closed. Same message: owner asked what else the player could control → **Step 6 candidate menu recorded** (6a next/prev, 6b play specific track/album, 6c queue, 6d 좋아요 Liked Songs [only item needing re-consent: `user-library-read/modify`], 6e shuffle/repeat/volume/transfer) — owner selects the subset when the step is promoted; nothing scoped-in yet. Remaining scope = Step 5 + Step 6 selection, both rule-4 gated | 4/6 |
