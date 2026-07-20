@@ -30,7 +30,7 @@ work survives context truncation.
 The brief's `2026-05-29-feature-prioritization-v2.md` does **not exist** anywhere in
 repo or git history (confirmed; also OQ-0 in the 2026-06-13 review bundle). Baseline
 adopted instead = `docs/plan.md` + `docs/rfcs/` + `docs/archive/done/` + the
-**2026-06-13 review bundle** (`docs/reviews/2026-06-13/`) + project memory roadmap.
+**2026-06-13 review bundle** (`docs/archive/reviews/2026-06-13/`) + project memory roadmap.
 
 Already decided (sources in parens):
 - Identity = **single-author editorial publication**; community features (votes, members,
@@ -67,7 +67,7 @@ Already decided (sources in parens):
   2,411 figure marked unverified). Through-line confirmed consistent across all 5 docs.
 - 2026-06-14 — Task 6 (00-SUMMARY.md, Korean) written by orchestrator from faithful reads of all
   5 reports. ALL TASKS COMPLETE. Markdown-only, nothing committed (per brief). Deliverables under
-  docs/plans/2026-06-14-ui-ux/.
+  docs/archive/plans/2026-06-14-ui-ux/.
 - 2026-06-14 (interactive) — Owner resolved D1–D9 + a new BNM decision. Recorded into
   `00-SUMMARY.md` ("확정 결정" section) and `docs/rfcs/FEAT-home-redesign.md` ("Owner decisions —
   2026-06-14" + BNM module row + decisions-log row; **Status left `draft`**, no self-promotion).
