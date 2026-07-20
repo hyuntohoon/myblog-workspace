@@ -1,6 +1,6 @@
 # FEAT-multi-user-accounts: Multi-user platform (social signup, RYM-style reviews, personalized integrations)
 
-- **Status**: in-progress — Phases 0–4 + 3b/3c spine + library user-scope + 2026-07-14 surface-audit remediation + profile-merge PR1–3 + minor-backlog/mutation-caps **ALL SHIPPED & prod-verified** (full per-phase log lives in Target state / phases + the Decisions log; digest → `docs/archive/done/2026-07.md`). **Remaining: launch gates G1/G2 (owner-only)** + owner live-login returnTo observation + the deferred canonical-link decision (necessity-gated while prod `/api/members` is empty).
+- **Status**: in-progress — Phases 0–4 + 3b/3c spine + library user-scope + 2026-07-14 surface-audit remediation + profile-merge PR1–3 + minor-backlog/mutation-caps **ALL SHIPPED & prod-verified** (full per-phase log lives in Target state / phases + the Decisions log; digest → `docs/archive/done/2026-07.md`). **Remaining: launch gates G1/G2 (owner-only)** + owner live-login returnTo observation + the deferred canonical-link decision (necessity-gated while prod `/api/members` is empty). NB the 2026-07-14 minor-backlog item “#281 owner-gates the playback-token mint” was later superseded by FEAT-member-player Steps 2–3 (per-member mint, 2026-07-19).
 - **Owner**: 박지훈
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
