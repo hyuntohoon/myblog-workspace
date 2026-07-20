@@ -1,6 +1,6 @@
 # RFC-ui-surface-unification: album/artist interaction rules + profile polish (areas 4·5·9)
 
-- **Status**: in-progress (Step 1 shipped + prod-smoked 2026-07-19, front #290)
+- **Status**: in-progress (Steps 1–2 shipped + prod-smoked 2026-07-19, front #290 #292)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → RFC-ui-surface-unification
@@ -41,8 +41,10 @@ memo/info/edit).
 discography, MemberProfile 평가 (:250,:266), ReviewsTab (partial). **member-modal adopters**:
 OverviewDash, ReviewsTab, BucketBoard (+ its own touch AlbumSheet), StatsTab/LikedBoard.
 
-**Dead spots (album)**: public review page cover/title (`review-hero.astro:57` — plain `<img>`;
-artists ARE linked :92), pocket tray items (remove-only), NowPlaying album text.
+**Dead spots (album)**: public review page cover/title (~~`review-hero.astro:57`~~ **corrected
+at Step 2**: the live album-review surface is the lfq layout in `pages/review/[slug].astro` —
+`isReview` = albumIds>0 OR rating, so review-hero's `hasReview` branch is unreachable for posts
+with album ids), pocket tray items (remove-only), NowPlaying album text.
 
 **Artist links**: already broad (strips, releases, review byline, ADV block, PocketTray:543,
 BucketBoard:639, search artist cards). **Plain text**: NowPlaying + LyricsViewer header + 오늘의
@@ -118,8 +120,16 @@ Implementation note: leading tokens must live in a plain `:root` block, NOT `@th
 Tailwind v4 prunes @theme tokens with no var() reference (`--leading-relaxed` vanished from
 the build) and `--leading-*` would override the `leading-*` utility namespace.
 
-### Step 2 — album dead-spot fixes (review page, pocket tray, NowPlaying)
+### Step 2 — album dead-spot fixes (review page, pocket tray, NowPlaying) — ✅ SHIPPED (front #292, 2026-07-19)
 **Verification**: click-through each surface; overlay opens with correct data.
+**Shipped**: review page (lfq hero cover + title, `astro:page-load`-bound; inventory correction
+above), pocket tray (card-viewer album cards + list-viewer titles; artist nav untouched),
+NowPlaying (snapshot `album_id` was ALREADY in `Backend_NowPlayingResponse` — worker-resolved —
+so cover buttons + underlined album-text links shipped across banner/full/list + 최근 들은
+앨범/최근 재생 rows now, ahead of the RFC's Step-4 assumption). The one-shot LIVE-read path
+carries no album_id → stays plain text until the Step 4 playback plumb (commented at
+`applyLive`). All surfaces CDP click-verified light+dark; prod marker = PocketBuckit chunk's
+new `entityEvents` import.
 
 ### Step 3 — artist quick links (LikedBoard + search album meta) + 404 fallback shell
 **Verification**: LikedBoard artist → hub; unknown-artist URL renders shell with live data.
@@ -150,3 +160,4 @@ Masthead/discography/top-tracks visual pass only.
 | 2026-07-18 | D4 (owner, pre-session): container 1200px, comfortable inner measure | 1 |
 | 2026-07-18 | Owner: dual-modal kept + rule codified; 4 immediate fixes; full id plumbing; 404 fallback shell; honesty rules stay; 680px + token normalization | all |
 | 2026-07-19 | Owner: Status → in-progress approved; Step 1 shipped (front #290). OQ1: no artist field in profile payload → Step 4 | 1 |
+| 2026-07-19 | Owner: Step 2 approved + shipped (front #292). Inventory corrected: review dead spot lives in `[slug].astro` lfq hero, not review-hero. NowPlaying snapshot already carries `album_id` → clickable now; live-read path deferred to Step 4 | 2 |
