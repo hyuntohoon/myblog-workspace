@@ -97,7 +97,7 @@ member components bypass it; no line-height tokens.
 | Search page/header | openAlbum ✓ | artist cards ✓; album meta → link | meta link |
 | Review page | **→ openAlbum** | linked ✓ | fix |
 | Pocket tray | **→ openAlbum** | linked ✓ | fix |
-| NowPlaying | **→ openAlbum** | **→ link (plumb id)** | fix + plumb |
+| NowPlaying | openAlbum ✓ (#292 snapshot, #293 live) | linked ✓ (#293, resolvable-only) | done |
 | Lyrics header | n/a | **→ link (plumb id)** | plumb |
 | 평가 list | openAlbum ✓ | **→ add artist line** | fix |
 | LikedBoard | member modal ✓ | **→ link (id exists)** | fix |
@@ -129,7 +129,8 @@ so cover buttons + underlined album-text links shipped across banner/full/list +
 앨범/최근 재생 rows now, ahead of the RFC's Step-4 assumption). The one-shot LIVE-read path
 carries no album_id → stays plain text until the Step 4 playback plumb (commented at
 `applyLive`). All surfaces CDP click-verified light+dark; prod marker = PocketBuckit chunk's
-new `entityEvents` import.
+new `entityEvents` import. *(Superseded 2026-07-19: the live-path plumb shipped in
+FEAT-member-player Step 3, front #293 — see the decisions log.)*
 
 ### Step 3 — artist quick links (LikedBoard + search album meta) + 404 fallback shell — ✅ SHIPPED (front #296, 2026-07-20; 404 shell only — both quick links deferred to Step 4, see below)
 **Verification**: LikedBoard artist → hub; unknown-artist URL renders shell with live data.
@@ -156,10 +157,13 @@ noIndex, excluded from sitemap; `sw.js` has no navigation fallback to shadow it.
 - OQ3 answered → no opportunistic OverviewDash/BucketBoard link possible (no unlinked
   artist render has an id).
 
-### Step 4 — id plumbing (contract): 오늘의곡 `artist_id`, playback→lyrics chain, 평가 artist, search album meta `artist_id`, saved-tracks artist id (LikedBoard)
+### Step 4 — id plumbing (contract): 오늘의곡 `artist_id`, lyrics chain (`LyricsOpenTarget` + lyrics header), 평가 artist, search album meta `artist_id`, saved-tracks artist id (LikedBoard)
 Music/backend response additions → openapi regen in service repo(s) → `tools/merge_openapi.py`
 → front `pnpm generate:types` (api.gen.ts commit). Workspace-first merge order per memory.
-**Verification**: openapi-verify CI green; NowPlaying/lyrics header links live.
+NB the NowPlaying leg of the playback plumb is already DONE (member-player #293, 2026-07-19):
+`LivePlayback` carries `artists[{id,name}]` + `albumSpotifyId`; only the `LyricsOpenTarget` →
+lyrics-header link remains from that chain.
+**Verification**: openapi-verify CI green; lyrics header links live.
 
 ### Step 5 — ArtistHub layout refresh (rules intact)
 Masthead/discography/top-tracks visual pass only.
@@ -190,3 +194,4 @@ Masthead/discography/top-tracks visual pass only.
 | 2026-07-19 | Owner: Status → in-progress approved; Step 1 shipped (front #290). OQ1: no artist field in profile payload → Step 4 | 1 |
 | 2026-07-19 | Owner: Step 2 approved + shipped (front #292). Inventory corrected: review dead spot lives in `[slug].astro` lfq hero, not review-hero. NowPlaying snapshot already carries `album_id` → clickable now; live-read path deferred to Step 4 | 2 |
 | 2026-07-20 | Owner (pre-session): Step 3 approved + shipped (front #296) as 404-shell-only. OQ2: no `artist_id` in search album rows → Step 4. OQ3: nothing opportunistic. Inventory corrected: LikedBoard has no artist id (`buckets.ts:52` is BucketItem, artist-type only) → Step 4 contract add. error.html was missing from the build — site-wide 404 fixed as a side effect, no CloudFront change | 3 |
+| 2026-07-20 | **Cross-stream sync (consistency tidy)**: the NowPlaying live-path plumb SHIPPED 2026-07-19 in FEAT-member-player Step 3 (front #293) per the file-ownership decision — `LivePlayback` carries `artists[{id,name}]` + `albumSpotifyId`; NowPlaying renders real `artistHref` links via `@lib/spotifyCatalog` by-spotify pre-resolve (the OQ2 "no-contract alternative", resolvable-only so no dead clicks — and it KEEPS real-href semantics, contra the OQ2 note, because resolution happens at render not on click). Step 4 scope narrowed accordingly (NowPlaying leg removed; lyrics header + contract adds remain); surface table NowPlaying row marked done | 2, 4 |
