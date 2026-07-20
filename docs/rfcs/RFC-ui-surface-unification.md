@@ -1,6 +1,6 @@
 # RFC-ui-surface-unification: album/artist interaction rules + profile polish (areas 4·5·9)
 
-- **Status**: in-progress (Steps 1–2 shipped + prod-smoked 2026-07-19, front #290 #292)
+- **Status**: in-progress (Steps 1–3 shipped + prod-smoked — #290 #292 2026-07-19, #296 2026-07-20)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → RFC-ui-surface-unification
@@ -131,10 +131,32 @@ carries no album_id → stays plain text until the Step 4 playback plumb (commen
 `applyLive`). All surfaces CDP click-verified light+dark; prod marker = PocketBuckit chunk's
 new `entityEvents` import.
 
-### Step 3 — artist quick links (LikedBoard + search album meta) + 404 fallback shell
+### Step 3 — artist quick links (LikedBoard + search album meta) + 404 fallback shell — ✅ SHIPPED (front #296, 2026-07-20; 404 shell only — both quick links deferred to Step 4, see below)
 **Verification**: LikedBoard artist → hub; unknown-artist URL renders shell with live data.
+**Shipped**: 404 fallback shell (owner decision 11). Measured first: S3 website config already
+declares `error_document = error.html` (`infra/s3.tf`) but the build never shipped that key —
+every unknown URL returned S3's raw XML error page. Fix is front-only: `src/pages/404.astro`
+(Astro emits `dist/404.html`) + an `astro:build:done` hook mirroring it to `dist/error.html`.
+**Zero CloudFront change**: the console `handler` viewer-request function passes
+extension-less/trailing-slash URIs through unchanged (verified via `get-function`), and
+`custom_error_response {404, ttl 0}` only caps caching; `/api/*` 404 bodies (by-spotify
+poll flow) are untouched. `NotFoundShell` island: `/artist/{id}/` paths render the existing
+`ArtistHub` island with live data (its hero/albums/top-tracks fetches were already runtime),
+unknown ids fall through to ArtistHub's own not-found state; other paths get an in-system
+generic 404 (mono kicker / serif headline / path echo / 홈·검색 links). Serves with HTTP 404 +
+noIndex, excluded from sitemap; `sw.js` has no navigation fallback to shadow it.
+**Scope corrections (measured 2026-07-20)**:
+- OQ2 answered → search album meta link deferred to Step 4 (below).
+- **Inventory correction — LikedBoard was NOT a free win**: the RFC's `buckets.ts:52 artistId`
+  claim refers to `BucketItem.artistId`, which is non-null only for `itemType==='artist'`
+  members and already linked (`BucketBoard.tsx:639`). LikedBoard rows are
+  `Backend_SavedTrackItem` (artist = name string; `Backend_AlbumBrief` carries `artist_names`
+  strings only) → **no artist id anywhere in the liked-tracks chain**. LikedBoard artist link
+  moves to Step 4 as a contract addition alongside the 평가 artist line.
+- OQ3 answered → no opportunistic OverviewDash/BucketBoard link possible (no unlinked
+  artist render has an id).
 
-### Step 4 — id plumbing (contract): 오늘의곡 `artist_id`, playback→lyrics chain, 평가 artist
+### Step 4 — id plumbing (contract): 오늘의곡 `artist_id`, playback→lyrics chain, 평가 artist, search album meta `artist_id`, saved-tracks artist id (LikedBoard)
 Music/backend response additions → openapi regen in service repo(s) → `tools/merge_openapi.py`
 → front `pnpm generate:types` (api.gen.ts commit). Workspace-first merge order per memory.
 **Verification**: openapi-verify CI green; NowPlaying/lyrics header links live.
@@ -148,10 +170,16 @@ Masthead/discography/top-tracks visual pass only.
 1. **평가 list artist field** — ~~does the profile ratings payload already include artist?~~
    **Resolved at Step 1 (2026-07-19)**: `Backend_MemberReviewResponse` carries no artist field
    → 평가 artist line moves to Step 4 (contract addition alongside 오늘의곡 `artist_id`).
-2. **Search album rows** — do unified-search album items carry `artist_id` today? Blocks the
-   Step 3 meta-link (falls back to Step 4 if a contract add is needed).
-3. **OverviewDash/BucketBoard artist linking** — opportunistic or explicit step? Default:
-   opportunistic in Step 3 where ids exist.
+2. **Search album rows** — ~~do unified-search album items carry `artist_id` today?~~
+   **Resolved at Step 3 (2026-07-20)**: `Music_AlbumItem` carries `artist_name` +
+   `artist_spotify_id` but no DB `artist_id` (music `AlbumItem` schema + primary_map return
+   name/spotify-id pairs) → meta link moves to Step 4. Note for Step 4 design: a contract
+   `artist_id` add is the clean fix; a client-side `/artists/by-spotify/{id}` resolve-on-click
+   exists as a no-contract alternative but loses real-href semantics.
+3. **OverviewDash/BucketBoard artist linking** — ~~opportunistic or explicit step?~~
+   **Resolved at Step 3 (2026-07-20)**: nothing to do — every artist render without a link is
+   id-less (`artist_name`/`artist_names` strings); `itemType==='artist'` rows already link
+   (`BucketBoard.tsx:639`). Any further linking rides the Step 4 contract adds.
 
 ## Decisions log
 
@@ -161,3 +189,4 @@ Masthead/discography/top-tracks visual pass only.
 | 2026-07-18 | Owner: dual-modal kept + rule codified; 4 immediate fixes; full id plumbing; 404 fallback shell; honesty rules stay; 680px + token normalization | all |
 | 2026-07-19 | Owner: Status → in-progress approved; Step 1 shipped (front #290). OQ1: no artist field in profile payload → Step 4 | 1 |
 | 2026-07-19 | Owner: Step 2 approved + shipped (front #292). Inventory corrected: review dead spot lives in `[slug].astro` lfq hero, not review-hero. NowPlaying snapshot already carries `album_id` → clickable now; live-read path deferred to Step 4 | 2 |
+| 2026-07-20 | Owner (pre-session): Step 3 approved + shipped (front #296) as 404-shell-only. OQ2: no `artist_id` in search album rows → Step 4. OQ3: nothing opportunistic. Inventory corrected: LikedBoard has no artist id (`buckets.ts:52` is BucketItem, artist-type only) → Step 4 contract add. error.html was missing from the build — site-wide 404 fixed as a side effect, no CloudFront change | 3 |
