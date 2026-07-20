@@ -40,6 +40,8 @@ Scopes requested (default / worker token):
   user-read-recently-played, user-read-currently-playing  (listening reads)
   user-library-read, user-library-modify                  (Spotify Library two-way
     sync, FEAT-spotify-library-sync — the only write scopes, per D11 follow-up)
+  user-follow-read                                        (followed-artists import,
+    FEAT-for-you-releases Step 2 — read-only)
 
 Scopes requested (--streaming token):
   streaming                                               (Web Playback SDK audio)
@@ -66,7 +68,8 @@ import httpx
 REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPES = (
     "user-read-recently-played user-read-currently-playing "
-    "user-library-read user-library-modify"
+    "user-library-read user-library-modify "
+    "user-follow-read"
 )
 # FEAT-spotify-streaming-playback Step 1: the Web Playback SDK needs `streaming`; device
 # transfer + play control need the two playback-state scopes. Minted into a DISTINCT
