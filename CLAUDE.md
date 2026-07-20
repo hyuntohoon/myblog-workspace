@@ -107,11 +107,22 @@ Triggers are **signals for when delegation is likely cheaper than direct work** 
 | ≥3 files in a service repo OR any contract/infra touch             | `reviewer` subagent (myblog-specific contract / boundary checks) |
 | UI change in `myblog_front`                                        | `frontend-design` skill   |
 | Security-sensitive change (auth, secrets, input)                   | `security-review` skill   |
-| Any non-trivial code implementation leg                            | `codex` MCP tool — see **Codex delegation** below |
+| Any non-trivial code implementation leg                            | codex or GLM — see **Implementation delegation** below |
 
 Subagents that produce code must run that repo's verification and quote the result.
 
-**Codex delegation.** Default executor for code implementation is the `codex` MCP tool (`mcp__codex__codex`, workspace-write, `cwd` = target repo) — not Claude writing the code directly. Claude keeps branch management, diff review, verification, and push. Codex runs without this workspace's git hooks — always instruct it **not to commit**; Claude reviews the diff and commits. Fall back to direct implementation (and say so) when: codex hits a rate-limit/quota error, or the change is a trivial edit to files already in context.
+**Implementation delegation.** Code implementation legs route by risk and size — not Claude typing the code by default. Claude always keeps branch management, diff review, verification, commit, and push; both executors must be instructed **not to commit** (codex additionally runs without this workspace's git hooks; `claude-glm` inherits them).
+
+| Situation | Executor |
+| --------- | -------- |
+| Auth guards / API contracts / DB migrations / infra | **Claude directly** — no delegation. These are the recurring bug classes (fail-closed guards, twin-drift sweeps, session lifecycle); rule enforcement outweighs typing savings |
+| Complex leg (multi-file, new feature, cross-cutting) | `codex` MCP tool (`mcp__codex__codex`, workspace-write, `cwd` = target repo) |
+| Mid-complexity single-repo leg (no boundary touch) | `claude-glm -p --model opus` (glm-5.2, headless Claude Code via z.ai — zsh function, key isolated in `~/.config/claude-glm.env`) |
+| Mechanical / bulk leg (boilerplate, repetitive edits, test scaffolding) | `claude-glm -p` (glm-4.7 — lowest z.ai quota draw) |
+| Trivial edit to files already in context | Claude directly (delegation overhead exceeds the gain) |
+| codex rate-limit / quota error | Fall back to glm-5.2, then Claude directly — say which fallback fired |
+
+**z.ai peak window — no GLM.** 15:00–19:00 KST (14:00–18:00 UTC+8) glm-5.2 draws 3× quota; during this window do not delegate to GLM at all — route those legs to codex (or defer). Check `date` before any `claude-glm` call. (glm-4.7 carries no multiplier, but the owner rule is a blanket no-GLM window for simplicity.)
 
 **Trigger bypass rule.** If the main agent already has the relevant files loaded in context, do not spawn a subagent solely to satisfy a trigger — subagents exist to load context the main agent lacks, not to mirror context it already has. When bypassing a trigger, say so out loud (e.g. "explorer trigger matched but files already loaded — handling directly"). Invisible bypass = no bypass.
 
