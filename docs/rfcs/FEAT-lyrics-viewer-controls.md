@@ -1,6 +1,6 @@
 # FEAT-lyrics-viewer-controls: header/controls redesign — scroll-to-manual + return affordances
 
-- **Status**: in-progress (Step 1 shipped 2026-07-19)
+- **Status**: in-progress (Steps 1–2 shipped; awaiting owner A/D pick after prod use)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → FEAT-lyrics-viewer-controls
@@ -86,6 +86,15 @@ mockups (frontend-design skill at implementation).
 **Verification**: click-through desktop + 390px CDP; localStorage prefs survive reload;
 translation cluster states (done/requested/failed/stale) all render.
 
+> **Shipped 2026-07-20** — front #295. OQ3 resolved: header ⚙ (owner pick, mockup question).
+> Popover = dark plate extending the viewer idiom; style tiles carry pure-CSS mini-previews;
+> return rows are radios with timing descriptions; picks keep the popover open for live
+> compare. Dismiss = house pattern (useDismissable stack — ESC closes popover before viewer —
+> + outside pointerdown). `role="dialog"` (radiogroup inside; menu semantics would be wrong).
+> Verified: lint + astro check clean; CDP 24/24 incl. all four translation states, plain-row
+> 동기화 없음 note, reload persistence, 390px on-screen. **Implementation complete — remaining
+> work is the owner's A/D keeper pick after prod use (follow-up chore, not this RFC).**
+
 ## Open questions
 
 1. **Idle timings** (A: 4s, D: 3s) — constants, tune after use. Blocks nothing.
@@ -102,3 +111,4 @@ translation cluster states (done/requested/failed/stale) all render.
 | 2026-07-18 | Owner: 블러/플랫 → ⚙ 설정 popover | 2 |
 | 2026-07-19 | Step 1 ships an interim [필|브라우즈] rail segment (A/D switch) — absorbed into the ⚙ popover in Step 2 | 1 |
 | 2026-07-19 | Browse nav (wheel/drag/keys) does NOT re-anchor the estimate; line tap is the only re-anchoring nav (return needs the live anchor) | 1 |
+| 2026-07-20 | OQ3: popover trigger = header ⚙ (owner pick via mockup comparison) | 2 |
