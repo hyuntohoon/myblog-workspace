@@ -192,9 +192,32 @@ lyrics-header link remains from that chain.
   prod has no reviewed member yet), mobile 390 + light scheme, artist links
   land on the live ArtistHub.
 
-### Step 5 — ArtistHub layout refresh (rules intact)
-Masthead/discography/top-tracks visual pass only.
-**Verification**: click-through; honesty-rule elements unchanged (stars only, footnote metrics).
+### Step 5 — ArtistHub refresh + genre-map integration (rules intact; scope expanded 2026-07-21)
+Original scope: masthead/discography/top-tracks visual pass only. Owner-expanded
+at the Step 5 go (2026-07-21 session):
+1. **Visual pass** — typography normalized onto `--text-*`/`--leading-*` tokens,
+   letter-tile font onto the site serif stack, empty-state polish. No layout
+   re-architecture; honesty rules untouched.
+2. **Discography sort toggle** — client-side 인기순 (default; server order) /
+   최신순 / 제목순. (Measured: the server list is popularity DESC → release_date
+   DESC; there was no user-facing control.)
+3. **Artist genre chips → our taxonomy** (owner decision: replace, not
+   link-in-place): `ArtistHero.catalog_genres [{label,slug}]` (music contract
+   add) — high-confidence `album_genres` aggregated over the artist's catalog,
+   most-tagged first. Chips link to the genre map; raw Spotify ko-KR `genres`
+   remain the unlinked fallback for label-less artists. (Measured: the old
+   chips were Spotify ko-KR strings — 545 distinct, 498 Korean, only ~13 match
+   taxonomy labels — the one surface off the site's genre vocabulary.)
+4. **Genre-map deep link** — `/genres/?g=<slug>` selects that node + opens its
+   ego view (GenreMap previously had no deep link).
+5. **Site-wide genre links** — display-only genre labels link to
+   `/genres/?g=…` via a module-cached label→slug resolver (resolvable-only,
+   the Step-4 ArtistNames idiom). Filter chips (LikedBoard facets, BucketBoard,
+   GenrePicker, analysis charts) explicitly excluded — they keep local filter
+   semantics. AlbumDetailView's artist-genre lines (ko vocabulary) stay text.
+**Verification**: click-through incl. sort orders + chip → genre-map ego view +
+deep-link URL direct-load; honesty-rule elements unchanged (stars only,
+footnote metrics); mobile 390.
 
 ## Open questions
 
@@ -223,3 +246,4 @@ Masthead/discography/top-tracks visual pass only.
 | 2026-07-20 | Owner (pre-session): Step 3 approved + shipped (front #296) as 404-shell-only. OQ2: no `artist_id` in search album rows → Step 4. OQ3: nothing opportunistic. Inventory corrected: LikedBoard has no artist id (`buckets.ts:52` is BucketItem, artist-type only) → Step 4 contract add. error.html was missing from the build — site-wide 404 fixed as a side effect, no CloudFront change | 3 |
 | 2026-07-20 | **Cross-stream sync (consistency tidy)**: the NowPlaying live-path plumb SHIPPED 2026-07-19 in FEAT-member-player Step 3 (front #293) per the file-ownership decision — `LivePlayback` carries `artists[{id,name}]` + `albumSpotifyId`; NowPlaying renders real `artistHref` links via `@lib/spotifyCatalog` by-spotify pre-resolve (the OQ2 "no-contract alternative", resolvable-only so no dead clicks — and it KEEPS real-href semantics, contra the OQ2 note, because resolution happens at render not on click). Step 4 scope narrowed accordingly (NowPlaying leg removed; lyrics header + contract adds remain); surface table NowPlaying row marked done | 2, 4 |
 | 2026-07-20 | Owner (session go): Step 4 approved + shipped. Contract shape decision: read-time primary-artist resolve (no DB migration, no denormalized artist_id columns); primary pick = musicApi's BUG-19 deterministic ordering, now shared verbatim by backend `artist_primary.py`. At the approval gate the owner kept **Step 5 in scope** (a same-session descope proposal was declined) — RFC stays open, next = Step 5 | 4 |
+| 2026-07-21 | Owner (Step 5 go, scope expanded): visual pass + discography **sort toggle** + genre-map integration. Two gated choices: artist chips **replaced** by taxonomy-derived `catalog_genres` (over display-only linking of the Spotify ko strings — recommended and accepted), and the **site-wide** display-genre → `/genres/?g=` sweep rides Step 5 (over a follow-up PR). Filter chips excluded by design | 5 |
