@@ -5089,6 +5089,13 @@
             "title": "Album Count",
             "type": "integer"
           },
+          "catalog_genres": {
+            "items": {
+              "$ref": "#/components/schemas/Music_CatalogGenreItem"
+            },
+            "title": "Catalog Genres",
+            "type": "array"
+          },
           "followers": {
             "anyOf": [
               {
@@ -5803,6 +5810,25 @@
           }
         },
         "title": "CandidateTrackItem",
+        "type": "object"
+      },
+      "Music_CatalogGenreItem": {
+        "description": "One taxonomy genre chip \u2014 label for display, slug for the /genres/?g=\ndeep link (RFC-ui-surface-unification Step 5).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "slug"
+        ],
+        "title": "CatalogGenreItem",
         "type": "object"
       },
       "Music_ExplainEntry": {
