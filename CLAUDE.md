@@ -57,7 +57,7 @@ Hardened after FIX-bug-audit-2026-07 (all are recurring bug classes — the audi
 
 ## Doc language
 
-Plan/spec markdown — `docs/plan.md`, `docs/rfcs/`, `docs/contracts/`, `docs/archive/`, PR bodies — always in English. Token-efficient context loading; conversation/chat can stay in Korean. **Questions directed at the user — ask in Korean** (decision points where the user has to read and respond; reduces user-side cognitive load).
+Plan/spec markdown — `docs/plan.md`, `docs/rfcs/`, `docs/contracts/`, `docs/archive/`, PR bodies — always in English. Token-efficient context loading; conversation/chat can stay in Korean. **Questions directed at the user — ask in Korean** (decision points where the user has to read and respond; reduces user-side cognitive load). **Information reported to the user — keep it easy to understand** (plain words, no jargon walls; owner rule 2026-07-21).
 
 ## Workflow
 
