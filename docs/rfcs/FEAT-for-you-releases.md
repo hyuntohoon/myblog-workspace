@@ -5,7 +5,16 @@
   #301. Prod smoke: authed track→feed→untrack cycle returned both new fields
   (album_id + cover_url) on real releases (Masego); authed prod-home CDP
   rendered the strip (cover→overlay, artist link, '· 싱글' tag); logged-out
-  home hides the strip. Remaining: Step 2 only.
+  home hides the strip.
+- Step 2 SHIPPED + prod-smoked 2026-07-21 — ws #682 (contract + apigw route,
+  applied: probe 404→401) + worker #76 + backend #129 + front #304. Prod
+  smoke: non-owner JWT → 403 "Owner only" (fail-closed); owner re-auth minted
+  a `user-follow-read` token (probe 200); live import over 6 real follows hit
+  ALL three paths — 1 matched-insert (Debussy, 30→31 tracked), 3
+  already-tracked skips, 2 uncatalogued (Korstick/Brodsky) fan-out →
+  album-sync created both artists (+50/+3 albums) → delayed 900s rerun
+  attached them (31→33). Implementation complete — closeout/archive is the
+  next owner call.
 - Owner decisions (2026-07-21): existing 새 앨범 strip ordering stays as-is
   (recency 60% × popularity 40%); the new strip is named **"나를 위한 새 앨범"**
   (Spotify "New Releases for You" analog); "follow" = the existing
@@ -57,7 +66,7 @@ importing their followed artists from Spotify (does not exist).
 Verification: backend pytest; front lint + astro check + real-browser CDP
 click-through (mocked feed); prod smoke post-merge.
 
-## Step 2 — Spotify followed-artists import (in flight 2026-07-21)
+## Step 2 — Spotify followed-artists import (SHIPPED + prod-smoked 2026-07-21)
 
 - Owner re-auth of the Spotify bootstrap adding `user-follow-read` (user
   action, prerequisite; scope added to `scripts/spotify_bootstrap_token.py`).
