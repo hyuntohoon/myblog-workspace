@@ -240,6 +240,16 @@ resource "aws_apigatewayv2_route" "tracked_artists_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# Owner-gated in-Lambda via provisioned_owner_id (FEAT-for-you-releases Step 2:
+# the async Spotify followed-artists import trigger — enqueue only, rule #9).
+resource "aws_apigatewayv2_route" "tracked_artists_spotify_import_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/me/tracked-artists/spotify-import"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Album reviews (FEAT-multi-user-accounts Phase 1) ---
 # The public reads — GET /api/reviews/albums/{id}, GET /api/members[/{handle}] —
 # ride the edge_guard GET catch-all (api_get_proxy). Only the member/owner

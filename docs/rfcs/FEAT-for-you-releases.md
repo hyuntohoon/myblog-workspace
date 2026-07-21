@@ -11,6 +11,15 @@
   (Spotify "New Releases for You" analog); "follow" = the existing
   `user_artist_tracks` tracked-artist edge (no separate follow table); strip
   includes albums **and** singles/EPs.
+- Owner decisions (2026-07-21, Step 2 session): **OQ1 = catalog-ingest** —
+  followed artists missing from the catalog are expanded onto the existing
+  album-sync SQS pipeline (one `get_artist_albums` page, album+single, per
+  artist; artists are created by album sync) with ONE delayed (900s) snapshot
+  re-import chained so freshly-ingested artists get their tracked edge without
+  a second click; leftovers wait for the next manual import. **The trigger
+  endpoint is owner-only** (`provisioned_owner_id`): the worker spends the
+  OWNER's bootstrap token, so an open member route would copy the owner's
+  follows into another member's tracked list.
 
 ## Problem
 
@@ -48,17 +57,26 @@ importing their followed artists from Spotify (does not exist).
 Verification: backend pytest; front lint + astro check + real-browser CDP
 click-through (mocked feed); prod smoke post-merge.
 
-## Step 2 — Spotify followed-artists import (next session, rule-4 gated)
+## Step 2 — Spotify followed-artists import (in flight 2026-07-21)
 
 - Owner re-auth of the Spotify bootstrap adding `user-follow-read` (user
-  action, prerequisite).
-- Worker: `GET /me/following?type=artist` (cursor-paged) → resolve/upsert
-  catalog artists → snapshot-import into `user_artist_tracks` (same
-  independence contract as Buckit import). Async via SQS/EventBridge — no
-  synchronous Spotify on user-facing endpoints (hard rule #9).
-- Front: "Spotify에서 가져오기" entry in the `/releases/` ManagePanel.
-- Open question OQ1: artists followed on Spotify but absent from the catalog —
-  enqueue for catalog ingest vs skip-and-report count.
+  action, prerequisite; scope added to `scripts/spotify_bootstrap_token.py`).
+- Worker: `GET /me/following?type=artist` (cursor-paged; 403 →
+  `SpotifyScopeError`, dropped not retried) → match `artists.spotify_id` →
+  snapshot-import into `user_artist_tracks` (same independence contract as
+  Buckit import; sorted `ON CONFLICT DO NOTHING` upsert, raw-SQL so no
+  shared_db pin bump). Async via SQS — no synchronous Spotify on user-facing
+  endpoints (hard rule #9). Message contract:
+  - `{"job": "spotify_follow_import", "user_id", "rerun"?}` — the import
+    (backend-enqueued; `rerun=true` only from the self-chain, never fans out).
+  - `{"job": "spotify_follow_ingest", "artist_sids": [≤10]}` — OQ1 fan-out;
+    each chunk expands its artists' recent releases onto album-sync.
+- Backend: `POST /api/me/tracked-artists/spotify-import` (owner-only,
+  `provisioned_owner_id`, 202 `{queued}`; degrades `queued=false` without a
+  queue) + matching `infra/apigateway.tf` JWT route.
+- Front: owner-only "Spotify에서 가져오기" entry in the `/releases/`
+  ManagePanel (`isOwnerUser()` gate mirrors the server gate).
+- OQ1 RESOLVED (owner 2026-07-21): catalog-ingest — see Owner decisions above.
 
 ## Rollback
 
