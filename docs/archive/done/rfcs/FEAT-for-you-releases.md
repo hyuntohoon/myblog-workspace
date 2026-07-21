@@ -1,6 +1,10 @@
 # FEAT-for-you-releases — home "나를 위한 새 앨범" strip + Spotify follow import
 
-- Status: draft (Step 1 owner-approved in-session 2026-07-21)
+- Status: done (2026-07-21, archived — Steps 1–2 both SHIPPED + prod-smoked
+  2026-07-21; implementation complete, no observation gates → moved to
+  `docs/archive/done/rfcs/`. Original status line below.)
+  <br>_draft_ (Step 1 owner-approved in-session 2026-07-21; Step 2
+  owner-approved same day — OQ1 + owner-gate decisions in-session)
 - Step 1 SHIPPED + prod-smoked 2026-07-21 — ws #677 + backend #128 + front
   #301. Prod smoke: authed track→feed→untrack cycle returned both new fields
   (album_id + cover_url) on real releases (Masego); authed prod-home CDP
