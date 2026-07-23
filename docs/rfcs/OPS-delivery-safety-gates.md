@@ -1,6 +1,6 @@
 # OPS-delivery-safety-gates: CI merge gates, deploy smoke, and async failure boundaries
 
-- **Status**: in-progress (Step 2) — Step 1 shipped + prod-smoked 2026-07-23 (backend #130, SHA 4018f50)
+- **Status**: in-progress (Step 3) — Step 1 shipped + prod-smoked 2026-07-23 (backend #130, SHA 4018f50); Step 2 shipped + prod-smoked 2026-07-23 (worker #77 SHA 4d1d3dd, front #306 SHA 4de9193)
 - **Owner**: TBD
 - **Created**: 2026-07-23
 - **Plan row**: `plan.md` → OPS-delivery-safety-gates
@@ -73,6 +73,8 @@ cd myblog_backend && pytest -m "not integration"   # expect ~554 passed
 # front: PR with a lint/astro-check error → check job red; deploy job does not run on PR
 ```
 **Rollback**: revert workflow edits (CI-only).
+
+> ✅ Done 2026-07-23. worker #77 (SHA `4d1d3dd`) + front #306 (SHA `4de9193`). Each added a 4-line `pull_request: branches: [main]` trigger to `on:`; the existing `test`/`check` job now runs on PRs while `deploy` stays push/dispatch-only via its unchanged ref guard. Gate confirmed live on the PRs themselves (triggers self-activate): worker `test` **pass** (3m18s) + `deploy` **skipping**; front `check` **pass** (56s) + `deploy` **skipping** (`code-review.yml` still advisory). Post-merge deploys both green; system prod smoke 19/0. Background security review flagged `ci-cd-trust` (fork PRs get no secrets on `pull_request` → no exposure) and `ci-cd-availability` (shared concurrency group serializes PR checks with deploys — minor queue delay, parity with backend) — both accepted, no change (owner "a" 2026-07-23).
 
 ---
 
