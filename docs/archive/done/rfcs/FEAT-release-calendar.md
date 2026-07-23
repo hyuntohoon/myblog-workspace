@@ -1,6 +1,6 @@
 # FEAT-release-calendar: New-release calendar (신보 캘린더)
 
-- **Status**: accepted — **Tracks A+B Steps 1–7 ALL SHIPPED + prod-smoked 2026-07-12→13** (per-step ship notes → Steps; design revision, density verdict, insert-gate incident → Decisions log; digest → `docs/archive/done/2026-07.md`). **Remaining: OQ4 singles/noise review ~2026-07-27** (denominator = that window's `release_date` rows) + `no_upc` sentinel re-check after the catalog widens.
+- **Status**: done (2026-07-23 — owner promoted; all 7 implementation steps shipped + prod-smoked 2026-07-12→13). **Tracks A+B Steps 1–7 ALL SHIPPED** (per-step ship notes → Steps; design revision, density verdict, insert-gate incident → Decisions log; digest → `docs/archive/done/2026-07.md`). Remaining data-quality work (OQ4 singles/noise decision ~2026-07-27, now with 2026-07-23 audit evidence + `no_upc` sentinel re-check) **spun out to `plan.md` → DATA-release-noise** — it needs a filtering/dedup decision + likely a follow-on change, so it outlives this RFC's closeout rather than blocking it.
 - **Owner**: TBD
 - **Created**: 2026-07-06
 - **Plan row**: `plan.md` → FEAT-release-calendar

@@ -1,6 +1,6 @@
 # MyBlog + Music Review — System Architecture
 
-> ⚠️ **Verify against code — this doc drifts.** The 2026-06-05 review (STAB-1) found ≥4 load-bearing errors here; the ones found were corrected (2026-06-05, STAB-4), but treat any specific claim (pins, queue type, auth, imports) as needing a code/tfstate check before relying on it. Source of truth: `docs/contracts/schema.sql` + `infra/`.
+> ⚠️ **Verify against code — this doc drifts.** The 2026-06-05 review (STAB-1) found ≥4 load-bearing errors; the 2026-07-23 audit found more (EventBridge count, shared_db pins, worker import — corrected below). Treat any specific claim (pins, queue type, auth, imports, schedule count) as needing a code/tfstate check before relying on it. Source of truth: `docs/contracts/schema.sql` + `infra/`.
 
 ## Overview
 
@@ -175,7 +175,7 @@ The legacy `GET /api/music/search?mode=` (`basic_search`) was removed in PR-13 (
 
 ### myblog_worker
 
-Background service. Two trigger paths:
+Background service. **2026-07-23 audit note:** the "two trigger paths" framing below is the original 2026-05 design; the worker now dispatches **~15 job types** across SQS + 13 EventBridge schedules (`worker/handler.py` routes on `event["job"]`/`event["source"]`). The three subsections below are the load-bearing originals, not an exhaustive list — full schedule → `infra/eventbridge.tf`, full job routing → `worker/handler.py`.
 
 **1. SQS-driven Spotify sync** (primary)
 
@@ -230,7 +230,7 @@ Concrete IDs/ARNs in `infra/README.md`.
 | **Amazon SQS** | `myblog_music` + `myblog_backend` (enqueue), `myblog_worker` (consume) | **Standard** queue `blogSQS` (NOT FIFO; tfstate `fifo=False`) with DLQ `album-sync-dlq` (`maxReceiveCount=3`) + `ReportBatchItemFailures`; at-least-once + idempotent consumer. Carries album-sync (music) + `{job:...}` control messages (backend) |
 | **AWS Cognito** | `myblog_backend` and `myblog_music` (JWT validation), `myblog_front` (login) | JWKS-based validation; bypassed when `ENV=local\|dev` or `COGNITO_USER_POOL_ID` unset |
 | **AWS SSM Parameter Store (SecureString)** | All four Lambdas | One param per service, loaded once per cold start via `@lru_cache` |
-| **AWS EventBridge** | `myblog_worker` (alias generation schedule) | `rate(15 minutes)` — triggers `generate_and_save_aliases` (MusicBrainz only) |
+| **AWS EventBridge** | `myblog_worker` (13 scheduled rules) + `myblog_backend` (5-min warm-ping) | **13 rules** (2026-07-23 audit — NOT just alias): `musicbrainz_alias` 15m, `spotify_listening` 1h, `lastfm_recent_tracks` 15m, `spotify_member_poll` 15m, `release_upcoming_mb` 1h, `release_upcoming_itunes` 30m, `album_ingest` daily, `spotify_saved_tracks_incremental` daily cron, `spotify_saved_tracks_full` weekly, `lyrics_incremental` 15m, `lyrics_reassessment` daily, `artist_photo_backfill` weekly, `backend_warm_ping` 5m→backend. Full list → `infra/eventbridge.tf` |
 | **S3 + CloudFront** | `myblog_front` (static serving) | CloudFront function rewrites `uri` → `uri + '/index.html'` for Astro directory format |
 | **Spotify Web API** | `myblog_music` (search), `myblog_worker` (data collection) | Two separate clients by design — see ADR 0004 |
 | **MusicBrainz API** | `myblog_worker` (alias generation) | Looks up `musicbrainz_id` + aliases for artists; sentinel `MBID_NOT_FOUND` prevents repeat lookups. Score threshold 90 + 1 req/sec rate limit |
@@ -242,20 +242,22 @@ Concrete IDs/ARNs in `infra/README.md`.
 
 Canonical DDL: `docs/contracts/schema.sql` (ARCH-1, ADR 0003).
 
-SQLAlchemy models are owned by `myblog_shared_db` (ARCH-6, ADR 0005) — a private Python package installed via git URL pin. Each consumer pins its own version (different services may lag the latest tag if they don't need the newest columns):
+SQLAlchemy models are owned by `myblog_shared_db` (ARCH-6, ADR 0005) — a private Python package installed via git URL pin. Each consumer pins its own version (different services may lag the latest tag if they don't need the newest columns). **Actual pins (2026-07-23 audit — the values below were stale in this doc):**
 ```
 # myblog_backend/requirements.txt
-myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.15.0   # latest tag v0.15.0
+myblog-shared-db @ git+...@50d33c3   # untagged SHA ≈ v0.27.0-17 (ahead of music/worker)
 # myblog_music/requirements.txt
-myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.3.0
+myblog-shared-db @ git+...@v0.26.0
 # myblog_worker/requirements.txt
-myblog-shared-db @ git+https://github.com/hyuntohoon/myblog_shared_db.git@v0.2.2
+myblog-shared-db @ git+...@v0.26.0
+# package HEAD is at v0.37.0; the additive convention (ARCH-6) tolerates the lag.
+# NB: backend pins a moving untagged SHA, not a release tag — a reproducibility smell (audit C-10).
 ```
 
 Three services import from it:
 - `myblog_backend` — `from myblog_shared_db.models import Post, Category, Album, …`
 - `myblog_music` — `from myblog_shared_db.models import Album, Artist, Track, …`
-- `myblog_worker` — imports **nothing** from `myblog_shared_db` (grep = 0); all DB access is raw `text()` SQL with `ON CONFLICT` upserts. Its `@v0.2.2` pin is installed-but-unimported (dead)
+- `myblog_worker` — **does** import from it (2026-07-23 audit corrected the prior "imports nothing" claim): `from myblog_shared_db.genre_mapping import attachable_slugs` (`worker/service/sync_service.py:9`). The pin is live, not dead. Most other DB access is raw `text()` SQL with `ON CONFLICT` upserts.
 
 Schema changes must:
 1. Update `docs/contracts/schema.sql` first

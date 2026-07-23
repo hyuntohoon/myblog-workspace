@@ -12,7 +12,7 @@ Source of truth: Terraform state in **S3** (`myblog-terraform-state-338183196042
 | Resource | Identifier |
 |----------|------------|
 | AWS region | `ap-northeast-2` (Seoul); Neon in `ap-southeast-1` (separate by design — Neon Free-tier availability) |
-| API Gateway | `lambdaAPI` (HTTP API ID: `ld8pjw3mx4`) — 10 routes (see `infra/apigateway.tf`); Cognito-backed JWT authorizer |
+| API Gateway | `lambdaAPI` (HTTP API ID: `ld8pjw3mx4`) — **48 route resources** (~40 authed mutation routes carry the Cognito authorizer; count per 2026-07-23 audit, see `infra/apigateway.tf`); Cognito-backed JWT authorizer |
 | Cognito | `MyBlogAdminPool` (Pool ID: `ap-northeast-2_54vEJKEU5`, SPA Client ID: `68ccmcanfbvla9qbovnb9b18bt`) |
 | Cognito hosted UI domain | `ap-northeast-254vejkeu5.auth.ap-northeast-2.amazoncognito.com` |
 | SQS | `blogSQS` + DLQ via redrive policy; consumer uses `ReportBatchItemFailures` |
@@ -20,7 +20,7 @@ Source of truth: Terraform state in **S3** (`myblog-terraform-state-338183196042
 | CloudFront | `d2y4n52sgjlrz6.cloudfront.net` → `www.ratemymusic.blog` |
 | Neon DB | Serverless Postgres; pooler URL stored in each service's SSM Parameter Store SecureString param |
 | Secrets (SSM) | `/myblog/backend`, `/myblog/music`, `/myblog/worker` (one per service; SSM SecureString, leading slash; `SECRETS_PARAM` env var; fetched once per cold start via `@lru_cache`). Plus `/myblog/spotify` — Spotify user OAuth client_id/secret + refresh_token (`SPOTIFY_SECRETS_PARAM`; read by worker for `/me/player/*`, by backend for connection status). Secrets Manager emptied per CHORE-secrets-ssm-migration. |
-| EventBridge | `rate(15 min)` → `blogWorkerLambda` (alias mode — MusicBrainz lookup). `rate(1 hour)` → `blogWorkerLambda` with constant input `{"job":"spotify_listening"}` (Spotify recently-played + now-playing cache, FEAT-member-dashboard Step 3). |
+| EventBridge | **13 rules (2026-07-23 audit — this table lists only 2 of them)**: alias 15m, spotify_listening 1h, lastfm 15m, member_poll 15m, release_mb 1h, release_itunes 30m, album_ingest daily, saved_tracks incremental/full, lyrics incremental 15m + reassessment daily, artist_photo weekly, backend_warm_ping 5m. Canonical list → `infra/eventbridge.tf`. |
 
 ## Lambda functions
 
