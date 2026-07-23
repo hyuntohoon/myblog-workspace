@@ -433,3 +433,64 @@ resource "aws_lambda_permission" "backend_warm_ping_events" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.backend_warm_ping.arn
 }
+
+# musicApi warm ping — PERF-home-feed-latency (2026-07-23 audit P-9).
+#
+# musicApi cold-starts at ~7s: measured 2026-07-23 the homepage's first
+# GET /api/music/feed/new-releases = 7.21s, warm = 0.73s (req 2/3). The DB query
+# itself is 0.55ms (EXPLAIN ANALYZE, prod) over a 2,884-row albums table with
+# `artists` already selectinload-ed — so the cost is Lambda Init, NOT the query
+# or an N+1. Unlike ratemymusic-api (backend_warm_ping above), musicApi had no
+# warm ping, so the homepage's first music request (new-releases + on-this-day)
+# paid the full cold start. This rule invokes musicApi every 5 minutes with a
+# constant, Mangum-shaped API Gateway v2 event for
+# GET /api/music/feed/new-releases?days=1&limit=1 — a public, DB-only route
+# (musicApi has no edge_guard; days/limit have defaults) — keeping one execution
+# environment + a warm pooled DB connection resident for ~$0 (≈8.6k invocations/mo).
+# Removing this rule just brings the cold starts back; nothing depends on it.
+resource "aws_cloudwatch_event_rule" "music_warm_ping" {
+  name                = "music-api-warm-ping"
+  description         = "Keep musicApi warm (5-min GET /api/music/feed/new-releases via constant Mangum event)"
+  schedule_expression = "rate(5 minutes)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "music_warm_ping" {
+  rule      = aws_cloudwatch_event_rule.music_warm_ping.name
+  target_id = "musicApi-warm-ping"
+  arn       = aws_lambda_function.music.arn
+  input = jsonencode({
+    version        = "2.0"
+    routeKey       = "$default"
+    rawPath        = "/api/music/feed/new-releases"
+    rawQueryString = "days=1&limit=1"
+    headers        = { host = "warm.internal", "user-agent" = "eventbridge-warm-ping" }
+    requestContext = {
+      accountId    = "warm"
+      apiId        = "warm"
+      domainName   = "warm.internal"
+      domainPrefix = "warm"
+      http = {
+        method    = "GET"
+        path      = "/api/music/feed/new-releases"
+        protocol  = "HTTP/1.1"
+        sourceIp  = "127.0.0.1"
+        userAgent = "eventbridge-warm-ping"
+      }
+      requestId = "warm-ping"
+      routeKey  = "$default"
+      stage     = "$default"
+      time      = "01/Jan/2026:00:00:00 +0000"
+      timeEpoch = 0
+    }
+    isBase64Encoded = false
+  })
+}
+
+resource "aws_lambda_permission" "music_warm_ping_events" {
+  statement_id  = "AllowInvokeFromEventBridgeWarmPing"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.music.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.music_warm_ping.arn
+}
