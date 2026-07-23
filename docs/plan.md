@@ -8,7 +8,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **FEAT-multi-user-accounts** (in-progress since 2026-07-07) — multi-user platform: Google+Kakao signup, RYM-style public album reviews, per-user buckets, Last.fm/Spotify member listening, `LLMEngine`. **Phases 0–4 + P3b/3c + library user-scope + 07-14 surface-audit remediation + profile-merge PR1–3 ALL SHIPPED & prod-verified** (shipped-phase digest → `docs/archive/done/2026-07.md`; full phase log + decisions → RFC). **Remaining (all owner-only): launch gates G1/G2** (Google brand verification + Kakao 프로덕션 심사 + OAuth secret reissue; G1 = ≥10 reviews by ≥5 non-owner users in 4wk after public launch; **owner deferred 2026-07-20, no timeline — keep listed, don't re-prompt**), owner live-login returnTo observation, and the deferred canonical-link decision (runtime `/members/?u=` vs static `/members/[handle]` — necessity-gated while prod `/api/members` is empty). → `docs/rfcs/FEAT-multi-user-accounts.md` (Status: in-progress).
 
-- **FEAT-release-calendar** (accepted 2026-07-11) — public new-release surfaces. **Track A (home 새 앨범 card) + Track B (신보 캘린더: multi-source poller MB+iTunes, day-0 confirm via `album_ingest`, `/releases/` ledger+grid) — Steps 1–7 ALL SHIPPED 2026-07-11→13**, density verdict recorded (gate ≥40/full MB cycle over the 1,533 pop≥50 watchlist) + insert-gate incident fixed (worker #72) + sentinel-clear ops 07-14 (digest → `docs/archive/done/2026-07.md`; step log → RFC). **Remaining: OQ4 singles/noise review ~07-27** (denominator = that window's release_date rows; Schubert-class pop≥20 comps = known residual) + `no_upc` sentinel re-check after the catalog widens. → `docs/rfcs/FEAT-release-calendar.md`.
+- **FEAT-release-calendar** (done 2026-07-23; RFC archived) — public new-release surfaces (home 새 앨범 card + `/releases/` 신보 캘린더, multi-source MB+iTunes poller + day-0 confirm). **Steps 1–7 ALL SHIPPED + prod-smoked 2026-07-11→13** (digest → `docs/archive/done/2026-07.md`). Owner promoted accepted→done 2026-07-23; data-quality follow-on spun out to **DATA-release-noise** below. RFC → `docs/archive/done/rfcs/FEAT-release-calendar.md`.
+- **DATA-release-noise** (P1 — from FEAT-release-calendar OQ4 + 2026-07-23 감사 P-7) — Target: `myblog_worker`(album_ingest/pollers) + `myblog_music`(feed/releases read). Reason: `/releases/` 7월 141건 중 ~18%(~26건)가 클래식 컴필("065 Piano Essentials" 류) + 아티스트 귀속 오류(같은 앨범 Bach vs Saint-Saëns) + SP/MB/iTunes 교차중복(pre-confirm 행); 홈 "새 앨범" 12칸 중 7칸이 Bach 컴필 → 진짜 신보가 묻힘. Deps: PERF-home-feed-latency와 원인 공유(컴필이 아티스트 N+1 증폭 — 함께 보면 이득). Alternatives: (a) ingest 시 컴필 필터/소스신뢰가중, (b) read 시 필터, (c) dedup 강화. Verify: `/releases/` + 홈 캐러셀에서 컴필/중복 비율 재측정(분모 = 해당 창 release_date 행). Completion: 컴필·교차중복이 사용자 표면에서 유의미하게 감소(목표치 OQ4 결정 시 확정) + `no_upc` sentinel 재점검. 결정 시점 ~07-27.
 - **FEAT-personal-release-tracking** (done 2026-07-18; RFC archived 2026-07-21) — personal release feed (tracked artists + Buckit snapshot import; Upcoming/Recent 30d × Albums&EPs/Singles; 3 trust badges) on #548's `artist_release_events`. **All 5 steps SHIPPED + prod-smoked** (Steps 1–3 07-17: V47 `user_artist_tracks` shared_db #66 + backend #120/#121/#122 + ws #632 + front #282; Steps 4–5 07-18: worker #73 poller-scope + front #285 `/radar`; post-merge hardening music #56 + front #286) — digest → `docs/archive/done/2026-07.md`. **Remaining observation gate: H1 re-measure ~07-27** (does not block closeout). RFC done + archived → `docs/archive/done/rfcs/FEAT-personal-release-tracking.md`.
 
 _2026-07-18 UI/UX planning session (areas 1–6, 9, 10 investigated; owner decisions folded into the rows below — all since promoted to in-progress/shipped; areas 7·8·11·12 deferred to a follow-up measurement/research session):_
@@ -18,6 +19,32 @@ _2026-07-18 UI/UX planning session (areas 1–6, 9, 10 investigated; owner decis
 - **SEO-review-structured-data** (done 2026-07-19; RFC archived 2026-07-21) — area 10: `Review` + `MusicAlbum` JSON-LD on `/review/[slug]`, build-time only (OG-image autogeneration deferred). **Step 1 SHIPPED + prod-deployed 2026-07-19** (front #288: `review-jsonld.astro` behind `isReview`), verified via local MDX fixture since the content collection is empty on `main` — validator.schema.org 0 errors/0 warnings; inert in prod until the first review publish. **Remaining observation gate: OQ3 — Rich Results Test on the first live review URL after first publish** (code-snippet RRT needs Google sign-in; no live review URLs yet). RFC done + archived → `docs/archive/done/rfcs/SEO-review-structured-data.md`.
 
 _Shipped history lives in `git log` + `docs/archive/done/` (per-month digests + archived RFCs) — plan.md carries open work only._
+
+---
+
+## 2026-07-23 감사 파생 작업 (P0/P1/P2)
+
+> `docs/reviews/2026-07-23-current-state-audit.md`에서 검증·수락된 항목만. 근본 원인은 "발행 평론 0" (콘텐츠 생성이 구속 제약) — 아래는 콘텐츠와 무관하게 오늘 실害이 있거나 안전망 공백인 것 위주.
+>
+> **오너 결정 2026-07-23:** (1) 우선순위 = **안전망·품질 먼저** → OPS·REFACTOR RFC가 활성 우선, discovery는 P2 유지. (2) 제품 정체성 = **비평지 프레이밍 유지**(첫화면 재구성 안 함 → 감사 P-2/P-4는 오너 결정으로 종결, 액션 없음). (3) RFC 2건 **둘 다 accepted**. (4) 문서 불일치 **전체 정리 승인**(architecture.md·infra/README·RFC 상태 3건 — 이 세션에서 반영 완료).
+
+**P0 — 현재 운영 리스크 / 무효 UX / 안전 게이트 공백 / 심각 성능**
+
+- ~~**FIX-publish-github-timeout**~~ — **DONE + prod-smoked 2026-07-23** (backend #131, SHA 0cf1a6b): GitHub Contents API 호출 4곳(`:114,125,144,158`)에 `timeout=10` 추가(백엔드 컨벤션·Lambda 15s 아래). 크로스리포 sweep = 유일 offender 확인. 로컬 pytest 554 passed(+publish 32), prod smoke 19/0. 새 test 게이트를 처음 실제 통과한 PR.
+- ~~**OPS-delivery-safety-gates Step 1**~~ — **DONE + prod-smoked 2026-07-23** (backend #130, SHA 4018f50): backend `pytest -m "not integration"`가 PR 차단 `test` 잡으로 배선(deploy: needs), `integration` 마커 pyproject.toml 등록, 6 integration 스위트 마킹, requirements-test.txt(pytest+boto3 — 게이트가 즉시 CI의 boto3 누락을 잡음). PR CI 554 passed/77 deselected, prod smoke 19/0. **다음 = Step 2** (worker/front PR 게이트). → `docs/rfcs/OPS-delivery-safety-gates.md` (in-progress Step 2).
+- **PERF-home-feed-latency** — Target: `myblog_music` `services/feed_service.py`·`album_service`(on-this-day)·repo/인덱스. Reason: 홈 hot-path 측정 지연 `new-releases` 7.3s·`on-this-day` 5.5s → 체감 로드 ~8s(감사 P-9). 코드 리드: 300행 over-fetch + `al.artists` 앨범별 lazy-load N+1, 클래식 컴필이 증폭(C-11). Deps: 없음(단 R-2와 원인 공유). Verify: 프로파일 → eager-load/인덱스 최소수정 후 prod 재측정. Completion: 두 엔드포인트 p50이 목표치(예: <1s) 이하.
+
+**P1 — 핵심 플로우 · 점진 유지보수성**
+
+- **OPS-delivery-safety-gates Steps 2–5** — Target: `myblog_worker`·`myblog_front` CI + `infra` + ops 문서. Reason: worker/front/workspace PR 차단 게이트 0, 배포후 스모크·롤백 런북 0, 비동기 크론 DLQ 0(감사 O-2/3/4). Deps: Step 1. Verify: RFC 각 Step Verification. Completion: RFC done. → `docs/rfcs/OPS-delivery-safety-gates.md`.
+- **REFACTOR-frontend-member-surface Steps 1–3** — Target: `myblog_front`. Reason: 핵심 플로우 회귀망 0(테스트 러너 부재, C-5) + fetch 클라이언트 파편화(42 raw fetch·7 모듈·apiFetch 무타임아웃, C-6) + 라이프사이클 규칙이 2895-LOC 컴포넌트에 갇힘(C-1/C-2). Deps: 없음(Step1이 이후 안전 보장; OPS Step2와 front PR 게이트 조율). Verify: `pnpm test` + `astro check`. Completion: 테스트 하네스 + 단일 클라이언트 + `@lib/buckets` 규칙 추출. → `docs/rfcs/REFACTOR-frontend-member-surface.md` (**accepted 2026-07-23** — Step 1 착수 가능; Step 4 대분해는 필요성 게이트 유지).
+- **DOC-accuracy-reconciliation** (**DONE 2026-07-23** — 이 세션) — architecture.md 갱신(EventBridge 1→13, 워커 shared_db import 정정, 핀 3개 실제값 + 드리프트 배너), infra/README(48 routes + 13 EventBridge), RFC 상태 3건 정리(ui-surface-unification 인덱스→done 브레드크럼, FEAT-release-calendar accepted→done 승격+archive, 노이즈 작업은 DATA-release-noise로 분리). 남은 minor: FEAT-bucket-identity가 plan.md Backlog에 있으나 RFC는 in-progress(D가 오너 go 대기 중이라 placement는 방어 가능 — 그대로 둠).
+
+**P2 — 실사용자 증거 후 (조기 착수 비권장)**
+
+- **REFACTOR-frontend-member-surface Step 4** — `myblog_front` BucketBoard 분해. 필요성 게이트: Steps 1–3 후 크기가 딜리버리를 늦춘다는 구체 증거 + 실사용자/콘텐츠 신호 있을 때만. 없으면 무기한 보류(RFC OQ2).
+- **CHORE-dep-reproducibility** — `myblog_backend`·`myblog_music`. lockfile 도입 + `fastapi`/`boto3`/`SQLAlchemy` 핀 + backend 비태그 SHA→태그(감사 C-10). 트리거: 핀-드리프트 배포 500 재발. 현재 additive 컨벤션 하 수용.
+- **DISCOVERY-flow (가설, 기각-현시점)** — `signup→import→Buckit→publish→discovery`를 핵심으로 투자. 감사 §3: 발행 0·타 사용자 0·공개 컬렉션은 오너 자기것 1개·`/members/` 공백 → discovery 명목상. 실사용자+콘텐츠 증거 나올 때 재평가. **핵심을 무엇으로 볼지는 오너 전략 결정**.
 
 ---
 
