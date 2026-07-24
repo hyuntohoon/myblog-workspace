@@ -1,6 +1,6 @@
 # REFACTOR-frontend-member-surface: test net + shared client + boundary extraction for the member surface
 
-- **Status**: committed scope (Steps 1–3) done — owner accepted 2026-07-23; **Step 1 shipped + prod-smoked 2026-07-24** (front #307, `c084746`); **Step 2 shipped + prod-smoked 2026-07-24** (front #308, `c2b0637`); **Step 3 shipped + prod-smoked 2026-07-24** (front #309, `b6085af`). **Step 4 (BucketBoard decomposition) remains necessity-gated per OQ2 — no further work unless the gate opens** (see gate criteria in Step 4).
+- **Status**: ✅ **DONE (Steps 1–4) 2026-07-24** — owner accepted 2026-07-23. Step 1 front #307 (`c084746`); Step 2 #308 (`c2b0637`); Step 3 #309 (`b6085af`); **Step 4 gate opened by owner** and shipped as 4a #310 (`a4797fa`) + 4b #311 (`2c65841`) + 4c #312 (`03d5332`). All prod-smoked 19/0. BucketBoard's DnD routing, Spotify surface, and sheet shell are each now a tested, importable unit; the component's LOC + coupling are materially reduced.
 - **Owner**: TBD
 - **Created**: 2026-07-23
 - **Plan row**: `plan.md` → REFACTOR-frontend-member-surface
@@ -96,6 +96,13 @@ If proceeding: extract seams in isolation-friendly order — (a) DnD into a dedi
 **Verification**: `pnpm test` green after each extraction; CDP clickthrough of bucket create/move/DnD at prod-realistic scale (per memory `feedback-ui-repro-realistic-data`).
 **Rollback**: per-extraction revert.
 
+> ✅ Done 2026-07-24 — owner opened the gate explicitly (the objective gate — delivery-slowdown evidence + real-user signal — was NOT met: ~1 user / 0 published reviews; proceeded on owner discretion). All three seams shipped + prod-smoked as separate PRs, each with an observe gate between:
+> - **4a** front #310 (`a4797fa`) — DnD **decision logic** → `@lib/boardDnd` (`DndItem`, `DropOps`, `routeAlbumDrop`, `canAcceptAlbumDrag`, `canAcceptBucketDrag`); tree walkers `visit`/`findBucket`/`subtreeHas` + `SLIB_KIND` → `@lib/buckets`. Gesture wiring stays in the component. **+19 tests** (drop routing is headless-reproducible; only the gesture needs a browser, and it was untouched).
+> - **4b** front #311 (`2c65841`) — Spotify-library surface → `useSpotifyLibrary` hook (sync state, badge map, listened-archive hint, debounced-sync poll); bucketStore refresh injected as `onSynced`. **+4 tests** (renderHook + mocked api).
+> - **4c** front #312 (`03d5332`) — `ActionSheet` modal shell (+ `SheetAction`) → own file. The heavy modals (AddAlbum/AddArtist/BucketPicker/ResearchNote) were already separate components, so this was the last shell primitive; the two thin board-coupled inline dialogs (confirm-delete, research-note) were intentionally left in place. **+4 tests** (render + all close paths).
+>
+> Each: `pnpm test` green (final **66/66**), lint clean, astro check 0 errors; prod smoke **19/0**; prod-bundle marker grep confirmed each seam shipped (not tree-shaken). No CDP full native-drag drive — 4a/4c are byte-identical-handler / verbatim-relocation moves within one island, fully unit-covered, `member.css` untouched. **RFC fully complete (Steps 1–4).**
+
 ## Open questions
 
 1. **Test runner choice** — vitest+testing-library (jsdom, fast, covers logic+render) vs adding Playwright for real DnD. DnD across 2 React roots + `window` events may not be faithfully reproducible in jsdom. Blocks Step 1 scope. Recommendation: vitest for Steps 1–3; defer Playwright to Step 4(a) only if DnD proves untestable in jsdom.
@@ -108,3 +115,6 @@ If proceeding: extract seams in isolation-friendly order — (a) DnD into a dedi
 |------|----------|------|
 | 2026-07-24 | Lifecycle rule extracted to a **new dedicated `@lib/bucketLifecycle`** module (not folded into `@lib/buckets`): matches the test filename, keeps the already-large `buckets.ts` fetch module lean, no import cycle. | 3 |
 | 2026-07-24 | RFC's "7 consumers to re-point" corrected — those files read lifecycle *fields*, they don't call `crMeta`; the only external importer was the test. Committed scope (1–3) complete; Step 4 gate left closed (product still ~1 user / 0 published reviews per OQ2). | 3 |
+| 2026-07-24 | **Step 4 gate opened by owner discretion** despite unmet objective criteria (~1 user / 0 reviews). Executed as 3 separate PRs with a prod-observe gate between each (rule-4 rationale preserved inside one session). Answers **OQ2**: the gate *can* open on owner call, not only on delivery-slowdown evidence. | 4 |
+| 2026-07-24 | **OQ1 resolved without Playwright** — the DnD *decision logic* is headless-reproducible (unit-tested in jsdom), and the native gesture was left untouched by 4a, so no browser DnD driver was needed. Playwright still deferred indefinitely. | 4a |
+| 2026-07-24 | 4c scoped to the `ActionSheet` primitive only — the heavy modals were already components; the two thin inline dialogs stay board-coupled (extraction = prop/ref churn, no real decoupling). | 4c |
