@@ -145,6 +145,23 @@ resource "aws_iam_role_policy" "worker_sqs_produce" {
   })
 }
 
+# OPS-delivery-safety-gates Step 4: Lambda delivers failed async cron invocations
+# to worker-cron-dlq using the function's execution role → needs SendMessage on that
+# DLQ (the on-failure destination in lambda.tf).
+resource "aws_iam_role_policy" "worker_cron_dlq_send" {
+  name = "sqs-send-worker-cron-dlq"
+  role = aws_iam_role.worker.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "SqsSendCronDlq"
+      Effect   = "Allow"
+      Action   = ["sqs:SendMessage"]
+      Resource = aws_sqs_queue.worker_cron_dlq.arn
+    }]
+  })
+}
+
 # --- worker: blogWorkerLambda-role-7w21g7o3 ---
 # 인라인 sqs 정책은 잘못된 계정(123456789012)을 가리켜 dead code.
 # AWSLambdaBasicExecutionRole-* 커스텀 정책이 올바른 blogSQS ARN으로 SQS를 이미 허용.
