@@ -41,7 +41,6 @@ _Shipped history lives in `git log` + `docs/archive/done/` (per-month digests + 
 
 **P2 — 실사용자 증거 후 (조기 착수 비권장)**
 
-- **REFACTOR-frontend-member-surface Step 4** — `myblog_front` BucketBoard 분해. 필요성 게이트: Steps 1–3 후 크기가 딜리버리를 늦춘다는 구체 증거 + 실사용자/콘텐츠 신호 있을 때만. 없으면 무기한 보류(RFC OQ2).
 - **CHORE-dep-reproducibility** — `myblog_backend`·`myblog_music`. lockfile 도입 + `fastapi`/`boto3`/`SQLAlchemy` 핀 + backend 비태그 SHA→태그(감사 C-10). 트리거: 핀-드리프트 배포 500 재발. 현재 additive 컨벤션 하 수용.
 - **DISCOVERY-flow (가설, 기각-현시점)** — `signup→import→Buckit→publish→discovery`를 핵심으로 투자. 감사 §3: 발행 0·타 사용자 0·공개 컬렉션은 오너 자기것 1개·`/members/` 공백 → discovery 명목상. 실사용자+콘텐츠 증거 나올 때 재평가. **핵심을 무엇으로 볼지는 오너 전략 결정**.
 
