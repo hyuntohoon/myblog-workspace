@@ -1,6 +1,6 @@
 # REFACTOR-frontend-member-surface: test net + shared client + boundary extraction for the member surface
 
-- **Status**: in-progress (Step 2) — owner accepted 2026-07-23; **Step 1 shipped + prod-smoked 2026-07-24** (front #307, squash `c084746`); owner promoted accepted→in-progress 2026-07-24. Step 4 stays necessity-gated per OQ2.
+- **Status**: in-progress (Step 3) — owner accepted 2026-07-23; **Step 1 shipped + prod-smoked 2026-07-24** (front #307, `c084746`); **Step 2 shipped + prod-smoked 2026-07-24** (front #308, `c2b0637`). Step 4 stays necessity-gated per OQ2.
 - **Owner**: TBD
 - **Created**: 2026-07-23
 - **Plan row**: `plan.md` → REFACTOR-frontend-member-surface
@@ -67,6 +67,8 @@ pnpm test    # fetch-client contract tests (401→refresh once, timeout fires, a
 # manual/CDP: search-as-you-type cancels in-flight; a stalled request times out instead of hanging
 ```
 **Rollback**: revert per-module (each `*.api.ts` migration is independent).
+
+> ✅ Done 2026-07-24 — front #308 (squash `c2b0637`). Extended `apiFetch` with a default 15s timeout + caller-`signal` composition (one AbortController drives the original request AND its post-refresh retry; timeout/caller-abort/transport error → null, only 401-after-refresh redirects; new `timeoutMs` on `ApiFetchOptions`; manual composition for jsdom parity). `useMusicSearch` gained a shared AbortController that cancels the prior in-flight request on a newer runDbSearch/runSpotifySync/loadMore, with `signal.aborted` catch-guards so a cancelled search no longer flashes 검색 실패. Tests: flipped Step 1's no-timeout assertion + added timeout/override/caller-abort/already-aborted + a new `useMusicSearch.test.ts` (39 passed). Local: 39 passed / lint clean / astro check 0 errors. Post-merge: deploy success, prod smoke **19/0**. **RFC premise correction (current-state audit):** the "hand-rolled Bearer callsites to migrate" (`spotifyPlayback.ts:306/:358`, `playback.api.ts readLivePlayback`) are **Spotify-API-direct** calls on a minted **streaming token** (NOT the Cognito access token) — routing them through apiFetch would break auth; `ForYouReleasesCard` bypasses apiFetch **on purpose** (passive home strip must never login-redirect, doc'd at `:14/:115`). All three correct as-is, intentionally NOT migrated. The 7 `*.api.ts` modules already route through apiFetch, so Step 2's real delta was the timeout/abort extension + search cancel. Next = Step 3, rule-4 gated.
 
 ---
 
