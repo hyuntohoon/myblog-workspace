@@ -1,6 +1,6 @@
 # OPS-delivery-safety-gates: CI merge gates, deploy smoke, and async failure boundaries
 
-- **Status**: in-progress (Step 3) — Step 1 shipped + prod-smoked 2026-07-23 (backend #130, SHA 4018f50); Step 2 shipped + prod-smoked 2026-07-23 (worker #77 SHA 4d1d3dd, front #306 SHA 4de9193)
+- **Status**: in-progress (Step 4) — Step 1 shipped + prod-smoked 2026-07-23 (backend #130, SHA 4018f50); Step 2 shipped + prod-smoked 2026-07-23 (worker #77 SHA 4d1d3dd, front #306 SHA 4de9193); Step 3 shipped + prod-smoked 2026-07-24 (backend #132 6b0447c, music #59 b9b4d42, worker #78 ffb1cf7 + waiter/IAM fix #79 bc008f3, front #313 8061c63)
 - **Owner**: TBD
 - **Created**: 2026-07-23
 - **Plan row**: `plan.md` → OPS-delivery-safety-gates
@@ -89,6 +89,16 @@ scripts/smoke.py --stage prod --scope backend   # green against current prod
 ```
 **Rollback**: remove the smoke step; deploy reverts to unguarded (status quo).
 
+> ✅ Done 2026-07-24 (backend #132 `6b0447c`, music #59 `b9b4d42`, worker #78 `ffb1cf7` + waiter/IAM fix #79 `bc008f3`, front #313 `8061c63`). **Scope = health-only** (OQ1 resolved, owner 2026-07-24): no Cognito credentials in CI. Each deploy job gained a post-deploy step, added at the END of the push-only `deploy` job so it runs after the real deploy — detect-and-alert-fast + rollback trigger, not a pre-cutover gate.
+>
+> Per-service health signal: backend `curl /api/db/ping` → `Database connected`; music `curl /api/music/search/unified` → `albums` body; front `curl /` → HTML; all with a 5× retry to absorb propagation. Worker has no HTTP surface → `wait function-updated-v2` then an empty-`{}` invoke (a pure no-op: no DB/external calls, handler returns `{"batchItemFailures":[]}`), failing on any `FunctionError` (catches an import/entry break in the deployed bundle). Each failure path echoes the roll-back instruction.
+>
+> **Deviation from the "factor out of `scripts/smoke.py --scope`" plan (deliberate):** CI uses **inline** per-service assertions, not the workspace smoke script. Running the workspace script from a service deploy job would require adding `WORKSPACE_GITHUB_TOKEN` (cross-repo sparse-checkout) to backend/music/worker — three new secret wirings — for what is one curl / one invoke each. Inline keeps Step 3 CI-only + zero-new-secrets. The full authed `smoke.py prod` stays the manual post-merge check.
+>
+> **Prod-verified** before merge (the smoke *logic*, since the step only executes post-merge on a real deploy): the three curls hit live prod with markers present; the worker `{}` invoke returned StatusCode 200 / no FunctionError. Post-merge, all four deploy runs' smoke steps passed.
+>
+> **IAM finding + fix (worker).** The first worker deploy's smoke failed `AccessDeniedException` on `lambda:GetFunctionConfiguration` — the v1 `function-updated` waiter polls that action, which the least-privilege **`lambda-deploy-only`** deploy-user policy does not grant (it allows `UpdateFunctionCode` + `GetFunction`). The code deploy itself succeeded (prod worker healthy). Fix (owner-approved "grant IAM now" 2026-07-24): (a) switch the workflow to the `function-updated-v2` waiter, which polls the already-granted `GetFunction`; (b) add a one-statement `lambda:InvokeFunction` grant **scoped to `blogWorkerLambda`** to `lambda-deploy-only` (new default version **v2**; roll back = `aws iam set-default-policy-version … v1`). **The `github-actions-deploy` user + `lambda-deploy-only` policy are manual, NOT Terraform-managed** — this grant lives only in AWS; a future IaC-the-deploy-user chore should capture it.
+
 ---
 
 ### Step 4 — async failure boundary + alarm coverage (P1, infra)
@@ -112,7 +122,7 @@ Document per-service "redeploy previous artifact" in `infra/README.md` or `docs/
 
 ## Open questions
 
-1. **Smoke credential exposure in CI** — running authed prod smoke from the deploy workflow needs the Cognito smoke user reachable from GitHub Actions. Options: (a) GHA secret feeding `smoke.py`, (b) an unauthed health-only smoke to avoid credentials in CI. Blocks Step 3 scope. Recommendation: start health-only (b), add one authed GET only if (a)'s secret handling is acceptable.
+1. ~~**Smoke credential exposure in CI**~~ — **RESOLVED 2026-07-24 → health-only (option b).** No Cognito credentials in CI; each deploy job asserts an unauthed health signal (worker via an empty-`{}` no-op invoke). The full authed `smoke.py prod` stays the manual post-merge check.
 2. **Integration-test DB in CI** — backend has `tests/integration/*` needing a live DB. Keep excluded (marker) or provide a CI DB (like worker's `TEST_DB_URL` GHA secret)? Blocks how complete Step 1 is. Default: exclude, matching music.
 3. **Worker DLQ vs on_failure** — a single function-level SQS DLQ catches both SQS-path and async-cron failures mixed; per-rule `on_failure` destinations isolate but multiply resources. Blocks Step 4 shape.
 
@@ -120,4 +130,6 @@ Document per-service "redeploy previous artifact" in `infra/README.md` or `docs/
 
 | Date | Decision | Step |
 |------|----------|------|
-| | | |
+| 2026-07-24 | Deploy smoke scope = **health-only** (no Cognito creds in CI); OQ1 resolved to option (b). | 3 |
+| 2026-07-24 | CI uses **inline** per-service assertions, not `smoke.py --scope` — avoids adding `WORKSPACE_GITHUB_TOKEN` to 3 repos for one curl/invoke each. | 3 |
+| 2026-07-24 | Worker health = empty-`{}` no-op invoke + `function-updated-v2` waiter; grant `lambda:InvokeFunction` (scoped to blogWorkerLambda) on the manual `lambda-deploy-only` policy (v2). Owner "grant IAM now". | 3 |
