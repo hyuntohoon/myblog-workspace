@@ -8,6 +8,21 @@ resource "aws_sqs_queue" "album_sync_dlq" {
   }
 }
 
+# OPS-delivery-safety-gates Step 4 — async on-failure DLQ for the worker's
+# EventBridge crons. EventBridge invokes the worker ASYNCHRONOUSLY; a handler that
+# throws after Lambda's async retries would otherwise be silently discarded. The
+# worker's event_invoke_config on_failure destination (lambda.tf) parks the failed
+# invocation record (payload + error) here for inspection/replay. Distinct from
+# album-sync-dlq, which is the SQS-ESM (blogSQS) redrive target — a different path.
+resource "aws_sqs_queue" "worker_cron_dlq" {
+  name                      = "worker-cron-dlq"
+  message_retention_seconds = 1209600 # 14 days
+
+  lifecycle {
+    ignore_changes = [max_message_size]
+  }
+}
+
 resource "aws_sqs_queue" "blog_sqs" {
   name                       = "blogSQS"
   message_retention_seconds  = 345600 # 4 days

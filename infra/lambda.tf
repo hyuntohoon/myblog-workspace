@@ -133,6 +133,24 @@ resource "aws_lambda_function" "worker" {
   }
 }
 
+# OPS-delivery-safety-gates Step 4 — async cron failure boundary.
+# EventBridge invokes the worker ASYNCHRONOUSLY; without an on-failure destination a
+# handler that throws (after maximum_retry_attempts async retries) is silently
+# dropped. Park the invocation record (payload + error) in worker-cron-dlq for
+# inspection/replay. Applies ONLY to async invokes — the SQS-ESM (blogSQS) path is
+# unaffected (it has its own redrive DLQ, album-sync-dlq). retry_attempts=2 is the
+# Lambda async default, set explicitly so it is managed, not implicit.
+resource "aws_lambda_function_event_invoke_config" "worker_async" {
+  function_name          = aws_lambda_function.worker.function_name
+  maximum_retry_attempts = 2
+
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.worker_cron_dlq.arn
+    }
+  }
+}
+
 # --- SQS event source: blogSQS -> worker ---
 # ReportBatchItemFailures lets the worker fail individual records (PR-7);
 # only failed records are retried instead of the whole batch.
