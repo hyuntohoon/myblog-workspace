@@ -1,6 +1,6 @@
 # REFACTOR-frontend-member-surface: test net + shared client + boundary extraction for the member surface
 
-- **Status**: accepted (2026-07-23 — owner accepted; Step 1 may begin. Step 4 stays necessity-gated per OQ2)
+- **Status**: in-progress (Step 2) — owner accepted 2026-07-23; **Step 1 shipped + prod-smoked 2026-07-24** (front #307, squash `c084746`); owner promoted accepted→in-progress 2026-07-24. Step 4 stays necessity-gated per OQ2.
 - **Owner**: TBD
 - **Created**: 2026-07-23
 - **Plan row**: `plan.md` → REFACTOR-frontend-member-surface
@@ -52,6 +52,8 @@ cd myblog_front && pnpm test          # new suite green against current code
 pnpm lint && pnpm exec astro check    # unchanged, still green
 ```
 **Rollback**: remove the test deps + suite (additive; nothing else depends on it).
+
+> ✅ Done 2026-07-24 — front #307 (squash `c084746`). Added vitest + @testing-library/react + jsdom (`pnpm test`), aliases mirroring tsconfig, jsdom setup (jest-dom + auto cleanup). Three characterization suites, **33 tests**: `api.test.ts` (fetch-client contract — guards Step 2, incl. the current no-timeout state asserted), `bucketStore.test.ts` (SWR fetch-once/fresh-skip/stale-refetch/force-supersedes/error/setTree/clear), `bucketLifecycle.test.ts` (crMeta/collectItems/isResearchEngaged tag derivation — guards Step 3). Added export-only to the 3 pure helpers in BucketBoard.tsx (**no relocation** — Step 3 does that). Wired `pnpm test` into the front PR `check` gate. Pinned `@types/node ^20.19` (vitest pulled node24 whose `Timer` type broke astro check on existing `setInterval` callsites — types-only). Local: 33 passed / lint clean / astro check 0 errors. Post-merge: deploy success, system prod smoke **19/0**. **"publish gating" (RFC-listed) not covered** — no pure gate helper exists (publish = WriterChrome→API callback); bucket-side publish state already covered by the lifecycle tags. Next = Step 2, rule-4 gated.
 
 ---
 
