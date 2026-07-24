@@ -1,6 +1,6 @@
 # REFACTOR-frontend-member-surface: test net + shared client + boundary extraction for the member surface
 
-- **Status**: in-progress (Step 3) — owner accepted 2026-07-23; **Step 1 shipped + prod-smoked 2026-07-24** (front #307, `c084746`); **Step 2 shipped + prod-smoked 2026-07-24** (front #308, `c2b0637`). Step 4 stays necessity-gated per OQ2.
+- **Status**: committed scope (Steps 1–3) done — owner accepted 2026-07-23; **Step 1 shipped + prod-smoked 2026-07-24** (front #307, `c084746`); **Step 2 shipped + prod-smoked 2026-07-24** (front #308, `c2b0637`); **Step 3 shipped + prod-smoked 2026-07-24** (front #309, `b6085af`). **Step 4 (BucketBoard decomposition) remains necessity-gated per OQ2 — no further work unless the gate opens** (see gate criteria in Step 4).
 - **Owner**: TBD
 - **Created**: 2026-07-23
 - **Plan row**: `plan.md` → REFACTOR-frontend-member-surface
@@ -83,6 +83,8 @@ pnpm exec astro check  # no type breaks across the 7 consumers
 ```
 **Rollback**: revert; the function returns to BucketBoard.
 
+> ✅ Done 2026-07-24 — front #309 (squash `b6085af`). Moved `crMeta` + `collectItems` + `isResearchEngaged` + `TOLISTEN_KIND` (with their domain comments) out of `BucketBoard.tsx` into a new pure module `src/lib/bucketLifecycle.ts` (imports only types — `BoardAlbum`/`BoardBucket` from `./buckets`, `ResearchStatus` from `./research`; no fetch, no import cycle). BucketBoard dropped 53 net LOC and now `import { crMeta } from '@lib/bucketLifecycle'` (its only internal user is `CrStatus`; the other three symbols were used solely inside `crMeta`). `bucketLifecycle.test.ts` import re-pointed to the new module, **assertions unchanged** — Step 1's characterization suite proves the move is a no-op. **RFC premise correction (same shape as Step 2):** the "7 consumers to re-point" were files interpreting the lifecycle *fields* directly, NOT callers of `crMeta`; the only importer of these four symbols outside BucketBoard was the test, so re-pointing was one line. Local: **39 tests passed** / lint clean / astro check 0 errors (Node 20.19.5). Post-merge: deploy success, system prod smoke **19/0**. This completes the RFC's committed scope (Steps 1–3); Step 4 remains necessity-gated (OQ2) — no further work unless the gate opens.
+
 ---
 
 ### Step 4 — BucketBoard decomposition (P2, necessity-gated — DECISION, not a commitment)
@@ -104,4 +106,5 @@ If proceeding: extract seams in isolation-friendly order — (a) DnD into a dedi
 
 | Date | Decision | Step |
 |------|----------|------|
-| | | |
+| 2026-07-24 | Lifecycle rule extracted to a **new dedicated `@lib/bucketLifecycle`** module (not folded into `@lib/buckets`): matches the test filename, keeps the already-large `buckets.ts` fetch module lean, no import cycle. | 3 |
+| 2026-07-24 | RFC's "7 consumers to re-point" corrected — those files read lifecycle *fields*, they don't call `crMeta`; the only external importer was the test. Committed scope (1–3) complete; Step 4 gate left closed (product still ~1 user / 0 published reviews per OQ2). | 3 |
