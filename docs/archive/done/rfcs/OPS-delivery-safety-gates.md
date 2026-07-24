@@ -1,6 +1,6 @@
 # OPS-delivery-safety-gates: CI merge gates, deploy smoke, and async failure boundaries
 
-- **Status**: in-progress (Step 4) — Step 1 shipped + prod-smoked 2026-07-23 (backend #130, SHA 4018f50); Step 2 shipped + prod-smoked 2026-07-23 (worker #77 SHA 4d1d3dd, front #306 SHA 4de9193); Step 3 shipped + prod-smoked 2026-07-24 (backend #132 6b0447c, music #59 b9b4d42, worker #78 ffb1cf7 + waiter/IAM fix #79 bc008f3, front #313 8061c63)
+- **Status**: **done** — all 5 steps shipped. Step 1 (backend #130, 4018f50) + Step 2 (worker #77 4d1d3dd, front #306 4de9193) 2026-07-23; Step 3 (backend #132 6b0447c, music #59 b9b4d42, worker #78 ffb1cf7 + waiter/IAM fix #79 bc008f3, front #313 8061c63) 2026-07-24; Step 4 (infra applied 2026-07-24, `terraform apply` 14 add/0/0, AWS-verified) + Step 5 (rollback runbook `docs/ops/rollback.md`) 2026-07-24.
 - **Owner**: TBD
 - **Created**: 2026-07-23
 - **Plan row**: `plan.md` → OPS-delivery-safety-gates
@@ -112,6 +112,10 @@ terraform plan    # only the intended DLQ/alarm resources
 ```
 **Rollback**: `terraform apply` the reverted config (removes DLQ/alarm; no data loss — DLQ is additive).
 
+> ✅ Done 2026-07-24 (`terraform apply` 14 add / 0 change / 0 destroy; baseline + post-apply plans both clean). **OQ3 resolved → function-level on-failure DLQ, not per-rule.** Rationale: EventBridge invokes the worker **asynchronously**, so a handler that runs and throws is caught only by a function-level async on-failure destination — per-rule EventBridge target DLQs catch *delivery* failures, which `FailedInvocations` already covers, and buy no handler-failure isolation. SQS-ESM (blogSQS) failures are unaffected (own redrive DLQ, album-sync-dlq).
+>
+> Applied: `worker-cron-dlq` SQS (14d) + worker `aws_lambda_function_event_invoke_config` (`maximum_retry_attempts=2` explicit + `on_failure` → the DLQ, using the modern API over legacy `dead_letter_config`) + worker-role `sqs:SendMessage` on the DLQ + `worker-cron-dlq-messages` alarm + `FailedInvocations` alarm coverage extended **2 → 12** (every worker cron; audit O-4 had 10 uncovered). **FailedInvocations = delivery failures (never ran); DLQ = handler failures (ran, threw after retries) — the full async boundary.** AWS-verified: on_failure destination = the DLQ, 12 alarms live, queue reachable.
+
 ---
 
 ### Step 5 — rollback runbook (P1, docs)
@@ -120,11 +124,13 @@ Document per-service "redeploy previous artifact" in `infra/README.md` or `docs/
 
 **Verification**: dry-run the documented commands in a non-mutating form (`--dry-run` / echo) and confirm they reference real, current artifact locations.
 
+> ✅ Done 2026-07-24 — `docs/ops/rollback.md`. Documents the two canonical rollbacks (A: re-run the last green deploy at its original commit; B: `git revert` + push through the normal pipeline) — both re-run the Step 3 post-deploy smoke, so a good rollback self-verifies. Plus per-service specifics (Lambda `$LATEST` / front S3+CloudFront), Terraform revert-plan-apply, and the manual `lambda-deploy-only` `set-default-policy-version v1`. Grounded in the real setup: deploys build from source with no artifact registry, so "redeploy known-good source" is the honest rollback (not a stored-artifact swap).
+
 ## Open questions
 
 1. ~~**Smoke credential exposure in CI**~~ — **RESOLVED 2026-07-24 → health-only (option b).** No Cognito credentials in CI; each deploy job asserts an unauthed health signal (worker via an empty-`{}` no-op invoke). The full authed `smoke.py prod` stays the manual post-merge check.
 2. **Integration-test DB in CI** — backend has `tests/integration/*` needing a live DB. Keep excluded (marker) or provide a CI DB (like worker's `TEST_DB_URL` GHA secret)? Blocks how complete Step 1 is. Default: exclude, matching music.
-3. **Worker DLQ vs on_failure** — a single function-level SQS DLQ catches both SQS-path and async-cron failures mixed; per-rule `on_failure` destinations isolate but multiply resources. Blocks Step 4 shape.
+3. ~~**Worker DLQ vs on_failure**~~ — **RESOLVED 2026-07-24 → function-level on-failure DLQ.** The premise (a function DLQ mixes SQS-path + cron failures) was mistaken: a function-level async on-failure destination captures ONLY async invokes (the EventBridge crons), while SQS-ESM failures stay on their own redrive DLQ (album-sync-dlq). Per-rule isolation only separates *delivery* failures (already alarmed), not handler failures, so it buys nothing here. One `worker-cron-dlq` + `event_invoke_config` covers all 12 crons.
 
 ## Decisions log
 
@@ -133,3 +139,5 @@ Document per-service "redeploy previous artifact" in `infra/README.md` or `docs/
 | 2026-07-24 | Deploy smoke scope = **health-only** (no Cognito creds in CI); OQ1 resolved to option (b). | 3 |
 | 2026-07-24 | CI uses **inline** per-service assertions, not `smoke.py --scope` — avoids adding `WORKSPACE_GITHUB_TOKEN` to 3 repos for one curl/invoke each. | 3 |
 | 2026-07-24 | Worker health = empty-`{}` no-op invoke + `function-updated-v2` waiter; grant `lambda:InvokeFunction` (scoped to blogWorkerLambda) on the manual `lambda-deploy-only` policy (v2). Owner "grant IAM now". | 3 |
+| 2026-07-24 | Async cron failure boundary = **function-level** `event_invoke_config` on_failure → `worker-cron-dlq` (OQ3 resolved); `FailedInvocations` extended 2→12. Owner "4 5 go" + apply-now. | 4 |
+| 2026-07-24 | Rollback = redeploy known-good **source** (re-run last green deploy / `git revert`+push), no artifact registry. | 5 |
