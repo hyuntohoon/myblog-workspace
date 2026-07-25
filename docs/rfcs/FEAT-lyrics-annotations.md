@@ -315,118 +315,174 @@ exclusion, since the expedite path must always bypass it.
 
 ---
 
-## 6. Thread 1 plan (blocked on an owner-created token)
+## 6. Thread 1 — Genius (token issued 2026-07-25; live-tested against ROSALÍA *LUX*)
 
-### 6.1 Verified API surface (from the official client source; `docs.genius.com` is unreachable from
-this environment)
+Status changed materially on 2026-07-25: the owner issued a client access token, and Thread 1 moved
+from speculation to measurement. Everything in this section was verified against the live official API
+unless marked otherwise.
+
+### 6.1 Verified API surface
 
 Base `https://api.genius.com/`, header `Authorization: Bearer <token>`. A **client access token is
-sufficient** for reads; OAuth is only for scoped endpoints. `GET /account` needs scope `me` and 401s
-even with a valid token — **do not use it as a preflight**; use `GET /songs/<known-id>`.
+sufficient** for all reads. `GET /account` needs scope `me` and 401s even with a valid token — **never
+use it as a preflight**; use `GET /songs/<known-id>` (verified: 200 vs 401).
 
 | Endpoint | Gives |
 |---|---|
-| `GET /search?q=&per_page(max 5)` | `hits[].result` incl. `id`, `title`, `primary_artist`, **`annotation_count`**, `stats.pageviews` |
-| `GET /songs/{id}?text_format=plain\|html\|markdown\|dom` | **`description`** ("About" prose), **`song_relationships`** (samples/interpolations/covers/remixes), `producer_artists`, `writer_artists`, `custom_performances`, `media`, `album` |
-| `GET /referents?song_id=&per_page(max 50)&page` | `referents[]` with `fragment`, `range`, `classification`, `annotations[]` (`body`, `verified`, `votes_total`) |
+| `GET /search?q=&per_page(max 5)` | `hits[].result`: `id`, `title`, `primary_artist`, `annotation_count`, `stats.pageviews`, `url` |
+| `GET /songs/{id}?text_format=plain\|html\|markdown\|dom` | `description`, `song_relationships`, `producer_artists`, `writer_artists`, `custom_performances`, `media`, `album`, `language`, `recording_location`, `release_date_for_display`, `apple_music_id`, `translation_songs` |
+| `GET /referents?song_id=&per_page(max 50)&page` | `referents[]`: `fragment`, `range`, `classification`, `annotations[]` (`body`, `verified`, `votes_total`) |
 | `GET /artists/{id}`, `/artists/{id}/songs`, `/annotations/{id}`, `/web_pages/lookup` | metadata |
 
-No official album endpoint. `/search` and `/referents` both 401 without a token (probed live). No
-`GENIUS_*` key exists in `/myblog/backend`, `/myblog/music`, or `/myblog/worker`.
+No official album endpoint. Album/comments/contributors exist only on the undocumented internal
+`https://genius.com/api/` — out of scope, noted so a future session does not "discover" it.
 
-### 6.2 The channels the morning capture missed
+**`song_relationships` type vocabulary** (confirmed from a live response): `samples`, `sampled_in`,
+`interpolates`, `interpolated_by`, `cover_of`, `covered_by`, `remix_of`, `remixed_by`,
+`live_version_of`, `performed_live_as`, `translation_of`, `translations`.
 
-**Three of the four content channels need no lyric anchoring at all** — this is the key finding:
+**`media` carries cross-service IDs** — a Sia lookup returned `spotify:track:4VrWlk8IQxevMvERoX08iC`
+plus `apple_music_id`. When present this confirms a match exactly against `tracks.spotify_id`. **But it
+is not universal**: only 1 of 16 sampled library tracks and 0 of 15 LUX tracks carried a Spotify link.
+Treat it as a match-confidence upgrade, never as the primary key.
 
-- `/songs/{id}.description` — the "About" prose. This *is* 가사 이야기 at song level, one call, no
-  matching into our lyric text.
-- `song_relationships` — samples / interpolations / covers / remixes. Highest value-per-effort for a
-  music blog, factual rather than interpretive, and **language-independent**, so it survives a poor
-  Korean coverage result.
-- `writer_artists` / `producer_artists` — credits Spotify does not provide.
-- Only `/referents` needs anchoring.
+### 6.2 Measured coverage — the language split is the whole story
 
-### 6.2b Capability catalog — what could actually be built, ranked
+16 tracks sampled from the owner's saved tracks, 8 English / 8 Korean, each run through
+`/search` → `/songs` → `/referents`:
 
-Each row is scored on what it gives the owner, what it costs to integrate, and — the column that
-decides everything — **how it degrades when Genius has nothing for a track.** Ranked by value/effort.
+| Channel | English | Korean |
+|---|---|---|
+| description ≥200 chars | **7/8** | **1/8** |
+| ≥3 annotated lines | **7/8** | **0/8** |
+| **credits (writers/producers)** | **7/8** | **7/8** |
+| relationships present | 7/8 | 2/8 |
 
-| # | Feature | Source field | Anchoring? | Language risk | Effort | Degrades to |
-|---|---|---|---|---|---|---|
-| **1** | **샘플/인터폴레이션 계보** — "this song samples X, is covered by Y" | `song_relationships` | none | **none** (structural data) | S | empty section, no visual hole |
-| **2** | **곡 해설 패널** — the "About" prose under the lyrics | `description` | none | high | S | hide the panel |
-| **3** | **크레딧** — writers, producers, featured performers | `writer_artists`, `producer_artists`, `custom_performances` | none | low | S | fall back to Spotify credits |
-| **4** | **커버리지 배지** — "Genius has 42 annotations" + deep link | `annotation_count` from `/search` | none | none | **XS** | no badge |
-| **5** | **줄별 주석 오버레이** — the original ask | `/referents` | **required** | **high** | **L** | — (this is the one that can fail outright) |
+**Credits are language-independent; prose is not.** 로꼬, pH-1, BewhY, UNEDUCATED KID and 실리카겔 all
+returned 0-char descriptions and 0 annotations — but 실리카겔's *Desert Eagle* still returned writers
+(김춘추·김한주·김건재·최웅희), producer, arranger, label (매직스트로베리사운드), distributor, and three
+engineer roles. Given that 47.4% of the owner's engagement is Korean-language (§3.5), **any Genius
+feature that depends on prose will be empty for roughly half the library, and any feature built on
+credits or relationships will not.**
 
-**Feature 1 is the sleeper and should probably lead.** It is the only channel that is *language-
-independent* — a sample/interpolation edge is structural metadata, so it survives the Korean-coverage
-problem that threatens everything else (§3.5). For a music blog it is also the most "blog-shaped"
-content Genius holds: it answers *"where does this come from"* rather than *"what does this line mean."*
-It needs no lyric anchoring and no per-line UI — the relationship is a structural fact rather than a
-prose body, so it renders identically for every track that has one.
+One matching failure worth recording: 로꼬's *2025* matched to *"2025 by Molly Yam (Ft. Loco)"* with
+`language=en`. Match confidence must be stored per row, or wrong credits enter a review silently.
 
-**Feature 4 is nearly free and should ship with whatever else is chosen.** `annotation_count` already
-comes back on the `/search` call the matcher has to make anyway, so a "Genius에서 보기" deep link plus a
-count badge costs one extra stored integer. It is also the designated fallback if
-the gate fails outright.
+### 6.3 The *LUX* live test (2026-07-25) — what a full album actually yields
 
-**Feature 5 is the expensive one and the only one that can fail on a technicality.** It needs every
-Genius `fragment` to resolve to a unique segment of *our* lyric text, which came from a different source.
-Do not design its schema or UI before the anchoring measurement in §6.3 comes back.
+45 API calls, ~25 seconds, all 15 tracks matched on title+artist. Raw dumps and the assembled Korean
+material are in the session scratchpad.
 
-**Recommended Step 1 if Thread 1 proceeds:** features **1 + 3 + 4** as a single metadata block —
-no anchoring needed, language-independent, and useful even if annotation coverage
-turns out thin. Then re-evaluate 2 and 5 against the gate results.
+- **13/15 descriptions** (157–1,956 chars); **115 annotations**; **0 verified** — every annotation is
+  unverified fan writing, votes ranging **−17 to +63, median 9**
+- `annotation_count` sums to 128 vs 115 stored: the 13-row difference is exactly the 13 tracks with a
+  description, because **Genius counts the song description as one annotation**
+- credits are deep: *Berghain* alone carries **55 performance roles**
 
-**Placement warning.** `lyrics_service.get_normalized` early-returns at `:229-233`
-(`if out.availability != "ok": return out`) *before* `attach_translation`. A metadata block placed there
-is unreachable for every `not_found` track — i.e. exactly the slice Thread 2 has not filled. Features 1,
-3 and 4 do not depend on lyrics existing, so they must attach **above** that early return.
+Facts a critic would not otherwise get, all from credits/relationships:
 
-### 6.3 The gate (run ONE 60-track pass, dump raw responses, answer both questions offline)
+- **The production core is four people, not three.** David Rodríguez has a producer credit on 1 track
+  but is recording engineer + additional production + vocal producer on **15/15**.
+- **`Transcription (Notation)` — Kyle Gordon, 15/15.** The album was made to exist as a score; the
+  first teaser was piano/vocal sheet images.
+- **Recording geography is a division of labour**: four fixed rooms on every track (Larrabee LA,
+  Noah's Studio LA, FB House Miami, Air Studios London) plus L'Auditori Barcelona ×10, La Fabrique ×7,
+  Escolania de Montserrat ×6, A Tempo Sevilla ×5.
+- **Guests are tradition-bearers, not features**: Carminho (fado), Estrella Morente (flamenco),
+  Sílvia Pérez Cruz (Catalan), Yahritza Y Su Esencia (sierreño). Björk also takes a writing credit.
+- **Pop hitmakers sit underneath**: Ryan Tedder ×2, Pharrell Williams, The-Dream, Andrew Wyatt,
+  Tobias Jesso Jr., Guy-Manuel de Homem-Christo. *Magnolias* has 8 writers; *Mio Cristo Piange
+  Diamanti* is the only solo-written track. This tension is the most useful thing the data gives.
+- **`Translator` credits on 4 tracks** — Asa Kanaseki (JA), Lisa Salker (DE), Halyna Hrabovska (UK),
+  Mark Gamal (AR). Multilingualism was **commissioned work**, not improvisation. `language` returns one
+  tag per song and is unreliable; at least 11 languages appear across the album.
+- **Interpolations**: *Divinize* ← Daniel Johnston *"Some Things Last a Long Time"*; *De Madrugá* ←
+  ROSALÍA's own 2018 track. Also official derivatives (Berghain ×2 remixes, *Sauvignon Blanc* a cappella
+  + instrumental, *Dios Es Un Stalker* versión Francotiradora).
 
-Sample = engaged ∩ `match_status='matched'` (**N=1,921** — the only rows the viewer can render),
-**60 tracks stratified 17 KR / 43 non-KR**.
+Reception signal from the 115 unverified annotations: **22 of 115 (19%) are translations rather than
+interpretation**, and those drew the highest votes (55, 55, 50). The album's primary reception need was
+subtitles. Separately, 8 of 15 tracks are linked by annotators to named female mystics across five
+traditions, and the language placement tracks those figures (Arabic ← Sufi Rabia, Japanese ← Zen Ryōnen,
+Ukrainian ← Olga of Kyiv).
 
-- **G1 (primary):** usable story on **≥36 of 60** (60%), usable = strict artist+title match **and** ≥3
-  referents with non-empty body and `is_description=false`
-- **G1-KR (stratum floor):** **≥6 of 17** Korean-artist tracks (35%)
-- **G2 (fallback):** About description ≥200 normalized chars on **≥36 of 60** (60%)
-- G1 and G1-KR pass ⇒ build the per-line layer. G1 <24/60 **and** G2 <24/60 ⇒ stop, fall back to a
-  zero-storage "Genius에서 보기" deep link + `annotation_count` badge. G1 fail + G2 pass ⇒ song-level
-  panel only.
+**Lyric fragments are not reproduced in our derived documents.** The translation pass rendered
+descriptions and annotation bodies but pointed at `annotations[i].fragment` in the raw JSON plus the
+Genius link instead of copying lyric text. Keep that convention.
 
-**Anchoring feasibility (same data, zero extra calls).** Byte-matching is impossible — confirmed on
-prod that LRCLIB's `lyric_plain` for Charli XCX "360" has no section headers and its own punctuation
-conventions. Critically **1,565 of 1,686 renderable rows (92.8%) carry `lyric_synced`**, and
-`normalize_lyrics` derives segments from `parse_lrc(lyric_synced)`, **not** from `lyric_plain` — so
-anchoring must be measured against the synced segments the viewer actually renders. Metric: referents
-resolving to a *unique* segment range. **≥70% overall + median ≥60%/track** ⇒ per-line feasible;
-40–70% ⇒ hybrid with an unanchored drawer; **<40%** ⇒ song-level panel only. Report KR/non-KR
-separately.
+### 6.4 Why this fits the research-note pipeline — evidence from 78 real notes
 
-### 6.4 Probe script status
+All 78 stored `album_research` notes were read. Every one carries a `출처 못 찾은 것` (could not source)
+section, and:
 
-A draft exists in this session's scratchpad (not committed — it targets the wrong population and has a
-known false-PASS bug where the `usable` metric omits the `not loose` term that `strict` has, so a
-wrong-artist title-only match scores as coverage). Before running: fix that, replace the hand-rolled
-`norm()` with `canonical_base_title` / `_artist_identity_ok` from `lyrics_matcher.py`, add an
-`artists.aliases` query ladder (**27 of 67** Hangul-named artists in the sample population have no
-Latin alias and their Genius pages are romanized), paginate `/referents`, and abort on 401 rather than
-reporting 0% coverage.
+- **78/78 record a failure to confirm samples**
+- **75/78 record a failure to confirm credits**
 
-### 6.5 Token — owner action, do not paste the value into chat
+Verbatim from real notes: *"WhoSampled 등 샘플 DB는 페이지 페치가 막혀 스니펫조차 확보 못 함 → 단정
+불가"* (뱃사공 『파랑』); *"WhoSampled 1차 페이지: 알려진 fetch-차단 사이트"* (Frank Ocean 『Blonde』);
+*"FADER 작사크레딧 표에 'No credited writers listed'로 비어 있는 트랙 존재"*; *"녹음 장소/스튜디오,
+정확한 곡별 세션 연주자 매핑 — 위키 인포박스 수준 이상으로는 확인 못 함"* (『CHROMAKOPIA』).
 
-1. genius.com → sign in → `https://genius.com/api-clients` → New API Client
-   (Website `https://www.ratemymusic.blog`; Redirect URI is cosmetic, we never run OAuth)
-2. "Generate Access Token" — that value only; Client ID/Secret are irrelevant
-3. Put it in SSM yourself. Adding a key to `/myblog/worker` is inert for the running Lambda
-   (`config.py:151-168` `_load_secrets` reads only known keys; `GEMINI_API_KEY` sits there unwired as
-   precedent). Omit `--key-id` to keep the existing KMS key.
-4. Add `GENIUS_ACCESS_TOKEN` to CLAUDE.md's never-log list.
+The prompt (`scripts/album_research_v2.md:75-82`) makes `샘플링 / 기반` its **★최우선** section and
+names WhoSampled as a known fetch-blocked site. **The pipeline's own 78-run record of what it cannot
+find is precisely the field set Genius returns.** That is the justification for Thread 1, and it is
+stronger than the lyrics-viewer case.
 
-### 6.6 Licensing / terms
+### 6.5 Plan — R0 through R6
+
+Sequenced; R0 gates everything.
+
+| ID | What | Size | Key files |
+|---|---|---|---|
+| **R0** | Coverage probe over the 88 bucketed albums: per-language match rate and per-field fill rate for the four fields the notes actually lack | S | new `tools/genius_probe.py`, cloning the resumable-batch skeleton of `tools/lyrics_batch_api.py:1-27` |
+| **R1** | `album_genius_facts` — materialised per-album facts store + a $0 local poller | M | new `scripts/genius_facts_poller.py`, sibling of `scripts/research_poller.py` (same SSM read + psycopg claim-gate shape) |
+| **R2** | Inject the facts block into the **research** prompt | S | `scripts/research_poller.py` — add `_genius_block(conn, album_id)` beside `_album_block` (`:110-121`); append in `build_prompt` (`:153-161`) |
+| **R3** | Facts as a first-class **nightly-draft** context field | M | `scripts/buckit_nightly.py` — `GENIUS_SQL` beside `RESEARCH_SQL` (`:233-242`); `m['genius_md']` in `export_checked_memos` (`:302-401`) |
+| **R4** | `[확인: Genius]` source tier + a mechanical provenance footer that survives the model ignoring the prompt | S | `scripts/album_research_v2.md:23-44` (★ block) and `:94-97` (출처 못 찾은 것) |
+| **R5** | Prose tier — `description` + annotation bodies | S | `scripts/genius_facts_poller.py` |
+| **R6** | **Catalog-internal lineage & credit graph** — producer/writer clusters *within a bucket*, and interpolation edges between catalog albums | M | `scripts/editor_buckit.py` — extend `export_bucket_context` (`:219-345`); reuse the genre/artist cluster machinery at `:279-291` |
+
+**R6 is the capability no external service can provide**, because it is a property of *this* catalog
+rather than of any album: "three albums in this bucket share Noah Goldstein" is only computable here.
+
+**Degradation is designed, not incidental.** Every R-step renders an explicit
+`Genius 미매칭 (0/n 트랙) — 사실의 부재가 아니라 조회의 부재다` rather than silence, so a thin note is
+visibly thin-because-unsourced instead of looking like a lazy draft. This matters most for Korean
+albums (§6.2).
+
+**Widest integration surface is the album view, not the lyrics sheet.** `AlbumDetailView.tsx` is
+rendered by the public overlay (`AlbumOverlay.tsx:120`), the member modal (`member/AlbumDetail.tsx:96`)
+and the public review page's tracklist, all reading `GET /api/music/albums/{id}`; and
+`ANY /api/music/{proxy+}` (`infra/apigateway.tf:68-71`) means **no new API Gateway route and no
+terraform apply**. One contract change reaches every screen an album appears on. The lyrics sheet by
+comparison is owner-only and reachable for just 1,921 renderable tracks.
+
+### 6.6 The lyrics-viewer sub-thread (the original ask) — still gated on one number
+
+Anchoring feasibility has **not** been measured and must be before any schema or UI exists. Genius
+fragments are offsets into Genius's lyric text; our segments come from `parse_lrc(lyric_synced)` via
+LRCLIB and will not be byte-identical. **1,565 of 1,686 renderable rows (92.8%) carry `lyric_synced`**,
+and `normalize_lyrics` (`lyrics_service.py:176-184`) derives segments from the synced text, **not** from
+`lyric_plain` — so the measurement must target synced segments, not plain text.
+
+Tiers: ≥70% of fragments resolving to a unique segment (median ≥60%/track) ⇒ inline per-line layer;
+40–70% ⇒ hybrid with an unanchored drawer; <40% ⇒ song-level panel only. Report KR and non-KR
+separately. Anchor at **read time** in `lyrics_service`, not stored — a later LRCLIB re-match would
+silently invalidate stored offsets.
+
+Placement warning: `get_normalized` early-returns at `:229-233` (`if out.availability != "ok"`) before
+`attach_translation`. Anything attached there is invisible for `not_found` tracks, so the metadata block
+must attach **above** that return.
+
+### 6.7 Token
+
+Issued 2026-07-25. Client access token only — Client ID/Secret are unused for reads. Destination:
+`/myblog/worker` as `GENIUS_ACCESS_TOKEN` (adding a key is inert for the running Lambda —
+`config.py:151-168` `_load_secrets` reads only known keys; `GEMINI_API_KEY` sits there unwired as
+precedent). Omit `--key-id` to keep the existing KMS key. Add `GENIUS_ACCESS_TOKEN` to CLAUDE.md's
+never-log list.
+
+### 6.8 Licensing / terms
 
 **Owner ruled this out of scope on 2026-07-25 — do not re-raise it and do not let it shape the
 design.** This is personal, non-commercial research and the owner has accepted the position. Any
