@@ -346,6 +346,44 @@ No official album endpoint. `/search` and `/referents` both 401 without a token 
 - `writer_artists` / `producer_artists` — credits Spotify does not provide.
 - Only `/referents` needs anchoring.
 
+### 6.2b Capability catalog — what could actually be built, ranked
+
+Each row is scored on what it gives the owner, what it costs to integrate, and — the column that
+decides everything — **how it degrades when Genius has nothing for a track.** Ranked by value/effort.
+
+| # | Feature | Source field | Anchoring? | Language risk | Effort | Degrades to |
+|---|---|---|---|---|---|---|
+| **1** | **샘플/인터폴레이션 계보** — "this song samples X, is covered by Y" | `song_relationships` | none | **none** (structural data) | S | empty section, no visual hole |
+| **2** | **곡 해설 패널** — the "About" prose under the lyrics | `description` | none | high | S | hide the panel |
+| **3** | **크레딧** — writers, producers, featured performers | `writer_artists`, `producer_artists`, `custom_performances` | none | low | S | fall back to Spotify credits |
+| **4** | **커버리지 배지** — "Genius has 42 annotations" + deep link | `annotation_count` from `/search` | none | none | **XS** | no badge |
+| **5** | **줄별 주석 오버레이** — the original ask | `/referents` | **required** | **high** | **L** | — (this is the one that can fail outright) |
+
+**Feature 1 is the sleeper and should probably lead.** It is the only channel that is *language-
+independent* — a sample/interpolation edge is structural metadata, so it survives the Korean-coverage
+problem that threatens everything else (§3.5). For a music blog it is also the most "blog-shaped"
+content Genius holds: it answers *"where does this come from"* rather than *"what does this line mean."*
+It needs no lyric anchoring, no per-line UI, and no storage of licensed prose — the relationship is a
+fact, not an annotation body, which also sidesteps the unresolved storage question in §6.6.
+
+**Feature 4 is nearly free and should ship with whatever else is chosen.** `annotation_count` already
+comes back on the `/search` call the matcher has to make anyway, so a "Genius에서 보기" deep link plus a
+count badge costs one extra stored integer and zero licensed text. It is also the designated fallback if
+the gate fails outright.
+
+**Feature 5 is the expensive one and the only one that can fail on a technicality.** It needs every
+Genius `fragment` to resolve to a unique segment of *our* lyric text, which came from a different source.
+Do not design its schema or UI before the anchoring measurement in §6.3 comes back.
+
+**Recommended Step 1 if Thread 1 proceeds:** features **1 + 3 + 4** as a single metadata block —
+no anchoring, no licensed prose stored, language-independent, and useful even if annotation coverage
+turns out thin. Then re-evaluate 2 and 5 against the gate results.
+
+**Placement warning.** `lyrics_service.get_normalized` early-returns at `:229-233`
+(`if out.availability != "ok": return out`) *before* `attach_translation`. A metadata block placed there
+is unreachable for every `not_found` track — i.e. exactly the slice Thread 2 has not filled. Features 1,
+3 and 4 do not depend on lyrics existing, so they must attach **above** that early return.
+
 ### 6.3 The gate (run ONE 60-track pass, dump raw responses, answer both questions offline)
 
 Sample = engaged ∩ `match_status='matched'` (**N=1,921** — the only rows the viewer can render),
