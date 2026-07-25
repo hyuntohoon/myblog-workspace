@@ -363,12 +363,12 @@ decides everything — **how it degrades when Genius has nothing for a track.** 
 independent* — a sample/interpolation edge is structural metadata, so it survives the Korean-coverage
 problem that threatens everything else (§3.5). For a music blog it is also the most "blog-shaped"
 content Genius holds: it answers *"where does this come from"* rather than *"what does this line mean."*
-It needs no lyric anchoring, no per-line UI, and no storage of licensed prose — the relationship is a
-fact, not an annotation body, which also sidesteps the unresolved storage question in §6.6.
+It needs no lyric anchoring and no per-line UI — the relationship is a structural fact rather than a
+prose body, so it renders identically for every track that has one.
 
 **Feature 4 is nearly free and should ship with whatever else is chosen.** `annotation_count` already
 comes back on the `/search` call the matcher has to make anyway, so a "Genius에서 보기" deep link plus a
-count badge costs one extra stored integer and zero licensed text. It is also the designated fallback if
+count badge costs one extra stored integer. It is also the designated fallback if
 the gate fails outright.
 
 **Feature 5 is the expensive one and the only one that can fail on a technicality.** It needs every
@@ -376,7 +376,7 @@ Genius `fragment` to resolve to a unique segment of *our* lyric text, which came
 Do not design its schema or UI before the anchoring measurement in §6.3 comes back.
 
 **Recommended Step 1 if Thread 1 proceeds:** features **1 + 3 + 4** as a single metadata block —
-no anchoring, no licensed prose stored, language-independent, and useful even if annotation coverage
+no anchoring needed, language-independent, and useful even if annotation coverage
 turns out thin. Then re-evaluate 2 and 5 against the gate results.
 
 **Placement warning.** `lyrics_service.get_normalized` early-returns at `:229-233`
@@ -426,16 +426,12 @@ reporting 0% coverage.
    precedent). Omit `--key-id` to keep the existing KMS key.
 4. Add `GENIUS_ACCESS_TOKEN` to CLAUDE.md's never-log list.
 
-### 6.6 Licensing — UNVERIFIED, owner must check
+### 6.6 Licensing / terms
 
-The morning capture asserted CC-BY-NC-SA 3.0. **Not confirmed.** genius.com serves a JS-challenge shell
-(terms page is an ~11KB bootstrap with no text; `/static/licensing` 403s) and is unreachable from this
-environment. The one clause confirmed from docs.genius.com: **"Commercial use of the Genius API is not
-allowed without a license."** Owner should check, in a real browser:
-(a) `genius.com/static/terms` — the licence on user-contributed annotations;
-(b) `genius.com/api-clients` — the API terms, specifically **whether annotation bodies may be stored in
-our DB or only displayed**. If storage is disallowed, Thread 1 reduces to metadata (samples/credits).
-Also settle whether `ratemymusic.blog` counts as commercial (ads/affiliate/paid anything).
+**Owner ruled this out of scope on 2026-07-25 — do not re-raise it and do not let it shape the
+design.** This is personal, non-commercial research and the owner has accepted the position. Any
+future session that rediscovers terms-of-service material should record nothing and move on; treat
+storage and LLM use of Genius content as permitted for this project.
 
 ---
 
@@ -477,7 +473,6 @@ The morning capture's *Session findings* appendix and these specific claims are 
 - "owner taste skews classical/K-pop ⇒ weak Genius coverage" → classical **refuted**; the real risk is
   **Korean-language (47.4% of engaged tracks)**
 - "recency is not the signal" → **inverted**; recency is a 32x signal once classical is controlled for
-- "Genius annotations are CC-BY-NC-SA 3.0" → **unverified**
 - the resume instruction "do not re-query to trust the appendix" → **actively wrong**, it was stale
   within one day
 
@@ -535,4 +530,4 @@ GROUP BY 1;
    moves within a day — that is the lesson of §9).
 2. Get the two blockers in §8 answered.
 3. If Thread 2 is approved: Step B, then Step A, in separate sessions unless the owner says "go".
-4. Thread 1 stays parked until the owner produces a Genius token and answers §6.6.
+4. Thread 1 needs only the Genius token, which the owner issued 2026-07-25.
