@@ -76,6 +76,11 @@ You may be given pre-fetched blocks. Read them before searching, and search only
   bookkeeping error — report it.
 - **`translations` relationships are Genius community translation pages, not musical relations.**
   Exclude them from `무엇으로 만들었나`.
+- **When an annotation points at an interview, go and get the interview.** An annotation quoting a
+  statement is a *lead*, not a citation — citing it as-is puts a fan's transcription two steps from the
+  source. Attempt the primary; if paywalled or blocked, record it in `확인 못 한 것` with the URL, and
+  state in `자료 상황` how many statements are annotation-relayed versus source-verified.
+  `[근거: v4 첫 실행의 인터뷰 인용 6건이 전부 주석 경유, 원문 확인 0건. 코딩한 리뷰들은 직접 인용한다.]`
 - **Annotation bodies are unverified community writing — but mine them for POINTERS.** Measured on one
   album, **43.5% of annotations contain a pointer** to the artist's earlier work, an interview, or an
   external source. `[근거: LUX 115건 분류]` Those pointers are *leads to verify and promote*; the
@@ -115,10 +120,12 @@ and five reviews with zero artist quotes work fine.
 
 What non-English reviews use instead is a **dense local reference grid** — one coded review names 12+
 regional reference points. `[근거: 비영어권 2편, 비교 밀도 표본 1위]` Build that grid from our own
-catalog: which Korean records is this in conversation with, and why.
+catalog is a bonus here, never a gate.
 
-★ **The grid has a precondition: the catalog must actually hold the neighbours.** Check first; if it
-does not, say so in `자료 상황` rather than producing a thin grid silently. `[근거: v4 첫 실행에서
+★ **Build the grid from knowledge and the open web. Our catalog is a bonus, never a precondition.**
+A reference point does not have to be in our database to be a valid comparison — published critics
+name records they do not own. Mark the ones we happen to hold, since those are cheap for the owner to
+go listen to, but **never let catalog absence shrink the grid.** `[근거: v4 첫 실행에서
 스페인·플라멩코 비교축이 카탈로그에 사실상 부재 — Morente·Pérez Cruz·Carminho·El Guincho·Refree·
 La Niña de los Peines 전부 0장.]`
 
@@ -181,7 +188,11 @@ zero silently (`새소년` → 0 hits, `SE SO NEON` → 20).
 
 ## 크레딧
    ★ 명단을 쓰지 말 것. 다음 셋 중 하나에 해당할 때만 적는다.
-     · 분포 — "16곡 중 9곡을 두 사람이 단독 작곡" 같은 편중. 숫자만으로도 좋다.
+     · 분포 — **숫자가 주장을 만들 때만.** "16곡 중 9곡을 두 사람이 단독 작곡"은 편중이라 주장이 된다.
+       "마스터링은 전곡 동일"은 그냥 상수이므로 부록이다. 고정값 나열은 분포 옷을 입은 명단이다.
+       [근거: v4 첫 실행이 "마스터링·채보·녹음진 15/15 고정"을 분포로 적고 아무 주장도 안 했다.
+        같은 사실에서 v3 자체 분석은 주장을 뽑았다 — 채보가 전곡에 걸리고 첫 티저가 악보 이미지였으니
+        이 앨범은 악보로 존재하도록 만들어졌다는 것. 숫자가 아니라 숫자가 말하는 것을 적어라.]
      · 이상치 — 이 앨범에 있을 이유가 없어 보이는 이름.
      · 모순 — 앨범의 자기서사와 크레딧이 어긋나는 지점.
    이름을 쓸 때는 **반드시 동격구를 붙인다** — "이름 (이 사람이 무슨 일을 하는지/무엇으로 알려졌는지)".
