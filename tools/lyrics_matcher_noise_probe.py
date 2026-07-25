@@ -57,6 +57,7 @@ from worker.service.lyrics_matcher import (  # noqa: E402  (NEW matcher, branch)
     STATUS_REVIEW_REQUIRED,
     decide_match as new_decide_match,
 )
+from worker.service.lyrics_eval_core import PRIMARY_ARTIST_NAMES_LATERAL  # noqa: E402
 from worker.service.lyrics_promote import promote_best  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ REPORT = OUT_DIR / "noise_probe_report.json"
 AUDIT_SAMPLE = OUT_DIR / "noise_probe_audit_sample.json"
 OLD_MATCHER_SNAPSHOT = OUT_DIR / "_old_matcher_step2v2.py"
 
-POOL_SQL = """
+POOL_SQL = f"""
     WITH pool AS (
         SELECT tl.track_id, tl.match_status, tl.evidence->>'reason' AS reason,
                tl.evidence->>'match_basis' AS basis,
@@ -92,7 +93,7 @@ POOL_SQL = """
          ORDER BY md5(track_id::text) LIMIT :exact_n)
     )
     SELECT t.id, t.title, t.duration_sec,
-           ARRAY_REMOVE(ARRAY_AGG(DISTINCT a.name), NULL)   AS artist_names,
+           primary_artists.artist_names                     AS artist_names,
            ARRAY_REMOVE(ARRAY_AGG(DISTINCT al.alias), NULL) AS aliases,
            s.match_status AS existing_status,
            s.reason       AS existing_reason,
@@ -104,8 +105,9 @@ POOL_SQL = """
     JOIN track_artists ta ON ta.track_id = t.id
     JOIN artists a        ON a.id = ta.artist_id
     LEFT JOIN LATERAL jsonb_array_elements_text(a.aliases) AS al(alias) ON true
+{PRIMARY_ARTIST_NAMES_LATERAL}
     GROUP BY t.id, t.title, t.duration_sec, s.match_status, s.reason,
-             s.basis, s.old_lrclib_id, s.pool
+             s.basis, s.old_lrclib_id, s.pool, primary_artists.artist_names
     ORDER BY s.pool, t.id
 """
 

@@ -41,7 +41,11 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_worker"))
 
 from worker.clients.lrclib_client import LrclibClient  # noqa: E402
-from worker.service.lyrics_eval_core import new_metrics, run_eval_batch  # noqa: E402
+from worker.service.lyrics_eval_core import (  # noqa: E402
+    PRIMARY_ARTIST_NAMES_LATERAL,
+    new_metrics,
+    run_eval_batch,
+)
 from worker.service.lyrics_reassessment_service import should_replace  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -54,9 +58,9 @@ REPORT = OUT_DIR / "bestof_backfill_report.json"
 
 # Step 3 target: the parked pool only. NOT not_found (out of scope — nothing to choose)
 # and NOT the widened best-of re-check arm (that is the reassessment job's rotation).
-POOL_SQL = """
+POOL_SQL = f"""
     SELECT t.id, t.title, t.duration_sec,
-           ARRAY_REMOVE(ARRAY_AGG(DISTINCT a.name), NULL)   AS artist_names,
+           primary_artists.artist_names                     AS artist_names,
            ARRAY_REMOVE(ARRAY_AGG(DISTINCT al.alias), NULL) AS aliases,
            tl.match_status                 AS existing_status,
            (tl.evidence ->> 'match_basis') AS existing_basis
@@ -65,10 +69,12 @@ POOL_SQL = """
     JOIN track_artists ta ON ta.track_id = t.id
     JOIN artists a        ON a.id = ta.artist_id
     LEFT JOIN LATERAL jsonb_array_elements_text(a.aliases) AS al(alias) ON true
+{PRIMARY_ARTIST_NAMES_LATERAL}
     WHERE tl.match_status IN ('ambiguous', 'review_required')
       AND tl.updated_at < :run_start
     GROUP BY t.id, t.title, t.duration_sec,
-             tl.match_status, (tl.evidence ->> 'match_basis')
+             tl.match_status, (tl.evidence ->> 'match_basis'),
+             primary_artists.artist_names
     ORDER BY t.id
 """
 
