@@ -39,6 +39,7 @@ from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_worker"))
 
+from worker.service.lyrics_eval_core import PRIMARY_ARTIST_NAMES_LATERAL  # noqa: E402
 from worker.service.lyrics_matcher import (  # noqa: E402
     Candidate,
     decide_match,
@@ -55,15 +56,17 @@ def fetch_sample(session, size: int):
     """Random catalog tracks with artist names + aliases (read-only)."""
     rows = session.execute(
         text(
-            """
+            f"""
             SELECT t.id, t.title, t.spotify_id, t.isrc, t.duration_sec,
-                   ARRAY_REMOVE(ARRAY_AGG(DISTINCT a.name), NULL)     AS artist_names,
+                   primary_artists.artist_names                      AS artist_names,
                    ARRAY_REMOVE(ARRAY_AGG(DISTINCT al.alias), NULL)  AS aliases
             FROM tracks t
             JOIN track_artists ta ON ta.track_id = t.id
             JOIN artists a        ON a.id = ta.artist_id
             LEFT JOIN LATERAL jsonb_array_elements_text(a.aliases) AS al(alias) ON true
-            GROUP BY t.id, t.title, t.spotify_id, t.isrc, t.duration_sec
+{PRIMARY_ARTIST_NAMES_LATERAL}
+            GROUP BY t.id, t.title, t.spotify_id, t.isrc, t.duration_sec,
+                     primary_artists.artist_names
             ORDER BY RANDOM()
             LIMIT :n
             """

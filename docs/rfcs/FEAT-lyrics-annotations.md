@@ -157,7 +157,10 @@ must have a Korean stratum floor or it will pass on a Western sample and fail in
 
 ### 3.6 Two matcher defects found in passing
 
-Both are pre-existing, independent of this RFC, and worth their own `plan.md` rows.
+Both are pre-existing and independent of this RFC. **Both were fixed 2026-07-26** (worker #80/#81 +
+workspace #698; detail → the `FIX-lyrics-primary-artist + FIX-isrc-backfill` row in `docs/plan.md`,
+resolution notes → `DATA-catalog-noise-and-lyrics-coverage.md` "Related defects"). Left in place
+because §3.x cites these numbers — **do not re-file as new work.**
 
 1. **Search artist is the alphabetically-first credit, not the primary.**
    `lyrics_eval_core.fetch_one` uses `artist_names[0]`, and `artist_names` comes from

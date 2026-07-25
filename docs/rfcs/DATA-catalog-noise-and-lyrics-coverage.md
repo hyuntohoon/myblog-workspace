@@ -354,17 +354,31 @@ psql "$DATABASE_URL" -c "SELECT t.title, tl.match_status FROM tracks t JOIN trac
 
 ## Related defects found during investigation (not steps — file as `plan.md` rows)
 
-1. **LRCLIB is searched with the alphabetically-first credit.** `lyrics_eval_core.fetch_one` uses
-   `artist_names[0]` from `ARRAY_AGG(DISTINCT a.name)`, so a featured guest becomes the search artist
+> **BOTH RESOLVED 2026-07-26** (worker #80/#81 + workspace #698) — see the
+> `FIX-lyrics-primary-artist + FIX-isrc-backfill` row in `docs/plan.md` for the shipped detail
+> and the one remaining owner action. Kept here because the numbers below are cited elsewhere in
+> this RFC; **do not re-file them as new work.**
+
+1. ~~**LRCLIB is searched with the alphabetically-first credit.**~~ **FIXED.** `lyrics_eval_core.fetch_one`
+   used `artist_names[0]` from `ARRAY_AGG(DISTINCT a.name)`, so a featured guest became the search artist
    (*"Ariana Grande – I Don't Do Drugs (feat. Ariana Grande)"*). **8,765 of 14,035 `not_found` rows (62%)
-   have ≥2 credits.** `track_artists.role` is NULL on all 44,546 rows — the fix needs Spotify's artist
-   order captured at sync time. **Duplicated in both lyrics services → one PR, twin sweep.** This may be
-   worth more yield than Step 3.
-2. **`isrc_backfill` was never scheduled.** Service, handler routing (`handler.py:284`) and an
-   integration test exist, but no `aws_cloudwatch_event_rule` fires it — hence `tracks.isrc` is 100% NULL.
-   It also writes string sentinels `"not_found"`/`"no_isrc"` into the column, so scheduling it as-is
-   silently breaks every `isrc IS NOT NULL` predicate. Move the sentinel to `ext_refs` first (note
-   `ext_refs->>'isrc'` is already populated on 7,335 rows).
+   have ≥2 credits** (re-derived 07-26: 8,767 of 14,034). `track_artists.role` is NULL on all 44,546 rows,
+   so rather than wait for Spotify's artist order to be captured at sync time, the primary is **derived**:
+   album-artist credit first, then `artists.popularity`, then name — via a LATERAL, since Postgres rejects
+   `ARRAY_AGG(DISTINCT x ORDER BY y)`. Measured on a 1,793-track ground-truth set built from feature
+   clauses in prod titles: **45.34% → 96.77%** (52.45% → 88.26% reweighted to the `not_found` stratum mix).
+   Twin sweep covered 8 sites (2 worker services + 6 `tools/`), sharing one imported constant.
+   **NB the derived rule is a proxy, not a substitute** — capturing Spotify's `artists[]` ordinal at sync
+   time would still collapse both residual failure modes (no album-artist credit; several album-artist
+   credits on joint releases), and remains the correct long-term fix.
+2. ~~**`isrc_backfill` was never scheduled.**~~ **FIXED.** Service, handler routing (`handler.py:284`) and an
+   integration test existed, but no `aws_cloudwatch_event_rule` fired it — hence `tracks.isrc` was 100% NULL.
+   It also wrote string sentinels `"not_found"`/`"no_isrc"` into the column, so scheduling it as-is would
+   have silently broken every `isrc IS NOT NULL` predicate. The marker moved to `ext_refs->>'isrc_status'` —
+   **not** `ext_refs->>'isrc'`, which already means "a real ISRC" on 7,335 rows and is `backfill_genres.py`'s
+   "already fetched" predicate. A Spotify **Track Relinking** hazard found in review (a market param can
+   return a different `id`, producing a *permanent* false miss) was fixed in the same PR. The EventBridge
+   rule is committed but **still needs a human `terraform apply`**.
 
 ## Open questions
 

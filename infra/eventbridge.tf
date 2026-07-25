@@ -376,6 +376,52 @@ resource "aws_lambda_permission" "artist_photo_backfill_events" {
   source_arn    = aws_cloudwatch_event_rule.artist_photo_backfill.arn
 }
 
+# ISRC backfill — FEAT-lyrics-corpus Step 1b, shipped 2026-07 but never scheduled.
+#
+# Constant input {"job":"isrc_backfill"} (same routing pattern as lyrics_incremental /
+# artist_photo_backfill; the handler matches event["job"] before the alias source check).
+# The job selects tracks with no ISRC and no prior attempt, fetches them from Spotify
+# GET /v1/tracks in chunks of 50, and writes either the real ISRC to `tracks.isrc` or a
+# miss marker to `tracks.ext_refs->>'isrc_status'`. Bounded by
+# settings.ISRC_BACKFILL_BATCH_LIMIT (500 = 10 Spotify chunks) plus a 90s wall-clock
+# budget, so a run always finishes inside the 120s worker timeout; a run with an empty
+# pool is a single SELECT and exits in milliseconds.
+#
+# The service and this rule were deliberately landed apart: until worker
+# `fix/isrc-backfill-sentinel-schedule` is deployed, this job writes the string
+# sentinels "not_found"/"no_isrc" INTO tracks.isrc, which would break every
+# `isrc IS NOT NULL` predicate. Do not apply this rule against an older worker build.
+#
+# Hourly rather than daily only while the ~19.3k backlog drains (≈39 runs); once
+# `SELECT count(*) FROM tracks WHERE isrc IS NULL AND ext_refs->>'isrc' IS NULL
+# AND ext_refs->>'isrc_status' IS NULL` flattens, drop this to weekly — steady-state
+# demand is only newly-ingested tracks. Failure-isolated from album sync (separate
+# invocation); a Spotify outage only skips rows.
+#
+# Removing this rule stops scheduled backfill; the job code is inert without it (the
+# manual blogSQS {"job":"isrc_backfill"} message still works either way).
+resource "aws_cloudwatch_event_rule" "isrc_backfill" {
+  name                = "worker-isrc-backfill"
+  description         = "Backfill tracks.isrc from Spotify (bounded; miss → ext_refs.isrc_status)"
+  schedule_expression = "rate(1 hour)"
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "isrc_backfill" {
+  rule      = aws_cloudwatch_event_rule.isrc_backfill.name
+  target_id = "blogWorkerLambda-isrc-backfill"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ job = "isrc_backfill" })
+}
+
+resource "aws_lambda_permission" "isrc_backfill_events" {
+  statement_id  = "AllowInvokeFromEventBridgeIsrcBackfill"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.isrc_backfill.arn
+}
+
 # API Lambda warm ping — FIX-front-audit-2026-07 item 3.
 #
 # ratemymusic-api cold-starts at ~3.0-3.2s Init (CloudWatch, 2026-07-06 3-day

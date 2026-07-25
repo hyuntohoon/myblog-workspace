@@ -176,7 +176,9 @@ Quote these with denominators or they will be misread later.
    anchoring rate, and do not conflate them.
 3. `scripts/album_research_v3.md` has not yet been compared against v2 on the same album. The LUX v3
    run was in flight when this file was written.
-4. Two pre-existing defects are filed but unowned: the alphabetically-first-artist LRCLIB search bug
-   (62% of `not_found` rows have ≥2 credits, duplicated across both lyrics services, needs a twin
-   sweep) and `isrc_backfill` never having been scheduled while writing string sentinels into
-   `tracks.isrc`.
+4. ~~Two pre-existing defects are filed but unowned~~ — **both FIXED 2026-07-26** (worker #80/#81 +
+   workspace #698). The alphabetically-first-artist LRCLIB search bug (62% of `not_found` rows have ≥2
+   credits) now derives the primary as album-artist → popularity → name: 45.34% → 96.77% on a
+   1,793-track ground-truth set, twin sweep across all 8 sites. `isrc_backfill` no longer writes string
+   sentinels into `tracks.isrc` (marker moved to `ext_refs.isrc_status`) and its EventBridge rule is
+   committed — **but still needs a human `terraform apply` before it runs**. Detail → `docs/plan.md`.

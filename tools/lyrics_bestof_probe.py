@@ -54,6 +54,7 @@ from worker.service.lyrics_matcher import (  # noqa: E402
     _strip_version_tokens,
     decide_match,
 )
+from worker.service.lyrics_eval_core import PRIMARY_ARTIST_NAMES_LATERAL  # noqa: E402
 from worker.service.lyrics_promote import _plausible, promote_best  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -66,9 +67,9 @@ REPORT = OUT_DIR / "bestof_probe_report.json"
 
 _TRACKNUM_RE = re.compile(r"^\d{1,3}\s+")
 
-POOL_SQL = """
+POOL_SQL = f"""
     SELECT t.id, t.title, t.duration_sec,
-           ARRAY_REMOVE(ARRAY_AGG(DISTINCT a.name), NULL)   AS artist_names,
+           primary_artists.artist_names                     AS artist_names,
            ARRAY_REMOVE(ARRAY_AGG(DISTINCT al.alias), NULL) AS aliases,
            tl.match_status            AS existing_status,
            tl.evidence->>'reason'     AS existing_reason
@@ -78,7 +79,9 @@ POOL_SQL = """
     JOIN track_artists ta ON ta.track_id = t.id
     JOIN artists a        ON a.id = ta.artist_id
     LEFT JOIN LATERAL jsonb_array_elements_text(a.aliases) AS al(alias) ON true
-    GROUP BY t.id, t.title, t.duration_sec, tl.match_status, tl.evidence->>'reason'
+{PRIMARY_ARTIST_NAMES_LATERAL}
+    GROUP BY t.id, t.title, t.duration_sec, tl.match_status, tl.evidence->>'reason',
+             primary_artists.artist_names
     ORDER BY t.id
 """
 
