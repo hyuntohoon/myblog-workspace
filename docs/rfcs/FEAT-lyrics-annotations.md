@@ -1,0 +1,589 @@
+# FEAT-lyrics-annotations: lyrics coverage + "the story behind the lyrics"
+
+- **Status**: draft (**not yet accepted**; promotion is owner-only per hard rule 5)
+- **Owner**: 박지훈
+- **Created**: 2026-07-25
+- **Last investigated**: 2026-07-25 (deep investigation session — supersedes the morning capture)
+- **Plan row**: `plan.md` → FEAT-lyrics-annotations (Backlog)
+
+> **How to read this document.** The 2026-07-25 morning session wrote a capture from a brainstorm.
+> A second session the same day re-derived every number from prod, live LRCLIB, and source, and
+> **most of the original numbers were wrong** — some by 2.5x, one inverted outright. Everything below
+> is the corrected state. §9 lists what was superseded so nobody re-derives it. Every number here is
+> reproducible; §10 carries the SQL.
+>
+> **Nothing here is committed to build.** Two owner decisions block execution (§8).
+
+---
+
+## 1. Goal
+
+Two threads sharing the lyrics substrate, independently shippable.
+
+- **Thread 2 — lyrics-text coverage.** Fill lyrics for albums that matter, instead of waiting ~96 days
+  in a queue that never converges. This turned out to be the larger and better-evidenced problem.
+- **Thread 1 — "가사 이야기" (lyric annotations).** Surface human-sourced commentary — story, meaning,
+  samples, credits — alongside the lyrics viewer, from **Genius**. Owner's framing, verbatim:
+  *"목표는 번역이 아닌 가사에 대한 이야기"* (not translation; the *story* behind the lyrics).
+
+Thread 2 is now the lead thread. Thread 1 is gated on a token the owner must create (§7).
+
+## 2. Non-goals
+
+- **Translation.** `track_lyrics_translations` (Sonnet 의역 poller) is untouched.
+- **Genius as a lyrics-TEXT source.** The official API never returns lyric text (publisher licensing).
+  Getting text means HTML scraping = ToS violation. Ruled out. LRCLIB stays the text source of truth.
+- **The undocumented Genius internal API** (`https://genius.com/api/`, no token). It exposes album
+  endpoints the official API lacks, but it is undocumented and ToS-gray. Out of scope; noted only so a
+  future session does not "discover" it and assume it is fair game.
+- **LLM-invented backstory.** The point of Genius is *verified human* facts. An LLM-hybrid with
+  `[source?]` marking is a possible future direction, not this RFC's default.
+- **Public exposure of raw lyrics.** Owner-only privacy bar stands.
+
+---
+
+## 3. Current state (all re-measured 2026-07-25 against prod)
+
+### 3.1 The trigger chain — how a track gets lyrics
+
+This is the mechanism the rest of the document argues about. Two EventBridge jobs, no others.
+
+```
+album ingested (album_ingest daily cron, or SQS album sync)
+   └─> tracks rows created
+        │
+        ├─ [1] lyrics_incremental — EventBridge rate(15 minutes)
+        │      selects tracks with NO track_lyrics row, ORDER BY t.created_at DESC (newest first)
+        │      LYRICS_INCR_BATCH_LIMIT = 150 per run
+        │      writes exactly ONE row per track: matched | not_found | no_lyrics
+        │      → myblog_worker/worker/service/lyrics_incremental_service.py:_fetch_uncorpused_tracks
+        │
+        │   *** THE WRITTEN ROW IS A SENTINEL. `WHERE tl.track_id IS NULL` means incremental
+        │       NEVER LOOKS AT THAT TRACK AGAIN — even if the row says not_found. ***
+        │
+        └─ [2] lyrics_reassessment — EventBridge rate(1 day), fires ~04:11 UTC
+               selects the unresolved pool, ORDER BY tl.updated_at ASC (STALEST first)
+               LYRICS_REASSESS_BATCH_LIMIT = 150 per run
+               promote-only + replacement-guarded (should_replace / _BASIS_STRENGTH_MAP)
+               → myblog_worker/worker/service/lyrics_reassessment_service.py:_fetch_unresolved_tracks
+
+manual override (both jobs): SQS blogSQS  {"job":"lyrics_incremental"|"lyrics_reassessment", "limit":N}
+                             routed at myblog_worker/worker/handler.py:301 and :310
+```
+
+**The structural defect.** A brand-new album gets its *single* first-pass attempt within 15 minutes of
+ingest — precisely when LRCLIB is least likely to have it, because the crowd has not uploaded yet. It
+then falls into a stalest-first queue whose head is still 2026-07-01. There is no album-scoped path and
+no "try again in a few days" tier. This exactly explains the Charli XCX case in §3.3.
+
+### 3.2 Queue arithmetic — the pool diverges
+
+| Quantity | Measured value |
+|---|---|
+| Selectable pool | **16,808** = 14,057 tier-0 (14,035 `not_found` + 22 `review_required`) + 2,751 tier-1 (best-of matched) |
+| `ambiguous` rows | **0** — the status is inert; stop describing the pool with it |
+| Re-check rate | **146.25/day** (2,925 rewrites over 07-05..07-24). Batch limit 150 is binding |
+| **Actual drain** | **2.25/day** (45 rows left the pool in those 20 days) |
+| Promotion hit rate | **1.54%** (45 / 2,925) |
+| Intake of new unresolved | **129/day median** (23d); mean 186/day; 217/day over 10d is spike-inflated by a 993-row day |
+| **Net pool growth** | **≈ +180/day.** Pool went ~10,425 → 14,057 in 20 days (+35%) |
+| Reachable cycle | **96 days, stretching ~1.2 days per elapsed day** |
+| Never re-checked once | **10,536 of 14,057** tier-0 rows. Queue head is still `2026-07-01 11:06` |
+
+**"Just raise `LYRICS_REASSESS_BATCH_LIMIT`" is dead.** The binding constraint is the 1.54% hit rate,
+not re-check volume — break-even needs ~60x the limit. And LRCLIB already returns 429 at concurrency 20
+(12 skips on 07-23, 22 on 07-24, zero before). Wall-clock headroom exists (37–43s of a 90s budget) but
+the throttle does not.
+
+**Dead code path found.** `_fetch_unresolved_tracks` sorts tier-0 before tier-1 with `LIMIT 150`, and
+tier-0 holds 14,057 rows — so the 2,751 tier-1 best-of rows are **structurally unreachable**. The
+exact-title-supersedes-best-of promise documented at `lyrics_reassessment_service.py:77-82` has never
+executed in production. `_BASIS_STRENGTH_MAP` is correct but dead. Fixing it needs a reserved slot or a
+separate cadence, not a bigger limit.
+
+### 3.3 What re-checking is actually worth (live LRCLIB probes)
+
+The morning session concluded "recency is not the signal." **That was inverted** — recency was masked by
+classical noise.
+
+| Population | Live LRCLIB flip rate |
+|---|---|
+| Raw `not_found` pool, random | **0.8%** (1/120) |
+| Album released ≤60d **and non-classical** | **26.7%** (32/120) — a **32x lift** |
+| Album released 60–365d | 3.3% |
+| Album released >1 year | 0.0% |
+| Album is in a review bucket (owner picked it) | 25.6% (33/129) — **no lift over plain recency** |
+| Any `not_found` row on a classical-tagged album | **0/120** |
+| Korean-language releases, even brand-new | **0/6, 0/12** |
+
+Two conclusions:
+
+1. **"New + non-Korean + non-classical" is the yield.** Not "the album the owner cares about" — bucket
+   membership adds nothing measurable. A recency-tiered re-check would harvest ~27% automatically.
+2. **The classical exclusion is what unmasks this.** The earlier 0/30 probe failed because 4,188 of
+   5,205 recent-release rows were classical.
+
+**Charli XCX "Music, Fashion, Film" (2026-07-24)** — the case that started this. Morning capture said
+1 of 8 unmatched tracks was on LRCLIB. **Now all 8/8 resolve** through the real `decide_match`. The rows
+still sit at `not_found`, untouched since 07-23 23:38, **13,698 places back in the queue = 94 days** to
+their next automatic re-check. The gap is 100% our re-check latency; LRCLIB coverage for this album is
+complete.
+
+### 3.4 What the pool actually contains
+
+**Do not call it "instrumental."** All 14,035 `not_found` rows carry `reason='no_plausible_candidate'`,
+which means *LRCLIB has no record* — not *the work has no lyrics*. The matcher's genuine instrumental
+verdict is a **different status**, `no_lyrics`, firing 882 times, and **435 of those are classical**.
+Honest phrasing: *"classical-tagged albums, empirically ~0 yield on LRCLIB."*
+
+Classical footprint: 179 albums / 5,828 tracks / 5,343 `not_found` rows (38% of the pool) / 49 matched.
+Owner engagement with classical is ~0 across every signal (15 of 1,062 saved; 1 of 117 bucket items;
+1 of 78 research notes; 0.0–1.1% of listening). It is a **catalog artifact** — last full week, 1,610 of
+2,153 new tracks (75%) were classical.
+
+### 3.5 The Korean-language problem (new; not in the morning capture)
+
+The morning capture worried that owner taste (classical / K-pop) meant weak Genius coverage. The
+classical half is **refuted**. The K-pop half was **mis-measured and is worse than stated**:
+
+- the `k-pop` genre bucket is only 4.7% of engagement, **but 47.4% of the engaged track set is
+  Korean-language**, and the largest bucket (hip-hop) is **71.9–83.4% Korean rap**
+- Korean releases do not fill on LRCLIB either — 0/6 and 0/12 on brand-new Korean albums, against
+  75–100% for Western major releases
+
+So **Korean-language coverage is the single biggest risk to both threads**, and the owner has confirmed
+it needs solving. An album-expedite button will do nothing on a Korean album. Any Genius coverage gate
+must have a Korean stratum floor or it will pass on a Western sample and fail in real use.
+
+### 3.6 Two matcher defects found in passing
+
+Both are pre-existing, independent of this RFC, and worth their own `plan.md` rows.
+
+1. **Search artist is the alphabetically-first credit, not the primary.**
+   `lyrics_eval_core.fetch_one` uses `artist_names[0]`, and `artist_names` comes from
+   `ARRAY_AGG(DISTINCT a.name)` — which sorts alphabetically. On a multi-credit track the featured
+   guest becomes the LRCLIB search artist: *"Ariana Grande – I Don't Do Drugs (feat. Ariana Grande)"*,
+   *"The Quiett – life (feat. The Quiett)"*. **8,765 of 14,035 `not_found` rows (62%) have ≥2 credited
+   artists.** `track_artists.role` is NULL on all 44,546 rows, so there is no primary-artist signal to
+   fix it with today — the fix needs Spotify's artist ORDER captured at sync time.
+   **Duplicated in both lyrics services → twin sweep in one PR.**
+
+2. **`isrc_backfill` was never scheduled.** Service, handler routing (`handler.py:284`), and an
+   integration test all exist, but **no `aws_cloudwatch_event_rule` schedules it** — hence
+   `tracks.isrc` is 100% NULL. Worse, it writes string sentinels `"not_found"`/`"no_isrc"` into the
+   column, so the day it runs every `isrc IS NOT NULL` predicate silently breaks. Note
+   `tracks.ext_refs->>'isrc'` **is** populated on 7,335 rows. Move the sentinel before scheduling.
+
+---
+
+## 4. Filtering: how to keep noise out (the 2026-07-25 design thread)
+
+The owner's requirement, in their words: the exclusion must be **verifiable later**, must **not depend
+on the owner's own whitelist** (*"이 프로젝트는 사용자가 있는 사이트로 활용할거야"*), and must not be a
+blanket genre ban (*"lux 앨범에 클래식 장르가 붙은건 오류가 아니야"* — the tag is correct).
+
+### 4.1 Candidates measured against ground truth
+
+Negatives = the 11,664 `matched` rows (proven to have lyrics). A "false positive" would park a track
+that demonstrably has lyrics.
+
+| Rule | Catches (of 14,035 `not_found`) | False positives |
+|---|---|---|
+| A. album has `classical` genre tag | 5,343 | **49** — incl. 29 ROSALÍA `LUX` tracks |
+| B. title matches instrumental-form regex (loose) | 3,836 | 256 |
+| C. A **and** B | 3,734 | 1 |
+| D. A **or** B | 5,445 | 304 |
+| **E. A + instrumental-form + NOT vocal-form** (refined) | **3,494** | **0** |
+| **F. empirical label yield** (see 4.3) | **3,493 (24.9%)** | **2** |
+
+### 4.2 Traps found while refining (each cost a real album)
+
+- **Genre tag alone deletes ROSALÍA `LUX`** (29 tracks). The tag is *correct* — LUX genuinely has
+  classical character — which is exactly why genre alone must never decide.
+- **Roman-numeral regex eats English initialisms**: `I.F.L.Y.` (Bazzi), `V.I.P` (BIGBANG), `X.Y.U.`
+  (Smashing Pumpkins), `XXX. FEAT. U2.` (Kendrick Lamar), `I Can't`. Fix: require the numeral to be
+  followed by `[.):]` **and a space**.
+- **Classical vocabulary appears in pop titles**: `Symphony` (Zara Larsson), `Ghetto Symphony` (A$AP
+  Rocky), `Autumn Nocturne` (Smashing Pumpkins), `4th Baby Mama - Prelude` (Summer Walker).
+- **Vocal classical forms have text and must be protected**: `cantata` was wrongly in the instrumental
+  list. The vocal guard (`requiem|mass in|missa|cantata|oratorio|aria|lieder|lied|opera|chorus|choral|
+  hymn|psalm|magnificat|stabat mater|passion|motet|madrigal|ave maria|te deum|vespers|song|chanson`)
+  keeps **198** pool rows that genuinely have text (e.g. Mozart *Requiem – Lacrimosa*, which the owner
+  has saved).
+- **Substring matching on Korean genre strings is catastrophic.** `클래식` is a substring of
+  `클래식 록` (classic **rock**), `클래식 소울`, `클래식 컨트리`, `바로크 팝`, `클래식 크로스오버`.
+  A substring rule would have removed **AC/DC, Led Zeppelin, Pink Floyd, Queen, The Rolling Stones,
+  James Brown, Stevie Wonder, Johnny Cash, Dolly Parton, Andrea Bocelli, Pavarotti, 조수미**.
+  Genre terms must be matched **exactly**, from an allowlist.
+- **Even exact genre matching hits real listening**: Ryuichi Sakamoto (`Aqua`, `Blu`), 조수미
+  (`The Water Is Wide`), Mozart `Requiem – Lacrimosa` are all saved by the owner and all carry a
+  classical artist-genre.
+
+### 4.3 The better filter the owner asked for: empirical label yield
+
+`albums.label`, `albums.album_type`, and `albums.popularity` are **already stored and unused**.
+
+`album_type` is a dead end — `compilation` has the *highest* match rate (62%), so the
+"compilation farm" theory does not hold.
+
+`label` is the strongest signal found. Labels with a measured **0% match rate over hundreds of attempts**:
+
+| Label | `not_found` | `matched` |
+|---|---|---|
+| Novus Promusica | 1,041 | **0** |
+| Warner Classics | 684 | 1 |
+| Digital Devs | 300 | **0** |
+| CPO | 283 | **0** |
+| SWR Classic | 245 | **0** |
+| Oehms Classics | 196 | **0** |
+| Naxos Special Projects | 174 | **0** |
+| Gramola Records | 155 | **0** |
+| New Wave Records / ADA | 122 | **0** |
+
+Rule F: *a label with ≥50 corpus attempts and a <2% match rate is a dead source.*
+→ **15 labels, 3,493 rows (24.9% of the pool), 2 false positives.**
+
+Why this is the better shape:
+
+- **Not a taste judgment and not a genre judgment.** It is a measurement of our own source coverage,
+  computed from our own data. Identical for every user of the site.
+- **Self-correcting.** If a label starts matching, its statistic moves and the exclusion lifts on its
+  own. No human re-tuning.
+- **Generalizes beyond classical** — it independently caught `Digital Devs`, `New Wave Records / ADA`,
+  and flagged `UME - Global Clearing House` (1,860/63 = 3%).
+- **No regex, no genre dependency, no per-title vocabulary to maintain.**
+
+Its weakness is cold-start: a new label has no statistic, so it cannot gate a first release. Rule E
+covers exactly that case. **They compose** — E as a static prior, F as the learned signal.
+
+### 4.4 Verifiability (owner requirement)
+
+1. **Mark, never delete.** Write the reason + rule version + timestamp into the existing
+   `track_lyrics.evidence` JSONB. Reversal is one `UPDATE`.
+2. **5% holdout — the load-bearing safeguard.** Leave a random ~5% (≈175 rows) of the excluded set
+   *in* the queue, still being re-checked. If the rule is right their promotion rate stays ~0. If it
+   climbs, **that rate is the misclassification rate**, measured continuously with no human effort.
+   This matters more than usual because the justification is *source coverage*, which can change: if
+   LRCLIB ever ingests classical, the holdout is what tells us.
+3. **Standing monthly audit** — of the excluded set, how many were later engaged with, and does the
+   holdout promotion rate exceed the pool baseline of **1.54% (45 promotions / 2,925 re-checks over 20
+   days)**.
+
+### 4.5 Per-surface policy (settled 2026-07-25)
+
+The owner's multi-user point forces different answers per surface. "Exclude classical everywhere" is wrong.
+
+| Surface | Policy | Why |
+|---|---|---|
+| **Search** | **Do not filter. Fix ranking.** | A classical-liking user must be able to find Chopin. The defect is that relevance ranking is dead — `Butterfly` returns 20 consecutive *Madama Butterfly* scenes. Audit severity **high**; fix is read-side in `myblog_music`, one PR, no contract change. |
+| **Lyrics queue** | Exclude via E + F, marked + holdout | Justified by measured 0-yield from our only source. |
+| **New releases / ingest** | Filter **spam fingerprint**, not genre | A legitimate classical release should still appear. What nobody wants is `"077 Piano Essentials": Delicatessa` credited to Beethoven. |
+| **Daily picks / editorial / research** | **Do not touch** | Audited clean. Every row is owner-initiated; a filter would only delete the owner's own choices — and would have removed `LUX`. |
+
+**Release-calendar reality check.** The ledger `artist_release_events` is 20.5% classical over a 180-day
+window (98 of 478), but what actually *renders* is far less: home "새 앨범" strip **0/12**, `/releases/`
+July landing view **2/148 (1.4%)**. It is not a flood today; it is growing, and the fix is cheap.
+Spam fingerprint on the release title catches 22/478 — require a **leading quote** before the number or
+it eats `22 Durnham Dew`, `100 Degrees`, `556 - Single`.
+
+---
+
+## 5. Thread 2 plan (not yet approved)
+
+Owner has chosen scope: **expedite + pool hygiene, plus ingest blocking, plus the same exclusion on the
+release calendar.** Owner also decided the MFF tracks get filled **by the feature**, not by a manual
+prod write.
+
+**Sequence Step B before Step A.** Both edit the same ~20-line SQL block
+(`lyrics_reassessment_service.py:138-163`); second-to-merge conflicts. B-first also means A's
+`_fetch_album_tracks` is copied from an already-correct source — and that copy must **omit** the
+exclusion, since the expedite path must always bypass it.
+
+- **Step B — pool hygiene.** Apply rule E (+F when ready), marked + 5% holdout, and filter at intake so
+  the rows stop entering. Success metric: pool stops growing — net daily change ≤ 0, measured against
+  the current **+180/day**.
+- **Step A — album-scoped expedite.** PR1 only: `reassess_album(album_id, limit, cooldown_sec)` +
+  `_fetch_album_tracks` + one handler dispatch line + a cooldown setting. ~40 lines, worker-only, no
+  `terraform apply`, no contract regen; fired by one `aws sqs send-message`. The proposed SQL was
+  verified read-only against prod with the real MFF album id and returns exactly those 8 rows.
+  **Defer PR2** (owner-gated `POST` + button): it costs an `infra/apigateway.tf` route, a human
+  `terraform apply`, and an openapi/`api.gen.ts` round trip across three repos — for a surface used
+  once or twice a week (`review_bucket_items` is 117 rows lifetime).
+- **Consider instead/also: recency-tiered re-check.** Given §3.3, re-ordering the daily job to favour
+  recent non-classical releases would raise the hit rate from 1.54% toward ~27% with no new surface at
+  all. This may be worth more than the expedite button. **Not yet designed.**
+
+---
+
+## 6. Thread 1 — Genius (token issued 2026-07-25; live-tested against ROSALÍA *LUX*)
+
+Status changed materially on 2026-07-25: the owner issued a client access token, and Thread 1 moved
+from speculation to measurement. Everything in this section was verified against the live official API
+unless marked otherwise.
+
+### 6.1 Verified API surface
+
+Base `https://api.genius.com/`, header `Authorization: Bearer <token>`. A **client access token is
+sufficient** for all reads. `GET /account` needs scope `me` and 401s even with a valid token — **never
+use it as a preflight**; use `GET /songs/<known-id>` (verified: 200 vs 401).
+
+| Endpoint | Gives |
+|---|---|
+| `GET /search?q=&per_page(max 5)` | `hits[].result`: `id`, `title`, `primary_artist`, `annotation_count`, `stats.pageviews`, `url` |
+| `GET /songs/{id}?text_format=plain\|html\|markdown\|dom` | `description`, `song_relationships`, `producer_artists`, `writer_artists`, `custom_performances`, `media`, `album`, `language`, `recording_location`, `release_date_for_display`, `apple_music_id`, `translation_songs` |
+| `GET /referents?song_id=&per_page(max 50)&page` | `referents[]`: `fragment`, `range`, `classification`, `annotations[]` (`body`, `verified`, `votes_total`) |
+| `GET /artists/{id}`, `/artists/{id}/songs`, `/annotations/{id}`, `/web_pages/lookup` | metadata |
+
+No official album endpoint. Album/comments/contributors exist only on the undocumented internal
+`https://genius.com/api/` — out of scope, noted so a future session does not "discover" it.
+
+**`song_relationships` type vocabulary** (confirmed from a live response): `samples`, `sampled_in`,
+`interpolates`, `interpolated_by`, `cover_of`, `covered_by`, `remix_of`, `remixed_by`,
+`live_version_of`, `performed_live_as`, `translation_of`, `translations`.
+
+**`media` carries cross-service IDs** — a Sia lookup returned `spotify:track:4VrWlk8IQxevMvERoX08iC`
+plus `apple_music_id`. When present this confirms a match exactly against `tracks.spotify_id`. **But it
+is not universal**: only 1 of 16 sampled library tracks and 0 of 15 LUX tracks carried a Spotify link.
+Treat it as a match-confidence upgrade, never as the primary key.
+
+### 6.2 Measured coverage — the language split is the whole story
+
+16 tracks sampled from the owner's saved tracks, 8 English / 8 Korean, each run through
+`/search` → `/songs` → `/referents`:
+
+| Channel | English | Korean |
+|---|---|---|
+| description ≥200 chars | **7/8** | **1/8** |
+| ≥3 annotated lines | **7/8** | **0/8** |
+| **credits (writers/producers)** | **7/8** | **7/8** |
+| relationships present | 7/8 | 2/8 |
+
+**Credits are language-independent; prose is not.** 로꼬, pH-1, BewhY, UNEDUCATED KID and 실리카겔 all
+returned 0-char descriptions and 0 annotations — but 실리카겔's *Desert Eagle* still returned writers
+(김춘추·김한주·김건재·최웅희), producer, arranger, label (매직스트로베리사운드), distributor, and three
+engineer roles. Given that 47.4% of the owner's engagement is Korean-language (§3.5), **any Genius
+feature that depends on prose will be empty for roughly half the library, and any feature built on
+credits or relationships will not.**
+
+One matching failure worth recording: 로꼬's *2025* matched to *"2025 by Molly Yam (Ft. Loco)"* with
+`language=en`. Match confidence must be stored per row, or wrong credits enter a review silently.
+
+### 6.3 The *LUX* live test (2026-07-25) — what a full album actually yields
+
+45 API calls, ~25 seconds, all 15 tracks matched on title+artist. Raw dumps and the assembled Korean
+material are in the session scratchpad.
+
+- **13/15 descriptions** (157–1,956 chars); **115 annotations**; **0 verified** — every annotation is
+  unverified fan writing, votes ranging **−17 to +63, median 9**
+- `annotation_count` sums to 128 vs 115 stored: the 13-row difference is exactly the 13 tracks with a
+  description, because **Genius counts the song description as one annotation**
+- credits are deep: *Berghain* alone carries **55 performance roles**
+
+Facts a critic would not otherwise get, all from credits/relationships:
+
+- **The production core is four people, not three.** David Rodríguez has a producer credit on 1 track
+  but is recording engineer + additional production + vocal producer on **15/15**.
+- **`Transcription (Notation)` — Kyle Gordon, 15/15.** The album was made to exist as a score; the
+  first teaser was piano/vocal sheet images.
+- **Recording geography is a division of labour**: four fixed rooms on every track (Larrabee LA,
+  Noah's Studio LA, FB House Miami, Air Studios London) plus L'Auditori Barcelona ×10, La Fabrique ×7,
+  Escolania de Montserrat ×6, A Tempo Sevilla ×5.
+- **Guests are tradition-bearers, not features**: Carminho (fado), Estrella Morente (flamenco),
+  Sílvia Pérez Cruz (Catalan), Yahritza Y Su Esencia (sierreño). Björk also takes a writing credit.
+- **Pop hitmakers sit underneath**: Ryan Tedder ×2, Pharrell Williams, The-Dream, Andrew Wyatt,
+  Tobias Jesso Jr., Guy-Manuel de Homem-Christo. *Magnolias* has 8 writers; *Mio Cristo Piange
+  Diamanti* is the only solo-written track. This tension is the most useful thing the data gives.
+- **`Translator` credits on 4 tracks** — Asa Kanaseki (JA), Lisa Salker (DE), Halyna Hrabovska (UK),
+  Mark Gamal (AR). Multilingualism was **commissioned work**, not improvisation. `language` returns one
+  tag per song and is unreliable; at least 11 languages appear across the album.
+- **Interpolations**: *Divinize* ← Daniel Johnston *"Some Things Last a Long Time"*; *De Madrugá* ←
+  ROSALÍA's own 2018 track. Also official derivatives (Berghain ×2 remixes, *Sauvignon Blanc* a cappella
+  + instrumental, *Dios Es Un Stalker* versión Francotiradora).
+
+Reception signal from the 115 unverified annotations: **22 of 115 (19%) are translations rather than
+interpretation**, and those drew the highest votes (55, 55, 50). The album's primary reception need was
+subtitles. Separately, 8 of 15 tracks are linked by annotators to named female mystics across five
+traditions, and the language placement tracks those figures (Arabic ← Sufi Rabia, Japanese ← Zen Ryōnen,
+Ukrainian ← Olga of Kyiv).
+
+**Lyric fragments are not reproduced in our derived documents.** The translation pass rendered
+descriptions and annotation bodies but pointed at `annotations[i].fragment` in the raw JSON plus the
+Genius link instead of copying lyric text. Keep that convention.
+
+### 6.4 Why this fits the research-note pipeline — evidence from 78 real notes
+
+All 78 stored `album_research` notes were read. Every one carries a `출처 못 찾은 것` (could not source)
+section, and:
+
+- **78/78 record a failure to confirm samples**
+- **75/78 record a failure to confirm credits**
+
+Verbatim from real notes: *"WhoSampled 등 샘플 DB는 페이지 페치가 막혀 스니펫조차 확보 못 함 → 단정
+불가"* (뱃사공 『파랑』); *"WhoSampled 1차 페이지: 알려진 fetch-차단 사이트"* (Frank Ocean 『Blonde』);
+*"FADER 작사크레딧 표에 'No credited writers listed'로 비어 있는 트랙 존재"*; *"녹음 장소/스튜디오,
+정확한 곡별 세션 연주자 매핑 — 위키 인포박스 수준 이상으로는 확인 못 함"* (『CHROMAKOPIA』).
+
+The prompt (`scripts/album_research_v2.md:75-82`) makes `샘플링 / 기반` its **★최우선** section and
+names WhoSampled as a known fetch-blocked site. **The pipeline's own 78-run record of what it cannot
+find is precisely the field set Genius returns.** That is the justification for Thread 1, and it is
+stronger than the lyrics-viewer case.
+
+### 6.5 Plan — R0 through R6
+
+Sequenced; R0 gates everything.
+
+| ID | What | Size | Key files |
+|---|---|---|---|
+| **R0** | Coverage probe over the 88 bucketed albums: per-language match rate and per-field fill rate for the four fields the notes actually lack | S | new `tools/genius_probe.py`, cloning the resumable-batch skeleton of `tools/lyrics_batch_api.py:1-27` |
+| **R1** | `album_genius_facts` — materialised per-album facts store + a $0 local poller | M | new `scripts/genius_facts_poller.py`, sibling of `scripts/research_poller.py` (same SSM read + psycopg claim-gate shape) |
+| **R2** | Inject the facts block into the **research** prompt | S | `scripts/research_poller.py` — add `_genius_block(conn, album_id)` beside `_album_block` (`:110-121`); append in `build_prompt` (`:153-161`) |
+| **R3** | Facts as a first-class **nightly-draft** context field | M | `scripts/buckit_nightly.py` — `GENIUS_SQL` beside `RESEARCH_SQL` (`:233-242`); `m['genius_md']` in `export_checked_memos` (`:302-401`) |
+| **R4** | `[확인: Genius]` source tier + a mechanical provenance footer that survives the model ignoring the prompt | S | `scripts/album_research_v2.md:23-44` (★ block) and `:94-97` (출처 못 찾은 것) |
+| **R5** | Prose tier — `description` + annotation bodies | S | `scripts/genius_facts_poller.py` |
+| **R6** | **Catalog-internal lineage & credit graph** — producer/writer clusters *within a bucket*, and interpolation edges between catalog albums | M | `scripts/editor_buckit.py` — extend `export_bucket_context` (`:219-345`); reuse the genre/artist cluster machinery at `:279-291` |
+
+**R6 is the capability no external service can provide**, because it is a property of *this* catalog
+rather than of any album: "three albums in this bucket share Noah Goldstein" is only computable here.
+
+**Degradation is designed, not incidental.** Every R-step renders an explicit
+`Genius 미매칭 (0/n 트랙) — 사실의 부재가 아니라 조회의 부재다` rather than silence, so a thin note is
+visibly thin-because-unsourced instead of looking like a lazy draft. This matters most for Korean
+albums (§6.2).
+
+**Widest integration surface is the album view, not the lyrics sheet.** `AlbumDetailView.tsx` is
+rendered by the public overlay (`AlbumOverlay.tsx:120`), the member modal (`member/AlbumDetail.tsx:96`)
+and the public review page's tracklist, all reading `GET /api/music/albums/{id}`; and
+`ANY /api/music/{proxy+}` (`infra/apigateway.tf:68-71`) means **no new API Gateway route and no
+terraform apply**. One contract change reaches every screen an album appears on. The lyrics sheet by
+comparison is owner-only and reachable for just 1,921 renderable tracks.
+
+### 6.6 The lyrics-viewer sub-thread (the original ask) — still gated on one number
+
+Anchoring feasibility has **not** been measured and must be before any schema or UI exists. Genius
+fragments are offsets into Genius's lyric text; our segments come from `parse_lrc(lyric_synced)` via
+LRCLIB and will not be byte-identical. **1,565 of 1,686 renderable rows (92.8%) carry `lyric_synced`**,
+and `normalize_lyrics` (`lyrics_service.py:176-184`) derives segments from the synced text, **not** from
+`lyric_plain` — so the measurement must target synced segments, not plain text.
+
+Tiers: ≥70% of fragments resolving to a unique segment (median ≥60%/track) ⇒ inline per-line layer;
+40–70% ⇒ hybrid with an unanchored drawer; <40% ⇒ song-level panel only. Report KR and non-KR
+separately. Anchor at **read time** in `lyrics_service`, not stored — a later LRCLIB re-match would
+silently invalidate stored offsets.
+
+Placement warning: `get_normalized` early-returns at `:229-233` (`if out.availability != "ok"`) before
+`attach_translation`. Anything attached there is invisible for `not_found` tracks, so the metadata block
+must attach **above** that return.
+
+### 6.7 Token
+
+Issued 2026-07-25. Client access token only — Client ID/Secret are unused for reads. Destination:
+`/myblog/worker` as `GENIUS_ACCESS_TOKEN` (adding a key is inert for the running Lambda —
+`config.py:151-168` `_load_secrets` reads only known keys; `GEMINI_API_KEY` sits there unwired as
+precedent). Omit `--key-id` to keep the existing KMS key. Add `GENIUS_ACCESS_TOKEN` to CLAUDE.md's
+never-log list.
+
+### 6.8 Licensing / terms
+
+**Owner ruled this out of scope on 2026-07-25 — do not re-raise it and do not let it shape the
+design.** This is personal, non-commercial research and the owner has accepted the position. Any
+future session that rediscovers terms-of-service material should record nothing and move on; treat
+storage and LLM use of Genius content as permitted for this project.
+
+---
+
+## 7. Decisions log
+
+| Date | Decision | Thread |
+|------|----------|--------|
+| 2026-07-25 | Owner goal is **annotations/"이야기", not translation** | 1 |
+| 2026-07-25 | Genius = annotations only (API-legal); **never a lyrics-text source** | both |
+| 2026-07-25 | Thread 2 scope = **expedite + pool hygiene**, both | 2 |
+| 2026-07-25 | Also **block classical at new-catalog ingest**, and apply the same to the release calendar | 2 |
+| 2026-07-25 | MFF's 8 tracks get filled **by the feature**, not by a manual prod write | 2 |
+| 2026-07-25 | **No owner-whitelist dependency** — the site will have real users; rules must key on content properties only | all |
+| 2026-07-25 | **A correct classical tag is not grounds for exclusion** (LUX). Genre may only ever be one condition among several | all |
+| 2026-07-25 | Korean-language lyrics coverage is a **problem to solve**, not just a caveat | both |
+
+## 8. What blocks execution
+
+1. **RFC promotion `draft → accepted`** — hard rule 5, owner-only. Nothing starts without it.
+2. **Filter shape** — E (genre + title form + vocal guard, 0 FP) vs F (empirical label yield, 2 FP,
+   no genre dependency) vs both composed. Owner was mid-decision when this record was written;
+   **F emerged after the question was asked and may change the answer.**
+
+Secondary, non-blocking: split Thread 2 into its own `plan.md` row (the RFC's own OQ5); whether to file
+the two matcher defects (§3.6) as separate rows; whether to run Genius from the worker Lambda or a local
+poller (a local poller dies with the Mac — there is precedent: a 07-20 reboot stalled a queue 3 days).
+
+## 9. Superseded — do not re-derive
+
+The morning capture's *Session findings* appendix and these specific claims are wrong or stale:
+
+- "MFF: 1 of 8 available on LRCLIB, the other 7 genuinely empty" → **8/8 available**
+- "pool ~12.5k, cycles in 2–3 months" → **16,808 selectable, 96-day reachable cycle, diverging**
+- "drain ≈ 145/day" → 146/day is the *re-check* rate; **drain is 2.25/day**
+- "yield ~3.2/day, ~2.2%" → **2.25/day, 1.54%** (the 70-row count was contaminated by the 07-03
+  best-of backfill and an 07-04 matcher-version deploy)
+- "the pool is mostly instrumental works" → the rows say *LRCLIB has no record*; the real instrumental
+  verdict is a different status with 882 rows
+- "owner taste skews classical/K-pop ⇒ weak Genius coverage" → classical **refuted**; the real risk is
+  **Korean-language (47.4% of engaged tracks)**
+- "recency is not the signal" → **inverted**; recency is a 32x signal once classical is controlled for
+- the resume instruction "do not re-query to trust the appendix" → **actively wrong**, it was stale
+  within one day
+
+## 10. Reproducing the numbers
+
+Prod DB (read-only):
+
+```bash
+aws ssm get-parameter --name /myblog/backend --with-decryption --query 'Parameter.Value' --output text \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['DATABASE_URL'].replace('postgresql+psycopg','postgresql'))"
+```
+
+Schema gotchas that cost time: `tracks.track_no` (not `track_number`); `genres.slug`/`genres.label`
+(no `name`); `album_genres.source ∈ mapping|itunes|llm` with `confidence ∈ high|low`.
+
+Drain vs re-check rate — the distinction the morning session got wrong:
+
+```sql
+SELECT updated_at::date AS day,
+       count(*) AS rechecked,
+       count(*) FILTER (WHERE match_status IN ('matched','no_lyrics')) AS actually_drained
+FROM track_lyrics
+WHERE updated_at > created_at + INTERVAL '1 hour'
+GROUP BY 1 ORDER BY 1 DESC;
+```
+
+Empirical label yield (rule F):
+
+```sql
+WITH label_stats AS (
+  SELECT al.label, count(*) AS attempts,
+         count(*) FILTER (WHERE tl.match_status='matched') AS hits
+  FROM track_lyrics tl JOIN tracks t ON t.id=tl.track_id JOIN albums al ON al.id=t.album_id
+  WHERE al.label IS NOT NULL GROUP BY 1
+)
+SELECT * FROM label_stats WHERE attempts >= 50 AND hits::float/attempts < 0.02 ORDER BY attempts DESC;
+```
+
+Standing holdout audit (run monthly once Step B ships):
+
+```sql
+SELECT (evidence ? 'excluded_by') AS excluded,
+       count(*) AS rows,
+       count(*) FILTER (WHERE match_status IN ('matched','no_lyrics')) AS promoted,
+       round(100.0*count(*) FILTER (WHERE match_status IN ('matched','no_lyrics'))/count(*), 2) AS pct
+FROM track_lyrics
+WHERE evidence ? 'excluded_by' OR evidence ? 'holdout'
+GROUP BY 1;
+-- holdout promotion rate materially above the 1.54% baseline (45/2,925 over 20 days) ⇒ rule is wrong
+```
+
+## 11. Next-session resume order
+
+1. Read this document. **Do not re-derive §3; do re-check anything time-sensitive** (LRCLIB coverage
+   moves within a day — that is the lesson of §9).
+2. Get the two blockers in §8 answered.
+3. If Thread 2 is approved: Step B, then Step A, in separate sessions unless the owner says "go".
+4. Thread 1 needs only the Genius token, which the owner issued 2026-07-25.
