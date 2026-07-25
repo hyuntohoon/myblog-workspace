@@ -62,7 +62,12 @@ Everything else you supply is genuinely useful but is *not* what makes a review 
 You may be given pre-fetched blocks. Read them before searching, and search only the gaps.
 
 **GENIUS block** (per-track, official API, every line carries a URL):
-- Credits and interpolations come from the block — **do not re-search them.**
+- Credits and interpolations come from the block — **do not re-search those two fields.**
+  ★ This is a narrow ban on re-deriving credit and relationship data, NOT a ban on searching topics the
+  block happens to touch. A choir named in the block may sit at the centre of a public controversy the
+  block knows nothing about. **Always search the album's reception and controversies separately.**
+  `[근거: v4 첫 실행이 몬세라트 합창단의 스페인어 논란 — 당사자 실명·출처 있는 비가청 사실 — 을 통째로
+  놓쳤다. 규칙을 넓게 읽은 대가.]`
 - **The block has no album-level object.** Album identity, label, edition and reissue history are not
   in it.
 - **It cannot contain uncredited samples** by construction — Genius records what was cleared. An
@@ -112,6 +117,11 @@ What non-English reviews use instead is a **dense local reference grid** — one
 regional reference points. `[근거: 비영어권 2편, 비교 밀도 표본 1위]` Build that grid from our own
 catalog: which Korean records is this in conversation with, and why.
 
+★ **The grid has a precondition: the catalog must actually hold the neighbours.** Check first; if it
+does not, say so in `자료 상황` rather than producing a thin grid silently. `[근거: v4 첫 실행에서
+스페인·플라멩코 비교축이 카탈로그에 사실상 부재 — Morente·Pérez Cruz·Carminho·El Guincho·Refree·
+La Niña de los Peines 전부 0장.]`
+
 Korean credit sources, in order: **멜론/벅스 곡 크레딧** (벅스 is the only streaming service showing
 Mixed by / Mastered by) → **KOMCA 저작물검색** and **KOSCAP** for 작사·작곡·편곡 with stable author IDs.
 **KOMCA and KOSCAP forbid automated collection** — emit the lookup URL and the query for a human to
@@ -146,7 +156,12 @@ zero silently (`새소년` → 0 hits, `SE SO NEON` → 20).
    데뷔작이면 이 섹션을 레이블 동료·씬 동료로 대체하고 그 사실을 밝힌다.
 
 ## 제작 의도·발언  (선택 — 없으면 섹션째 생략)
-   아티스트 본인이 밝힌 것만. 매체·날짜·형식(인터뷰/라이너노트/zine/SNS) 필수.
+   아티스트 본인이 밝힌 것 **+ 협업자(프로듀서·지휘자·게스트·엔지니어)가 밝힌 것.**
+   매체·날짜·형식(인터뷰/라이너노트/zine/SNS) 필수. 누구의 발언인지 반드시 구분한다.
+   ★ 협업자 증언은 아티스트 본인이 말하지 않는 것을 말한다 — 세션이 실제로 어떻게 굴러갔는지.
+   [근거: v4 첫 실행이 "지휘자가 세션 현장에서야 아티스트를 처음 만났다", "게스트가 자기가 혼자
+    프로듀싱한 데모를 보냈다"를 버렸다. 이 증언이 없어 두 노트 최고의 질문("이 앨범의 '작가'는
+    어디에 있나")을 던질 수 없었다.]
    ★ 이건 결론이 아니라 비평가가 **다투거나 검증할 프레임**이다. 발언을 사실로 승격하지 말 것.
    [근거: 코딩한 15편 중 10편만 사용. 없어도 리뷰는 정상 작동한다. 한국 비평에서는
     의도를 근거로 삼을지 자체가 미해결 쟁점이다 — 김봉현은 필수라 보고, 차우진은
@@ -173,7 +188,12 @@ zero silently (`새소년` → 0 hits, `SE SO NEON` → 20).
    [근거: 크레딧이 등장한 14편 중 12편이 동격구·논증형. 명단형 2편도 이름 각각이 아니라
     명단 전체가 한 개의 주장을 받쳤다. 이름만 나열한 문장은 표본 전체에서 논증을 하지 않던
     유일한 문장이었다.]
-   전체 명단은 부록으로 내린다.
+   ★ **명단을 부록으로 내리기 전에 교차 대조를 반드시 한 번 돌린다.** 명단의 두 열을 짝지어
+     완전상관·배타관계를 찾아라 — 녹음실 × 합창단, 프로듀서 × 트랙 순번, 편곡자 × 게스트.
+     [근거: v4 첫 실행이 "몬세라트 녹음 6곡 = 몬세라트 합창 크레딧 6곡(정확히 일치)"과
+      "플라멩코 여성합창 4곡 = 전부 세비야 녹음"을 놓쳤다. 두 노트 통틀어 최고의 사실이었고,
+      숫자를 다 갖고도 교차 대조를 안 돌려서 놓쳤다. 부록의 표는 이 발견을 만들지 않는다.]
+   교차 대조 결과는 본문에, 전체 명단은 부록으로 내린다.
 
 ## 청자 반응 지도
    ★ 이 섹션만 사견을 담는다. 사실 섹션과 절대 섞지 않는다.
@@ -191,9 +211,15 @@ zero silently (`새소년` → 0 hits, `SE SO NEON` → 20).
    `청자 반응 지도`에만 기댄 질문은 "사견에 기댐"이라고 표시.
 
 ## 확인 못 한 것
-   · 찾았어야 하는데 못 찾은 것. 무엇을 어디서 찾으려 했는지까지.
-   · 상충 — **단, 어느 쪽으로 결론나든 쓸 내용이 바뀌는 것만.** 발매일이 하루 다른 것 같은
-     장부 불일치는 적지 않는다. 무크레딧 인용 여부처럼 그 자체가 소재인 것만 적는다.
+   · 찾았어야 하는데 못 찾은 것. **무엇을, 어느 URL에서, 왜 실패했는지(403 / 유료 / 타임아웃)까지.**
+     사람이 이어받아 끝낼 수 있는 목록이어야 한다. "확인 못 함" 한 줄은 쓸모가 없다.
+     [근거: v3의 이 섹션(3,190자)이 v4(1,160자)보다 연구 도구로서 나았다 — 다음 사람이 바로
+      이어받을 수 있는 형태였기 때문.]
+   · 상충 — **단, 어느 쪽으로 결론나든 쓸 내용이 바뀌는 것만.**
+     적는다: 무크레딧 인용 여부 · 몇 개 언어로 되어 있는가 · 판본이 완본인가 편집본인가
+     적지 않는다: 발매일 하루 차이 · 러닝타임 몇 초 · 표기 흔들림
+     [근거: v4 첫 실행이 언어 개수 13 vs 14를 뺐는데, 이건 기준을 통과하는 항목이었다 —
+      앨범을 어떻게 서술할지가 바뀐다.]
    · 불채택 — 링크된 페이지로 추적 안 되는 검색 요약층 서술. 배제 근거 1줄.
 
 ## 부록
