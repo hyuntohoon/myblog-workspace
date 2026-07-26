@@ -42,7 +42,7 @@ From ROSALÍA *LUX*, 13 tracks with synced lyrics, 103 annotations measured (`to
 - **Commentary can exist without lyrics.** 2 of 15 *LUX* tracks carry 12 annotations and no synced
   lyrics, which is why the store is independent of lyrics and the renderer has a standalone mode.
 
-## The three rounds
+## The rounds
 
 1. **Four interaction shapes** — 행간 펼침 (inline expand) · 측주 단 (margin column) · 바닥 시트
    (bottom sheet) · 숨은 주석 (reveal-on-hover). Owner picked the margin column's *structure*.
@@ -50,7 +50,9 @@ From ROSALÍA *LUX*, 13 tracks with synced lyrics, 103 annotations measured (`to
    (no rail, the lyric's own ink changes) · 역전 (lyrics recede, commentary carries the weight) ·
    편집 (magazine spread with a headline). Structure confirmed, treatment rejected.
 3. **Six house styles** — this directory. The same feature rendered in the visual language of six
-   well-known products, to break out of the project's own palette.
+   well-known products, to break out of the project's own palette. Genius chosen.
+4. **The dense-track stress test** — the chosen style at its three undrawn failure points
+   (density, repeats/unmatched, dark). Findings below.
 
 ## The six house styles
 
@@ -80,6 +82,42 @@ from the brief, which asked for both, and it is the right one — Apple's lyrics
 Spotify's is a colour field and Genius's is white, so forcing both themes would break the reference.
 It does mean the light/dark question is unanswered for the real implementation, where the product
 already supports both. Only the shell chrome around the stage is theme-aware.
+
+## Round four — the dense-track stress test (2026-07-26)
+
+The six house styles were all drawn against **placed annotations only** (`build_mock_data.py` sets
+`placed_pct: 74.7`), all in a **single theme**, and at a comfortable density. So three things had
+never been drawn at all: the `repeated` 20%, the `unmatched` 5.3%, and either theme's failure mode.
+A fourth round put the chosen style at those points — link in `local/ARTIFACTS.md`, synthetic data
+only (density, span length, body length and vote distribution reproduced; no real lyrics).
+
+What it settled:
+
+- **Dark is not a token swap — it is an ink problem.** The stage's body ink is near-white, and
+  near-white on the highlight yellow measures ~1.5:1. The fix is not a different yellow; it is
+  inverting the text **only on the lines the fill actually reaches** (12.4:1 after), while lines that
+  never receive the fill — disputed, repeat echoes, section labels — keep the light ink. A 1px rule
+  also needs a brighter tone on near-black than on white.
+- **M0 is not wrong, it is density-blind.** At 65% marked the yellow becomes the ground and the
+  *unmarked* lines are what stand out — the figure/ground inversion the author predicted. At the
+  album average of 34.1% the same treatment is fine. That points at a density-adaptive rule rather
+  than a different treatment.
+- **Three alternatives were drawn and each has a named cost**: `M1` rule-not-fill (loses scanability
+  — the medium house's exact weakness), `M2` margin-only (loses the signal that annotations exist,
+  and has no margin on narrow screens), `M3` reveal-on-open (loses discoverability, and is the only
+  treatment that gets *better* as density rises).
+- **A repeat is a second occurrence, not a failure.** Proposal, now drawn: number and bracket the
+  first occurrence only; later occurrences get an unnumbered quiet rule and a `반복` tail; opening
+  either shows the same note and states "곡에서 N번 나옵니다". No annotation ever carries two numbers.
+- **Unmatched annotations go to a drawer** under the sheet with ㄱ·ㄴ·ㄷ marks (the nyt house's idea),
+  not discarded — they re-anchor by themselves if the lyrics are re-matched, because anchors are
+  computed at read time.
+- **Negative-vote annotations never receive the fill**, in any of the four treatments — a −17 reading
+  rendered in the endorsing yellow reads as the site agreeing with it.
+
+Still unsolved, and visible in the artifact: a **12-line span** looks bad under every treatment
+(M0 eats the screen, M2's bracket scrolls out of view), and the **3-in-201 overlap** has no rule —
+the later annotation currently just wins.
 
 ## Where this lands
 

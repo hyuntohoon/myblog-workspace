@@ -657,18 +657,35 @@ frontend types regenerated (`pnpm generate:types`, or the front deploy gate fail
 diffed against each other before commit — their byte-identity is convention-only and has silently
 drifted before.
 
-#### Open questions this design does not settle
+#### Questions raised by this design — all three answered 2026-07-26
 
-- **O1 — who writes the rows.** §8's secondary list already carries "worker Lambda vs local poller"
-  unresolved. A local poller dies with the Mac (a 07-20 reboot stalled a queue 3 days); the worker
-  needs the SSM token wired. Not blocking the schema, blocking the fetch job.
-- **O2 — the read route admits any member, not just the owner.** `get_lyrics` depends on
-  `require_cognito_token`, while `track_lyrics` is documented as owner-only research data
-  (`models.py:315-318`). The annotation store inherits that gate as-is. Whether third-party Genius
-  bodies should sit behind `require_owner` instead is a decision the owner has not been asked.
-- **O3 — overlap with R1's `album_genius_facts`.** If the album facts store is computed from these
-  tables, R1 shrinks to a view or a query; if it fetches independently, the same Genius payload is
-  stored twice and can disagree. Resolve before R1 is built, not after.
+- **O1 — who writes the rows → the worker Lambda.** §8's secondary list carried "worker Lambda vs
+  local poller" unresolved; the owner chose the worker. A local poller dies with the Mac, and there is
+  precedent — a 07-20 reboot stalled a queue for 3 days. **Prerequisite:** `GENIUS_ACCESS_TOKEN` must
+  reach SSM `/myblog/worker` first (§6.7); it is not there today, and the token currently sits in
+  plaintext in a local scheduled-task file.
+
+- **O2 — the read route moves to owner-only.** `get_lyrics` currently depends on
+  `require_cognito_token`, so **every logged-in member** can read the lyrics corpus, while
+  `track_lyrics` is documented as owner-only research data (`models.py:315-318`). The owner chose to
+  close that gap: `GET /api/lyrics/{spotify_track_id}` becomes `require_owner`, and the annotation
+  fields inherit the tightened gate rather than widening it.
+
+  **This is a regression for existing members and does not ship with the annotation work.** The lyrics
+  sheet has been live since FEAT-lyrics-sheet (2026-07-08) and is reachable from the `/members/` 개요
+  tab; a non-owner member reading lyrics today will get a 403 after this change. It needs **its own
+  small PR** — route guard + the front's empty/denied state + a prod smoke that checks both an owner
+  token and a member token — landed before or independently of the annotation store, never bundled
+  into it. The guard must fail closed on missing config, per the house rule.
+
+- **O3 — `album_genius_facts` stays a separate store.** The owner chose to keep both: R1 fetches for
+  the research prompt, these tables serve the viewer. That is the simpler build, and it is recorded
+  here with its known cost — **the same Genius fact can be stored twice and disagree**, because the
+  two stores are fetched at different times from a source that changes. Two consequences to design
+  around rather than discover: the two stores must never be joined and presented as one number, and
+  when a research note and the viewer disagree about a credit, **`fetched_at` is the tiebreak** —
+  which is why both tables carry it. If drift becomes visible in practice, collapsing R1 onto these
+  tables remains available and this decision is the thing to revisit.
 
 ---
 
@@ -691,6 +708,9 @@ drifted before.
 | 2026-07-26 | Visual direction: the **Genius house style** (`docs/design/lyrics-annotations/README.md`) | 1 |
 | 2026-07-26 | Storage: **two track-scoped tables**, translation as a column on the annotation row, one existing read route (§6.9) | 1 |
 | 2026-07-26 | Public-cache concerns for the music service are **deferred** — "지금은 걱정하지 말자" | 1 |
+| 2026-07-26 | **Worker Lambda writes the Genius rows**, not a local poller — a local poller dies with the Mac (§6.9 O1) | 1 |
+| 2026-07-26 | `GET /api/lyrics/{id}` tightens to **`require_owner`**. Ships as its own PR — it 403s members who can read lyrics today (§6.9 O2) | 1 |
+| 2026-07-26 | `album_genius_facts` **stays a separate store**; `fetched_at` is the tiebreak when it disagrees with the track tables (§6.9 O3) | 1 |
 
 ## 8. What blocks execution
 
@@ -699,9 +719,13 @@ drifted before.
    no genre dependency) vs both composed. Owner was mid-decision when this record was written;
    **F emerged after the question was asked and may change the answer.**
 
-Secondary, non-blocking: split Thread 2 into its own `plan.md` row (the RFC's own OQ5); whether to file
-the two matcher defects (§3.6) as separate rows; whether to run Genius from the worker Lambda or a local
-poller (a local poller dies with the Mac — there is precedent: a 07-20 reboot stalled a queue 3 days).
+Secondary, non-blocking: split Thread 2 into its own `plan.md` row (the RFC's own OQ5).
+
+Resolved since this section was written: the two matcher defects (§3.6) were **fixed 2026-07-26**
+(worker #80/#81 + workspace #698) — the `isrc_backfill` EventBridge rule still needs a human
+`terraform apply`. Genius runs from the **worker Lambda**, not a local poller (§6.9 O1), which makes
+the SSM token placement (§6.7) a prerequisite rather than a nicety. **Thread 1's storage schema is no
+longer open** — §6.9 — and anchoring is measured, not pending — §6.6.
 
 ## 9. Superseded — do not re-derive
 
