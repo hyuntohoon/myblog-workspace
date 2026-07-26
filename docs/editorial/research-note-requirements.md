@@ -62,9 +62,12 @@ almost none of them.
 ### Must supply — ordered by measured shortfall
 
 1. **Quotable lyrics — 3–5 decisive lines, each with track and position.**
-   Two of three reviews quote four lines each; we supply zero. This is the largest single gap.
-   We already run a lyrics pipeline (LRCLIB, `lyric_synced` tracks), so the material is in reach.
-   The note's job is selection, not transcription: which few lines carry the album's argument.
+   **Deferred, 2026-07-27 (owner).** Two of three reviews quote four lines each and we supply
+   zero, so the measurement stands — but filling it reliably needs Genius. `genius.com` is
+   fetch-blocked from the run, `FEAT-lyrics-annotations` is still a draft RFC, and the trial note
+   for *BRAT* could only re-quote lines that press articles had already printed. A section that
+   can only be filled second-hand is not worth its place in the prompt yet. Revisit when the
+   Genius block exists.
 2. **Comparison points — 3–6, each with one line on why it is comparable.**
    One review alone names six. `album_research_v2.md` has no section for this at all. The verdict
    stays the critic's; the note supplies candidates.
@@ -116,17 +119,27 @@ exist and no `GENIUS_ACCESS_TOKEN` is in SSM), but its priority is higher than p
 
 ## Changes made from this measurement
 
-Both gaps were added to **both** the live prompt and the candidate, because they are orthogonal
-to the v2-vs-v4 question — neither version had them:
+`전기적 좌표` was added to the live prompt
+(`docs/editorial/album-research-prompt.md` and its vendored twin `scripts/album_research_v2.md`,
+kept byte-identical over the shared range) and to `scripts/album_research_v4.md`, since neither
+version had it.
 
-- `docs/editorial/album-research-prompt.md` + its vendored twin `scripts/album_research_v2.md`
-  (kept byte-identical over the shared range): `인용 가능한 가사`, `전기적 좌표`.
-- `scripts/album_research_v4.md`: the same two sections, written in v4's `[근거]` style and placed
-  as 의도 → **전기적 좌표** → 무엇으로 만들었나 → **인용 가능한 가사** → 계보. Rows added to v4's
-  own changes table.
+`인용 가능한 가사` was added to both on 07-26 and **removed again on 07-27** — see gap 1 above.
 
-With this, **v2 covers 2 of the 6 gaps and v4 covers all 6** — which is the argument for adopting
-v4 rather than continuing to patch v2.
+Two owner decisions on 07-27 shrank the credits work rather than growing it:
+
+- **Credits are not a priority.** v4's `크레딧` is now optional, capped at a line or two of
+  argument, with the full roster in the appendix.
+- **The mandatory cross-tabulation rule is deleted.** It was written after one album (*LUX*) and
+  its example column pairs — recording room × choir, arranger × guest — are artifacts of that
+  record. Forcing it on a thin roster invites a correlation manufactured from two rows and
+  presented as the note's best finding, which is the failure the rule existed to prevent. An
+  independent adversarial review of v4 had flagged the same rule as overfit before the owner
+  raised it.
+
+Net: **v2 covers 1 of the 6 gaps, v4 covers 4** (comparison points, interview primaries, and
+partially earlier-work and sample meaning). That remains the argument for adopting v4 rather than
+continuing to patch v2.
 
 Also fixed while here: `research_poller.py`'s `ADDENDUM` instructed the model to record residual
 disambiguation "inside the `앨범 식별` section", a section v4 does not define. It is now written

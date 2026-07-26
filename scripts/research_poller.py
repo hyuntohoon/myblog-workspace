@@ -123,6 +123,12 @@ def _album_block(meta: dict) -> str:
 
 # Pipeline addendum (RFC "Prompt vendoring"): there is no human mid-run, so the
 # model must pin the release itself and emit ONLY the note markdown.
+#
+# The disambiguation bullet deliberately names NO fixed section. It used to say
+# "record it inside the 앨범 식별 section", which v2 has and v4 does not — under v4
+# that instruction points at nothing. Keep it section-agnostic so one addendum is
+# correct for every vendored prompt version. Nothing here is addressed to a human
+# reader: every line the model receives should be an instruction it can act on.
 ADDENDUM = """
 ---
 ## Pipeline addendum (headless — no human in the loop)
@@ -133,8 +139,6 @@ This runs unattended; there is NO human to confirm with mid-run. Therefore:
   metadata below (artist, title, release date, label, Spotify id). Record any
   residual ambiguity **inside whichever section the output format above uses for
   identification, or failing that its unconfirmed-items section** — never stop.
-  (Do not name a fixed section here: the vendored prompt's section list varies
-  by version, and v4 has no `앨범 식별`.)
 - Your ENTIRE reply must be ONLY the research-note markdown (the Output-format
   sections above, Korean headers). No preamble, no "Here is…", no closing line.
 """
