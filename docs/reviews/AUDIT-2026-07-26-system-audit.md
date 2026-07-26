@@ -18,7 +18,7 @@ find the first row in the checklist that is not `DONE`, and continue from there.
 | # | Leg | Status | Evidence lands in |
 |---|-----|--------|-------------------|
 | A | Backend/music/worker code audit (recurring bug classes: fail-closed guards, session lifecycle, upsert sort, HTTP timeouts, twin drift) | **DONE** — 5 findings, 4 classes swept clean. Full detail in `audit-2026-07-26-raw/A-python-services.md` | §1 |
-| B | Architecture audit (service boundaries, sync-Spotify rule, contract/OpenAPI drift, shared_db pin drift, infra↔code drift) | **INCOMPLETE — restart** — killed by the session limit before writing anything. Its only partial signal: "contract chain clean", **unverified, do not adopt**. Remaining: twin drift, boundary checks, route↔apigateway diff, shared_db pin drift, schema mirror diff | §2 |
+| B | Architecture audit (service boundaries, sync-Spotify rule, contract/OpenAPI drift, shared_db pin drift, infra↔code drift) | **DONE** — 0 findings; all six structural checks clean. Redone from scratch in the main loop | §2 |
 | C | Frontend code audit (islands, CSS scoping traps, api.gen.ts drift, auth/token handling, error/empty states) | **NOT STARTED — restart** — killed by the session limit before reading anything | §3 |
 | D | Functional audit (plan.md open items vs reality, launchd pipeline health, DLQ/queue state, prod smoke) | **DONE** — 3 findings (one P0), rest verified healthy. Done in the main loop after the subagent died | §4 |
 | E | UI/UX live verification via CDP on production (desktop + mobile emulation, console errors, key flows) | IN PROGRESS — logged-out public surface swept (home / reviews / genres / canon / collection / artist, at 1440px and 390px mobile). Remaining: Lighthouse numbers, authed `/members/` surface | §5 |
@@ -61,7 +61,51 @@ Method: grep sweep per bug class across all four Python repos, then read the enc
 
 ## 2. Architecture — findings
 
-_(pending)_
+**Zero findings adopted.** Every structural check came back clean. Done mechanically in the main loop (the subagent died on the session cap before writing anything, so none of its partial claims were used).
+
+This section is deliberately mostly "clean" evidence — under the necessity gate, proving the drift *isn't* there is the deliverable.
+
+### Route ↔ API Gateway parity — CLEAN (both directions)
+
+This is the highest-value check in the leg, because a missing entry means a route that 404s in prod, and it's a known repeat failure mode.
+
+- **43 mutation routes** (`POST`/`PUT`/`PATCH`/`DELETE`) enumerated from the FastAPI source by resolving each `include_router(..., prefix=...)` against every `@router.<verb>` decorator.
+- **48 `route_key` entries** in `infra/apigateway.tf`.
+- **Mutations missing from `apigateway.tf`: 0.** Every single one is explicitly wired.
+- The 3 entries that look unmatched — `ANY /api/music`, `ANY /api/music/{proxy+}`, `GET /api/{proxy+}` — are the intentional catch-alls, not stale rows. The 43 code routes that appear "unwired" are **all GETs**, covered by `GET /api/{proxy+}` by design (e.g. `genres.py:45` carries the explicit comment *"read (edge_guard only — no JWT; covered by GET /api/{proxy+})"*).
+
+### OpenAPI contract — CLEAN
+
+`docs/contracts/openapi.json` carries 84 paths; the backend source declares 70. **Routes in code but absent from the merged spec: 0.** Despite the service→workspace notify dispatch being dead (D-3) and the merge being manual, the contract has not drifted.
+
+### Schema mirror — CLEAN
+
+`docs/contracts/schema.sql` vs `myblog_shared_db/tests/canonical_schema.sql`: **byte-identical**. This parity is convention-only and cannot be enforced by a test (it's cross-repo), and it drifted for 5 days once before — so it is worth stating that it currently holds.
+
+### shared_db pin divergence — REAL, but safe and already documented
+
+The three services do not agree:
+
+| Service | Pin | Resolves to |
+|---|---|---|
+| `myblog_backend` | `@50d33c39…` (untagged SHA) | V48 — shared_db HEAD |
+| `myblog_music` | `@v0.26.0` | `dd016c4` = V32 |
+| `myblog_worker` | `@v0.26.0` | `dd016c4` = V32 |
+
+music and worker are **21 commits / 16 schema versions behind** backend. This is the setup for the "tests pass locally, deploy 500s" trap, so it was verified rather than assumed:
+
+- **worker** imports exactly one symbol from the package — `from myblog_shared_db.genre_mapping import attachable_slugs` (`worker/service/sync_service.py:9`). Confirmed present at `v0.26.0` (`genre_mapping.py:176`). Everything else is raw `text()` SQL.
+- **music** imports 10 names from `myblog_shared_db.models` — `Album, AlbumGenre, Artist, Base, Genre, Track, album_artists_table, post_albums_table, post_artists_table, track_artists_table`. **All 10 confirmed present at `v0.26.0`.**
+- → the lag is intentional (a consumer that doesn't need new columns doesn't bump), and currently harmless.
+- The related smell — *"backend pins a moving untagged SHA, not a release tag — a reproducibility smell"* — is **already recorded** in `docs/architecture.md:254` as audit item C-10 from 2026-07-23. **Not re-reported.**
+
+### Service boundaries — CLEAN
+
+No cross-service imports exist. `grep` for `myblog_music` / `myblog_backend` inside the other's `app/` returns **only comments** (`release_feed.py:29` "Cross-repo twin: …", `music/app/core/auth.py:40,67` "Mirrors myblog_backend/…"). The boundary that keeps a Spotify outage away from posts is intact at the import level.
+
+### Auth guard twins — CLEAN (behaviourally)
+
+`myblog_backend/app/core/auth.py` and `myblog_music/app/core/auth.py` differ structurally in ~108 lines: the backend factors out a `verify_token()` helper shared by `require_cognito_token` **and** `edge_guard`; music, which has no edge layer, inlines the same logic. Leg A diffed them line by line and confirmed **behavioural equivalence — all three config gates (`COGNITO_USER_POOL_ID`, `EDGE_SECRET`, `OWNER_SUB`) fail closed in both.** The structural difference is by design, not drift.
 
 ## 3. Frontend code — findings
 
