@@ -116,8 +116,23 @@ exist and no `GENIUS_ACCESS_TOKEN` is in SSM), but its priority is higher than p
 
 ## Changes made from this measurement
 
-- `album_research_v2.md` / `docs/editorial/album-research-prompt.md`: added `인용 가능한 가사`
-  (gap 1) and `전기적 좌표` (gap 5) — the two gaps no candidate version covered.
+Both gaps were added to **both** the live prompt and the candidate, because they are orthogonal
+to the v2-vs-v4 question — neither version had them:
+
+- `docs/editorial/album-research-prompt.md` + its vendored twin `scripts/album_research_v2.md`
+  (kept byte-identical over the shared range): `인용 가능한 가사`, `전기적 좌표`.
+- `scripts/album_research_v4.md`: the same two sections, written in v4's `[근거]` style and placed
+  as 의도 → **전기적 좌표** → 무엇으로 만들었나 → **인용 가능한 가사** → 계보. Rows added to v4's
+  own changes table.
+
+With this, **v2 covers 2 of the 6 gaps and v4 covers all 6** — which is the argument for adopting
+v4 rather than continuing to patch v2.
+
+Also fixed while here: `research_poller.py`'s `ADDENDUM` instructed the model to record residual
+disambiguation "inside the `앨범 식별` section", a section v4 does not define. It is now written
+prompt-agnostically ("whichever section the output format uses for identification, or failing that
+its unconfirmed-items section"), so the same addendum is correct for v2 and v4 alike. That
+mismatch was the last mechanical blocker to running v4 through the pipeline.
 
 ## Provenance caveat
 
