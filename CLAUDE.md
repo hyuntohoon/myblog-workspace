@@ -45,7 +45,7 @@ Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.cla
 
 ## Code conventions
 
-Use `settings.*` (pydantic-settings), not `os.getenv()`. Use `logging.getLogger(__name__)`, not `print()`. Frontend authed requests go through `apiFetch` from `src/lib/api.ts`. Backend/music URLs always prefixed `/api`. Never log `GITHUB_TOKEN`, `DATABASE_URL`, `EDGE_SECRET`, Spotify creds.
+Use `settings.*` (pydantic-settings), not `os.getenv()`. Use `logging.getLogger(__name__)`, not `print()`. Frontend authed requests go through `apiFetch` from `src/lib/api.ts`. Backend/music URLs always prefixed `/api`. Never log `GITHUB_TOKEN`, `DATABASE_URL`, `EDGE_SECRET`, `GENIUS_ACCESS_TOKEN`, Spotify creds.
 
 Hardened after FIX-bug-audit-2026-07 (all are recurring bug classes — the audit found each already-fixed once and re-broken elsewhere):
 
