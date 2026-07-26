@@ -170,7 +170,9 @@ Quote these with denominators or they will be misread later.
 
 ## 6. Where to pick up
 
-1. Both RFCs are **draft and unaccepted**. Rule 5 makes promotion owner-only; nothing starts without it.
+1. `FEAT-lyrics-annotations` is **accepted** (2026-07-26) and **Thread 1 is cleared to build** — schema
+   in §6.9, anchoring measured in §6.6. Thread 2 still waits on the filter-shape decision (§8).
+   `DATA-catalog-noise-and-lyrics-coverage` is **still draft**; rule 5 makes its promotion owner-only.
 2. `tools/genius_anchor.py` works and is self-tested. A six-album KR/EN regression is scheduled for
    **2026-07-29** (`~/.claude/scheduled-tasks/genius-anchor-multi-album-test/`). Its real question is
    whether Korean albums have *any* annotations to anchor — report coverage count separately from

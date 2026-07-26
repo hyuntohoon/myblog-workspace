@@ -5,9 +5,9 @@ tapping a marked passage opens the Genius commentary attached to it.
 
 **Chosen: the Genius house style** (`houses/genius.html`). Owner decision, 2026-07-26.
 
-Nothing here is committed to build — `FEAT-lyrics-annotations` is still `draft`, and promotion is
-owner-only (hard rule 5). This is the visual half of the record; the mechanism lives in
-`docs/rfcs/FEAT-lyrics-annotations.md` §6.
+`FEAT-lyrics-annotations` was promoted to **accepted on 2026-07-26**, so Thread 1 is cleared to build
+against this direction. This is the visual half of the record; the mechanism lives in
+`docs/rfcs/FEAT-lyrics-annotations.md` §6, and the storage schema in §6.9.
 
 ---
 

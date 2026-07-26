@@ -1,6 +1,6 @@
 # FEAT-lyrics-annotations: lyrics coverage + "the story behind the lyrics"
 
-- **Status**: draft (**not yet accepted**; promotion is owner-only per hard rule 5)
+- **Status**: accepted (promoted 2026-07-26 with explicit owner approval, hard rule 5)
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
 - **Last investigated**: 2026-07-25 (deep investigation session — supersedes the morning capture)
@@ -14,7 +14,8 @@
 > is the corrected state. §9 lists what was superseded so nobody re-derives it. Every number here is
 > reproducible; §10 carries the SQL.
 >
-> **Nothing here is committed to build.** Two owner decisions block execution (§8).
+> **Thread 1 is cleared to build** as of 2026-07-26 — schema (§6.9), anchoring (§6.6) and the visual
+> direction are all settled. **Thread 2 is not**: it still waits on the filter-shape decision (§8).
 
 ---
 
@@ -565,8 +566,9 @@ storage and LLM use of Genius content as permitted for this project.
 
 ### 6.9 Storage — two track-scoped tables, one read route (shared_db V49)
 
-Design settled 2026-07-26. This is the schema the viewer sub-thread (§6.6) builds on; it is written
-here rather than in a migration because the RFC is still `draft` and hard rule 5 gates implementation.
+Design settled 2026-07-26. This is the schema the viewer sub-thread (§6.6) builds on. It lives here
+rather than in a migration file because the migration is R-step work: write `V49`, get it applied to
+prod by a human (rule 3), then bump the service pins — in that order, never all in one PR.
 
 **Shape in one line.** Two tables keyed on `track_id`, mirroring the existing `track_lyrics` /
 `track_lyrics_translations` pair; the Korean translation is a **column on the annotation row**, not a
@@ -714,10 +716,12 @@ drifted before.
 
 ## 8. What blocks execution
 
-1. **RFC promotion `draft → accepted`** — hard rule 5, owner-only. Nothing starts without it.
-2. **Filter shape** — E (genre + title form + vocal guard, 0 FP) vs F (empirical label yield, 2 FP,
-   no genre dependency) vs both composed. Owner was mid-decision when this record was written;
-   **F emerged after the question was asked and may change the answer.**
+1. ~~**RFC promotion `draft → accepted`**~~ — **done 2026-07-26**, explicit owner approval. Thread 1
+   is cleared to build.
+2. **Filter shape — still open, and it blocks Thread 2 only.** E (genre + title form + vocal guard,
+   0 FP) vs F (empirical label yield, 2 FP, no genre dependency) vs both composed. Owner was
+   mid-decision when this record was written; **F emerged after the question was asked and may change
+   the answer.** Thread 1 does not touch the filter and is not waiting on this.
 
 Secondary, non-blocking: split Thread 2 into its own `plan.md` row (the RFC's own OQ5).
 
