@@ -311,7 +311,7 @@ _(found in the deepening pass, 2026-07-26 ~09:30 KST, using a minted non-owner m
 
 ## 6. Necessity-gate verdicts
 
-**13 findings adopted** (12 in the main run + E-5 from the deepening pass). Roughly as many candidates were dropped for failing the bar. After the deepening pass in §6b, **every finding below is either directly measured on production or independently verified — none rests on a single unchecked inference.**
+**16 findings adopted** (12 in the main run + E-5 from the deepening pass + DEP-1/2/3 from the owner-requested dependency scan, §8). Roughly as many candidates were dropped for failing the bar. After the deepening pass in §6b, **every finding below is either directly measured on production or independently verified — none rests on a single unchecked inference.**
 
 | ID | Sev | One-line | Leg |
 |----|-----|----------|-----|
@@ -328,6 +328,9 @@ _(found in the deepening pass, 2026-07-26 ~09:30 KST, using a minted non-owner m
 | **E-2** | P2 | Public collection page bylines a raw Cognito-sub fragment as a display name | front/live |
 | **E-4** | P2 | 8 homepage album buttons fail WCAG 2.5.3 "Label in Name" | front/live |
 | **E-5** | P2 | `/write/` owner-only editor renders in full for any member, publish buttons included (no data risk — backend fails closed) | front/live |
+| **DEP-1** | P1 | Dependabot is off on all 6 repos and no CI audit step exists — nothing would ever report a vulnerable dependency | deps |
+| **DEP-2** | P2 | `@astrojs/rss@4.0.13` XML-injection advisory, `/rss.xml` is live; fixed by a patch bump to 4.0.19 | deps |
+| **DEP-3** | P2 | `@astrojs/node` declared but never used (`output: 'static'`, no adapter) — carries 6 non-applicable advisories forever | deps |
 
 ### Adversarial verification (leg F)
 
@@ -387,7 +390,7 @@ Swept read-only with a minted non-owner member token. **No write action was perf
 
 ### Still not covered, even after deepening
 
-- **Dependency / CVE scan — attempted and blocked.** `pnpm audit` could not reach `registry.npmjs.org` (`ETIMEDOUT` after 3 retries) from this environment. **Not verified either way**; worth running from a network that can reach the registry.
+- ~~**Dependency / CVE scan — attempted and blocked.**~~ **DONE — see §8.** The `pnpm audit` timeout was not a network problem; it was that one legacy endpoint. Re-done via OSV.dev against the lockfiles directly.
 - **No load or concurrency testing** — A-1's lock-contention path remains reasoned, not observed.
 - **No database-level data-quality audit** (orphan rows, constraint violations, duplicate catalog entries).
 - **No review of Terraform state** (only `.tf` source was read).
@@ -401,6 +404,85 @@ Stated so the clean verdicts aren't read as broader than they are:
 - **No load or concurrency testing.** A-1's deadlock/lock-contention path is reasoned from the code plus the 10-way SQS concurrency setting, not observed.
 - **No database-level data-quality audit** (orphan rows, constraint violations, duplicate catalog entries beyond what the UI surfaced).
 - **No dependency/CVE scan**, and no review of the Terraform state itself (only the `.tf` source).
+
+---
+
+## 8. Dependency vulnerabilities (owner-requested re-run, 2026-07-26 ~10:00 KST)
+
+`pnpm audit` had timed out earlier, so this was redone by a different route. Method: parse the lockfiles → query **OSV.dev** (`/v1/querybatch`) → fetch each advisory. Script kept at `audit-2026-07-26-raw/osv_scan.py`, raw output at `audit-2026-07-26-raw/osv-report.txt`.
+
+**Why the first attempt failed**: not a network block. `registry.npmjs.org` answers in **34 ms** from here — it is specifically pnpm's legacy `POST /-/npm/v1/security/audits` endpoint that hangs. Worth knowing so this isn't misdiagnosed again.
+
+### Two corrections that changed the answer
+
+Recording these because the naive version of this scan produces a **false CRITICAL** and would have wasted a day:
+
+1. **Never feed `requirements.txt` versions to a CVE database here.** Several pins are wildcards — `SQLAlchemy==2.*`, `psycopg[binary]==3.*`, `python-dotenv==1.*`. Querying OSV for version literal `"2.*"` matches **CVE-2012-0805 / CVE-2019-7164 / CVE-2019-7548 — three CRITICAL SQL-injection advisories against SQLAlchemy 0.x/1.x**. The real installed version is **2.0.50**, which none of them touch. The corrected scan reads actual versions out of each service's venv.
+2. **npm hits must be split by whether they can reach a user.** This is a prebuilt static site on S3 — no npm code runs on a server. 31 of the 34 npm packages with advisories are build tooling (`vite`, `node-tar`, `fast-xml-parser`, `yaml`, …) that never ships. Reporting those as vulnerabilities would be noise.
+
+### Scan coverage
+
+| Ecosystem | Scanned | Packages with advisories |
+|---|---|---|
+| npm (`pnpm-lock.yaml`, all resolved) | 1,419 | 34 — of which **3 are direct runtime deps** |
+| PyPI (4 service venvs) | 149 | 16 |
+
+150 advisory instances total (2 CRITICAL, 56 HIGH, 73 MODERATE, 19 LOW) — but see the triage: most are unreachable in this deployment.
+
+### DEP-1 (P1): Nothing in this system would ever tell you a dependency is vulnerable
+
+- **Severity**: P1 — a missing safety net, in a system where the owner has explicitly prioritised safety nets (2026-07-23 decision).
+- **Observed**: `gh api repos/hyuntohoon/<repo>/dependabot/alerts` returns **`403 "Dependabot alerts are disabled for this repository"` for all six repos** (backend, front, music, worker, shared_db, workspace). No `pnpm audit` / `pip-audit` step exists in any CI workflow either.
+- **Impact**: the advisories below accumulated with **zero** signal. `astro` is 9 advisories and two major versions behind; `@astrojs/rss` has a live XML-injection advisory against an endpoint that serves 200 in prod. Neither would ever surface.
+- **Fix is trivial**: enabling Dependabot alerts is a repo setting, not code. Whether to also enable *automatic PRs* is a separate call. → §7.
+
+### DEP-2 (P2): `@astrojs/rss` is behind a patch fix for XML injection, and `/rss.xml` is live
+
+- **Where**: `myblog_front` → `@astrojs/rss@4.0.13`
+- **Advisory**: `GHSA-8j5q-mfj2-5q9q` / **CVE-2026-59728** — *XML Injection via Unescaped RSS Feed Fields* (MODERATE). Fixed in **4.0.19**; latest is also 4.0.19.
+- **Applicability confirmed**: `https://www.ratemymusic.blog/rss.xml` returns **200** and `src/pages/rss.xml.ts` is a real prerendered route.
+- **Why it matters here specifically**: feed fields are built from post titles and descriptions, and this system's titles carry **album and artist names sourced from Spotify** — i.e. strings the owner does not author. That is exactly the shape this advisory is about.
+- **Cost**: a patch bump inside the same minor (`4.0.13 → 4.0.19`). Cheapest real fix in the whole audit.
+
+### DEP-3 (P2): `@astrojs/node` is declared as a dependency but the project never uses it
+
+- **Where**: `myblog_front/package.json:21` `"@astrojs/node": "^9.5.1"`
+- **Observed**: `astro.config.ts:38` sets **`output: 'static'`** and declares **no `adapter:`**. `@astrojs/node` appears **nowhere** in `src/` or in the config — its only occurrence in the repo is that package.json line.
+- **Impact**: it contributes **6 advisories** (SSRF via Host header, Server Islands / Server Actions memory-exhaustion DoS, cache poisoning, …) that are attributed to this project for a package it does not run. Every future scan and every future Dependabot alert will re-raise them.
+- **All 6 are non-applicable** — they need a running Node SSR server, which this deployment does not have. **Deleting the dependency removes them permanently** and changes no behaviour.
+
+### Astro core — a real decision, not a quick fix (→ §7)
+
+`astro@5.15.9` carries **9 advisories (2 HIGH, 4 MODERATE, 3 LOW)**. Latest is **7.1.3** — two majors ahead — and some fixes only land in 7.x. So this is a framework upgrade, not a bump.
+
+Triaged against what this site actually does, rather than pasted as a list:
+
+| Advisory class | Applies here? | Basis |
+|---|---|---|
+| Server Islands replay / DoS | **No** | `grep server:defer` → **0 hits** |
+| Host-header SSRF in error-page fetch, `matchPathname` allowlist bypass | **No** | needs a running SSR server; `output: 'static'`, no adapter |
+| Reflected XSS via unescaped **slot name** (HIGH) | **Unlikely** | "reflected" needs request-derived input; slot names here are author-written (2 uses) |
+| XSS via `define:vars` incomplete `</script>` sanitisation (MODERATE) | **Possibly** | `define:vars` **is used** (2 sites) and ships to the browser |
+| XSS via unescaped **View Transition** animation properties / `transition:*` on hydrated islands (MODERATE + LOW) | **Possibly** | `transition:*` used in **4 files**, `ViewTransitions`/`ClientRouter` in **12** — client-side, so static output does not protect |
+
+**Honest limit**: whether those three are *exploitable here* depends on whether attacker-controlled data reaches those exact spots, which I did not trace end-to-end. They are the three worth reading the advisories for; the other six are ruled out structurally.
+
+### Python side — runs inside the Lambdas, so applicability is real
+
+Eight HIGH-severity packages, all present in **both** backend and music:
+
+| Package | Advisory | Note |
+|---|---|---|
+| `starlette@1.1.0` | `CVE-2026-54283` — `request.form()` limits silently ignored for `x-www-form-urlencoded` → DoS | **Look at this one first.** Starlette is FastAPI's request layer, so it sits directly in the path of every request both services take. |
+| `cryptography@48.0.0` | `GHSA-537c-gmf6-5ccf` — vulnerable OpenSSL bundled in the wheels | transitive; fix is a wheel bump |
+| `pyasn1@0.6.3` | `CVE-2026-59885/59886` — quadratic complexity + resource exhaustion in OID / REAL decoding | reached only via ASN.1 parsing (JWT/cert paths) |
+| `ecdsa@0.19.2` | `CVE-2024-23342` — Minerva timing attack on P-256 | pulled in by the JWT stack; Cognito uses RS256, so P-256 is likely never exercised — **unverified** |
+
+**Not adjudicated**: I did not trace call paths for the Python items. `starlette` is called out because it is unambiguously in the request path; the rest need a look before anyone spends effort on them.
+
+### Related observation (not adopted as a finding)
+
+`SQLAlchemy==2.*` and `psycopg[binary]==3.*` are **open major-range pins**. Each deploy resolves them fresh, so a new minor can change prod behaviour with no code change and no review. Same family as the already-logged C-10 *"backend pins a moving untagged SHA"* (`architecture.md:254`). No harm observed, so it stays an observation — but if the owner ever fixes C-10, these belong in the same pass.
 
 ---
 
@@ -441,6 +523,13 @@ Stated so the clean verdicts aren't read as broader than they are:
    (a) 오너 아니면 페이지 자체를 리다이렉트 / (b) 에디터는 두되 발행 버튼만 숨기기 / (c) 그대로 두기.
    추천은 **(a)**.
 
-**7. 13건의 처리 순서 — 어떻게 갈까요?**
-   추천 순서: **D-1 → A-2 → E-1+E-3 → A-1 → 나머지 P2(E-5 포함)**.
+**7-b. 의존성 취약점 (§8) — 어디까지 하실래요?**
+   - **Dependabot 켜기** (DEP-1): 리포 설정만 바꾸면 되고 코드 변경 0건입니다. 알림만 받을지, 자동 PR까지 받을지는 따로 정하셔야 합니다. **추천: 알림만 먼저.**
+   - **`@astrojs/rss` 4.0.13 → 4.0.19** (DEP-2): 같은 마이너 안의 패치입니다. `/rss.xml`이 실제로 돌아가고 있고, 피드에 들어가는 제목이 Spotify에서 온 앨범·아티스트 이름이라 딱 이 취약점이 말하는 모양입니다. **이번 감사에서 제일 싼 실제 수정.**
+   - **`@astrojs/node` 삭제** (DEP-3): 안 쓰는 패키지인데 권고문 6건을 계속 달고 다닙니다. 지우면 동작 변화 없이 6건이 사라집니다.
+   - **Astro 5.15.9 → 7.x**: 이건 메이저 2단계 업그레이드라 별건입니다. 9건 중 6건은 SSR 전용이라 이 사이트엔 해당 없고, `define:vars`·View Transition 관련 3건만 실제로 볼 필요가 있습니다. 지금 할지, 권고문 3건만 먼저 읽고 판단할지 정해 주세요. **추천: 3건 먼저 읽기.**
+   - **`starlette` (Python)**: FastAPI의 요청 처리 계층이라 백엔드·뮤직 양쪽 모든 요청 경로에 있습니다. Python 쪽에서 제일 먼저 볼 것.
+
+**7. 16건의 처리 순서 — 어떻게 갈까요?**
+   추천 순서: **D-1 → A-2 → DEP-1+DEP-2+DEP-3(셋 다 싸고 독립적) → E-1+E-3 → A-1 → 나머지 P2**.
    근거: D-1은 서비스의 존재 이유가 막혀 있고, A-2는 앨범 제목 하나로 전체 배포가 멈출 수 있으며, E-1/E-3은 모든 방문자가 매번 지불하고, A-1은 아직 터지지 않았지만(DLQ 0건) 터지면 조용히 DLQ로 샙니다.
