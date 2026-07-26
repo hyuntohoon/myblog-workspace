@@ -1,0 +1,1396 @@
+<style>
+/* ============================================================
+   house: nyt — newspaper longform / annotated-text feature
+   Every selector is prefixed .h-nyt. Custom props live on .h-nyt.
+   ============================================================ */
+
+.h-nyt {
+  /* paper + ink */
+  --h-nyt-paper: #f7f4ec;
+  --h-nyt-paper-2: #efebe0;
+  --h-nyt-ink: #17140f;
+  --h-nyt-ink-2: #3a352d;
+  --h-nyt-ink-3: #6d6555;
+  --h-nyt-ink-4: #938b79;
+  --h-nyt-rule: #1a1712;
+  --h-nyt-rule-2: #cdc6b4;
+  --h-nyt-rule-3: #e0dacb;
+  /* the single accent: rubric red, used only for note keys + open state */
+  --h-nyt-accent: #a02c1c;
+  --h-nyt-wash: rgba(160, 44, 28, 0.065);
+
+  /* margin geometry: [ keys ][ brackets ][ text ][ line no. ] */
+  --h-nyt-gut: 72px;
+  --h-nyt-num: 34px;
+
+  --h-nyt-serif: "Iowan Old Style", "Hoefler Text", Georgia, "Times New Roman",
+    "Nanum Myeongjo", AppleMyungjo, Batang, serif;
+  --h-nyt-display: "Hoefler Text", "Iowan Old Style", Georgia,
+    "Times New Roman", "Nanum Myeongjo", AppleMyungjo, serif;
+  --h-nyt-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  background: var(--h-nyt-paper);
+  color: var(--h-nyt-ink);
+  font-family: var(--h-nyt-serif);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+.h-nyt .sheet,
+.h-nyt .row,
+.h-nyt .note,
+.h-nyt .txt,
+.h-nyt .reg-row,
+.h-nyt .loose-head,
+.h-nyt .tool-btn,
+.h-nyt .key,
+.h-nyt .ditto {
+  box-sizing: border-box;
+}
+
+.h-nyt .sheet {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 44px 28px 60px;
+}
+
+/* Korean must break between words, not between syllables */
+.h-nyt .dek,
+.h-nyt .caveat,
+.h-nyt .tool-count,
+.h-nyt .note-lemma,
+.h-nyt .note-meta,
+.h-nyt .prose,
+.h-nyt .app-lede,
+.h-nyt .loose-lede,
+.h-nyt .reg-gist,
+.h-nyt .loose-kind,
+.h-nyt .fold-body,
+.h-nyt .colophon {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* ---------- masthead ---------- */
+
+.h-nyt .kicker {
+  margin: 0 0 18px;
+  font-family: var(--h-nyt-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: var(--h-nyt-accent);
+  text-transform: uppercase;
+}
+
+.h-nyt .hed {
+  margin: 0;
+  font-family: var(--h-nyt-display);
+  font-weight: 900;
+  font-size: 54px;
+  line-height: 1.02;
+  letter-spacing: -0.018em;
+  color: var(--h-nyt-ink);
+}
+
+.h-nyt .hed-sub {
+  display: block;
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  color: var(--h-nyt-ink-3);
+  text-transform: uppercase;
+}
+
+.h-nyt .dek {
+  max-width: 33em;
+  margin: 20px 0 0;
+  font-size: 19px;
+  line-height: 1.58;
+  color: var(--h-nyt-ink-2);
+}
+
+.h-nyt .byline {
+  margin: 26px 0 0;
+  padding: 9px 0;
+  border-top: 1px solid var(--h-nyt-rule);
+  border-bottom: 1px solid var(--h-nyt-rule-2);
+  font-size: 11.5px;
+  letter-spacing: 0.13em;
+  color: var(--h-nyt-ink-3);
+  text-transform: uppercase;
+}
+
+.h-nyt .caveat {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--h-nyt-ink-3);
+}
+
+/* ---------- toolbar above the verse ---------- */
+
+.h-nyt .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 34px 0 6px;
+  padding-bottom: 8px;
+  border-bottom: 3px double var(--h-nyt-rule);
+}
+
+.h-nyt .tool-count {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--h-nyt-ink-3);
+}
+
+.h-nyt .tool-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--h-nyt-rule);
+  background: transparent;
+  color: var(--h-nyt-ink);
+  font-family: var(--h-nyt-serif);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+
+.h-nyt .tool-btn:hover {
+  background: var(--h-nyt-ink);
+  color: var(--h-nyt-paper);
+}
+
+/* ---------- the verse ---------- */
+
+.h-nyt .verse {
+  margin: 22px 0 0;
+}
+
+.h-nyt .row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--h-nyt-gut) minmax(0, 1fr) var(--h-nyt-num);
+  align-items: stretch;
+  line-height: 1.84;
+}
+
+.h-nyt .row.is-lit {
+  background: var(--h-nyt-wash);
+}
+
+.h-nyt .row.is-marked:hover .rule {
+  border-left-color: var(--h-nyt-accent);
+}
+
+.h-nyt .row.is-marked {
+  cursor: pointer;
+}
+
+.h-nyt .gut {
+  position: relative;
+}
+
+.h-nyt .txt {
+  padding-left: 1.15em;
+  text-indent: -1.15em; /* hanging indent on turned verse lines */
+  font-size: 18.5px;
+  color: var(--h-nyt-ink);
+  overflow-wrap: break-word;
+}
+
+.h-nyt .txt.is-rtl {
+  direction: rtl;
+  text-indent: 0;
+  padding-left: 0;
+  padding-right: 0.2em;
+}
+
+.h-nyt .ln {
+  padding-left: 10px;
+  text-align: right;
+  font-size: 11px;
+  line-height: inherit;
+  color: var(--h-nyt-ink-4);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* stanza break — counts in the numbering */
+.h-nyt .row.is-gap .txt {
+  padding: 0.55em 0 0.55em 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.62em;
+  text-indent: 0.62em; /* cancels the hanging indent and the trailing
+                          letter-space, so the dots sit optically centred */
+  color: var(--h-nyt-ink-4);
+}
+
+/* ---------- margin brackets: the range lives outside the measure ---------- */
+
+.h-nyt .rule {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-left: 1px solid var(--h-nyt-rule);
+  pointer-events: none;
+}
+
+.h-nyt .rule.t0 { right: 13px; }
+.h-nyt .rule.t1 { right: 20px; }
+.h-nyt .rule.cap-top { border-top: 1px solid var(--h-nyt-rule); }
+.h-nyt .rule.cap-bot { border-bottom: 1px solid var(--h-nyt-rule); }
+
+/* partial = range is approximate: dotted, and never capped shut */
+.h-nyt .rule.is-partial {
+  border-left-style: dotted;
+  border-left-color: var(--h-nyt-ink-3);
+}
+.h-nyt .rule.is-partial.cap-top,
+.h-nyt .rule.is-partial.cap-bot {
+  border-top-style: dotted;
+  border-bottom-style: dotted;
+}
+
+/* the repeat of an already-keyed passage */
+.h-nyt .rule.is-echo {
+  border-left-style: dotted;
+  border-left-color: var(--h-nyt-ink-4);
+}
+.h-nyt .rule.is-echo.cap-top {
+  border-top-style: dotted;
+  border-top-color: var(--h-nyt-ink-4);
+}
+.h-nyt .rule.is-echo.cap-bot {
+  border-bottom-style: dotted;
+  border-bottom-color: var(--h-nyt-ink-4);
+}
+
+.h-nyt .rule.is-open {
+  border-left-width: 2px;
+  border-left-color: var(--h-nyt-accent);
+}
+.h-nyt .rule.is-open.cap-top { border-top-color: var(--h-nyt-accent); }
+.h-nyt .rule.is-open.cap-bot { border-bottom-color: var(--h-nyt-accent); }
+
+/* ---------- the key: superior figure in the margin ---------- */
+
+.h-nyt .keys {
+  position: absolute;
+  top: 0;
+  right: 31px;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 3px;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.h-nyt .key {
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  font-family: var(--h-nyt-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: inherit;
+  color: var(--h-nyt-accent);
+  font-variant-numeric: lining-nums tabular-nums;
+  cursor: pointer;
+}
+
+.h-nyt .key:hover { text-decoration: underline; }
+
+.h-nyt .key[aria-expanded="true"] {
+  background: var(--h-nyt-accent);
+  color: var(--h-nyt-paper);
+}
+
+/* disputed reading: obelus, and the accent is withheld */
+.h-nyt .key.is-disputed { color: var(--h-nyt-ink-3); }
+.h-nyt .key.is-disputed[aria-expanded="true"] {
+  background: var(--h-nyt-ink-3);
+  color: var(--h-nyt-paper);
+}
+.h-nyt .key .obelus {
+  font-size: 0.82em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.h-nyt .ditto {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  font-family: var(--h-nyt-serif);
+  font-size: 12px;
+  line-height: inherit;
+  color: var(--h-nyt-ink-4);
+  cursor: pointer;
+}
+.h-nyt .ditto:hover { color: var(--h-nyt-accent); }
+
+.h-nyt .key:focus-visible,
+.h-nyt .ditto:focus-visible,
+.h-nyt .tool-btn:focus-visible,
+.h-nyt .reg-row:focus-visible,
+.h-nyt .loose-head:focus-visible,
+.h-nyt .fold:focus-visible,
+.h-nyt .lnk:focus-visible,
+.h-nyt .src:focus-visible {
+  outline: 2px solid var(--h-nyt-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- the note, set under the passage it keys ---------- */
+
+.h-nyt .note {
+  display: none;
+  grid-template-columns: var(--h-nyt-gut) minmax(0, 1fr) var(--h-nyt-num);
+  margin: 6px 0 14px;
+  background: var(--h-nyt-paper-2);
+}
+
+.h-nyt .note.is-open {
+  display: grid;
+  animation: h-nyt-unfold 170ms ease-out;
+}
+
+.h-nyt .note.is-flash {
+  animation: h-nyt-unfold 170ms ease-out, h-nyt-flash 1100ms ease-out;
+}
+
+@keyframes h-nyt-unfold {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes h-nyt-flash {
+  0%, 40% { box-shadow: inset 3px 0 0 var(--h-nyt-accent); }
+  100% { box-shadow: inset 3px 0 0 rgba(160, 44, 28, 0); }
+}
+
+.h-nyt .note-figure {
+  padding: 14px 13px 0 0;
+  text-align: right;
+  font-family: var(--h-nyt-display);
+  font-weight: 900;
+  font-size: 27px;
+  line-height: 1;
+  color: var(--h-nyt-accent);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.h-nyt .note-figure.is-disputed { color: var(--h-nyt-ink-3); }
+
+.h-nyt .note-main {
+  grid-column: 2 / 4;
+  padding: 13px 16px 18px 0;
+  border-top: 1px solid var(--h-nyt-rule);
+}
+
+.h-nyt .note-lemma {
+  margin: 0;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--h-nyt-ink-2);
+}
+
+.h-nyt .note-meta {
+  margin: 7px 0 0;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--h-nyt-ink-3);
+  text-transform: uppercase;
+}
+
+/* an editorial hedge about placement, kept out of the note's own prose */
+.h-nyt .note-caveat {
+  max-width: 33em;
+  margin: 9px 0 0;
+  padding-left: 9px;
+  border-left: 2px solid var(--h-nyt-rule-2);
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--h-nyt-ink-3);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.h-nyt .note-meta .flag { color: var(--h-nyt-ink-2); }
+
+.h-nyt .note-meta .disputed {
+  color: var(--h-nyt-ink);
+  font-weight: 700;
+}
+
+/* ---------- the prose: this is the reading surface ---------- */
+
+.h-nyt .prose {
+  max-width: 35em;
+  margin: 14px 0 0;
+  font-size: 16.5px;
+  line-height: 1.92;
+  color: var(--h-nyt-ink-2);
+}
+
+.h-nyt .prose .p { margin: 0.9em 0 0; }
+.h-nyt .prose .p:first-child { margin-top: 0; }
+.h-nyt .prose .p + .p { text-indent: 1em; }
+
+.h-nyt .prose .q {
+  margin: 1.15em 0 1.15em 1.5em;
+  padding-right: 1em;
+  font-size: 15.5px;
+  line-height: 1.85;
+  color: var(--h-nyt-ink-3);
+}
+
+.h-nyt .prose .q .q-line { display: block; }
+
+.h-nyt .prose .q .q-attr {
+  display: block;
+  margin-top: 0.5em;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--h-nyt-ink-4);
+}
+
+.h-nyt .prose strong { font-weight: 700; color: var(--h-nyt-ink); }
+.h-nyt .prose em { font-style: italic; }
+
+.h-nyt .prose .code {
+  padding: 0 3px;
+  background: rgba(0, 0, 0, 0.05);
+  font-family: var(--h-nyt-mono);
+  font-size: 0.86em;
+}
+
+.h-nyt .prose .lnk,
+.h-nyt .src {
+  color: var(--h-nyt-ink-2);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.h-nyt .prose .srcline {
+  margin: 0.9em 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.h-nyt .note-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: baseline;
+  margin-top: 16px;
+  padding-top: 9px;
+  border-top: 1px solid var(--h-nyt-rule-3);
+}
+
+.h-nyt .src {
+  font-size: 11px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+/* folding sub-panels (spanish original, song note) */
+.h-nyt .fold {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--h-nyt-ink-3);
+  font-family: var(--h-nyt-serif);
+  font-size: 11px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.h-nyt .fold:hover { color: var(--h-nyt-ink); }
+
+.h-nyt .fold-body {
+  display: none;
+  max-width: 35em;
+  margin: 12px 0 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--h-nyt-rule-2);
+  font-size: 14.5px;
+  line-height: 1.78;
+  color: var(--h-nyt-ink-3);
+}
+
+.h-nyt .fold-body.is-open { display: block; }
+.h-nyt .fold-body .p { margin: 0.8em 0 0; }
+.h-nyt .fold-body .p:first-child { margin-top: 0; }
+
+/* ---------- the apparatus ---------- */
+
+.h-nyt .apparatus {
+  margin: 54px 0 0;
+  padding-top: 12px;
+  border-top: 3px double var(--h-nyt-rule);
+}
+
+.h-nyt .app-title {
+  margin: 0;
+  font-family: var(--h-nyt-display);
+  font-weight: 900;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+.h-nyt .app-lede {
+  max-width: 34em;
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--h-nyt-ink-3);
+}
+
+.h-nyt .register {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.h-nyt .register li { border-top: 1px solid var(--h-nyt-rule-3); }
+.h-nyt .register li:first-child { border-top: 1px solid var(--h-nyt-rule-2); }
+.h-nyt .register li:last-child { border-bottom: 1px solid var(--h-nyt-rule-2); }
+
+.h-nyt .reg-row {
+  display: grid;
+  grid-template-columns: 30px 88px minmax(0, 1fr) auto;
+  gap: 0 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 9px 2px;
+  border: 0;
+  background: transparent;
+  font-family: var(--h-nyt-serif);
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-nyt .reg-row:hover { background: var(--h-nyt-wash); }
+
+.h-nyt .reg-num {
+  font-family: var(--h-nyt-display);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--h-nyt-accent);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.h-nyt .reg-num.is-disputed { color: var(--h-nyt-ink-3); }
+
+.h-nyt .reg-loc {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--h-nyt-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.h-nyt .reg-lemma {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--h-nyt-ink);
+  overflow-wrap: break-word;
+}
+
+.h-nyt .reg-gist {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--h-nyt-ink-3);
+}
+
+.h-nyt .reg-votes {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--h-nyt-ink-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.h-nyt .reg-votes.is-disputed { color: var(--h-nyt-ink-2); }
+
+.h-nyt .loose-sign {
+  font-family: var(--h-nyt-display);
+  font-size: 14px;
+  color: var(--h-nyt-ink-3);
+}
+
+/* unkeyed notes — they have nowhere in the margin to live */
+.h-nyt .loose-title {
+  margin: 40px 0 0;
+  font-family: var(--h-nyt-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.h-nyt .loose-lede {
+  max-width: 34em;
+  margin: 7px 0 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--h-nyt-ink-3);
+}
+
+.h-nyt .loose {
+  margin: 16px 0 0;
+  border-top: 1px solid var(--h-nyt-rule-2);
+}
+
+.h-nyt .loose-item { border-bottom: 1px solid var(--h-nyt-rule-3); }
+
+.h-nyt .loose-head {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 0 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 11px 2px;
+  border: 0;
+  background: transparent;
+  font-family: var(--h-nyt-serif);
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-nyt .loose-head:hover { background: var(--h-nyt-wash); }
+
+.h-nyt .loose-key {
+  font-family: var(--h-nyt-display);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--h-nyt-accent);
+}
+
+.h-nyt .loose-frag {
+  font-size: 14.5px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.h-nyt .loose-kind {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
+  color: var(--h-nyt-ink-3);
+  text-transform: uppercase;
+}
+
+.h-nyt .loose-body {
+  display: none;
+  padding: 0 2px 20px 40px;
+}
+
+.h-nyt .loose-body.is-open { display: block; }
+
+.h-nyt .songnote {
+  margin: 34px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--h-nyt-rule-2);
+}
+
+/* ---------- colophon ---------- */
+
+.h-nyt .colophon {
+  margin: 46px 0 0;
+  padding-top: 11px;
+  border-top: 1px solid var(--h-nyt-rule);
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--h-nyt-ink-4);
+}
+
+.h-nyt .colophon .ref { color: var(--h-nyt-ink-3); }
+
+/* ---------- narrow ---------- */
+
+@media (max-width: 700px) {
+  .h-nyt { --h-nyt-gut: 54px; --h-nyt-num: 22px; }
+  .h-nyt .sheet { padding: 28px 16px 44px; }
+  .h-nyt .hed { font-size: 33px; }
+  .h-nyt .hed-sub { font-size: 13px; }
+  .h-nyt .dek { font-size: 16.5px; }
+  .h-nyt .txt { font-size: 17px; }
+  .h-nyt .prose { font-size: 16px; line-height: 1.88; }
+  .h-nyt .rule.t0 { right: 9px; }
+  .h-nyt .rule.t1 { right: 15px; }
+  .h-nyt .keys { right: 22px; gap: 2px; }
+  .h-nyt .key { font-size: 11.5px; padding: 0 2px; }
+  .h-nyt .ditto { font-size: 11px; padding: 0 1px; }
+  .h-nyt .note-main { padding-right: 0; }
+  .h-nyt .note-figure { padding-right: 10px; font-size: 22px; }
+  .h-nyt .reg-row { grid-template-columns: 24px minmax(0, 1fr) auto; }
+  .h-nyt .reg-loc {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    margin-top: 3px;
+  }
+  .h-nyt .reg-lemma { grid-column: 2 / 3; grid-row: 1; }
+  .h-nyt .reg-votes { grid-column: 3 / 4; grid-row: 1; }
+  .h-nyt .loose-body { padding-left: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-nyt .note.is-open,
+  .h-nyt .note.is-flash { animation: none; }
+}
+</style>
+
+<script>
+(function () {
+  window.HOUSES = window.HOUSES || {};
+
+  var SLUG = 'nyt';
+  var LETTERS = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+  var KIND_LABEL = {
+    section: '구간 주석',
+    unmatched: '위치 미확인',
+    partial: '범위 근사',
+    repeated: '반복',
+    unique: ''
+  };
+  var seq = 0;
+
+  /* ---------- small helpers ---------- */
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function reduced() {
+    return window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  var ARABIC = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+  // votes carry a sign; a real minus sign, not a hyphen
+  function votes(n) {
+    return (n < 0 ? '−' : '+') + Math.abs(n);
+  }
+
+  function lineLabel(span) {
+    return span[0] === span[1]
+      ? (span[0] + 1) + '행'
+      : (span[0] + 1) + '–' + (span[1] + 1) + '행';
+  }
+
+  function firstLine(s) {
+    return String(s || '').split('\n')[0].trim();
+  }
+
+  function clip(s, n) {
+    s = String(s || '').replace(/\s+/g, ' ').trim();
+    return s.length > n ? s.slice(0, n - 1) + '…' : s;
+  }
+
+  /* ---------- body prose renderer ----------
+     Bodies are long Korean prose with a light markdown dialect:
+     blank-line paragraphs, "> " block quotations (sometimes with an
+     em-dash attribution line), **bold**, *italic*, `code`, bare URLs. */
+
+  function inlineFmt(s) {
+    var out = esc(s);
+    out = out.replace(/`([^`]+)`/g, '<code class="code">$1</code>');
+    out = out.replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>');
+    out = out.replace(/\*([^*\n][\s\S]*?)\*/g, '<em>$1</em>');
+    out = out.replace(/(https?:\/\/[^\s<)]+)/g, function (m) {
+      return '<a class="lnk" href="' + m + '" target="_blank" rel="noopener noreferrer">'
+        + m + '</a>';
+    });
+    return out.replace(/\n/g, '<br>');
+  }
+
+  function renderProse(host, text) {
+    var blocks = String(text || '').split(/\n{2,}/);
+    blocks.forEach(function (block) {
+      var raw = block.replace(/\s+$/, '');
+      if (!raw.trim()) return;
+      var lines = raw.split('\n');
+
+      // a block quotation: every non-empty line opens with ">"
+      if (/^\s*>/.test(lines[0])) {
+        var q = el('blockquote', 'q');
+        lines.forEach(function (l) {
+          if (!l.trim()) return;
+          var body = l.replace(/^\s*>\s?/, '');
+          var isAttr = /^\s*[—–-]\s/.test(body);
+          var s = el('span', isAttr ? 'q-attr' : 'q-line');
+          s.innerHTML = inlineFmt(body);
+          q.appendChild(s);
+        });
+        host.appendChild(q);
+        return;
+      }
+
+      // a bare URL on its own line is a source citation
+      if (/^https?:\/\/\S+$/.test(raw.trim())) {
+        var sp = el('p', 'p srcline');
+        sp.innerHTML = inlineFmt(raw.trim());
+        host.appendChild(sp);
+        return;
+      }
+
+      var p = el('p', 'p');
+      p.innerHTML = inlineFmt(raw);
+      host.appendChild(p);
+    });
+  }
+
+  /* a labelled fold (spanish original / song note) */
+  function makeFold(host, label, text) {
+    if (!text || !String(text).trim()) return;
+    var btn = el('button', 'fold');
+    btn.type = 'button';
+    btn.textContent = label + ' +';
+    btn.setAttribute('aria-expanded', 'false');
+    var body = el('div', 'fold-body');
+    renderProse(body, text);
+    btn.setAttribute('aria-controls', body.id = uniqueId('fold'));
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = body.classList.toggle('is-open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.textContent = label + (open ? ' −' : ' +');
+    });
+    host.appendChild(btn);
+    host.appendChild(body);
+  }
+
+  var idn = 0;
+  function uniqueId(kind) {
+    return 'h-nyt-' + kind + '-' + (++idn);
+  }
+
+  /* ---------- placement maths ---------- */
+
+  // Two annotations share a line 1.5% of the time and never three,
+  // so the margin needs at most two bracket tracks.
+  function assignTracks(notes) {
+    var tracks = [[], []];
+    notes.forEach(function (n) {
+      for (var t = 0; t < tracks.length; t++) {
+        var clash = tracks[t].some(function (o) {
+          return !(n.span[1] < o.span[0] || n.span[0] > o.span[1]);
+        });
+        if (!clash) { n.track = t; tracks[t].push(n); return; }
+      }
+      n.track = 1; // data says this never happens; degrade rather than break
+      tracks[1].push(n);
+    });
+  }
+
+  // A "repeated" annotation is keyed at its first occurrence. Find the
+  // literal later occurrences so the repeat can be admitted in the margin.
+  function findEchoes(note, texts) {
+    var s = note.span[0], e = note.span[1], len = e - s + 1;
+    var seg = texts.slice(s, e + 1).join(' ');
+    var out = [];
+    for (var j = 0; j + len <= texts.length; j++) {
+      if (j === s) continue;
+      if (texts.slice(j, j + len).join(' ') === seg) out.push(j);
+    }
+    return out;
+  }
+
+  /* ---------- mount ---------- */
+
+  function mount(root, data, trackNo) {
+    var instance = SLUG + (++seq);
+    var track = null;
+    var i;
+    for (i = 0; i < data.tracks.length; i++) {
+      if (String(data.tracks[i].no) === String(trackNo)) { track = data.tracks[i]; break; }
+    }
+    if (!track) track = data.tracks[0];
+
+    var album = data.album || {};
+    var lines = track.lines || [];
+    var texts = lines.map(function (l) { return l.text || ''; });
+    var anns = (track.annotations || []).slice();
+
+    // Keyed notes are numbered by POSITION IN THE TEXT — never by votes.
+    var keyed = anns.filter(function (a) { return a.span && a.span.length === 2; });
+    keyed.sort(function (a, b) {
+      return (a.span[0] - b.span[0]) || (a.span[1] - b.span[1]) || (a.index - b.index);
+    });
+    keyed.forEach(function (a, n) { a._n = n + 1; a._disputed = a.votes < 0; });
+    assignTracks(keyed);
+
+    // Everything else keeps a place in the apparatus under a letter.
+    var loose = anns.filter(function (a) { return !a.span; });
+    loose.sort(function (a, b) { return a.index - b.index; });
+    loose.forEach(function (a, n) { a._letter = LETTERS[n] || String(n + 1); });
+
+    // line index -> notes starting at / covering it
+    var startsAt = {}, coversAt = {}, endsAt = {};
+    keyed.forEach(function (a) {
+      (startsAt[a.span[0]] = startsAt[a.span[0]] || []).push(a);
+      (endsAt[a.span[1]] = endsAt[a.span[1]] || []).push(a);
+      for (var k = a.span[0]; k <= a.span[1]; k++) {
+        (coversAt[k] = coversAt[k] || []).push(a);
+      }
+    });
+
+    // where a keyed passage literally recurs later (the chorus)
+    var echoStartAt = {}, echoCoverAt = {};
+    keyed.forEach(function (a) {
+      if (a.status !== 'repeated') return;
+      var len = a.span[1] - a.span[0];
+      a._echoes = findEchoes(a, texts);
+      a._echoes.forEach(function (j) {
+        (echoStartAt[j] = echoStartAt[j] || []).push(a);
+        for (var k = j; k <= j + len; k++) {
+          (echoCoverAt[k] = echoCoverAt[k] || []).push({ a: a, start: j, end: j + len });
+        }
+      });
+    });
+
+    /* ---- shell ---- */
+    var host = el('div', 'h-nyt');
+    var sheet = el('article', 'sheet');
+    host.appendChild(sheet);
+
+    /* ---- masthead ---- */
+    var head = el('header', 'masthead');
+    head.appendChild(el('p', 'kicker', '가사 주해'));
+
+    var hed = el('h1', 'hed', track.title);
+    var sub = el('span', 'hed-sub', (album.artist || '') + ' · '
+      + (album.title || '') + ' · ' + track.no + '번 트랙');
+    hed.appendChild(sub);
+    head.appendChild(hed);
+
+    head.appendChild(el('p', 'dek',
+      '가사 ' + lines.length + '행에 독자 주석 ' + anns.length + '건이 달렸다. '
+      + '그 가운데 ' + keyed.length + '건은 해당 행 옆에 번호를 달아 본문 아래에 실었고, '
+      + '어느 행에도 걸리지 않는 ' + loose.length + '건은 끝의 주석 목록에 따로 모았다. '
+      + '번호는 본문에 나오는 차례를 따른다.'));
+
+    var rel = String(album.released || '');
+    var relKo = /^\d{4}-\d{2}-\d{2}$/.test(rel)
+      ? rel.slice(0, 4) + '년 ' + Number(rel.slice(5, 7)) + '월 ' + Number(rel.slice(8, 10)) + '일'
+      : rel;
+    head.appendChild(el('p', 'byline',
+      (album.artist || '') + ' — ' + (album.label || '') + ' · ' + relKo));
+
+    head.appendChild(el('p', 'caveat',
+      '주석은 Genius 이용자들이 쓴 글이다. 검증을 거친 해설이 아니라 읽는 사람들의 해석이며, '
+      + '서로 어긋나거나 반대에 부딪힌 것도 그대로 실었다.'));
+    sheet.appendChild(head);
+
+    /* ---- toolbar ---- */
+    var bar = el('div', 'toolbar');
+    bar.appendChild(el('span', 'tool-count',
+      '본문에 달린 주석 ' + keyed.length + ' · 행에 고정되지 않은 주석 ' + loose.length));
+    var allBtn = el('button', 'tool-btn', '주석 모두 펼치기');
+    allBtn.type = 'button';
+    bar.appendChild(allBtn);
+    sheet.appendChild(bar);
+
+    /* ---- the verse ---- */
+    var verse = el('div', 'verse');
+    sheet.appendChild(verse);
+
+    var rowsOf = {};   // note number -> [row elements it covers]
+    var noteEl = {};   // note number -> note element
+    var keyEls = {};   // note number -> [key buttons]
+
+    lines.forEach(function (line, li) {
+      var row = el('div', 'row');
+      var covering = coversAt[li] || [];
+      var starting = startsAt[li] || [];
+
+      var gut = el('div', 'gut');
+
+      // brackets: the range is drawn in the margin, the verse is left clean
+      covering.forEach(function (a) {
+        var r = el('i', 'rule t' + a.track);
+        if (a.span[0] === li) r.classList.add('cap-top');
+        if (a.span[1] === li) r.classList.add('cap-bot');
+        if (a.status === 'partial') r.classList.add('is-partial');
+        r.setAttribute('data-n', a._n);
+        gut.appendChild(r);
+        (rowsOf[a._n] = rowsOf[a._n] || []).push(row);
+      });
+
+      // the repeat of a keyed passage gets a dotted bracket, but no new number
+      (echoCoverAt[li] || []).forEach(function (e) {
+        var r = el('i', 'rule is-echo t' + e.a.track);
+        if (li === e.start) r.classList.add('cap-top');
+        if (li === e.end) r.classList.add('cap-bot');
+        gut.appendChild(r);
+      });
+
+      if (starting.length) {
+        var keys = el('div', 'keys');
+        starting.forEach(function (a) {
+          var b = el('button', 'key');
+          b.type = 'button';
+          b.textContent = String(a._n);
+          if (a._disputed) {
+            b.classList.add('is-disputed');
+            b.appendChild(el('span', 'obelus', '†'));
+          }
+          b.setAttribute('aria-expanded', 'false');
+          b.setAttribute('aria-label',
+            '주석 ' + a._n + ' 펼치기 — ' + lineLabel(a.span)
+            + (a._disputed ? ', 반대가 더 많은 읽기' : ''));
+          b.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggle(a._n);
+          });
+          keys.appendChild(b);
+          (keyEls[a._n] = keyEls[a._n] || []).push(b);
+        });
+        gut.appendChild(keys);
+      }
+
+      // ditto mark at a repeat: the same note, admitted rather than hidden
+      var startsEcho = echoStartAt[li] || [];
+      if (startsEcho.length && !starting.length) {
+        var dk = el('div', 'keys');
+        startsEcho.forEach(function (a) {
+          var d = el('button', 'ditto', '〃');
+          d.type = 'button';
+          d.setAttribute('aria-label',
+            '같은 구절이 여기서 되풀이된다. 주석 ' + a._n + ' 보기');
+          d.addEventListener('click', function (e) {
+            e.stopPropagation();
+            open(a._n, true);
+          });
+          dk.appendChild(d);
+        });
+        gut.appendChild(dk);
+      }
+
+      row.appendChild(gut);
+
+      var txt = el('div', 'txt');
+      if (line.gap) {
+        row.classList.add('is-gap');
+        txt.textContent = '· · ·';
+        txt.setAttribute('aria-label', '연 구분');
+      } else {
+        txt.textContent = line.text;
+        if (ARABIC.test(line.text)) {
+          txt.classList.add('is-rtl');
+          txt.setAttribute('dir', 'rtl');
+        }
+      }
+      row.appendChild(txt);
+
+      var no = li + 1;
+      row.appendChild(el('div', 'ln',
+        (no === 1 || no % 5 === 0 || li === lines.length - 1) ? String(no) : ''));
+
+      // tapping the passage itself works, but the passage is not styled as a
+      // control — the margin key is the real, focusable one.
+      if (covering.length) {
+        row.classList.add('is-marked');
+        row.addEventListener('click', function () {
+          var sel = window.getSelection && window.getSelection();
+          if (sel && String(sel).length > 2) return; // don't hijack a selection
+          // a line carrying two readings opens both; it never picks for you
+          var anyOpen = covering.some(function (a) { return isOpen(a._n); });
+          covering.forEach(function (a) { setState(a._n, !anyOpen, false); });
+        });
+      }
+
+      verse.appendChild(row);
+
+      // the note is set immediately under the last line it keys
+      (endsAt[li] || []).forEach(function (a) {
+        var n = buildNote(a);
+        noteEl[a._n] = n;
+        verse.appendChild(n);
+      });
+    });
+
+    // notes are created after their keys (a key sits on the first line of the
+    // span, the note under the last), so the linkage is wired once both exist
+    keyed.forEach(function (a) {
+      if (!noteEl[a._n]) return;
+      (keyEls[a._n] || []).forEach(function (b) {
+        b.setAttribute('aria-controls', noteEl[a._n].id);
+      });
+    });
+
+    /* ---- note construction ---- */
+    function buildNote(a) {
+      var wrap = el('div', 'note');
+      wrap.id = 'h-nyt-note-' + instance + '-' + a._n;
+      wrap.setAttribute('role', 'region');
+      wrap.setAttribute('aria-label', '주석 ' + a._n);
+
+      // the drop figure repeats the key: margin, note and register agree
+      var fig = el('div', 'note-figure' + (a._disputed ? ' is-disputed' : ''),
+        String(a._n));
+      if (a._disputed) fig.appendChild(el('span', 'obelus', '†'));
+      wrap.appendChild(fig);
+
+      var main = el('div', 'note-main');
+
+      var lemma = el('p', 'note-lemma');
+      lemma.textContent = '“' + firstLine(a.fragment) + '”';
+      if (ARABIC.test(a.fragment || '')) lemma.setAttribute('dir', 'auto');
+      main.appendChild(lemma);
+
+      var bits = [lineLabel(a.span)];
+      if (a.status === 'repeated') bits.push('반복 ' + (a.occurrences || 2) + '회');
+      if (a.status === 'partial') bits.push('범위 근사');
+      var meta = el('p', 'note-meta');
+      meta.innerHTML = esc(bits.join(' · '))
+        + ' · '
+        + (a._disputed
+          ? '<span class="disputed">† 반대 우세 ' + esc(votes(a.votes)) + '</span>'
+          : '<span class="flag">추천 ' + esc(votes(a.votes)) + '</span>');
+      main.appendChild(meta);
+
+      // say plainly where the repeat is, and where the range stops being sure
+      var caveats = [];
+      if (a._echoes && a._echoes.length) {
+        var len = a.span[1] - a.span[0];
+        caveats.push('같은 구절이 '
+          + a._echoes.map(function (j) {
+              return lineLabel([j, j + len]);
+            }).join(', ')
+          + '에서 되풀이된다. 주석은 첫 자리에만 단다.');
+      } else if (a.status === 'repeated') {
+        caveats.push('곡 안에서 ' + (a.occurrences || 2) + '번 나오는 대목이다.');
+      }
+      if (a.status === 'partial') {
+        caveats.push('원 주석이 가리키는 구절 가운데 첫머리만 가사와 맞았다. '
+          + '아래 범위는 어림잡은 것이다.');
+      }
+      if (caveats.length) main.appendChild(el('p', 'note-caveat', caveats.join(' ')));
+
+      var prose = el('div', 'prose');
+      renderProse(prose, a.body_ko);
+      main.appendChild(prose);
+
+      var foot = el('div', 'note-foot');
+      if (a.url) {
+        var src = el('a', 'src', 'Genius에서 원문 보기 ↗');
+        src.href = a.url;
+        src.target = '_blank';
+        src.rel = 'noopener noreferrer';
+        src.addEventListener('click', function (e) { e.stopPropagation(); });
+        foot.appendChild(src);
+      }
+      main.appendChild(foot);
+      makeFold(main, '스페인어 원문', a.body_es);
+
+      wrap.appendChild(main);
+      wrap.addEventListener('click', function (e) { e.stopPropagation(); });
+      return wrap;
+    }
+
+    /* ---- open / close ---- */
+    function isOpen(n) {
+      return !!(noteEl[n] && noteEl[n].classList.contains('is-open'));
+    }
+
+    function setState(n, on, flash) {
+      var note = noteEl[n];
+      if (!note) return;
+      note.classList.toggle('is-open', on);
+      if (flash && on && !reduced()) {
+        note.classList.remove('is-flash');
+        void note.offsetWidth;
+        note.classList.add('is-flash');
+      }
+      (keyEls[n] || []).forEach(function (b) {
+        b.setAttribute('aria-expanded', on ? 'true' : 'false');
+        b.setAttribute('aria-label',
+          '주석 ' + n + (on ? ' 접기' : ' 펼치기'));
+      });
+      (rowsOf[n] || []).forEach(function (r) { r.classList.toggle('is-lit', on); });
+      verse.querySelectorAll('.rule[data-n="' + n + '"]').forEach(function (r) {
+        r.classList.toggle('is-open', on);
+      });
+      syncAllBtn();
+    }
+
+    function toggle(n) {
+      setState(n, !isOpen(n), false);
+    }
+
+    function open(n, scroll) {
+      setState(n, true, true);
+      if (scroll && noteEl[n]) {
+        noteEl[n].scrollIntoView({
+          behavior: reduced() ? 'auto' : 'smooth',
+          block: 'center'
+        });
+      }
+    }
+
+    function syncAllBtn() {
+      var total = keyed.length;
+      var n = keyed.filter(function (a) { return isOpen(a._n); }).length;
+      allBtn.textContent = (total > 0 && n === total) ? '주석 모두 접기' : '주석 모두 펼치기';
+    }
+
+    allBtn.addEventListener('click', function () {
+      var openAll = allBtn.textContent.indexOf('펼치기') !== -1;
+      keyed.forEach(function (a) { setState(a._n, openAll, false); });
+    });
+
+    /* ---- apparatus ---- */
+    var app = el('section', 'apparatus');
+    app.appendChild(el('h2', 'app-title', '주석 목록'));
+    app.appendChild(el('p', 'app-lede',
+      '본문에 달린 주석을 나오는 차례대로 적었다. 추천 수로는 정렬하지 않는다. '
+      + '한 줄을 눌러 해당 주석으로 간다.'));
+
+    var reg = el('ol', 'register');
+    keyed.forEach(function (a) {
+      var li2 = el('li');
+      var b = el('button', 'reg-row');
+      b.type = 'button';
+
+      b.appendChild(el('span', 'reg-num' + (a._disputed ? ' is-disputed' : ''),
+        a._disputed ? a._n + '†' : String(a._n)));
+
+      var loc = lineLabel(a.span);
+      if (a.status === 'repeated') loc += ' · 반복';
+      if (a.status === 'partial') loc += ' · 근사';
+      b.appendChild(el('span', 'reg-loc', loc));
+
+      var mid = el('span', 'reg-lemma');
+      mid.textContent = clip(firstLine(a.fragment), 46);
+      var extra = a.gist_ko && a.gist_ko.trim()
+        ? clip(a.gist_ko, 78)
+        : clip(String(a.body_ko || '').replace(/[*`>]/g, ''), 78);
+      mid.appendChild(el('span', 'reg-gist', extra));
+      b.appendChild(mid);
+
+      var v = el('span', 'reg-votes' + (a._disputed ? ' is-disputed' : ''), votes(a.votes));
+      b.appendChild(v);
+
+      b.setAttribute('aria-label', '주석 ' + a._n + ', ' + lineLabel(a.span) + ' 보기');
+      b.addEventListener('click', function () { open(a._n, true); });
+      li2.appendChild(b);
+      reg.appendChild(li2);
+    });
+    app.appendChild(reg);
+
+    if (loose.length) {
+      app.appendChild(el('h3', 'loose-title', '행에 고정되지 않은 주석'));
+      app.appendChild(el('p', 'loose-lede',
+        '어느 행에도 걸리지 않는 ' + loose.length + '건이다. 곡의 한 구간 전체에 달렸거나, '
+        + '가사 표기가 달라 자리를 확정하지 못했다. 본문 여백에는 자리가 없어 여기에 싣는다.'));
+
+      var lw = el('div', 'loose');
+      loose.forEach(function (a) {
+        var item = el('div', 'loose-item');
+        var h = el('button', 'loose-head');
+        h.type = 'button';
+        h.appendChild(el('span', 'loose-key', a._letter));
+
+        var f = el('span', 'loose-frag');
+        f.textContent = clip(String(a.fragment || '').replace(/\n/g, ' / '), 84);
+        if (ARABIC.test(a.fragment || '')) f.setAttribute('dir', 'auto');
+        var kind = el('span', 'loose-kind',
+          (KIND_LABEL[a.status] || a.status) + ' · ' + votes(a.votes));
+        f.appendChild(kind);
+        h.appendChild(f);
+        var sign = el('span', 'loose-sign', '+');
+        h.appendChild(sign);
+
+        var body = el('div', 'loose-body');
+        body.id = 'h-nyt-loose-' + instance + '-' + a.index;
+        var pr = el('div', 'prose');
+        renderProse(pr, a.body_ko);
+        body.appendChild(pr);
+        var lf = el('div', 'note-foot');
+        if (a.url) {
+          var ls = el('a', 'src', 'Genius에서 원문 보기 ↗');
+          ls.href = a.url; ls.target = '_blank'; ls.rel = 'noopener noreferrer';
+          lf.appendChild(ls);
+        }
+        body.appendChild(lf);
+        makeFold(body, '스페인어 원문', a.body_es);
+
+        h.setAttribute('aria-expanded', 'false');
+        h.setAttribute('aria-controls', body.id);
+        h.addEventListener('click', function () {
+          var on = body.classList.toggle('is-open');
+          h.setAttribute('aria-expanded', on ? 'true' : 'false');
+          sign.textContent = on ? '−' : '+';
+        });
+
+        item.appendChild(h);
+        item.appendChild(body);
+        lw.appendChild(item);
+      });
+      app.appendChild(lw);
+    }
+
+    if (track.description_es) {
+      var sn = el('div', 'songnote');
+      makeFold(sn, '곡 해설 — 스페인어 원문', track.description_es);
+      app.appendChild(sn);
+    }
+
+    sheet.appendChild(app);
+
+    /* ---- colophon ---- */
+    var col = el('footer', 'colophon');
+    col.appendChild(el('div', null,
+      '가사 ' + lines.length + '행 · 주석 ' + anns.length + '건 · '
+      + '주석이 걸린 행 ' + Object.keys(coversAt).length + '개 · 출처 Genius 이용자 기여'));
+    col.appendChild(el('div', 'ref',
+      '《뉴욕 타임스》 롱폼 주해 지면의 시각 언어를 참조한 디자인 습작이다. '
+      + '해당 매체와는 아무 관계가 없다.'));
+    sheet.appendChild(col);
+
+    root.appendChild(host);
+    syncAllBtn();
+  }
+
+  window.HOUSES[SLUG] = {
+    name: '신문 주해 지면',
+    ref: '신문 롱폼 주해 지면 (뉴욕 타임스 계열)',
+    blurb: '주석을 본문 여백의 번호와 각주 장치로 다뤄, 가사 자체는 한 글자도 건드리지 않은 채 긴 해설을 읽히게 한다.',
+    gives_up: '음악적인 화려함과 즉각적인 재미를 버리고, 종이 지면처럼 차분하고 무거운 인상을 택했다.',
+    mount: mount,
+    unmount: function (root) { root.innerHTML = ''; }
+  };
+})();
+</script>

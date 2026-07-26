@@ -1,0 +1,1619 @@
+<style>
+/* ==========================================================================
+   house: notion  —  document surface + right-margin comment threads
+   Every selector is prefixed with .h-notion. Custom props live on .h-notion.
+   ========================================================================== */
+
+.h-notion {
+  /* Notion-ish warm neutral ramp */
+  --h-notion-tx: #37352f;
+  --h-notion-tx2: rgba(55, 53, 47, 0.68);
+  --h-notion-tx3: rgba(55, 53, 47, 0.45);
+  --h-notion-tx4: rgba(55, 53, 47, 0.26);
+  --h-notion-line: rgba(55, 53, 47, 0.09);
+  --h-notion-line2: rgba(55, 53, 47, 0.16);
+  --h-notion-hov: rgba(55, 53, 47, 0.055);
+  --h-notion-hov2: rgba(55, 53, 47, 0.085);
+  --h-notion-app: #f1f0ee;
+  --h-notion-panel: #ffffff;
+  --h-notion-soft: #f1f1ef;
+  /* pale comment highlight */
+  --h-notion-yl: #fbf3db;
+  --h-notion-yl-hi: #f6e5ab;
+  --h-notion-gold: rgba(184, 130, 30, 0.55);
+  --h-notion-gold-hi: rgba(168, 116, 18, 0.9);
+  /* disputed reading */
+  --h-notion-rd: #fbe4e4;
+  --h-notion-rd-hi: #f6cfcf;
+  --h-notion-red: rgba(200, 74, 69, 0.6);
+  --h-notion-red-hi: rgba(179, 58, 58, 0.95);
+  --h-notion-red-tx: #b03a3a;
+  /* accents */
+  --h-notion-blue: #2383e2;
+  --h-notion-blue-soft: rgba(35, 131, 226, 0.062);
+  --h-notion-orange-bg: #faebdd;
+  --h-notion-orange-tx: #a35400;
+  --h-notion-cyan-bg: #ddebf1;
+  --h-notion-cyan-tx: #0b6e99;
+  --h-notion-gray-bg: #e6e5e2;
+  --h-notion-gray-tx: #59584f;
+  --h-notion-shadow: 0 0 0 1px rgba(15, 15, 15, 0.045), 0 1px 2px rgba(15, 15, 15, 0.045);
+
+  background: var(--h-notion-app);
+  color: var(--h-notion-tx);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+    Pretendard, "Noto Sans KR", "Malgun Gothic", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding: 14px 0 44px;
+}
+
+.h-notion .page {
+  box-sizing: border-box;
+  max-width: 1180px;
+  margin: 0 auto;
+  background: var(--h-notion-panel);
+  border-radius: 8px;
+  box-shadow: var(--h-notion-shadow);
+  padding: 0 28px 8px;
+  position: relative;
+}
+
+/* ---------- top bar ------------------------------------------------------ */
+
+.h-notion .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 45px;
+  margin: 0 -28px;
+  padding: 0 20px 0 28px;
+  background: var(--h-notion-panel);
+  border-radius: 8px 8px 0 0;
+  font-size: 14px;
+}
+
+.h-notion .crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+  color: var(--h-notion-tx2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.h-notion .crumb-ico { font-size: 14px; line-height: 1; }
+.h-notion .crumb-sep { color: var(--h-notion-tx4); }
+.h-notion .crumb-now {
+  color: var(--h-notion-tx);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-notion button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  margin: 0;
+  cursor: pointer;
+}
+
+.h-notion .tbtn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--h-notion-tx2);
+  transition: background 90ms ease;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.h-notion .tbtn:hover { background: var(--h-notion-hov); }
+.h-notion .tbtn[aria-pressed="true"] { color: var(--h-notion-tx); background: var(--h-notion-hov); }
+.h-notion .tbtn svg { width: 15px; height: 15px; display: block; }
+
+.h-notion .ico {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- two-column body --------------------------------------------- */
+
+.h-notion .body {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  padding-top: 6px;
+}
+.h-notion.mode-wide .body {
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 36px;
+}
+.h-notion.mode-wide.rail-off .body { grid-template-columns: minmax(0, 1fr); gap: 0; }
+
+.h-notion .doc { min-width: 0; }
+.h-notion .doc-in {
+  box-sizing: border-box;
+  max-width: 780px;
+  padding-left: 32px; /* gutter that the hover line numbers sit in */
+}
+.h-notion.mode-narrow .doc-in { padding-left: 0; max-width: none; }
+
+/* ---------- document header --------------------------------------------- */
+
+.h-notion .pico {
+  font-size: 52px;
+  line-height: 1;
+  margin: 22px 0 6px;
+  user-select: none;
+}
+.h-notion .ptitle {
+  margin: 0 0 2px;
+  font-size: 40px;
+  line-height: 1.18;
+  font-weight: 700;
+  letter-spacing: -0.021em;
+  color: var(--h-notion-tx);
+}
+.h-notion .psub {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--h-notion-tx3);
+}
+
+.h-notion .props { margin: 0 0 18px; }
+.h-notion .prow {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+.h-notion .plab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 1px 6px;
+  margin-left: -6px;
+  border-radius: 4px;
+  color: var(--h-notion-tx2);
+  transition: background 90ms ease;
+}
+.h-notion .prow:hover .plab { background: var(--h-notion-hov); }
+.h-notion .plab svg { width: 14px; height: 14px; flex: 0 0 auto; color: var(--h-notion-tx3); }
+.h-notion .pval { padding: 1px 0; color: var(--h-notion-tx); overflow-wrap: anywhere; }
+.h-notion .pdim { color: var(--h-notion-tx3); }
+
+/* callout — the one quiet disclaimer */
+.h-notion .callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--h-notion-soft);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--h-notion-tx2);
+}
+.h-notion .callout svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 2px; color: var(--h-notion-tx3); }
+
+/* toggle block (track blurb) */
+.h-notion .tg {
+  margin: 0 0 6px;
+  font-size: 14px;
+  border-radius: 4px;
+}
+.h-notion .tg > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 6px;
+  margin-left: -6px;
+  border-radius: 4px;
+  color: var(--h-notion-tx2);
+  cursor: pointer;
+  transition: background 90ms ease;
+}
+.h-notion .tg > summary::-webkit-details-marker { display: none; }
+.h-notion .tg > summary:hover { background: var(--h-notion-hov); }
+.h-notion .tg > summary svg {
+  width: 13px;
+  height: 13px;
+  color: var(--h-notion-tx3);
+  transition: transform 120ms ease;
+}
+.h-notion .tg[open] > summary svg { transform: rotate(90deg); }
+.h-notion .tg-body {
+  padding: 4px 0 10px 22px;
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--h-notion-tx2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.h-notion .rule {
+  border: 0;
+  border-top: 1px solid var(--h-notion-line);
+  margin: 16px 0 10px;
+}
+
+/* ---------- lyric blocks ------------------------------------------------- */
+
+.h-notion .lyrics { margin: 0 0 8px; }
+
+/* One lyric line = one block. The block spacing is what lets 14 threads sit
+   beside their own lines on the dense track instead of piling up. */
+.h-notion .ln {
+  position: relative;
+  padding: 7px 2px;
+  border-radius: 3px;
+}
+.h-notion .ln:hover { background: rgba(55, 53, 47, 0.022); }
+
+.h-notion .num {
+  position: absolute;
+  left: -32px;
+  top: 9px;
+  width: 24px;
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  color: var(--h-notion-tx4);
+  opacity: 0;
+  transition: opacity 90ms ease;
+  user-select: none;
+}
+.h-notion .ln:hover .num,
+.h-notion .ln.is-active .num { opacity: 1; }
+.h-notion.mode-narrow .num { display: none; }
+
+.h-notion .lx {
+  font-size: 16px;
+  line-height: 1.62;
+  overflow-wrap: anywhere;
+}
+.h-notion .lx-gap {
+  color: var(--h-notion-tx4);
+  letter-spacing: 0.34em;
+  font-size: 13px;
+  padding: 10px 0 4px;
+  user-select: none;
+}
+
+/* the marked passage — text-hugging pale highlight */
+.h-notion .mk {
+  display: inline;
+  padding: 1px 2px;
+  border-radius: 2px;
+  background: var(--h-notion-yl);
+  box-shadow: inset 0 -1.5px 0 var(--h-notion-gold);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  cursor: pointer;
+  transition: background 100ms ease, box-shadow 100ms ease;
+}
+.h-notion .mk:hover { background: var(--h-notion-yl-hi); }
+
+/* two comments on one line: two underlines, one per comment */
+.h-notion .mk.dbl {
+  padding-bottom: 3px;
+  box-shadow:
+    inset 0 -1.5px 0 var(--h-notion-gold),
+    inset 0 -3px 0 var(--h-notion-yl),
+    inset 0 -4.5px 0 var(--h-notion-gold);
+}
+/* disputed reading (negative votes) — pale red instead of pale yellow */
+.h-notion .mk.dsp {
+  background: var(--h-notion-rd);
+  box-shadow: inset 0 -1.5px 0 var(--h-notion-red);
+}
+.h-notion .mk.dsp:hover { background: var(--h-notion-rd-hi); }
+.h-notion .mk.dbl.dsp {
+  background: var(--h-notion-yl);
+  box-shadow:
+    inset 0 -1.5px 0 var(--h-notion-red),
+    inset 0 -3px 0 var(--h-notion-yl),
+    inset 0 -4.5px 0 var(--h-notion-gold);
+}
+.h-notion .mk.dbl.dsp:hover { background: var(--h-notion-yl-hi); }
+
+.h-notion .mk.is-on {
+  background: var(--h-notion-yl-hi);
+  box-shadow: inset 0 -2px 0 var(--h-notion-gold-hi);
+}
+.h-notion .mk.is-on.dsp {
+  background: var(--h-notion-rd-hi);
+  box-shadow: inset 0 -2px 0 var(--h-notion-red-hi);
+}
+
+/* the repeat of a chorus line — admitted, but subordinate */
+.h-notion .ek {
+  display: inline;
+  padding: 1px 2px 1px;
+  border-bottom: 1px dashed var(--h-notion-gold);
+  cursor: pointer;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background 100ms ease;
+}
+.h-notion .ek:hover { background: var(--h-notion-yl); }
+.h-notion .ek.is-on { background: var(--h-notion-yl); }
+
+.h-notion .mk:focus-visible,
+.h-notion .ek:focus-visible,
+.h-notion .tbtn:focus-visible,
+.h-notion .cbtn:focus-visible,
+.h-notion .tg > summary:focus-visible,
+.h-notion .c-link:focus-visible,
+.h-notion .card:focus-visible {
+  outline: 2px solid var(--h-notion-blue);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.h-notion .mk:focus,
+.h-notion .ek:focus,
+.h-notion .card:focus { outline: none; }
+
+.h-notion .sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- document footer ---------------------------------------------- */
+
+.h-notion .foot {
+  margin: 22px 0 8px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--h-notion-tx3);
+}
+.h-notion .foot p { margin: 0 0 3px; }
+.h-notion .refcap { color: var(--h-notion-tx4); }
+
+/* ---------- right margin rail -------------------------------------------- */
+
+.h-notion .rail { position: relative; min-width: 0; }
+.h-notion.mode-narrow .rail { display: none; }
+.h-notion.rail-off .rail { display: none; }
+
+.h-notion .rail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 26px 2px 8px;
+  font-size: 13px;
+  color: var(--h-notion-tx3);
+}
+.h-notion .rail-title { font-size: 14px; font-weight: 600; color: var(--h-notion-tx2); }
+.h-notion .rail-legend {
+  padding: 0 2px 10px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--h-notion-tx4);
+}
+.h-notion .swatch {
+  display: inline-block;
+  width: 20px;
+  height: 9px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  margin-right: 3px;
+}
+.h-notion .sw-y { background: var(--h-notion-yl); box-shadow: inset 0 -1.5px 0 var(--h-notion-gold); }
+.h-notion .sw-r { background: var(--h-notion-rd); box-shadow: inset 0 -1.5px 0 var(--h-notion-red); }
+
+.h-notion .ro-head {
+  padding: 10px 2px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--h-notion-tx3);
+}
+.h-notion .orphans { margin-bottom: 8px; }
+
+.h-notion .canvas { position: relative; }
+.h-notion.mode-narrow .canvas { position: static; }
+
+/* ---------- comment card -------------------------------------------------- */
+
+.h-notion .card {
+  box-sizing: border-box;
+  background: var(--h-notion-panel);
+  border: 1px solid var(--h-notion-line2);
+  border-radius: 6px;
+  padding: 10px 12px 9px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  transition: box-shadow 110ms ease, background 110ms ease, border-color 110ms ease;
+}
+.h-notion.mode-wide .canvas .card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-bottom: 0;
+}
+.h-notion .card:hover { border-color: rgba(55, 53, 47, 0.24); }
+.h-notion .card.is-on {
+  background: var(--h-notion-blue-soft);
+  border-color: rgba(35, 131, 226, 0.34);
+  box-shadow: 0 0 0 1px rgba(35, 131, 226, 0.14), 0 2px 6px rgba(15, 15, 15, 0.06);
+}
+.h-notion .card.dsp { border-color: rgba(200, 74, 69, 0.28); }
+.h-notion .card.dsp.is-on { background: rgba(224, 62, 62, 0.045); border-color: rgba(200, 74, 69, 0.45); }
+
+.h-notion .c-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.h-notion .avatar {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--h-notion-gray-bg);
+  color: var(--h-notion-tx3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.h-notion .avatar svg { width: 12px; height: 12px; }
+.h-notion .c-name { font-size: 13.5px; font-weight: 500; color: var(--h-notion-tx); }
+.h-notion .c-meta { font-size: 12px; color: var(--h-notion-tx3); }
+
+.h-notion .chip {
+  font-size: 11.5px;
+  line-height: 1.5;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--h-notion-gray-bg);
+  color: var(--h-notion-gray-tx);
+  white-space: nowrap;
+}
+.h-notion .chip.k-partial { background: var(--h-notion-orange-bg); color: var(--h-notion-orange-tx); }
+.h-notion .chip.k-repeated { background: var(--h-notion-cyan-bg); color: var(--h-notion-cyan-tx); }
+.h-notion .chip.k-dsp { background: var(--h-notion-rd); color: var(--h-notion-red-tx); }
+
+.h-notion .c-meta { font-variant-numeric: tabular-nums; }
+.h-notion .c-quote {
+  margin: 0 0 7px;
+  padding-left: 9px;
+  border-left: 2px solid var(--h-notion-line2);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--h-notion-tx2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.h-notion .c-note {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--h-notion-tx3);
+  margin: 0 0 7px;
+}
+.h-notion .c-note.warn {
+  color: var(--h-notion-red-tx);
+  background: var(--h-notion-rd);
+  border-radius: 3px;
+  padding: 5px 8px;
+}
+
+/* A collapsed thread is head + preview only. The quoted passage and the
+   status notes return on open — the passage is already highlighted in the
+   document a few centimetres to the left. The disputed warning never hides. */
+.h-notion .card:not(.is-open):not(.is-short) .c-quote,
+.h-notion .card:not(.is-open):not(.is-short) .c-note:not(.warn) { display: none; }
+
+.h-notion .c-body {
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--h-notion-tx);
+  /* two lines collapsed — the gist is written to fit, and keeping the row
+     short is what lets every thread stay next to its own line */
+  max-height: 52px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 62%, rgba(0, 0, 0, 0.1) 100%);
+  mask-image: linear-gradient(180deg, #000 62%, rgba(0, 0, 0, 0.1) 100%);
+  overflow-wrap: anywhere;
+}
+/* No one-line gist for this comment? Then the preview has to do the
+   summarising, so give it twice the room. */
+.h-notion .card.no-gist:not(.is-open):not(.is-short) .c-body { max-height: 96px; }
+
+/* Unanchored comments sit above the anchored ones, so collapsed they are one
+   line tall — otherwise they push every anchored thread away from its line. */
+.h-notion .card.is-orphan:not(.is-open):not(.is-short) .c-body { max-height: 26px; }
+.h-notion .card.is-orphan:not(.is-open):not(.is-short) { padding: 8px 11px 7px; }
+
+.h-notion .card.is-open .c-body,
+.h-notion .card.is-short .c-body {
+  max-height: none;
+  overflow: visible;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.h-notion .c-p { margin: 0; }
+.h-notion .c-p.gap { margin-top: 0.72em; }
+.h-notion .c-lead { font-weight: 600; }
+.h-notion .c-lead + .c-p,
+.h-notion .c-lead + .c-q { margin-top: 0.62em; }
+.h-notion .c-q {
+  margin: 0.72em 0;
+  padding-left: 11px;
+  border-left: 3px solid var(--h-notion-line2);
+  color: var(--h-notion-tx2);
+}
+.h-notion .c-q .c-p { margin: 0; }
+.h-notion .c-b { font-weight: 600; }
+.h-notion .c-i { font-style: italic; color: var(--h-notion-tx2); }
+.h-notion .c-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86em;
+  background: rgba(135, 131, 120, 0.15);
+  color: #b64b3f;
+  border-radius: 3px;
+  padding: 0.15em 0.35em;
+}
+.h-notion .c-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--h-notion-line2);
+  overflow-wrap: anywhere;
+}
+.h-notion .c-link:hover { border-bottom-color: var(--h-notion-tx3); }
+
+.h-notion .c-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+.h-notion .cbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--h-notion-tx3);
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: 3px;
+  transition: background 90ms ease, color 90ms ease;
+}
+.h-notion .cbtn:hover { background: var(--h-notion-hov); color: var(--h-notion-tx2); }
+.h-notion .cbtn svg { width: 12px; height: 12px; }
+.h-notion .cbtn + .cbtn { margin-left: 0; }
+.h-notion .card.is-short .c-more { display: none; }
+.h-notion .c-src { opacity: 0; transition: opacity 100ms ease; }
+.h-notion .card:hover .c-src,
+.h-notion .card.is-on .c-src,
+.h-notion .c-src:focus-visible { opacity: 1; }
+.h-notion.mode-narrow .c-src { opacity: 1; }
+
+.h-notion .c-es {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--h-notion-line);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--h-notion-tx2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- anchor connector (active thread only) ------------------------ */
+
+.h-notion .conn {
+  position: absolute;
+  background: var(--h-notion-line2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.h-notion .conn.on { opacity: 1; }
+.h-notion.mode-narrow .conn { display: none; }
+.h-notion.rail-off .conn { display: none; }
+
+/* ---------- mobile sheet -------------------------------------------------- */
+
+.h-notion .scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 15, 0.26);
+  z-index: 60;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.h-notion .scrim.on { opacity: 1; pointer-events: auto; }
+
+.h-notion .sheet {
+  box-sizing: border-box;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--h-notion-panel);
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -1px 0 rgba(15, 15, 15, 0.07), 0 -10px 40px rgba(15, 15, 15, 0.16);
+  transform: translateY(102%);
+  transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  visibility: hidden;
+}
+.h-notion .sheet.on { transform: translateY(0); visibility: visible; }
+
+.h-notion .grab {
+  width: 34px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--h-notion-line2);
+  margin: 8px auto 2px;
+  flex: 0 0 auto;
+}
+.h-notion .sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 8px 16px;
+  border-bottom: 1px solid var(--h-notion-line);
+  flex: 0 0 auto;
+}
+.h-notion .sheet-title { font-size: 14px; font-weight: 600; flex: 1 1 auto; }
+.h-notion .sheet-body {
+  padding: 12px 16px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.h-notion .xbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--h-notion-tx2);
+  flex: 0 0 auto;
+}
+.h-notion .xbtn:hover { background: var(--h-notion-hov); }
+.h-notion .xbtn svg { width: 14px; height: 14px; }
+.h-notion .xbtn:focus-visible { outline: 2px solid var(--h-notion-blue); outline-offset: 1px; }
+
+/* ---------- narrow tuning ------------------------------------------------- */
+
+.h-notion.mode-narrow { padding: 0 0 32px; }
+.h-notion.mode-narrow .page {
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0 16px 8px;
+}
+.h-notion.mode-narrow .topbar { margin: 0 -16px; padding: 0 8px 0 16px; border-radius: 0; }
+.h-notion.mode-narrow .pico { font-size: 44px; margin-top: 16px; }
+.h-notion.mode-narrow .ptitle { font-size: 29px; }
+.h-notion.mode-narrow .prow { grid-template-columns: 118px minmax(0, 1fr); font-size: 13.5px; }
+.h-notion.mode-narrow .lx { line-height: 1.7; }
+.h-notion.mode-narrow .rail-head { padding-top: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .h-notion .sheet,
+  .h-notion .scrim,
+  .h-notion .conn,
+  .h-notion .card,
+  .h-notion .mk,
+  .h-notion .ek,
+  .h-notion .tbtn,
+  .h-notion .cbtn,
+  .h-notion .num,
+  .h-notion .tg > summary svg { transition: none; }
+}
+</style>
+
+<script>
+(function () {
+  window.HOUSES = window.HOUSES || {};
+
+  // ---- tiny inline icon set (no external requests) ------------------------
+  var ICON = {
+    person: '<circle cx="8" cy="5.4" r="2.5"/><path d="M3.4 13.4c0-2.6 2-4.2 4.6-4.2s4.6 1.6 4.6 4.2"/>',
+    album: '<circle cx="8" cy="8" r="5.7"/><circle cx="8" cy="8" r="1.3"/>',
+    hash: '<path d="M6.3 2.9 5 13.1M11.2 2.9 9.9 13.1M2.9 5.9h10.2M2.5 10.1h10.2"/>',
+    chat: '<path d="M13.4 9.3a1.8 1.8 0 0 1-1.8 1.8H5.7l-3.1 2.3V4.5a1.8 1.8 0 0 1 1.8-1.8h7.2a1.8 1.8 0 0 1 1.8 1.8z"/>',
+    list: '<path d="M3 4.5h10M3 8h10M3 11.5h6.6"/>',
+    info: '<circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4M8 4.9v.1"/>',
+    chev: '<path d="M6 3.6 10.4 8 6 12.4"/>',
+    close: '<path d="M4 4l8 8M12 4l-8 8"/>',
+    out: '<path d="M6.6 3.6H3.5v8.9h8.9V9.4M9.3 2.9h3.8v3.8M12.8 3.2 7.7 8.3"/>'
+  };
+  function icon(name, cls) {
+    var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 16 16');
+    s.setAttribute('aria-hidden', 'true');
+    s.setAttribute('focusable', 'false');
+    s.setAttribute('class', 'ico' + (cls ? ' ' + cls : ''));
+    s.innerHTML = ICON[name]; // static author strings only, never data
+    return s;
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function num(n) { return String(n).replace('-', '−'); } // proper minus sign
+
+  // ---- inline markdown subset used by the annotation bodies ---------------
+  var RX_SRC = '\\*\\*([^*]+)\\*\\*|\\*([^*\\n]+)\\*|`([^`]+)`|(https?://\\S+)';
+  function shortUrl(u) {
+    var t = u.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return t.length > 44 ? t.slice(0, 43) + '…' : t;
+  }
+  function inlineInto(node, text) {
+    // fresh matcher per call: this function recurses, and a shared /g regex
+    // would have its lastIndex clobbered by the inner pass
+    var rx = new RegExp(RX_SRC, 'g');
+    var last = 0, m;
+    while ((m = rx.exec(text)) !== null) {
+      if (m.index > last) node.appendChild(document.createTextNode(text.slice(last, m.index)));
+      // bold/italic recurse: the bodies nest `code` inside *(...)* parentheticals.
+      // Safe from runaway recursion because the captured text excludes '*'.
+      if (m[1] != null) { var b = el('strong', 'c-b'); inlineInto(b, m[1]); node.appendChild(b); }
+      else if (m[2] != null) { var it = el('em', 'c-i'); inlineInto(it, m[2]); node.appendChild(it); }
+      else if (m[3] != null) node.appendChild(el('code', 'c-code', m[3]));
+      else {
+        var a = el('a', 'c-link', shortUrl(m[4]));
+        a.href = m[4];
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        node.appendChild(a);
+      }
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) node.appendChild(document.createTextNode(text.slice(last)));
+  }
+  // Each source line becomes its own block, Notion-style; a preceding blank
+  // line widens the gap. Consecutive "> " lines merge into one quote block.
+  function renderBody(box, raw) {
+    var lines = String(raw || '').split('\n');
+    var i = 0, blank = false;
+    while (i < lines.length) {
+      if (!lines[i].trim()) { blank = true; i++; continue; }
+      if (/^>\s?/.test(lines[i])) {
+        var q = el('blockquote', 'c-q' + (blank ? ' gap' : ''));
+        while (i < lines.length && /^>\s?/.test(lines[i])) {
+          var ql = el('p', 'c-p');
+          ql.setAttribute('dir', 'auto');
+          inlineInto(ql, lines[i].replace(/^>\s?/, ''));
+          q.appendChild(ql);
+          i++;
+        }
+        box.appendChild(q);
+        blank = false;
+        continue;
+      }
+      var p = el('p', 'c-p' + (blank ? ' gap' : ''));
+      p.setAttribute('dir', 'auto');
+      inlineInto(p, lines[i]);
+      box.appendChild(p);
+      blank = false;
+      i++;
+    }
+  }
+
+  // ---- data prep ----------------------------------------------------------
+  function norm(s) {
+    return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  }
+  // A `repeated` annotation is anchored at its first occurrence. Find the
+  // later occurrence(s) so the repeat can be admitted in the margin instead
+  // of silently disappearing.
+  function findRepeats(track, a) {
+    var L = track.lines, out = [];
+    if (!a.span) return out;
+    var s = a.span[0], e = a.span[1], len = e - s + 1;
+    var target = [];
+    for (var k = s; k <= e; k++) target.push(norm(L[k].text));
+    for (var j = 0; j + len <= L.length; j++) {
+      if (j === s) continue;
+      var ok = true;
+      for (var d = 0; d < len; d++) {
+        if (L[j + d].gap || norm(L[j + d].text) !== target[d]) { ok = false; break; }
+      }
+      if (ok) out.push([j, j + len - 1]);
+    }
+    if (out.length) { out.kind = 'line'; return out; }
+    // fall back to the short fragment text (e.g. a single recurring word)
+    var frag = norm(String(a.fragment || '').split('\n')[0]);
+    if (frag.length >= 3 && frag.length <= 40) {
+      for (var t = 0; t < L.length; t++) {
+        if (t >= s && t <= e) continue;
+        if (!L[t].gap && norm(L[t].text).indexOf(frag) !== -1) out.push([t, t]);
+      }
+    }
+    var cap = Math.max(0, (a.occurrences || 2) - 1);
+    var res = out.slice(0, cap);
+    res.kind = 'phrase';
+    return res;
+  }
+
+  var STATUS = {
+    partial: { chip: '부분 일치', cls: 'k-partial',
+      note: '가사와 앞부분만 일치해서 범위가 정확하지 않습니다.' },
+    repeated: { chip: '반복 구절', cls: 'k-repeated', note: '' },
+    section: { chip: '구간 노트', cls: '', note: '' },
+    unmatched: { chip: '위치 미확인', cls: '',
+      note: '가사 어느 행에 붙는지 찾지 못했습니다.' },
+    unique: { chip: '', cls: '', note: '' }
+  };
+
+  window.HOUSES['notion'] = {
+    name: '문서와 여백 코멘트',
+    ref: 'Notion 문서 + 코멘트 사이드바',
+    blurb: '가사를 한 편의 문서로, 주석을 그 문서에 달린 코멘트 스레드로 다루어 자기 행 옆 여백에 여러 개를 한꺼번에 세워 둔다.',
+    gives_up: '노래의 정서를 전부 버리고 사무적인 회색 문서가 되며, 1,000자짜리 해설은 340px 여백 칸에 갇혀 세로로 길게 늘어진다.',
+
+    mount: function (root, data, trackNo) {
+      // ---------------- resolve track ----------------
+      var tracks = (data && data.tracks) || [];
+      var track = null, ti;
+      for (ti = 0; ti < tracks.length; ti++) {
+        if (tracks[ti].no === trackNo) { track = tracks[ti]; break; }
+      }
+      if (!track) track = tracks[trackNo] || tracks[0];
+      if (!track) return;
+      var album = (data && data.album) || {};
+      var LINES = track.lines || [];
+      var stats = track.stats || {};
+
+      // ---------------- build annotation model ----------------
+      var anns = (track.annotations || []).map(function (a) {
+        var o = {
+          raw: a,
+          key: 'a' + a.index,
+          index: a.index,
+          status: a.status || 'unique',
+          span: (a.span && a.span.length === 2) ? a.span : null,
+          votes: typeof a.votes === 'number' ? a.votes : 0,
+          fragment: a.fragment || '',
+          gist: a.gist_ko || '',
+          bodyKo: a.body_ko || '',
+          bodyEs: a.body_es || '',
+          url: a.url || ''
+        };
+        o.located = !!o.span;
+        o.disputed = o.votes < 0;
+        o.repeats = (o.status === 'repeated' && o.span) ? findRepeats(track, a) : [];
+        o.repeatKind = o.repeats.kind || 'line';
+        o.echoShown = false; // set while drawing the lyrics, read when drawing the card
+        return o;
+      });
+
+      var located = anns.filter(function (a) { return a.located; })
+        .sort(function (x, y) { return x.span[0] - y.span[0] || x.span[1] - y.span[1]; });
+      var orphans = anns.filter(function (a) { return !a.located; })
+        .sort(function (x, y) { return x.index - y.index; });
+
+      // per-line index: which annotations start / cover / echo here
+      var starts = {}, covers = {}, echoStart = {}, echoCover = {};
+      located.forEach(function (a) {
+        for (var i = a.span[0]; i <= a.span[1]; i++) (covers[i] = covers[i] || []).push(a);
+        (starts[a.span[0]] = starts[a.span[0]] || []).push(a);
+        a.repeats.forEach(function (r) {
+          for (var j = r[0]; j <= r[1]; j++) (echoCover[j] = echoCover[j] || []).push(a);
+          (echoStart[r[0]] = echoStart[r[0]] || []).push(a);
+        });
+      });
+
+      // ---------------- shell ----------------
+      var rootEl = el('div', 'h-notion mode-wide');
+      var page = el('div', 'page');
+      rootEl.appendChild(page);
+      root.appendChild(rootEl);
+
+      var hint = el('span', 'sr', '코멘트가 달린 구절입니다. 눌러서 코멘트를 엽니다.');
+      hint.id = 'h-notion-hint-' + track.no;
+      var hintEcho = el('span', 'sr', '앞에 나왔던 구절이 다시 나오는 곳입니다. 눌러서 같은 코멘트를 엽니다.');
+      hintEcho.id = 'h-notion-hintr-' + track.no;
+      page.appendChild(hint);
+      page.appendChild(hintEcho);
+
+      // ---------------- top bar ----------------
+      var topbar = el('div', 'topbar');
+      var crumbs = el('div', 'crumbs');
+      crumbs.appendChild(el('span', 'crumb-ico', '🕯️'));
+      crumbs.appendChild(el('span', null, album.title || 'LUX'));
+      crumbs.appendChild(el('span', 'crumb-sep', '/'));
+      crumbs.appendChild(el('span', 'crumb-now', track.title || ''));
+      topbar.appendChild(crumbs);
+
+      var btnComments = el('button', 'tbtn');
+      btnComments.type = 'button';
+      btnComments.appendChild(icon('chat'));
+      btnComments.appendChild(el('span', null, String(anns.length)));
+      btnComments.setAttribute('aria-label', '코멘트 ' + anns.length + '개');
+      topbar.appendChild(btnComments);
+
+      var btnAll = el('button', 'tbtn');
+      btnAll.type = 'button';
+      var btnAllLabel = el('span', null, '모두 펼치기');
+      btnAll.appendChild(btnAllLabel);
+      topbar.appendChild(btnAll);
+      page.appendChild(topbar);
+
+      // ---------------- body grid ----------------
+      var body = el('div', 'body');
+      var doc = el('div', 'doc');
+      var docIn = el('div', 'doc-in');
+      doc.appendChild(docIn);
+      var rail = el('div', 'rail');
+      body.appendChild(doc);
+      body.appendChild(rail);
+      page.appendChild(body);
+
+      // connector segments (active thread only)
+      var connA = el('div', 'conn'), connB = el('div', 'conn'), connC = el('div', 'conn');
+      body.appendChild(connA); body.appendChild(connB); body.appendChild(connC);
+
+      // ---------------- document header ----------------
+      docIn.appendChild(el('div', 'pico', '🕯️'));
+      docIn.appendChild(el('h1', 'ptitle', track.title || ''));
+      docIn.appendChild(el('p', 'psub',
+        (album.artist || '') + ' · ' + (album.title || '') + ' · ' +
+        (track.no != null ? track.no + '번 트랙' : '')));
+
+      var props = el('div', 'props');
+      function prop(ic, label, value, dim) {
+        var row = el('div', 'prow');
+        var lab = el('div', 'plab');
+        lab.appendChild(icon(ic));
+        lab.appendChild(el('span', null, label));
+        row.appendChild(lab);
+        var val = el('div', 'pval');
+        val.appendChild(document.createTextNode(value));
+        if (dim) val.appendChild(el('span', 'pdim', '  ' + dim));
+        row.appendChild(val);
+        props.appendChild(row);
+      }
+      var markedPct = stats.coverage_pct != null ? stats.coverage_pct : 0;
+      prop('person', '아티스트', album.artist || '—');
+      prop('album', '앨범', (album.title || '—'),
+        (album.released || '') + (album.label ? ' · ' + album.label : ''));
+      prop('list', '가사', LINES.length + '행',
+        '표시된 행 ' + (stats.marked_lines != null ? stats.marked_lines : '—') +
+        ' (' + markedPct + '%)');
+      prop('chat', '코멘트', anns.length + '개',
+        '구절에 붙음 ' + located.length + ' · 위치 미확인 ' + orphans.length);
+      prop('hash', '출처', 'Genius 커뮤니티');
+      docIn.appendChild(props);
+
+      var callout = el('div', 'callout');
+      callout.appendChild(icon('info'));
+      callout.appendChild(el('div', null,
+        '여기 달린 코멘트는 팬이 쓴 해석입니다. 공식 해설도, 검증된 내용도 아닙니다. 아래에서는 이 안내를 다시 반복하지 않습니다.'));
+      docIn.appendChild(callout);
+
+      if (track.description_es) {
+        var tg = el('details', 'tg');
+        var sm = el('summary');
+        sm.appendChild(icon('chev'));
+        sm.appendChild(el('span', null, '트랙 소개 (스페인어·영어 원문)'));
+        tg.appendChild(sm);
+        var tgb = el('div', 'tg-body');
+        tgb.setAttribute('dir', 'auto');
+        tgb.textContent = track.description_es;
+        tg.appendChild(tgb);
+        docIn.appendChild(tg);
+      }
+
+      docIn.appendChild(el('hr', 'rule'));
+
+      // ---------------- lyric blocks ----------------
+      var lyrics = el('div', 'lyrics');
+      var lineEls = [];
+      var markSpans = {}; // key -> [span elements]
+
+      LINES.forEach(function (line, i) {
+        var row = el('div', 'ln');
+        row.appendChild(el('span', 'num', String(i + 1)));
+        lineEls.push(row);
+
+        if (line.gap) {
+          // stanza break — drawn, and it still occupies line number i+1
+          var g = el('div', 'lx lx-gap', '· · ·');
+          g.setAttribute('aria-label', '연 구분');
+          row.appendChild(g);
+          lyrics.appendChild(row);
+          return;
+        }
+
+        var lx = el('div', 'lx');
+        lx.setAttribute('dir', 'auto'); // Arabic verses render RTL correctly
+        var cov = covers[i], st = starts[i];
+        var ech = echoCover[i], echSt = echoStart[i];
+
+        if (cov && cov.length) {
+          var mk = el('span', 'mk', line.text);
+          if (cov.length > 1) mk.classList.add('dbl');
+          var anyDisputed = cov.some(function (a) { return a.disputed; });
+          if (anyDisputed) mk.classList.add('dsp');
+          var owners = (st && st.length) ? st : cov;
+          mk.setAttribute('data-keys', owners.map(function (a) { return a.key; }).join(' '));
+          if (st && st.length) {
+            // only the first line of a span is a tab stop — one stop per comment
+            mk.setAttribute('role', 'button');
+            mk.setAttribute('tabindex', '0');
+            mk.setAttribute('aria-describedby', hint.id);
+          }
+          cov.forEach(function (a) { (markSpans[a.key] = markSpans[a.key] || []).push(mk); });
+          lx.appendChild(mk);
+        } else if (ech && ech.length) {
+          // the repeat: quieter, dashed, but present and clickable
+          var ek = el('span', 'ek', line.text);
+          ek.setAttribute('data-keys', ((echSt && echSt.length) ? echSt : ech)
+            .map(function (a) { return a.key; }).join(' '));
+          if (echSt && echSt.length) {
+            ek.setAttribute('role', 'button');
+            ek.setAttribute('tabindex', '0');
+            ek.setAttribute('aria-describedby', hintEcho.id);
+          }
+          ech.forEach(function (a) {
+            (markSpans[a.key] = markSpans[a.key] || []).push(ek);
+            a.echoShown = true;
+          });
+          lx.appendChild(ek);
+        } else {
+          lx.appendChild(document.createTextNode(line.text));
+        }
+        row.appendChild(lx);
+        lyrics.appendChild(row);
+      });
+      docIn.appendChild(lyrics);
+
+      // ---------------- document footer ----------------
+      var foot = el('div', 'foot');
+      foot.appendChild(el('p', null,
+        LINES.length + '행 · 코멘트 ' + anns.length + '개 (구절에 붙은 것 ' +
+        located.length + '개, 위치를 찾지 못한 것 ' + orphans.length + '개)'));
+      foot.appendChild(el('p', null,
+        '가사·주석 출처: Genius 커뮤니티. 추천 수는 순서에 영향을 주지 않으며, 코멘트는 항상 가사 순서대로 나열됩니다.'));
+      foot.appendChild(el('p', 'refcap',
+        'Notion 스타일 참조 — 문서 페이지와 여백 코멘트 UI를 참고한 디자인 습작입니다. Notion과는 무관하며 어떤 제휴 관계도 없습니다.'));
+      docIn.appendChild(foot);
+
+      // ---------------- thread list (moves between rail and sheet) --------
+      var threadList = el('div', 'threads');
+
+      var railHead = el('div', 'rail-head');
+      railHead.appendChild(el('span', 'rail-title', '코멘트'));
+      railHead.appendChild(el('span', null, anns.length + '개'));
+      threadList.appendChild(railHead);
+
+      var legend = el('div', 'rail-legend');
+      var sw1 = el('span', 'swatch sw-y'); legend.appendChild(sw1);
+      legend.appendChild(document.createTextNode(' 코멘트가 달린 구절 '));
+      var sw2 = el('span', 'swatch sw-r'); legend.appendChild(sw2);
+      legend.appendChild(document.createTextNode(' 이견이 제기된 해석'));
+      threadList.appendChild(legend);
+
+      var cards = {}; // key -> {el, body, more, ann}
+      var order = [];
+
+      function cardFor(a) {
+        var c = el('article', 'card');
+        c.setAttribute('tabindex', '-1');
+        c.setAttribute('data-key', a.key);
+        if (a.disputed) c.classList.add('dsp');
+        if (!a.located) c.classList.add('is-orphan');
+        if (!a.gist) c.classList.add('no-gist');
+
+        var head = el('div', 'c-head');
+        var av = el('span', 'avatar');
+        av.appendChild(icon('person'));
+        head.appendChild(av);
+        head.appendChild(el('span', 'c-name', '익명 기여자'));
+        // line reference rides in the head row, where Notion puts the timestamp
+        if (a.located) {
+          var s = a.span[0] + 1, e = a.span[1] + 1;
+          head.appendChild(el('span', 'c-meta',
+            '· ' + (s === e ? s + '행' : s + '–' + e + '행')));
+        }
+        var meta = STATUS[a.status] || STATUS.unique;
+        if (meta.chip) head.appendChild(el('span', 'chip ' + meta.cls, meta.chip));
+        if (a.disputed) {
+          head.appendChild(el('span', 'chip k-dsp',
+            '이견 ' + num(a.votes)));
+        } else {
+          head.appendChild(el('span', 'c-meta', '추천 ' + a.votes));
+        }
+        c.appendChild(head);
+
+        // the chorus repeat is named, not swallowed — and the wording only
+        // promises a dashed marker when one was actually drawn
+        if (a.repeats.length) {
+          var where = a.repeats.map(function (r) {
+            return (r[0] === r[1]) ? (r[0] + 1) + '행' : (r[0] + 1) + '–' + (r[1] + 1) + '행';
+          }).join(', ');
+          c.appendChild(el('div', 'c-note',
+            (a.repeatKind === 'line' ? '같은 구절이 ' : '같은 표현이 ') + where +
+            (a.echoShown
+              ? '에 다시 나옵니다. 그쪽 가사에는 점선을 그어 두었습니다.'
+              : '에 다시 나옵니다. 그 행에는 그 행만의 코멘트가 따로 달려 있어 점선은 긋지 않았습니다.')));
+        }
+
+        if (a.fragment) {
+          var q = el('blockquote', 'c-quote', a.fragment.split('\n').map(function (x) {
+            return x.trim();
+          }).join('\n'));
+          q.setAttribute('dir', 'auto');
+          c.appendChild(q);
+        }
+
+        if (a.disputed) {
+          c.appendChild(el('div', 'c-note warn',
+            '커뮤니티에서 이견이 제기된 해석입니다 (' + num(a.votes) + ').'));
+        }
+        if (meta.note) c.appendChild(el('div', 'c-note', meta.note));
+
+        var bodyBox = el('div', 'c-body');
+        if (a.gist) {
+          // the one-line gist leads, so a collapsed card still says something
+          var g = el('p', 'c-p c-lead');
+          g.setAttribute('dir', 'auto');
+          inlineInto(g, a.gist);
+          bodyBox.appendChild(g);
+        }
+        renderBody(bodyBox, a.bodyKo);
+        c.appendChild(bodyBox);
+
+        var footRow = el('div', 'c-foot');
+        var more = el('button', 'cbtn c-more', '더 보기');
+        more.type = 'button';
+        footRow.appendChild(more);
+
+        var esBox = null;
+        if (a.bodyEs) {
+          var esBtn = el('button', 'cbtn c-src', 'ES 원문');
+          esBtn.type = 'button';
+          esBtn.setAttribute('aria-expanded', 'false');
+          footRow.appendChild(esBtn);
+          esBox = el('div', 'c-es');
+          esBox.setAttribute('dir', 'auto');
+          esBox.textContent = a.bodyEs;
+          esBox.hidden = true;
+          esBtn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            esBox.hidden = !esBox.hidden;
+            esBtn.setAttribute('aria-expanded', esBox.hidden ? 'false' : 'true');
+            relayout();
+          });
+        }
+        if (a.url) {
+          var link = el('a', 'cbtn c-src c-link', '원문');
+          link.href = a.url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.style.borderBottom = '0';
+          link.appendChild(icon('out'));
+          link.addEventListener('click', function (ev) { ev.stopPropagation(); });
+          footRow.appendChild(link);
+        }
+        c.appendChild(footRow);
+        if (esBox) c.appendChild(esBox);
+
+        more.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          toggleOpen(a.key);
+        });
+        c.addEventListener('click', function () { activate([a.key], 'card'); });
+
+        cards[a.key] = { el: c, body: bodyBox, more: more, ann: a, measured: false };
+        order.push(a.key);
+        return c;
+      }
+
+      // unlocated comments live at the top of the rail, like page comments
+      if (orphans.length) {
+        var ro = el('div', 'orphans');
+        ro.appendChild(el('div', 'ro-head',
+          '구절에 붙지 못한 코멘트 ' + orphans.length + '개'));
+        orphans.forEach(function (a) { ro.appendChild(cardFor(a)); });
+        threadList.appendChild(ro);
+      }
+
+      var canvas = el('div', 'canvas');
+      located.forEach(function (a) { canvas.appendChild(cardFor(a)); });
+      threadList.appendChild(canvas);
+
+      // ---------------- sheet (narrow mode) ----------------
+      var scrim = el('div', 'scrim');
+      var sheet = el('div', 'sheet');
+      sheet.setAttribute('role', 'dialog');
+      sheet.setAttribute('aria-modal', 'true');
+      sheet.setAttribute('aria-label', '코멘트 목록');
+      sheet.appendChild(el('div', 'grab'));
+      var sheetHead = el('div', 'sheet-head');
+      sheetHead.appendChild(el('span', 'sheet-title',
+        '코멘트 ' + anns.length + '개'));
+      var sheetSlot = el('span');
+      sheetHead.appendChild(sheetSlot);
+      var xbtn = el('button', 'xbtn');
+      xbtn.type = 'button';
+      xbtn.setAttribute('aria-label', '닫기');
+      xbtn.appendChild(icon('close'));
+      sheetHead.appendChild(xbtn);
+      sheet.appendChild(sheetHead);
+      var sheetBody = el('div', 'sheet-body');
+      sheet.appendChild(sheetBody);
+      page.appendChild(scrim);
+      page.appendChild(sheet);
+
+      rail.appendChild(threadList); // wide default
+
+      // ---------------- state ----------------
+      var mode = null;
+      // a line carries two comments ~1.5% of the time; both go active together
+      var activeKeys = [];
+      var openSet = Object.create(null);
+      var sheetOpen = false;
+      var lastFocus = null;
+      var reduced = false;
+      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+      function allOpen() {
+        for (var i = 0; i < order.length; i++) if (!openSet[order[i]]) return false;
+        return order.length > 0;
+      }
+      function syncAllBtn() {
+        btnAllLabel.textContent = allOpen()
+          ? '모두 접기' : '모두 펼치기';
+      }
+      function isActive(k) { return activeKeys.indexOf(k) !== -1; }
+
+      function paint() {
+        order.forEach(function (k) {
+          var c = cards[k];
+          c.el.classList.toggle('is-open', !!openSet[k]);
+          c.el.classList.toggle('is-on', isActive(k));
+        });
+        Object.keys(markSpans).forEach(function (k) {
+          markSpans[k].forEach(function (sp) {
+            var keys = (sp.getAttribute('data-keys') || '').split(' ');
+            var on = false;
+            for (var i = 0; i < keys.length; i++) if (isActive(keys[i])) { on = true; break; }
+            sp.classList.toggle('is-on', on);
+          });
+        });
+        syncAllBtn();
+      }
+      function toggleOpen(k) {
+        openSet[k] = !openSet[k];
+        paint();
+        relayout();
+      }
+      function setActive(keys) {
+        activeKeys = keys.filter(function (k) { return !!cards[k]; });
+        if (!allOpen()) {
+          // one passage in focus at a time keeps the margin anchored
+          openSet = Object.create(null);
+          activeKeys.forEach(function (k) { openSet[k] = true; });
+        }
+        paint();
+        relayout();
+      }
+
+      function scrollTo(node, block) {
+        if (!node) return;
+        try {
+          node.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: block || 'center' });
+        } catch (e) { node.scrollIntoView(); }
+      }
+
+      function activate(keys, from) {
+        keys = keys.filter(function (x) { return !!cards[x]; });
+        if (!keys.length) return;
+        var k = keys[0];
+        setActive(keys);
+        if (mode === 'narrow') {
+          openSheet();
+          window.setTimeout(function () { scrollInSheet(k); }, sheetOpen ? 0 : 210);
+          return;
+        }
+        if (from === 'lyric') {
+          var c = cards[k].el;
+          var r = c.getBoundingClientRect();
+          if (r.top < 8 || r.bottom > (window.innerHeight || 800) - 8) scrollTo(c, 'nearest');
+        } else if (from === 'card') {
+          var spans = markSpans[k];
+          if (spans && spans.length) {
+            var sr = spans[0].getBoundingClientRect();
+            if (sr.top < 60 || sr.bottom > (window.innerHeight || 800) - 20) scrollTo(spans[0], 'center');
+          }
+        }
+      }
+
+      function scrollInSheet(k) {
+        var c = cards[k];
+        if (!c) return;
+        var top = c.el.offsetTop - sheetBody.offsetTop - 8;
+        try {
+          sheetBody.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'auto' : 'smooth' });
+        } catch (e) { sheetBody.scrollTop = Math.max(0, top); }
+      }
+
+      function openSheet() {
+        if (sheetOpen) return;
+        sheetOpen = true;
+        lastFocus = document.activeElement;
+        scrim.classList.add('on');
+        sheet.classList.add('on');
+        measureShort();
+        xbtn.focus();
+      }
+      function closeSheet() {
+        if (!sheetOpen) return;
+        sheetOpen = false;
+        scrim.classList.remove('on');
+        sheet.classList.remove('on');
+        // The sheet becomes visibility:hidden, so anything focused inside it is
+        // about to be blurred to the document. Land the reader on their passage.
+        var back = null;
+        if (lastFocus && lastFocus.focus && lastFocus.isConnected &&
+            rootEl.contains(lastFocus) && !sheet.contains(lastFocus)) back = lastFocus;
+        if (!back && activeKeys.length) {
+          var sp = markSpans[activeKeys[0]];
+          if (sp && sp.length) back = sp[0];
+        }
+        if (!back) back = btnComments;
+        try { back.focus(); } catch (e) {}
+        lastFocus = null;
+      }
+
+      // ---------------- measuring + margin layout ----------------
+      function measureShort() {
+        order.forEach(function (k) {
+          var c = cards[k];
+          if (c.measured) return;
+          if (!c.el.offsetParent && c.el.offsetHeight === 0) return; // not visible yet
+          c.measured = true;
+          // nothing hidden -> no "더 보기", and the quote/notes stay visible
+          var limit = !c.ann.located ? 28 : (c.ann.gist ? 54 : 98);
+          if (c.body.scrollHeight <= limit) c.el.classList.add('is-short');
+        });
+      }
+
+      // Coalesce layout passes into one frame. A plain "already scheduled"
+      // guard would wedge forever if the frame callback never arrives (hidden
+      // tab, throttled clock), so a timer races the frame and either one wins.
+      var rafId = 0, timerId = 0;
+      function runLayout() {
+        if (rafId) { window.cancelAnimationFrame(rafId); rafId = 0; }
+        if (timerId) { window.clearTimeout(timerId); timerId = 0; }
+        measureShort();
+        layout();
+      }
+      function relayout() {
+        if (rafId) window.cancelAnimationFrame(rafId);
+        if (timerId) window.clearTimeout(timerId);
+        rafId = window.requestAnimationFrame(runLayout);
+        timerId = window.setTimeout(runLayout, 120);
+      }
+
+      function layout() {
+        if (mode !== 'wide' || rootEl.classList.contains('rail-off')) {
+          located.forEach(function (a) { cards[a.key].el.style.top = ''; });
+          canvas.style.height = '';
+          connA.classList.remove('on');
+          connB.classList.remove('on');
+          connC.classList.remove('on');
+          return;
+        }
+        var cRect = canvas.getBoundingClientRect();
+        var n = located.length;
+        if (!n) { canvas.style.height = ''; return; }
+
+        // read phase
+        var want = new Array(n), hgt = new Array(n);
+        for (var i = 0; i < n; i++) {
+          var a = located[i];
+          var anchor = lineEls[a.span[0]];
+          want[i] = anchor ? (anchor.getBoundingClientRect().top - cRect.top) : 0;
+          hgt[i] = cards[a.key].el.offsetHeight;
+        }
+
+        var tops = new Array(n);
+        var pivot = -1;
+        for (var p = 0; p < n; p++) if (isActive(located[p].key)) { pivot = p; break; }
+
+        if (pivot === -1) {
+          var y = 0;
+          for (var j = 0; j < n; j++) { tops[j] = Math.max(want[j], y); y = tops[j] + hgt[j] + 8; }
+        } else {
+          // the active thread stays pinned to its line; neighbours give way
+          tops[pivot] = Math.max(0, want[pivot]);
+          for (var u = pivot - 1; u >= 0; u--) {
+            tops[u] = Math.min(want[u], tops[u + 1] - 8 - hgt[u]);
+          }
+          if (n && tops[0] < 0) {
+            var shift = -tops[0];
+            for (var s2 = 0; s2 <= pivot; s2++) tops[s2] += shift;
+          }
+          for (var d2 = pivot + 1; d2 < n; d2++) {
+            tops[d2] = Math.max(want[d2], tops[d2 - 1] + hgt[d2 - 1] + 8);
+          }
+        }
+
+        // write phase
+        var bottom = 0;
+        for (var w = 0; w < n; w++) {
+          cards[located[w].key].el.style.top = Math.round(tops[w]) + 'px';
+          bottom = Math.max(bottom, tops[w] + hgt[w]);
+        }
+        canvas.style.height = Math.round(bottom + 24) + 'px';
+
+        drawConnector(pivot, tops, cRect);
+      }
+
+      function drawConnector(pivot, tops, cRect) {
+        if (pivot < 0) {
+          connA.classList.remove('on'); connB.classList.remove('on'); connC.classList.remove('on');
+          return;
+        }
+        var a = located[pivot];
+        var anchor = lineEls[a.span[0]];
+        if (!anchor) { connA.classList.remove('on'); return; }
+        var bRect = body.getBoundingClientRect();
+        var aRect = anchor.getBoundingClientRect();
+        var dRect = doc.getBoundingClientRect();
+        var rRect = rail.getBoundingClientRect();
+        var x1 = dRect.right - bRect.left + 6;
+        var x2 = rRect.left - bRect.left - 6;
+        if (x2 <= x1) { connA.classList.remove('on'); connB.classList.remove('on'); connC.classList.remove('on'); return; }
+        var xm = (x1 + x2) / 2;
+        var y1 = aRect.top - bRect.top + aRect.height / 2;
+        var y2 = (cRect.top - bRect.top) + tops[pivot] + 16;
+
+        connA.style.left = x1 + 'px'; connA.style.width = (xm - x1) + 'px';
+        connA.style.top = Math.round(y1) + 'px'; connA.style.height = '1px';
+        connB.style.left = Math.round(xm) + 'px'; connB.style.width = '1px';
+        connB.style.top = Math.round(Math.min(y1, y2)) + 'px';
+        connB.style.height = Math.max(1, Math.abs(y2 - y1)) + 'px';
+        connC.style.left = Math.round(xm) + 'px'; connC.style.width = (x2 - xm) + 'px';
+        connC.style.top = Math.round(y2) + 'px'; connC.style.height = '1px';
+        connA.classList.add('on'); connB.classList.add('on'); connC.classList.add('on');
+      }
+
+      // ---------------- mode switching (container-driven, not viewport) ----
+      function applyMode() {
+        var w = rootEl.clientWidth || root.clientWidth || 0;
+        var next = (w === 0 || w >= 1060) ? 'wide' : 'narrow';
+        if (next === mode) return false;
+        mode = next;
+        rootEl.classList.toggle('mode-wide', mode === 'wide');
+        rootEl.classList.toggle('mode-narrow', mode === 'narrow');
+        if (mode === 'wide') {
+          closeSheet();
+          rail.appendChild(threadList);
+          topbar.insertBefore(btnAll, btnComments.nextSibling);
+          btnComments.setAttribute('aria-pressed', rootEl.classList.contains('rail-off') ? 'false' : 'true');
+        } else {
+          sheetBody.appendChild(threadList);
+          sheetSlot.appendChild(btnAll);
+          btnComments.removeAttribute('aria-pressed');
+          located.forEach(function (a) { cards[a.key].el.style.top = ''; });
+          canvas.style.height = '';
+        }
+        return true;
+      }
+
+      // ---------------- events ----------------
+      lyrics.addEventListener('click', function (ev) {
+        var t = ev.target;
+        while (t && t !== lyrics && !t.getAttribute) t = t.parentNode;
+        var hit = null;
+        var node = ev.target;
+        while (node && node !== lyrics) {
+          if (node.classList && (node.classList.contains('mk') || node.classList.contains('ek'))) { hit = node; break; }
+          node = node.parentNode;
+        }
+        if (!hit) return;
+        var keys = (hit.getAttribute('data-keys') || '').split(' ').filter(Boolean);
+        if (!keys.length) return;
+        activate(keys, 'lyric');
+      });
+      lyrics.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+        var node = ev.target;
+        if (!node.classList || !(node.classList.contains('mk') || node.classList.contains('ek'))) return;
+        ev.preventDefault();
+        var keys = (node.getAttribute('data-keys') || '').split(' ').filter(Boolean);
+        if (keys.length) activate(keys, 'lyric');
+      });
+
+      btnComments.addEventListener('click', function () {
+        if (mode === 'narrow') { openSheet(); return; }
+        var off = rootEl.classList.toggle('rail-off');
+        btnComments.setAttribute('aria-pressed', off ? 'false' : 'true');
+        relayout();
+      });
+      btnAll.addEventListener('click', function () {
+        var open = !allOpen();
+        openSet = Object.create(null);
+        if (open) order.forEach(function (k) { openSet[k] = true; });
+        paint();
+        relayout();
+      });
+      xbtn.addEventListener('click', closeSheet);
+      scrim.addEventListener('click', closeSheet);
+      sheet.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' || ev.key === 'Esc') { ev.stopPropagation(); closeSheet(); }
+      });
+
+      // ---------------- observe own width; no global listeners -------------
+      var ro2 = null;
+      if (typeof window.ResizeObserver === 'function') {
+        ro2 = new window.ResizeObserver(function () {
+          if (!rootEl.isConnected) { if (ro2) ro2.disconnect(); return; }
+          applyMode();
+          relayout();
+        });
+        ro2.observe(rootEl);
+      }
+      root.__hNotionCleanup = function () {
+        if (ro2) { ro2.disconnect(); ro2 = null; }
+        if (rafId) { window.cancelAnimationFrame(rafId); rafId = 0; }
+        if (timerId) { window.clearTimeout(timerId); timerId = 0; }
+      };
+
+      applyMode();
+      paint();
+      relayout();
+      window.setTimeout(relayout, 60);   // after fonts settle
+      window.setTimeout(relayout, 320);
+    },
+
+    unmount: function (root) {
+      if (root && typeof root.__hNotionCleanup === 'function') {
+        try { root.__hNotionCleanup(); } catch (e) {}
+        root.__hNotionCleanup = null;
+      }
+      if (root) root.innerHTML = '';
+    }
+  };
+})();
+</script>

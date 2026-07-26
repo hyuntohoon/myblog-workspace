@@ -1,0 +1,1790 @@
+<style>
+/* ==========================================================================
+   house: apple  —  Apple Music lyrics screen, visual language only.
+   Every selector is prefixed .h-apple. Custom props + keyframes namespaced.
+   ========================================================================== */
+
+.h-apple {
+  /* palette stands in for cover art — set per track via [data-pal] below */
+  --h-apple-base: #160312;
+  --h-apple-c1: #e0335f;
+  --h-apple-c2: #7b2fbe;
+  --h-apple-c3: #f0a03c;
+  --h-apple-c4: #2333a0;
+
+  --h-apple-warn: #ffb84d;
+  --h-apple-glass: rgba(255, 255, 255, 0.13);
+  --h-apple-line: rgba(255, 255, 255, 0.22);
+  --h-apple-lyric: clamp(23px, 6.1cqw, 36px);
+  --h-apple-o: 0.24;
+
+  position: relative;
+  box-sizing: border-box;
+  container-type: inline-size;
+  height: min(92vh, 940px);
+  height: min(92dvh, 940px);
+  min-height: 560px;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 26px;
+  isolation: isolate;
+  background: var(--h-apple-base);
+  color: #fff;
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Pretendard", system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+.h-apple[data-pal="dense"] {
+  --h-apple-base: #170310;
+  --h-apple-c1: #e83458;
+  --h-apple-c2: #7c2ec4;
+  --h-apple-c3: #f2a63c;
+  --h-apple-c4: #24309e;
+}
+
+.h-apple[data-pal="sparse"] {
+  --h-apple-base: #05081c;
+  --h-apple-c1: #3f6bff;
+  --h-apple-c2: #00c3a6;
+  --h-apple-c3: #b452ff;
+  --h-apple-c4: #10306f;
+}
+
+/* no container queries → fall back to viewport-relative lyric sizing */
+@supports not (container-type: inline-size) {
+  .h-apple { --h-apple-lyric: clamp(23px, 5.9vw, 34px); }
+}
+
+.h-apple div,
+.h-apple p,
+.h-apple span,
+.h-apple button,
+.h-apple section,
+.h-apple header,
+.h-apple footer,
+.h-apple aside,
+.h-apple blockquote,
+.h-apple h2,
+.h-apple h3,
+.h-apple a,
+.h-apple i,
+.h-apple code,
+.h-apple strong,
+.h-apple em {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* ---------- the ground: soft moving gradient standing in for artwork ---- */
+
+.h-apple .ground {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  filter: blur(74px) saturate(155%);
+  pointer-events: none;
+}
+
+.h-apple .blob {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  opacity: 0.88;
+}
+
+.h-apple .b1 {
+  width: 82%;
+  height: 54%;
+  left: -14%;
+  top: 0%;
+  background: radial-gradient(circle at 50% 50%, var(--h-apple-c1), rgba(0, 0, 0, 0) 66%);
+  animation: h-apple-d1 38s ease-in-out infinite alternate;
+}
+
+.h-apple .b2 {
+  width: 76%;
+  height: 58%;
+  right: -16%;
+  top: 16%;
+  background: radial-gradient(circle at 50% 50%, var(--h-apple-c2), rgba(0, 0, 0, 0) 66%);
+  animation: h-apple-d2 46s ease-in-out infinite alternate;
+}
+
+.h-apple .b3 {
+  width: 66%;
+  height: 46%;
+  left: 6%;
+  bottom: 2%;
+  background: radial-gradient(circle at 50% 50%, var(--h-apple-c3), rgba(0, 0, 0, 0) 64%);
+  animation: h-apple-d3 52s ease-in-out infinite alternate;
+}
+
+.h-apple .b4 {
+  width: 88%;
+  height: 52%;
+  right: -12%;
+  bottom: -10%;
+  background: radial-gradient(circle at 50% 50%, var(--h-apple-c4), rgba(0, 0, 0, 0) 68%);
+  animation: h-apple-d4 60s ease-in-out infinite alternate;
+}
+
+@keyframes h-apple-d1 {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(9%, 12%, 0) scale(1.16); }
+}
+@keyframes h-apple-d2 {
+  from { transform: translate3d(0, 4%, 0) scale(1.08); }
+  to   { transform: translate3d(-11%, -9%, 0) scale(0.94); }
+}
+@keyframes h-apple-d3 {
+  from { transform: translate3d(2%, 0, 0) scale(0.96); }
+  to   { transform: translate3d(14%, -13%, 0) scale(1.2); }
+}
+@keyframes h-apple-d4 {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to   { transform: translate3d(-9%, -7%, 0) scale(0.9); }
+}
+
+.h-apple .veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(3, 0, 5, 0.62) 0%,
+    rgba(3, 0, 5, 0.2) 22%,
+    rgba(3, 0, 5, 0.2) 52%,
+    rgba(3, 0, 5, 0.58) 84%,
+    rgba(3, 0, 5, 0.9) 100%
+  );
+}
+
+/* ---------- scrolling lyric column ------------------------------------- */
+
+.h-apple .scroll {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+
+.h-apple .scroll::-webkit-scrollbar { width: 0; height: 0; }
+
+.h-apple .col {
+  padding: 84px 20px 0;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ---------- header ------------------------------------------------------ */
+
+.h-apple .head { padding: 6px 0 34px; }
+
+.h-apple .idrow {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 18px;
+}
+
+.h-apple .art {
+  flex: none;
+  width: 62px;
+  height: 62px;
+  border-radius: 13px;
+  background:
+    radial-gradient(circle at 22% 20%, var(--h-apple-c3), rgba(0, 0, 0, 0) 58%),
+    radial-gradient(circle at 82% 28%, var(--h-apple-c2), rgba(0, 0, 0, 0) 62%),
+    radial-gradient(circle at 46% 92%, var(--h-apple-c1), rgba(0, 0, 0, 0) 66%),
+    var(--h-apple-c4);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), inset 0 0 0 0.5px rgba(255, 255, 255, 0.16);
+}
+
+.h-apple .idtxt { min-width: 0; }
+
+.h-apple .ttl {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  line-height: 1.16;
+  overflow-wrap: break-word;
+}
+
+.h-apple .sub {
+  margin-top: 3px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.h-apple .note {
+  font-size: 12.5px;
+  line-height: 1.62;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: rgba(255, 255, 255, 0.42);
+  word-break: keep-all;
+}
+
+.h-apple .note + .note { margin-top: 5px; }
+
+.h-apple .statline {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- lyric lines ------------------------------------------------- */
+
+.h-apple .ln {
+  font-size: var(--h-apple-lyric);
+  font-weight: 760;
+  line-height: 1.22;
+  letter-spacing: -0.024em;
+  padding: 0.14em 0 0.3em;
+  color: #fff;
+  opacity: var(--h-apple-o, 0.24);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  text-shadow: 0 2px 26px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.1s linear;
+}
+
+.h-apple .ln[dir="rtl"] {
+  text-align: right;
+  hyphens: none;
+  font-weight: 700;
+}
+
+.h-apple .ln.is-sub {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.16em;
+}
+
+.h-apple .gapmark {
+  font-size: 20px;
+  letter-spacing: 0.42em;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 22px 0 26px;
+  user-select: none;
+}
+
+/* ---------- annotated passage = one atomic lit slab --------------------- */
+
+.h-apple .grp {
+  position: relative;
+  margin: 0.4em -15px;
+  padding: 0.4em 15px 0.34em;
+  border-radius: 22px;
+  transform-origin: 8% 50%;
+  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.h-apple .grp::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.022));
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.1);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.h-apple .grp.is-lit { transform: scale(1.014); }
+
+.h-apple .grp.is-lit::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.165), rgba(255, 255, 255, 0.06));
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.34), 0 22px 52px rgba(0, 0, 0, 0.4);
+}
+
+/* partial = opening line matched, tail of the range is a guess */
+.h-apple .grp.is-partial::before {
+  -webkit-mask-image: linear-gradient(180deg, #000 58%, rgba(0, 0, 0, 0.12) 100%);
+  mask-image: linear-gradient(180deg, #000 58%, rgba(0, 0, 0, 0.12) 100%);
+}
+
+/* echo = the chorus coming round again; admitted, not re-annotated */
+.h-apple .grp.is-echo::before {
+  background: none;
+  box-shadow: none;
+  border: 1.5px dashed rgba(255, 255, 255, 0.17);
+}
+
+.h-apple .grp.is-echo.is-lit::before {
+  background: none;
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.h-apple .peek {
+  margin-top: 0.34em;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.86);
+  opacity: 0.34;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.35s ease;
+}
+
+.h-apple .grp.is-lit .peek { opacity: 0.82; }
+
+.h-apple .pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 0.42em;
+}
+
+.h-apple .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 0.5px solid var(--h-apple-line);
+  background: var(--h-apple-glass);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  backdrop-filter: blur(26px) saturate(180%);
+  color: rgba(255, 255, 255, 0.94);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.35s ease, background 0.25s ease, transform 0.2s ease;
+}
+
+.h-apple .grp.is-lit .pill { opacity: 1; }
+.h-apple .pill:hover { background: rgba(255, 255, 255, 0.24); opacity: 1; }
+.h-apple .pill:active { transform: scale(0.96); }
+
+.h-apple .pill .qm {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+}
+
+.h-apple .pill .lbl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-apple .vt {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.58);
+  white-space: nowrap;
+}
+
+/* disputed reading — must never look like an endorsed one */
+.h-apple .pill.is-dis {
+  border-color: rgba(255, 184, 77, 0.5);
+  background: rgba(255, 184, 77, 0.15);
+}
+.h-apple .pill.is-dis .qm {
+  background: none;
+  box-shadow: none;
+  border: 1.5px solid var(--h-apple-warn);
+}
+.h-apple .pill.is-dis .vt { color: var(--h-apple-warn); }
+
+.h-apple .pill.is-echo {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+  border-style: dashed;
+}
+.h-apple .pill.is-echo .qm {
+  background: none;
+  box-shadow: none;
+  border: 1.5px dashed rgba(255, 255, 255, 0.55);
+}
+
+/* ---------- annotations that never landed on a line --------------------- */
+
+.h-apple .unp { padding: 30px 0 10px; }
+
+.h-apple .unp h3 {
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.h-apple .unp .note { margin-bottom: 14px; }
+
+.h-apple .ucard {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 10px;
+  padding: 15px 16px;
+  border-radius: 19px;
+  border: 0.5px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.25s ease, transform 0.2s ease;
+}
+
+.h-apple .ucard:hover { background: rgba(255, 255, 255, 0.13); }
+.h-apple .ucard:active { transform: scale(0.988); }
+.h-apple .ucard.is-dis { border-color: rgba(255, 184, 77, 0.42); }
+
+.h-apple .ucard .uhead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+
+.h-apple .ucard .ufrag {
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.016em;
+  color: rgba(255, 255, 255, 0.9);
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.h-apple .ucard .ugist {
+  margin-top: 7px;
+  font-size: 12.8px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  word-break: keep-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.h-apple .foot {
+  padding: 20px 0 8px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+}
+
+.h-apple .tail { height: 0; }
+
+/* ---------- chips ------------------------------------------------------- */
+
+.h-apple .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.h-apple .chip.warn {
+  background: rgba(255, 184, 77, 0.18);
+  color: var(--h-apple-warn);
+}
+
+/* ---------- top bar ----------------------------------------------------- */
+
+.h-apple .topbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 4;
+  padding: 12px 14px;
+  pointer-events: none;
+}
+
+.h-apple .tb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 690px;
+  margin: 0 auto;
+  padding: 7px 12px 7px 8px;
+  border-radius: 19px;
+  pointer-events: auto;
+  background: rgba(16, 6, 16, 0.42);
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34);
+}
+
+.h-apple .tb .mini {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 25% 22%, var(--h-apple-c3), rgba(0, 0, 0, 0) 58%),
+    radial-gradient(circle at 80% 30%, var(--h-apple-c2), rgba(0, 0, 0, 0) 62%),
+    radial-gradient(circle at 46% 92%, var(--h-apple-c1), rgba(0, 0, 0, 0) 66%),
+    var(--h-apple-c4);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.18);
+}
+
+.h-apple .tb .tbtxt { flex: 1 1 auto; min-width: 0; }
+
+.h-apple .tb .t1 {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.016em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-apple .tb .t2 {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- transport → passage navigation ------------------------------ */
+
+.h-apple .transport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  padding: 0 14px 15px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.h-apple .tp {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 6px;
+  border-radius: 999px;
+  pointer-events: auto;
+  background: rgba(14, 5, 14, 0.46);
+  border: 0.5px solid rgba(255, 255, 255, 0.17);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  backdrop-filter: blur(32px) saturate(190%);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.46);
+}
+
+.h-apple .tbtn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.16s ease;
+}
+
+.h-apple .tbtn:hover { background: rgba(255, 255, 255, 0.22); }
+.h-apple .tbtn:active { transform: scale(0.92); }
+
+.h-apple .tmain {
+  flex: none;
+  height: 40px;
+  padding: 0 17px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.94);
+  color: #170310;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: -0.016em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.16s ease, background 0.2s ease;
+}
+
+.h-apple .tmain:hover { background: #fff; }
+.h-apple .tmain:active { transform: scale(0.95); }
+
+.h-apple .tnum {
+  padding: 0 11px 0 7px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+}
+
+/* ---------- sheet: the reading surface ---------------------------------- */
+
+.h-apple .scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  opacity: 0;
+  background: rgba(3, 0, 5, 0.46);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.42s ease;
+}
+
+.h-apple .scrim[hidden] { display: none; }
+.h-apple .scrim.is-on { opacity: 1; }
+
+.h-apple .sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  height: 62%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 26px 26px 0 0;
+  background: rgba(20, 8, 20, 0.6);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(48px) saturate(190%);
+  backdrop-filter: blur(48px) saturate(190%);
+  box-shadow: 0 -24px 74px rgba(0, 0, 0, 0.56);
+  transform: translateY(101%);
+  transition: transform 0.44s cubic-bezier(0.32, 0.72, 0, 1),
+    height 0.44s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.h-apple .sheet[hidden] { display: none; }
+.h-apple .sheet.is-open { transform: translateY(0); }
+.h-apple .sheet[data-detent="full"] { height: 95%; }
+.h-apple .sheet.is-drag { transition: none; }
+
+.h-apple .grab {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 9px 0 5px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.h-apple .grab i {
+  display: block;
+  width: 38px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.h-apple .shead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 12px;
+}
+
+.h-apple .shead .chips {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.h-apple .sbtn {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.86);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.h-apple .sbtn:hover { background: rgba(255, 255, 255, 0.26); }
+
+.h-apple .sbody {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 18px 30px;
+}
+
+.h-apple .frag {
+  position: relative;
+  padding: 14px 16px;
+  margin-bottom: 15px;
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.075);
+  border: 0.5px solid rgba(255, 255, 255, 0.13);
+  font-size: 16px;
+  font-weight: 680;
+  line-height: 1.52;
+  letter-spacing: -0.014em;
+  color: rgba(255, 255, 255, 0.95);
+  max-height: 9.2em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: break-word;
+}
+
+.h-apple .frag.is-clip {
+  -webkit-mask-image: linear-gradient(180deg, #000 78%, rgba(0, 0, 0, 0.25) 100%);
+  mask-image: linear-gradient(180deg, #000 78%, rgba(0, 0, 0, 0.25) 100%);
+}
+
+.h-apple .frag span { display: block; }
+.h-apple .frag span[dir="rtl"] { text-align: right; }
+
+.h-apple .sgist {
+  margin-bottom: 16px;
+  font-size: 14.5px;
+  line-height: 1.68;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  color: rgba(255, 255, 255, 0.72);
+  word-break: keep-all;
+}
+
+.h-apple .disp[hidden],
+.h-apple .sgist[hidden],
+.h-apple .langrow[hidden] { display: none; }
+
+.h-apple .disp {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: rgba(255, 184, 77, 0.11);
+  border: 0.5px solid rgba(255, 184, 77, 0.34);
+  font-size: 12.8px;
+  line-height: 1.58;
+  font-weight: 600;
+  color: rgba(255, 208, 140, 0.94);
+  word-break: keep-all;
+}
+
+.h-apple .langrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.h-apple .seg {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+}
+
+.h-apple .seg .thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.93);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.h-apple .seg[data-lang="es"] .thumb { transform: translateX(100%); }
+
+.h-apple .seg button {
+  position: relative;
+  z-index: 1;
+  flex: 1 0 auto;
+  min-width: 78px;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.62);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.h-apple .seg button[aria-pressed="true"] { color: #170310; }
+
+/* prose: a deliberately different typographic world from the lyrics */
+.h-apple .prose {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Apple SD Gothic Neo", "Pretendard", system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.82;
+  letter-spacing: -0.004em;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.84);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  max-width: 36em;
+}
+
+.h-apple .prose p { margin-bottom: 1.05em; }
+.h-apple .prose p:last-child { margin-bottom: 0; }
+
+.h-apple .prose .plbl {
+  font-weight: 750;
+  font-size: 14px;
+  letter-spacing: 0.008em;
+  color: rgba(255, 255, 255, 0.98);
+  margin-bottom: 0.34em;
+}
+
+.h-apple .prose blockquote {
+  margin-bottom: 1.15em;
+  padding: 2px 0 2px 15px;
+  border-left: 2.5px solid rgba(255, 255, 255, 0.26);
+  font-size: 15.2px;
+  line-height: 1.78;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.h-apple .prose strong { font-weight: 700; color: #fff; }
+.h-apple .prose em { font-style: normal; color: rgba(255, 255, 255, 0.6); }
+
+.h-apple .prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.87em;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.h-apple .sfoot {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+}
+
+.h-apple .sfoot a {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.h-apple .sfoot a:hover { color: rgba(255, 255, 255, 0.85); }
+
+/* ---------- focus ------------------------------------------------------- */
+
+.h-apple button:focus-visible,
+.h-apple a:focus-visible,
+.h-apple .scroll:focus-visible,
+.h-apple .frag:focus-visible {
+  outline: 2.5px solid #fff;
+  outline-offset: 3px;
+}
+
+/* the sheet takes focus when it opens, but it is a container, not a control —
+   its appearance is the feedback; controls inside keep real focus rings */
+.h-apple .sheet:focus,
+.h-apple .sheet:focus-visible { outline: none; }
+
+/* ---------- narrow ------------------------------------------------------ */
+
+@container (max-width: 430px) {
+  .h-apple .col { padding: 78px 16px 0; }
+  .h-apple .art { width: 54px; height: 54px; }
+  .h-apple .ttl { font-size: 22px; }
+  .h-apple .grp { margin-left: -11px; margin-right: -11px; padding-left: 11px; padding-right: 11px; }
+  .h-apple .sbody { padding: 0 15px 26px; }
+  .h-apple .tmain { padding: 0 13px; font-size: 13px; }
+  .h-apple .tnum { padding: 0 8px 0 5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-apple .blob { animation: none; }
+  .h-apple .grp,
+  .h-apple .grp::before,
+  .h-apple .ln,
+  .h-apple .peek,
+  .h-apple .pill,
+  .h-apple .scrim,
+  .h-apple .seg .thumb { transition-duration: 0.001s; }
+  .h-apple .grp.is-lit { transform: none; }
+  .h-apple .sheet { transition-duration: 0.001s; }
+}
+</style>
+
+<script>
+(function () {
+  window.HOUSES = window.HOUSES || {};
+
+  var SLUG = 'apple';
+  var AR = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+  /* ---------- tiny helpers ---------------------------------------------- */
+
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+  // strip accents + punctuation so a repeated chorus line matches its echo
+  function normLine(s) {
+    var t = String(s || '').toLowerCase();
+    if (t.normalize) t = t.normalize('NFD').replace(/[\u0300-\u036F]/g, '');
+    return t.replace(/[^0-9a-z\u0600-\u06FF]+/g, '');
+  }
+
+  function dirOf(text) { return AR.test(text) ? 'rtl' : 'ltr'; }
+
+  /* ---------- markdown-ish body renderer --------------------------------
+     Bodies really contain: **bold**, *em*, `code`, "> " block quotations,
+     standalone bold label lines, and hard single newlines inside a block. */
+
+  function inline(s) {
+    return esc(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  }
+
+  function renderProse(md) {
+    var blocks = String(md || '').replace(/\r/g, '').split(/\n{2,}/);
+    var out = '';
+    blocks.forEach(function (block) {
+      var lines = block.split('\n').filter(function (l) { return l.trim() !== ''; });
+      if (!lines.length) return;
+
+      if (lines.every(function (l) { return /^\s*>/.test(l); })) {
+        out += '<blockquote>' + lines.map(function (l) {
+          return inline(l.replace(/^\s*>\s?/, ''));
+        }).join('<br>') + '</blockquote>';
+        return;
+      }
+
+      // a line that starts with ** begins its own paragraph
+      var runs = [];
+      lines.forEach(function (l) {
+        if (!runs.length || /^\s*\*\*/.test(l)) runs.push([l]);
+        else runs[runs.length - 1].push(l);
+      });
+
+      runs.forEach(function (run) {
+        var only = run.length === 1 ? run[0].trim() : null;
+        if (only && /^\*\*[^*]+\*\*$/.test(only)) {
+          out += '<p class="plbl">' + inline(only.replace(/^\*\*|\*\*$/g, '')) + '</p>';
+        } else {
+          out += '<p>' + run.map(inline).join('<br>') + '</p>';
+        }
+      });
+    });
+    return out || '<p>' + esc('본문이 비어 있습니다.') + '</p>';
+  }
+
+  /* ---------- data shaping ---------------------------------------------- */
+
+  function pickTrack(data, n) {
+    var ts = (data && data.tracks) || [];
+    if (!ts.length) return null;
+    for (var i = 0; i < ts.length; i++) if (ts[i] && ts[i].no === n) return ts[i];
+    if (typeof n === 'number' && ts[n]) return ts[n];
+    if (typeof n === 'string') {
+      for (i = 0; i < ts.length; i++) {
+        if (String(ts[i].no) === n || ts[i].title === n) return ts[i];
+      }
+    }
+    return ts[0];
+  }
+
+  function statusChip(a) {
+    if (a.status === 'repeated') return '반복 · ' + (a.occurrences || 2) + '곳';
+    if (a.status === 'partial') return '범위 근사';
+    if (a.status === 'section') return '구간 주석';
+    if (a.status === 'unmatched') return '행 미지정';
+    return '';
+  }
+
+  function voteText(v) {
+    v = typeof v === 'number' ? v : 0;
+    return (v < 0 ? '▼ ' : '▲ ') + Math.abs(v);
+  }
+
+  function voteLabel(v) {
+    v = typeof v === 'number' ? v : 0;
+    return v < 0 ? '반대 ' + Math.abs(v) + '표, 이견이 있는 해석' : '찬성 ' + v + '표';
+  }
+
+  /* ---------- mount ------------------------------------------------------ */
+
+  function mount(root, data, trackNo) {
+    var track = pickTrack(data, trackNo);
+    if (!track) { root.appendChild(el('p', null, '트랙 데이터를 찾을 수 없습니다.')); return; }
+
+    var album = (data && data.album) || {};
+    var lines = track.lines || [];
+    var anns = (track.annotations || []).slice();
+    var stats = track.stats || {};
+    var lang = 'ko';
+
+    var wrap = el('div', 'h-apple');
+    wrap.setAttribute('data-pal', track.kind === 'sparse' ? 'sparse' : 'dense');
+
+    /* ---- ground (stands in for cover art) ---- */
+    var ground = el('div', 'ground');
+    ground.setAttribute('aria-hidden', 'true');
+    ['b1', 'b2', 'b3', 'b4'].forEach(function (c) { ground.appendChild(el('span', 'blob ' + c)); });
+    wrap.appendChild(ground);
+    var veil = el('div', 'veil');
+    veil.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(veil);
+
+    /* ---- passage grouping ------------------------------------------------
+       An annotation covers a RANGE. Overlapping ranges merge into one lit
+       slab that carries both pills — never a stack. */
+
+    var located = anns.filter(function (a) {
+      return a.span && a.span.length === 2 && a.span[0] != null;
+    }).sort(function (x, y) { return (x.span[0] - y.span[0]) || (x.span[1] - y.span[1]); });
+
+    var unplaced = anns.filter(function (a) { return !(a.span && a.span.length === 2 && a.span[0] != null); });
+
+    var groups = [];
+    located.forEach(function (a) {
+      var g = groups[groups.length - 1];
+      if (g && a.span[0] <= g.end) {
+        g.end = Math.max(g.end, a.span[1]);
+        g.anns.push(a);
+      } else {
+        groups.push({ start: a.span[0], end: a.span[1], anns: [a], echo: false });
+      }
+    });
+
+    /* ---- echoes: where a `repeated` passage comes round again ---- */
+    var N = lines.map(function (l) { return normLine(l && l.text); });
+    var rawEchoes = [];
+    located.forEach(function (a) {
+      if (a.status !== 'repeated') return;
+      var len = a.span[1] - a.span[0] + 1;
+      for (var j = 0; j + len <= N.length; j++) {
+        if (j === a.span[0]) continue;
+        var ok = true;
+        for (var k = 0; k < len; k++) {
+          if (!N[j + k] || N[j + k] !== N[a.span[0] + k]) { ok = false; break; }
+        }
+        if (ok) rawEchoes.push({ start: j, end: j + len - 1, ann: a });
+      }
+    });
+
+    function hitsGroup(s, e) {
+      return groups.some(function (g) { return s <= g.end && e >= g.start; });
+    }
+
+    var echoes = [];
+    rawEchoes.sort(function (x, y) { return x.start - y.start; }).forEach(function (r) {
+      if (hitsGroup(r.start, r.end)) return;
+      var last = echoes[echoes.length - 1];
+      if (last && r.start <= last.end) {
+        last.end = Math.max(last.end, r.end);
+        if (last.anns.indexOf(r.ann) < 0) last.anns.push(r.ann);
+      } else {
+        echoes.push({ start: r.start, end: r.end, anns: [r.ann], echo: true });
+      }
+    });
+
+    // owner map — groups never overlap each other, echoes never overlap groups
+    var owner = [];
+    groups.concat(echoes).forEach(function (g) {
+      for (var i = g.start; i <= g.end; i++) owner[i] = g;
+    });
+
+    // reading order for the transport: by position, then the unplaced tail.
+    // NEVER by votes.
+    var order = [];
+    groups.forEach(function (g) { g.anns.forEach(function (a) { order.push(a); }); });
+    unplaced.forEach(function (a) { order.push(a); });
+
+    var annHome = {};   // annotation -> element to scroll to / light
+    var cursor = 0;
+
+    /* ---- scroller + column ---- */
+    var scroller = el('div', 'scroll');
+    scroller.tabIndex = 0;
+    scroller.setAttribute('aria-label', track.title + ' 가사');
+    var col = el('div', 'col');
+    scroller.appendChild(col);
+
+    /* ---- header ---- */
+    var head = el('header', 'head');
+    var idrow = el('div', 'idrow');
+    var art = el('div', 'art');
+    art.setAttribute('aria-hidden', 'true');
+    idrow.appendChild(art);
+    var idtxt = el('div', 'idtxt');
+    idtxt.appendChild(el('div', 'ttl', track.title || ''));
+    idtxt.appendChild(el('div', 'sub',
+      (album.artist || '') + ' · ' + (album.title || '') +
+      (track.no != null ? ' · ' + track.no + '번 트랙' : '')));
+    idrow.appendChild(idtxt);
+    head.appendChild(idrow);
+
+    var sl = el('div', 'statline');
+    sl.appendChild(el('span', 'chip', (stats.lines != null ? stats.lines : lines.length) + '행'));
+    sl.appendChild(el('span', 'chip', '주석 ' + anns.length + '개'));
+    sl.appendChild(el('span', 'chip', '행에 연결 ' + (stats.located != null ? stats.located : located.length) + '개'));
+    sl.appendChild(el('span', 'chip', '표시된 행 ' + (stats.marked_lines != null ? stats.marked_lines : 0) +
+      (stats.coverage_pct != null ? ' (' + stats.coverage_pct + '%)' : '')));
+    head.appendChild(sl);
+
+    var n1 = el('div', 'note', '주석은 팬이 쓴 해석입니다. 검증되지 않았고, 서로 어긋나기도 합니다.');
+    n1.style.marginTop = '14px';
+    head.appendChild(n1);
+    head.appendChild(el('div', 'note',
+      '배경 색은 커버 아트를 대신해 고른 색입니다. Apple Music 가사 화면 스타일 참조 — 비공식 디자인 습작.'));
+    col.appendChild(head);
+
+    /* ---- lyric body ---- */
+
+    function makePill(a, group) {
+      var b = el('button', 'pill');
+      b.type = 'button';
+      var dis = (a.votes || 0) < 0;
+      if (dis) b.className += ' is-dis';
+      b.appendChild(el('span', 'qm'));
+      var many = group.anns.length > 1;
+      var n = a.span[1] - a.span[0] + 1;
+      b.appendChild(el('span', 'lbl', many ? n + '행 해설' : '해설'));
+      b.appendChild(el('span', 'vt', voteText(a.votes)));
+      b.setAttribute('aria-label',
+        '해설 읽기 — ' + (a.gist_ko ? a.gist_ko : (n + '행 구간')) + ' · ' + voteLabel(a.votes));
+      b.addEventListener('click', function () { openSheet(a, b); });
+      b.addEventListener('focus', function () { light(group, true); });
+      b.addEventListener('mouseenter', function () { subline(group, a, true); });
+      b.addEventListener('mouseleave', function () { subline(group, a, false); });
+      b.addEventListener('blur', function () { subline(group, a, false); });
+      return b;
+    }
+
+    function makeEchoPill(group) {
+      var b = el('button', 'pill is-echo');
+      b.type = 'button';
+      b.appendChild(el('span', 'qm'));
+      b.appendChild(el('span', 'lbl', '반복 · 원 구절로'));
+      var target = group.anns[0];
+      b.setAttribute('aria-label',
+        '앞에서 이미 주석이 달린 구절이 다시 나옵니다. 주석 ' + group.anns.length +
+        '개가 붙은 원래 자리로 이동합니다.');
+      b.addEventListener('click', function () {
+        var home = annHome[target.index];
+        if (home) { scrollToEl(home, 0.34); light(home.__grp, false); focusPillIn(home); }
+      });
+      return b;
+    }
+
+    function focusPillIn(groupEl) {
+      var p = groupEl.querySelector('.pill');
+      if (p) p.focus({ preventScroll: true });
+    }
+
+    var lineEls = [];
+    var i = 0;
+    while (i < lines.length) {
+      var g = owner[i];
+
+      if (!g) {
+        var raw = lines[i] || {};
+        if (raw.gap) {
+          var gm = el('div', 'gapmark', '· · ·');
+          gm.setAttribute('aria-label', '연 구분');
+          col.appendChild(gm);
+        } else {
+          col.appendChild(mkLine(i, raw));
+        }
+        i++;
+        continue;
+      }
+
+      // a whole annotated range renders as one slab
+      var box = el('div', 'grp' + (g.echo ? ' is-echo' : ''));
+      if (!g.echo && g.anns.every(function (a) { return a.status === 'partial'; })) {
+        box.className += ' is-partial';
+      }
+      box.__grp = g;
+      g.node = box;
+      for (var j = g.start; j <= g.end && j < lines.length; j++) {
+        var lr = lines[j] || {};
+        if (lr.gap) box.appendChild(el('div', 'gapmark', '· · ·'));
+        else box.appendChild(mkLine(j, lr));
+      }
+
+      if (!g.echo) {
+        var gist = null;
+        for (var q = 0; q < g.anns.length; q++) {
+          if (g.anns[q].gist_ko && g.anns[q].gist_ko.trim()) { gist = g.anns[q].gist_ko.trim(); break; }
+        }
+        if (gist) {
+          var pk = el('div', 'peek', gist.replace(/`/g, ''));
+          pk.title = gist;
+          box.appendChild(pk);
+        }
+      }
+
+      var pills = el('div', 'pills');
+      if (g.echo) {
+        pills.appendChild(makeEchoPill(g));
+      } else {
+        g.anns.forEach(function (a) {
+          pills.appendChild(makePill(a, g));
+          if (!annHome[a.index]) annHome[a.index] = box;
+        });
+      }
+      box.appendChild(pills);
+      col.appendChild(box);
+      i = g.end + 1;
+    }
+
+    function mkLine(idx, raw) {
+      var p = el('p', 'ln', raw.text || '');
+      var d = dirOf(raw.text || '');
+      p.setAttribute('dir', d);
+      p.setAttribute('lang', d === 'rtl' ? 'ar' : 'es');
+      p.__i = idx;
+      lineEls.push(p);
+      return p;
+    }
+
+    function subline(group, a, on) {
+      if (!group.node) return;
+      var kids = group.node.querySelectorAll('.ln');
+      for (var k = 0; k < kids.length; k++) {
+        var ix = kids[k].__i;
+        var inSpan = ix >= a.span[0] && ix <= a.span[1];
+        kids[k].classList.toggle('is-sub', !!on && inSpan && group.anns.length > 1);
+      }
+    }
+
+    /* ---- annotations that never landed on a line ---- */
+    if (unplaced.length) {
+      var unp = el('section', 'unp');
+      unp.appendChild(el('h3', null, '행에 붙지 않은 주석 ' + unplaced.length + '개'));
+      unp.appendChild(el('div', 'note',
+        '곡의 한 구간 전체에 달렸거나(예: [Verso 3]), 가사 행과 자동으로 이어지지 않은 주석입니다. 숨기지 않고 여기 그대로 둡니다.'));
+      unplaced.forEach(function (a) {
+        var c = el('button', 'ucard');
+        c.type = 'button';
+        var dis = (a.votes || 0) < 0;
+        if (dis) c.className += ' is-dis';
+        var uh = el('div', 'uhead');
+        var sc = statusChip(a);
+        if (sc) uh.appendChild(el('span', 'chip', sc));
+        uh.appendChild(el('span', 'chip' + (dis ? ' warn' : ''), voteText(a.votes)));
+        if (dis) uh.appendChild(el('span', 'chip warn', '이견 있음'));
+        c.appendChild(uh);
+        var fr = el('div', 'ufrag', String(a.fragment || '').split('\n').map(function (s) {
+          return s.trim();
+        }).join(' / '));
+        fr.setAttribute('dir', dirOf(a.fragment || ''));
+        c.appendChild(fr);
+        if (a.gist_ko && a.gist_ko.trim()) {
+          c.appendChild(el('div', 'ugist', a.gist_ko.replace(/`/g, '')));
+        }
+        c.setAttribute('aria-label', '해설 읽기 — ' + (a.gist_ko || a.fragment || '').slice(0, 60) +
+          ' · ' + voteLabel(a.votes));
+        c.addEventListener('click', function () { openSheet(a, c); });
+        annHome[a.index] = c;
+        unp.appendChild(c);
+      });
+      col.appendChild(unp);
+    }
+
+    var foot = el('footer', 'foot');
+    foot.appendChild(el('div', 'note',
+      'Apple Music 가사 화면의 시각 언어(움직이는 그라데이션 바탕, 커다란 둥근 산세리프, 젖빛 알약 컨트롤)를 참조한 디자인 습작입니다. 실제 서비스가 아니고, 어떤 회사와도 관계가 없습니다.'));
+    foot.appendChild(el('div', 'note',
+      '재생이 없으므로 밝기는 스크롤 위치가 만듭니다. 화면 가운데 밴드에 든 행이 가장 밝고, 그 밴드가 주석 구간 안에 들어가면 구간 전체가 한 덩어리로 밝아집니다.'));
+    col.appendChild(foot);
+
+    var tail = el('div', 'tail');
+    col.appendChild(tail);
+    wrap.appendChild(scroller);
+
+    /* ---- top bar ---- */
+    var topbar = el('div', 'topbar');
+    var tb = el('div', 'tb');
+    tb.appendChild(el('div', 'mini'));
+    var tbtxt = el('div', 'tbtxt');
+    tbtxt.appendChild(el('div', 't1', track.title || ''));
+    tbtxt.appendChild(el('div', 't2', (album.artist || '') + ' — ' + (album.title || '')));
+    tb.appendChild(tbtxt);
+    tb.appendChild(el('span', 'chip', '주석 ' + anns.length));
+    topbar.appendChild(tb);
+    wrap.appendChild(topbar);
+
+    /* ---- transport, repurposed as passage navigation ---- */
+    var transport = el('div', 'transport');
+    var tp = el('div', 'tp');
+    var prevB = el('button', 'tbtn', '‹');
+    prevB.type = 'button';
+    prevB.setAttribute('aria-label', '이전 주석 구간으로');
+    var mainB = el('button', 'tmain', '해설 열기');
+    mainB.type = 'button';
+    var nextB = el('button', 'tbtn', '›');
+    nextB.type = 'button';
+    nextB.setAttribute('aria-label', '다음 주석 구간으로');
+    var num = el('span', 'tnum', '1/' + order.length);
+    tp.appendChild(prevB);
+    tp.appendChild(mainB);
+    tp.appendChild(nextB);
+    tp.appendChild(num);
+    transport.appendChild(tp);
+    wrap.appendChild(transport);
+
+    /* ---- sheet ---- */
+    var scrim = el('div', 'scrim');
+    scrim.hidden = true;
+    scrim.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(scrim);
+
+    var sheet = el('aside', 'sheet');
+    sheet.hidden = true;
+    sheet.tabIndex = -1;
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('data-detent', 'half');
+
+    var grab = el('div', 'grab');
+    grab.appendChild(el('i', null, ''));
+    sheet.appendChild(grab);
+
+    var shead = el('div', 'shead');
+    var chips = el('div', 'chips');
+    shead.appendChild(chips);
+    var expB = el('button', 'sbtn', '⌃');
+    expB.type = 'button';
+    expB.setAttribute('aria-label', '시트 크게 보기');
+    var closeB = el('button', 'sbtn', '✕');
+    closeB.type = 'button';
+    closeB.setAttribute('aria-label', '해설 닫기');
+    shead.appendChild(expB);
+    shead.appendChild(closeB);
+    sheet.appendChild(shead);
+
+    var sbody = el('div', 'sbody');
+    var frag = el('blockquote', 'frag');
+    frag.id = 'h-apple-frag-' + Math.random().toString(36).slice(2, 8);
+    frag.tabIndex = 0;
+    sheet.setAttribute('aria-labelledby', frag.id);
+    var sgist = el('div', 'sgist');
+    var disp = el('div', 'disp');
+    disp.hidden = true;
+    var langrow = el('div', 'langrow');
+    var seg = el('div', 'seg');
+    seg.setAttribute('data-lang', 'ko');
+    seg.appendChild(el('span', 'thumb'));
+    var koB = el('button', null, '한국어');
+    koB.type = 'button';
+    koB.setAttribute('aria-pressed', 'true');
+    var esB = el('button', null, 'Español');
+    esB.type = 'button';
+    esB.setAttribute('aria-pressed', 'false');
+    seg.appendChild(koB);
+    seg.appendChild(esB);
+    langrow.appendChild(seg);
+    langrow.appendChild(el('span', 'chip', '해설 본문 언어'));
+    var prose = el('div', 'prose');
+    var sfoot = el('div', 'sfoot');
+    sbody.appendChild(frag);
+    sbody.appendChild(sgist);
+    sbody.appendChild(disp);
+    sbody.appendChild(langrow);
+    sbody.appendChild(prose);
+    sbody.appendChild(sfoot);
+    sheet.appendChild(sbody);
+    wrap.appendChild(sheet);
+
+    /* ---- brightness: scroll position stands in for the play head -------- */
+
+    var cache = [];
+    var groupBoxes = [];
+    var litGroup = null;
+    var rafId = 0;
+    var tailH = 0;   // must mirror the .tail CSS height
+
+    // lines inside a .grp have that group as their offsetParent, so walk the
+    // chain up to the scroller instead of trusting a single offsetTop
+    function topIn(node) {
+      var t = 0, n = node;
+      while (n && n !== scroller) { t += n.offsetTop; n = n.offsetParent; }
+      return t;
+    }
+
+    function measure() {
+      // the last lyric line must still be able to reach the focal band, but the
+      // unplaced list + footer already supply most of that runway — only pad the rest
+      var last = lineEls[lineEls.length - 1];
+      var need = Math.round(scroller.clientHeight * 0.56);
+      var after = last ? (col.offsetHeight - tailH - (topIn(last) + last.offsetHeight)) : 0;
+      var want = Math.max(0, need - Math.max(0, after));
+      if (want !== tailH) { tailH = want; tail.style.height = want + 'px'; }
+      cache = lineEls.map(function (p) {
+        return { el: p, c: topIn(p) + p.offsetHeight / 2 };
+      });
+      groupBoxes = [];
+      groups.concat(echoes).forEach(function (g) {
+        if (!g.node) return;
+        var t = topIn(g.node);
+        groupBoxes.push({ g: g, top: t, bot: t + g.node.offsetHeight });
+      });
+    }
+
+    function light(g, scrollTo) {
+      if (litGroup === g) return;
+      if (litGroup && litGroup.node) litGroup.node.classList.remove('is-lit');
+      litGroup = g;
+      if (g && g.node) g.node.classList.add('is-lit');
+      if (g && !g.echo && g.anns.length) {
+        var ix = order.indexOf(g.anns[0]);
+        if (ix >= 0) setCursor(ix, false);
+      }
+      if (scrollTo && g && g.node) scrollToEl(g.node, 0.3);
+    }
+
+    function paint() {
+      rafId = 0;
+      var h = scroller.clientHeight;
+      if (!h || !cache.length) return;
+      var focal = scroller.scrollTop + h * 0.42;
+      var fall = h * 0.42;
+
+      // which passage owns the focal band?
+      var pick = null, best = 1e9;
+      for (var k = 0; k < groupBoxes.length; k++) {
+        var b = groupBoxes[k];
+        var d = focal < b.top ? b.top - focal : focal > b.bot ? focal - b.bot : 0;
+        if (d < best) { best = d; pick = b.g; }
+      }
+      if (best > 84) pick = null;
+
+      if (pick !== litGroup) {
+        if (litGroup && litGroup.node) litGroup.node.classList.remove('is-lit');
+        litGroup = pick;
+        if (pick && pick.node) pick.node.classList.add('is-lit');
+        if (pick && !pick.echo && pick.anns.length) {
+          var ix = order.indexOf(pick.anns[0]);
+          if (ix >= 0) setCursor(ix, false);
+        }
+      }
+
+      var lo = pick ? pick.start : -1, hi = pick ? pick.end : -2;
+      for (var m = 0; m < cache.length; m++) {
+        var it = cache[m];
+        var o;
+        if (it.el.__i >= lo && it.el.__i <= hi) {
+          o = 1;
+        } else {
+          var t = Math.abs(it.c - focal) / fall;
+          o = clamp(1 - Math.pow(t, 1.32) * 0.88, 0.12, 1);
+          o = Math.round(o * 50) / 50;
+        }
+        if (it.o !== o) { it.o = o; it.el.style.setProperty('--h-apple-o', o); }
+      }
+    }
+
+    function schedule() { if (!rafId) rafId = requestAnimationFrame(paint); }
+
+    function reducedMotion() {
+      return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    function scrollToEl(node, frac) {
+      var top = topIn(node) - scroller.clientHeight * (frac == null ? 0.3 : frac);
+      try {
+        scroller.scrollTo({ top: Math.max(0, top), behavior: reducedMotion() ? 'auto' : 'smooth' });
+      } catch (e) { scroller.scrollTop = Math.max(0, top); }
+    }
+
+    scroller.addEventListener('scroll', schedule, { passive: true });
+
+    /* ---- transport wiring ---- */
+
+    function setCursor(ix, doScroll) {
+      cursor = clamp(ix, 0, order.length - 1);
+      num.textContent = (cursor + 1) + '/' + order.length;
+      var a = order[cursor];
+      if (!a) return;
+      if (doScroll) {
+        var home = annHome[a.index];
+        if (home) {
+          scrollToEl(home, 0.3);
+          if (home.__grp) light(home.__grp, false);
+        }
+      }
+      if (!sheet.hidden && doScroll) fillSheet(a);
+    }
+
+    prevB.addEventListener('click', function () { setCursor(cursor - 1, true); });
+    nextB.addEventListener('click', function () { setCursor(cursor + 1, true); });
+    mainB.addEventListener('click', function () {
+      var a = order[cursor];
+      if (a) openSheet(a, mainB);
+    });
+
+    /* ---- sheet behaviour ---- */
+
+    var curAnn = null;
+    var returnTo = null;
+
+    function fillSheet(a) {
+      curAnn = a;
+
+      chips.innerHTML = '';
+      var sc = statusChip(a);
+      if (sc) chips.appendChild(el('span', 'chip', sc));
+      if (a.span) {
+        var n = a.span[1] - a.span[0] + 1;
+        chips.appendChild(el('span', 'chip', (a.span[0] + 1) + '–' + (a.span[1] + 1) + '행 · ' + n + '행'));
+      }
+      var dis = (a.votes || 0) < 0;
+      chips.appendChild(el('span', 'chip' + (dis ? ' warn' : ''), voteText(a.votes)));
+
+      frag.innerHTML = '';
+      String(a.fragment || '').split('\n').forEach(function (s) {
+        var t = s.trim();
+        if (!t) return;
+        var sp = el('span', null, t);
+        sp.setAttribute('dir', dirOf(t));
+        frag.appendChild(sp);
+      });
+      frag.classList.remove('is-clip');
+
+      if (a.gist_ko && a.gist_ko.trim()) {
+        sgist.hidden = false;
+        sgist.textContent = a.gist_ko.replace(/`/g, '');
+      } else {
+        sgist.hidden = true;
+        sgist.textContent = '';
+      }
+
+      if (dis) {
+        disp.hidden = false;
+        disp.innerHTML = '';
+        disp.appendChild(el('span', null, '⚠'));
+        disp.appendChild(el('span', null,
+          '읽는 사람들 사이에서 평가가 갈린 해석입니다 (반대 ' + Math.abs(a.votes) +
+          '표). 다른 주석과 같은 무게로 읽지 마세요.'));
+      } else {
+        disp.hidden = true;
+      }
+
+      var body = lang === 'es' ? (a.body_es || a.body_ko) : (a.body_ko || a.body_es);
+      prose.innerHTML = renderProse(body);
+      prose.setAttribute('lang', lang === 'es' ? 'es' : 'ko');
+
+      sfoot.innerHTML = '';
+      if (a.url) {
+        var link = document.createElement('a');
+        link.href = a.url;
+        link.target = '_blank';
+        link.rel = 'noreferrer noopener';
+        link.textContent = '원 주석 출처 열기';
+        sfoot.appendChild(link);
+      }
+
+      sbody.scrollTop = 0;
+      requestAnimationFrame(function () {
+        if (frag.scrollHeight > frag.clientHeight + 2) frag.classList.add('is-clip');
+      });
+    }
+
+    function openSheet(a, from) {
+      returnTo = from || null;
+      var ix = order.indexOf(a);
+      if (ix >= 0) { cursor = ix; num.textContent = (cursor + 1) + '/' + order.length; }
+      fillSheet(a);
+
+      var home = annHome[a.index];
+      if (home && home.__grp) light(home.__grp, false);
+      if (home) scrollToEl(home, 0.16);
+
+      scrim.hidden = false;
+      sheet.hidden = false;
+      // force a frame so the transform transition runs
+      void sheet.offsetHeight;
+      scrim.classList.add('is-on');
+      sheet.classList.add('is-open');
+      sheet.focus({ preventScroll: true });
+    }
+
+    function closeSheet() {
+      if (sheet.hidden) return;
+      sheet.classList.remove('is-open');
+      scrim.classList.remove('is-on');
+      var t = setTimeout(function () { sheet.hidden = true; scrim.hidden = true; }, reducedMotion() ? 10 : 440);
+      timers.push(t);
+      if (returnTo && returnTo.isConnected) returnTo.focus({ preventScroll: true });
+      returnTo = null;
+    }
+
+    var timers = [];
+
+    closeB.addEventListener('click', closeSheet);
+    scrim.addEventListener('click', closeSheet);
+    expB.addEventListener('click', function () {
+      var full = sheet.getAttribute('data-detent') === 'full';
+      sheet.setAttribute('data-detent', full ? 'half' : 'full');
+      expB.textContent = full ? '⌃' : '⌄';
+      expB.setAttribute('aria-label', full ? '시트 크게 보기' : '시트 작게 보기');
+    });
+
+    koB.addEventListener('click', function () { setLang('ko'); });
+    esB.addEventListener('click', function () { setLang('es'); });
+
+    function setLang(v) {
+      if (lang === v) return;
+      lang = v;
+      seg.setAttribute('data-lang', v);
+      koB.setAttribute('aria-pressed', String(v === 'ko'));
+      esB.setAttribute('aria-pressed', String(v === 'es'));
+      if (curAnn) {
+        var body = v === 'es' ? (curAnn.body_es || curAnn.body_ko) : (curAnn.body_ko || curAnn.body_es);
+        prose.innerHTML = renderProse(body);
+        prose.setAttribute('lang', v === 'es' ? 'es' : 'ko');
+      }
+    }
+
+    wrap.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !sheet.hidden) { e.stopPropagation(); closeSheet(); }
+    });
+
+    /* ---- drag the sheet between detents (the Apple gesture) ---- */
+    var drag = null;
+    grab.addEventListener('pointerdown', function (e) {
+      drag = { y: e.clientY, dy: 0 };
+      sheet.classList.add('is-drag');
+      try { grab.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    grab.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      drag.dy = e.clientY - drag.y;
+      var d = drag.dy < 0 ? drag.dy * 0.32 : drag.dy;
+      sheet.style.transform = 'translateY(' + d + 'px)';
+    });
+    function endDrag() {
+      if (!drag) return;
+      var dy = drag.dy;
+      drag = null;
+      sheet.classList.remove('is-drag');
+      sheet.style.transform = '';
+      var full = sheet.getAttribute('data-detent') === 'full';
+      if (dy > 120) {
+        if (full) { sheet.setAttribute('data-detent', 'half'); expB.textContent = '⌃'; }
+        else closeSheet();
+      } else if (dy < -50 && !full) {
+        sheet.setAttribute('data-detent', 'full');
+        expB.textContent = '⌄';
+      }
+    }
+    grab.addEventListener('pointerup', endDrag);
+    grab.addEventListener('pointercancel', endDrag);
+
+    /* ---- go ---- */
+    root.appendChild(wrap);
+    measure();
+    paint();
+    setCursor(0, false);
+
+    var ro = null;
+    if (window.ResizeObserver) {
+      ro = new ResizeObserver(function () { measure(); schedule(); });
+      ro.observe(scroller);
+      ro.observe(col);
+    }
+    [80, 300, 900].forEach(function (ms) {
+      timers.push(setTimeout(function () { measure(); paint(); }, ms));
+    });
+
+    root.__hApple = function () {
+      if (rafId) cancelAnimationFrame(rafId);
+      timers.forEach(clearTimeout);
+      if (ro) ro.disconnect();
+    };
+  }
+
+  window.HOUSES[SLUG] = {
+    name: '애플 뮤직 가사형',
+    ref: 'Apple Music 가사 화면',
+    blurb: '재생 대신 스크롤이 밝기를 만들어, 화면 가운데 밴드에 든 주석 구간이 통째로 밝아지고 나머지 가사는 뒤로 물러납니다. 해설은 젖빛 시트를 밀어 올려 가사와는 다른 활자 크기로 읽힙니다.',
+    gives_up: '가사 활자가 워낙 커서 한 화면에 예닐곱 행뿐이라, 12행짜리 구간은 한눈에 안 들어오고 1,000자 해설은 결국 시트를 열어 스크롤해야 합니다.',
+    mount: mount,
+    unmount: function (root) {
+      if (root.__hApple) { try { root.__hApple(); } catch (e) {} root.__hApple = null; }
+      root.innerHTML = '';
+    }
+  };
+})();
+</script>
