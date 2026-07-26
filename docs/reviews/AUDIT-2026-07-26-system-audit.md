@@ -19,7 +19,7 @@ find the first row in the checklist that is not `DONE`, and continue from there.
 |---|-----|--------|-------------------|
 | A | Backend/music/worker code audit (recurring bug classes: fail-closed guards, session lifecycle, upsert sort, HTTP timeouts, twin drift) | **DONE** — 5 findings, 4 classes swept clean. Full detail in `audit-2026-07-26-raw/A-python-services.md` | §1 |
 | B | Architecture audit (service boundaries, sync-Spotify rule, contract/OpenAPI drift, shared_db pin drift, infra↔code drift) | **DONE** — 0 findings; all six structural checks clean. Redone from scratch in the main loop | §2 |
-| C | Frontend code audit (islands, CSS scoping traps, api.gen.ts drift, auth/token handling, error/empty states) | **NOT STARTED — restart** — killed by the session limit before reading anything | §3 |
+| C | Frontend code audit (islands, CSS scoping traps, api.gen.ts drift, auth/token handling, error/empty states) | **DONE** — 0 new findings (frontend defects are E-1/E-3/E-4, found live). Done from scratch in the main loop | §3 |
 | D | Functional audit (plan.md open items vs reality, launchd pipeline health, DLQ/queue state, prod smoke) | **DONE** — 3 findings (one P0), rest verified healthy. Done in the main loop after the subagent died | §4 |
 | E | UI/UX live verification via CDP on production (desktop + mobile emulation, console errors, key flows) | IN PROGRESS — logged-out public surface swept (home / reviews / genres / canon / collection / artist, at 1440px and 390px mobile). Remaining: Lighthouse numbers, authed `/members/` surface | §5 |
 | F | Necessity-gate pass — refute every candidate finding, drop unproven ones | PENDING | §6 |
@@ -109,7 +109,27 @@ No cross-service imports exist. `grep` for `myblog_music` / `myblog_backend` ins
 
 ## 3. Frontend code — findings
 
-_(pending)_
+**Zero *new* findings adopted.** The frontend defects this audit found are the three live-verified ones in §5 (E-1, E-3, E-4); the static sweep of the known-recurring frontend bug classes came back clean. Done in the main loop (the subagent died on the session cap before reading anything).
+
+Worth saying plainly: **`myblog_front` is the healthiest part of this system.** Several of the traps below are ones the codebase has clearly been burned by before, and in each case the code now carries an explicit comment showing the lesson stuck.
+
+### Where E-1 actually lives (the fix site)
+
+- `src/components/home/BrowseGenres.tsx:191` calls `fetchGenreTree()`
+- → `src/lib/genres.ts:78-86`, which does `apiFetch(BASE + '/api/genres/tree')` behind a module-level promise cache
+- `BrowseGenres.tsx:213-215` then keeps only `{ slug, label, albumCount }` for **tier-0 genres**, sorts by count, and `.slice(0, TOP_N)`.
+
+So the homepage needs roughly **13 rows × 3 fields**, and requests 1,230 nodes × 8 fields including 120 KB of markdown. The component's own header comment explains the design intent — *"via fetchGenreTree() — so there is one album_count source of truth"* — which is a reasonable goal; it just doesn't require shipping the whole forest to the client. → §7.
+
+### Checked and clean (leg C)
+
+- **`member.css` dashboard-only trap** — the one that has bitten this repo 3+ times. Swept every `qb-*`, `bps-*`, `lf-*` usage and mapped each to its defining sheet and its importing page. **Clean, and defended in code**: `qb-*` rules now live in `src/styles/modal.css` (not `member.css`), and both home-page consumers carry explicit comments — `TodayPickHistory.tsx:13` *"qb-* modal shell — home page never loads member.css. See TodaySongPicker."* The one `lf-*` class on the home page (`ByTheNumbers.tsx:28` `lf-numbers`) is fully self-contained: inline styles for the base grid plus an inlined `<style>` for its own mobile override. Nothing ships unstyled.
+- **Tailwind `@theme` token pruning** — 17 of 66 `@theme` tokens are never `var()`-referenced, and **live verification confirms 12 of them were pruned out of the production build** (absent from `getComputedStyle(document.documentElement)`: `--bp-lg/sm/tab/xl/xs`, `--space-1/7/10/14/30`, `--text-display`, `--z-raised`). So the trap is real and active — but **no harm**: the `--bp-*` tokens are documentation constants (global.css:97 says they are *"aligned to"* Tailwind's breakpoints, and the real responsive code uses Tailwind's own namespace, e.g. global.css:159 `--theme(--breakpoint-lg)`). Verified against the built CSS: `md:` and `lg:` each generate **57 rules**, and the emitted media queries are Tailwind's defaults (40/48/64/80/96rem). No responsive class is silently dead. `--color-primary`, `--color-ic-bg`, `--color-ic-border` survive but have zero usage — dead but harmless. **Cleanup opportunity, not a defect** → dropped under the necessity gate.
+- **`apiFetch` bypass** — every raw `fetch()` to an API base was checked against its route's actual guard in the backend source. All of them target genuinely public endpoints (music feed, on-this-day, releases calendar, album/artist lookups, `/api/members*`, `/api/reviews/albums/{id}` — confirmed guard-free at `reviews.py:61-67`). **No authed endpoint is called without auth.**
+- **The one hand-rolled auth call is the most carefully written code in the sweep.** `src/lib/spotifyPlayback.ts:104` attaches `getAuthHeader()` manually rather than using `apiFetch`, and then maps **every** status to an explicit capability state: 503 → `dormant`, 404 → `disconnected` (documented as "a capability state, not an error"), 401/403 → `unauthorized`, other `!ok` → `error`, plus `try/catch` around both the fetch and the `.json()`, plus a missing-`access_token` guard. Nothing falls through.
+- **The two API base env vars** — `PUBLIC_API_URL` (music) vs `PUBLIC_BACKEND_API_URL` (backend), a documented past mix-up. Every consumer is on the correct one: music-service concerns (`albumDetail`, `artistNames`, `spotifyCatalog`, `useMusicSearch`) use `PUBLIC_API_URL`; backend concerns (`buckets`, `genres`, `research`, `todaysPick`, `spotifyPlayback`, `api.ts`) use `PUBLIC_BACKEND_API_URL`. **No crossovers.**
+- **Contract drift** — covered by the leg B check: 0 backend routes missing from the merged spec, and the front's `api.gen.ts` gate is enforced in CI (which is green).
+- **Empty / loading / error states** — verified live rather than by reading (§5): every empty surface renders written copy, and the one async spinner resolves.
 
 ## 4. Functional / operational — findings
 
