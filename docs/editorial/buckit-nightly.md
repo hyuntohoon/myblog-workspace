@@ -31,7 +31,7 @@ A draft that merely re-states the memo's bullet points has failed. **Develop the
 
 - ★ **No fabricated facts** — discography, sequence, track titles, lyrics, dates, relationships, credits, statements from interviews / notes. Missing fact → `[근거 보강 필요: …]` or `[source?]`, never invented. **The research note is your fact source; if it conflicts with the memo, trust the note and _flag the conflict_** (e.g. a label or a name the memo got wrong).
 - ★ **No fabricated emotions or experiences** of the editor, and **no invented audible moment** — mark it `[근거 보강 필요: 어느 트랙/구간]`.
-- ★ **Develop the editor's judgment; don't replace it.** Choose a **provisional controlling idea** from the memo, build the argument, add critical framing and the research note's context. Do not invent a stance the memo never had, or flip its verdict.
+- ★ **Develop the editor's judgment where there is one; never overwrite it.** If the memo carries a viewpoint, that viewpoint **is** the controlling idea — build the argument around it and never flip its verdict. If the memo carries none, **do not stop**: take a provisional controlling idea from the research note instead, and say so in one opening line so the editor knows which part is theirs to replace. What you may never do is attribute a feeling, an experience, or a verdict to the **editor** that the memo does not contain — write it as the draft's own reading, in observer stance.
 - ★ **Inference is a claim, not a fact** — flag it ("~로 들린다 / ~처럼 읽힌다"), never assert it as established.
 
 ---
@@ -56,7 +56,8 @@ Close on the thought the record leaves. A ring back to the opening image lands w
 
 - A rich memo + a rich research note should grow into a **full, fleshed essay — let it breathe.** (The earlier "bias hard to short" was wrong for this job; a real review has room to argue.)
 - But **never pad.** Every paragraph earns its place by serving the thesis. Cut, don't fill.
-- **Too thin to support a review** — only a listening note ("들었다 / 좋다"), no angle, *and* a research note too sparse to build context: don't fabricate. Write a short **`초안 생성 보류`** note (what's there, what's missing) and stop.
+- **A thin memo is not a stop condition.** Every checked memo gets a complete draft. There is no hold, no `초안 생성 보류`, and "zero drafts" is never a valid outcome. A memo that is only a listening mark ("전체곡", "들었다") still gets a full draft, built on a provisional controlling idea drawn from the research note (§2 ★) and flagged as provisional in one opening line. Evidence you don't have is marked inline where it is missing (`[근거 보강 필요: …]`) — never used as a reason to withhold the draft.
+- ★ **Do not assess the research note.** Neither the draft nor `_summary.md` ever states whether the note was sufficient, rich, sparse, or thin. Nobody asked for that judgment and you are not positioned to make it. Missing facts get marked at the point where they are missing; that is the entire reporting surface.
 
 ---
 
@@ -72,7 +73,7 @@ Write a finished essay. Give it a **real title** that carries the thesis or its 
 6. **A close on judgment / image / aftertaste — never on score.**
 7. **Prose**: concrete verbs over blur-words (rules §6), vary sentence length, a short punch after a long line.
 
-Then, after all per-memo draft files, the run produces **`_summary.md`** (the morning index): each draft's provisional controlling idea, the tension it holds, the verbatim phrases preserved, and what is marked `[근거 보강 필요]` / `[확인 필요]` for the editor — plus anything held (`초안 생성 보류`).
+Then, after all per-memo draft files, the run produces **`_summary.md`** (the morning index): each draft's provisional controlling idea, the tension it holds, the verbatim phrases preserved, and what is marked `[근거 보강 필요]` / `[확인 필요]` for the editor. One entry per memo, always — there is no held-items list, because nothing is held.
 
 ---
 
@@ -85,6 +86,7 @@ Then, after all per-memo draft files, the run produces **`_summary.md`** (the mo
 ---
 
 ### Change log
+- **v0.4 (2026-07-26):** **The hold is gone.** Every checked memo now gets a complete draft; `초안 생성 보류` and "zero drafts is a valid result" are removed from §4, §5, and the run spec. A memo with no viewpoint gets a **provisional** controlling idea drawn from the research note, flagged as provisional in one opening line — §2's ★ is rewritten accordingly (never attribute a feeling, experience, or verdict to the *editor*; the borrowed angle is the draft's own reading). Adds a new ★: **do not assess the research note** — no "충분/얇다/부족하다" in any output file. *Why:* the hold fired on 13 of 14 completed runs, and every stated reason rested on a judgment about a research note the model had only ever seen as a truncated, newline-flattened 1,500-char slice (fixed the same day). The owner never asked for, and never made, an assessment of note quality.
 - **v0.3 (2026-06-19):** Bigger, richer drafts. Promotes the **research note from a fact-check source to a co-equal "world" source** (§0/§1) — mine it for lineage / intent / structure / context to give the draft flesh (the v0.2 drafts read as a re-list of the memo). Adds **§3-B: build at least one real tension/limit** (appreciation → criticism), **§3-C curated evidence** (no track-walk), explicit **title + structure + prose** guidance (§5), and **relaxes the length-minimalism** (§4: length follows substance, still no padding). Keeps the v0.2 contract: full prose draft, provisional controlling idea, inline `[근거 보강 필요]`, `초안 생성 보류`, end-on-aftertaste, ★ honesty.
 - **v0.2 (2026-06-19):** Memo → Skeleton ⇒ Checked Memo → Full Review Draft. *(Superseded by v0.3.)*
 - **v0.1:** Inventory-shaped section skeleton, candidates-not-chosen, evidence left blank. *(Superseded.)*
