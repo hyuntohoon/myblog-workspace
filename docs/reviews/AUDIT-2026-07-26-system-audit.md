@@ -27,7 +27,13 @@ find the first row in the checklist that is not `DONE`, and continue from there.
 
 | H | **Deepening pass** — adversarially refute recorded findings + sweep the not-covered areas (fired by the 5 h resume trigger, ~09:20 KST) | **DONE** — 6 findings upgraded to production-verified, 0 overturned, 1 new (E-5); authed surface swept | §6b |
 
-**AUDIT COMPLETE — including the deepening pass.** Nothing is left to resume. If another trigger fires, **stop and do nothing.** The only remaining gaps are listed in §6b "Still not covered, even after deepening" — a CVE scan (blocked by network here), load testing, a DB data-quality audit, and Terraform state — none of which are resumable from this ledger without a new owner decision.
+| I | **Re-review** — 5 parallel verifier agents attack this report and its 12 commits; owner-requested (~10:30 KST) | **DONE** — 14 claims corrected, 5 new findings (PUB-1 / OPS-1 / SEC-1 / SEC-2 / E-6), DEP-2's applicability overturned. The judge + synthesis stages died on the session cap, so **every correction was re-verified by hand in the main loop** | §9 |
+
+**AUDIT COMPLETE — main run + deepening pass + re-review.** Nothing is left to resume. If another trigger fires, **stop and do nothing.**
+
+⚠️ **Before anything is merged, read §9.2 PUB-1**: these repos are public, and this document contains reproduction detail for defects that are still unfixed.
+
+Remaining uncovered surfaces are enumerated in **§9.4** (which supersedes the shorter list in §6b): `infra/` beyond apigateway/eventbridge/lambda/monitoring, all six CI workflow files, `tools/` and the non-buckit `scripts/`, frontend server-side code, PWA/SW config, escaping of member-supplied content, plus load testing, DB data quality, Terraform state, and Python CVE call-path tracing.
 
 **Raw agent output / intermediate notes**: `docs/reviews/audit-2026-07-26-raw/`
 
@@ -127,7 +133,8 @@ So the homepage needs roughly **13 rows × 3 fields**, and requests 1,230 nodes 
 
 ### Checked and clean (leg C)
 
-- **`member.css` dashboard-only trap** — the one that has bitten this repo 3+ times. Swept every `qb-*`, `bps-*`, `lf-*` usage and mapped each to its defining sheet and its importing page. **Clean, and defended in code**: `qb-*` rules now live in `src/styles/modal.css` (not `member.css`), and both home-page consumers carry explicit comments — `TodayPickHistory.tsx:13` *"qb-* modal shell — home page never loads member.css. See TodaySongPicker."* The one `lf-*` class on the home page (`ByTheNumbers.tsx:28` `lf-numbers`) is fully self-contained: inline styles for the base grid plus an inlined `<style>` for its own mobile override. Nothing ships unstyled.
+- ~~**`member.css` dashboard-only trap** — clean.~~ ⚠️ **VERDICT WITHDRAWN — this was WRONG. See §9 finding E-6:** `.lf-artist-link` is emitted site-wide by the `AlbumOverlay` island (mounted from `layouts/layout.astro`) but styled only in `member/layout.css`, which loads on just `/collection/` and `/settings/`. Live-verified unstyled on the production homepage. **4th recurrence of this documented trap.**
+  What the sweep *did* establish correctly, and still holds: `qb-*` rules live in `src/styles/modal.css` (not `member.css`), both home-page consumers carry explicit defensive comments (`TodayPickHistory.tsx:13` — *"qb-* modal shell — home page never loads member.css. See TodaySongPicker."*), and `ByTheNumbers.tsx:28`'s `lf-numbers` is fully self-contained. The sweep's error was scoping to page-level components and missing the site-wide island.
 - **Tailwind `@theme` token pruning** — 17 of 66 `@theme` tokens are never `var()`-referenced, and **live verification confirms 12 of them were pruned out of the production build** (absent from `getComputedStyle(document.documentElement)`: `--bp-lg/sm/tab/xl/xs`, `--space-1/7/10/14/30`, `--text-display`, `--z-raised`). So the trap is real and active — but **no harm**: the `--bp-*` tokens are documentation constants (global.css:97 says they are *"aligned to"* Tailwind's breakpoints, and the real responsive code uses Tailwind's own namespace, e.g. global.css:159 `--theme(--breakpoint-lg)`). Verified against the built CSS: `md:` and `lg:` each generate **57 rules**, and the emitted media queries are Tailwind's defaults (40/48/64/80/96rem). No responsive class is silently dead. `--color-primary`, `--color-ic-bg`, `--color-ic-border` survive but have zero usage — dead but harmless. **Cleanup opportunity, not a defect** → dropped under the necessity gate.
 - **`apiFetch` bypass** — every raw `fetch()` to an API base was checked against its route's actual guard in the backend source. All of them target genuinely public endpoints (music feed, on-this-day, releases calendar, album/artist lookups, `/api/members*`, `/api/reviews/albums/{id}` — confirmed guard-free at `reviews.py:61-67`). **No authed endpoint is called without auth.**
 - **The one hand-rolled auth call is the most carefully written code in the sweep.** `src/lib/spotifyPlayback.ts:104` attaches `getAuthHeader()` manually rather than using `apiFetch`, and then maps **every** status to an explicit capability state: 503 → `dormant`, 404 → `disconnected` (documented as "a capability state, not an error"), 401/403 → `unauthorized`, other `!ok` → `error`, plus `try/catch` around both the fetch and the `.json()`, plus a missing-`access_token` guard. Nothing falls through.
@@ -158,7 +165,7 @@ and plan.md-vs-reality are **still outstanding** — see the RESUME STATE table.
   - `POST /api/posts` is gated by `require_owner` (`app/api/routes/posts.py:64`), which requires `sub == OWNER_SUB`. The smoke user's `sub` is not `OWNER_SUB`. → permanent 403.
   - The follow-up `PATCH /api/buckets/{id}/items/{id}` (`buckit_nightly.py:717`) is owner-gated too, so the "grow" step would fail identically.
 - **Why nobody noticed** — three independent things hide it, which is why this deserves the P0:
-  1. **It had never had a draft to deliver before.** Every run from 07-11 to 07-24 logged `0 draft(s) created, 0 memo(s) grown, 0 skipped/failed` — which reads as healthy but actually means "nothing was produced". 07-25 was the first night the pipeline generated a review, and it failed on delivery.
+  1. **It is a regression from a named PR, and 17 days passed before anything tripped it.** ⚠️ *Corrected in §9 (C-3) — the original text here claimed the pipeline had never produced a draft before, which is false.* Delivery **worked twice**: `2026-06-23` and `2026-07-05`, both logging `1 draft(s) created, 1 memo(s) grown, 0 skipped/failed`. It was broken by **`392dd50` — "feat(auth): owner-gate single-owner routes before self-signup opens the pool (#107)", 2026-07-08** — which added `require_owner` to `POST /api/posts`. No draft was produced between 07-08 and 07-25, so the regression had nothing to trip it for 17 days. Every run in that window logged `0 draft(s) created, 0 skipped/failed`, which reads as healthy but only means nothing was produced.
   2. **The error is classified as retryable when it is permanent.** `buckit_nightly.py:705-711` lumps the failure in with `409 ⇒ already exists` and `5xx ⇒ transient; retry next run`. A 403 is neither — it will recur every single night, forever, one `WARNING` line at a time.
   3. **The process still exits 0.** `main()` wraps delivery in a never-crash guard ("never crash after files are written", line 829), so `launchctl list` reports success and no alert fires.
 - **Impact**: the entire point of the nightly pipeline — get a drafted review into the blog — does not work. Reviews accumulate as untracked files in `docs/buckit/` and the site still shows "아직 리뷰가 없습니다" and "0편 평론" (see §5). This also explains the homepage's empty state.
@@ -211,14 +218,14 @@ and plan.md-vs-reality are **still outstanding** — see the RESUME STATE table.
 
   Note this also means **A-1 has not actually fired in production yet** — it is a latent defect, not an active incident.
 - **Zero Lambda errors in 48 h.** `filter-log-events` with `?ERROR ?Traceback ?"Task timed out"` over the last 48 h returned **nothing** for `ratemymusic-api`, `musicApi`, and `blogWorkerLambda`.
-- **All 14 EventBridge rules ENABLED, every target resolves to a live Lambda.** Both 5-minute warm-pings (backend + music) are running; no rule points at a deleted function.
+- **All EventBridge rules ENABLED, every target resolves to a live Lambda.** Both 5-minute warm-pings (backend + music) are running; no rule points at a deleted function. ⚠️ **Corrected in §9 (C-1):** there are **15** rules, not the 14 counted here — `worker-isrc-backfill` was applied at ~08:07 KST on 2026-07-26, mid-audit. And per **OPS-1**, that 13th worker cron is the one with **no `FailedInvocations` alarm**.
 - **No open PRs** in any of the 6 repos.
 - **Deploys are green.** Latest deploy per repo all `success`: backend 07-24, front 07-24, music 07-24, worker 07-25. The only red is D-3.
-- **`docs/plan.md` is accurate and current** (84 lines). Spot-checked the active rows against `git log` and `docs/archive/done/`: shipped work is marked shipped, closed RFCs are archived, and the open items carry explicit owner-decision status. **No stale rows and no regression re-adds found** — this is in noticeably better shape than the failure mode that memory flags.
+- ~~**`docs/plan.md` is accurate and current** (84 lines)~~ — ⚠️ **WITHDRAWN, see §9 (C-2).** The copy inspected was **3 commits behind `origin/main`** and was never re-fetched, so this verdict is unsupported. The rows that *were* spot-checked against `git log` and `docs/archive/done/` showed no staleness, but that says nothing about current `origin/main` (90 lines).
 
-### Still outstanding in leg D (do these on resume)
+### Still outstanding in leg D
 
-- Nothing blocking. Optional deepening: confirm the `worker-isrc-backfill` EventBridge rule from the 07-26 plan.md row is still un-applied (it was absent from the 14 rules listed above — consistent with plan.md saying a human `terraform apply` is still pending).
+- Nothing. (The earlier item here — "confirm `worker-isrc-backfill` is still un-applied" — was **wrong**: the rule was applied mid-audit and is live. See §9 C-1. What replaces it is **OPS-1**: that rule has no `FailedInvocations` alarm.)
 
 ## 5. UI/UX (live production) — findings
 
@@ -230,18 +237,22 @@ Swept 2026-07-26 ~02:45–03:00 KST at 1440×900 desktop and 390×844×3 mobile+
 - **Severity**: P1 — every visitor, every visit, including repeat visits and mobile data.
 - **Where**: homepage `/` → `GET /api/genres/tree` (backend route; the frontend genre-distribution module on `/`)
 - **Measured on production (mobile emulation, 390×844)**:
-  - Homepage total network transfer: **296,971 bytes across 77 resources**
-  - `/api/genres/tree` alone: **291,928 bytes transferred / 741,895 bytes decoded / 1,257 ms**
-  - → **98.3 % of the entire homepage's bytes is this one API call.** All JS/CSS/font/image resources together were served from cache (0 transfer); this call cannot be.
+  - `/api/genres/tree`: **291,928 bytes transferred / 741,895 bytes decoded / 1,257 ms — on every visit.** This is the finding, and it is unaffected by the correction below.
+  - Share of page weight, ⚠️ **corrected in §9 (C-5)** — the original text quoted only the larger figure:
+    - **warm repeat visit**: total transfer 296,971 B across 77 resources → this one call is **~98 %** of it (everything else came from cache; this call cannot).
+    - **cold first visit**: the page is ~**2.0 MB**, so this call is **~14 %** of it.
+  - Both are true of different visits. The honest statement is the per-visit cost plus the uncacheability, not the percentage.
 - **Why it cannot be cached**: the response carries **no `cache-control` header at all**, so CloudFront never stores it —
   repeated `curl` shows `x-cache: Miss from cloudfront` every time, TTFB 0.75–1.3 s.
   The two sibling homepage endpoints DO set it and DO cache:
   - `/api/music/albums/on-this-day` → `cache-control: public, max-age=60, stale-while-revalidate=60` → 2nd request `x-cache: Hit from cloudfront, age: 19`
   - `/api/music/feed/new-releases` → same header, same behaviour
   So this is header **drift between sibling endpoints**, not a deliberate freshness choice.
-- **What the payload actually contains**: 1,230 genre nodes, 5 levels deep (13 / 247 / 779 / 179 / 12 per level),
-  including the full `definition_md` markdown body of every node — **120,774 bytes of markdown prose**.
-  Stripping only `definition_md` drops the payload from 773,644 → 246,085 bytes (-68 %).
+- **What the payload actually contains** — ⚠️ **corrected in §9 (C-6)**; the original decomposition was wrong and pointed the fix at the wrong field:
+  - 1,230 genre nodes, 5 levels deep (13 / 247 / 779 / 179 / 12 per level)
+  - `definition_md` markdown bodies: **242,646 B** of UTF-8 (120,774 characters). Stripping them gives 741,895 → **475,305 B, only −36 %**.
+  - **The largest unused chunk is the `edges` array — 2,064 entries, ~246 KB — which `/` never reads at all.** Node scaffolding is a further ~229 KB.
+  - So the cheapest big win is dropping `edges` (and levels 1–4) for the homepage, not trimming the markdown.
 - **What the homepage renders from it**: six rows — Pop 1,253 / Hip-Hop 1,191 / Rock 501 / R&B-Soul 336 / K-Pop 318 / Electronic 309 — i.e. the label + `album_count` of the top 6 top-level genres. Nothing else on `/` reads the tree, the definitions, or levels 2–5.
 - **Failure scenario**: a first-time mobile visitor on a normal cellular connection waits ~1.3 s of blocking API time and spends ~292 KB of data before the genre strip paints; a returning visitor pays it again in full because nothing caches. The same page's other three API calls cost 4.4 KB combined.
 - **Note**: `/genres/` (the Genre Map page) legitimately needs the full tree — it renders all 13 top-level nodes with subtree counts and expandable definitions. The finding is scoped to `/` only.
@@ -255,13 +266,13 @@ Swept 2026-07-26 ~02:45–03:00 KST at 1440×900 desktop and 390×844×3 mobile+
 - **Failure scenario**: the flagship public "회원들이 공개한 My Buckit을 모았습니다" page attributes its only collection to a machine identifier, so the section reads as unfinished; and a stable per-user identifier fragment is published where none needs to be.
 - **Why it isn't already handled**: this is the fallback used when a member has no display name set. Whether the fix is "require a display name" or "render a neutral label" is an owner decision, not a code bug per se — recorded as a decision item, not a defect to patch blindly.
 
-### E-3: First-visit mobile CLS is 0.315 — three times the "poor" threshold — because homepage sections mount with no reserved height
+### E-3: First-visit mobile CLS measures 0.14–0.32 — always worse than "good", usually worse than "poor" — because homepage sections mount with no reserved height
 
 - **Severity**: P1 — affects every first-time visitor; content jumps under the reader's thumb.
 - **Where**: homepage `/` — the "오늘, 이 앨범들" rail, the "장르로 탐색" distribution module, and the new-releases `hstrip`.
-- **Measured**:
-  - **Lighthouse, mobile navigation, cold profile: CLS = 0.315.** Google's thresholds: good ≤ 0.10, poor > 0.25.
-  - Independent reproduction in a fresh isolated browser context (no service worker: `navigator.serviceWorker.controller === null`), 390×844×3, Slow 4G: **CLS = 0.1405 over 6 shifts**.
+- **Measured** — ⚠️ **corrected in §9 (C-7)**: the original text led with the single worst run and mis-stated the threshold. Cold first-visit CLS is **run-to-run variable: 0.1405 / 0.2445 / 0.2919 / 0.315** across independent cold runs. Google's thresholds are good ≤ 0.10, poor > 0.25 — so every run is worse than "good" and most are worse than "poor". 0.315 is ~3× the *good* threshold, not 3× the poor one.
+  - Lighthouse, mobile navigation, cold profile: **CLS = 0.315** (the high end).
+  - Independent reproduction in a fresh isolated browser context (no service worker: `navigator.serviceWorker.controller === null`), 390×844×3, Slow 4G: **CLS = 0.1405 over 6 shifts** (the low end).
   - Warm repeat visit (service worker in control): CLS = 0.0202. **So this is a first-visit-only defect** — which is exactly the visit that matters, and exactly the one the owner never sees while developing.
 - **Attribution** (`PerformanceObserver` on `layout-shift`, with `sources`):
   - `t = 984 ms`, shift 0.0431 — the 장르로 탐색 block goes from height **0 → 70 px**; "오늘, 이 앨범들" jumps from y=644 to y=482.
@@ -286,7 +297,8 @@ _(found in the deepening pass, 2026-07-26 ~09:30 KST, using a minted non-owner m
 - **Severity**: P2 — **not** a security breach (the backend fails closed, verified below), but a real UX defect and a gap in a pattern the codebase otherwise applies consistently.
 - **Where**: `src/pages/write.astro` → `src/components/writer/WriterApp.tsx`
 - **Observed**: navigating to `https://www.ratemymusic.blog/write/` as a **non-owner member** (`sub a4f83dcc…`, ≠ `OWNER_SUB 0468fd3c…`) renders the complete authoring surface: 작성 / 미리보기 / 임시저장 / **발행**, the 임시 저장함 inbox, and the full 발행 설정 panel with sections, review tags, and the entire 13-branch subgenre taxonomy with counts. The only indication anything is wrong is a single silent console line: `GET /api/posts?status=draft → 403`.
-- **Why this is a gap and not a decision**: the frontend already has an owner-gating helper, `isOwnerUser()` from `@lib/owner`, and applies it in `TodaySongBuckit.tsx:80`, `ReleaseRadar.tsx:153`, and `SelfDashboard.tsx:97`. `write.astro` and `WriterApp.tsx` contain **no owner check at all** (the sole `owner` match in `WriterApp.tsx:25` is an unrelated design-decision comment). The authoring surface was simply missed by the pattern.
+- **Why this is a gap and not a decision**: the frontend already has an owner-gating helper, `isOwnerUser()` from `@lib/owner`, applied in `TodaySongBuckit.tsx:80`, `ReleaseRadar.tsx:153`, `PocketTray.tsx:359` and `header.client.ts:22` (`SelfDashboard.tsx:97` uses a handle comparison instead). `write.astro` and `WriterApp.tsx` contain **no owner check at all** (the sole `owner` match in `WriterApp.tsx:25` is an unrelated design-decision comment). The authoring surface was simply missed by the pattern.
+- ⚠️ **Scope widened in §9 (C-11): `src/pages/drafts.astro` is ALSO ungated** — no owner check, no redirect. A fix scoped to `/write/` alone leaves that hole open. Treat the owner-only *runtime* surfaces as a class (`/write/`, `/drafts/`, and `/settings/` — the last unverified).
 - **Secondary**: `DraftsInbox.tsx` has **no 403 or error handling** — the 403 renders as a normal empty drafts list, not as "권한 없음".
 - **Failure scenario**: Cognito self-signup is enabled, so any member can reach `/write/`. They compose a full review, press 발행, and the backend correctly 403s — after they have done all the work, with no prior signal that they were never permitted to publish.
 - **Explicitly ruled out**: no data risk. `POST /api/posts` is `require_owner` and returns 403 for this token (probed live). Nothing a member does here can be saved.
@@ -311,7 +323,9 @@ _(found in the deepening pass, 2026-07-26 ~09:30 KST, using a minted non-owner m
 
 ## 6. Necessity-gate verdicts
 
-**16 findings adopted** (12 in the main run + E-5 from the deepening pass + DEP-1/2/3 from the owner-requested dependency scan, §8). Roughly as many candidates were dropped for failing the bar. After the deepening pass in §6b, **every finding below is either directly measured on production or independently verified — none rests on a single unchecked inference.**
+**21 findings adopted** — 12 in the main run, E-5 from the deepening pass, DEP-1/2/3 from the dependency scan (§8), and **PUB-1 / OPS-1 / SEC-1 / SEC-2 / E-6 from the re-review (§9.2)**. Roughly as many candidates were dropped for failing the bar.
+
+**Verification status**: the 13 pre-§8 findings are each directly measured on production or independently verified. DEP-1/2/3 rest partly on untraced applicability (§8 says so, and DEP-2's applicability was subsequently **overturned** — §9 C-4). The five §9.2 findings were verified by hand at discovery. ⚠️ *The original text here claimed "none rests on a single unchecked inference", which overstated the position — corrected per §9 (C-13).*
 
 | ID | Sev | One-line | Leg |
 |----|-----|----------|-----|
@@ -329,8 +343,13 @@ _(found in the deepening pass, 2026-07-26 ~09:30 KST, using a minted non-owner m
 | **E-4** | P2 | 8 homepage album buttons fail WCAG 2.5.3 "Label in Name" | front/live |
 | **E-5** | P2 | `/write/` owner-only editor renders in full for any member, publish buttons included (no data risk — backend fails closed) | front/live |
 | **DEP-1** | P1 | Dependabot is off on all 6 repos and no CI audit step exists — nothing would ever report a vulnerable dependency | deps |
-| **DEP-2** | P2 | `@astrojs/rss@4.0.13` XML-injection advisory, `/rss.xml` is live; fixed by a patch bump to 4.0.19 | deps |
+| **DEP-2** | ~~P2~~ **hygiene** | `@astrojs/rss@4.0.13` → 4.0.19. ⚠️ **Applicability overturned (§9 C-4)** — the advisory's vulnerable fields are never populated and the feed is empty. Not a security fix. | deps |
 | **DEP-3** | P2 | `@astrojs/node` declared but never used (`output: 'static'`, no adapter) — carries 6 non-applicable advisories forever | deps |
+| **PUB-1** | **P1** | The workspace + 4 service repos are **PUBLIC** — merging this report publishes reproduction detail for still-unfixed live defects (§9.2) | process |
+| **OPS-1** | **P1** | `worker-isrc-backfill` has no `FailedInvocations` alarm — `monitoring.tf`'s hardcoded 12-cron map silently regressed the OPS-RFC's "ALL worker crons" guarantee (§9.2) | ops/infra |
+| **SEC-1** | **P1** | The CloudFront-attached WAF has **0 rules and default Allow** — a documented control that does nothing (§9.2) | infra |
+| **SEC-2** | P2 | `ENV` defaults to `"local"` in both services, and `local\|dev` disables the auth guards entirely — the one missing-config path that fails **open** (§9.2) | auth |
+| **E-6** | P2 | `.lf-artist-link` ships unstyled site-wide (styled only on `/collection/` + `/settings/`) — **4th recurrence** of the `member.css` trap, live-verified (§9.2) | front/live |
 
 ### Adversarial verification (leg F)
 
@@ -383,7 +402,7 @@ All 7 checklist rows were already DONE, so per the trigger's instruction this wa
 
 Swept read-only with a minted non-owner member token. **No write action was performed.**
 
-- **Multi-user row-scoping genuinely isolates.** The single most important thing to check in a system that recently went multi-user: a non-owner member calling `/api/library/stream-history/clock`, `/stream-history/top-artists`, `/api/me/release-feed`, and `/api/integrations` gets **empty results across the board** — none of the owner's listening history, feed, or integrations leaks. Verified against live prod.
+- **The four member-scoped routes probed return correctly isolated results.** A non-owner member calling `/api/library/stream-history/clock`, `/stream-history/top-artists`, `/api/me/release-feed`, and `/api/integrations` gets **empty results** — none of the owner's listening history, feed, or integrations leaks. Verified against live prod. ⚠️ **Scope corrected in §9 (C-10):** the original text generalised this 4-route sample to "multi-user row-scoping genuinely isolates". Four routes do not establish that; the rest of the member surface was not probed.
 - **A false alarm was chased down and dismissed.** `/api/library/stream-history/clock` returned **200** to a non-owner, which looked like an auth bypass. Reading `library.py:520-528` shows it takes `member_id: uuid.UUID = Depends(provisioned_member_id)` and queries `user_id=member_id` — a correctly row-scoped **member** route by design. The `require_owner` at `library.py:545` belongs to `POST /saved-tracks/classify`. **Not a finding.**
 - **`/members/` and `/radar/` are clean when authed** — header flips to LOGOUT, the POCKET tray mounts, both render written empty states, **zero console errors, no horizontal overflow**.
 - **`/write/` is the exception** → E-5 above.
@@ -440,9 +459,11 @@ Recording these because the naive version of this scan produces a **false CRITIC
 
 - **Where**: `myblog_front` → `@astrojs/rss@4.0.13`
 - **Advisory**: `GHSA-8j5q-mfj2-5q9q` / **CVE-2026-59728** — *XML Injection via Unescaped RSS Feed Fields* (MODERATE). Fixed in **4.0.19**; latest is also 4.0.19.
-- **Applicability confirmed**: `https://www.ratemymusic.blog/rss.xml` returns **200** and `src/pages/rss.xml.ts` is a real prerendered route.
-- **Why it matters here specifically**: feed fields are built from post titles and descriptions, and this system's titles carry **album and artist names sourced from Spotify** — i.e. strings the owner does not author. That is exactly the shape this advisory is about.
-- **Cost**: a patch bump inside the same minor (`4.0.13 → 4.0.19`). Cheapest real fix in the whole audit.
+- ⚠️ **DOWNGRADED to version hygiene — NOT applicable. See §9 (C-4).** The original text below claimed applicability was confirmed; re-verification overturned it:
+  - `src/pages/rss.xml.ts` populates only `title`, `description`, and `customData`. The advisory's two vulnerable fields — **`source.title` and `enclosure.type` — are never set.**
+  - The feed currently emits **zero items** (no published reviews), and the route is prerendered static.
+  - So there is no exploitable path today. Bumping `4.0.13 → 4.0.19` is still worth doing as hygiene (it is a patch inside the same minor), but it is **not a security fix** and should not be prioritised as one.
+- What does hold: `https://www.ratemymusic.blog/rss.xml` returns **200** and is a real prerendered route, so the *package* is genuinely in use.
 
 ### DEP-3 (P2): `@astrojs/node` is declared as a dependency but the project never uses it
 
@@ -486,9 +507,106 @@ Eight HIGH-severity packages, all present in **both** backend and music:
 
 ---
 
+## 9. Re-review corrections (2026-07-26 ~10:30–11:30 KST, owner-requested)
+
+Five independent verifier agents re-checked this report and its 12 commits, deliberately trying to break it. The judge and synthesis stages died on the session cap, so **every correction below was re-verified by hand in the main loop** — none is taken on an agent's word.
+
+**Verdict: the audit holds up in substance — all 16 findings survive as real — but it carried more factual error than it should have.** 14 claims needed correcting and 5 new findings were missed. The pattern in the errors is consistent and worth naming: **the audit repeatedly stated a narrow measurement as a general truth** (one warm page load → "98.3 % of bytes"; four probed routes → "row-scoping isolates"; one Lighthouse run → a single CLS number; one plan.md copy → "accurate and current").
+
+### 9.1 Corrections — claims that were wrong
+
+| # | Section | Was | Is | Changes a fix decision? |
+|---|---|---|---|---|
+| C-1 | §4 outstanding | "`worker-isrc-backfill` rule is still un-applied (absent from the 14 rules)" | **Applied and ENABLED**, `cron(0 21 ? * SUN *)`. There are **15** rules, not 14. Verified: `aws events list-rules`. Item deleted. | yes — closed a non-issue |
+| C-2 | §4 healthy | "`docs/plan.md` is accurate and current (84 lines) … no stale rows" | Assessed against a copy **3 commits behind `origin/main`**. `origin/main` is at 90 lines; the `worker-isrc-backfill` owner-action row is superseded by ws #699/#701. **The claim is withdrawn** — plan.md was never checked against current `origin/main`. | yes |
+| C-3 | §4 D-1 | "It had never had a draft to deliver before … 07-25 was the first night the pipeline generated a review" | **False, and the truth is worse.** Delivery **worked twice**: `2026-06-23` (`1 draft(s) created, 1 memo(s) grown`) and `2026-07-05`. It was **broken by a known PR** — `392dd50` "feat(auth): owner-gate single-owner routes before self-signup opens the pool (#107)", **2026-07-08** — which added `require_owner` to `POST /api/posts`. The next draft was not produced until 07-25, so the regression sat invisible for **17 days**. | **yes — D-1 is a regression with a named cause, not an unfinished feature** |
+| C-4 | §8 DEP-2 | "Applicability confirmed … feed fields are built from post titles … exactly the shape this advisory is about" | **Not applicable.** `src/pages/rss.xml.ts` populates only `title`, `description`, `customData`. The advisory's vulnerable fields — `source.title` and `enclosure.type` — are **never set**. The feed also currently emits **zero items**, and the route is prerendered static. **DEP-2 downgrades to version hygiene.** | **yes — removes a recommended fix** |
+| C-5 | §5 E-1 | "**98.3 %** of the entire homepage's bytes" | That is a **warm repeat visit** figure — every other asset came from cache in that measurement. On a **cold first visit** the page is ~2.0 MB, so the genre tree is **~14 %** of it. Both numbers are true of different visits; quoting only the larger one was misleading. The real finding — **~292 KB gzip / 742 KB decoded on *every* visit, uncacheable** — survives untouched. | no (finding stands) |
+| C-6 | §5 E-1 | "Stripping `definition_md` drops the payload 773,644 → 246,085 bytes (−68 %)" | Wrong decomposition. Stripping definitions gives **741,895 → 475,305 B (−36 %)**. The largest single unused chunk is the **2,064-entry `edges` array (~246 KB)**, which `/` never reads at all. | **yes — points the fix at `edges`, not the markdown** |
+| C-7 | §5 E-3 | "CLS 0.315 — three times the 'poor' threshold" | Two errors. (a) 0.315 is *above* the 0.25 poor threshold, ~3× the **0.10 good** threshold. (b) It is one run of a spread: cold first-visit CLS measures **0.14–0.32 run-to-run**. Report the range, not the maximum. | no (finding stands) |
+| C-8 | §1, §2 | "all three config gates (`COGNITO_USER_POOL_ID`, `EDGE_SECRET`, `OWNER_SUB`) fail closed **in both**" | `EDGE_SECRET` and `OWNER_SUB` **do not exist in `myblog_music` at all** (no edge layer, no owner-gated route). Only `COGNITO_USER_POOL_ID` is shared, and it does fail closed identically. The behavioural-equivalence core of the claim holds; the "all three, in both" phrasing was false. | no |
+| C-9 | §1 | "Unsorted bulk `ON CONFLICT` — the two unsorted ones are single-owner jobs with no constructible deadlock interleaving" | **False.** Inside the high-concurrency album-sync path itself, `album_artists` (`sync_service.py:192`) and `track_artists` (`:230`) insert **unsorted** pair lists, while their three siblings in the *same function* sort explicitly and carry comments saying sorting is required for concurrency safety (`:135`, `:152`, `:202`). They are `DO NOTHING` rather than `DO UPDATE`, so the deadlock risk is lower than A-1's — but "two, both single-owner" was wrong. | yes — widens A-1's neighbourhood |
+| C-10 | §6b | "**Multi-user row-scoping genuinely isolates.**" | Overstated from a 4-route sample. Correct statement: *the four member-scoped routes probed (`stream-history/clock`, `stream-history/top-artists`, `/api/me/release-feed`, `/api/integrations`) correctly return empty results to a non-owner.* No general isolation claim is supported. | no |
+| C-11 | §5 E-5 | "`write.astro` and `WriterApp.tsx` contain no owner check" — scoped to `/write/` | True but **too narrow**: `src/pages/drafts.astro` is **also ungated** (no owner check, no redirect). E-5 must be scoped to the owner-only runtime surfaces as a class, or the recommended §7-a fix leaves a hole. | **yes — a fix scoped to `/write/` alone is incomplete** |
+| C-12 | §2 | "backend source declares 70 paths"; "the 43 code routes that appear unwired" | **72** and **44**. Independent re-enumeration via live FastAPI `app.routes` introspection. Both substantive conclusions are unaffected: 0 backend routes missing from the merged spec, 0 mutations missing from `apigateway.tf`. | no |
+| C-13 | §6 | "every finding is either directly measured on production or independently verified — none rests on a single unchecked inference" | Written before §8 existed. **DEP-1/2/3 partly rest on untraced applicability**, as §8 itself admits. Scope the sentence to the 13 pre-§8 findings. | no |
+| C-14 | header | "docs-only, no code changes" | Precisely: no service code or infra changed, but the branch **adds one new script**, `docs/reviews/audit-2026-07-26-raw/osv_scan.py`. If it is meant to be re-runnable (DEP-1 implies it), it belongs under `tools/`, not in a dated audit directory. | no |
+
+### 9.2 New findings the audit missed
+
+**PUB-1 (P1, process — read this before merging anything)**
+
+`myblog-workspace`, `myblog_backend`, `myblog_front`, `myblog_music`, `myblog_worker` are all **PUBLIC** on GitHub (only `myblog_shared_db` is private). Verified via `gh repo view`.
+
+Merging this report therefore **publishes a working exploitation guide for defects that are still live**: A-3's exact 500-producing URL, E-5/C-11's ungated `/write/` and `/drafts/` surfaces, D-1's auth gap, and the exact vulnerable dependency versions from §8. The audit treated "docs only" as the whole risk statement and never considered publication. → **§7 decision.**
+
+**OPS-1 (P1): the "all worker crons are alarmed" guarantee silently regressed, and nothing can notice**
+
+`infra/monitoring.tf:106-120` defines `local.worker_cron_rules` as a **hardcoded 12-entry map**, consumed by `for_each` on `cron_failed_invocations`. `worker-isrc-backfill` was added to `eventbridge.tf` as a 13th worker cron but **never added to that map**.
+
+- Live: **12** `*-failed-invocations` alarms exist; **13** worker crons run. `worker-isrc-backfill` is the only one uncovered.
+- The comment right above the map reads *"OPS-delivery-safety-gates Step 4: extended from 2 rules to ALL worker crons (audit O-4 — 10 of ~12 rules were uncovered)"*. That guarantee is now false again, by the identical shape of gap the RFC was written to close.
+- **Harm**: an EventBridge delivery failure on the weekly ISRC job — the one job whose schedule fires rarely enough that nobody would notice by eye — raises no alarm.
+- **Root cause worth fixing over the symptom**: a hand-maintained list can drift from the rules it is meant to cover. Deriving the map from the rule resources removes the whole class.
+
+**SEC-1 (P1): the CloudFront WAF has zero rules and defaults to Allow**
+
+`aws wafv2 get-web-acl --scope CLOUDFRONT` on the attached ACL `CreatedByCloudFront-72420c9a` returns `RuleCount: 0`, `Rules: []`, `DefaultAction: {Allow: {}}`. It is attached and it does **nothing**.
+
+`infra/README.md:52` documents this ACL as a real control ("console-created; its rules are invisible to `plan`"), so the documented abuse posture rests on an empty shell. Combined with there being no rate limiting found on the public API surface, the effective bound on abuse of the unauthenticated endpoints is Lambda concurrency and the bill. → **§7 decision** (add managed rules, or delete the ACL and stop claiming it).
+
+**SEC-2 (P2): every missing config fails closed except the one that disables all of them**
+
+`ENV: str = "local"` is the default in **both** `myblog_backend/app/core/config.py:19` and `myblog_music/app/core/config.py:14`. `require_cognito_token` and `require_owner` both short-circuit and return early when `ENV in ("local", "dev")`.
+
+So: a missing `COGNITO_USER_POOL_ID` → **503** (fail closed, as designed). A missing **`ENV`** → **auth disabled entirely**, silently, on both services. Prod currently sets `ENV=prod` on both Lambdas (verified), so this is latent, not live — but the entire fail-closed posture rests on one env var whose *absence* means "trust everyone", which inverts the project's own hardening rule. Leg A's claim *"no path was found where missing config yields an allowed request"* is therefore false.
+
+**E-6 (P2): the `member.css` dashboard-only trap has recurred a 4th time — live-verified**
+
+- `.lf-artist-link` is defined only in `src/styles/member/layout.css:971`, reachable only through `@styles/member.css`, which is imported by exactly **two pages**: `collection.astro:10` and `settings.astro:6`. `member.css:16` even states *"member.css never loads outside the dashboard."*
+- But `AlbumDetailView.tsx:94` emits `className="lf-artist-link"`, and `AlbumOverlay` is mounted from **`src/layouts/layout.astro`** — i.e. **every page on the site**.
+- **Verified live on the production homepage**: the rule is absent from all 5 loaded stylesheets, yet the element renders — `<a class="lf-artist-link">Ludwig Göransson</a>` — with computed `text-decoration: none`, `border-bottom: 0px solid`, `font-weight: 400`.
+- **User-visible effect**: artist names inside the album overlay get **no hover affordance anywhere except `/collection/` and `/settings/`** — no colour change, no underline — so they do not look clickable, even though they navigate to the artist hub. On those two pages the identical link highlights on hover.
+- §3 called this class clean. **That verdict is withdrawn.**
+
+### 9.3 Re-verified as correct (the main product of a re-review)
+
+Independently redone with different methods and confirmed:
+
+- **Route ↔ API Gateway parity** — re-enumerated via live FastAPI `app.routes` + dependency-graph introspection instead of regex. **43 mutation routes, 0 missing from `apigateway.tf`, 48 `route_key`s.** Holds.
+- **OpenAPI contract** — 0 backend routes absent from the merged spec. Holds.
+- **Canonical schema pair** — `docs/contracts/schema.sql` vs `myblog_shared_db/tests/canonical_schema.sql` byte-identical, confirmed by sha256. Holds.
+- **shared_db pin safety** — re-tested by importing from each service's own venv. Every symbol music and worker use exists at `v0.26.0`. Holds.
+- **No cross-service imports.** Holds.
+- **Auth-guard behavioural equivalence** — both `auth.py` files read end to end and all eight paths walked (missing config, absent/malformed/expired token, JWKS failure, unknown kid, wrong issuer, wrong `token_use`). **No path where one service allows what the other rejects.** Holds (with C-8's phrasing fix).
+- **Zero outbound HTTP without an explicit timeout.** Holds.
+- **No secrets logged or leaked.** Holds.
+- **`/api/music/search/unified` is DB-only** (hard rule #9). Holds.
+- **A-1, A-2, A-3, A-4, A-5, D-1, D-2, D-3, E-1, E-2, E-3, E-4, E-5, DEP-1, DEP-3 all survive** as real defects. Only DEP-2's *applicability* was overturned.
+- **Commits are clean on hard rule #2**: all 14 unique blobs the branch introduces were extracted and searched — **zero JWTs, zero `Bearer` tokens, zero AWS/GitHub keys, zero connection strings, zero private keys.** Every `password`/`secret`/`DATABASE_URL` hit is prose in the report. The minted token never entered git.
+- **Docs-only held**: per-commit inspection confirms every commit touches only `docs/` (the `git diff origin/main..HEAD` appearance of `infra/eventbridge.tf` and `scripts/album_research_v4.md` changes is the branch being 3 commits *behind*, not changes made here).
+- **Nothing was pushed**; no PR exists; rule #1 honoured throughout.
+
+### 9.4 Still not covered, after the re-review
+
+The completeness critic named surfaces this audit never opened, and they remain open: **`infra/` beyond apigateway/eventbridge/lambda/monitoring** (IAM policy scope, S3 bucket policies, CloudFront behaviours, KMS, Cognito settings), **all six GitHub Actions workflow files** (secrets handling, injection via PR title, `permissions:` scope), **`tools/` and the non-buckit `scripts/`**, **frontend server-side code** (`.astro` frontmatter, `src/pages/**/*.ts` endpoints), **PWA/service-worker config**, and **escaping of member-supplied content** (bucket notes, reviews, display names) at every render site. Also still open from §6b: load/concurrency testing, DB-level data quality, Terraform state, and call-path tracing for the Python CVEs.
+
+One unadopted lead worth recording: `MetricsBatchRequest.slugs` is the only unauthenticated, unbounded-collection input in the system and carries no `max_items`/`max_length`. No DoS was demonstrated, so it is not a finding — but it is where to look first if abuse protection is ever revisited.
+
+---
+
 ## 7. Questions for the owner
 
-7개 다 결정이 필요한 항목입니다. 코드는 아직 하나도 안 건드렸습니다.
+결정이 필요한 항목들입니다. 코드는 아직 하나도 안 건드렸습니다.
+
+**0. PUB-1 — 이 문서를 머지하기 전에 먼저 정해야 합니다 (§9.2).**
+`myblog-workspace`와 서비스 리포 4개가 **전부 PUBLIC**입니다 (`myblog_shared_db`만 private). 이 문서를 머지하면 **아직 안 고친 결함의 재현 방법이 그대로 공개**됩니다 — A-3의 500 나는 URL, E-5/`drafts.astro`의 무방비 화면, D-1의 인증 공백, §8의 정확한 취약 버전까지.
+   - (a) **먼저 고치고 머지** — A-3·E-5·DEP-3은 다 작은 수정입니다. **추천.**
+   - (b) URL·버전을 가린 요약본만 머지하고 전체는 로컬에 보관
+   - (c) 리포를 private으로 전환
+   - (d) 그대로 머지 (개인 블로그이고 위험이 낮다고 판단하면)
+   저는 (a)를 추천하지만, 이건 사장님 판단입니다.
+
 
 **1. D-1 (P0) — 나이틀리가 만든 초안이 블로그에 못 올라가는 문제, 어떻게 뚫을까요?**
 파이프라인이 smoke 테스트 계정으로 로그인하는데, `POST /api/posts`는 오너 본인만 통과시킵니다. 선택지 세 가지:
@@ -530,6 +648,16 @@ Eight HIGH-severity packages, all present in **both** backend and music:
    - **Astro 5.15.9 → 7.x**: 이건 메이저 2단계 업그레이드라 별건입니다. 9건 중 6건은 SSR 전용이라 이 사이트엔 해당 없고, `define:vars`·View Transition 관련 3건만 실제로 볼 필요가 있습니다. 지금 할지, 권고문 3건만 먼저 읽고 판단할지 정해 주세요. **추천: 3건 먼저 읽기.**
    - **`starlette` (Python)**: FastAPI의 요청 처리 계층이라 백엔드·뮤직 양쪽 모든 요청 경로에 있습니다. Python 쪽에서 제일 먼저 볼 것.
 
-**7. 16건의 처리 순서 — 어떻게 갈까요?**
-   추천 순서: **D-1 → A-2 → DEP-1+DEP-2+DEP-3(셋 다 싸고 독립적) → E-1+E-3 → A-1 → 나머지 P2**.
+**7-c. 재검토에서 새로 나온 것 4가지 (§9.2)**
+   - **OPS-1 (P1)** — `worker-isrc-backfill`에 실패 알람이 없습니다. `monitoring.tf`의 워커 크론 목록이 **손으로 관리하는 12개 하드코딩 맵**이라, 13번째가 추가되면서 조용히 빠졌습니다. OPS RFC가 "모든 워커 크론"을 보장한다고 적어둔 게 다시 깨진 겁니다.
+     (a) 맵에 한 줄 추가 / (b) **규칙 리소스에서 맵을 자동 도출**해서 이 문제 유형 자체를 없애기. **추천: (b)** — 같은 사고가 세 번째입니다.
+   - **SEC-1 (P1)** — CloudFront에 붙은 WAF가 **규칙 0개 + 기본 Allow**입니다. `infra/README.md:52`는 이걸 실제 보호 장치처럼 적어놨는데 아무 일도 안 합니다.
+     (a) AWS 관리형 규칙 붙이기 / (b) ACL을 지우고 문서에서 빼기(있는 척 안 하기). **둘 중 하나는 해야 합니다.**
+   - **SEC-2 (P2)** — `ENV`가 두 서비스 모두 기본값 `"local"`이고, `local|dev`면 인증 가드가 통째로 꺼집니다. 다른 설정은 없으면 503(fail-closed)인데 **`ENV`만 없으면 fail-open**입니다. 지금은 Terraform이 `ENV=prod`를 넣어주고 있어서 잠재적입니다.
+     기본값을 `prod`로 바꾸거나, 로컬 우회를 별도 플래그로 분리하는 게 맞습니다.
+   - **E-6 (P2)** — `member.css` 함정 **4번째 재발**. 앨범 오버레이의 아티스트 이름이 `/collection/`·`/settings/` 밖에서는 hover 반응이 없습니다(클릭 가능해 보이지 않음). 프로덕션에서 직접 확인했습니다.
+
+**7. 21건의 처리 순서 — 어떻게 갈까요?**
+   추천 순서: **PUB-1 결정 → D-1 → A-2 → SEC-1+OPS-1 → A-3·E-5·DEP-3(작고 독립적, 공개 리스크도 같이 줄임) → E-1+E-3 → A-1 → 나머지 P2**.
+   DEP-2는 보안 수정이 아니라 위생 작업으로 내려갔으니 급하지 않습니다.
    근거: D-1은 서비스의 존재 이유가 막혀 있고, A-2는 앨범 제목 하나로 전체 배포가 멈출 수 있으며, E-1/E-3은 모든 방문자가 매번 지불하고, A-1은 아직 터지지 않았지만(DLQ 0건) 터지면 조용히 DLQ로 샙니다.
