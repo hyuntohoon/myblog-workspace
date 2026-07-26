@@ -62,7 +62,61 @@ _(pending)_
 
 ## 4. Functional / operational — findings
 
-_(pending)_
+Partial: the launchd / nightly-pipeline half is done. SQS/DLQ depths, Lambda error logs, EventBridge rules, open PRs
+and plan.md-vs-reality are **still outstanding** — see the RESUME STATE table.
+
+### D-1: The nightly Editor Buckit pipeline can write a review draft but cannot deliver it — it 403s, and has done so on the only night it ever had one
+
+- **Severity**: **P0** — the flagship automation is broken end-to-end, and its failure is invisible from the outside.
+- **Observed state** (`~/Library/Logs/myblog-buckit-nightly.log`, run of 2026-07-25):
+  ```
+  2026-07-25 03:01:30,174 INFO  done in 81.7s — 2 file(s) in docs/buckit/2026-07-25:
+                                the-strokes-is-this-it.md, _summary.md
+  2026-07-25 03:01:31,745 WARNING draft not created (album 782b7ade-3ed1-465e-84c2-89f38db8bf9b,
+                                status 403): {'detail': 'Owner only'} — memo left checked, file kept
+  2026-07-25 03:01:31,745 INFO  draft delivery: 0 draft(s) created, 0 memo(s) grown, 1 skipped/failed
+  ```
+  The generated draft is still sitting on disk at `docs/buckit/2026-07-25/the-strokes-is-this-it.md` (6,360 bytes). It never reached the blog.
+- **Root cause** — a stale assumption that the multi-user migration invalidated:
+  - `scripts/buckit_nightly.py:568` `mint_smoke_token()` authenticates the pipeline as the **smoke/test user**, and its own docstring at **line 573** states the premise: *"Blast radius: in this single-user, no-per-user-scoping system the token is owner-equivalent — it CAN publish/edit/delete any post."*
+  - That premise is no longer true. `myblog_backend/app/core/auth.py:138` records why: *"FEAT-multi-user-accounts 0c: enabling Cognito self-signup fills the pool with federated members, so `require_cognito_token` alone (any valid pool token) no longer implies the owner."*
+  - `POST /api/posts` is gated by `require_owner` (`app/api/routes/posts.py:64`), which requires `sub == OWNER_SUB`. The smoke user's `sub` is not `OWNER_SUB`. → permanent 403.
+  - The follow-up `PATCH /api/buckets/{id}/items/{id}` (`buckit_nightly.py:717`) is owner-gated too, so the "grow" step would fail identically.
+- **Why nobody noticed** — three independent things hide it, which is why this deserves the P0:
+  1. **It had never had a draft to deliver before.** Every run from 07-11 to 07-24 logged `0 draft(s) created, 0 memo(s) grown, 0 skipped/failed` — which reads as healthy but actually means "nothing was produced". 07-25 was the first night the pipeline generated a review, and it failed on delivery.
+  2. **The error is classified as retryable when it is permanent.** `buckit_nightly.py:705-711` lumps the failure in with `409 ⇒ already exists` and `5xx ⇒ transient; retry next run`. A 403 is neither — it will recur every single night, forever, one `WARNING` line at a time.
+  3. **The process still exits 0.** `main()` wraps delivery in a never-crash guard ("never crash after files are written", line 829), so `launchctl list` reports success and no alert fires.
+- **Impact**: the entire point of the nightly pipeline — get a drafted review into the blog — does not work. Reviews accumulate as untracked files in `docs/buckit/` and the site still shows "아직 리뷰가 없습니다" and "0편 평론" (see §5). This also explains the homepage's empty state.
+- **Not yet verified** (needs owner input or a live check): whether the intended fix is to give the pipeline owner credentials, to add a service identity that `require_owner` accepts, or to relax the gate for `status:'draft'` creation. **This is a design decision, not a patch — hence docs-only.** → §7.
+
+### D-2: `LLMTransientError` is never retried, so one transient failure silently costs a whole night
+
+- **Severity**: P2 — no data loss, but the night's output is gone with no retry and no alert.
+- **Observed state**: tonight's run (2026-07-26 03:00) died with a traceback and **exit 1**; `docs/buckit/2026-07-26/` was never created.
+  ```
+  File ".../scripts/buckit_nightly.py", line 504, in run_claude
+      res = ENGINE.run(_job(prompt))
+  File ".../myblog_shared_db/src/myblog_shared_db/llm/cli_engine.py", line 166, in _dispatch_once
+      raise LLMTransientError(
+  myblog_shared_db.llm.exceptions.LLMTransientError: claude exit 1:
+  ```
+- **Evidence**: `cli_engine.py:131-146` — `run()` retries **only** `LLMValidationError` (`attempts = 2 if job.output_schema is not None else 1`). `LLMTransientError` — raised for CLI timeout (`:162`), missing binary (`:164`), and any non-zero exit (`:165-168`) — propagates out of `run()` on the first occurrence. A class named *transient* has no retry, no backoff, and no alert path.
+- **Failure scenario**: any momentary condition — CLI timeout, a shared usage cap, a network blip — permanently loses that night's draft. Recovery requires a human to notice and re-run by hand.
+- **Honest attribution for tonight specifically**: this audit session ran concurrently with the 03:00 job and shares the same usage limit, which is the documented hazard "parallel night sessions kill 03:00 `claude -p` via shared usage limit". So **this session most likely caused tonight's failure.** That does not make the finding invalid — the missing retry is what turns a shared-cap collision into a lost night — but the trigger tonight was self-inflicted and should not be counted as an independent incident.
+
+### Verified healthy / observed (leg D, partial)
+
+- **All 5 launchd agents are loaded**: `com.myblog.research-poller`, `com.myblog.lyrics-translate-poller`, `com.myblog.buckit-nightly`, `com.myblog.genre-backfill`, `com.myblog.genre-heal-poller`. Last exit status 0 for all except `buckit-nightly` (1, = D-2 tonight). This is **not** a repeat of the "reboot drops the agents" trap — they are genuinely loaded.
+- **Nightly run history is continuous except one known gap**: runs present for 07-11…07-20, then **07-21 / 07-22 / 07-23 missing entirely** (no start line at all), then 07-24 / 07-25 / 07-26 present. That 3-night gap is the already-documented 07-20 reboot incident, not a new fault — **not re-reported.**
+- **Draft generation itself is reliable**: 15 successful `claude -p` runs, 50–92 s typical (one 918 s outlier on 07-20), consistent token counts.
+
+### Still outstanding in leg D (do these on resume)
+
+- SQS queue + DLQ depths (`get-queue-attributes` on every queue — any non-zero DLQ is a finding)
+- Lambda recent ERROR lines for `ratemymusic-api`, `musicApi`, `blogWorkerLambda` (24–48 h window; remember prod runs `LOG_LEVEL=WARNING`, so absent INFO is normal)
+- EventBridge rules: enabled/disabled, and any rule targeting a dead Lambda
+- Open PRs + recent deploy runs across the 4 repos (`gh ... --repo` explicitly)
+- `docs/plan.md` open rows vs reality (shipped-but-not-dropped, and regression re-adds)
 
 ## 5. UI/UX (live production) — findings
 
