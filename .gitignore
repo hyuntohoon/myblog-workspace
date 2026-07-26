@@ -54,6 +54,12 @@ tools/.lyrics-phase1-*.log
 tools/.lyrics-phase2-*.txt
 tools/.lyrics-phase2-*.log
 
+# Lyrics-annotation design mockups — the assembled pages and lux_mock_data.json inline complete
+# lyrics + Genius annotation bodies, and THIS REPO IS PUBLIC. Same bar as tools/.lyrics-phase1-*.
+# .gitkeep keeps the dir; the lyric-free fragments in houses/ ARE committed and regenerate them.
+docs/design/lyrics-annotations/local/*
+!docs/design/lyrics-annotations/local/.gitkeep
+
 # lyrics probe outputs (Step-1 read-only probe artifacts)
 tools/out/
 

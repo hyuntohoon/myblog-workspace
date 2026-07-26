@@ -1,0 +1,2073 @@
+<style>
+/* ============================================================
+   House: genius — white paper, yellow highlighter, dense meta.
+   Every selector is prefixed with .h-genius (mechanically checked).
+   ============================================================ */
+
+.h-genius {
+  /* palette ------------------------------------------------ */
+  --h-genius-paper: #ffffff;
+  --h-genius-ink: #0b0b0b;
+  --h-genius-ink-2: #55534d;
+  --h-genius-ink-3: #8d8a80;
+  --h-genius-ink-4: #b6b3a8;
+  --h-genius-rule: #e5e3db;
+  --h-genius-rule-2: #f1efe8;
+  --h-genius-wash: #faf9f5;
+
+  /* the signature yellow, pulled back just enough that long
+     Korean prose sitting on it keeps a >12:1 contrast ratio */
+  --h-genius-hl: #fff2a3;
+  --h-genius-hl-hover: #ffe970;
+  --h-genius-hl-on: #ffdb45;
+  --h-genius-rail: #efc92f;
+  --h-genius-rail-on: #0b0b0b;
+
+  /* disputed = community voted it down. Never the same yellow. */
+  --h-genius-dispute: #8a1c13;
+  --h-genius-dispute-soft: #f4f1ea;
+  --h-genius-dispute-rule: #c9bfae;
+
+  --h-genius-ghost: #b8b4a8;
+
+  --h-genius-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --h-genius-disp: "Archivo Narrow", "Roboto Condensed", "Arial Narrow", "Avenir Next Condensed", "Helvetica Neue", "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", Helvetica, Arial, sans-serif;
+  --h-genius-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --h-genius-lanes: 1;
+  --h-genius-lane-w: 0.62rem;
+
+  box-sizing: border-box;
+  max-width: 74rem;
+  margin: 0 auto;
+  padding: 1.25rem 0.875rem 3rem;
+  background: var(--h-genius-paper);
+  color: var(--h-genius-ink);
+  font-family: var(--h-genius-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+.h-genius .hg-mast,
+.h-genius .hg-body,
+.h-genius .hg-lyricwrap,
+.h-genius .hg-lyric,
+.h-genius .hg-side,
+.h-genius .hg-panel,
+.h-genius .hg-row,
+.h-genius .hg-text,
+.h-genius .hg-index,
+.h-genius .hg-idxbtn,
+.h-genius .hg-caption,
+.h-genius .hg-about,
+.h-genius .hg-frag,
+.h-genius .hg-quote,
+.h-genius .hg-pbody,
+.h-genius .hg-slot,
+.h-genius .hg-unplaced,
+.h-genius .hg-flag,
+.h-genius .hg-orig {
+  box-sizing: border-box;
+}
+
+/* ---------- masthead ------------------------------------- */
+
+.h-genius .hg-mast {
+  border-bottom: 2px solid var(--h-genius-ink);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.h-genius .hg-eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+  font-family: var(--h-genius-disp);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--h-genius-ink-2);
+}
+
+.h-genius .hg-eyebrow-dot {
+  color: var(--h-genius-ink-4);
+}
+
+.h-genius .hg-titlerow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 0.6rem;
+  margin: 0.2rem 0 0;
+}
+
+.h-genius .hg-tno {
+  font-family: var(--h-genius-disp);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--h-genius-ink-4);
+  font-variant-numeric: tabular-nums;
+  padding-bottom: 0.18rem;
+}
+
+.h-genius .hg-title {
+  margin: 0;
+  font-family: var(--h-genius-disp);
+  font-size: clamp(2.1rem, 9vw, 3.4rem);
+  font-weight: 800;
+  font-stretch: 75%;
+  line-height: 0.96;
+  letter-spacing: -0.015em;
+  color: var(--h-genius-ink);
+  overflow-wrap: anywhere;
+}
+
+/* dense meta strip — the Genius habit of stating the numbers */
+.h-genius .hg-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.7rem;
+  padding: 0;
+  list-style: none;
+}
+
+.h-genius .hg-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  border: 1px solid var(--h-genius-rule);
+  background: var(--h-genius-wash);
+  padding: 0.16rem 0.44rem;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--h-genius-ink-2);
+  white-space: nowrap;
+}
+
+.h-genius .hg-stat-v {
+  font-weight: 700;
+  color: var(--h-genius-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.h-genius .hg-stat-hl .hg-stat-v {
+  box-shadow: inset 0 -0.45em 0 var(--h-genius-hl);
+}
+
+/* the one quiet disclaimer — stated once, never per card */
+.h-genius .hg-disclaim {
+  margin: 0.7rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--h-genius-ink-3);
+}
+
+.h-genius .hg-disclaim b {
+  font-weight: 600;
+  color: var(--h-genius-ink-2);
+}
+
+.h-genius .hg-about {
+  margin-top: 0.7rem;
+  border-top: 1px solid var(--h-genius-rule-2);
+  padding-top: 0.55rem;
+}
+
+.h-genius .hg-about-sum {
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--h-genius-disp);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--h-genius-ink-2);
+}
+
+.h-genius .hg-about-sum::-webkit-details-marker {
+  display: none;
+}
+
+.h-genius .hg-about-sum::before {
+  content: "+ ";
+  color: var(--h-genius-ink-4);
+}
+
+.h-genius .hg-about[open] .hg-about-sum::before {
+  content: "− ";
+}
+
+.h-genius .hg-about-sum:focus-visible {
+  outline: 2px solid var(--h-genius-ink);
+  outline-offset: 2px;
+}
+
+.h-genius .hg-about-body {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.75;
+  color: var(--h-genius-ink-2);
+  max-width: 46rem;
+}
+
+.h-genius .hg-about-body p {
+  margin: 0 0 0.7em;
+}
+
+/* ---------- two-column body ------------------------------ */
+
+.h-genius .hg-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.h-genius .hg-colhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--h-genius-rule);
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.5rem;
+  font-family: var(--h-genius-disp);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--h-genius-ink-3);
+}
+
+/* ---------- lyric lines ---------------------------------- */
+
+.h-genius .hg-lyric {
+  margin: 0;
+}
+
+.h-genius .hg-row {
+  display: grid;
+  grid-template-columns:
+    1.35rem
+    calc(var(--h-genius-lanes) * var(--h-genius-lane-w))
+    minmax(0, 1fr);
+  align-items: stretch;
+  column-gap: 0.28rem;
+}
+
+.h-genius .hg-num {
+  font-size: 0.5625rem;
+  line-height: 1.9;
+  padding-top: 0.32rem;
+  text-align: right;
+  color: var(--h-genius-ink-4);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.h-genius .hg-row.is-marked .hg-num {
+  color: var(--h-genius-ink-2);
+  font-weight: 600;
+}
+
+/* --- gutter brackets: the thing Genius never draws --------
+   A vertical rail spanning EXACTLY the annotated range, with a
+   cap at each end. You can see where a range starts and stops
+   without opening anything. */
+
+.h-genius .hg-gutter {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--h-genius-lane-w);
+  align-items: stretch;
+}
+
+.h-genius .hg-lane {
+  display: block;
+  position: relative;
+}
+
+.h-genius .hg-lane.is-live {
+  cursor: pointer;
+}
+
+.h-genius .hg-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--h-genius-rail);
+  border-radius: 1px;
+}
+
+.h-genius .hg-rail.is-first {
+  top: 2px;
+}
+
+.h-genius .hg-rail.is-last {
+  bottom: 2px;
+}
+
+.h-genius .hg-rail.is-first::before,
+.h-genius .hg-rail.is-last::after {
+  content: "";
+  position: absolute;
+  left: -2.5px;
+  width: 8px;
+  height: 2px;
+  background: inherit;
+  border-radius: 1px;
+}
+
+.h-genius .hg-rail.is-first::before {
+  top: 0;
+}
+
+.h-genius .hg-rail.is-last::after {
+  bottom: 0;
+}
+
+.h-genius .hg-rail.is-open {
+  background: var(--h-genius-rail-on);
+  width: 4px;
+  margin-left: -2px;
+}
+
+/* approximate range: the tail dissolves instead of capping */
+.h-genius .hg-rail.is-partial.is-last {
+  bottom: 0;
+  background: linear-gradient(to bottom, var(--h-genius-rail), rgba(239, 201, 47, 0));
+}
+
+.h-genius .hg-rail.is-partial.is-last::after {
+  display: none;
+}
+
+.h-genius .hg-rail.is-partial.is-open.is-last {
+  background: linear-gradient(to bottom, var(--h-genius-rail-on), rgba(11, 11, 11, 0));
+}
+
+.h-genius .hg-rail.is-dispute {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--h-genius-dispute-rule) 0 3px,
+    rgba(0, 0, 0, 0) 3px 6px
+  );
+}
+
+.h-genius .hg-rail.is-dispute.is-open {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--h-genius-dispute) 0 3px,
+    rgba(0, 0, 0, 0) 3px 6px
+  );
+}
+
+.h-genius .hg-rail.is-ghost {
+  width: 2px;
+  margin-left: -1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--h-genius-ghost) 0 2px,
+    rgba(0, 0, 0, 0) 2px 5px
+  );
+}
+
+/* --- the lyric line itself -------------------------------- */
+
+.h-genius .hg-text {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.22rem 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  text-align: left;
+  color: var(--h-genius-ink);
+  overflow-wrap: break-word;
+}
+
+/* breathing room where every range on the row ends, so two
+   back-to-back ranges never fuse into one long yellow block */
+.h-genius .hg-row.is-rend {
+  padding-bottom: 4px;
+}
+
+.h-genius .hg-row.is-gap .hg-text {
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+  color: var(--h-genius-ink-4);
+  letter-spacing: 0.5em;
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+.h-genius button.hg-text {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.h-genius .hg-text.is-hl {
+  background: var(--h-genius-hl);
+}
+
+.h-genius .hg-text.is-hl-first {
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+.h-genius .hg-text.is-hl-last {
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+
+.h-genius .hg-text.is-hl:hover {
+  background: var(--h-genius-hl-hover);
+}
+
+.h-genius .hg-text.is-hl.is-open {
+  background: var(--h-genius-hl-on);
+}
+
+/* two annotations on one line (1.5% of lines) — a second
+   hairline underneath says "there is another reading here" */
+.h-genius .hg-text.is-overlap {
+  box-shadow: inset 0 -3px 0 -1px rgba(11, 11, 11, 0.32);
+}
+
+/* disputed: deliberately NOT the yellow */
+.h-genius .hg-text.is-dispute {
+  background: var(--h-genius-dispute-soft);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(138, 28, 19, 0.09) 0 1px,
+    rgba(0, 0, 0, 0) 1px 6px
+  );
+  box-shadow: inset 0 -1px 0 rgba(138, 28, 19, 0.35);
+}
+
+.h-genius .hg-text.is-dispute:hover {
+  background-color: #efe9dd;
+}
+
+.h-genius .hg-text.is-dispute.is-open {
+  background-color: #e9e1d2;
+  box-shadow: inset 0 -2px 0 var(--h-genius-dispute);
+}
+
+/* the repeat of a chorus annotation — admitted, not hidden */
+.h-genius .hg-text.is-ghost {
+  background: var(--h-genius-wash);
+  color: var(--h-genius-ink-2);
+}
+
+/* close the echo only at its final line, so a multi-line repeat
+   stays one band instead of gaining an internal rule */
+.h-genius .hg-text.is-ghost.is-hl-last {
+  box-shadow: inset 0 -1px 0 var(--h-genius-rule);
+}
+
+.h-genius .hg-text.is-ghost:hover {
+  background: var(--h-genius-rule-2);
+}
+
+.h-genius .hg-text.is-ghost.is-open {
+  background: var(--h-genius-wash);
+  box-shadow: inset 0 -2px 0 var(--h-genius-ink-2);
+}
+
+.h-genius .hg-text:focus-visible {
+  outline: 3px solid var(--h-genius-ink);
+  outline-offset: -1px;
+  position: relative;
+  z-index: 2;
+}
+
+.h-genius .hg-lyric-t {
+  unicode-bidi: plaintext;
+}
+
+/* --- inline marks on the line ----------------------------- */
+
+.h-genius .hg-chip {
+  display: inline-block;
+  min-width: 1.05rem;
+  margin-right: 0.34rem;
+  padding: 0 0.16rem;
+  background: var(--h-genius-ink);
+  color: var(--h-genius-hl-on);
+  border-radius: 2px;
+  font-family: var(--h-genius-disp);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+  vertical-align: 0.09em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.h-genius .hg-chip.is-dispute {
+  background: var(--h-genius-dispute);
+  color: #fff;
+}
+
+.h-genius .hg-chip.is-ghost {
+  background: transparent;
+  color: var(--h-genius-ink-3);
+  border: 1px solid var(--h-genius-ghost);
+  line-height: 1.02rem;
+}
+
+/* the range read-out — states in words how far the mark runs */
+.h-genius .hg-extent {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0 0.28rem;
+  background: rgba(255, 255, 255, 0.74);
+  border-radius: 2px;
+  font-size: 0.625rem;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--h-genius-ink-2);
+  white-space: nowrap;
+  vertical-align: 0.1em;
+}
+
+.h-genius .hg-extent.is-approx {
+  color: var(--h-genius-dispute);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.h-genius .hg-extent.is-ghost {
+  background: transparent;
+  border: 1px solid var(--h-genius-rule);
+  color: var(--h-genius-ink-3);
+}
+
+/* ---------- side panel ----------------------------------- */
+
+.h-genius .hg-side {
+  min-width: 0;
+}
+
+.h-genius .hg-slot {
+  min-width: 0;
+}
+
+.h-genius .hg-panel,
+.h-genius .hg-index {
+  border: 1px solid var(--h-genius-rule);
+  border-top: 3px solid var(--h-genius-ink);
+  background: var(--h-genius-paper);
+  min-width: 0;
+}
+
+.h-genius .hg-panel.is-dispute {
+  border-top-color: var(--h-genius-dispute);
+}
+
+/* the inline (narrow-screen) placement sits under its range */
+.h-genius .hg-panel.is-inline {
+  margin: 0.35rem 0 0.9rem calc(1.35rem + 0.28rem);
+  border-left: 3px solid var(--h-genius-ink);
+  animation: h-genius-open 0.16s ease-out;
+}
+
+.h-genius .hg-panel.is-inline.is-dispute {
+  border-left-color: var(--h-genius-dispute);
+}
+
+@keyframes h-genius-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.h-genius .hg-phead {
+  padding: 0.7rem 0.8rem 0.6rem;
+  border-bottom: 1px solid var(--h-genius-rule-2);
+}
+
+.h-genius .hg-pnav {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.55rem;
+}
+
+.h-genius .hg-nbtn {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--h-genius-rule);
+  background: var(--h-genius-paper);
+  color: var(--h-genius-ink-2);
+  font: inherit;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  padding: 0.22rem 0.45rem;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.h-genius .hg-nbtn:hover {
+  background: var(--h-genius-wash);
+  color: var(--h-genius-ink);
+}
+
+.h-genius .hg-nbtn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.h-genius .hg-nbtn:focus-visible {
+  outline: 2px solid var(--h-genius-ink);
+  outline-offset: 1px;
+}
+
+.h-genius .hg-nbtn.is-back {
+  font-weight: 600;
+  color: var(--h-genius-ink);
+}
+
+.h-genius .hg-nspacer {
+  flex: 1 1 auto;
+}
+
+.h-genius .hg-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.28rem;
+  margin-bottom: 0.5rem;
+}
+
+.h-genius .hg-tag {
+  display: inline-block;
+  padding: 0.1rem 0.34rem;
+  border: 1px solid var(--h-genius-rule);
+  background: var(--h-genius-wash);
+  border-radius: 2px;
+  font-size: 0.625rem;
+  line-height: 1.5;
+  color: var(--h-genius-ink-2);
+  white-space: nowrap;
+}
+
+.h-genius .hg-tag.is-range {
+  border-color: var(--h-genius-ink);
+  background: var(--h-genius-ink);
+  color: #fff;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.h-genius .hg-tag.is-approx {
+  border-color: var(--h-genius-dispute);
+  color: var(--h-genius-dispute);
+  background: #fff;
+}
+
+/* votes: plain metadata. Shown, never used to order anything. */
+.h-genius .hg-votes {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  color: var(--h-genius-ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.h-genius .hg-votes b {
+  font-weight: 700;
+  color: var(--h-genius-ink-2);
+}
+
+.h-genius .hg-votes.is-neg {
+  color: var(--h-genius-dispute);
+}
+
+.h-genius .hg-votes.is-neg b {
+  color: var(--h-genius-dispute);
+}
+
+.h-genius .hg-frag {
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  background: var(--h-genius-hl);
+  border-radius: 2px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--h-genius-ink);
+  unicode-bidi: plaintext;
+}
+
+.h-genius .hg-panel.is-dispute .hg-frag {
+  background: var(--h-genius-dispute-soft);
+  box-shadow: inset 0 0 0 1px var(--h-genius-dispute-rule);
+}
+
+.h-genius .hg-frag-l {
+  display: block;
+}
+
+.h-genius .hg-flag {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--h-genius-rule-2);
+  font-size: 0.75rem;
+  line-height: 1.65;
+  color: var(--h-genius-ink-2);
+  background: var(--h-genius-wash);
+}
+
+.h-genius .hg-flag.is-dispute {
+  background: #fbf6ee;
+  color: var(--h-genius-dispute);
+}
+
+.h-genius .hg-flag-i {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.h-genius .hg-flag-q {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--h-genius-ink);
+  unicode-bidi: plaintext;
+}
+
+.h-genius .hg-flag-link {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--h-genius-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.h-genius .hg-flag-link:focus-visible {
+  outline: 2px solid var(--h-genius-ink);
+  outline-offset: 2px;
+}
+
+/* --- the reading surface. Long Korean prose lives here. --- */
+
+.h-genius .hg-pbody {
+  padding: 0.85rem 0.8rem 0.2rem;
+  font-size: 0.9375rem;
+  line-height: 1.85;
+  color: #171613;
+  letter-spacing: -0.003em;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.h-genius .hg-p {
+  margin: 0 0 1em;
+}
+
+.h-genius .hg-p-url {
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.h-genius .hg-quote {
+  margin: 0 0 1em;
+  padding: 0.1rem 0 0.1rem 0.85rem;
+  border-left: 2px solid var(--h-genius-hl-on);
+  color: var(--h-genius-ink-2);
+  font-size: 0.9375rem;
+  line-height: 1.8;
+}
+
+.h-genius .hg-code {
+  font-family: var(--h-genius-mono);
+  font-size: 0.86em;
+  background: var(--h-genius-rule-2);
+  padding: 0.05em 0.3em;
+  border-radius: 2px;
+}
+
+.h-genius .hg-link {
+  color: var(--h-genius-ink);
+  text-underline-offset: 2px;
+}
+
+.h-genius .hg-link-raw {
+  font-family: var(--h-genius-mono);
+  font-size: 0.72rem;
+  word-break: break-all;
+  color: var(--h-genius-ink-2);
+}
+
+.h-genius .hg-orig {
+  margin: 0.2rem 0.8rem 0.8rem;
+  border-top: 1px solid var(--h-genius-rule-2);
+  padding-top: 0.55rem;
+}
+
+.h-genius .hg-orig-sum {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-family: var(--h-genius-disp);
+  color: var(--h-genius-ink-3);
+}
+
+.h-genius .hg-orig-sum::-webkit-details-marker {
+  display: none;
+}
+
+.h-genius .hg-orig-sum::before {
+  content: "+ ";
+}
+
+.h-genius .hg-orig[open] .hg-orig-sum::before {
+  content: "− ";
+}
+
+.h-genius .hg-orig-sum:focus-visible {
+  outline: 2px solid var(--h-genius-ink);
+  outline-offset: 2px;
+}
+
+.h-genius .hg-orig-body {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.8;
+  color: var(--h-genius-ink-2);
+}
+
+.h-genius .hg-pfoot {
+  padding: 0.55rem 0.8rem 0.7rem;
+  border-top: 1px solid var(--h-genius-rule-2);
+  font-size: 0.6875rem;
+  color: var(--h-genius-ink-3);
+}
+
+.h-genius .hg-pfoot a {
+  color: var(--h-genius-ink-2);
+  text-underline-offset: 2px;
+}
+
+/* ---------- index (default panel view) ------------------- */
+
+.h-genius .hg-index {
+  padding: 0.15rem 0 0;
+}
+
+.h-genius .hg-index-note {
+  padding: 0.55rem 0.8rem;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--h-genius-ink-3);
+  border-bottom: 1px solid var(--h-genius-rule-2);
+}
+
+.h-genius .hg-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.h-genius .hg-li {
+  border-bottom: 1px solid var(--h-genius-rule-2);
+}
+
+.h-genius .hg-idxbtn {
+  display: grid;
+  grid-template-columns: 1.35rem minmax(0, 1fr) auto;
+  column-gap: 0.45rem;
+  align-items: start;
+  width: 100%;
+  padding: 0.5rem 0.8rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--h-genius-ink);
+}
+
+.h-genius .hg-idxbtn:hover {
+  background: var(--h-genius-wash);
+}
+
+.h-genius .hg-idxbtn:focus-visible {
+  outline: 2px solid var(--h-genius-ink);
+  outline-offset: -2px;
+}
+
+.h-genius .hg-idxbtn.is-open {
+  background: var(--h-genius-hl);
+}
+
+.h-genius .hg-idx-n {
+  font-family: var(--h-genius-disp);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--h-genius-ink);
+  font-variant-numeric: tabular-nums;
+  padding-top: 0.08rem;
+}
+
+.h-genius .hg-idx-n.is-ghost {
+  color: var(--h-genius-ink-4);
+}
+
+.h-genius .hg-idx-main {
+  min-width: 0;
+}
+
+.h-genius .hg-idx-range {
+  font-size: 0.625rem;
+  color: var(--h-genius-ink-3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.h-genius .hg-idx-range.is-approx {
+  color: var(--h-genius-dispute);
+}
+
+.h-genius .hg-idx-q {
+  display: block;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  margin-top: 0.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  unicode-bidi: plaintext;
+}
+
+.h-genius .hg-idx-g {
+  display: block;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--h-genius-ink-3);
+  margin-top: 0.12rem;
+  word-break: keep-all;
+}
+
+.h-genius .hg-idx-v {
+  font-size: 0.625rem;
+  color: var(--h-genius-ink-4);
+  font-variant-numeric: tabular-nums;
+  padding-top: 0.14rem;
+  white-space: nowrap;
+}
+
+.h-genius .hg-idx-v.is-neg {
+  color: var(--h-genius-dispute);
+  font-weight: 700;
+}
+
+.h-genius .hg-sub {
+  padding: 0.55rem 0.8rem 0.3rem;
+  border-top: 1px solid var(--h-genius-rule);
+  font-family: var(--h-genius-disp);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--h-genius-ink-3);
+}
+
+.h-genius .hg-sub-note {
+  padding: 0 0.8rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--h-genius-ink-3);
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--h-genius-sans);
+  font-weight: 400;
+}
+
+/* narrow screens have no side column, so the index lives in a
+   one-line disclosure under the masthead instead of vanishing */
+.h-genius .hg-idxbox {
+  border: 1px solid var(--h-genius-rule);
+  border-top: 2px solid var(--h-genius-ink);
+  margin-bottom: 1.1rem;
+}
+
+.h-genius .hg-idxbox-sum {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  font-family: var(--h-genius-disp);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--h-genius-ink);
+}
+
+.h-genius .hg-idxbox-sum::-webkit-details-marker {
+  display: none;
+}
+
+.h-genius .hg-idxbox-sum:focus-visible {
+  outline: 2px solid var(--h-genius-ink);
+  outline-offset: -2px;
+}
+
+.h-genius .hg-idxbox-c {
+  font-family: var(--h-genius-sans);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--h-genius-ink-3);
+}
+
+/* inside the disclosure the surrounding box already draws the border */
+.h-genius .hg-idxbox .hg-index {
+  border: 0;
+}
+
+.h-genius .hg-idxbox-c::after {
+  content: " ▾";
+}
+
+.h-genius .hg-idxbox[open] .hg-idxbox-c::after {
+  content: " ▴";
+}
+
+/* ---------- unplaced annotations block ------------------- */
+
+.h-genius .hg-unplaced {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--h-genius-rule);
+  padding-top: 0.6rem;
+}
+
+/* ---------- caption -------------------------------------- */
+
+.h-genius .hg-caption {
+  margin-top: 2rem;
+  border-top: 1px solid var(--h-genius-rule);
+  padding-top: 0.6rem;
+  font-size: 0.6875rem;
+  line-height: 1.7;
+  color: var(--h-genius-ink-4);
+  max-width: 46rem;
+}
+
+/* ---------- utilities ------------------------------------ */
+
+.h-genius .hg-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.h-genius .hg-muted {
+  color: var(--h-genius-ink-3);
+}
+
+/* ---------- wide screens: commentary beside the lyric ---- */
+
+@media (min-width: 60rem) {
+  .h-genius {
+    --h-genius-lane-w: 0.75rem;
+    padding: 1.75rem 1.5rem 4rem;
+  }
+
+  .h-genius .hg-body {
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 27rem);
+    gap: 2.25rem;
+  }
+
+  .h-genius .hg-row {
+    grid-template-columns:
+      1.7rem
+      calc(var(--h-genius-lanes) * var(--h-genius-lane-w))
+      minmax(0, 1fr);
+    column-gap: 0.4rem;
+  }
+
+  .h-genius .hg-num {
+    font-size: 0.625rem;
+  }
+
+  .h-genius .hg-text {
+    font-size: 1.0625rem;
+    padding: 0.26rem 0.6rem;
+  }
+
+  /* the side column takes over the index on wide screens */
+  .h-genius .hg-idxbox {
+    display: none;
+  }
+
+  .h-genius .hg-side {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .h-genius .hg-pbody {
+    font-size: 0.9375rem;
+    line-height: 1.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-genius .hg-panel.is-inline {
+    animation: none;
+  }
+}
+</style>
+
+<script>
+(function () {
+  window.HOUSES = window.HOUSES || {};
+
+  var WIDE = '(min-width: 60rem)';
+  var seq = 0; // module-scoped id counter; no globals touched
+
+  /* ---------------- text helpers ---------------- */
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // inline markdown, applied to ALREADY-escaped text
+  function inlineFmt(s) {
+    return s
+      .replace(/`([^`]+)`/g, '<code class="hg-code">$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+      .replace(
+        /(https?:\/\/[^\s<]+)/g,
+        '<a class="hg-link hg-link-raw" href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+      );
+  }
+
+  // Bodies are real prose: paragraphs, blockquotes, bold, code,
+  // the occasional bare URL. Blockquotes must be detected BEFORE
+  // escaping, because escaping turns ">" into "&gt;".
+  function renderBody(raw) {
+    if (!raw || !String(raw).trim()) {
+      return '<p class="hg-p hg-muted">본문이 없습니다.</p>';
+    }
+    var blocks = String(raw).split(/\n{2,}/);
+    var out = [];
+    for (var i = 0; i < blocks.length; i++) {
+      var blk = blocks[i].replace(/\s+$/, '');
+      if (!blk.trim()) continue;
+      var lines = blk.split('\n');
+      var isQuote = lines.every(function (l) {
+        return !l.trim() || /^\s*>/.test(l);
+      });
+      if (isQuote) {
+        var q = lines
+          .filter(function (l) { return l.trim(); })
+          .map(function (l) { return inlineFmt(esc(l.replace(/^\s*>\s?/, ''))); })
+          .join('<br>');
+        out.push('<blockquote class="hg-quote">' + q + '</blockquote>');
+      } else if (/^https?:\/\/\S+$/.test(blk.trim())) {
+        var u = esc(blk.trim());
+        out.push(
+          '<p class="hg-p hg-p-url"><a class="hg-link hg-link-raw" href="' + u +
+          '" target="_blank" rel="noopener noreferrer">' + u + '</a></p>'
+        );
+      } else {
+        out.push(
+          '<p class="hg-p">' +
+          lines.map(function (l) { return inlineFmt(esc(l)); }).join('<br>') +
+          '</p>'
+        );
+      }
+    }
+    return out.join('') || '<p class="hg-p hg-muted">본문이 없습니다.</p>';
+  }
+
+  function normLine(s) {
+    return String(s == null ? '' : s)
+      .toLowerCase()
+      .replace(/[¿?¡!,.;:"“”]/g, '')
+      .replace(/[’´`]/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  }
+
+  function fmtVotes(v) {
+    // minus sign, not hyphen — a negative count should look deliberate
+    return (v < 0 ? '−' : '+') + Math.abs(v);
+  }
+
+  /* ---------------- model ---------------- */
+
+  var STATUS_TAG = {
+    partial: '범위 근사',
+    section: '구간 주석',
+    unmatched: '위치 미확인'
+  };
+
+  function buildModel(track) {
+    var lines = track.lines || [];
+    var norm = lines.map(function (l) { return normLine(l.text); });
+
+    var placed = [];
+    var unplaced = [];
+    (track.annotations || []).forEach(function (a) {
+      var sp = a.span;
+      if (sp && sp.length === 2 && sp[0] != null && sp[1] != null) {
+        placed.push(a);
+      } else {
+        unplaced.push(a);
+      }
+    });
+
+    // ORDER BY POSITION. Never by votes. Outer range before inner
+    // when two share a start line.
+    placed.sort(function (x, y) {
+      return x.span[0] - y.span[0] || y.span[1] - x.span[1] || x.index - y.index;
+    });
+    unplaced.sort(function (x, y) { return x.index - y.index; });
+
+    var items = []; // every annotation, in reading order
+    placed.forEach(function (a, i) {
+      items.push({
+        id: 'p' + i,
+        anno: a,
+        ord: i + 1,
+        start: a.span[0],
+        end: a.span[1],
+        placedAt: true,
+        repeats: []
+      });
+    });
+    unplaced.forEach(function (a, i) {
+      items.push({ id: 'u' + i, anno: a, ord: null, placedAt: false, repeats: [] });
+    });
+
+    // A "repeated" annotation is pinned at its first occurrence.
+    // Find the later occurrence(s) by text so the recurrence can be
+    // shown rather than quietly dropped.
+    items.forEach(function (it) {
+      if (!it.placedAt || it.anno.status !== 'repeated') return;
+      var len = it.end - it.start + 1;
+      var key = norm.slice(it.start, it.end + 1);
+      if (!key.some(function (k) { return k; })) return;
+      for (var i = 0; i + len <= norm.length; i++) {
+        if (i === it.start) continue;
+        var same = true;
+        for (var k = 0; k < len; k++) {
+          if (norm[i + k] !== key[k]) { same = false; break; }
+        }
+        if (same) it.repeats.push({ start: i, end: i + len - 1 });
+      }
+    });
+
+    // Lane assignment so overlapping ranges get side-by-side
+    // brackets instead of piling up.
+    var bars = [];
+    items.forEach(function (it) {
+      if (it.placedAt) {
+        bars.push({ item: it, start: it.start, end: it.end, ghost: false });
+      }
+      it.repeats.forEach(function (r) {
+        bars.push({ item: it, start: r.start, end: r.end, ghost: true });
+      });
+    });
+    bars.sort(function (a, b) { return a.start - b.start || b.end - a.end; });
+
+    var laneEnds = [];
+    bars.forEach(function (b) {
+      var lane = -1;
+      for (var l = 0; l < laneEnds.length; l++) {
+        if (laneEnds[l] < b.start) { lane = l; laneEnds[l] = b.end; break; }
+      }
+      if (lane < 0) { lane = laneEnds.length; laneEnds.push(b.end); }
+      b.lane = lane;
+    });
+
+    // per-row index
+    var rows = lines.map(function () { return []; });
+    bars.forEach(function (b) {
+      for (var i = b.start; i <= b.end && i < rows.length; i++) {
+        rows[i].push({
+          bar: b,
+          item: b.item,
+          lane: b.lane,
+          ghost: b.ghost,
+          first: i === b.start,
+          last: i === b.end
+        });
+      }
+    });
+
+    // which annotations share a line with which
+    items.forEach(function (it) {
+      if (!it.placedAt) return;
+      var sib = [];
+      items.forEach(function (o) {
+        if (o === it || !o.placedAt) return;
+        if (o.start <= it.end && it.start <= o.end) sib.push(o);
+      });
+      it.siblings = sib;
+    });
+
+    return {
+      track: track,
+      lines: lines,
+      items: items,
+      placedCount: placed.length,
+      unplacedItems: items.filter(function (i) { return !i.placedAt; }),
+      rows: rows,
+      lanes: Math.max(1, laneEnds.length)
+    };
+  }
+
+  /* ---------------- mount ---------------- */
+
+  function mount(root, data, trackNo) {
+    var uid = 'hg' + (++seq);
+    var tracks = (data && data.tracks) || [];
+    var track = null;
+    for (var i = 0; i < tracks.length; i++) {
+      if (tracks[i].no === trackNo) { track = tracks[i]; break; }
+    }
+    if (!track) track = tracks[0];
+    if (!track) {
+      root.appendChild(el('div', 'h-genius', '표시할 트랙이 없습니다.'));
+      return;
+    }
+
+    var M = buildModel(track);
+    var album = (data && data.album) || {};
+    var st = track.stats || {};
+
+    var wrap = el('div', 'h-genius');
+    wrap.style.setProperty('--h-genius-lanes', String(M.lanes));
+
+    /* ----- masthead ----- */
+    var mast = el('header', 'hg-mast');
+
+    var eyebrow = el('div', 'hg-eyebrow');
+    eyebrow.appendChild(el('span', null, album.artist || ''));
+    eyebrow.appendChild(el('span', 'hg-eyebrow-dot', '·'));
+    eyebrow.appendChild(el('span', null, album.title || ''));
+    eyebrow.appendChild(el('span', 'hg-eyebrow-dot', '·'));
+    eyebrow.appendChild(el('span', null, (album.released || '').slice(0, 4)));
+    if (album.label) {
+      eyebrow.appendChild(el('span', 'hg-eyebrow-dot', '·'));
+      eyebrow.appendChild(el('span', null, album.label));
+    }
+    mast.appendChild(eyebrow);
+
+    var titlerow = el('div', 'hg-titlerow');
+    titlerow.appendChild(el('span', 'hg-tno', String(track.no).padStart(2, '0')));
+    titlerow.appendChild(el('h2', 'hg-title', track.title || ''));
+    mast.appendChild(titlerow);
+
+    var stats = el('ul', 'hg-stats');
+    function stat(label, value, hl) {
+      var li = el('li', 'hg-stat' + (hl ? ' hg-stat-hl' : ''));
+      li.appendChild(el('span', null, label));
+      li.appendChild(el('span', 'hg-stat-v', value));
+      stats.appendChild(li);
+    }
+    stat('가사', (st.lines != null ? st.lines : M.lines.length) + '행');
+    stat('해설', (st.annotations != null ? st.annotations : M.items.length) + '개');
+    stat('행에 고정', M.placedCount + '개');
+    stat(
+      '표시된 행',
+      (st.marked_lines != null ? st.marked_lines : '?') + '행 · ' +
+      (st.coverage_pct != null ? st.coverage_pct + '%' : '—'),
+      true
+    );
+    if (M.unplacedItems.length) {
+      stat('위치 미지정', M.unplacedItems.length + '개');
+    }
+    mast.appendChild(stats);
+
+    // said once, quietly — not repeated on every card
+    var disc = el('p', 'hg-disclaim');
+    disc.innerHTML =
+      '해설은 팬이 직접 쓴 글이며 <b>검증되지 않았습니다</b>. ' +
+      '목록과 번호는 추천 수가 아니라 <b>가사에 나오는 순서</b>를 따릅니다.';
+    mast.appendChild(disc);
+
+    if (track.description_es) {
+      var about = el('details', 'hg-about');
+      var asum = el('summary', 'hg-about-sum', '곡 소개 (스페인어·영어 원문)');
+      about.appendChild(asum);
+      var abody = el('div', 'hg-about-body');
+      abody.innerHTML = renderBody(track.description_es);
+      about.appendChild(abody);
+      mast.appendChild(about);
+    }
+
+    wrap.appendChild(mast);
+
+    /* ----- layout ----- */
+    // Narrow screens have no side column. The index still has to be
+    // reachable, so it gets a collapsed disclosure right here.
+    var idxBox = el('details', 'hg-idxbox');
+    var idxSum = el('summary', 'hg-idxbox-sum');
+    idxSum.appendChild(el('span', null, '해설 목록'));
+    idxSum.appendChild(el('span', 'hg-idxbox-c', M.items.length + '개'));
+    idxBox.appendChild(idxSum);
+    wrap.appendChild(idxBox);
+
+    var body = el('div', 'hg-body');
+    var lyricCol = el('div', 'hg-lyricwrap');
+    var sideCol = el('aside', 'hg-side');
+    body.appendChild(lyricCol);
+    body.appendChild(sideCol);
+    wrap.appendChild(body);
+
+    var lyricHead = el('div', 'hg-colhead');
+    lyricHead.appendChild(el('span', null, '가사'));
+    lyricHead.appendChild(
+      el('span', null, M.lines.length + '행 · 해설 표시 ' + (st.marked_lines || 0) + '행')
+    );
+    lyricCol.appendChild(lyricHead);
+
+    var lyric = el('div', 'hg-lyric');
+    lyricCol.appendChild(lyric);
+
+    /* ----- lyric rows ----- */
+    var rowEls = [];
+    var textEls = [];
+
+    M.lines.forEach(function (line, i) {
+      var marks = M.rows[i];
+      // a row closes a range only if NOTHING on it continues downward
+      var rangeEnd = marks.length > 0 && marks.every(function (mk) { return mk.last; });
+      var row = el('div', 'hg-row' +
+        (line.gap ? ' is-gap' : '') +
+        (marks.length ? ' is-marked' : '') +
+        (rangeEnd ? ' is-rend' : ''));
+      row.setAttribute('data-i', String(i));
+
+      var num = el('span', 'hg-num', String(i + 1));
+      num.setAttribute('aria-hidden', 'true');
+      row.appendChild(num);
+
+      // gutter: one cell per lane, brackets drawn as rails
+      var gut = el('span', 'hg-gutter');
+      gut.setAttribute('aria-hidden', 'true');
+      for (var l = 0; l < M.lanes; l++) {
+        var cell = el('span', 'hg-lane');
+        var mk = null;
+        for (var m = 0; m < marks.length; m++) {
+          if (marks[m].lane === l) { mk = marks[m]; break; }
+        }
+        if (mk) {
+          var rail = el('span', 'hg-rail');
+          if (mk.first) rail.classList.add('is-first');
+          if (mk.last) rail.classList.add('is-last');
+          if (mk.ghost) rail.classList.add('is-ghost');
+          if (mk.item.anno.status === 'partial') rail.classList.add('is-partial');
+          if (mk.item.anno.votes < 0 && !mk.ghost) rail.classList.add('is-dispute');
+          rail.setAttribute('data-rail', mk.item.id);
+          cell.appendChild(rail);
+          cell.classList.add('is-live');
+          (function (id) {
+            cell.addEventListener('click', function () { toggle(id, false); });
+          })(mk.item.id);
+        }
+        gut.appendChild(cell);
+      }
+      row.appendChild(gut);
+
+      // pick the tap target: the most specific real annotation on
+      // this line, falling back to a repeat occurrence
+      var primary = null;
+      var ghostOnly = null;
+      marks.forEach(function (mk) {
+        var span = mk.bar.end - mk.bar.start;
+        if (!mk.ghost) {
+          if (!primary || span < (primary.bar.end - primary.bar.start)) primary = mk;
+        } else if (!ghostOnly) {
+          ghostOnly = mk;
+        }
+      });
+      var target = primary || ghostOnly;
+      var realPrimaries = marks.filter(function (mk) { return !mk.ghost; });
+
+      var node;
+      if (target && !line.gap) {
+        // only the first row of a range is a tab stop, so a 4-line
+        // range costs one keyboard stop, not four
+        var isRangeHead = target.first;
+        node = document.createElement(isRangeHead ? 'button' : 'div');
+        node.className = 'hg-text';
+        if (isRangeHead) {
+          node.type = 'button';
+          node.setAttribute('aria-expanded', 'false');
+          node.setAttribute('aria-controls', uid + '-panel');
+        } else {
+          node.setAttribute('role', 'presentation');
+        }
+        node.setAttribute('data-anno', target.item.id);
+
+        if (target.ghost) {
+          node.classList.add('is-ghost');
+        } else if (target.item.anno.votes < 0) {
+          node.classList.add('is-dispute');
+        } else {
+          node.classList.add('is-hl');
+        }
+        if (target.first) node.classList.add('is-hl-first');
+        if (target.last) node.classList.add('is-hl-last');
+        if (realPrimaries.length > 1) node.classList.add('is-overlap');
+
+        // One chip per annotation STARTING on this line — not just the
+        // tap target. Where two ranges begin together the reader sees
+        // both ordinals; otherwise the outer one would be nameless.
+        marks.filter(function (mk) { return mk.first && mk.item.ord != null; })
+          .sort(function (x, y) { return x.lane - y.lane; })
+          .forEach(function (mk) {
+            var chip = el('span', 'hg-chip', String(mk.item.ord) + (mk.ghost ? '↺' : ''));
+            if (mk.ghost) chip.classList.add('is-ghost');
+            else if (mk.item.anno.votes < 0) chip.classList.add('is-dispute');
+            chip.setAttribute('aria-hidden', 'true');
+            node.appendChild(chip);
+          });
+
+        var tx = el('span', 'hg-lyric-t', line.text);
+        tx.setAttribute('dir', 'auto');
+        node.appendChild(tx);
+
+        // say in words how far the mark runs — Genius never does
+        if (target.last) {
+          var len = target.bar.end - target.bar.start + 1;
+          var lab = null;
+          if (target.ghost) {
+            lab = el('span', 'hg-extent is-ghost', '반복');
+          } else if (target.item.anno.status === 'partial') {
+            lab = el('span', 'hg-extent is-approx', '범위 근사');
+          } else if (len > 1) {
+            lab = el('span', 'hg-extent', len + '행');
+          }
+          if (lab) {
+            lab.setAttribute('aria-hidden', 'true');
+            node.appendChild(lab);
+          }
+        }
+
+        if (isRangeHead) {
+          var sr = el('span', 'hg-sr', srLabel(target, realPrimaries.length));
+          node.appendChild(sr);
+        }
+
+        (function (id) {
+          node.addEventListener('click', function () { toggle(id, false); });
+        })(target.item.id);
+      } else {
+        node = el('div', 'hg-text');
+        var t2 = el('span', 'hg-lyric-t', line.gap ? '· · ·' : line.text);
+        if (!line.gap) t2.setAttribute('dir', 'auto');
+        node.appendChild(t2);
+        if (line.gap) node.setAttribute('aria-label', '연 구분');
+      }
+
+      row.appendChild(node);
+      lyric.appendChild(row);
+      rowEls.push(row);
+      textEls.push(node);
+    });
+
+    function srLabel(mk, primaryCount) {
+      var it = mk.item;
+      var len = mk.bar.end - mk.bar.start + 1;
+      var s = '해설 ' + (it.ord || '') + '번, ' +
+        (mk.bar.start + 1) + '행부터 ' + (mk.bar.end + 1) + '행까지 ' + len + '행';
+      if (mk.ghost) s += ', 반복 구간';
+      if (it.anno.status === 'partial') s += ', 범위 근사';
+      if (it.anno.votes < 0) s += ', 추천 수 음수로 이견 있음';
+      // announce the overlap; the other reading is one link away
+      // inside the panel, and also listed in the index
+      if (primaryCount > 1) {
+        s += '. 이 행에는 해설이 ' + primaryCount + '개 겹쳐 있고, 열면 나머지로 가는 링크가 있습니다';
+      }
+      return '. ' + s + '. 열기';
+    }
+
+    /* ----- unplaced annotations ----- */
+    var slotFallback = el('div', 'hg-slot');
+    if (M.unplacedItems.length) {
+      var up = el('div', 'hg-unplaced');
+      var uphead = el('div', 'hg-colhead');
+      uphead.appendChild(el('span', null, '행에 고정되지 않은 해설'));
+      uphead.appendChild(el('span', null, M.unplacedItems.length + '개'));
+      up.appendChild(uphead);
+      var upnote = el('p', 'hg-disclaim',
+        '곡의 구간 전체를 가리키거나, 가사 표기와 글자가 달라 어느 행인지 확정하지 못한 해설입니다.');
+      up.appendChild(upnote);
+      up.appendChild(buildList(M.unplacedItems, true));
+      lyricCol.appendChild(up);
+    }
+    lyricCol.appendChild(slotFallback);
+
+    /* ----- panel ----- */
+    var panel = el('section', 'hg-panel');
+    panel.id = uid + '-panel';
+    panel.setAttribute('tabindex', '-1');
+    panel.setAttribute('aria-live', 'polite');
+
+    var openId = null;
+
+    function buildList(list, compact) {
+      var ol = el('ul', 'hg-list');
+      list.forEach(function (it) {
+        var li = el('li', 'hg-li');
+        var b = el('button', 'hg-idxbtn');
+        b.type = 'button';
+        b.setAttribute('data-idx', it.id);
+
+        var n = el('span', 'hg-idx-n', it.ord != null ? String(it.ord) : '—');
+        if (it.ord == null) n.classList.add('is-ghost');
+        b.appendChild(n);
+
+        var main = el('span', 'hg-idx-main');
+        var meta = el('span', 'hg-idx-range');
+        meta.textContent = rangeText(it);
+        if (it.anno.status === 'partial') meta.classList.add('is-approx');
+        main.appendChild(meta);
+
+        var q = el('span', 'hg-idx-q', quoteText(it).replace(/\n/g, ' / '));
+        q.setAttribute('dir', 'auto');
+        main.appendChild(q);
+
+        if (it.anno.gist_ko) {
+          main.appendChild(el('span', 'hg-idx-g', it.anno.gist_ko));
+        }
+        b.appendChild(main);
+
+        var v = el('span', 'hg-idx-v', fmtVotes(it.anno.votes));
+        if (it.anno.votes < 0) {
+          v.classList.add('is-neg');
+          v.textContent = fmtVotes(it.anno.votes) + ' 반박';
+        }
+        b.appendChild(v);
+
+        b.addEventListener('click', function () { toggle(it.id, true); });
+        li.appendChild(b);
+        ol.appendChild(li);
+      });
+      return ol;
+    }
+
+    function rangeText(it) {
+      if (!it.placedAt) {
+        return STATUS_TAG[it.anno.status] || '위치 미지정';
+      }
+      var len = it.end - it.start + 1;
+      var r = (it.start + 1) + (len > 1 ? '–' + (it.end + 1) : '') + '행';
+      r += ' · ' + len + '행';
+      if (it.anno.status === 'partial') r += ' · 근사';
+      // state the recurrence count even when the second occurrence
+      // could not be located in the lyric text
+      var occ = Math.max(it.anno.occurrences || 0, it.repeats.length + 1);
+      if (it.anno.status === 'repeated' && occ > 1) r += ' · 반복 ' + occ + '회';
+      return r;
+    }
+
+    function quoteText(it) {
+      if (it.placedAt) {
+        return M.lines
+          .slice(it.start, it.end + 1)
+          .map(function (l) { return l.text; })
+          .filter(function (t) { return t; })
+          .join('\n');
+      }
+      return it.anno.fragment || '';
+    }
+
+    function findItem(id) {
+      for (var i = 0; i < M.items.length; i++) {
+        if (M.items[i].id === id) return M.items[i];
+      }
+      return null;
+    }
+
+    /* ----- index view: its own element, built once, never destroyed
+       so that it survives on narrow screens where the panel is
+       detached whenever nothing is open ----- */
+    var indexEl = el('div', 'hg-index');
+
+    function buildIndex() {
+      indexEl.innerHTML = '';
+      var head = el('div', 'hg-phead');
+      var hrow = el('div', 'hg-colhead');
+      hrow.appendChild(el('span', null, '해설 목록'));
+      hrow.appendChild(el('span', null, M.items.length + '개'));
+      hrow.style.borderBottom = '0';
+      hrow.style.marginBottom = '0';
+      hrow.style.paddingBottom = '0';
+      head.appendChild(hrow);
+      indexEl.appendChild(head);
+
+      var note = el('div', 'hg-index-note',
+        '가사에 나오는 순서대로입니다. 추천 수는 참고용 수치일 뿐, 순서에 영향을 주지 않습니다.');
+      indexEl.appendChild(note);
+
+      var placedItems = M.items.filter(function (i) { return i.placedAt; });
+      indexEl.appendChild(buildList(placedItems));
+
+      if (M.unplacedItems.length) {
+        indexEl.appendChild(el('div', 'hg-sub', '행에 고정되지 않음'));
+        indexEl.appendChild(el('div', 'hg-sub-note',
+          '구간 전체를 가리키거나 가사와 글자가 달라 위치를 확정하지 못한 해설.'));
+        indexEl.appendChild(buildList(M.unplacedItems));
+      }
+    }
+
+    /* ----- annotation view ----- */
+    function renderAnno(it) {
+      var a = it.anno;
+      var disputed = a.votes < 0;
+
+      panel.className = 'hg-panel' + (disputed ? ' is-dispute' : '');
+      panel.innerHTML = '';
+
+      var head = el('div', 'hg-phead');
+
+      var nav = el('div', 'hg-pnav');
+      var back = el('button', 'hg-nbtn is-back', '← 목록');
+      back.type = 'button';
+      back.addEventListener('click', function () { close(); });
+      nav.appendChild(back);
+      nav.appendChild(el('span', 'hg-nspacer'));
+
+      var order = M.items;
+      var pos = order.indexOf(it);
+      var prev = el('button', 'hg-nbtn', '‹ 이전');
+      prev.type = 'button';
+      prev.disabled = pos <= 0;
+      prev.addEventListener('click', function () { toggle(order[pos - 1].id, true); });
+      var next = el('button', 'hg-nbtn', '다음 ›');
+      next.type = 'button';
+      next.disabled = pos < 0 || pos >= order.length - 1;
+      next.addEventListener('click', function () { toggle(order[pos + 1].id, true); });
+      nav.appendChild(prev);
+      nav.appendChild(next);
+      head.appendChild(nav);
+
+      var badges = el('div', 'hg-badges');
+      if (it.ord != null) {
+        var oc = el('span', 'hg-chip' + (disputed ? ' is-dispute' : ''), String(it.ord));
+        badges.appendChild(oc);
+      }
+      var rt = el('span', 'hg-tag is-range', rangeText(it));
+      badges.appendChild(rt);
+      // for unplaced annotations the range slot already carries the
+      // status wording — don't print it twice
+      if (STATUS_TAG[a.status] && it.placedAt) {
+        var stg = el('span', 'hg-tag', STATUS_TAG[a.status]);
+        if (a.status === 'partial') stg.classList.add('is-approx');
+        badges.appendChild(stg);
+      }
+      var vt = el('span', 'hg-votes' + (disputed ? ' is-neg' : ''));
+      vt.appendChild(document.createTextNode('추천 '));
+      var vb = el('b', null, fmtVotes(a.votes));
+      vt.appendChild(vb);
+      if (disputed) vt.appendChild(document.createTextNode(' · 반박됨'));
+      badges.appendChild(vt);
+      head.appendChild(badges);
+
+      var frag = el('blockquote', 'hg-frag');
+      quoteText(it).split('\n').forEach(function (l) {
+        var s = el('span', 'hg-frag-l', l);
+        s.setAttribute('dir', 'auto');
+        frag.appendChild(s);
+      });
+      head.appendChild(frag);
+      panel.appendChild(head);
+
+      /* flags — the honest caveats, only when they apply */
+      if (disputed) {
+        var f1 = el('div', 'hg-flag is-dispute');
+        f1.appendChild(el('span', 'hg-flag-i', '!'));
+        f1.appendChild(el('span', null,
+          '추천 수가 음수입니다. 이 해석에는 찬성보다 반대가 많았습니다. 하나의 의견으로만 읽으세요.'));
+        panel.appendChild(f1);
+      }
+
+      if (a.status === 'partial') {
+        var f2 = el('div', 'hg-flag');
+        f2.appendChild(el('span', 'hg-flag-i', '≈'));
+        var f2b = el('span');
+        f2b.appendChild(document.createTextNode(
+          '첫 행만 가사와 일치해 표시 범위가 정확하지 않습니다. 해설이 실제로 가리키는 구절:'));
+        var fq = el('span', 'hg-flag-q', a.fragment || '');
+        fq.setAttribute('dir', 'auto');
+        f2b.appendChild(fq);
+        f2.appendChild(f2b);
+        panel.appendChild(f2);
+      }
+
+      if (a.status === 'repeated') {
+        var f3 = el('div', 'hg-flag');
+        f3.appendChild(el('span', 'hg-flag-i', '↺'));
+        var f3b = el('span');
+        var occ = a.occurrences || (it.repeats.length + 1);
+        if (it.repeats.length) {
+          f3b.appendChild(document.createTextNode(
+            '이 구절은 곡에서 ' + occ + '번 나옵니다. 해설은 첫 번째 자리에 붙어 있고, ' +
+            '반복되는 자리(' + it.repeats.map(function (r) {
+              return (r.start + 1) + (r.end > r.start ? '–' + (r.end + 1) : '') + '행';
+            }).join(', ') + ')는 점선으로 함께 표시했습니다.'));
+        } else {
+          f3b.appendChild(document.createTextNode(
+            '이 구절은 곡에서 ' + occ + '번 나옵니다. 반복되는 자리는 가사 표기가 달라 따로 표시하지 못했습니다.'));
+        }
+        f3.appendChild(f3b);
+        panel.appendChild(f3);
+      }
+
+      if (!it.placedAt) {
+        var f4 = el('div', 'hg-flag');
+        f4.appendChild(el('span', 'hg-flag-i', '◇'));
+        f4.appendChild(el('span', null,
+          a.status === 'section'
+            ? '가사 한 행이 아니라 곡의 한 구간 전체에 달린 해설입니다.'
+            : '가사 표기와 글자가 달라 어느 행인지 확정하지 못했습니다. 아래 구절을 가리킵니다.'));
+        panel.appendChild(f4);
+        if (a.status !== 'section' && a.fragment) {
+          var fq2 = el('div', 'hg-flag');
+          fq2.appendChild(el('span', 'hg-flag-i', '“'));
+          var fqs = el('span', null, a.fragment);
+          fqs.setAttribute('dir', 'auto');
+          fq2.appendChild(fqs);
+          panel.appendChild(fq2);
+        }
+      }
+
+      if (it.siblings && it.siblings.length) {
+        it.siblings.forEach(function (sib) {
+          var f5 = el('div', 'hg-flag');
+          f5.appendChild(el('span', 'hg-flag-i', '⊕'));
+          var f5b = el('span');
+          f5b.appendChild(document.createTextNode('같은 행에 다른 해설이 하나 더 있습니다 — '));
+          var lk = el('button', 'hg-flag-link',
+            (sib.ord != null ? sib.ord + '번 ' : '') + rangeText(sib) + ' 보기');
+          lk.type = 'button';
+          lk.addEventListener('click', function () { toggle(sib.id, true); });
+          f5b.appendChild(lk);
+          f5.appendChild(f5b);
+          panel.appendChild(f5);
+        });
+      }
+
+      /* the reading surface */
+      var pbody = el('div', 'hg-pbody');
+      pbody.innerHTML = renderBody(a.body_ko);
+      panel.appendChild(pbody);
+
+      if (a.body_es && String(a.body_es).trim()) {
+        var orig = el('details', 'hg-orig');
+        orig.appendChild(el('summary', 'hg-orig-sum', '스페인어 원문'));
+        var ob = el('div', 'hg-orig-body');
+        ob.innerHTML = renderBody(a.body_es);
+        orig.appendChild(ob);
+        panel.appendChild(orig);
+      }
+
+      // no caveat repeated here — it is stated once in the masthead
+      var foot = el('div', 'hg-pfoot');
+      if (a.url) {
+        var link = el('a', null, '원문 보기 ↗');
+        link.href = a.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        foot.appendChild(link);
+      }
+      panel.appendChild(foot);
+    }
+
+    /* ----- placement: beside the lyric on wide, directly under the
+       annotated range on narrow ----- */
+    var mql = window.matchMedia(WIDE);
+
+    function detach(node) {
+      if (node.parentNode) node.parentNode.removeChild(node);
+    }
+
+    function placeViews() {
+      if (mql.matches) {
+        // wide: the sticky side column shows exactly one of the two
+        panel.classList.remove('is-inline');
+        if (openId == null) {
+          detach(panel);
+          if (indexEl.parentNode !== sideCol) sideCol.appendChild(indexEl);
+        } else {
+          detach(indexEl);
+          if (panel.parentNode !== sideCol) sideCol.appendChild(panel);
+        }
+        return;
+      }
+
+      // narrow: index stays parked in its disclosure so it is always
+      // reachable; the open annotation slots in under its own range
+      if (indexEl.parentNode !== idxBox) idxBox.appendChild(indexEl);
+      panel.classList.add('is-inline');
+      if (openId == null) { detach(panel); return; }
+
+      var it = findItem(openId);
+      if (it && it.placedAt) {
+        var lastRow = rowEls[Math.min(it.end, rowEls.length - 1)];
+        if (lastRow && lastRow.parentNode === lyric) {
+          lyric.insertBefore(panel, lastRow.nextSibling);
+          return;
+        }
+      }
+      slotFallback.appendChild(panel);
+    }
+
+    function syncMarks() {
+      textEls.forEach(function (n) {
+        if (!n) return;
+        var id = n.getAttribute('data-anno');
+        var on = id != null && id === openId;
+        n.classList.toggle('is-open', on);
+        if (n.tagName === 'BUTTON') n.setAttribute('aria-expanded', on ? 'true' : 'false');
+      });
+      var rails = lyric.querySelectorAll('.hg-rail');
+      for (var i = 0; i < rails.length; i++) {
+        rails[i].classList.toggle('is-open', rails[i].getAttribute('data-rail') === openId);
+      }
+      // index buttons live in three places (side column, narrow
+      // disclosure, in-flow unplaced block) — sync all of them
+      var idxs = wrap.querySelectorAll('.hg-idxbtn');
+      for (var j = 0; j < idxs.length; j++) {
+        idxs[j].classList.toggle('is-open', idxs[j].getAttribute('data-idx') === openId);
+      }
+    }
+
+    function scrollToRange(it) {
+      if (!it || !it.placedAt) return;
+      var row = rowEls[it.start];
+      if (!row || !row.scrollIntoView) return;
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      row.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    }
+
+    function close() {
+      openId = null;
+      placeViews();
+      syncMarks();
+    }
+
+    function toggle(id, fromList) {
+      if (openId === id && !fromList) { close(); return; }
+      var it = findItem(id);
+      if (!it) return;
+      openId = id;
+      renderAnno(it);
+      placeViews();
+      syncMarks();
+      if (fromList) scrollToRange(it);
+    }
+
+    // Escape closes. Listener lives on our own element, so it dies
+    // with the container — nothing global is registered.
+    wrap.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && openId != null) {
+        var it = findItem(openId);
+        close();
+        if (it && it.placedAt) {
+          var head = lyric.querySelector('[data-anno="' + it.id + '"]');
+          if (head && head.focus) head.focus();
+        }
+        e.stopPropagation();
+      }
+    });
+
+    var onMedia = function () { placeViews(); };
+    if (mql.addEventListener) mql.addEventListener('change', onMedia);
+    else if (mql.addListener) mql.addListener(onMedia);
+
+    /* ----- caption: names the reference, claims nothing ----- */
+    var cap = el('footer', 'hg-caption');
+    cap.textContent =
+      'Genius 주석 페이지의 시각 언어(흰 바탕, 노란 형광펜, 빽빽한 수치)를 참조한 디자인 습작입니다. ' +
+      '가사·해설·추천 수는 Genius에 실제로 공개된 데이터이며, 이 페이지는 Genius가 만든 것이 아니고 관련도 없습니다.';
+    wrap.appendChild(cap);
+
+    root.appendChild(wrap);
+    buildIndex();
+    placeViews();
+    syncMarks();
+
+    root._hgCleanup = function () {
+      if (mql.removeEventListener) mql.removeEventListener('change', onMedia);
+      else if (mql.removeListener) mql.removeListener(onMedia);
+    };
+  }
+
+  window.HOUSES['genius'] = {
+    name: '노란 형광펜',
+    ref: 'Genius 주석 페이지 (이 데이터의 원 출처)',
+    blurb: '가사 옆에 해설을 나란히 세우고, 형광펜이 지나간 구간을 여백의 대괄호로 어디서 끝나는지까지 그려 준다.',
+    gives_up: '흰 바탕에 수치와 꼬리표를 빽빽이 채우는 방식이라, 가사만 조용히 읽고 싶은 사람에게는 쉴 곳이 없다.',
+    mount: mount,
+    unmount: function (root) {
+      if (root._hgCleanup) { root._hgCleanup(); root._hgCleanup = null; }
+      root.innerHTML = '';
+    }
+  };
+})();
+</script>

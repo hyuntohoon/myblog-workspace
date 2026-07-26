@@ -1,0 +1,118 @@
+# Lyrics-annotation UI — design record (2026-07-26)
+
+Ten design directions explored for **FEAT-lyrics-annotations Thread 1**: a static lyrics reader where
+tapping a marked passage opens the Genius commentary attached to it.
+
+**Chosen: the Genius house style** (`houses/genius.html`). Owner decision, 2026-07-26.
+
+Nothing here is committed to build — `FEAT-lyrics-annotations` is still `draft`, and promotion is
+owner-only (hard rule 5). This is the visual half of the record; the mechanism lives in
+`docs/rfcs/FEAT-lyrics-annotations.md` §6.
+
+---
+
+## Owner decisions this record encodes
+
+| Decision | Consequence for any design here |
+|---|---|
+| Korean tracks are **out of scope** — not annotating them may simply be the efficient answer | No design needs a Korean-coverage fallback. The empty-annotation state stays a plain empty state |
+| **Show every annotation** — no editorial selection | No relevance score, no ranking. Order is position in the lyrics |
+| **Always translate the commentary into Korean** | The body a reader sees is Korean; the original language is secondary and collapsible |
+| Host is the **static** reader, not the immersive viewer | `LyricsSheet.tsx` — see "Where this lands" below |
+
+## Constraints measured from real data — a design that breaks one is wrong
+
+From ROSALÍA *LUX*, 13 tracks with synced lyrics, 103 annotations measured (`tools/genius_anchor.py`):
+
+- **An annotation covers a RANGE, not a line.** Median 2 lines, mean 2.3, 1 in 6 covers 4 or more,
+  longest 12. "One line, one marker" is the wrong mental model — the RFC's phrase "inline per-line
+  layer" understates it.
+- **94.7% of lyric-bound annotations can be placed**, not 74.7%. The lower figure excludes `repeated`
+  (20%), which are chorus passages whose location *is* known; rendering them on the first occurrence
+  and admitting the repeat is the intended handling.
+- **Marker density is ~1 line in 3** — 201 of 590 lines across the album. Per track it ranges from
+  9.5% to 64.7%, so every design was checked against both ends.
+- **Overlap is a non-problem.** 3 of 201 marked lines are claimed by two annotations, never three.
+  No stacking system is needed.
+- **Bodies are long.** Several exceed 1,000 characters, with paragraphs and nested quotations. The
+  reading surface is not a tooltip.
+- **Votes can be negative** (lowest −17 in this album) — a disputed reading must not look endorsed.
+  Sorting by votes is prohibited: it surfaces translations, which are an explicit non-goal.
+- **Commentary can exist without lyrics.** 2 of 15 *LUX* tracks carry 12 annotations and no synced
+  lyrics, which is why the store is independent of lyrics and the renderer has a standalone mode.
+
+## The three rounds
+
+1. **Four interaction shapes** — 행간 펼침 (inline expand) · 측주 단 (margin column) · 바닥 시트
+   (bottom sheet) · 숨은 주석 (reveal-on-hover). Owner picked the margin column's *structure*.
+2. **Four visual treatments of the margin column** — 교정쇄 (hairline bracket + line numbers) · 여백
+   (no rail, the lyric's own ink changes) · 역전 (lyrics recede, commentary carries the weight) ·
+   편집 (magazine spread with a headline). Structure confirmed, treatment rejected.
+3. **Six house styles** — this directory. The same feature rendered in the visual language of six
+   well-known products, to break out of the project's own palette.
+
+## The six house styles
+
+Each is an isolated module in `houses/`: one `<style>` block whose every selector is prefixed
+`.h-<slug>`, plus a `mount(root, data, trackNo)` registered on `window.HOUSES`. They share no CSS and
+no markup, so each owns its interaction model, not just its skin.
+
+Each author stated their own bet and their own weakest point. Their admissions are the more useful
+half of this record — they are what a future implementer would otherwise have to rediscover.
+
+| Slug | Reference | The bet | Where its author says it breaks |
+|---|---|---|---|
+| `genius` | Genius annotation page | **Chosen.** Yellow highlight whose block length *is* the range, a margin bracket and an "N행" tail so the reader sees how far it runs, and negative-vote annotations stripped of the yellow and marked disputed | At 36.8% of lines marked, "the yellow stops meaning *this one is special*" — chips, line numbers, brackets and range tails pile up and the page gets noisy |
+| `apple` | Apple Music lyrics | With no playback, **scroll position becomes the playhead**: a band at 42% of the viewport brightens whatever it touches, and a whole annotated range lights as one slab | Type is so large that a 12-line range never fits one screen; on the sparse track the band sits over nothing for long stretches |
+| `spotify` | Spotify lyrics | Moves the "line being sung" contrast to "passage being read" — the open range flips to highlighter yellow, everything else sinks toward the field colour | Never stops shouting; reading a 2,500-character body inside a black card with blue and yellow pressing in. Knocked-back lyric contrast ~3.9:1 is at the legibility floor |
+| `medium` | Medium reading surface | One 604px measure, 21px serif, near-monochrome — the lyrics are read as an essay, the note waits in the margin | Gave up colour and density, so you cannot see at a glance where the readings cluster; you have to open them one at a time |
+| `notion` | Notion document + comments | Annotations as **comment threads** in the margin — the only version that shows many at once, anchored to their highlighted span | Where an annotation has no gist, the collapsed card opens on Spanish source text before reaching the Korean |
+| `nyt` | Newspaper longform | Marks leave the text entirely: a red number and a bracket in the margin, the same number recurring in the margin, the footnote and the end list; the 5 unlocatable annotations get ㄱ·ㄴ·ㄷ so they are not lost | Opening a note pushes the body down; all 14 open makes the page over 10,000px, so reading the lyrics and reading the notes fight each other |
+
+`genius.html` is worth reading even if the visual direction changes later: its screen-reader label
+announces the range ("해설 1번, 3행부터 4행까지 2행"), and its index states in the UI that ordering
+follows the lyrics rather than vote counts. Its author's own caveat above is the one to carry
+forward — the chosen design is weakest exactly on the dense track.
+
+**All six commit to a single theme** (verified: none respond to `data-theme`). That was a deviation
+from the brief, which asked for both, and it is the right one — Apple's lyrics screen is dark,
+Spotify's is a colour field and Genius's is white, so forcing both themes would break the reference.
+It does mean the light/dark question is unanswered for the real implementation, where the product
+already supports both. Only the shell chrome around the stage is theme-aware.
+
+## Where this lands
+
+The host is **`myblog_front/src/components/member/lyrics/LyricsSheet.tsx`** — the static reader that
+already shipped (FEAT-lyrics-sheet, 2026-07-08), not `LyricsViewer.tsx`:
+
+- the sheet renders each line as a `<p>`; the viewer wraps every line in a `<button>`, so an
+  interactive marker inside a line would be invalid nested content
+- the sheet already keys on the server's segment index (`s.i`) — the coordinate annotations need
+- the sheet already renders gap segments as `· · ·`, which the numbering counts
+- the viewer caches per-line pixel offsets that an async annotation load would silently invalidate
+
+## Running it
+
+```bash
+python3 build_mock_data.py     # rebuild local/lux_mock_data.json (needs the source dumps + backend venv)
+python3 assemble_houses.py     # houses/*.html -> local/annotation_houses.html
+```
+
+`assemble_houses.py` rejects any fragment whose CSS is not fully namespaced, so the six stylesheets
+cannot fight on one page. Fonts are deliberately not loaded — the real faces (SF Pro, Circular,
+Programme) are unavailable, so the stacks fall back to system faces. Judge proportion, weight,
+spacing and density, not letterforms.
+
+## What is NOT in this directory, and why
+
+`local/` is gitignored. **This repository is public**, and the assembled mockups and
+`lux_mock_data.json` inline complete *LUX* lyrics and Genius annotation bodies. Publishing those would
+break the owner-only privacy bar (`FEAT-lyrics-annotations` §2) and matches the existing
+`tools/.lyrics-phase1-*` exclusion, which is ignored for exactly this reason.
+
+The files in `houses/` carry no lyrics — they receive data through `mount(root, data)`. The only
+matches for song text in the committed files are track *titles* in comments, which are public
+metadata.
+
+Rendered artifact links live in `local/ARTIFACTS.md`, not here: the artifacts are private to the
+owner's account and contain the lyric data.

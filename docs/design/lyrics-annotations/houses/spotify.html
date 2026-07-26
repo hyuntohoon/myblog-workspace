@@ -1,0 +1,1493 @@
+<style>
+/* ============================================================
+   HOUSE: spotify — flat saturated colour field, heavy geometric
+   sans, white / knocked-back contrast, black chrome bar.
+   Every selector is prefixed with .h-spotify.
+   ============================================================ */
+
+.h-spotify {
+  /* Field colour is an ultramarine pulled from the LUX cover world,
+     deliberately NOT Spotify green. Everything else is black, white
+     and one hot accent. No gradients anywhere. */
+  --h-spotify-field: #2317CC;
+  --h-spotify-slab: #170C93;
+  --h-spotify-slab-hi: #1D10AE;
+  --h-spotify-hot: #FFE81C;
+  --h-spotify-ink: #000000;
+  --h-spotify-dim: rgba(255, 255, 255, 0.55);
+  --h-spotify-dim2: rgba(255, 255, 255, 0.74);
+  --h-spotify-hair: rgba(255, 255, 255, 0.16);
+  --h-spotify-lane: 16px;
+  --h-spotify-gut: 43px;
+  --h-spotify-pad: 16px;
+
+  background: var(--h-spotify-field);
+  color: #fff;
+  font-family: "Avenir Next", "Helvetica Neue", Helvetica, "Segoe UI", Roboto,
+    "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0 0 0 0;
+}
+
+.h-spotify,
+.h-spotify div,
+.h-spotify span,
+.h-spotify button,
+.h-spotify article,
+.h-spotify section,
+.h-spotify p,
+.h-spotify blockquote,
+.h-spotify code,
+.h-spotify a,
+.h-spotify h2,
+.h-spotify h3 {
+  box-sizing: border-box;
+}
+
+.h-spotify button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.h-spotify a {
+  color: var(--h-spotify-hot);
+  text-underline-offset: 3px;
+}
+
+.h-spotify :focus-visible {
+  outline: 3px solid var(--h-spotify-hot);
+  outline-offset: 2px;
+}
+
+.h-spotify .sp-onhot:focus-visible,
+.h-spotify .sp-row--lit .sp-chip:focus-visible {
+  outline: 3px solid var(--h-spotify-ink);
+  outline-offset: 2px;
+}
+
+.h-spotify .sp-in {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 26px var(--h-spotify-pad) 0 var(--h-spotify-pad);
+}
+
+/* ---------- head ---------- */
+
+/* Names the reference in plain words. Deliberately NOT a badge or a
+   mark — it must read as a caption on a study, never as chrome. */
+.h-spotify .sp-cap {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 44em;
+  margin-bottom: 20px;
+}
+
+.h-spotify .sp-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--h-spotify-dim2);
+  margin-bottom: 10px;
+}
+
+.h-spotify .sp-title {
+  font-size: clamp(36px, 9.4vw, 62px);
+  font-weight: 800;
+  line-height: 0.94;
+  letter-spacing: -0.035em;
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+}
+
+.h-spotify .sp-meta {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--h-spotify-dim2);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.h-spotify .sp-note {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--h-spotify-dim);
+  line-height: 1.55;
+  max-width: 46em;
+  margin-bottom: 22px;
+}
+
+/* ---------- annotation index ---------- */
+
+.h-spotify .sp-idx {
+  border-top: 2px solid var(--h-spotify-hair);
+  padding-top: 14px;
+  margin-bottom: 26px;
+}
+
+.h-spotify .sp-idxhead {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--h-spotify-dim2);
+  margin-bottom: 10px;
+}
+
+.h-spotify .sp-idxgrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.h-spotify .sp-ic {
+  width: 30px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  border-radius: 2px;
+  background: var(--h-spotify-hot);
+  color: var(--h-spotify-ink);
+}
+
+/* Disputed readings are not whispered — they get the same weight of
+   block, in white instead of the accent. Filled = placed in the lyric,
+   outlined = not placed. Colour carries endorsed vs disputed. */
+.h-spotify .sp-ic--disputed {
+  background: #fff;
+  color: var(--h-spotify-ink);
+}
+
+.h-spotify .sp-ic--free {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+  border-radius: 2px;
+  background-image: none;
+  border: 0;
+  outline-offset: 2px;
+  position: relative;
+}
+
+.h-spotify .sp-ic--free::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.7) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+/* Open = the black of the chrome, so it reads as "this one is showing"
+   without colliding with yellow (normal) or white (disputed). */
+.h-spotify .sp-ic--on {
+  background: var(--h-spotify-ink);
+  color: #fff;
+  box-shadow: inset 0 0 0 2px var(--h-spotify-ink);
+}
+
+.h-spotify .sp-ic--on.sp-ic--free::after {
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.85) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.h-spotify .sp-legend {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--h-spotify-dim);
+  line-height: 1.7;
+}
+
+.h-spotify .sp-key {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  vertical-align: baseline;
+  position: relative;
+  top: 1px;
+}
+
+.h-spotify .sp-key--hot { background: var(--h-spotify-hot); }
+.h-spotify .sp-key--out { background: #fff; }
+.h-spotify .sp-key--dot { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4); }
+
+/* ---------- lyrics ---------- */
+
+.h-spotify .sp-lyrics {
+  padding-bottom: 8px;
+}
+
+.h-spotify .sp-row {
+  display: grid;
+  grid-template-columns: var(--h-spotify-gut) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.h-spotify .sp-gut {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  padding-right: 8px;
+}
+
+.h-spotify .sp-gut--two {
+  grid-template-columns: var(--h-spotify-lane) var(--h-spotify-lane);
+}
+
+.h-spotify .sp-lane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.h-spotify .sp-chip {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  background: var(--h-spotify-hot);
+  color: var(--h-spotify-ink);
+  border-radius: 2px;
+}
+
+.h-spotify .sp-chip--disputed {
+  background: #fff;
+  color: var(--h-spotify-ink);
+}
+
+.h-spotify .sp-chip--echo {
+  background: transparent;
+  color: var(--h-spotify-hot);
+  box-shadow: inset 0 0 0 2px var(--h-spotify-hot);
+}
+
+/* The marker is one solid column, not a flag on a pole: the numbered
+   head and the run below it are the same width. */
+.h-spotify .sp-fill {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  background: var(--h-spotify-hot);
+}
+
+.h-spotify .sp-fill--disputed {
+  background: #fff;
+}
+
+.h-spotify .sp-fill--echo {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--h-spotify-hot) 0 5px,
+    transparent 5px 10px
+  );
+}
+
+.h-spotify .sp-tx {
+  font-size: clamp(20px, 5.3vw, 27px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  padding: 6px 12px 7px;
+  overflow-wrap: anywhere;
+  color: #fff;
+  /* dir="auto" on the element still shapes the Arabic refrain
+     right-to-left correctly; pinning the alignment keeps the four
+     Arabic lines inside the same hard left edge as the Spanish, which
+     is what this layout is built on. */
+  text-align: left;
+}
+
+.h-spotify .sp-row--mark .sp-tx {
+  background: var(--h-spotify-slab);
+}
+
+.h-spotify .sp-row--echo .sp-tx {
+  box-shadow: inset 0 -3px 0 rgba(255, 232, 28, 0.6);
+}
+
+/* 4px of field colour between abutting ranges so two annotations that
+   touch (33–34 then 35–36 in La Yugular) never read as one slab. */
+.h-spotify .sp-row--first .sp-tx { margin-top: 4px; }
+.h-spotify .sp-row--last .sp-tx { margin-bottom: 4px; }
+.h-spotify .sp-row--first .sp-gut { padding-top: 4px; }
+.h-spotify .sp-row--last .sp-gut { padding-bottom: 4px; }
+
+.h-spotify .sp-row--hit { cursor: pointer; }
+
+.h-spotify .sp-row--hit:hover .sp-tx {
+  background: var(--h-spotify-slab-hi);
+}
+
+.h-spotify .sp-row--echo.sp-row--hit:hover .sp-tx {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* the focus mechanic: with a card open, everything else is knocked
+   back into the field and the read passage is the only lit thing —
+   the reading equivalent of a sung line. */
+.h-spotify .sp-lyrics--focus .sp-row:not(.sp-row--lit) .sp-tx {
+  color: var(--h-spotify-dim);
+}
+
+.h-spotify .sp-lyrics--focus .sp-row:not(.sp-row--lit).sp-row--mark .sp-tx {
+  background: rgba(23, 12, 147, 0.55);
+}
+
+.h-spotify .sp-row--lit .sp-tx {
+  background: var(--h-spotify-hot);
+  color: var(--h-spotify-ink);
+}
+
+.h-spotify .sp-row--lit.sp-row--disputed .sp-tx {
+  background: #fff;
+  color: var(--h-spotify-ink);
+}
+
+.h-spotify .sp-echotag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  padding: 2px 6px;
+  margin-left: 8px;
+  vertical-align: 3px;
+  color: var(--h-spotify-hot);
+  box-shadow: inset 0 0 0 2px var(--h-spotify-hot);
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.h-spotify .sp-row--lit .sp-echotag {
+  color: var(--h-spotify-ink);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55);
+}
+
+.h-spotify .sp-gap {
+  font-size: 15px;
+  letter-spacing: 0.5em;
+  color: rgba(255, 255, 255, 0.42);
+  padding: 16px 12px 18px;
+}
+
+/* ---------- unplaced annotations ---------- */
+
+.h-spotify .sp-free {
+  margin-top: 30px;
+  border-top: 2px solid var(--h-spotify-hair);
+  padding-top: 16px;
+}
+
+.h-spotify .sp-freehead {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--h-spotify-dim2);
+  margin-bottom: 4px;
+}
+
+.h-spotify .sp-freesub {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--h-spotify-dim);
+  line-height: 1.55;
+  margin-bottom: 12px;
+  max-width: 44em;
+}
+
+.h-spotify .sp-fitem {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  width: 100%;
+  padding: 10px 12px 11px 0;
+  border-top: 1px solid var(--h-spotify-hair);
+}
+
+.h-spotify .sp-fitem:hover .sp-fitem-tx { color: #fff; }
+
+.h-spotify .sp-fitem-tx {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.38;
+  color: var(--h-spotify-dim2);
+  overflow-wrap: anywhere;
+}
+
+.h-spotify .sp-fitem-sub {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--h-spotify-dim);
+  margin-top: 4px;
+}
+
+.h-spotify .sp-fitem--on .sp-fitem-tx { color: var(--h-spotify-hot); }
+
+/* ---------- the annotation card: a flat black block, in flow ---------- */
+
+.h-spotify .sp-card {
+  background: var(--h-spotify-ink);
+  border-top: 4px solid var(--h-spotify-hot);
+  border-radius: 0 0 2px 2px;
+  padding: 16px 16px 20px;
+  margin: 0 0 10px;
+  max-width: 100%;
+}
+
+.h-spotify .sp-card--disputed {
+  border-top-color: #fff;
+}
+
+.h-spotify .sp-cardtop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.h-spotify .sp-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 7px 3px;
+  border-radius: 2px;
+  color: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.28);
+  white-space: nowrap;
+}
+
+.h-spotify .sp-tag--votes {
+  color: var(--h-spotify-ink);
+  background: var(--h-spotify-hot);
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.h-spotify .sp-tag--neg {
+  color: var(--h-spotify-ink);
+  background: #fff;
+  box-shadow: none;
+}
+
+.h-spotify .sp-x {
+  margin-left: auto;
+  min-width: 44px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.h-spotify .sp-x:hover { background: rgba(255, 255, 255, 0.12); }
+
+.h-spotify .sp-frag {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.9);
+  border-left: 4px solid var(--h-spotify-hot);
+  padding: 2px 0 2px 12px;
+  margin: 0 0 14px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.h-spotify .sp-card--disputed .sp-frag { border-left-color: #fff; }
+
+.h-spotify .sp-occ {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.07);
+  padding: 10px 12px;
+  border-radius: 2px;
+  margin: 0 0 14px;
+}
+
+.h-spotify .sp-occbtn {
+  display: inline-block;
+  margin-top: 8px;
+  margin-right: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--h-spotify-hot);
+  box-shadow: inset 0 0 0 2px var(--h-spotify-hot);
+  border-radius: 2px;
+  padding: 6px 10px;
+}
+
+.h-spotify .sp-occbtn:hover {
+  background: var(--h-spotify-hot);
+  color: var(--h-spotify-ink);
+}
+
+.h-spotify .sp-gist {
+  font-size: clamp(16px, 4.2vw, 19px);
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: #fff;
+  margin: 0 0 14px;
+  max-width: 34em;
+  overflow-wrap: anywhere;
+}
+
+.h-spotify .sp-prose {
+  max-width: 38em;
+}
+
+.h-spotify .sp-prose p {
+  font-size: 15.5px;
+  font-weight: 400;
+  line-height: 1.82;
+  color: rgba(255, 255, 255, 0.84);
+  margin: 0 0 1.1em;
+  overflow-wrap: anywhere;
+}
+
+.h-spotify .sp-prose p:last-child { margin-bottom: 0; }
+
+.h-spotify .sp-prose strong {
+  font-weight: 800;
+  color: #fff;
+}
+
+.h-spotify .sp-prose em {
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.h-spotify .sp-prose code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.86em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.h-spotify .sp-prose blockquote {
+  margin: 0 0 1.1em;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid rgba(255, 232, 28, 0.55);
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.7);
+  overflow-wrap: anywhere;
+}
+
+.h-spotify .sp-esprose p,
+.h-spotify .sp-esprose blockquote {
+  font-size: 14px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.h-spotify .sp-more {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  padding: 8px 12px;
+}
+
+.h-spotify .sp-more:hover { background: rgba(255, 255, 255, 0.12); }
+
+.h-spotify .sp-espanel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.h-spotify .sp-src {
+  margin-top: 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.6;
+}
+
+/* ---------- black chrome bar ---------- */
+
+.h-spotify .sp-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  background: var(--h-spotify-ink);
+  margin-top: 26px;
+}
+
+.h-spotify .sp-prog {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.h-spotify .sp-progi {
+  height: 3px;
+  width: 0;
+  background: var(--h-spotify-hot);
+}
+
+.h-spotify .sp-barin {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 9px var(--h-spotify-pad);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.h-spotify .sp-tile {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--h-spotify-hot);
+  color: var(--h-spotify-ink);
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  border-radius: 2px;
+}
+
+.h-spotify .sp-bartx {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-spotify .sp-bartitle {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-spotify .sp-barsub {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.58);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.h-spotify .sp-nav {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.h-spotify .sp-nb {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  border-radius: 2px;
+}
+
+.h-spotify .sp-nb:hover { background: rgba(255, 255, 255, 0.14); }
+
+.h-spotify .sp-nb[disabled] {
+  color: rgba(255, 255, 255, 0.3);
+  cursor: default;
+}
+
+.h-spotify .sp-nb[disabled]:hover { background: none; }
+
+.h-spotify .sp-count {
+  min-width: 50px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: 0.02em;
+}
+
+.h-spotify .sp-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- motion ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .h-spotify .sp-tx,
+  .h-spotify .sp-fitem-tx,
+  .h-spotify .sp-ic {
+    transition: background-color 150ms linear, color 150ms linear;
+  }
+  .h-spotify .sp-card {
+    animation: h-spotify-rise 170ms ease-out;
+  }
+}
+
+@keyframes h-spotify-rise {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- wider screens ---------- */
+
+@media (min-width: 760px) {
+  .h-spotify {
+    --h-spotify-lane: 20px;
+    --h-spotify-gut: 54px;
+    --h-spotify-pad: 32px;
+  }
+  .h-spotify .sp-tx { padding: 7px 14px 8px; }
+  .h-spotify .sp-card { padding: 22px 24px 26px; }
+  .h-spotify .sp-chip { min-height: 25px; font-size: 12px; }
+  .h-spotify .sp-ic { width: 34px; height: 29px; font-size: 13px; }
+  .h-spotify .sp-prose p { font-size: 16px; }
+}
+</style>
+
+<script>
+(function () {
+  window.HOUSES = window.HOUSES || {};
+
+  var seq = 0;
+
+  // ---------- text helpers ----------
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Bodies carry a light markdown dialect: **bold**, *aside*, `code`
+  // and "> " block quotations. Escape first, then decorate.
+  function inline(s) {
+    return esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  }
+
+  function prose(txt) {
+    var blocks = String(txt || '').split(/\n{2,}/);
+    var out = [];
+    for (var i = 0; i < blocks.length; i++) {
+      var raw = blocks[i].replace(/\s+$/, '');
+      if (!raw.trim()) continue;
+      var lines = raw.split('\n');
+      var quoted = true;
+      for (var j = 0; j < lines.length; j++) {
+        if (!/^\s*>/.test(lines[j])) { quoted = false; break; }
+      }
+      if (quoted) {
+        var q = [];
+        for (var k = 0; k < lines.length; k++) {
+          q.push(inline(lines[k].replace(/^\s*>\s?/, '')));
+        }
+        out.push('<blockquote>' + q.join('<br>') + '</blockquote>');
+      } else {
+        var p = [];
+        for (var m = 0; m < lines.length; m++) p.push(inline(lines[m]));
+        out.push('<p>' + p.join('<br>') + '</p>');
+      }
+    }
+    return out.join('');
+  }
+
+  function norm(s) {
+    return String(s || '')
+      .toLowerCase()
+      .replace(/[’‘´`]/g, "'")
+      .replace(/[“”]/g, '"')
+      .replace(/\s+/g, ' ')
+      .replace(/^[\s"'¡¿(\[]+/, '')
+      .replace(/[\s"'.,;:!?)\]]+$/, '')
+      .trim();
+  }
+
+  function el(tag, cls, html) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html != null) n.innerHTML = html;
+    return n;
+  }
+
+  function num(v) {
+    var n = Number(v) || 0;
+    return n < 0 ? '−' + Math.abs(n) : String(n);
+  }
+
+  var STATUS_KO = {
+    repeated: '반복 구절',
+    partial: '부분 일치',
+    section: '구간 주석',
+    unmatched: '행 미연결'
+  };
+
+  function pickTrack(data, trackNo) {
+    var ts = (data && data.tracks) || [];
+    if (!ts.length) return null;
+    var i;
+    for (i = 0; i < ts.length; i++) if (ts[i].no === trackNo) return ts[i];
+    for (i = 0; i < ts.length; i++) if (String(ts[i].no) === String(trackNo)) return ts[i];
+    if (typeof trackNo === 'number' && ts[trackNo]) return ts[trackNo];
+    return ts[0];
+  }
+
+  // ---------- geometry ----------
+
+  // A "repeated" annotation recurs. Find the later occurrences by exact
+  // normalised line match, but only when the fragment's opening line is
+  // long enough that a match is trustworthy — a five-letter fragment
+  // would match by accident, so we admit the repeat in words instead.
+  function findEchoes(track, ann) {
+    if (ann.status !== 'repeated' || !ann.span) return [];
+    var first = String(ann.fragment || '').split('\n')[0];
+    var key = norm(first);
+    if (key.length < 12) return [];
+    var len = ann.span[1] - ann.span[0] + 1;
+    var lines = track.lines;
+    var out = [];
+    for (var i = 0; i < lines.length; i++) {
+      if (i === ann.span[0] || lines[i].gap) continue;
+      if (norm(lines[i].text) === key) {
+        out.push([i, Math.min(i + len - 1, lines.length - 1)]);
+      }
+    }
+    return out.slice(0, Math.max(0, (ann.occurrences || 1) - 1));
+  }
+
+  function build(track) {
+    var lines = track.lines || [];
+    var n = lines.length;
+    var raw = (track.annotations || []).slice();
+
+    var located = [], free = [];
+    raw.forEach(function (a) {
+      var ok = a.span && a.span.length === 2 &&
+        a.span[0] >= 0 && a.span[0] < n && a.span[1] >= a.span[0];
+      (ok ? located : free).push(a);
+    });
+    // Position order, never vote order. Enclosing range first on a tie.
+    located.sort(function (x, y) {
+      return (x.span[0] - y.span[0]) || (y.span[1] - x.span[1]);
+    });
+
+    var items = located.concat(free).map(function (a, k) {
+      var it = {
+        n: k + 1,
+        a: a,
+        located: located.indexOf(a) !== -1,
+        disputed: (Number(a.votes) || 0) < 0,
+        occ: []
+      };
+      if (it.located) {
+        it.occ = [[a.span[0], Math.min(a.span[1], n - 1)]]
+          .concat(findEchoes(track, a));
+      }
+      return it;
+    });
+
+    // Two lanes are enough: three annotations never share a line.
+    var ranges = [];
+    items.forEach(function (it) {
+      it.occ.forEach(function (r, oi) {
+        ranges.push({ it: it, oi: oi, s: r[0], e: r[1], lane: 0 });
+      });
+    });
+    ranges.sort(function (p, q) {
+      return (p.s - q.s) || ((q.e - q.s) - (p.e - p.s));
+    });
+    var laneEnd = [-1, -1];
+    ranges.forEach(function (r) {
+      var lane = r.s > laneEnd[0] ? 0 : (r.s > laneEnd[1] ? 1 : 0);
+      r.lane = lane;
+      laneEnd[lane] = Math.max(laneEnd[lane], r.e);
+    });
+
+    var cell = [], mark = [], echo = [], i;
+    for (i = 0; i < n; i++) { cell.push([null, null]); mark.push(false); echo.push(false); }
+    ranges.forEach(function (r) {
+      for (var i2 = r.s; i2 <= r.e && i2 < n; i2++) {
+        var lane = cell[i2][r.lane] ? (r.lane === 0 ? 1 : 0) : r.lane;
+        cell[i2][lane] = { r: r, start: i2 === r.s, last: i2 === r.e };
+        if (r.oi === 0) mark[i2] = true; else echo[i2] = true;
+      }
+    });
+
+    // Keep a marked run's gutter width constant so lane bars don't jog.
+    var two = [];
+    for (i = 0; i < n; i++) two.push(false);
+    i = 0;
+    while (i < n) {
+      if (!(mark[i] || echo[i])) { i++; continue; }
+      var s = i, any = false;
+      while (i < n && (mark[i] || echo[i])) { if (cell[i][1]) any = true; i++; }
+      for (var j = s; j < i; j++) two[j] = any;
+    }
+
+    return { items: items, cell: cell, mark: mark, echo: echo, two: two };
+  }
+
+  // ---------- mount ----------
+
+  function mount(root, data, trackNo) {
+    root.innerHTML = '';
+    var track = pickTrack(data, trackNo);
+    var album = (data && data.album) || {};
+    var uid = 'hsp' + (++seq);
+
+    var wrap = el('div', 'h-spotify');
+    root.appendChild(wrap);
+    if (!track) {
+      wrap.appendChild(el('div', 'sp-in', '<p class="sp-meta">트랙을 찾지 못했습니다.</p>'));
+      return;
+    }
+
+    var model = build(track);
+    var items = model.items;
+    var lines = track.lines || [];
+    var stats = track.stats || {};
+    var locatedCount = items.filter(function (it) { return it.located; }).length;
+
+    var reduce = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var inner = el('div', 'sp-in');
+    wrap.appendChild(inner);
+
+    // ----- head -----
+    var head = el('div', 'sp-head');
+    head.appendChild(el('div', 'sp-cap',
+      'Spotify 가사 화면 스타일 참조 — 색·굵기·간격만 빌린 디자인 습작이고, 실제 제품이 아닙니다.'));
+    head.appendChild(el('div', 'sp-eyebrow',
+      esc(album.artist || '') + ' &nbsp;·&nbsp; ' + esc(album.title || '')));
+    var h = el('h2', 'sp-title', esc(track.title || ''));
+    head.appendChild(h);
+    head.appendChild(el('div', 'sp-meta',
+      esc(String(track.no || '')) + '번 트랙 · 가사 ' + lines.length + '행 · 주석 ' +
+      items.length + '개'));
+    head.appendChild(el('div', 'sp-note',
+      '주석은 Genius 이용자가 쓴 해석입니다. 검증된 사실이 아니며, 서로 어긋나는 읽기도 그대로 실려 있습니다.'));
+    inner.appendChild(head);
+
+    // ----- index of annotations (position order) -----
+    var idx = el('div', 'sp-idx');
+    idx.appendChild(el('div', 'sp-idxhead',
+      '주석 색인 · 곡 순서 — 가사에 붙은 것 ' + locatedCount + '개' +
+      (stats.marked_lines != null
+        ? '(' + stats.marked_lines + '행, ' + stats.coverage_pct + '%)'
+        : '') +
+      (items.length - locatedCount > 0
+        ? ' · 행 없는 것 ' + (items.length - locatedCount) + '개' : '')));
+    var grid = el('div', 'sp-idxgrid');
+    idx.appendChild(grid);
+    idx.appendChild(el('div', 'sp-legend',
+      '<span class="sp-key sp-key--hot"></span>주석 &nbsp; ' +
+      '<span class="sp-key sp-key--out"></span>커뮤니티 이견 (반대표가 더 많음) &nbsp; ' +
+      '<span class="sp-key sp-key--dot"></span>가사 행에 연결되지 않음'));
+    inner.appendChild(idx);
+
+    // ----- lyrics -----
+    var lyrics = el('div', 'sp-lyrics');
+    lyrics.id = uid + '-lyr';
+    inner.appendChild(lyrics);
+
+    var rowsFor = {};   // "n:occ" -> [row elements]
+    var anchorFor = {}; // "n:occ" -> row element to insert the card after
+    var chipFor = {};   // "n:occ" -> chip button
+
+    function laneNode(info, itDisputed) {
+      var lane = el('div', 'sp-lane');
+      var r = info.r, it = r.it, isEcho = r.oi > 0;
+      if (info.start) {
+        var chip = el('button', 'sp-chip' +
+          (isEcho ? ' sp-chip--echo' : (itDisputed ? ' sp-chip--disputed' : '')));
+        chip.type = 'button';
+        chip.textContent = String(it.n);
+        chip.setAttribute('aria-expanded', 'false');
+        chip.setAttribute('aria-controls', uid + '-card');
+        chip.setAttribute('aria-label',
+          '주석 ' + it.n + '번, ' + (r.s + 1) + '행' +
+          (r.e > r.s ? '부터 ' + (r.e + 1) + '행까지' : '') +
+          (isEcho ? ', 같은 구절의 ' + (r.oi + 1) + '번째 등장' : '') +
+          ', 득표 ' + num(it.a.votes) + (it.disputed ? ' 이견 있음' : '') + ', 펼치기');
+        chip.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          toggle(it, r.oi, true);
+        });
+        lane.appendChild(chip);
+        chipFor[it.n + ':' + r.oi] = chip;
+      }
+      // The column always runs the full height of the row so a range's
+      // marker matches its slab exactly, single-line or twelve.
+      lane.appendChild(el('div', 'sp-fill' +
+        (isEcho ? ' sp-fill--echo' : (itDisputed ? ' sp-fill--disputed' : ''))));
+      return lane;
+    }
+
+    lines.forEach(function (line, i) {
+      if (line.gap) {
+        // A gap is a stanza break in the source and it occupies a line
+        // number. Draw it rather than silently collapsing it.
+        var g = el('div', 'sp-row');
+        g.appendChild(el('div', 'sp-gut'));
+        g.appendChild(el('div', 'sp-gap', '· · ·'));
+        lyrics.appendChild(g);
+        return;
+      }
+
+      var c = model.cell[i];
+      var isMark = model.mark[i], isEcho = model.echo[i];
+      var cls = 'sp-row';
+      if (isMark) cls += ' sp-row--mark';
+      if (isEcho && !isMark) cls += ' sp-row--echo';
+
+      var primary = null;
+      for (var L = 0; L < 2; L++) if (c[L] && c[L].r.oi === 0) { primary = c[L]; break; }
+      var anyInfo = primary || c[0] || c[1];
+      if (anyInfo) {
+        if (anyInfo.start) cls += ' sp-row--first';
+        if (anyInfo.last) cls += ' sp-row--last';
+        cls += ' sp-row--hit';
+        if (anyInfo.r.it.disputed) cls += ' sp-row--disputed';
+      }
+
+      var row = el('div', cls);
+      row.setAttribute('data-i', String(i));
+
+      var gut = el('div', 'sp-gut' + (model.two[i] ? ' sp-gut--two' : ''));
+      var lanesUsed = model.two[i] ? 2 : 1;
+      for (var k = 0; k < lanesUsed; k++) {
+        if (c[k]) gut.appendChild(laneNode(c[k], c[k].r.it.disputed));
+        else gut.appendChild(el('div', 'sp-lane'));
+      }
+      row.appendChild(gut);
+
+      var tx = el('div', 'sp-tx');
+      tx.setAttribute('dir', 'auto');
+      tx.textContent = line.text || '';
+      if (isEcho && anyInfo && anyInfo.start && anyInfo.r.oi > 0) {
+        var tag = el('span', 'sp-echotag');
+        tag.textContent = '주석 ' + anyInfo.r.it.n + ' 반복 ' +
+          (anyInfo.r.oi + 1) + '/' + anyInfo.r.it.occ.length;
+        tx.appendChild(document.createTextNode(' '));
+        tx.appendChild(tag);
+      }
+      row.appendChild(tx);
+
+      if (anyInfo) {
+        row.addEventListener('click', function () {
+          toggle(anyInfo.r.it, anyInfo.r.oi, false);
+        });
+      }
+
+      // register every range that touches this row
+      for (var q = 0; q < 2; q++) {
+        if (!c[q]) continue;
+        var key = c[q].r.it.n + ':' + c[q].r.oi;
+        (rowsFor[key] = rowsFor[key] || []).push(row);
+        if (c[q].last) anchorFor[key] = row;
+      }
+
+      lyrics.appendChild(row);
+    });
+
+    // ----- annotations with no line ----
+    var freeItems = items.filter(function (it) { return !it.located; });
+    if (freeItems.length) {
+      var fb = el('div', 'sp-free');
+      fb.appendChild(el('div', 'sp-freehead', '가사 행에 붙지 않은 주석 ' + freeItems.length + '개'));
+      fb.appendChild(el('div', 'sp-freesub',
+        '구간 표시([Verso 3] 같은 것)에 달렸거나, 인용한 가사가 이 가사 판본과 달라 어느 행인지 확정하지 못한 주석입니다. 내용은 그대로 있습니다.'));
+      freeItems.forEach(function (it) {
+        var b = el('button', 'sp-fitem');
+        b.type = 'button';
+        b.setAttribute('aria-expanded', 'false');
+        b.setAttribute('aria-controls', uid + '-card');
+        var ic = el('div', 'sp-ic sp-ic--free');
+        ic.textContent = String(it.n);
+        b.appendChild(ic);
+        var t = el('div', 'sp-fitem-tx');
+        var frag = String(it.a.fragment || '').split('\n')[0];
+        t.setAttribute('dir', 'auto');
+        t.textContent = frag.length > 96 ? frag.slice(0, 96) + '…' : frag;
+        var sub = el('span', 'sp-fitem-sub');
+        sub.textContent = (STATUS_KO[it.a.status] || it.a.status) +
+          ' · 득표 ' + num(it.a.votes) + (it.disputed ? ' · 이견' : '');
+        t.appendChild(sub);
+        b.appendChild(t);
+        b.addEventListener('click', function () { toggle(it, 0, true); });
+        chipFor[it.n + ':0'] = b;
+        anchorFor[it.n + ':0'] = b;
+        rowsFor[it.n + ':0'] = [];
+        fb.appendChild(b);
+      });
+      inner.appendChild(fb);
+    }
+
+    // ----- index chips -----
+    var icFor = {};
+    items.forEach(function (it) {
+      var b = el('button', 'sp-ic' +
+        (!it.located ? ' sp-ic--free' : (it.disputed ? ' sp-ic--disputed' : '')));
+      b.type = 'button';
+      b.textContent = String(it.n);
+      b.setAttribute('aria-label',
+        '주석 ' + it.n + '번' +
+        (it.located ? ', ' + (it.occ[0][0] + 1) + '행' : ', 가사 행에 연결되지 않음') +
+        ', 득표 ' + num(it.a.votes) + (it.disputed ? ' 이견 있음' : ''));
+      b.addEventListener('click', function () { toggle(it, 0, true); });
+      icFor[it.n] = b;
+      grid.appendChild(b);
+    });
+
+    // ----- chrome bar -----
+    var bar = el('div', 'sp-bar');
+    var prog = el('div', 'sp-prog');
+    var progi = el('div', 'sp-progi');
+    prog.appendChild(progi);
+    bar.appendChild(prog);
+
+    var barin = el('div', 'sp-barin');
+    var tile = el('div', 'sp-tile');
+    tile.setAttribute('aria-hidden', 'true');
+    tile.textContent = String(track.no || '·');
+    barin.appendChild(tile);
+
+    var bartx = el('div', 'sp-bartx');
+    var barTitle = el('div', 'sp-bartitle');
+    barTitle.textContent = track.title || '';
+    var barSub = el('div', 'sp-barsub');
+    barSub.textContent = (album.artist || '') + ' · 주석 ' + items.length + '개';
+    bartx.appendChild(barTitle);
+    bartx.appendChild(barSub);
+    barin.appendChild(bartx);
+
+    var nav = el('div', 'sp-nav');
+    var prev = el('button', 'sp-nb');
+    prev.type = 'button';
+    prev.textContent = '‹';
+    prev.setAttribute('aria-label', '이전 주석');
+    var count = el('div', 'sp-count');
+    count.setAttribute('aria-live', 'polite');
+    count.textContent = '– / ' + items.length;
+    var next = el('button', 'sp-nb');
+    next.type = 'button';
+    next.textContent = '›';
+    next.setAttribute('aria-label', '다음 주석');
+    nav.appendChild(prev);
+    nav.appendChild(count);
+    nav.appendChild(next);
+    barin.appendChild(nav);
+    bar.appendChild(barin);
+    wrap.appendChild(bar);
+
+    // ----- the card -----
+    var card = el('article', 'sp-card');
+    card.id = uid + '-card';
+    card.setAttribute('tabindex', '-1');
+    card.setAttribute('role', 'region');
+
+    var open = null; // {it, oi}
+
+    function clearMarks() {
+      Object.keys(chipFor).forEach(function (k) {
+        var c = chipFor[k];
+        if (c.hasAttribute('aria-expanded')) c.setAttribute('aria-expanded', 'false');
+      });
+      Object.keys(icFor).forEach(function (k) {
+        icFor[k].classList.remove('sp-ic--on');
+      });
+      var lit = lyrics.querySelectorAll('.sp-row--lit');
+      for (var i = 0; i < lit.length; i++) lit[i].classList.remove('sp-row--lit');
+      var fon = inner.querySelectorAll('.sp-fitem--on');
+      for (var j = 0; j < fon.length; j++) fon[j].classList.remove('sp-fitem--on');
+      lyrics.classList.remove('sp-lyrics--focus');
+    }
+
+    function close(focusBack) {
+      if (!open) return;
+      var back = chipFor[open.it.n + ':' + open.oi];
+      clearMarks();
+      if (card.parentNode) card.parentNode.removeChild(card);
+      open = null;
+      count.textContent = '– / ' + items.length;
+      progi.style.width = '0';
+      barTitle.textContent = track.title || '';
+      barSub.textContent = (album.artist || '') + ' · 주석 ' + items.length + '개';
+      if (focusBack && back && back.focus) back.focus();
+    }
+
+    function toggle(it, oi, focusCard) {
+      if (open && open.it === it && open.oi === oi) { close(true); return; }
+      show(it, oi, focusCard);
+    }
+
+    function show(it, oi, focusCard) {
+      clearMarks();
+      var a = it.a;
+      var key = it.n + ':' + oi;
+      var disputed = it.disputed;
+
+      card.className = 'sp-card' + (disputed ? ' sp-card--disputed' : '');
+      card.innerHTML = '';
+
+      // top row
+      var top = el('div', 'sp-cardtop');
+      var chip = el('div', 'sp-ic' +
+        (!it.located ? ' sp-ic--free' : (disputed ? ' sp-ic--disputed' : '')));
+      chip.textContent = String(it.n);
+      chip.setAttribute('aria-hidden', 'true');
+      top.appendChild(chip);
+
+      if (it.located) {
+        var r = it.occ[oi];
+        var where = el('div', 'sp-tag');
+        where.textContent = (r[0] + 1) + (r[1] > r[0] ? '–' + (r[1] + 1) : '') + '행';
+        top.appendChild(where);
+      }
+      if (STATUS_KO[a.status]) {
+        var st = el('div', 'sp-tag');
+        st.textContent = STATUS_KO[a.status];
+        top.appendChild(st);
+      }
+      var v = el('div', 'sp-tag ' + (disputed ? 'sp-tag--neg' : 'sp-tag--votes'));
+      v.textContent = disputed
+        ? '이견 ' + num(a.votes)
+        : '득표 ' + num(a.votes);
+      top.appendChild(v);
+
+      var x = el('button', 'sp-x');
+      x.type = 'button';
+      x.textContent = '닫기';
+      x.setAttribute('aria-label', '주석 닫기');
+      x.addEventListener('click', function () { close(true); });
+      top.appendChild(x);
+      card.appendChild(top);
+
+      // quoted fragment
+      if (a.fragment) {
+        var fr = el('div', 'sp-frag');
+        fr.setAttribute('dir', 'auto');
+        fr.textContent = String(a.fragment).replace(/\n\s*/g, '\n');
+        card.appendChild(fr);
+      }
+
+      // provenance / caveat notes
+      var notes = [];
+      if (a.status === 'repeated') {
+        var total = Math.max(it.occ.length, Number(a.occurrences) || 1);
+        var t1 = '이 구절은 곡 안에서 ' + total + '번 나옵니다.';
+        if (it.occ.length > 1) {
+          t1 += ' 지금 보고 있는 곳은 ' + (oi + 1) + '번째입니다. 같은 주석이 나머지 자리에도 붙습니다.';
+        } else {
+          t1 += ' 반복되는 자리는 이 가사 판본과 글자가 달라 표시하지 못했습니다.';
+        }
+        notes.push(t1);
+      }
+      if (a.status === 'partial') {
+        notes.push('인용문의 앞부분만 가사와 맞았습니다. 표시된 범위는 대략적인 위치입니다.');
+      }
+      if (!it.located) {
+        notes.push(a.status === 'section'
+          ? '가사 행이 아니라 곡의 구간 표시에 달린 주석입니다. 붙는 자리를 특정하지 않았습니다.'
+          : '인용한 가사가 이 판본과 달라 어느 행인지 확정하지 못했습니다.');
+      }
+      if (notes.length || it.occ.length > 1) {
+        var nb = el('div', 'sp-occ');
+        nb.innerHTML = notes.map(esc).join('<br>');
+        if (it.occ.length > 1) {
+          it.occ.forEach(function (rr, k) {
+            if (k === oi) return;
+            var jb = el('button', 'sp-occbtn');
+            jb.type = 'button';
+            jb.textContent = (k + 1) + '번째 자리로 (' + (rr[0] + 1) + '행)';
+            jb.addEventListener('click', function () { show(it, k, true); });
+            nb.appendChild(jb);
+          });
+        }
+        card.appendChild(nb);
+      }
+
+      if (a.gist_ko) {
+        var g = el('div', 'sp-gist', inline(a.gist_ko));
+        g.setAttribute('lang', 'ko');
+        card.appendChild(g);
+      }
+
+      var body = el('div', 'sp-prose', prose(a.body_ko || ''));
+      body.setAttribute('lang', 'ko');
+      card.appendChild(body);
+
+      if (a.body_es) {
+        var panel = el('div', 'sp-espanel');
+        panel.hidden = true;
+        var es = el('div', 'sp-prose sp-esprose', prose(a.body_es));
+        es.setAttribute('lang', 'es');
+        es.setAttribute('dir', 'auto');
+        panel.appendChild(es);
+        var more = el('button', 'sp-more');
+        more.type = 'button';
+        more.textContent = '스페인어 원문 보기';
+        more.setAttribute('aria-expanded', 'false');
+        more.addEventListener('click', function () {
+          var on = panel.hidden;
+          panel.hidden = !on;
+          more.setAttribute('aria-expanded', on ? 'true' : 'false');
+          more.textContent = on ? '스페인어 원문 접기' : '스페인어 원문 보기';
+        });
+        card.appendChild(more);
+        card.appendChild(panel);
+      }
+
+      if (a.url) {
+        var src = el('div', 'sp-src');
+        src.innerHTML = '출처 · <a href="' + esc(a.url) +
+          '" target="_blank" rel="noopener noreferrer nofollow">Genius의 원 주석</a>';
+        card.appendChild(src);
+      }
+
+      card.setAttribute('aria-label', '주석 ' + it.n + '번 본문');
+
+      // place the card directly under the passage it belongs to
+      var anchor = anchorFor[key];
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(card, anchor.nextSibling);
+      } else {
+        inner.appendChild(card);
+      }
+
+      // light the passage, knock the rest back
+      (rowsFor[key] || []).forEach(function (row) { row.classList.add('sp-row--lit'); });
+      if (it.located) lyrics.classList.add('sp-lyrics--focus');
+      var opener = chipFor[key];
+      if (opener && opener.hasAttribute('aria-expanded')) {
+        opener.setAttribute('aria-expanded', 'true');
+      }
+      if (opener && opener.classList.contains('sp-fitem')) {
+        opener.classList.add('sp-fitem--on');
+      }
+      if (icFor[it.n]) icFor[it.n].classList.add('sp-ic--on');
+
+      open = { it: it, oi: oi };
+
+      var pos = items.indexOf(it) + 1;
+      count.textContent = pos + ' / ' + items.length;
+      progi.style.width = (pos / items.length * 100) + '%';
+      barTitle.textContent = '주석 ' + it.n + ' · ' +
+        (a.gist_ko || String(a.fragment || '').split('\n')[0] || track.title);
+      barSub.textContent = (it.located
+        ? (it.occ[oi][0] + 1) + '행' + (it.occ[oi][1] > it.occ[oi][0] ? '–' + (it.occ[oi][1] + 1) + '행' : '')
+        : '행 미연결') + ' · ' + (disputed ? '이견 ' : '득표 ') + num(a.votes);
+
+      var target = (rowsFor[key] && rowsFor[key][0]) || anchor || card;
+      var rect = target.getBoundingClientRect();
+      if (rect.top < 8 || rect.bottom > (window.innerHeight || 800) - 120) {
+        target.scrollIntoView({
+          block: 'center',
+          behavior: reduce ? 'auto' : 'smooth'
+        });
+      }
+      if (focusCard) card.focus({ preventScroll: true });
+    }
+
+    function step(d) {
+      var i = open ? items.indexOf(open.it) : -1;
+      var nx = i < 0 ? (d > 0 ? 0 : items.length - 1) : i + d;
+      if (nx < 0 || nx >= items.length) return;
+      show(items[nx], 0, false);
+    }
+
+    prev.addEventListener('click', function () { step(-1); });
+    next.addEventListener('click', function () { step(1); });
+
+    // Escape closes; listener lives on our own subtree, not the document.
+    wrap.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && open) {
+        ev.stopPropagation();
+        close(true);
+      }
+    });
+  }
+
+  window.HOUSES['spotify'] = {
+    name: '플랫 컬러 필드',
+    ref: 'Spotify 가사 화면',
+    blurb: '한 가지 진한 색 바탕에 굵은 가사를 크게 깔고, 지금 읽는 대목만 형광 블록으로 켜고 나머지는 바탕색 쪽으로 눌러 대비만으로 위치를 알려준다.',
+    gives_up: '색과 굵기가 워낙 세서 긴 해설 본문은 결국 검은 블록 안으로 따로 격리해야 하고, 화면이 조용해질 틈이 없다.',
+    mount: mount,
+    unmount: function (root) { root.innerHTML = ''; }
+  };
+})();
+</script>
