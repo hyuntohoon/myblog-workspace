@@ -10,9 +10,13 @@ read-only prod-export + `claude -p` heritage.
 The output is a **full review draft** the editor wakes to, edits, and publishes manually (see
 docs/editorial/buckit-nightly.md, v0.2): it develops the editor's own judgment into prose, may
 choose a **provisional controlling idea** from the memo, and marks missing evidence inline as
-`[근거 보강 필요: 트랙/구간]` — it never fabricates facts, emotions, experiences, or a verdict the
-memo didn't hold (★). A memo too thin to support a review yields a short `초안 생성 보류` note
-instead of a fabricated draft. **Zero outputs is a valid run.** The job writes files and nothing
+`[근거 보강 필요: 트랙/구간]` — it never fabricates the editor's facts, emotions, or experiences (★).
+**Every checked memo gets a draft (2026-07-26).** A memo carrying no viewpoint no longer yields a
+`초안 생성 보류` note; the draft is written anyway, on a provisional controlling idea drawn from the
+research note and flagged as provisional. The model is also barred from grading the research note
+("충분/얇다") anywhere in its output. **Zero drafts is now a failed run, not a valid one.** Rationale:
+the hold fired on 13 of 14 completed runs and its stated reasons were assertions about a note the
+model had only seen a truncated, newline-flattened 1,500-char slice of. The job writes files and nothing
 else — no DB write, no git, no publish (Stage 2's draft delivery uses the authed API).
 
     myblog_backend/.venv/bin/python scripts/buckit_nightly.py            # full nightly run
@@ -119,7 +123,13 @@ RUN_SPEC_FILE = "buckit-nightly-run.md"  # the run spec (entry point), inlined a
 INLINE_RULE_FILES = ("buckit-nightly.md", "review-critique-method.md")
 CLAUDE_MODEL = "opus"                   # same bench winner as the research / Stage-0 paths
 CLAUDE_TIMEOUT_S = 1800                 # multi-memo Korean generation ⇒ longer than a single research run
-RESEARCH_EXCERPT_CHARS = 1500           # per done-note excerpt cap (facts only; bounds the prompt)
+# The research note is passed WHOLE (2026-07-26). It used to be head-sliced to 1,500 chars and
+# newline-flattened, so the drafter never saw any section past the note's opening — including
+# 샘플링/기반, the section the research prompt itself marks ★최우선, and 각도, which is where the
+# note seeds a viewpoint. Stored notes run 4.3k–9.8k chars and only a handful of memos are ever
+# checked per night, so whole notes fit comfortably. No per-note cap now: the assembled prompt
+# size is logged every run, and an abnormally large one is a WARNING rather than silent loss.
+PROMPT_SIZE_WARN_CHARS = 400_000        # pathological only; log it, never truncate the note
 RECENT_DAYS = 30                        # play-event recency window
 # claude tool scope — the model is a PURE TEXT TRANSFORMER. It gets NO tools: rule docs +
 # context are inlined; the script does all DB read + file write. We disallow the full
@@ -280,11 +290,24 @@ def _slug(title: str, artists: list[str]) -> str:
     return base[:60] or "memo"
 
 
-def _research_excerpt(md: str | None) -> str:
+def _research_block(md: str | None) -> str:
+    """The album's research note, whole and with its markdown intact.
+
+    Emitted as a delimited block instead of a bullet value. The note carries its own `## `
+    headers, so the previous behaviour — flatten newlines, slice the head, inline it after
+    `- AI 리서치 노트:` — collapsed a multi-section document into one unstructured run of text
+    and dropped everything after the first section. The delimiters exist so the model does not
+    mistake the note's own headers for this context block's structure.
+    """
     if not md:
-        return "없음"
-    flat = md.strip().replace("\n", " ")
-    return flat[:RESEARCH_EXCERPT_CHARS] + ("…" if len(flat) > RESEARCH_EXCERPT_CHARS else "")
+        return "- AI 리서치 노트: 없음"
+    return (
+        "- AI 리서치 노트(사실 — **전문**). 아래 두 구분선 사이가 노트다. 그 안의 `##` 제목은\n"
+        "  노트 자신의 목차이지 이 컨텍스트 블록의 구조가 아니다:\n\n"
+        "<<<리서치_노트_시작>>>\n"
+        f"{md.strip()}\n"
+        "<<<리서치_노트_끝>>>\n"
+    )
 
 
 def _listen_line(rec: dict | None) -> str:
@@ -394,7 +417,7 @@ def export_checked_memos(conn) -> tuple[list[dict], str]:
             # a system tag (신보/인기), NOT an editorial viewpoint — label it as such so the
             # model never mistakes it for a judgment seed (run spec: memo is the only viewpoint).
             parts.append("- 시스템 추천 태그(사실, 판단 아님): " + " / ".join(m["rec_reasons"]))
-        parts.append(f"- AI 리서치 노트(사실 — 발췌): {_research_excerpt(m['research_md'])}")
+        parts.append(_research_block(m["research_md"]))
         parts.append(f"- 청취 기록: {m['listen']}")
         parts.append("")
 
@@ -427,11 +450,18 @@ ADDENDUM = """
   `[근거 보강 필요: 트랙/구간]`(출처 미상이면 `[source?]`)로 본문 안에 표시해라(★). 파일을 직접
   쓰려 하지 말 것 — 아래 형식으로 텍스트만 반환하면 스크립트가 파일로 저장한다.
 - **출력은 전부 한국어 — 메모마다 완결형 평론 초안(읽히는 산문)이다. 스켈레톤/개요가 아니다.**
-  메모의 판단을 잠정 controlling idea로 골라(택1) 도입에서 끌고 가며 한 편의 글로 전개해라. 단, 메모에
-  없는 평가/결론은 새로 만들지 말 것(편집자 판단의 전개이지 대체가 아니다, ★). 근거가 비면
-  `[근거 보강 필요: 트랙/구간]`로 인라인 표시. **점수 정당화로 닫지 말고** 비평적 판단·이미지·여운으로
-  닫아라. 음향 디테일 나열보다 표현·편곡·장르 맥락·비평 프레이밍을 우선. 메모가 너무 얇아 평론이
-  안 되면 지어내지 말고 `초안 생성 보류`로 둬라(§4). **0개 출력도 정답이다.**
+  메모에 판단이 있으면 그것을 잠정 controlling idea로 삼아 도입에서 끌고 가며 전개해라. 메모의 결론을
+  뒤집지 말 것(전개이지 대체가 아니다, ★). 근거가 비면 `[근거 보강 필요: 트랙/구간]`로 인라인 표시.
+  **점수 정당화로 닫지 말고** 비평적 판단·이미지·여운으로 닫아라. 음향 디테일 나열보다 표현·편곡·장르
+  맥락·비평 프레이밍을 우선.
+  ★ **메모가 얇아도 초안을 쓴다. 보류는 없다.** 메모가 청취 표시("전체곡", "들었다")뿐이어도 완결형
+  초안을 낸다 — 이때 잠정 controlling idea는 리서치 노트에서 끌어오고, 도입 한 줄로 "이 각도는 잠정"
+  임을 밝혀 편집자가 어디를 갈아끼우면 되는지 알게 해라. 없는 근거는 그 자리에 인라인 표시하는 것이
+  전부이고, 그것이 초안을 내지 않을 이유가 되지는 않는다. **0개 출력은 오답이다.**
+  ★ **리서치 노트가 충분한지 얕은지 평가하지 말 것.** 초안에도 _summary.md에도 "노트는 충분하다 /
+  얇다 / 부족하다" 류의 서술을 쓰지 마라. 아무도 그 판단을 요청하지 않았다. 없는 사실은 없는 자리에
+  표시하면 되고, 그것 외에 노트에 대해 보고할 것은 없다. 편집자에게 감정·경험·판단을 지어 붙이는 것
+  역시 금지(★) — 노트에서 끌어온 각도는 편집자의 것이 아니라 초안 자신의 읽기로 쓴다.
 - **리서치 노트를 적극 활용해 살을 붙여라.** 노트는 사실 확인용이 아니라 글의 '세계'다 — 계보(이전
   앨범/씬), 앨범이 표방한 의도, 구성(막/서사/싱글), 협업자, 실제 맥락을 끌어와 판단을 받쳐라. 메모를
   재나열하지 말 것. 그리고 **칭찬만 늘어놓지 말고 긴장(한계·대가·반론) 하나는 세워** 인상비평을 비평으로
@@ -448,8 +478,8 @@ ADDENDUM = """
 ```
 
 - `<파일명.md>` 는 각 메모의 "출력 파일명(제안)"을 그대로 쓴다(예: `frank-ocean-channel-orange.md`). 경로/슬래시 없이 파일명만.
-- 메모마다 한 파일. 평론으로 자라기엔 너무 얇은 메모(§4)는 파일을 만들지 말고 _summary.md의 '초안 생성 보류' 목록에 이유 한 줄로 남겨라.
-- **맨 마지막 파일은 반드시 `_summary.md`** — 아침에 가장 먼저 여는 인덱스. 생성한 초안 + 보류한 것(이유: 메모 얇음 / 미확인 사실 많음 등)을 우선순위로 정리. 아무 것도 자라지 않았으면 `_summary.md` 하나만, '오늘 키울 메모 없음' + 이유.
+- **메모마다 한 파일. 예외 없다.** 체크된 메모는 전부 초안 파일 하나씩을 낸다. 파일을 안 내는 경우는 없다.
+- **맨 마지막 파일은 반드시 `_summary.md`** — 아침에 가장 먼저 여는 인덱스. 초안마다 잠정 controlling idea, 세운 긴장(한계), 보존한 편집자 표현, `[근거 보강 필요]`/`[확인 필요]` 표시를 정리한다. 보류 목록은 없다(보류가 없으므로). 체크된 메모가 아예 0개였던 경우에만 `_summary.md` 하나에 '오늘 체크된 메모 없음'.
 - 구분자 줄과 파일 본문 외에 서문/맺음말("Here is…", "아래는…") 절대 금지. 구분자 문자열(`=====BUCKIT_FILE:`)을 본문 안에서 재현하지 말 것.
 
 오늘 날짜 = {today}.
@@ -788,6 +818,11 @@ def main() -> None:
     prompt = build_prompt(context)
     log.info("running claude -p (model=%s, NO tools, %d checked memo(s), prompt %d chars) → %s/",
              CLAUDE_MODEL, n_memos, len(prompt), _output_reldir())
+    if len(prompt) > PROMPT_SIZE_WARN_CHARS:
+        # Research notes are passed whole, so prompt size scales with the number of checked
+        # memos. Surface an abnormal night rather than silently truncating anything.
+        log.warning("prompt is %d chars (> %d) across %d memo(s) — check for over-checked memos",
+                    len(prompt), PROMPT_SIZE_WARN_CHARS, n_memos)
     t0 = time.monotonic()
     res = run_claude(prompt)
     dt = time.monotonic() - t0
