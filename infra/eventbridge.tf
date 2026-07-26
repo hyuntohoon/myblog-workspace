@@ -392,18 +392,26 @@ resource "aws_lambda_permission" "artist_photo_backfill_events" {
 # sentinels "not_found"/"no_isrc" INTO tracks.isrc, which would break every
 # `isrc IS NOT NULL` predicate. Do not apply this rule against an older worker build.
 #
-# Hourly rather than daily only while the ~19.3k backlog drains (≈39 runs); once
-# `SELECT count(*) FROM tracks WHERE isrc IS NULL AND ext_refs->>'isrc' IS NULL
-# AND ext_refs->>'isrc_status' IS NULL` flattens, drop this to weekly — steady-state
-# demand is only newly-ingested tracks. Failure-isolated from album sync (separate
-# invocation); a Spotify outage only skips rows.
+# WEEKLY since 2026-07-26: the one-time backlog is DONE. It was drained by hand the same
+# day (6 manual invokes at limit=3000, ~41s each) rather than by leaving an hourly rule
+# running for 37 hours — coverage went 0% -> 99.9% (26,594 of 26,619; the 25 misses are
+# tracks Spotify genuinely has no ISRC for). Measured headroom, in case a bulk re-run is
+# ever needed: 500 rows = 4.9s, 3,000 rows = 41s against the 90s budget, so ~6,000 is the
+# practical ceiling per invocation.
+#
+# Steady-state demand is therefore only newly-ingested tracks, which is what this weekly
+# slot covers. 21:00 UTC Sunday keeps it one hour clear of the existing Spotify sequence
+# (saved-tracks 18:00 daily / 19:00 Sunday, artist-photo 20:00 Sunday) so the four never
+# contend for the same quota window. A run with an empty pool is a single SELECT and exits
+# in milliseconds, so an idle week costs nothing. Failure-isolated from album sync
+# (separate invocation); a Spotify outage only skips rows.
 #
 # Removing this rule stops scheduled backfill; the job code is inert without it (the
 # manual blogSQS {"job":"isrc_backfill"} message still works either way).
 resource "aws_cloudwatch_event_rule" "isrc_backfill" {
   name                = "worker-isrc-backfill"
-  description         = "Backfill tracks.isrc from Spotify (bounded; miss → ext_refs.isrc_status)"
-  schedule_expression = "rate(1 hour)"
+  description         = "Weekly ISRC top-up for newly-ingested tracks (miss → ext_refs.isrc_status)"
+  schedule_expression = "cron(0 21 ? * SUN *)"
   state               = "ENABLED"
 }
 
