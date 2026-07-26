@@ -438,6 +438,52 @@ stronger than the lyrics-viewer case.
 
 Sequenced; R0 gates everything.
 
+#### R0 RESULT (2026-07-27) — the gate passes
+
+Ran `tools/genius_probe.py --full-run` over **every track of every bucketed album**: 1,073 tracks,
+87 albums, no sampling. A track counts as matched only when its normalized title matches exactly, or
+when the first hit's primary artist agrees — an artist mismatch is a wrong song and counting it would
+inflate the number this probe exists to measure.
+
+| | |
+|---|---|
+| track match rate | **938 / 1,073 = 87.4%** (86.2% of those exact-title) |
+| albums fully matched | 52 / 87 |
+| albums with zero matches | **4 / 87** |
+
+Fill rate **on matched tracks** — this is what R1 would materialise:
+
+| Field | Fill | The notes' own record (§6.4) |
+|---|---|---|
+| 작가·프로듀서 credits | **96.9%** | 75 of 78 notes failed to confirm credits |
+| 세션 연주자 performers | **79.5%** | named as unobtainable in several notes |
+| 해설 산문 description ≥200 chars | 52.5% | — |
+| 샘플·인터폴레이션 relationships | **48.6%** | **78 of 78 notes failed to confirm samples** |
+| 녹음 장소 recording location | 30.1% | named as unobtainable |
+
+**Verdict: build R1.** The two fields the pipeline has never once managed to source are the two
+Genius fills best. Credits at 96.9% closes the 75/78 failure outright.
+
+Three things worth carrying forward:
+
+1. **48.6% on relationships is not a shortfall.** Many of these albums genuinely have no sample to
+   find. The change is not "48.6% coverage" but that a *confirmed absence* replaces "확인 불가" — the
+   note currently cannot distinguish "no sample" from "could not check", and 78/78 of them say so.
+2. **Relationships run in both directions, and the reverse edge is new.** Outbound —
+   `interpolates` 149, `samples` 132 — is what the album was built from, which the notes already try
+   (and fail) to establish. Inbound — `sampled_in` 214, `interpolated_by` 174, `covered_by` 177 — is
+   what the album later *became material for*. No note has ever carried that, and it is lineage the
+   critic cannot get by listening. It also feeds R6's catalog-internal graph directly.
+3. **Lower two temper expectations for R5.** Description clears 200 chars on about half of matched
+   tracks and recording location on 30%, so the prose tier is a bonus, not a load-bearing field.
+   Size R5 accordingly.
+
+A per-language column exists in the probe output (65.4% en / 31.9% ko of matched tracks) and is
+deliberately **not** used as a gate — owner decision 2026-07-27, the build/no-build call is made on
+the overall numbers.
+
+Raw rows: `tools/out/genius_probe.jsonl` (gitignored; re-runnable and resumable).
+
 | ID | What | Size | Key files |
 |---|---|---|---|
 | **R0** | Coverage probe over the 88 bucketed albums: per-language match rate and per-field fill rate for the four fields the notes actually lack | S | new `tools/genius_probe.py`, cloning the resumable-batch skeleton of `tools/lyrics_batch_api.py:1-27` |
