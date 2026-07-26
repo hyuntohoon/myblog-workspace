@@ -5,9 +5,9 @@ tapping a marked passage opens the Genius commentary attached to it.
 
 **Chosen: the Genius house style** (`houses/genius.html`). Owner decision, 2026-07-26.
 
-Nothing here is committed to build — `FEAT-lyrics-annotations` is still `draft`, and promotion is
-owner-only (hard rule 5). This is the visual half of the record; the mechanism lives in
-`docs/rfcs/FEAT-lyrics-annotations.md` §6.
+`FEAT-lyrics-annotations` was promoted to **accepted on 2026-07-26**, so Thread 1 is cleared to build
+against this direction. This is the visual half of the record; the mechanism lives in
+`docs/rfcs/FEAT-lyrics-annotations.md` §6, and the storage schema in §6.9.
 
 ---
 
@@ -25,11 +25,12 @@ owner-only (hard rule 5). This is the visual half of the record; the mechanism l
 From ROSALÍA *LUX*, 13 tracks with synced lyrics, 103 annotations measured (`tools/genius_anchor.py`):
 
 - **An annotation covers a RANGE, not a line.** Median 2 lines, mean 2.3, 1 in 6 covers 4 or more,
-  longest 12. "One line, one marker" is the wrong mental model — the RFC's phrase "inline per-line
-  layer" understates it.
-- **94.7% of lyric-bound annotations can be placed**, not 74.7%. The lower figure excludes `repeated`
-  (20%), which are chorus passages whose location *is* known; rendering them on the first occurrence
-  and admitting the repeat is the intended handling.
+  longest 12. "One line, one marker" is the wrong mental model — the RFC used to say "inline per-line
+  layer", which understated it; §6.6 has since been corrected to say *range*.
+- **94.7% of lyric-bound annotations can be placed** (90 of 95); **74.7%** (71 of 95) resolve to a
+  single unambiguous span. The gap is `repeated` (19, 20%) — chorus passages whose location *is*
+  known; rendering them on the first occurrence and admitting the repeat is the intended handling.
+  Both figures are correct and share the 95 lyric-bound denominator — quote them together.
 - **Marker density is ~1 line in 3** — 201 of 590 lines across the album. Per track it ranges from
   9.5% to 64.7%, so every design was checked against both ends.
 - **Overlap is a non-problem.** 3 of 201 marked lines are claimed by two annotations, never three.
@@ -41,7 +42,7 @@ From ROSALÍA *LUX*, 13 tracks with synced lyrics, 103 annotations measured (`to
 - **Commentary can exist without lyrics.** 2 of 15 *LUX* tracks carry 12 annotations and no synced
   lyrics, which is why the store is independent of lyrics and the renderer has a standalone mode.
 
-## The three rounds
+## The rounds
 
 1. **Four interaction shapes** — 행간 펼침 (inline expand) · 측주 단 (margin column) · 바닥 시트
    (bottom sheet) · 숨은 주석 (reveal-on-hover). Owner picked the margin column's *structure*.
@@ -49,7 +50,9 @@ From ROSALÍA *LUX*, 13 tracks with synced lyrics, 103 annotations measured (`to
    (no rail, the lyric's own ink changes) · 역전 (lyrics recede, commentary carries the weight) ·
    편집 (magazine spread with a headline). Structure confirmed, treatment rejected.
 3. **Six house styles** — this directory. The same feature rendered in the visual language of six
-   well-known products, to break out of the project's own palette.
+   well-known products, to break out of the project's own palette. Genius chosen.
+4. **The dense-track stress test** — the chosen style at its three undrawn failure points
+   (density, repeats/unmatched, dark). Findings below.
 
 ## The six house styles
 
@@ -79,6 +82,48 @@ from the brief, which asked for both, and it is the right one — Apple's lyrics
 Spotify's is a colour field and Genius's is white, so forcing both themes would break the reference.
 It does mean the light/dark question is unanswered for the real implementation, where the product
 already supports both. Only the shell chrome around the stage is theme-aware.
+
+## Round four — the dense-track stress test (2026-07-26)
+
+The six house styles were all drawn against **placed annotations only** (`build_mock_data.py` sets
+`placed_pct: 74.7`), all in a **single theme**, and at a comfortable density. So three things had
+never been drawn at all: the `repeated` 20%, the `unmatched` 5.3%, and either theme's failure mode.
+A fourth round put the chosen style at those points — link in `local/ARTIFACTS.md`, synthetic data
+only (density, span length, body length and vote distribution reproduced; no real lyrics).
+
+What it settled:
+
+- **Dark is not a token swap — it is an ink problem.** The stage's body ink is near-white, and
+  near-white on the highlight yellow measures ~1.5:1. The fix is not a different yellow; it is
+  inverting the text **only on the lines the fill actually reaches** (12.4:1 after), while lines that
+  never receive the fill — disputed, repeat echoes, section labels — keep the light ink. A 1px rule
+  also needs a brighter tone on near-black than on white.
+- **M0 is not wrong, it is density-blind.** At 65% marked the yellow becomes the ground and the
+  *unmarked* lines are what stand out — the figure/ground inversion the author predicted. At the
+  album average of 34.1% the same treatment is fine. That points at a density-adaptive rule rather
+  than a different treatment.
+- **Three alternatives were drawn and each has a named cost**: `M1` rule-not-fill (loses scanability
+  — the medium house's exact weakness), `M2` margin-only (loses the signal that annotations exist,
+  and has no margin on narrow screens), `M3` reveal-on-open (loses discoverability, and is the only
+  treatment that gets *better* as density rises).
+- **A repeat is a second occurrence, not a failure.** Proposal, now drawn: number and bracket the
+  first occurrence only; later occurrences get an unnumbered quiet rule and a `반복` tail; opening
+  either shows the same note and states "곡에서 N번 나옵니다". No annotation ever carries two numbers.
+- **Unmatched annotations go to a drawer** under the sheet with ㄱ·ㄴ·ㄷ marks (the nyt house's idea),
+  not discarded — they re-anchor by themselves if the lyrics are re-matched, because anchors are
+  computed at read time.
+- **Negative-vote annotations never receive the fill**, in any of the four treatments — a −17 reading
+  rendered in the endorsing yellow reads as the site agreeing with it.
+- **The margin column only works if the note tracks its range.** The first build pinned the column
+  with `position: sticky`, so opening an annotation on line 30 put its commentary at the top of the
+  screen, far from the passage it explains — which defeats the entire reason the margin structure was
+  chosen over a bottom sheet. The note must be positioned to the range's first line and clamped so a
+  note opened near the last line does not hang off the bottom. Below the two-column breakpoint there
+  is no margin to sit in, so the note opens **inline directly under its own range** instead.
+
+Still unsolved, and visible in the artifact: a **12-line span** looks bad under every treatment
+(M0 eats the screen, M2's bracket scrolls out of view), and the **3-in-201 overlap** has no rule —
+the later annotation currently just wins.
 
 ## Where this lands
 

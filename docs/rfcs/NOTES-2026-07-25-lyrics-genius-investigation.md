@@ -121,8 +121,9 @@ Quote these with denominators or they will be misread later.
 | Genius prose, EN vs KR | 7/8 vs 1/8 | description ≥200 chars, 16 saved tracks |
 | Genius credits, EN vs KR | 7/8 vs 7/8 | same sample — the asymmetry is the whole design input |
 | Korean share of engagement | 47.4% | engaged track set |
-| Anchoring placed | 74.7% | 71 of 95 lyric-bound annotations, LUX, 13 tracks with `lyric_synced` |
-| Anchoring unmatched | 4.9% | same |
+| Anchoring resolved to one span | 74.7% | 71 of 95 lyric-bound annotations, LUX, 13 tracks with `lyric_synced` |
+| Anchoring placeable (incl. `repeated`) | 94.7% | 90 of the same 95 — 71 single-span + 19 chorus repeats |
+| Anchoring unmatched | 5.3% | 5 of 95 lyric-bound. **The 4.9% quoted elsewhere is the same 5 rows over all 103 annotations** — the two figures do not disagree |
 | Research-note sample failures | 78/78 and 75/78 | all 78 stored `album_research` notes |
 | Repeat-artist corpus | 69% | 54 of 78 notes |
 | Search track results classical | 45.9% → 15.1% | ranking fix alone, no classifier |
@@ -169,7 +170,9 @@ Quote these with denominators or they will be misread later.
 
 ## 6. Where to pick up
 
-1. Both RFCs are **draft and unaccepted**. Rule 5 makes promotion owner-only; nothing starts without it.
+1. `FEAT-lyrics-annotations` is **accepted** (2026-07-26) and **Thread 1 is cleared to build** — schema
+   in §6.9, anchoring measured in §6.6. Thread 2 still waits on the filter-shape decision (§8).
+   `DATA-catalog-noise-and-lyrics-coverage` is **still draft**; rule 5 makes its promotion owner-only.
 2. `tools/genius_anchor.py` works and is self-tested. A six-album KR/EN regression is scheduled for
    **2026-07-29** (`~/.claude/scheduled-tasks/genius-anchor-multi-album-test/`). Its real question is
    whether Korean albums have *any* annotations to anchor — report coverage count separately from
