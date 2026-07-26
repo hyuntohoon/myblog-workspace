@@ -119,7 +119,13 @@ RUN_SPEC_FILE = "buckit-nightly-run.md"  # the run spec (entry point), inlined a
 INLINE_RULE_FILES = ("buckit-nightly.md", "review-critique-method.md")
 CLAUDE_MODEL = "opus"                   # same bench winner as the research / Stage-0 paths
 CLAUDE_TIMEOUT_S = 1800                 # multi-memo Korean generation ⇒ longer than a single research run
-RESEARCH_EXCERPT_CHARS = 1500           # per done-note excerpt cap (facts only; bounds the prompt)
+# The research note is passed WHOLE (2026-07-26). It used to be head-sliced to 1,500 chars and
+# newline-flattened, so the drafter never saw any section past the note's opening — including
+# 샘플링/기반, the section the research prompt itself marks ★최우선, and 각도, which is where the
+# note seeds a viewpoint. Stored notes run 4.3k–9.8k chars and only a handful of memos are ever
+# checked per night, so whole notes fit comfortably. No per-note cap now: the assembled prompt
+# size is logged every run, and an abnormally large one is a WARNING rather than silent loss.
+PROMPT_SIZE_WARN_CHARS = 400_000        # pathological only; log it, never truncate the note
 RECENT_DAYS = 30                        # play-event recency window
 # claude tool scope — the model is a PURE TEXT TRANSFORMER. It gets NO tools: rule docs +
 # context are inlined; the script does all DB read + file write. We disallow the full
@@ -280,11 +286,24 @@ def _slug(title: str, artists: list[str]) -> str:
     return base[:60] or "memo"
 
 
-def _research_excerpt(md: str | None) -> str:
+def _research_block(md: str | None) -> str:
+    """The album's research note, whole and with its markdown intact.
+
+    Emitted as a delimited block instead of a bullet value. The note carries its own `## `
+    headers, so the previous behaviour — flatten newlines, slice the head, inline it after
+    `- AI 리서치 노트:` — collapsed a multi-section document into one unstructured run of text
+    and dropped everything after the first section. The delimiters exist so the model does not
+    mistake the note's own headers for this context block's structure.
+    """
     if not md:
-        return "없음"
-    flat = md.strip().replace("\n", " ")
-    return flat[:RESEARCH_EXCERPT_CHARS] + ("…" if len(flat) > RESEARCH_EXCERPT_CHARS else "")
+        return "- AI 리서치 노트: 없음"
+    return (
+        "- AI 리서치 노트(사실 — **전문**). 아래 두 구분선 사이가 노트다. 그 안의 `##` 제목은\n"
+        "  노트 자신의 목차이지 이 컨텍스트 블록의 구조가 아니다:\n\n"
+        "<<<리서치_노트_시작>>>\n"
+        f"{md.strip()}\n"
+        "<<<리서치_노트_끝>>>\n"
+    )
 
 
 def _listen_line(rec: dict | None) -> str:
@@ -394,7 +413,7 @@ def export_checked_memos(conn) -> tuple[list[dict], str]:
             # a system tag (신보/인기), NOT an editorial viewpoint — label it as such so the
             # model never mistakes it for a judgment seed (run spec: memo is the only viewpoint).
             parts.append("- 시스템 추천 태그(사실, 판단 아님): " + " / ".join(m["rec_reasons"]))
-        parts.append(f"- AI 리서치 노트(사실 — 발췌): {_research_excerpt(m['research_md'])}")
+        parts.append(_research_block(m["research_md"]))
         parts.append(f"- 청취 기록: {m['listen']}")
         parts.append("")
 
@@ -788,6 +807,11 @@ def main() -> None:
     prompt = build_prompt(context)
     log.info("running claude -p (model=%s, NO tools, %d checked memo(s), prompt %d chars) → %s/",
              CLAUDE_MODEL, n_memos, len(prompt), _output_reldir())
+    if len(prompt) > PROMPT_SIZE_WARN_CHARS:
+        # Research notes are passed whole, so prompt size scales with the number of checked
+        # memos. Surface an abnormal night rather than silently truncating anything.
+        log.warning("prompt is %d chars (> %d) across %d memo(s) — check for over-checked memos",
+                    len(prompt), PROMPT_SIZE_WARN_CHARS, n_memos)
     t0 = time.monotonic()
     res = run_claude(prompt)
     dt = time.monotonic() - t0
