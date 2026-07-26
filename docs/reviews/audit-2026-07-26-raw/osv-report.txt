@@ -1,0 +1,466 @@
+npm packages resolved in lockfile : 1419
+  of which direct runtime deps    : 24
+python packages in service venvs  : 149
+
+============================================================================
+NPM — DIRECT RUNTIME DEPENDENCY (can reach the browser bundle) — 3 package(s) with advisories
+============================================================================
+
+astro@5.15.9
+   [HIGH     ] GHSA-8hv8-536x-4wqp CVE-2026-50146
+               Astro: Reflected XSS via unescaped slot name
+   [HIGH     ] GHSA-2pvr-wf23-7pc7 CVE-2026-54299
+               Astro: Host header SSRF in prerendered error page fetch
+   [MODERATE ] GHSA-f48w-9m4c-m7f5 CVE-2026-59729
+               Astro: XSS via unescaped spread attribute names in renderHTMLElement (incomplete fix for CVE-2026-54298)
+   [MODERATE ] GHSA-j687-52p2-xcff CVE-2026-41067
+               Astro: XSS in define:vars via incomplete </script> tag sanitization
+   [MODERATE ] GHSA-4g3v-8h47-v7g6 
+               Astro: Reflected XSS via unescaped View Transition animation properties
+   [MODERATE ] GHSA-jrpj-wcv7-9fh9 CVE-2026-54298
+               Astro: XSS via Unescaped Attribute Names in Spread Props
+   [LOW      ] GHSA-7pw4-f3q4-r2p2 CVE-2026-59727
+               Astro: Cross-site scripting via unescaped transition:* directive values on hydrated islands
+   [LOW      ] GHSA-g735-7g2w-hh3f CVE-2026-33769
+               Astro: Remote allowlist bypass via unanchored matchPathname wildcard
+   [LOW      ] GHSA-xr5h-phrj-8vxv CVE-2026-45028
+               Astro: Server island encrypted parameters vulnerable to cross-component replay
+
+@astrojs/node@9.5.1
+   [MODERATE ] GHSA-3rmj-9m5h-8fpv CVE-2026-29772
+               Astro: Memory exhaustion DoS due to missing request body size limit in Server Islands
+   [MODERATE ] GHSA-c57f-mm3j-27q9 CVE-2026-41322
+               Astro: Cache Poisoning due to incorrect error handling when if-match header is malformed
+   [MODERATE ] GHSA-cj9f-h6r6-4cx2 CVE-2026-27829
+               Astro is vulnerable to SSRF due to missing allowlist enforcement in remote image inferSize
+   [MODERATE ] GHSA-qq67-mvv5-fw3g CVE-2026-25545
+               Astro has Full-Read SSRF in error rendering via Host: header injection
+   [MODERATE ] GHSA-jm64-8m5q-4qh8 CVE-2026-27729
+               Astro has memory exhaustion DoS due to missing request body size limit in Server Actions
+   [LOW      ] GHSA-r557-wffq-wvrc CVE-2026-59730
+               @astrojs/node: Backslash-prefixed paths not recognized as internal by trailing-slash redirect
+
+@astrojs/rss@4.0.13
+   [MODERATE ] GHSA-8j5q-mfj2-5q9q CVE-2026-59728
+               @astrojs/rss: XML Injection via Unescaped RSS Feed Fields
+
+============================================================================
+NPM — transitive / build-tooling only (never served to a user) — 31 package(s) with advisories
+============================================================================
+
+fast-xml-parser@5.3.2
+   [CRITICAL ] GHSA-m7jm-9gc2-mpf2 CVE-2026-25896
+               fast-xml-parser has an entity encoding bypass via regex injection in DOCTYPE entity names
+   [HIGH     ] GHSA-37qj-frw5-hhjh CVE-2026-25128
+               fast-xml-parser has RangeError DoS Numeric Entities Bug
+   [HIGH     ] GHSA-8gc5-j5rx-235r CVE-2026-33036
+               fast-xml-parser affected by numeric entity expansion bypassing all entity expansion limits (incomplete fix for CVE-2026-
+   [HIGH     ] GHSA-jmr7-xgp7-cmfj CVE-2026-26278
+               fast-xml-parser affected by DoS through entity expansion in DOCTYPE (no expansion limit)
+   [MODERATE ] GHSA-jp2q-39xq-3w4g CVE-2026-33349
+               Entity Expansion Limits Bypassed When Set to Zero Due to JavaScript Falsy Evaluation in fast-xml-parser
+   [MODERATE ] GHSA-gh4j-gqv2-49f6 CVE-2026-41650
+               fast-xml-parser XMLBuilder: XML Comment and CDATA Injection via Unescaped Delimiters
+   [LOW      ] GHSA-fj3w-jwp8-x2g3 CVE-2026-27942
+               fast-xml-parser has stack overflow in XMLBuilder with preserveOrder
+
+tar@7.4.3
+   [CRITICAL ] GHSA-23hp-3jrh-7fpw CVE-2026-59873
+               node-tar: Decompression/parse DoS via unlimited input
+   [HIGH     ] GHSA-r6q2-hw4h-h46w CVE-2026-23950
+               Race Condition in node-tar Path Reservations via Unicode Ligature Collisions on macOS APFS
+   [HIGH     ] GHSA-8qq5-rm4j-mr97 CVE-2026-23745
+               node-tar is Vulnerable to Arbitrary File Overwrite and Symlink Poisoning via Insufficient Path Sanitization
+   [HIGH     ] GHSA-8x88-c5mf-7j5w CVE-2026-59874
+               node-tar: Negative tar entry size causes infinite loop in archive replace
+   [HIGH     ] GHSA-9ppj-qmqm-q256 CVE-2026-31802
+               node-tar Symlink Path Traversal via Drive-Relative Linkpath
+   [HIGH     ] GHSA-34x7-hfp2-rc4v CVE-2026-24842
+               node-tar Vulnerable to Arbitrary File Creation/Overwrite via Hardlink Path Traversal
+   [HIGH     ] GHSA-qffp-2rhf-9h96 CVE-2026-29786
+               tar has Hardlink Path Traversal via Drive-Relative Linkpath
+   [HIGH     ] GHSA-83g3-92jg-28cx CVE-2026-26960
+               Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction
+   [MODERATE ] GHSA-gvwx-54wh-qm9j CVE-2026-59875
+               node-tar: Uncaught Exception DoS via NUL byte in PAX path/linkpath records
+   [MODERATE ] GHSA-r292-9mhp-454m 
+               node-tar: Uncontrolled recursion in mapHas/filesFilter allows uncatchable stack-overflow DoS via crafted long-path tar w
+   [MODERATE ] GHSA-w8wr-v893-vjvp CVE-2026-59871
+               node-tar: Process crash via PAX numeric path type confusion
+   [MODERATE ] GHSA-vmf3-w455-68vh CVE-2026-53655
+               node-tar applies PAX size override to intermediary GNU long-name/long-link headers, causing tar parser interpretation di
+
+brace-expansion@1.1.12
+   [HIGH     ] GHSA-3jxr-9vmj-r5cp CVE-2026-13149
+               brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups
+   [HIGH     ] GHSA-mh99-v99m-4gvg CVE-2026-14257
+               brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash
+   [MODERATE ] GHSA-f886-m6hf-6m8v CVE-2026-33750
+               brace-expansion: Zero-step sequence causes process hang and memory exhaustion
+
+brace-expansion@2.0.2
+   [HIGH     ] GHSA-3jxr-9vmj-r5cp CVE-2026-13149
+               brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups
+   [HIGH     ] GHSA-mh99-v99m-4gvg CVE-2026-14257
+               brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash
+   [MODERATE ] GHSA-f886-m6hf-6m8v CVE-2026-33750
+               brace-expansion: Zero-step sequence causes process hang and memory exhaustion
+
+brace-expansion@5.0.7
+   [HIGH     ] GHSA-mh99-v99m-4gvg CVE-2026-14257
+               brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash
+
+defu@6.1.4
+   [HIGH     ] GHSA-737v-mqg7-c878 CVE-2026-35209
+               defu: Prototype pollution via `__proto__` key in defaults argument
+
+devalue@5.5.0
+   [HIGH     ] GHSA-g2pg-6438-jwpf CVE-2026-22775
+               devalue vulnerable to denial of service due to memory/CPU exhaustion in devalue.parse
+   [HIGH     ] GHSA-vw5p-8cq8-m7mv CVE-2026-22774
+               Devalue is vulnerable to denial of service due to memory exhaustion in devalue.parse
+   [MODERATE ] GHSA-cfw5-2vxh-hr84 CVE-2026-30226
+               devalue has prototype pollution in devalue.parse and devalue.unflatten
+   [LOW      ] GHSA-mwv9-gp5h-frr4 
+               Sveltejs devalue's `devalue.parse` and `devalue.unflatten` emit objects with `__proto__` own properties
+   [LOW      ] GHSA-8qm3-746x-r74r 
+               devalue `uneval`ed code can create objects with polluted prototypes when `eval`ed
+   [LOW      ] GHSA-33hq-fvwr-56pm 
+               devalue affected by CPU and memory amplification from sparse arrays
+
+fast-uri@3.1.2
+   [HIGH     ] GHSA-v2hh-gcrm-f6hx CVE-2026-16221
+               fast-uri vulnerable to host confusion via literal backslash authority delimiter
+   [HIGH     ] GHSA-4c8g-83qw-93j6 CVE-2026-13676
+               fast-uri vulnerable to host confusion via failed IDN canonicalization
+
+flatted@3.3.3
+   [HIGH     ] GHSA-25h7-pfq9-p65f CVE-2026-32141
+               flatted vulnerable to unbounded recursion DoS in parse() revive phase
+   [HIGH     ] GHSA-rf6f-7fwh-wjgh CVE-2026-33228
+               Prototype Pollution via parse() in NodeJS flatted
+
+h3@1.15.4
+   [HIGH     ] GHSA-22cc-p3c6-wpvm CVE-2026-33128
+               h3 has a Server-Sent Events Injection via Unsanitized Newlines in Event Stream Fields
+   [HIGH     ] GHSA-mp2g-9vg9-f4cg CVE-2026-23527
+               h3 v1 has Request Smuggling (TE.TE) issue
+   [MODERATE ] GHSA-4hxc-9384-m385 
+               h3: SSE Event Injection via Unsanitized Carriage Return (`\r`) in EventStream Data and Comment Fields (Bypass of CVE Fix
+   [MODERATE ] GHSA-wr4h-v87w-p3r7 
+               h3 has a Path Traversal via Percent-Encoded Dot Segments in serveStatic Allows Arbitrary File Read
+   [MODERATE ] GHSA-72gr-qfp7-vwhw 
+               h3: Double Decoding in `serveStatic` Bypasses `resolveDotSegments` Path Traversal Protection via `%252e%252e`
+
+js-yaml@4.1.0
+   [HIGH     ] GHSA-52cp-r559-cp3m CVE-2026-59869
+               js-yaml: YAML merge-key chains can force quadratic CPU consumption
+   [MODERATE ] GHSA-mh29-5h37-fv8m CVE-2025-64718
+               js-yaml has prototype pollution in merge (<<)
+   [MODERATE ] GHSA-h67p-54hq-rp68 CVE-2026-53550
+               JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases
+
+js-yaml@4.1.1
+   [HIGH     ] GHSA-52cp-r559-cp3m CVE-2026-59869
+               js-yaml: YAML merge-key chains can force quadratic CPU consumption
+   [MODERATE ] GHSA-h67p-54hq-rp68 CVE-2026-53550
+               JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases
+
+lodash@4.17.21
+   [HIGH     ] GHSA-r5fr-rjxr-66jc CVE-2021-23337
+               lodash vulnerable to Code Injection via `_.template` imports key names
+   [MODERATE ] GHSA-xxjr-mmjv-4gpg CVE-2025-13465
+               Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions
+   [MODERATE ] GHSA-f23m-r3pf-42rh CVE-2025-13465
+               lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`
+
+minimatch@3.1.2
+   [HIGH     ] GHSA-7r86-cg39-jmmj CVE-2026-27903
+               minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments
+   [HIGH     ] GHSA-3ppc-4f35-3m26 CVE-2026-26996
+               minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern
+   [HIGH     ] GHSA-23c5-xmqv-rm74 CVE-2026-27904
+               minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions
+
+minimatch@9.0.5
+   [HIGH     ] GHSA-7r86-cg39-jmmj CVE-2026-27903
+               minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments
+   [HIGH     ] GHSA-3ppc-4f35-3m26 CVE-2026-26996
+               minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern
+   [HIGH     ] GHSA-23c5-xmqv-rm74 CVE-2026-27904
+               minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions
+
+picomatch@2.3.1
+   [HIGH     ] GHSA-c2c7-rcm5-vvqj CVE-2026-33671
+               Picomatch has a ReDoS vulnerability via extglob quantifiers
+   [MODERATE ] GHSA-3v7f-55p6-f55p CVE-2026-33672
+               Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching
+
+picomatch@4.0.2
+   [HIGH     ] GHSA-c2c7-rcm5-vvqj CVE-2026-33671
+               Picomatch has a ReDoS vulnerability via extglob quantifiers
+   [MODERATE ] GHSA-3v7f-55p6-f55p CVE-2026-33672
+               Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching
+
+picomatch@4.0.3
+   [HIGH     ] GHSA-c2c7-rcm5-vvqj CVE-2026-33671
+               Picomatch has a ReDoS vulnerability via extglob quantifiers
+   [MODERATE ] GHSA-3v7f-55p6-f55p CVE-2026-33672
+               Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching
+
+postcss@8.5.4
+   [HIGH     ] GHSA-r28c-9q8g-f849 
+               PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure
+   [HIGH     ] GHSA-6g55-p6wh-862q CVE-2026-45623
+               PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments
+   [MODERATE ] GHSA-qx2v-qp2m-jg93 CVE-2026-41305
+               PostCSS has XSS via Unescaped </style> in its CSS Stringify Output
+
+postcss@8.5.6
+   [HIGH     ] GHSA-r28c-9q8g-f849 
+               PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure
+   [HIGH     ] GHSA-6g55-p6wh-862q CVE-2026-45623
+               PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments
+   [MODERATE ] GHSA-qx2v-qp2m-jg93 CVE-2026-41305
+               PostCSS has XSS via Unescaped </style> in its CSS Stringify Output
+
+rollup@4.43.0
+   [HIGH     ] GHSA-mw96-cpmx-2vgc CVE-2026-27606
+               Rollup 4 has Arbitrary File Write via Path Traversal
+
+sharp@0.34.3
+   [HIGH     ] GHSA-f88m-g3jw-g9cj 
+               sharp inherited vulnerabilities in libvips: CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591
+
+vite@6.4.1
+   [HIGH     ] GHSA-fx2h-pf6j-xcff CVE-2026-53571
+               vite: `server.fs.deny` bypass on Windows alternate paths
+   [HIGH     ] GHSA-p9ff-h696-f583 CVE-2026-39363
+               Vite Vulnerable to Arbitrary File Read via Vite Dev Server WebSocket
+   [MODERATE ] GHSA-v6wh-96g9-6wx3 CVE-2026-53632
+               launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows
+   [MODERATE ] GHSA-4w7w-66w2-5vf9 CVE-2026-39365
+               Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling
+
+ajv@6.12.6
+   [MODERATE ] GHSA-2g4f-4pwh-qvx6 CVE-2025-69873
+               ajv has ReDoS when using `$data` option
+
+dompurify@2.5.8
+   [MODERATE ] GHSA-v2wj-7wpq-c8vv CVE-2026-0540
+               DOMPurify contains a Cross-site Scripting vulnerability
+   [MODERATE ] GHSA-h7mw-gpvr-xq4m CVE-2026-41240
+               DOMPurify: FORBID_TAGS bypassed by function-based ADD_TAGS predicate (asymmetry with FORBID_ATTR fix)
+   [MODERATE ] GHSA-cjmm-f4jc-qw8r CVE-2026-65912
+               DOMPurify ADD_ATTR predicate skips URI validation
+   [MODERATE ] GHSA-h8r8-wccr-v5f2 CVE-2026-65914
+               DOMPurify is vulnerable to mutation-XSS via Re-Contextualization
+   [MODERATE ] GHSA-vhxf-7vqr-mrjg CVE-2025-26791
+               DOMPurify allows Cross-site Scripting (XSS)
+   [MODERATE ] GHSA-cmwh-pvxp-8882 CVE-2026-65898
+               DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.
+   [MODERATE ] GHSA-crv5-9vww-q3g8 CVE-2026-41239
+               DOMPurify has a SAFE_FOR_TEMPLATES bypass in RETURN_DOM mode
+   [MODERATE ] GHSA-r47g-fvhr-h676 CVE-2026-49459
+               DOMPurify: IN_PLACE mode preserves attributes of a clobbered root element, allowing XSS via attacker-controlled root DOM
+   [MODERATE ] GHSA-39q2-94rc-95cp CVE-2026-65903
+               DOMPurify's ADD_TAGS function form bypasses FORBID_TAGS due to short-circuit evaluation
+   [MODERATE ] GHSA-hpcv-96wg-7vj8 CVE-2026-49458
+               DOMPurify: Cross-realm IN_PLACE sanitization leaves executable markup intact via realm-bound `instanceof` checks
+   [MODERATE ] GHSA-rp9w-3fw7-7cwq CVE-2026-49978
+               DOMPurify IN_PLACE Sanitization Bypass via Attached Shadow Root Inside <template>.content
+   [MODERATE ] GHSA-cj63-jhhr-wcxv CVE-2026-65913
+               DOMPurify USE_PROFILES prototype pollution allows event handlers
+   [MODERATE ] GHSA-76mc-f452-cxcm CVE-2026-65902
+               DOMPurify: Hook mutation of `data.allowedTags` / `data.allowedAttributes` permanently pollutes `DEFAULT_ALLOWED_TAGS` / 
+   [MODERATE ] GHSA-v8jm-5vwx-cfxm CVE-2025-15599
+               DOMPurify contains a Cross-site Scripting vulnerability
+   [LOW      ] GHSA-x4vx-rjvf-j5p4 CVE-2026-65901
+               DOMPurify: `IN_PLACE` mode trusts attacker-controlled `nodeName` on live non-form nodes, allowing script retention and X
+   [LOW      ] GHSA-c2j3-45gr-mqc4 CVE-2026-66010
+               DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.
+   [LOW      ] GHSA-vxr8-fq34-vvx9 CVE-2026-65899
+               DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output
+
+mdast-util-to-hast@13.2.0
+   [MODERATE ] GHSA-4fh9-h7wg-q85m CVE-2025-66400
+               mdast-util-to-hast has unsanitized class attribute
+
+smol-toml@1.5.2
+   [MODERATE ] GHSA-v3rj-xjv7-4jmq 
+               smol-toml: Denial of Service via TOML documents containing thousands of consecutive commented lines
+
+yaml@2.7.1
+   [MODERATE ] GHSA-48c2-rrv3-qjmp CVE-2026-33532
+               yaml is vulnerable to Stack Overflow via deeply nested YAML collections
+
+yaml@2.8.0
+   [MODERATE ] GHSA-48c2-rrv3-qjmp CVE-2026-33532
+               yaml is vulnerable to Stack Overflow via deeply nested YAML collections
+
+@babel/core@7.28.5
+   [LOW      ] GHSA-4x5r-pxfx-6jf8 CVE-2026-49356
+               @babel/core: Arbitrary File Read via sourceMappingURL Comment
+
+diff@5.2.0
+   [LOW      ] GHSA-73rr-hh4g-fpgx CVE-2026-24001
+               jsdiff has a Denial of Service vulnerability in parsePatch and applyPatch
+
+============================================================================
+PyPI — runs inside the Lambdas — 16 package(s) with advisories
+============================================================================
+
+cryptography@48.0.0 [myblog_backend]
+   [HIGH     ] GHSA-537c-gmf6-5ccf 
+               Vulnerable OpenSSL included in cryptography wheels
+
+cryptography@48.0.0 [myblog_music]
+   [HIGH     ] GHSA-537c-gmf6-5ccf 
+               Vulnerable OpenSSL included in cryptography wheels
+
+ecdsa@0.19.2 [myblog_backend]
+   [HIGH     ] GHSA-wj6h-64fc-37mp CVE-2024-23342
+               Minerva timing attack on P-256 in python-ecdsa
+   [CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N] PYSEC-2026-1325 CVE-2024-23342
+               Minerva timing attack on P-256 in python-ecdsa
+
+ecdsa@0.19.2 [myblog_music]
+   [HIGH     ] GHSA-wj6h-64fc-37mp CVE-2024-23342
+               Minerva timing attack on P-256 in python-ecdsa
+   [CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N] PYSEC-2026-1325 CVE-2024-23342
+               Minerva timing attack on P-256 in python-ecdsa
+
+pyasn1@0.6.3 [myblog_backend]
+   [HIGH     ] GHSA-hm4w-wwcw-mr6r CVE-2026-59886
+               pyasn1: Uncontrolled resource consumption when converting decoded REAL values
+   [HIGH     ] GHSA-8ppf-4f7h-5ppj CVE-2026-59885
+               pyasn1: Quadratic complexity in OBJECT IDENTIFIER and RELATIVE-OID processing allows denial of service
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H] PYSEC-2026-3457 CVE-2026-59886
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H] PYSEC-2026-3455 CVE-2026-59884
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H] PYSEC-2026-3456 CVE-2026-59885
+
+pyasn1@0.6.3 [myblog_music]
+   [HIGH     ] GHSA-hm4w-wwcw-mr6r CVE-2026-59886
+               pyasn1: Uncontrolled resource consumption when converting decoded REAL values
+   [HIGH     ] GHSA-8ppf-4f7h-5ppj CVE-2026-59885
+               pyasn1: Quadratic complexity in OBJECT IDENTIFIER and RELATIVE-OID processing allows denial of service
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H] PYSEC-2026-3457 CVE-2026-59886
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H] PYSEC-2026-3455 CVE-2026-59884
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H] PYSEC-2026-3456 CVE-2026-59885
+
+starlette@1.1.0 [myblog_backend]
+   [HIGH     ] GHSA-82w8-qh3p-5jfq CVE-2026-54283
+               Starlette: request.form() limits silently ignored for application/x-www-form-urlencoded enable DoS
+   [LOW      ] GHSA-jp82-jpqv-5vv3 CVE-2026-54282
+               Starlette: Unvalidated request path concatenated into authority poisons request.url.hostname
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H] PYSEC-2026-249 CVE-2026-54283
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N] PYSEC-2026-248 CVE-2026-54282
+
+starlette@1.1.0 [myblog_music]
+   [HIGH     ] GHSA-82w8-qh3p-5jfq CVE-2026-54283
+               Starlette: request.form() limits silently ignored for application/x-www-form-urlencoded enable DoS
+   [LOW      ] GHSA-jp82-jpqv-5vv3 CVE-2026-54282
+               Starlette: Unvalidated request path concatenated into authority poisons request.url.hostname
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H] PYSEC-2026-249 CVE-2026-54283
+   [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N] PYSEC-2026-248 CVE-2026-54282
+
+pip@24.2 [myblog_backend]
+   [MODERATE ] GHSA-jp4c-xjxw-mgf9 CVE-2026-6357
+               pip Vulnerable to Inclusion of Functionality from Untrusted Control Sphere
+   [MODERATE ] GHSA-wf93-45jw-7689 CVE-2026-8643
+               pip: Path traversal in console_scripts/gui_scripts entry point names allows installing scripts outside of target directo
+   [MODERATE ] GHSA-4xh5-x5gv-qwph CVE-2025-8869
+               pip's fallback tar extraction doesn't check symbolic links point to extraction directory
+   [MODERATE ] GHSA-58qw-9mgm-455v CVE-2026-3219
+               pip has an interpretation conflict due to handling both concatenated tar and ZIP files as ZIP files
+   [LOW      ] GHSA-6vgw-5pg2-w6jp CVE-2026-1703
+               pip Path Traversal vulnerability
+   [CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N] PYSEC-2026-196 CVE-2026-8643
+   [CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:A/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-2875 CVE-2026-3219
+               pip has an interpretation conflict due to handling both concatenated tar and ZIP files as ZIP files
+   [CVSS:4.0/AV:L/AC:L/AT:P/PR:H/UI:A/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-2876 CVE-2026-6357
+               pip Vulnerable to Inclusion of Functionality from Untrusted Control Sphere
+   [CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:A/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-1796 CVE-2026-1703
+               pip Path Traversal vulnerability
+   [CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:A/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-1795 CVE-2025-8869
+               pip's fallback tar extraction doesn't check symbolic links point to extraction directory
+
+pip@24.2 [myblog_music]
+   [MODERATE ] GHSA-jp4c-xjxw-mgf9 CVE-2026-6357
+               pip Vulnerable to Inclusion of Functionality from Untrusted Control Sphere
+   [MODERATE ] GHSA-wf93-45jw-7689 CVE-2026-8643
+               pip: Path traversal in console_scripts/gui_scripts entry point names allows installing scripts outside of target directo
+   [MODERATE ] GHSA-4xh5-x5gv-qwph CVE-2025-8869
+               pip's fallback tar extraction doesn't check symbolic links point to extraction directory
+   [MODERATE ] GHSA-58qw-9mgm-455v CVE-2026-3219
+               pip has an interpretation conflict due to handling both concatenated tar and ZIP files as ZIP files
+   [LOW      ] GHSA-6vgw-5pg2-w6jp CVE-2026-1703
+               pip Path Traversal vulnerability
+   [CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N] PYSEC-2026-196 CVE-2026-8643
+   [CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:A/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-2875 CVE-2026-3219
+               pip has an interpretation conflict due to handling both concatenated tar and ZIP files as ZIP files
+   [CVSS:4.0/AV:L/AC:L/AT:P/PR:H/UI:A/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-2876 CVE-2026-6357
+               pip Vulnerable to Inclusion of Functionality from Untrusted Control Sphere
+   [CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:A/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-1796 CVE-2026-1703
+               pip Path Traversal vulnerability
+   [CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:A/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-1795 CVE-2025-8869
+               pip's fallback tar extraction doesn't check symbolic links point to extraction directory
+
+pip@24.2 [myblog_shared_db]
+   [MODERATE ] GHSA-jp4c-xjxw-mgf9 CVE-2026-6357
+               pip Vulnerable to Inclusion of Functionality from Untrusted Control Sphere
+   [MODERATE ] GHSA-wf93-45jw-7689 CVE-2026-8643
+               pip: Path traversal in console_scripts/gui_scripts entry point names allows installing scripts outside of target directo
+   [MODERATE ] GHSA-4xh5-x5gv-qwph CVE-2025-8869
+               pip's fallback tar extraction doesn't check symbolic links point to extraction directory
+   [MODERATE ] GHSA-58qw-9mgm-455v CVE-2026-3219
+               pip has an interpretation conflict due to handling both concatenated tar and ZIP files as ZIP files
+   [LOW      ] GHSA-6vgw-5pg2-w6jp CVE-2026-1703
+               pip Path Traversal vulnerability
+   [CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N] PYSEC-2026-196 CVE-2026-8643
+   [CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:A/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-2875 CVE-2026-3219
+               pip has an interpretation conflict due to handling both concatenated tar and ZIP files as ZIP files
+   [CVSS:4.0/AV:L/AC:L/AT:P/PR:H/UI:A/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-2876 CVE-2026-6357
+               pip Vulnerable to Inclusion of Functionality from Untrusted Control Sphere
+   [CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:A/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-1796 CVE-2026-1703
+               pip Path Traversal vulnerability
+   [CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:A/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-1795 CVE-2025-8869
+               pip's fallback tar extraction doesn't check symbolic links point to extraction directory
+
+pip@24.2 [myblog_worker]
+   [MODERATE ] GHSA-jp4c-xjxw-mgf9 CVE-2026-6357
+               pip Vulnerable to Inclusion of Functionality from Untrusted Control Sphere
+   [MODERATE ] GHSA-wf93-45jw-7689 CVE-2026-8643
+               pip: Path traversal in console_scripts/gui_scripts entry point names allows installing scripts outside of target directo
+   [MODERATE ] GHSA-4xh5-x5gv-qwph CVE-2025-8869
+               pip's fallback tar extraction doesn't check symbolic links point to extraction directory
+   [MODERATE ] GHSA-58qw-9mgm-455v CVE-2026-3219
+               pip has an interpretation conflict due to handling both concatenated tar and ZIP files as ZIP files
+   [LOW      ] GHSA-6vgw-5pg2-w6jp CVE-2026-1703
+               pip Path Traversal vulnerability
+   [CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N] PYSEC-2026-196 CVE-2026-8643
+   [CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:A/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-2875 CVE-2026-3219
+               pip has an interpretation conflict due to handling both concatenated tar and ZIP files as ZIP files
+   [CVSS:4.0/AV:L/AC:L/AT:P/PR:H/UI:A/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-2876 CVE-2026-6357
+               pip Vulnerable to Inclusion of Functionality from Untrusted Control Sphere
+   [CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:A/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-1796 CVE-2026-1703
+               pip Path Traversal vulnerability
+   [CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:A/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N] PYSEC-2026-1795 CVE-2025-8869
+               pip's fallback tar extraction doesn't check symbolic links point to extraction directory
+
+pydantic-settings@2.14.1 [myblog_backend]
+   [MODERATE ] GHSA-4xgf-cpjx-pc3j CVE-2026-58203
+               pydantic-settings: NestedSecretsSettingsSource follows symlinks outside secrets_dir, enabling local file read and bypass
+
+pydantic-settings@2.14.1 [myblog_music]
+   [MODERATE ] GHSA-4xgf-cpjx-pc3j CVE-2026-58203
+               pydantic-settings: NestedSecretsSettingsSource follows symlinks outside secrets_dir, enabling local file read and bypass
+
+pydantic-settings@2.14.1 [myblog_worker]
+   [MODERATE ] GHSA-4xgf-cpjx-pc3j CVE-2026-58203
+               pydantic-settings: NestedSecretsSettingsSource follows symlinks outside secrets_dir, enabling local file read and bypass
+
+python-dotenv@1.0.1 [myblog_music]
+   [MODERATE ] GHSA-mf9w-mj56-hr94 CVE-2026-28684
+               python-dotenv: Symlink following in set_key allows arbitrary file overwrite via cross-device rename fallback
+   [CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:N/I:H/A:H] PYSEC-2026-2270 CVE-2026-28684
