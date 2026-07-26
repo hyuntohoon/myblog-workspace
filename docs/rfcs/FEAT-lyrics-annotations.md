@@ -546,6 +546,8 @@ Placement warning: `get_normalized` early-returns at `:229-233` (`if out.availab
 `attach_translation`. Anything attached there is invisible for `not_found` tracks, so the metadata block
 must attach **above** that return.
 
+The store this section's anchors run against: **§6.9**.
+
 ### 6.7 Token
 
 Issued 2026-07-25. Client access token only — Client ID/Secret are unused for reads. Destination:
@@ -561,6 +563,113 @@ design.** This is personal, non-commercial research and the owner has accepted t
 future session that rediscovers terms-of-service material should record nothing and move on; treat
 storage and LLM use of Genius content as permitted for this project.
 
+### 6.9 Storage — two track-scoped tables, one read route (shared_db V49)
+
+Design settled 2026-07-26. This is the schema the viewer sub-thread (§6.6) builds on; it is written
+here rather than in a migration because the RFC is still `draft` and hard rule 5 gates implementation.
+
+**Shape in one line.** Two tables keyed on `track_id`, mirroring the existing `track_lyrics` /
+`track_lyrics_translations` pair; the Korean translation is a **column on the annotation row**, not a
+third table; and reading is a **field addition to the existing `GET /api/lyrics/{spotify_track_id}`**,
+not a new route.
+
+**Why track-scoped and not album-scoped.** Genius has no album-level object at all — 15 song records,
+no album "about", no label field (NOTES §2). Album-level facts are a *derivative* of the track rows,
+never a source. This is also why the store must not be folded into R1's `album_genius_facts`: that
+store is a materialised per-album view for the research prompt, and it should be computed from these
+tables rather than fetched separately. (Open question O3 below.)
+
+#### `track_genius_songs` — one row per track
+
+| Column | Type | Why it exists |
+|---|---|---|
+| `track_id` | UUID PK → `tracks.id` CASCADE | Same key shape as `track_lyrics`; a deleted track takes its Genius rows with it |
+| `genius_song_id` | BIGINT NOT NULL | Genius's own id; the re-fetch key |
+| `genius_url` | TEXT | Provenance link rendered in the UI; the design record's convention is to *point at* Genius rather than copy lyric text |
+| `match_status` | TEXT NOT NULL | `matched` \| `ambiguous` \| `not_found`. Mirrors `track_lyrics.match_status` |
+| `match_confidence` | REAL | **Required by §6.2**: 로꼬's *2025* matched to a different artist's song. Without a per-row confidence, wrong credits enter a research note silently |
+| `genius_title`, `genius_artist` | TEXT | What Genius *thinks* this track is, so a bad match is visible in a query without an API call |
+| `description`, `description_ko` | TEXT | The song description (13/15 on *LUX*, 157–1,956 chars). Korean is the body a reader sees, per the owner decision; the original stays as the collapsible secondary |
+| `annotation_count` | INT | Genius's own count. Stored so drift against the annotation rows is detectable — it is expected to exceed them **by exactly one per described track**, because Genius counts the description as an annotation (NOTES §2) |
+| `credits` | JSONB | writers / producers / performances. The language-independent channel (7/8 in both KR and EN, §6.2) and the one that answers 75/78 of the research pipeline's recorded failures (§6.4) |
+| `relationships` | JSONB | interpolations / samples / derivatives. **Filter out `translations`** on write — every one is a Genius community translation page, not a musical relationship (NOTES §2) |
+| `language` | TEXT | Genius's tag. Stored but **not trusted** — one tag per song, and *LUX* has ≥11 languages across 15 tracks (§6.3) |
+| `fetched_at`, `fetcher_version` | TIMESTAMPTZ, TEXT | Re-fetch bookkeeping, matching `track_lyrics.matcher_version` |
+| `created_at`, `updated_at` | TIMESTAMPTZ NOT NULL DEFAULT now() | House convention |
+
+#### `track_genius_annotations` — one row per annotation
+
+The four load-bearing columns are marked ★.
+
+| Column | Type | Why it exists |
+|---|---|---|
+| ★ `genius_annotation_id` | BIGINT **PK** | The natural key. Globally unique on Genius, so re-fetch is a plain `ON CONFLICT (genius_annotation_id) DO UPDATE` with no synthetic id and no delete-then-insert window. Bulk upserts **sort by this key** (house rule: row-lock deadlock avoidance) |
+| `track_id` | UUID NOT NULL → `tracks.id` CASCADE, indexed | Read path is always "all annotations for one track" |
+| ★ `fragment` | TEXT NOT NULL | The referent text — **the anchor *input*, never the anchor *result***. §6.6 forbids storing resolved `(start_segment, end_segment)` offsets; storing the fragment is what makes re-anchoring a pure function possible at all |
+| ★ `referent_ordinal` | INT NOT NULL | Document order of the referent within the Genius song. Two jobs: deterministic ordering for annotations that anchoring cannot place, and a stable tiebreak when two anchors resolve to the same start segment |
+| ★ `body_ko` | TEXT | The Korean body. Owner decision: the body a reader sees is always Korean |
+| `body_source`, `body_source_lang` | TEXT | Original-language body, kept as the collapsible secondary. Also the input the Korean body is derived from |
+| `body_source_fingerprint` | TEXT | Hash of `body_source` at translation time. **Staleness is computed at read time, never stored** — exactly the `track_lyrics_translations.source_fingerprint` pattern (`lyrics_service.py:67-90`): a changed Genius body reads as `stale` with `body_ko` withheld rather than showing a translation of text that no longer exists |
+| `translation_status` | TEXT NOT NULL | `pending` \| `done` \| `failed`. The translation lifecycle lives **here**, not in a second table — a translation is a property of an annotation, and `track_lyrics_translations` is a separate table only because a lyric translation spans a whole track |
+| `translated_at`, `translator_model`, `translator_version` | TIMESTAMPTZ, TEXT, TEXT | Same provenance columns `track_lyrics_translations` already carries |
+| `votes_total` | INT | Drives the **disputed** treatment only — the chosen design strips the highlight from negative-vote annotations. Range on *LUX* is −17..+63, median 9. **Never an ORDER BY**: sorting by votes surfaces translations, which are an explicit non-goal (§2) |
+| `is_verified`, `state` | BOOLEAN, TEXT | 0 of 115 *LUX* annotations were verified; the column records that rather than implying it |
+| `fetched_at` | TIMESTAMPTZ | Re-fetch bookkeeping |
+| `created_at`, `updated_at` | TIMESTAMPTZ NOT NULL DEFAULT now() | House convention |
+
+Section-marker referents (`[Verso 1]`, 8 of 103 on *LUX*) **are stored**. They carry real bodies; the
+read path classifies them via `anchor.status == "section"` and keeps them out of the in-text layer.
+
+#### Reading — one route, additive fields
+
+`GET /api/lyrics/{spotify_track_id}` already exists, is Cognito-gated at the API Gateway authorizer,
+and is matched by the existing `/api/lyrics/*` authorizer entry — so **no new route and no
+`terraform apply`**. `LyricsResponse` (`app/api/schemas.py:1048`) gains one optional field:
+
+```
+annotations: [ { id, ordinal, start_i, end_i, occurrences, status,
+                 body_ko, translation_status, body_source_lang,
+                 votes_total, disputed, genius_url } ]
+```
+
+- `start_i` / `end_i` are **segment indices in the same `s.i` coordinate the viewer already keys on**
+  (`LyricsSegment.i`), computed per request by `tools/genius_anchor.py`'s span algorithm. Nothing
+  positional is persisted.
+- Ordering is **position in the lyrics** — `(start_i, referent_ordinal)`, with unanchored rows sorted
+  by `referent_ordinal` alone and rendered in the drawer. Never by votes.
+- `disputed` is derived (`votes_total < 0`), not stored.
+- **Attach above the `availability != "ok"` early return** (`lyrics_service.py:229-233`). This is the
+  §6.6 placement warning and it is load-bearing here: 2 of 15 *LUX* tracks carry 12 annotations and no
+  synced lyrics, and the standalone (no-lyrics) mode is the whole reason the annotation store does not
+  depend on `track_lyrics`.
+
+#### Migration and rollout
+
+`V49__track_genius_annotations.sql` — two new tables, additive and reversible, nothing references them
+until the backend consumer lands. Plain `V{N}__` SQL wrapping its own `BEGIN … COMMIT`. Rule 3 applies:
+**human approval before any prod apply**, and the file self-commits, so `\i` inside an outer
+transaction is not a dry run.
+
+Rollout order, in this sequence: migration written → **prod apply (pre-merge, human-run)** → each
+service repo's `shared_db` git pin bumped → `openapi.json` regenerated and merged in the workspace →
+frontend types regenerated (`pnpm generate:types`, or the front deploy gate fails). Both schema mirrors
+(`src/myblog_shared_db/_generated_schema.sql` and `tests/canonical_schema.sql`) must be regenerated and
+diffed against each other before commit — their byte-identity is convention-only and has silently
+drifted before.
+
+#### Open questions this design does not settle
+
+- **O1 — who writes the rows.** §8's secondary list already carries "worker Lambda vs local poller"
+  unresolved. A local poller dies with the Mac (a 07-20 reboot stalled a queue 3 days); the worker
+  needs the SSM token wired. Not blocking the schema, blocking the fetch job.
+- **O2 — the read route admits any member, not just the owner.** `get_lyrics` depends on
+  `require_cognito_token`, while `track_lyrics` is documented as owner-only research data
+  (`models.py:315-318`). The annotation store inherits that gate as-is. Whether third-party Genius
+  bodies should sit behind `require_owner` instead is a decision the owner has not been asked.
+- **O3 — overlap with R1's `album_genius_facts`.** If the album facts store is computed from these
+  tables, R1 shrinks to a view or a query; if it fetches independently, the same Genius payload is
+  stored twice and can disagree. Resolve before R1 is built, not after.
+
 ---
 
 ## 7. Decisions log
@@ -575,6 +684,13 @@ storage and LLM use of Genius content as permitted for this project.
 | 2026-07-25 | **No owner-whitelist dependency** — the site will have real users; rules must key on content properties only | all |
 | 2026-07-25 | **A correct classical tag is not grounds for exclusion** (LUX). Genre may only ever be one condition among several | all |
 | 2026-07-25 | Korean-language lyrics coverage is a **problem to solve**, not just a caveat | both |
+| 2026-07-26 | **Korean tracks are out of scope** for the annotation viewer — not annotating them may simply be the efficient answer | 1 |
+| 2026-07-26 | **Show every annotation**, ordered by position in the lyrics. No editorial selection, no relevance score, **no vote sorting** | 1 |
+| 2026-07-26 | The body a reader sees is **always Korean**; the original language is secondary and collapsible | 1 |
+| 2026-07-26 | Host is the static reader **`LyricsSheet.tsx`**, not `LyricsViewer.tsx` (§6.6) | 1 |
+| 2026-07-26 | Visual direction: the **Genius house style** (`docs/design/lyrics-annotations/README.md`) | 1 |
+| 2026-07-26 | Storage: **two track-scoped tables**, translation as a column on the annotation row, one existing read route (§6.9) | 1 |
+| 2026-07-26 | Public-cache concerns for the music service are **deferred** — "지금은 걱정하지 말자" | 1 |
 
 ## 8. What blocks execution
 
