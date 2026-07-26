@@ -43,7 +43,11 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 # separately instead of being reported as failures.
 _SECTION_RE = re.compile(r"^\s*\[[^\]]{1,40}\]\s*$")
 
-_LRC_LINE_RE = re.compile(r"^\s*\[(\d+):(\d+)(?:[.:](\d+))?\]\s*(.*)$")
+# Mirrors of the backend's LRC rules. The authority is
+# `myblog_backend/app/services/lyrics_service.py` (`_LRC_TS`, `_LRC_ID_TAG`, `parse_lrc`);
+# these must stay byte-equivalent to it — see `parse_lrc` below for why.
+_LRC_TS = re.compile(r"^\[(\d+):(\d{1,2})(?:\.(\d{1,3}))?\]")
+_LRC_ID_TAG = re.compile(r"^\[[A-Za-z#][^\]]*\]\s*$")
 
 # Kept deliberately wide: Latin, Cyrillic, Arabic, Kana/Han, Hangul. LUX alone spans at
 # least 11 languages, so a Latin-only filter would silently drop whole tracks.
@@ -62,17 +66,46 @@ def normalize(text: str) -> str:
 
 
 def parse_lrc(lyric_synced: str) -> List[str]:
-    """Timestamped LRC -> ordered segment texts, blanks dropped.
+    """Timestamped LRC -> the exact segment list the viewer renders, in its order.
 
-    Mirrors what ``lyrics_service.normalize_lyrics`` renders, which is the text the
-    viewer actually shows. Anchoring against ``lyric_plain`` instead would measure text
-    the user never sees.
+    **The index is the contract.** An anchor span is only useful if its numbers name the
+    same rows the reader sees, so this must reproduce
+    ``lyrics_service.parse_lrc`` — which keeps two kinds of row that carry no lyric text:
+
+      * **gap segments** — timestamped but blank, the stanza break the viewer draws as
+        ``· · ·`` (``LyricsViewer.tsx``, ``LyricsSheet.tsx``). Kept as ``""``.
+      * **untimestamped lines** — kept verbatim (the backend flags but never drops text).
+
+    Only bracketed ID tags (``[ar:...]``) and untimestamped blanks are dropped.
+
+    An earlier version required a timestamp *and* non-blank text, which silently shifted
+    every index after the first gap. Measured against prod on 2026-07-26: 93.5% of 1,200
+    synced tracks differed in segment count and **44.2% had at least one row shifted**
+    (median 2, max 22). The match *rate* was unaffected — ``_build_haystack`` skips
+    segments that normalize to nothing, so a gap costs an index but contributes no text —
+    which is exactly why the defect was invisible in the coverage numbers.
     """
     segments: List[str] = []
-    for line in (lyric_synced or "").split("\n"):
-        match = _LRC_LINE_RE.match(line)
-        if match and match.group(4).strip():
-            segments.append(match.group(4).strip())
+    for raw_line in (lyric_synced or "").split("\n"):
+        line = raw_line.rstrip("\r")
+
+        stamps = 0
+        m = _LRC_TS.match(line)
+        while m:                       # one segment per leading timestamp
+            stamps += 1
+            line = line[m.end():]
+            m = _LRC_TS.match(line)
+
+        if not stamps:
+            if not line.strip() or _LRC_ID_TAG.match(line):
+                continue               # untimestamped blank, or a metadata tag
+            segments.append(line)      # kept with no timestamp — never silently dropped
+            continue
+
+        text = line[1:] if line.startswith(" ") else line   # one leading space trimmed
+        if not text.strip():
+            text = ""                  # gap segment; "" is the discriminator
+        segments.extend([text] * stamps)
     return segments
 
 
@@ -227,10 +260,80 @@ _SELF_TEST_CASES = [
     ("Esta línea no existe en ninguna parte", "unmatched"),
 ]
 
+# Every row the backend keeps, in one fixture: an ID tag (dropped), an untimestamped
+# blank (dropped), a gap (kept as ""), an untimestamped lyric line (kept), and a
+# two-timestamp line (kept twice). Anything that shifts these indexes desynchronises
+# every emitted span from the rows the reader sees.
+_SELF_TEST_LRC = "\n".join([
+    "[ar:ROSALÍA]",
+    "[00:34.60] Quién pudiera vivir",
+    "[00:37.67] Entre los dos",
+    "[00:41.00]",
+    "",
+    "[00:41.32] En el primero,",
+    "Deportes de sangre",
+    "[00:47.45][01:12.10] Quién pudiera vivir",
+])
+_SELF_TEST_LRC_EXPECT = [
+    "Quién pudiera vivir",
+    "Entre los dos",
+    "",                       # gap — the viewer's `· · ·`, and it holds an index
+    "En el primero,",
+    "Deportes de sangre",     # untimestamped, kept
+    "Quién pudiera vivir",    # two timestamps -> two segments
+    "Quién pudiera vivir",
+]
+
+
+def _parity_check() -> int:
+    """Compare against the backend's own parser when this checkout has it.
+
+    Skips silently when the backend package isn't importable — the tool has to run
+    anywhere. Where it does run, this is what stops the two parsers drifting again.
+    """
+    import os
+
+    backend = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "myblog_backend")
+    if not os.path.isdir(backend):
+        print("  [skip] backend checkout not found — parity not checked")
+        return 0
+    sys.path.insert(0, backend)
+    try:
+        from app.services.lyrics_service import parse_lrc as backend_parse
+    except Exception as exc:                                  # noqa: BLE001 — advisory
+        print(f"  [skip] backend not importable ({type(exc).__name__}) — parity not checked")
+        return 0
+
+    theirs = [s.text for s in backend_parse(_SELF_TEST_LRC)]
+    ours = parse_lrc(_SELF_TEST_LRC)
+    if ours == theirs:
+        print(f"  [ok ] parity with lyrics_service.parse_lrc ({len(ours)} segments)")
+        return 0
+    print(f"  [FAIL] parity: ours={ours!r} backend={theirs!r}")
+    return 1
+
 
 def _self_test() -> int:
-    anchors = anchor_fragments(_SELF_TEST_SEGMENTS, [f for f, _ in _SELF_TEST_CASES])
     failures = 0
+
+    segments = parse_lrc(_SELF_TEST_LRC)
+    if segments == _SELF_TEST_LRC_EXPECT:
+        print(f"  [ok ] parse_lrc keeps gaps/untimestamped rows ({len(segments)} segments)")
+    else:
+        print(f"  [FAIL] parse_lrc expected {_SELF_TEST_LRC_EXPECT!r}, got {segments!r}")
+        failures += 1
+
+    # A fragment after the gap must resolve to the POST-gap index, not the pre-gap one.
+    gap_anchor = anchor_fragments(segments, ["En el primero,"])[0]
+    if gap_anchor.span == (3, 3):
+        print("  [ok ] span after a gap keeps the viewer's index (3, 3)")
+    else:
+        print(f"  [FAIL] span after a gap expected (3, 3), got {gap_anchor.span}")
+        failures += 1
+
+    failures += _parity_check()
+
+    anchors = anchor_fragments(_SELF_TEST_SEGMENTS, [f for f, _ in _SELF_TEST_CASES])
     for anchor, (fragment, expected) in zip(anchors, _SELF_TEST_CASES):
         ok = anchor.status == expected
         failures += (not ok)
