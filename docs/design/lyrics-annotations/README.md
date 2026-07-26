@@ -114,6 +114,12 @@ What it settled:
   computed at read time.
 - **Negative-vote annotations never receive the fill**, in any of the four treatments — a −17 reading
   rendered in the endorsing yellow reads as the site agreeing with it.
+- **The margin column only works if the note tracks its range.** The first build pinned the column
+  with `position: sticky`, so opening an annotation on line 30 put its commentary at the top of the
+  screen, far from the passage it explains — which defeats the entire reason the margin structure was
+  chosen over a bottom sheet. The note must be positioned to the range's first line and clamped so a
+  note opened near the last line does not hang off the bottom. Below the two-column breakpoint there
+  is no margin to sit in, so the note opens **inline directly under its own range** instead.
 
 Still unsolved, and visible in the artifact: a **12-line span** looks bad under every treatment
 (M0 eats the screen, M2's bracket scrolls out of view), and the **3-in-201 overlap** has no rule —
