@@ -21,9 +21,11 @@ find the first row in the checklist that is not `DONE`, and continue from there.
 | B | Architecture audit (service boundaries, sync-Spotify rule, contract/OpenAPI drift, shared_db pin drift, infra↔code drift) | **DONE** — 0 findings; all six structural checks clean. Redone from scratch in the main loop | §2 |
 | C | Frontend code audit (islands, CSS scoping traps, api.gen.ts drift, auth/token handling, error/empty states) | **DONE** — 0 new findings (frontend defects are E-1/E-3/E-4, found live). Done from scratch in the main loop | §3 |
 | D | Functional audit (plan.md open items vs reality, launchd pipeline health, DLQ/queue state, prod smoke) | **DONE** — 3 findings (one P0), rest verified healthy. Done in the main loop after the subagent died | §4 |
-| E | UI/UX live verification via CDP on production (desktop + mobile emulation, console errors, key flows) | IN PROGRESS — logged-out public surface swept (home / reviews / genres / canon / collection / artist, at 1440px and 390px mobile). Remaining: Lighthouse numbers, authed `/members/` surface | §5 |
-| F | Necessity-gate pass — refute every candidate finding, drop unproven ones | PENDING | §6 |
-| G | Final write-up + plan.md candidate rows + owner feedback questions | PENDING | §6, §7 |
+| E | UI/UX live verification via CDP on production (desktop + mobile emulation, console errors, key flows) | **DONE** for the logged-out public surface (home / reviews / genres / canon / collection / artist, 1440px + 390×844×3 mobile, Lighthouse, CLS attribution). **Authed `/members/` surface NOT covered** — optional deepening | §5 |
+| F | Necessity-gate pass — refute every candidate finding, drop unproven ones | **DONE** — D-1 and A-2 adversarially verified; 8 candidates dropped with reasons recorded | §6 |
+| G | Final write-up + plan.md candidate rows + owner feedback questions | **DONE** — 12 findings, 7 owner questions. plan.md rows deliberately NOT added (owner decides scope first) | §6, §7 |
+
+**AUDIT COMPLETE.** All legs done. If a resume trigger fires after this point, do not restart — either stop, or do the optional deepening listed under leg E (authed surface) and §6 "What this audit did NOT cover".
 
 **Raw agent output / intermediate notes**: `docs/reviews/audit-2026-07-26-raw/`
 
@@ -295,8 +297,90 @@ Swept 2026-07-26 ~02:45–03:00 KST at 1440×900 desktop and 390×844×3 mobile+
 
 ## 6. Necessity-gate verdicts
 
-_(pending)_
+**12 findings adopted across 5 legs.** Roughly as many candidates were dropped for failing the bar.
+
+| ID | Sev | One-line | Leg |
+|----|-----|----------|-----|
+| **D-1** | **P0** | Nightly pipeline writes drafts it can never deliver — permanent 403, exit code still 0 | ops |
+| **A-1** | P1 | Album sync holds a locked write txn across a Spotify HTTP loop → Neon drop → DLQ | worker |
+| **A-2** | P1 | An album title with both `'` and `"` emits invalid YAML → the whole site build breaks | backend |
+| **E-1** | P1 | Homepage ships a 742 KB uncacheable genre tree (98.3 % of its bytes) to draw 6 bars | front/live |
+| **E-3** | P1 | First-visit mobile CLS 0.315 — 3× the "poor" threshold — from sections mounting with no reserved height | front/live |
+| **A-3** | P2 | Malformed id → 500 instead of 404 on publicly reachable research routes | backend |
+| **A-4** | P2 | Today's Pick uses UTC `current_date` while the system is KST → picks vanish for 9 h/day | backend |
+| **A-5** | P2 | musicApi does a blocking `sqs:GetQueueUrl` per search, outside the best-effort guard | music/infra |
+| **D-2** | P2 | `LLMTransientError` is never retried → one blip silently costs a whole night | shared_db |
+| **D-3** | P2 | A workflow documented as dead is still enabled and has failed every run for 3 weeks | ci |
+| **E-2** | P2 | Public collection page bylines a raw Cognito-sub fragment as a display name | front/live |
+| **E-4** | P2 | 8 homepage album buttons fail WCAG 2.5.3 "Label in Name" | front/live |
+
+### Adversarial verification (leg F)
+
+The two highest-stakes claims were attacked rather than accepted:
+
+- **D-1 — the competing explanation was refuted.** A 403 from `require_owner` could mean either (a) the smoke user isn't the owner, or (b) `OWNER_SUB` is unset in prod, which would break the *owner's* access too — a much worse bug with a different fix. `app/core/auth.py:152-165` distinguishes them precisely: unset `OWNER_SUB` → **503 "Auth not configured"**; `sub` mismatch → **403 "Owner only"**. The log shows exactly `403 {'detail': 'Owner only'}`, and `aws lambda get-function-configuration ratemymusic-api` confirms **`OWNER_SUB = 0468fd3c-201…` is set**. Hypothesis (b) is dead; (a) is confirmed. *(This also independently confirms E-2 — the `@user-0468fd3c` byline on the public collection page is that same OWNER_SUB prefix.)*
+- **A-2 — reproduced independently**, not taken on the subagent's word. Running the actual `f"title: {title!r}"` construction from `publish_service.py:43` through PyYAML:
+  - `Taylor Swift's "1989"` → emits `title: 'Taylor Swift\'s "1989"'` → **`ParserError`** (single-quoted YAML escapes `'` by doubling it, never with a backslash)
+  - `It's Only Rock` → emits `"It's Only Rock"` → parses fine
+  - `"Heroes"` → emits `'"Heroes"'` → parses fine
+  - It genuinely requires **both** quote characters in one title. Confirmed, and correctly scoped.
+- **A-1's blast radius was checked against reality**: all three SQS queues and **both DLQs are at zero**, so A-1 has **not fired in production yet**. It is latent, not an active incident — which is why it is P1 and not P0.
+
+### Candidates raised and deliberately dropped
+
+Recording these matters as much as the findings — under a necessity gate, "we looked and it doesn't warrant work" is a result.
+
+- **shared_db pin lag** (music/worker 16 schema versions behind backend) — looked alarming; **verified harmless**. All 10 model names music imports and the single symbol worker imports exist at `v0.26.0`. The related "backend pins a moving untagged SHA" smell is already logged as C-10 in `architecture.md:254`. Dropped.
+- **Tailwind `@theme` pruning** — the trap is genuinely active (12 tokens confirmed missing from the live build) but causes **no** broken style: the `--bp-*` tokens are documentation constants and the real responsive code uses Tailwind's own namespace (`md:`/`lg:` each emit 57 rules in prod). Cleanup opportunity only. Dropped.
+- **Homepage stats reading "0편 / 0개"** beside "4,479장 · 13 genres" — reads as contradictory, but is consistent if "장르" counts *genres with a published review*. No harm proven. → §7 decision, not a defect.
+- **"첫 리뷰를 작성해 보세요" shown to logged-out visitors** — owner-facing CTA on a public page. Cosmetic. → §7.
+- **Sub-44 px mobile tap targets** (LOGIN 38×29, icon buttons 40×40) — below the HIG guideline, no demonstrated mis-tap harm. Dropped.
+- **Duplicate "ICEMAN" in Drake's discography** — real, but it is catalog release-noise already owned by the tracked `DATA-release-noise` workstream. Not re-reported.
+- **3-night nightly gap (07-21…07-23)** — real, but it is the already-documented 07-20 reboot incident. Not re-reported.
+- **`auth.py` twin differs by ~108 lines** — structural, not behavioural; backend factors out `verify_token()` for its `edge_guard`, music has no edge layer. Both fail closed on all three config gates. Dropped.
+
+### What this audit did NOT cover
+
+Stated so the clean verdicts aren't read as broader than they are:
+
+- The **authenticated surface** (`/members/`, `/write`, admin, the player bar, the lyrics sheet) was not exercised live — leg E covered the logged-out public surface only.
+- **No load or concurrency testing.** A-1's deadlock/lock-contention path is reasoned from the code plus the 10-way SQS concurrency setting, not observed.
+- **No database-level data-quality audit** (orphan rows, constraint violations, duplicate catalog entries beyond what the UI surfaced).
+- **No dependency/CVE scan**, and no review of the Terraform state itself (only the `.tf` source).
+
+---
 
 ## 7. Questions for the owner
 
-_(pending)_
+7개 다 결정이 필요한 항목입니다. 코드는 아직 하나도 안 건드렸습니다.
+
+**1. D-1 (P0) — 나이틀리가 만든 초안이 블로그에 못 올라가는 문제, 어떻게 뚫을까요?**
+파이프라인이 smoke 테스트 계정으로 로그인하는데, `POST /api/posts`는 오너 본인만 통과시킵니다. 선택지 세 가지:
+   - (a) 파이프라인에 오너 자격증명을 주기 — 제일 빠르지만, 자동화 스크립트가 "무엇이든 발행·수정·삭제 가능한" 권한을 갖게 됩니다.
+   - (b) 서비스 전용 신원을 만들어 `require_owner`가 인정하게 하기 — 가장 깔끔하지만 인증 코드를 손대야 합니다(= 반복 버그 구역).
+   - (c) `status:'draft'` 생성에 한해 게이트를 완화하기 — 범위는 좁지만 공개 경로에 새 구멍이 생깁니다.
+   추천은 **(b)**. 다만 인증 변경이라 별도 세션에서 신중히 해야 합니다.
+
+**2. E-1 (P1) — 홈 장르 막대 6개를 위해 742KB를 받는 문제, 어디를 고칠까요?**
+   - (a) 홈 전용 경량 응답(tier-0의 `slug/label/album_count`만) — 약 99% 감소.
+   - (b) 기존 엔드포인트에 `?depth=0` 같은 파라미터 추가 — "album_count 소스는 하나" 원칙을 유지.
+   - (c) 일단 `cache-control` 헤더만 붙이기 — 한 줄이고, 형제 엔드포인트와 일관되며, 재방문 비용이 사라짐.
+   추천은 **(c)를 즉시 + (b)를 뒤이어**. (c)만으로도 첫 방문 외 비용은 사라집니다.
+
+**3. E-3 (P1) — 첫 방문 모바일에서 화면이 튀는 문제(CLS 0.315), 지금 잡을까요?**
+   섹션들에 최소 높이만 잡아주면 되는 종류입니다. E-1과 원인을 공유하니 같이 처리하는 게 효율적입니다. 같이 갈까요, 아니면 E-1만 먼저?
+
+**4. E-2 — 공개 컬렉션 페이지의 `@user-0468fd3c` 표기, 어떻게 할까요?**
+   (a) 표시 이름을 필수로 받기 / (b) 이름 없으면 중립적인 라벨로 보여주기 / (c) 그대로 두기.
+   참고로 저 값은 오너 본인의 Cognito sub 앞자리입니다.
+
+**5. 홈 하단 "0편 평론 / 0개 장르" — 의도한 표시가 맞나요?**
+   바로 위 섹션은 "4,479장 · 13개 장르"라고 말하고 있어서, 처음 온 사람에겐 모순으로 읽힙니다. 저 "장르"가 *평론이 달린 장르 수*를 뜻하는 거라면 숫자는 맞습니다 — 라벨만 바꾸면 될지, 아니면 그대로 둘지 결정해 주세요.
+
+**6. D-3 — 3주째 매번 실패하는 "Notify workspace" 워크플로, 끌까요?**
+   이미 죽은 경로로 문서화돼 있고 수동 절차가 대체했습니다. (a) 비활성화/삭제 / (b) 401 원인을 고쳐 되살리기.
+   추천은 **(a)**. 지금은 정상 배포에 빨간 X만 붙이고 있어서, 진짜 실패를 놓치게 만듭니다.
+
+**7. 12건의 처리 순서 — 어떻게 갈까요?**
+   추천 순서: **D-1 → A-2 → E-1+E-3 → A-1 → 나머지 P2**.
+   근거: D-1은 서비스의 존재 이유가 막혀 있고, A-2는 앨범 제목 하나로 전체 배포가 멈출 수 있으며, E-1/E-3은 모든 방문자가 매번 지불하고, A-1은 아직 터지지 않았지만(DLQ 0건) 터지면 조용히 DLQ로 샙니다.
