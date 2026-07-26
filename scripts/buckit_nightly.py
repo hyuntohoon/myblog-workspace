@@ -106,6 +106,7 @@ sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "myblog_shared_db", "src"))
 
 from myblog_shared_db.llm import CliEngine, LLMJob, ToolPolicy, build_argv  # noqa: E402
+from myblog_shared_db.llm.exceptions import LLMTransientError  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -524,6 +525,32 @@ def claude_argv() -> list[str]:
     return build_argv(_job(""))
 
 
+# A transient `claude exit 1` used to cost the entire night: CliEngine only retries when a job
+# carries an output_schema (cli_engine.py `attempts = 2 if job.output_schema is not None else 1`),
+# and this job has none. That is what happened on 2026-07-26 — one failure at 03:00 and the run
+# produced nothing until the next night. The job fires once a day, so retrying is cheap and the
+# alternative is a 24-hour gap.
+LLM_RETRIES = 3
+LLM_RETRY_SLEEP_S = 60
+
+
+def run_claude_with_retry(prompt: str) -> dict:
+    """run_claude, retried on transient engine failures. Validation errors are terminal."""
+    last: Exception | None = None
+    for attempt in range(1, LLM_RETRIES + 1):
+        try:
+            return run_claude(prompt)
+        except LLMTransientError as e:
+            last = e
+            if attempt == LLM_RETRIES:
+                break
+            log.warning("claude attempt %d/%d failed transiently (%s) — retrying in %ds",
+                        attempt, LLM_RETRIES, str(e)[:160], LLM_RETRY_SLEEP_S)
+            time.sleep(LLM_RETRY_SLEEP_S)
+    log.error("claude failed %d/%d attempts — giving up for tonight", LLM_RETRIES, LLM_RETRIES)
+    raise last  # type: ignore[misc]
+
+
 def run_claude(prompt: str) -> dict:
     """Run headless Claude Code as a pure text transformer (NO tools) via shared_db
     CliEngine and return parsed {result, tokens_in, tokens_out, model}. `result` is the
@@ -727,11 +754,24 @@ def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) 
     created: list[tuple[str, str]] = []
     grown = 0
     skipped: list[str] = []
+    denied: list[str] = []   # 401/403 — permanent auth rejection, never "retry next run"
 
     for m, draft in pairs:
         payload = {"title": _draft_title(m), "body_mdx": _draft_body(m, draft),
                    "status": "draft", "category": DRAFT_SECTION}
         status, resp = _api("POST", "/api/posts", token, payload)
+        if status in (401, 403):
+            # PERMANENT, not transient. The job authenticates as the smoke user (mint_smoke_token)
+            # and POST /api/posts is `require_owner` since 392dd50 (2026-07-08), so this recurs
+            # every night forever. Lumping it in with 409/5xx below is what let it go unnoticed for
+            # 17 days. Escalate, and make main() exit non-zero so launchd stops reporting success.
+            log.error("draft REJECTED PERMANENTLY (album %s, status %s): %s — the nightly job "
+                      "authenticates as the smoke user and this route is owner-gated. It will fail "
+                      "identically every night until the job is given an owner-accepted identity. "
+                      "The file under docs/buckit/ is now the ONLY copy of this draft.",
+                      m["album_id"], status, str(resp)[:200])
+            denied.append(m["album_id"])
+            continue
         if status != 200 or not resp or "id" not in resp:
             # 409 ⇒ this album's draft already exists (a prior run created it but failed to stamp);
             # do NOT duplicate. status 0 / 5xx ⇒ transient; retry next run. Either way leave checked.
@@ -756,7 +796,7 @@ def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) 
     if orphans:
         log.warning("%d draft file(s) matched no memo — kept on disk, no draft: %s",
                     len(orphans), ", ".join(orphans))
-    return {"created": created, "grown": grown, "skipped": skipped}
+    return {"created": created, "grown": grown, "skipped": skipped, "denied": denied}
 
 
 # --- orchestration --------------------------------------------------------
@@ -824,7 +864,7 @@ def main() -> None:
         log.warning("prompt is %d chars (> %d) across %d memo(s) — check for over-checked memos",
                     len(prompt), PROMPT_SIZE_WARN_CHARS, n_memos)
     t0 = time.monotonic()
-    res = run_claude(prompt)
+    res = run_claude_with_retry(prompt)
     dt = time.monotonic() - t0
 
     files = parse_payload(res["result"])
@@ -865,8 +905,17 @@ def main() -> None:
         log.error("draft delivery error (%s) — draft files were written and remain the backup",
                   type(e).__name__)
         return
-    log.info("draft delivery: %d draft(s) created, %d memo(s) grown, %d skipped/failed",
-             len(summary["created"]), summary["grown"], len(summary["skipped"]))
+    log.info("draft delivery: %d draft(s) created, %d memo(s) grown, %d skipped/failed, %d DENIED",
+             len(summary["created"]), summary["grown"], len(summary["skipped"]),
+             len(summary["denied"]))
+    if summary["denied"]:
+        # Everything is already written to disk, so exiting non-zero costs nothing and is the only
+        # signal that reaches outside the log: `launchctl list` reports the exit status, and until
+        # now a permanently-rejected draft still exited 0 and read as a healthy run.
+        log.error("EXITING NON-ZERO: %d draft(s) were generated tonight and permanently rejected on "
+                  "delivery. They exist only as files under %s/. Fix the job's identity.",
+                  len(summary["denied"]), _output_reldir())
+        sys.exit(2)
 
 
 if __name__ == "__main__":
