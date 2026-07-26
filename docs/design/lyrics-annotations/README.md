@@ -25,11 +25,12 @@ owner-only (hard rule 5). This is the visual half of the record; the mechanism l
 From ROSALÍA *LUX*, 13 tracks with synced lyrics, 103 annotations measured (`tools/genius_anchor.py`):
 
 - **An annotation covers a RANGE, not a line.** Median 2 lines, mean 2.3, 1 in 6 covers 4 or more,
-  longest 12. "One line, one marker" is the wrong mental model — the RFC's phrase "inline per-line
-  layer" understates it.
-- **94.7% of lyric-bound annotations can be placed**, not 74.7%. The lower figure excludes `repeated`
-  (20%), which are chorus passages whose location *is* known; rendering them on the first occurrence
-  and admitting the repeat is the intended handling.
+  longest 12. "One line, one marker" is the wrong mental model — the RFC used to say "inline per-line
+  layer", which understated it; §6.6 has since been corrected to say *range*.
+- **94.7% of lyric-bound annotations can be placed** (90 of 95); **74.7%** (71 of 95) resolve to a
+  single unambiguous span. The gap is `repeated` (19, 20%) — chorus passages whose location *is*
+  known; rendering them on the first occurrence and admitting the repeat is the intended handling.
+  Both figures are correct and share the 95 lyric-bound denominator — quote them together.
 - **Marker density is ~1 line in 3** — 201 of 590 lines across the album. Per track it ranges from
   9.5% to 64.7%, so every design was checked against both ends.
 - **Overlap is a non-problem.** 3 of 201 marked lines are claimed by two annotations, never three.

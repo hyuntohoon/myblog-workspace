@@ -4,6 +4,8 @@
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
 - **Last investigated**: 2026-07-25 (deep investigation session — supersedes the morning capture)
+- **Last updated**: 2026-07-26 — §6.6 rewritten: anchoring is measured, not pending; an annotation
+  spans a **range**, not a line. Visual direction chosen → `docs/design/lyrics-annotations/README.md`
 - **Plan row**: `plan.md` → FEAT-lyrics-annotations (Backlog)
 
 > **How to read this document.** The 2026-07-25 morning session wrote a capture from a brainstorm.
@@ -460,18 +462,85 @@ and the public review page's tracklist, all reading `GET /api/music/albums/{id}`
 terraform apply**. One contract change reaches every screen an album appears on. The lyrics sheet by
 comparison is owner-only and reachable for just 1,921 renderable tracks.
 
-### 6.6 The lyrics-viewer sub-thread (the original ask) — still gated on one number
+### 6.6 The lyrics-viewer sub-thread (the original ask) — measured 2026-07-26, clears the bar
 
-Anchoring feasibility has **not** been measured and must be before any schema or UI exists. Genius
-fragments are offsets into Genius's lyric text; our segments come from `parse_lrc(lyric_synced)` via
-LRCLIB and will not be byte-identical. **1,565 of 1,686 renderable rows (92.8%) carry `lyric_synced`**,
-and `normalize_lyrics` (`lyrics_service.py:176-184`) derives segments from the synced text, **not** from
-`lyric_plain` — so the measurement must target synced segments, not plain text.
+Anchoring feasibility was the open gate in the 2026-07-25 draft. It has since been **measured** by
+`tools/genius_anchor.py` against ROSALÍA *LUX*, and the tiers below resolve in favour of the in-text
+layer. What remains open is Korean *coverage*, not anchoring feasibility.
 
-Tiers: ≥70% of fragments resolving to a unique segment (median ≥60%/track) ⇒ inline per-line layer;
-40–70% ⇒ hybrid with an unanchored drawer; <40% ⇒ song-level panel only. Report KR and non-KR
-separately. Anchor at **read time** in `lyrics_service`, not stored — a later LRCLIB re-match would
-silently invalidate stored offsets.
+**The measurement.** 15 tracks, 13 carrying `lyric_synced`, 103 annotations on those 13:
+
+| Status | Count | Share of lyric-bound |
+|---|---|---|
+| `unique` + `partial` — resolved to one span | 71 | **74.7%** |
+| `repeated` — several occurrences (a chorus) | 19 | 20.0% |
+| `unmatched` — genuinely absent from our text | 5 | 5.3% |
+| `section` — `[Verso 1]` style markers, never lyric-bound | 8 | (excluded from the denominator) |
+
+**Denominators, because these two numbers get quoted against each other as if they disagreed.** Every
+percentage above is over **95 lyric-bound** annotations (103 minus the 8 section markers). Over all 103
+the unmatched share is **4.9%** — the same 5 rows, a different denominator. Median per-track placed rate
+is 75.0%.
+
+**94.7% is the number that decides the UI; 74.7% is the number that describes the matcher.** `repeated`
+is not a failure — those are chorus passages whose location *is* known, found in several places rather
+than none. Rendering on the first occurrence and stating the repeat is the intended handling, so
+71 + 19 = **90 of 95 (94.7%) are placeable**. Quoting 74.7% alone reads as a far weaker result than the
+data supports; quoting 94.7% alone hides that a fifth of annotations need repeat handling. Quote both,
+with their denominators.
+
+**An annotation covers a range, not a line.** Median 2 lines, mean 2.3, one in six covers 4 or more,
+longest 12. The phrase this section previously used — *inline per-line layer* — understates the shape
+and points at the wrong UI: a per-line marker cannot express a 12-line span. Overlap, by contrast, is a
+non-problem: 3 of 201 marked lines are claimed by two annotations and never by three, so no stacking
+system is needed. Marker density is roughly 1 line in 3 (201 of 590 lines album-wide), ranging 9.5% to
+64.7% per track — and the chosen visual direction's own author records that it is weakest at the dense
+end (`docs/design/lyrics-annotations/README.md`).
+
+**How it matches, and why nothing is stored.** Genius fragments are offsets into Genius's lyric text;
+our segments come from `parse_lrc(lyric_synced)` via LRCLIB and are not byte-identical — LRC breaks
+lines where the vocal breathes, Genius where the sentence ends. **1,565 of 1,686 renderable rows (92.8%)
+carry `lyric_synced`**, and `normalize_lyrics` (`lyrics_service.py:176-184`) derives segments from the
+synced text, **not** from `lyric_plain`, so anchoring targets synced segments. Line-to-line comparison
+scores 33% — a matcher artifact, not a property of the data (§9; NOTES §1.6). The tool drops line
+boundaries instead: concatenate every segment into one normalized string while remembering which
+segment each character came from, find the fragment as a plain substring, then map the matched span
+back to `(start_segment, end_segment)`.
+
+Anchoring is a **pure function over the current lyric text, never stored**. Stored offsets would rot the
+first time `lyrics_reassessment` re-matches a track against a different LRCLIB upload; recomputing costs
+microseconds and self-heals. It also means the annotation store does not depend on lyrics existing at
+all — a track with no lyrics yields an empty anchor list rather than an error, which is what lets the
+annotation feature ship independently of the lyrics viewer.
+
+**Tier decision — recorded, now closed.** ≥70% ⇒ in-text layer; 40–70% ⇒ hybrid with an unanchored
+drawer; <40% ⇒ song-level panel only. At 94.7% located and 74.7% unambiguous, **the in-text layer is the
+decision**, with the drawer retained for the unmatched remainder rather than as the primary surface.
+
+**Still open: Korean.** *LUX* is one non-Korean album. §6.2 measured 0/8 Korean tracks with ≥3 annotated
+lines, so the Korean risk is almost certainly *coverage* — whether there are annotations to anchor at
+all — rather than the anchoring rate. A six-album KR/EN regression is scheduled for **2026-07-29**
+(`~/.claude/scheduled-tasks/genius-anchor-multi-album-test/`). **Report coverage count and anchoring rate
+as separate numbers**: conflated, an absence of input will read as an anchoring failure.
+
+**Where it renders.** `myblog_front/src/components/member/lyrics/LyricsSheet.tsx` — the static reader,
+**not** `LyricsViewer.tsx`. The sheet renders each line as a `<p>` and already keys on the server segment
+index (`s.i`) that anchors are expressed in; the viewer wraps every line in a `<button>`, so an
+interactive marker inside a line would be invalid nested content, and it caches per-line pixel offsets
+that an async annotation load would silently invalidate. Full reasoning and the chosen visual direction:
+`docs/design/lyrics-annotations/README.md`.
+
+**Reproducing.** `python3 tools/genius_anchor.py --self-test` needs no DB and no network (PASS as of
+2026-07-26). The album measurement needs both a prod `DATABASE_URL` (SSM `/myblog/backend`, read-only)
+and a collected Genius payload:
+
+```bash
+python3 tools/genius_anchor.py --album-id <album-uuid> --genius-json <payload.json>
+```
+
+The *LUX* payload lived in the 2026-07-25 session scratchpad and **was not preserved**; re-collecting it
+is 45 API calls and ~25 seconds (§6.3). The table above is carried from that run. R0's `tools/genius_probe.py`
+should write its payload somewhere durable so the next re-measure does not start by re-fetching.
 
 Placement warning: `get_normalized` early-returns at `:229-233` (`if out.availability != "ok"`) before
 `attach_translation`. Anything attached there is invisible for `not_found` tracks, so the metadata block
