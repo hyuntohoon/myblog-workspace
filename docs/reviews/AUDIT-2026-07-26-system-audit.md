@@ -25,7 +25,9 @@ find the first row in the checklist that is not `DONE`, and continue from there.
 | F | Necessity-gate pass — refute every candidate finding, drop unproven ones | **DONE** — D-1 and A-2 adversarially verified; 8 candidates dropped with reasons recorded | §6 |
 | G | Final write-up + plan.md candidate rows + owner feedback questions | **DONE** — 12 findings, 7 owner questions. plan.md rows deliberately NOT added (owner decides scope first) | §6, §7 |
 
-**AUDIT COMPLETE.** All legs done. If a resume trigger fires after this point, do not restart — either stop, or do the optional deepening listed under leg E (authed surface) and §6 "What this audit did NOT cover".
+| H | **Deepening pass** — adversarially refute recorded findings + sweep the not-covered areas (fired by the 5 h resume trigger, ~09:20 KST) | **DONE** — 6 findings upgraded to production-verified, 0 overturned, 1 new (E-5); authed surface swept | §6b |
+
+**AUDIT COMPLETE — including the deepening pass.** Nothing is left to resume. If another trigger fires, **stop and do nothing.** The only remaining gaps are listed in §6b "Still not covered, even after deepening" — a CVE scan (blocked by network here), load testing, a DB data-quality audit, and Terraform state — none of which are resumable from this ledger without a new owner decision.
 
 **Raw agent output / intermediate notes**: `docs/reviews/audit-2026-07-26-raw/`
 
@@ -277,6 +279,18 @@ Swept 2026-07-26 ~02:45–03:00 KST at 1440×900 desktop and 390×844×3 mobile+
 - **Failure scenario**: a speech-input user saying "click Reality Awaits 07.24 발매" — or any voice-control matcher that requires the visible label to be a prefix/substring of the accessible name — cannot activate the card.
 - **Why it isn't already handled**: this is the *only* accessibility rule that fails on the page; the Accessibility category still scores 100 because this rule is not weighted into that score. It will not be caught by a score check.
 
+### E-5: `/write/` — the owner-only editor — renders in full for any logged-in member, publish buttons and all
+
+_(found in the deepening pass, 2026-07-26 ~09:30 KST, using a minted non-owner member token)_
+
+- **Severity**: P2 — **not** a security breach (the backend fails closed, verified below), but a real UX defect and a gap in a pattern the codebase otherwise applies consistently.
+- **Where**: `src/pages/write.astro` → `src/components/writer/WriterApp.tsx`
+- **Observed**: navigating to `https://www.ratemymusic.blog/write/` as a **non-owner member** (`sub a4f83dcc…`, ≠ `OWNER_SUB 0468fd3c…`) renders the complete authoring surface: 작성 / 미리보기 / 임시저장 / **발행**, the 임시 저장함 inbox, and the full 발행 설정 panel with sections, review tags, and the entire 13-branch subgenre taxonomy with counts. The only indication anything is wrong is a single silent console line: `GET /api/posts?status=draft → 403`.
+- **Why this is a gap and not a decision**: the frontend already has an owner-gating helper, `isOwnerUser()` from `@lib/owner`, and applies it in `TodaySongBuckit.tsx:80`, `ReleaseRadar.tsx:153`, and `SelfDashboard.tsx:97`. `write.astro` and `WriterApp.tsx` contain **no owner check at all** (the sole `owner` match in `WriterApp.tsx:25` is an unrelated design-decision comment). The authoring surface was simply missed by the pattern.
+- **Secondary**: `DraftsInbox.tsx` has **no 403 or error handling** — the 403 renders as a normal empty drafts list, not as "권한 없음".
+- **Failure scenario**: Cognito self-signup is enabled, so any member can reach `/write/`. They compose a full review, press 발행, and the backend correctly 403s — after they have done all the work, with no prior signal that they were never permitted to publish.
+- **Explicitly ruled out**: no data risk. `POST /api/posts` is `require_owner` and returns 403 for this token (probed live). Nothing a member does here can be saved.
+
 ### Checked and clean (live, logged-out)
 
 - **Console**: zero `error` and zero `warn` messages on `/`, `/reviews/`, `/genres/`, `/canon/`, `/collection/`, `/artist/<id>/`. This is unusually clean.
@@ -297,7 +311,7 @@ Swept 2026-07-26 ~02:45–03:00 KST at 1440×900 desktop and 390×844×3 mobile+
 
 ## 6. Necessity-gate verdicts
 
-**12 findings adopted across 5 legs.** Roughly as many candidates were dropped for failing the bar.
+**13 findings adopted** (12 in the main run + E-5 from the deepening pass). Roughly as many candidates were dropped for failing the bar. After the deepening pass in §6b, **every finding below is either directly measured on production or independently verified — none rests on a single unchecked inference.**
 
 | ID | Sev | One-line | Leg |
 |----|-----|----------|-----|
@@ -313,6 +327,7 @@ Swept 2026-07-26 ~02:45–03:00 KST at 1440×900 desktop and 390×844×3 mobile+
 | **D-3** | P2 | A workflow documented as dead is still enabled and has failed every run for 3 weeks | ci |
 | **E-2** | P2 | Public collection page bylines a raw Cognito-sub fragment as a display name | front/live |
 | **E-4** | P2 | 8 homepage album buttons fail WCAG 2.5.3 "Label in Name" | front/live |
+| **E-5** | P2 | `/write/` owner-only editor renders in full for any member, publish buttons included (no data risk — backend fails closed) | front/live |
 
 ### Adversarial verification (leg F)
 
@@ -338,6 +353,45 @@ Recording these matters as much as the findings — under a necessity gate, "we 
 - **Duplicate "ICEMAN" in Drake's discography** — real, but it is catalog release-noise already owned by the tracked `DATA-release-noise` workstream. Not re-reported.
 - **3-night nightly gap (07-21…07-23)** — real, but it is the already-documented 07-20 reboot incident. Not re-reported.
 - **`auth.py` twin differs by ~108 lines** — structural, not behavioural; backend factors out `verify_token()` for its `edge_guard`, music has no edge layer. Both fail closed on all three config gates. Dropped.
+
+---
+
+## 6b. Deepening pass (2026-07-26 ~09:20–09:45 KST, fired by the 5 h resume trigger)
+
+All 7 checklist rows were already DONE, so per the trigger's instruction this was a **refutation + gap-sweep** pass rather than new discovery. It produced **one new finding (E-5)**, **upgraded six findings from "inferred" to "verified on production"**, and **overturned nothing**.
+
+### Findings that survived direct attack
+
+| ID | How it was attacked | Result |
+|----|---------------------|--------|
+| **D-1** | Minted the actual smoke token and decoded it | **PROVEN, not inferred.** Smoke `sub = a4f83dcc-0071-703c-e2e6-7864735d2e20`; prod `OWNER_SUB = 0468fd3c-201…`. They differ. Then probed live: `GET /api/posts → 403`, `GET /api/todays-pick/queue → 403` with that exact token. The 403 in the nightly log is reproduced end to end. |
+| **A-3** | Probed production directly (unauthenticated GET) | **CONFIRMED, and sharper than reported.** `/api/research/albums/not-a-uuid → 500`; the *same route* with a well-formed but absent uuid → **404**. So the 500 is purely the id-parse failure, and it is reachable with no credentials at all. |
+| **A-5** | `aws lambda get-function-configuration musicApi` | **CONFIRMED exactly.** `QUEUE_NAME=blogSQS` present, `SQS_QUEUE_URL` **absent**. |
+| **A-1** | Re-read the call chain independently of leg A | **CONFIRMED, and strengthened.** `handler.py:179` `with SessionLocal() as session, session.begin():` wraps the whole `sync_albums_batch`, and `sync_service.py:251-252` calls `enrich_artists(self.conn, …)` inside it. Decisive corroboration: `_run_isrc_backfill` **in the same file** carries the comment *"No handler-owned session.begin(): … Wrapping this in session.begin() would…"* — the codebase knows the correct pattern and this path is the exception. |
+| **A-4** | Looked for the project's own day-boundary convention | **CONFIRMED, and it violates an explicit written rule.** `release_feed.py:36-41` states *"Day boundary is KST wall-clock (site convention; DB stores UTC)"* and implements `datetime.now(_KST).date()`, naming **09:00 KST** as the rollover. `todays_pick_service.py:36,176` uses Postgres `func.current_date()` (UTC). The 00:00–09:00 KST harm window is exactly as described. |
+| **A-2** | Re-ran the construction through PyYAML (leg F) | **CONFIRMED**, needs both `'` and `"`. |
+
+### Severity NOT raised (attacks that failed to make things worse)
+
+- **A-3 does not leak internals.** The 500 body is the literal string `Internal Server Error` (`content-type: text/plain`) — no traceback, no SQL, no schema. Stays P2.
+- **A-1 has still never fired.** Re-checked: all queues and both DLQs at 0. Latent, not active.
+
+### Gap sweep — authenticated surface (previously "NOT covered")
+
+Swept read-only with a minted non-owner member token. **No write action was performed.**
+
+- **Multi-user row-scoping genuinely isolates.** The single most important thing to check in a system that recently went multi-user: a non-owner member calling `/api/library/stream-history/clock`, `/stream-history/top-artists`, `/api/me/release-feed`, and `/api/integrations` gets **empty results across the board** — none of the owner's listening history, feed, or integrations leaks. Verified against live prod.
+- **A false alarm was chased down and dismissed.** `/api/library/stream-history/clock` returned **200** to a non-owner, which looked like an auth bypass. Reading `library.py:520-528` shows it takes `member_id: uuid.UUID = Depends(provisioned_member_id)` and queries `user_id=member_id` — a correctly row-scoped **member** route by design. The `require_owner` at `library.py:545` belongs to `POST /saved-tracks/classify`. **Not a finding.**
+- **`/members/` and `/radar/` are clean when authed** — header flips to LOGOUT, the POCKET tray mounts, both render written empty states, **zero console errors, no horizontal overflow**.
+- **`/write/` is the exception** → E-5 above.
+
+### Still not covered, even after deepening
+
+- **Dependency / CVE scan — attempted and blocked.** `pnpm audit` could not reach `registry.npmjs.org` (`ETIMEDOUT` after 3 retries) from this environment. **Not verified either way**; worth running from a network that can reach the registry.
+- **No load or concurrency testing** — A-1's lock-contention path remains reasoned, not observed.
+- **No database-level data-quality audit** (orphan rows, constraint violations, duplicate catalog entries).
+- **No review of Terraform state** (only `.tf` source was read).
+- **Member-profile surfaces could not be meaningfully exercised**: `/api/members` is empty in prod (no member has rated an album yet), so `/members/[handle]` dashboards have no data to render. This is a data precondition, not a defect.
 
 ### What this audit did NOT cover
 
@@ -381,6 +435,12 @@ Stated so the clean verdicts aren't read as broader than they are:
    이미 죽은 경로로 문서화돼 있고 수동 절차가 대체했습니다. (a) 비활성화/삭제 / (b) 401 원인을 고쳐 되살리기.
    추천은 **(a)**. 지금은 정상 배포에 빨간 X만 붙이고 있어서, 진짜 실패를 놓치게 만듭니다.
 
-**7. 12건의 처리 순서 — 어떻게 갈까요?**
-   추천 순서: **D-1 → A-2 → E-1+E-3 → A-1 → 나머지 P2**.
+**7-a. E-5 — `/write/` 에디터가 일반 회원에게 다 열리는 문제 (심화 패스에서 추가 발견)**
+   데이터 위험은 없습니다(서버가 제대로 막습니다). 다만 회원이 평론을 다 쓰고 발행을 누른 뒤에야 막힙니다.
+   프론트에 이미 `isOwnerUser()`가 있고 다른 화면 3곳에는 적용돼 있으니, `/write/`에도 같은 걸 붙이면 됩니다.
+   (a) 오너 아니면 페이지 자체를 리다이렉트 / (b) 에디터는 두되 발행 버튼만 숨기기 / (c) 그대로 두기.
+   추천은 **(a)**.
+
+**7. 13건의 처리 순서 — 어떻게 갈까요?**
+   추천 순서: **D-1 → A-2 → E-1+E-3 → A-1 → 나머지 P2(E-5 포함)**.
    근거: D-1은 서비스의 존재 이유가 막혀 있고, A-2는 앨범 제목 하나로 전체 배포가 멈출 수 있으며, E-1/E-3은 모든 방문자가 매번 지불하고, A-1은 아직 터지지 않았지만(DLQ 0건) 터지면 조용히 DLQ로 샙니다.
