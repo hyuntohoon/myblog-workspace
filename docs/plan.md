@@ -64,12 +64,12 @@ _Shipped history lives in `git log` + `docs/archive/done/` (per-month digests + 
 ## 2026-07-26 감사 파생 작업 (P0/P1/P2)
 
 > Source: `docs/reviews/AUDIT-2026-07-26-system-audit.md` (merged ws #704, squash `9d4711c`). 21 findings; **all evidence stays in the report** — these rows are pointers, not summaries.
-> **Nothing has been implemented.** The report's §7 owner decisions are all still open, including the ordering.
+> **D-1 (the P0) was implemented and RESOLVED 2026-07-27** — dedicated nightly-agent identity + server-side grow, live e2e-verified; digest in `docs/archive/done/2026-07.md`, successor row in `## Later`. Everything else is unimplemented, and the report's §7 owner decisions remain open except the D-1 identity choice (option (b), dedicated service identity).
 > ⚠️ **Read §9 first.** The report's own re-review corrected **14 of its claims** and added 5 findings. Acting on a pre-§9 statement will mislead you — D-1's root cause and DEP-2's applicability were both overturned.
 
 **P0**
 
-- **FIX-nightly-draft-identity Phase B** (planned, trigger-gated — successor to audit D-1; **the P0 itself was RESOLVED 2026-07-27**) — the nightly job now runs as its own Cognito identity (`nightly-agent@ratemymusic.blog`), admitted draft-only on `POST /api/posts` with every editorial field coerced (backend #133/#134); `CHECKED_SQL` is owner-scoped with a counted foreign-memo PHASE-B TRIGGER (ws #716); grow-once works server-side via `POST /api/buckets/nightly-grow` with the acting user pinned to OWNER_SUB (backend #134, route ws #717, script cutover ws #718); delivery failures exit non-zero (2/3/4). **Live e2e verified 2026-07-27**: `1 draft(s) created, 1 memo(s) grown, 0 skipped/failed, 0 DENIED`, exit 0; DB shows the memo unchecked + post_id stamped + the post `status='draft'`. Phase B (multi-user: `posts` owner column, bucket-derived acting user, read-side scoping) builds when any RFC §4 trigger fires — watch `PHASE-B TRIGGER` in the nightly log. Design + amendments: `docs/rfcs/FIX-nightly-draft-identity.md` (§4, §6); agent runbook: `infra/README.md`.
+_(resolved — D-1/FIX-nightly-draft-delivery closed 2026-07-27; digest → `docs/archive/done/2026-07.md`; the trigger-gated Phase B successor row lives in `## Later`)_
 
 **P1**
 
@@ -107,7 +107,7 @@ _Shipped history lives in `git log` + `docs/archive/done/` (per-month digests + 
 
 ## Later (트리거 대기)
 
-_(empty — FEAT-genre-taxonomy discarded 2026-06-12, superseded by FEAT-genre-system, done + archived 2026-06-13)_
+- **FIX-nightly-draft-identity Phase B** (planned, trigger-gated — successor to audit D-1; **the P0 itself was RESOLVED 2026-07-27**) — the nightly job now runs as its own Cognito identity (`nightly-agent@ratemymusic.blog`), admitted draft-only on `POST /api/posts` with every editorial field coerced (backend #133/#134); `CHECKED_SQL` is owner-scoped with a counted foreign-memo PHASE-B TRIGGER (ws #716); grow-once works server-side via `POST /api/buckets/nightly-grow` with the acting user pinned to OWNER_SUB (backend #134, route ws #717, script cutover ws #718); delivery failures exit non-zero (2/3/4). **Live e2e verified 2026-07-27**: `1 draft(s) created, 1 memo(s) grown, 0 skipped/failed, 0 DENIED`, exit 0; DB shows the memo unchecked + post_id stamped + the post `status='draft'`. Phase B (multi-user: `posts` owner column, bucket-derived acting user, read-side scoping) builds when any RFC §4 trigger fires — watch `PHASE-B TRIGGER` in the nightly log. Design + amendments: `docs/rfcs/FIX-nightly-draft-identity.md` (§4, §6); agent runbook: `infra/README.md`.
 
 ---
 

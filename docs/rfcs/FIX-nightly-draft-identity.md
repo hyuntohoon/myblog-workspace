@@ -1,7 +1,9 @@
 # FIX-nightly-draft-identity: give the nightly job an identity that can create drafts
 
-- **Status**: in-progress — Phase A (promoted draft → accepted → in-progress on explicit owner
-  approval, 2026-07-27 "싹다 추천으로 ㄱ"; hard rule 5 satisfied). Amendments in §6.
+- **Status**: **Phase A done — shipped and live-verified 2026-07-27** (promoted draft → accepted →
+  in-progress → done same day on explicit owner approval; hard rule 5 satisfied). The RFC stays in
+  `docs/rfcs/` **dormant** because Phase B (§4) is planned and trigger-gated, not abandoned.
+  Amendments + the verification record in §6; completion digest in `docs/archive/done/2026-07.md`.
 - **Owner**: the owner
 - **Created**: 2026-07-27
 - **Plan row**: `plan.md` → FIX-nightly-draft-delivery (P0)
@@ -211,3 +213,10 @@ stays readable as the original design.
 4. **Operational runbook** for the agent account (rotation / kill switch / repoint / exit-code
    recovery) lives in `infra/README.md` → "Nightly draft agent"; the Cognito user and SSM param
    are recorded as out-of-IaC items there.
+5. **A-7 satisfied — live e2e, 2026-07-27 14:58 KST.** A manual full run of the shipped script
+   (launchd invokes the same file) produced the done-line verbatim and exit 0:
+   `draft delivery: 1 draft(s) created, 1 memo(s) grown, 0 skipped/failed, 0 DENIED`. DB after
+   (read-only check): the memo `prep_tonight=false` + `post_id` stamped, the post
+   `status='draft'` (The Strokes, post `5886620f…`), zero items still checked. A-S5's residual —
+   the launchd *trigger* itself — is unchanged from the weeks it has fired nightly; the next
+   naturally-checked memo exercises it end to end. **The P0 is closed.**

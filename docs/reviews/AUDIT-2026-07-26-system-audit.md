@@ -149,6 +149,12 @@ and plan.md-vs-reality are **still outstanding** — see the RESUME STATE table.
 
 ### D-1: The nightly Editor Buckit pipeline can write a review draft but cannot deliver it — it 403s, and has done so on the only night it ever had one
 
+> ✅ **RESOLVED 2026-07-27** (the only post-publication edit in this report): dedicated
+> `nightly-agent` Cognito identity + draft-only server coercion + server-side grow-once,
+> live e2e-verified (`1 created, 1 grown, 0/0`, exit 0). Design + amendments →
+> `docs/rfcs/FIX-nightly-draft-identity.md`; digest → `docs/archive/done/2026-07.md`.
+> The finding text below is preserved as written on 07-26.
+
 - **Severity**: **P0** — the flagship automation is broken end-to-end, and its failure is invisible from the outside.
 - **Observed state** (`~/Library/Logs/myblog-buckit-nightly.log`, run of 2026-07-25):
   ```
