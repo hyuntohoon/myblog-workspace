@@ -851,6 +851,72 @@ CREATE INDEX IF NOT EXISTS idx_track_lyrics_translations_pending
   WHERE status = 'requested' AND claimed_at IS NULL;
 
 -- =============================================================================
+-- Genius annotations — FEAT-lyrics-annotations Thread 1 (V49)
+-- Two track-scoped tables. Owner-only research data, same privacy bar as
+-- track_lyrics: stored but server-side only, never in a public/shared response.
+-- Genius has NO album-level object, so album facts derive from these rows and
+-- are never a source. RFC: docs/rfcs/FEAT-lyrics-annotations.md §6.9.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS track_genius_songs (
+  track_id         UUID        PRIMARY KEY REFERENCES tracks (id) ON DELETE CASCADE,
+  genius_song_id   BIGINT      NOT NULL,
+  genius_url       TEXT,
+  match_status     TEXT        NOT NULL,        -- matched | ambiguous | not_found
+  match_confidence REAL,                        -- per-row; a wrong match otherwise feeds wrong credits silently (§6.2)
+  genius_title     TEXT,                        -- what Genius thinks this track is
+  genius_artist    TEXT,
+  description      TEXT,
+  description_ko   TEXT,                        -- the body a reader sees is always Korean
+  annotation_count INTEGER,                     -- Genius's own count; exceeds stored rows by 1 per described track
+  credits          JSONB       NOT NULL DEFAULT '{}'::jsonb,   -- writers/producers/performances (language-independent)
+  relationships    JSONB       NOT NULL DEFAULT '{}'::jsonb,   -- interpolations/samples; writer drops `translations`
+  language         TEXT,                        -- stored, NOT trusted (one tag/song; LUX spans 11+)
+  fetched_at       TIMESTAMPTZ,
+  fetcher_version  TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_track_genius_songs_genius_song_id
+  ON track_genius_songs (genius_song_id);
+CREATE INDEX IF NOT EXISTS ix_track_genius_songs_match_status
+  ON track_genius_songs (match_status);
+
+-- genius_annotation_id is a NATURAL key from Genius, never generated here:
+-- plain BIGINT, no sequence. Re-fetch is ON CONFLICT DO UPDATE; bulk upserts
+-- sort by this key (row-lock deadlock avoidance).
+-- `fragment` is the anchor INPUT — resolved (start,end) segment offsets are
+-- NEVER stored (§6.6); they are recomputed per read and self-heal after a
+-- lyrics re-match. No FK to track_lyrics: the store works for tracks with no
+-- lyrics at all, which is what lets this ship independently of the viewer.
+CREATE TABLE IF NOT EXISTS track_genius_annotations (
+  genius_annotation_id    BIGINT      PRIMARY KEY,
+  track_id                UUID        NOT NULL REFERENCES tracks (id) ON DELETE CASCADE,
+  fragment                TEXT        NOT NULL,
+  referent_ordinal        INTEGER     NOT NULL,   -- document order within the Genius song
+  body_ko                 TEXT,
+  body_source             TEXT,
+  body_source_lang        TEXT,
+  body_source_fingerprint TEXT,                   -- staleness computed at READ time, never stored
+  translation_status      TEXT        NOT NULL DEFAULT 'pending',  -- pending | done | failed
+  translated_at           TIMESTAMPTZ,
+  translator_model        TEXT,
+  translator_version      TEXT,
+  votes_total             INTEGER     NOT NULL DEFAULT 0,   -- disputed styling only; NEVER an ORDER BY
+  is_verified             BOOLEAN     NOT NULL DEFAULT false,
+  state                   TEXT,
+  fetched_at              TIMESTAMPTZ,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- The read path is always "every annotation for one track", in referent order.
+CREATE INDEX IF NOT EXISTS ix_track_genius_annotations_track
+  ON track_genius_annotations (track_id, referent_ordinal);
+CREATE INDEX IF NOT EXISTS ix_track_genius_annotations_translation_status
+  ON track_genius_annotations (translation_status);
+
+-- =============================================================================
 -- Album Reviews — RYM-style public member reviews (V38; FEAT-multi-user-accounts Phase 1)
 -- One review per member per album: 0.5–5.0 half-step rating + optional comment.
 -- All reviews public (no visibility column). Aggregates computed LIVE at read
