@@ -57,19 +57,30 @@ Stage 2 Step 7 — in-app draft delivery (default ON; `--no-draft` opts out). Af
 files are written, the script ALSO creates one **draft** post per memo so the review draft lands
 in the `/write` '임시 저장함' inbox, not only a `docs/buckit/` file (owner decision 2026-06-18):
 
-  * It mints a short-lived Cognito JWT for the smoke/test user (`USER_AUTH`, password from Secrets
-    Manager `myblog/smoke`; the `scripts/smoke.py get_token` pattern) and calls
+  * It mints a short-lived Cognito JWT for the **nightly draft agent** (`USER_AUTH`, password from
+    SSM `/myblog/nightly-agent`; the `scripts/smoke.py get_token` pattern) and calls
     `POST /api/posts {status:'draft', …}` on the raw API Gateway. The password and the token are
-    NEVER logged. The job's ONLY new capability is **create-a-draft** — it never publishes
-    (`status` is hard-wired to `draft`) and makes no raw DB write (the read-only export connection
-    is untouched; every write goes through the authed API).
+    NEVER logged. FIX-nightly-draft-identity Phase A: this identity is **not** owner-equivalent —
+    `require_owner` still rejects it on all 38 owner routes, and `create_post` COERCES its posts to
+    `status='draft'` server-side. Draft-only is now enforced by the server, not only by this file.
+    No raw DB write (the read-only export connection is untouched; writes go through the authed API).
+  * **Owner-scoped input (A-4).** `CHECKED_SQL` filters `b.user_id = OWNER_SUB`. Buckets carry a
+    user; `posts` do not; this query used to filter by neither, so a second person's checked memo
+    would have become a post on the owner's blog. Foreign checked memos are counted and logged as a
+    PHASE-B TRIGGER rather than silently dropped.
   * Provenance (album_id / bucket / date) rides as a leading HTML comment in the draft `body_mdx`,
     NOT `Post.extra` — `WritePostRequest` is `extra='ignore'`, so an `extra` field would be silently
     dropped; the comment keeps this a single-repo, no-contract-change job. The draft carries NO
     `album_ids`, so it does NOT enter `post_albums` (the reviewed-set + this job's own exclusion
     source) — a nightly draft is not yet a published review.
-  * Grow-once: after a draft is created the script marks that memo grown — it stamps the new
-    `post_id` on the item AND clears `prep_tonight` in one PATCH. The `post_id` stamp durably
+  * Grow-once (CURRENTLY INERT — see below): the script marks the memo grown by stamping the new
+    `post_id` on the item AND clearing `prep_tonight` in one PATCH. That route is member-scoped
+    (`provisioned_member_id`), not owner-gated, so the draft agent gets 404 rather than 403 — it
+    owns no buckets. Forcing it open would mean resolving the acting user from something other than
+    the token, i.e. the impersonation path Phase A exists to avoid, so it is left alone. Effect: the
+    memo stays checked and the album is redrafted next night, where the album-unique slug makes the
+    POST 409 — safe and visible. The owner unchecking the memo after taking the draft ends it.
+    Automating this belongs to Phase B's bucket-derived ownership. The `post_id` stamp durably
     excludes the album next run (CHECKED_SQL filters `post_id IS NULL`), so even a lost
     `prep_tonight` clear or a crash between POST and PATCH does NOT re-create the draft — and the
     album-unique slug makes any re-POST 409 (rejected, never duplicated). A draft or PATCH failure
@@ -146,10 +157,13 @@ FILE_DELIM_RE = re.compile(r"^=====BUCKIT_FILE:\s*(.+?)\s*=*\s*$", re.MULTILINE)
 
 # --- Stage 2 Step 7: in-app draft delivery (authed API; the script is the only writer) ---
 BACKEND_AUTHED = "https://ld8pjw3mx4.execute-api.ap-northeast-2.amazonaws.com"  # raw API Gateway
-SMOKE_SECRET_ID = "/myblog/smoke"       # SSM SecureString param (MYBLOG_SMOKE_PASSWORD)
+# FIX-nightly-draft-identity Phase A: the job's own identity, not the smoke/test user.
+# The backend admits this sub via require_owner_or_draft_agent on POST /api/posts only,
+# and coerces its posts to status='draft' — it is not owner-equivalent.
+AGENT_SECRET_ID = "/myblog/nightly-agent"   # SSM SecureString (NIGHTLY_AGENT_EMAIL/_PASSWORD)
 COGNITO_REGION = "ap-northeast-2"
 COGNITO_CLIENT_ID = "68ccmcanfbvla9qbovnb9b18bt"
-DEFAULT_SMOKE_EMAIL = "test@ratemymusic.blog"
+DEFAULT_AGENT_EMAIL = "nightly-agent@ratemymusic.blog"
 DRAFT_SECTION = "Reviews"               # seeded section (reject-unknown); the nightly draft posts here
 HTTP_TIMEOUT_S = 30
 BODY_MDX_MAX = 32000                     # cap the model's draft before POST (oversize ⇒ 4xx re-fail)
@@ -238,7 +252,29 @@ JOIN albums a         ON a.id = i.album_id
 WHERE i.prep_tonight = true
   AND i.post_id IS NULL
   AND i.album_id NOT IN (SELECT album_id FROM post_albums)
+  AND b.user_id = %(owner_sub)s
 ORDER BY b.position, i.position;
+"""
+
+# FIX-nightly-draft-identity A-4. Buckets carry `user_id`; `posts` carry no user column at
+# all; this query used to filter by neither. So a second person checking a memo would have
+# produced a post on the OWNER's blog — dormant only because one person uses buckets, and
+# `users` already holds 4 rows with self-signup enabled. Scoping here makes that unreachable
+# rather than merely documented: a foreign memo is simply not selected.
+#
+# `review_buckets.user_id` stores the Cognito sub directly, so this needs no join.
+#
+# Counted, not silently dropped. A silently ignored memo is how this bug class hides; the
+# count below is the mechanical trigger for Phase B (multi-user), per the RFC.
+OWNER_SUB = "0468fd3c-2011-70f5-0681-b852ddaade41"
+
+FOREIGN_CHECKED_SQL = """
+SELECT count(*) AS n, count(DISTINCT b.user_id) AS users
+FROM review_bucket_items i
+JOIN review_buckets b ON b.id = i.bucket_id
+WHERE i.prep_tonight = true
+  AND i.post_id IS NULL
+  AND b.user_id <> %(owner_sub)s;
 """
 
 RESEARCH_SQL = """
@@ -265,9 +301,9 @@ GROUP BY album_id;
 """
 
 
-def _fetch_all(conn, sql):
+def _fetch_all(conn, sql, params=None):
     with conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute(sql, params)
         return cur.fetchall()
 
 
@@ -329,7 +365,18 @@ def export_checked_memos(conn) -> tuple[list[dict], str]:
     Returns (memos, context_markdown). The block IS the model's §3 input — it carries
     the verbatim memo (viewpoint), album facts, the done research note (facts), and recent
     listens, plus a suggested output filename per memo. The model gets no DB tool."""
-    rows = _fetch_all(conn, CHECKED_SQL)
+    rows = _fetch_all(conn, CHECKED_SQL, {"owner_sub": OWNER_SUB})
+    # Count what the owner-scope filter above excluded. Non-zero here is the RFC's Phase B
+    # trigger: somebody other than the owner is using the nightly pipeline, and posts still
+    # have no user column to land in.
+    foreign = _fetch_all(conn, FOREIGN_CHECKED_SQL, {"owner_sub": OWNER_SUB})[0]
+    if foreign["n"]:
+        log.warning(
+            "PHASE-B TRIGGER: %d checked memo(s) from %d non-owner user(s) were SKIPPED — "
+            "posts have no user column, so drafting them would publish someone else's memo to "
+            "the owner's blog. See docs/rfcs/FIX-nightly-draft-identity.md §4.",
+            foreign["n"], foreign["users"],
+        )
     research = _fetch_all(conn, RESEARCH_SQL)
     recency = _fetch_all(conn, RECENCY_SQL)
 
@@ -621,26 +668,35 @@ def write_summary_only(text: str) -> str:
     return path
 
 
-# --- Stage 2 Step 7: mint a smoke JWT + deliver each generated draft as a draft post --------
-def mint_smoke_token() -> str:
-    """Mint a short-lived (≈60-min) Cognito access token for the smoke/test user via USER_AUTH
-    (2-step), reading the password from Secrets Manager `myblog/smoke`. $0; the password and the
-    token are NEVER logged. (scripts/smoke.py get_token pattern.)
+# --- Stage 2 Step 7: mint the draft-agent JWT + deliver each generated draft as a draft post ----
+def mint_agent_token() -> str:
+    """Mint a short-lived (≈60-min) Cognito access token for the **nightly draft agent** via
+    USER_AUTH (2-step), reading its password from SSM `/myblog/nightly-agent`. $0; the password and
+    the token are NEVER logged. (scripts/smoke.py get_token pattern.)
 
-    Blast radius: in this single-user, no-per-user-scoping system the token is owner-equivalent —
-    it CAN publish/edit/delete any post. The draft-only / create-only limit is enforced by THIS code
-    (status hard-wired to 'draft'; no PUT/DELETE), not by the credential. The MYBLOG_SMOKE_PASSWORD
-    env override is dev-only — launchd sets no env var; never set it on the nightly job (a plaintext
-    pw in the process env is exposable via `ps e` / crash dumps)."""
+    FIX-nightly-draft-identity Phase A. This used to authenticate as the smoke/test user, whose
+    docstring claimed the token was "owner-equivalent in this single-user system". That stopped
+    being true on 2026-07-08 (backend 392dd50 owner-gated POST /api/posts), and every delivery has
+    failed 403 since. The job now has its own identity — nightly-agent@ratemymusic.blog, sub
+    64885d4c-00c1-7082-8c40-8cb1a31d8078 — which the backend admits via
+    `require_owner_or_draft_agent` on POST /api/posts and **nowhere else**.
+
+    Blast radius, and how it is bounded: this identity is NOT owner-equivalent. `require_owner`
+    still rejects it on all 38 owner routes, and `create_post` COERCES its posts to status='draft'
+    server-side, so it cannot publish even if this script asked it to. The draft-only limit is now
+    enforced by the server, not merely by this file — which is the point of the change.
+
+    The env override is dev-only — launchd sets no env var; never set it on the nightly job (a
+    plaintext pw in the process env is exposable via `ps e` / crash dumps)."""
     import boto3
 
     ssm = boto3.client("ssm", region_name=REGION)
-    secret = json.loads(ssm.get_parameter(Name=SMOKE_SECRET_ID, WithDecryption=True)["Parameter"]["Value"])
-    pw = os.environ.get("MYBLOG_SMOKE_PASSWORD") or secret.get("MYBLOG_SMOKE_PASSWORD")
-    email = (os.environ.get("MYBLOG_SMOKE_EMAIL")
-             or secret.get("MYBLOG_SMOKE_EMAIL") or DEFAULT_SMOKE_EMAIL)
+    secret = json.loads(ssm.get_parameter(Name=AGENT_SECRET_ID, WithDecryption=True)["Parameter"]["Value"])
+    pw = os.environ.get("NIGHTLY_AGENT_PASSWORD") or secret.get("NIGHTLY_AGENT_PASSWORD")
+    email = (os.environ.get("NIGHTLY_AGENT_EMAIL")
+             or secret.get("NIGHTLY_AGENT_EMAIL") or DEFAULT_AGENT_EMAIL)
     if not pw:
-        raise RuntimeError("smoke password missing (Secrets Manager myblog/smoke / MYBLOG_SMOKE_PASSWORD)")
+        raise RuntimeError(f"nightly-agent password missing (SSM {AGENT_SECRET_ID})")
     c = boto3.client("cognito-idp", region_name=COGNITO_REGION)
     r = c.initiate_auth(
         AuthFlow="USER_AUTH",
@@ -761,10 +817,11 @@ def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) 
                    "status": "draft", "category": DRAFT_SECTION}
         status, resp = _api("POST", "/api/posts", token, payload)
         if status in (401, 403):
-            # PERMANENT, not transient. The job authenticates as the smoke user (mint_smoke_token)
-            # and POST /api/posts is `require_owner` since 392dd50 (2026-07-08), so this recurs
-            # every night forever. Lumping it in with 409/5xx below is what let it go unnoticed for
-            # 17 days. Escalate, and make main() exit non-zero so launchd stops reporting success.
+            # PERMANENT, not transient. Since FIX-nightly-draft-identity Phase A the job holds
+            # its own identity (mint_agent_token) which the backend admits on this route, so a 403
+            # here now means that wiring broke — DRAFT_AGENT_SUB unset/mismatched in the Lambda
+            # env, or the guard reverted. Lumping it in with 409/5xx is what hid the original
+            # failure for 17 days. Escalate, and exit non-zero so launchd stops reporting success.
             log.error("draft REJECTED PERMANENTLY (album %s, status %s): %s — the nightly job "
                       "authenticates as the smoke user and this route is owner-gated. It will fail "
                       "identically every night until the job is given an owner-accepted identity. "
@@ -894,9 +951,9 @@ def main() -> None:
         log.info("--no-draft: skipping in-app draft delivery (draft files only)")
         return
     try:
-        token = mint_smoke_token()
+        token = mint_agent_token()
     except Exception as e:  # noqa: BLE001 — any mint failure ⇒ keep the files, skip drafts
-        log.error("draft delivery skipped — smoke token mint failed: %s; draft files were "
+        log.error("draft delivery skipped — agent token mint failed: %s; draft files were "
                   "written and remain the backup", str(e)[:300])  # message distinguishes AccessDenied
         return
     try:
