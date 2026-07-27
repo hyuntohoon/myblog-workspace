@@ -212,6 +212,10 @@ whole stanzas and the yellow stops being emphasis.
   defeats the reason the margin structure was chosen at all.
 - **Below the two-column breakpoint** there is no margin, so the note opens **inline directly under its
   own range**.
+- **In the shipped product only the inline form ever renders.** The host column is 320px docked and at
+  most 560px floating, so there is no margin for a commentary column to sit in — the "narrow" rule is
+  the only one that applies. The margin-column form remains the right answer if the sheet ever gets a
+  wide host, and that is the condition to re-check, not the breakpoint number.
 
 ### Dark theme
 
@@ -221,6 +225,21 @@ Not a token swap. The body ink is near-white and near-white on the highlight yel
 - **Invert the text to near-black only on lines the fill actually reaches** (12.4:1 after). Lines that
   never receive the fill — disputed, repeat echoes, section labels — keep the light ink.
 - A 1px rule needs a brighter tone on near-black than it does on white.
+
+Two things the implementation added to this rule, both found by measuring the built page:
+
+- **Naming the marked line is not enough.** `.lys-orig` and `.lys-ko` each set their own `color`, so
+  inverting the parent inherited to nothing: in dark mode the lyric sat on amber at **1.63:1** and the
+  Korean line at 1.73:1. The children have to be named, guarded by exactly the conditions where the
+  fill lands. After: **9.07:1 dark / 11.72:1 light** for the lyric, 5.77 / 6.37 for the Korean.
+- **Follow the site's toggle, not the OS.** This site switches on a `data-theme` attribute
+  (`@custom-variant dark` in `global.css`). A `prefers-color-scheme` media query looks correct only
+  while the OS and the toggle agree, and silently renders one theme's annotations on the other theme's
+  page when they diverge.
+
+Product note: the highlight is **not** Genius's `#FFF06A`. On this site's warm cream ground that hue
+screams; the fill is pulled toward the paper it sits on (`#f6e08a` light, `#d9b32b` dark). The *rules*
+above are the Genius direction's; only the hue is the product's.
 
 ### Still unverified
 
