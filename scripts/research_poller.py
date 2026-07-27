@@ -67,7 +67,9 @@ log = logging.getLogger("research_poller")
 REGION = "ap-northeast-2"
 SECRET_ID = "/myblog/backend"         # SSM SecureString param (holds DATABASE_URL)
 PROMPT_VERSION = "v2"                  # must match the vendored prompt below
-PROMPT_FILE = "album_research_v2.md"   # vendored beside this script (lines 1-98 of the doc)
+PROMPT_FILE = "album_research_v2.md"   # vendored copy of docs/editorial/album-research-prompt.md
+                                       # (its first 103 lines; keep the two byte-identical —
+                                       # the workspace doc stays canonical, this is the build copy)
 CLAUDE_MODEL = "opus"                  # bench winner = opus 4.8
 CLAUDE_TIMEOUT_S = 900                 # a run is 3-8 min; 15-min hard ceiling
 STALE_RUNNING = "20 minutes"          # crash-recovery re-claim window (a run is <=~10 min)
