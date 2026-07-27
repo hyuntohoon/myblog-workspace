@@ -38,6 +38,13 @@ resource "aws_lambda_function" "backend" {
       # (9488ed3c…) is stuck in FORCE_CHANGE_PASSWORD, so require_owner 403'd the
       # live admin on all owner-gated routes (buckets/library/posts) until repointed.
       OWNER_SUB            = "0468fd3c-2011-70f5-0681-b852ddaade41"
+      # FIX-nightly-draft-identity Phase A: the nightly draft agent
+      # (nightly-agent@ratemymusic.blog, created 2026-07-27). Accepted by
+      # require_owner_or_draft_agent on POST /api/posts ONLY — require_owner and
+      # its 38 routes are unchanged — and create_post coerces its posts to
+      # status='draft', so this identity cannot publish. Empty would mean "no
+      # agent" and degrade to owner-only; it is never a wildcard.
+      DRAFT_AGENT_SUB      = "64885d4c-00c1-7082-8c40-8cb1a31d8078"
       GITHUB_REPO_OWNER    = "hyuntohoon"
       GITHUB_REPO_NAME     = "myblog_front"
       GITHUB_REPO_BRANCH   = "main"
