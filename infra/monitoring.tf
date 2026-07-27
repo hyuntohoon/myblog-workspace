@@ -95,35 +95,23 @@ resource "aws_cloudwatch_metric_alarm" "dlq_messages" {
 # worker Lambda (target throttle / permission / delivery failure) — a failure mode
 # the Lambda "Errors" alarm above cannot see, because the function never ran.
 #
-# OPS-delivery-safety-gates Step 4: extended from 2 rules to ALL worker crons (audit
-# O-4 — 10 of ~12 rules were uncovered). Pairs with the worker-cron-dlq on-failure
-# destination (lambda.tf): FailedInvocations catches DELIVERY failures (never ran),
-# the DLQ catches HANDLER failures (ran and threw after retries) — together the full
-# async failure boundary.
+# OPS-delivery-safety-gates Step 4 extended coverage from 2 rules to all worker
+# crons — via a hand-maintained 12-entry map, which silently regressed to
+# 12-of-13 two days later when worker-isrc-backfill shipped (audit OPS-1).
+# OPS-safety-net-drift Step 1: the map is gone; the for_each below iterates the
+# aws_cloudwatch_event_rule.worker_cron resource map itself (eventbridge.tf), so
+# every worker cron gets this alarm by construction and a new cron cannot skip
+# it. Pairs with the worker-cron-dlq on-failure destination (lambda.tf):
+# FailedInvocations catches DELIVERY failures (never ran), the DLQ catches
+# HANDLER failures (ran and threw after retries) — together the full async
+# failure boundary.
 #
 # Cache-staleness (recent-albums / now-playing rows going stale) is intentionally NOT
 # covered: it is not a native CloudWatch metric and would need a custom-metric canary.
-locals {
-  worker_cron_rules = {
-    spotify_listening                = aws_cloudwatch_event_rule.spotify_listening.name
-    musicbrainz_alias                = aws_cloudwatch_event_rule.musicbrainz_alias.name
-    lastfm_recent_tracks             = aws_cloudwatch_event_rule.lastfm_recent_tracks.name
-    spotify_member_poll              = aws_cloudwatch_event_rule.spotify_member_poll.name
-    release_upcoming_mb              = aws_cloudwatch_event_rule.release_upcoming_mb.name
-    release_upcoming_itunes          = aws_cloudwatch_event_rule.release_upcoming_itunes.name
-    album_ingest                     = aws_cloudwatch_event_rule.album_ingest.name
-    spotify_saved_tracks_incremental = aws_cloudwatch_event_rule.spotify_saved_tracks_incremental.name
-    spotify_saved_tracks_full        = aws_cloudwatch_event_rule.spotify_saved_tracks_full.name
-    lyrics_incremental               = aws_cloudwatch_event_rule.lyrics_incremental.name
-    lyrics_reassessment              = aws_cloudwatch_event_rule.lyrics_reassessment.name
-    artist_photo_backfill            = aws_cloudwatch_event_rule.artist_photo_backfill.name
-  }
-}
-
 resource "aws_cloudwatch_metric_alarm" "cron_failed_invocations" {
-  for_each            = local.worker_cron_rules
-  alarm_name          = "${each.value}-failed-invocations"
-  alarm_description   = "EventBridge rule ${each.value} failed to invoke the worker Lambda"
+  for_each            = aws_cloudwatch_event_rule.worker_cron
+  alarm_name          = "${each.value.name}-failed-invocations"
+  alarm_description   = "EventBridge rule ${each.value.name} failed to invoke the worker Lambda"
   namespace           = "AWS/Events"
   metric_name         = "FailedInvocations"
   statistic           = "Sum"
@@ -135,7 +123,7 @@ resource "aws_cloudwatch_metric_alarm" "cron_failed_invocations" {
   alarm_actions       = [aws_sns_topic.alerts.arn]
 
   dimensions = {
-    RuleName = each.value
+    RuleName = each.value.name
   }
 }
 
