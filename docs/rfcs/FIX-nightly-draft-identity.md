@@ -1,10 +1,12 @@
 # FIX-nightly-draft-identity: give the nightly job an identity that can create drafts
 
 - **Status**: draft (**not yet accepted**; promotion is owner-only per hard rule 5)
-- **Owner**: 박지훈
+- **Owner**: the owner
 - **Created**: 2026-07-27
 - **Plan row**: `plan.md` → FIX-nightly-draft-delivery (P0)
-- **Direction chosen by the owner 2026-07-27**: option (b), a dedicated service identity — not owner credentials, not relaxing the gate.
+- **Owner decisions 2026-07-27**: option (b), a dedicated service identity — not the owner's own
+  login, not relaxing the gate. And: **fix narrowly now, widen to multi-user later, but write the
+  widening plan today.** Phase B below is that plan.
 
 ## 1. The problem, as of this morning
 
@@ -19,112 +21,153 @@ The nightly job generates a review draft and cannot deliver it. Verified on the 
 
 `scripts/buckit_nightly.py` authenticates as the **smoke user** (`mint_smoke_token`), and
 `POST /api/posts` is gated by `require_owner` (`myblog_backend/app/api/routes/posts.py:64`), which
-requires `sub == OWNER_SUB`. This is a regression introduced by backend `392dd50` (2026-07-08), not
-an unfinished feature — delivery worked on 06-23 and 07-05.
+requires `sub == OWNER_SUB`. This is a regression from backend `392dd50` (2026-07-08), not an
+unfinished feature — delivery worked on 06-23 and 07-05.
 
 Since ws #705 removed the hold gate, **every night with a checked memo now produces a draft**, so
-this fires nightly rather than twice in history. ws #709 made it loud (non-zero exit); it did not
-fix it.
+this fires nightly rather than twice in history. ws #709 made it loud; it did not fix it.
 
-## 2. Constraint that shapes the whole design
+## 2. The bigger problem the identity question exposed
 
-`require_owner` guards **38 routes** — editorial authoring, publish, delete, genre taxonomy, the
-owner's buckets/library/playback. Widening it to accept a second `sub` would hand the automation
-every one of those rights to solve a problem that needs exactly one: *create a draft*.
+The system is multi-user by intent — the owner deliberately did not lock this feature to one
+person. Measured against that intent, the pipeline is **half-converted**:
 
-**So `require_owner` is not modified.** It keeps its current shape and its current 38 call sites.
+| | user-aware? | evidence |
+|---|---|---|
+| Buckets and memos (the input) | **yes** | `review_buckets.user_id` |
+| Posts (the output) | **no** | `posts` has no user/author/owner column at all |
+| The nightly job in between | **no** | `CHECKED_SQL` never mentions `user_id` |
 
-Note also that `require_owner` lives **only in the backend**. `myblog_music/app/core/auth.py`
-exposes `require_cognito_token` and no owner gate, so CLAUDE.md's duplicated-guard twin-sweep rule
-does not apply to this change. The twin rule still applies to `require_cognito_token` itself, which
-this RFC does not touch.
+`CHECKED_SQL` selects every `prep_tonight` item in every bucket regardless of who owns it. So the
+moment a second person checks a memo, **their memo becomes a post on the owner's blog.** Nothing in
+the current code prevents this; it is dormant only because one person uses buckets.
 
-## 3. Design
+It is closer than it looks. `users` already holds **4 rows** and Cognito self-signup is enabled.
+Only bucket usage is single-person, and that is a habit, not a constraint.
 
-### 3.1 A second, narrower dependency — used on one route
+Useful for both phases: **`review_buckets.user_id` stores the Cognito `sub` directly** — the
+owner's bucket rows carry `0468fd3c-2011-70f5-0681-b852ddaade41`, identical to `OWNER_SUB` in
+`infra/lambda.tf:40`. No join or mapping table is needed to scope by user.
+
+## 3. Phase A — narrow fix, now
+
+Goal: drafts reach the blog, and the hazard in §2 is **made unreachable rather than merely
+documented**.
+
+### A-1. `require_owner` is not modified
+
+It guards **38 routes** — authoring, publish, delete, genre taxonomy, the owner's
+buckets/library/playback. Widening it to accept a second `sub` would grant the automation every one
+of them to solve a problem that needs exactly one: create a draft. It keeps its current shape and
+its 38 call sites.
+
+`require_owner` lives **only in the backend**; `myblog_music/app/core/auth.py` has
+`require_cognito_token` and no owner gate, so CLAUDE.md's duplicated-guard twin sweep does not
+apply here. Recorded so a later reader does not think it was skipped.
+
+### A-2. A second, narrower dependency on one route
 
 ```python
-# myblog_backend/app/core/auth.py — beside require_owner, not inside it
-def require_owner_or_draft_agent(
-    claims: Dict[str, Any] = Depends(require_cognito_token),
-) -> Dict[str, Any]:
+# beside require_owner, not inside it
+def require_owner_or_draft_agent(claims = Depends(require_cognito_token)) -> Dict[str, Any]:
     """Owner, or the nightly draft agent. Fail closed exactly like require_owner:
-    local/dev bypass, unset OWNER_SUB ⇒ 503, anything else ⇒ 403.
-    An unset DRAFT_AGENT_SUB simply means no agent exists — it must never widen access."""
+    local/dev bypass, unset OWNER_SUB => 503, anything else => 403.
+    An unset DRAFT_AGENT_SUB means no agent exists — it must never widen access."""
 ```
 
-Accept when `sub == OWNER_SUB`, or when `DRAFT_AGENT_SUB` is **non-empty** and `sub` equals it.
-An empty `DRAFT_AGENT_SUB` is not a wildcard; it degrades to owner-only.
+Used on `create_post` and on the grow-once `PATCH /api/buckets/{id}/items/{id}`. Nothing else.
 
-### 3.2 The agent cannot publish, structurally
+### A-3. The agent cannot publish, structurally
 
-Being allowed through the door is not the same as being allowed to publish. `WritePostRequest`
-carries `status`, so a bare route-level allow would let the agent create a **published** post.
+`WritePostRequest` carries `status`, so a route-level allow alone would let the agent create a
+**published** post. In `create_post`, when the caller is not the owner, **coerce** `status` to
+`draft` — do not merely validate. A validation branch can be bypassed by any future path that
+forgets to run it; a coercion cannot.
 
-In `create_post`, when the caller is not the owner, **coerce** `status` to `draft` — do not merely
-validate it. Coercion means a compromised or buggy agent cannot publish even if it asks to; a
-validation branch can be bypassed by any future code path that forgets to run it.
+### A-4. Scope the job to the owner's own buckets — the part that makes Phase A safe
 
-The same applies to any field that only the owner should set. `create_post` is the only route that
-gets this dependency; `PUT`/`DELETE`/publish keep `require_owner` untouched.
+Add to `CHECKED_SQL`:
 
-The follow-up `PATCH /api/buckets/{id}/items/{id}` (grow-once) is also owner-gated and also fails
-today. It is in scope: the same dependency, and no coercion is needed because the job only writes
-`prep_tonight` and `post_id`.
+```sql
+AND b.user_id = <OWNER_SUB>
+```
 
-### 3.3 Which identity
+This is the difference between deferring the hazard and removing it. Without it, Phase A ships an
+agent that can write posts *and* a query that will hand it other people's memos. With it, a second
+user's checked memo is simply not selected, and the failure mode becomes "their memo is ignored" —
+visible, harmless, and exactly the signal that Phase B is due.
 
-Two candidates. **Recommendation: a dedicated Cognito user.**
+The job must also **log and count** any `prep_tonight` item skipped for belonging to someone else.
+A silently ignored memo is how this class of bug hides; a counted one is a trigger.
 
-| | Dedicated Cognito user | Reuse the smoke user |
-|---|---|---|
-| New credential to manage | yes — one SSM entry | none, `/myblog/smoke` already exists |
-| Reads correctly in an audit log | yes — "the nightly agent created this" | no — test traffic and automation share a name |
-| CI smoke tests gain draft-create | no | yes, as a side effect |
-| Work | create user, set password in SSM, set env | set one env var |
+### A-5. Identity
 
-The smoke-user shortcut is genuinely cheaper and the coercion in §3.2 bounds it, but it conflates
-two identities in the audit trail for the sake of one SSM entry. Take the dedicated user.
+A **dedicated Cognito user**, over reusing the smoke user. The shortcut is cheaper and A-3 bounds
+it, but it merges test traffic and automation in the audit trail to save one SSM entry.
 
-Machine-to-machine (Cognito `client_credentials` + resource server + custom scope) is the textbook
-answer and is **rejected as disproportionate here**: it needs a new resource server, a new app
-client, Terraform, and a second token-minting path in the script, to protect one route that the
-coercion already pins to draft-only.
+Cognito machine-to-machine (`client_credentials` + resource server + custom scope) is the textbook
+answer and is **rejected as disproportionate**: a new resource server, app client, Terraform, and a
+second token-minting path, to protect one route the coercion already pins to draft-only.
 
-### 3.4 Wiring
-
-- `OWNER_SUB` is set as a literal in `infra/lambda.tf:40`. `DRAFT_AGENT_SUB` follows the same shape.
-- `scripts/buckit_nightly.py` `mint_smoke_token()` becomes `mint_agent_token()`, reading the agent
-  password from SSM instead of `/myblog/smoke`. Same USER_AUTH flow, same never-log discipline.
-
-## 4. Steps
+### A-6. Steps
 
 | ID | What | Where |
 |---|---|---|
-| **S1** | Create the Cognito user; password → SSM; record the `sub` | AWS console/CLI + SSM (owner or Claude with owner creds) |
-| **S2** | `DRAFT_AGENT_SUB` setting + `require_owner_or_draft_agent` + coercion in `create_post` + the bucket-item PATCH; unit tests incl. **empty-setting-must-not-widen** and **agent-cannot-publish** | `myblog_backend` |
-| **S3** | `DRAFT_AGENT_SUB` env on the backend Lambda; full `terraform plan`, stop on unexpected drift (hard rule 6) | `infra` |
-| **S4** | Point the nightly job at the agent identity | `scripts/buckit_nightly.py` |
-| **S5** | Verify on a real 03:00 cycle: a draft reaches `/write` 임시 저장함, exit code 0 | prod |
+| **A-S1** | Create the Cognito user; password to SSM; record its `sub` | AWS + SSM |
+| **A-S2** | `DRAFT_AGENT_SUB` setting, `require_owner_or_draft_agent`, the `status` coercion; tests incl. **empty-setting-must-not-widen** and **agent-cannot-publish** | `myblog_backend` |
+| **A-S3** | `DRAFT_AGENT_SUB` env on the backend Lambda; full `terraform plan`, stop on unexpected drift (hard rule 6) | `infra` |
+| **A-S4** | Owner-scope `CHECKED_SQL` + skip counter; point the job at the agent identity | `scripts/buckit_nightly.py` |
+| **A-S5** | Verify on a real 03:00 cycle | prod |
 
-S2 and S3 must land before S4, or the job breaks in a new way. S1 gates everything.
+A-S2 and A-S3 land before A-S4, or the job breaks in a new way. A-S1 gates everything.
 
-## 5. Verification that this actually closed
-
-Not "the code merged". The log line to look for on the next cycle:
+### A-7. Done means a log line, not a merge
 
 ```
 INFO draft delivery: 1 draft(s) created, 1 memo(s) grown, 0 skipped/failed, 0 DENIED
 ```
 
-and a non-zero exit **absent**. Until that appears, the P0 stays open.
+with no non-zero exit. Until that appears, the P0 stays open.
 
-## 6. Open questions
+## 4. Phase B — multi-user, planned now, built when triggered
 
-- **OQ1** — Does the agent need `PATCH /api/buckets/...` from day one? Without it the memo is never
-  marked grown, so the same album re-drafts every night. The album-unique slug makes the second POST
-  409, so it degrades safely, but it wastes a run nightly. §3.2 includes it; confirm.
-- **OQ2** — Should the drafts show a distinct author in `/write` so owner-written and agent-written
-  drafts are separable at a glance? Currently provenance rides as an HTML comment in `body_mdx`.
+### B-1. The trigger, stated so it cannot be argued about
+
+Phase B becomes due when **any** of these is true:
+
+1. A `review_buckets` row exists with a `user_id` other than `OWNER_SUB`.
+2. The A-4 skip counter logs a non-zero value on any night.
+3. The owner decides to offer nightly drafts as a member feature.
+
+(1) and (2) are mechanically checkable. (2) will fire first in practice, which is why A-4 counts
+instead of silently filtering.
+
+### B-2. What Phase B has to build
+
+- **`posts` gains an owner column.** This is the real work and the reason Phase B is not Phase A: a
+  migration in `myblog_shared_db`, backfilled to `OWNER_SUB` for existing rows, then threaded
+  through `PostService`, the write routes, and `/write`. Follow the established column-add rollout
+  order (migration → prod apply → service pin → contract → frontend).
+- **The agent acts on behalf of a user, never as one.** It must not become "an account that can
+  write anyone's posts". The narrow shape: the agent may create a draft **for user X only when the
+  source memo sits in a bucket owned by X**, and the server derives that owner **from the bucket,
+  never from the request body**. Otherwise the agent's identity becomes an impersonation primitive.
+- **Read-side scoping.** `/write` and the drafts inbox filter by owner, so members see their own
+  drafts and not each other's.
+- **Publishing stays out of scope.** Whether a member's review appears on the blog is a product
+  decision, not an auth one. Phase B ends at "the draft lands in the right person's inbox".
+
+### B-3. What Phase A deliberately does not prejudge
+
+Phase A adds no column, no impersonation path, and no member-visible behaviour. `DRAFT_AGENT_SUB`
+and the coercion survive into Phase B unchanged; only A-4's owner filter is replaced by
+per-bucket owner derivation. Nothing built in Phase A has to be undone.
+
+## 5. Open questions
+
+- **OQ1** — Phase A skips non-owner memos. Should it also *uncheck* them so the member gets a
+  signal, or leave them checked so Phase B picks them up later? Leaving them checked is proposed.
+- **OQ2** — Should agent-written drafts be visually separable in `/write`? Provenance currently
+  rides as an HTML comment in `body_mdx`.
 - **OQ3** — Does anything else authenticate as the smoke user and quietly depend on it *not* having
-  these rights? A grep of the deploy workflows before S4 would settle it.
+  draft-create rights? A grep of the deploy workflows settles it before A-S4.
