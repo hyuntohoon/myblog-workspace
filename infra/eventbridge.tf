@@ -237,6 +237,35 @@ locals {
       target_id    = "blogWorkerLambda-isrc-backfill"
       statement_id = "AllowInvokeFromEventBridgeIsrcBackfill"
     }
+
+    # Genius annotation fetch (FEAT-lyrics-annotations Thread 1). Selects tracks
+    # with matched lyrics and no Genius row, BUCKETED ALBUMS FIRST, and writes
+    # track_genius_songs + its track_genius_annotations in one transaction per
+    # track. Bounded by settings.GENIUS_FETCH_BATCH_LIMIT (15).
+    #
+    # HOURLY, sized from measurement rather than taste. One default batch on prod
+    # took 53.3s — 44% of the 120s Lambda timeout — at 15 tracks. Per-track cost
+    # swings with a song's referent pages (2.32s light, 4.55s annotation-heavy),
+    # so 15 is the worst-case fit, not the average.
+    #
+    # Why hourly rather than faster: 360 tracks/day drains the 635 bucketed
+    # tracks — the ones the lyrics sheet can actually open — in about two days,
+    # after which the schedule is only keeping up with new intake. The remaining
+    # ~11k trickle behind them. 45 Genius API calls an hour is polite for a
+    # third-party read API with unpublished limits; every 15 minutes would be 4×
+    # that permanently, to finish a backlog nobody is waiting on.
+    #
+    # :30 keeps it off the hour boundary the other crons cluster on.
+    # The manual blogSQS {"job":"genius_fetch"} message works either way, and an
+    # unset GENIUS_ACCESS_TOKEN makes the job a logged no-op rather than an error.
+    genius_fetch = {
+      name         = "worker-genius-fetch"
+      description  = "Hourly Genius annotation fetch (bucketed albums first, 15 tracks/run)"
+      schedule     = "cron(30 * * * ? *)"
+      input        = { job = "genius_fetch" }
+      target_id    = "blogWorkerLambda-genius-fetch"
+      statement_id = "AllowInvokeFromEventBridgeGeniusFetch"
+    }
   }
 }
 
