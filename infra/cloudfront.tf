@@ -54,12 +54,16 @@ resource "aws_cloudfront_distribution" "myblog" {
   http_version    = "http2"
   price_class     = "PriceClass_All"
   aliases         = [var.domain_name]
-  # No web_acl_id on purpose (OPS-safety-net-drift Step 2, owner call 2026-07-28):
-  # the console-created ACL here had RuleCount 0 + default Allow — a control in
-  # name only — so it was disassociated and deleted rather than kept as a false
-  # signal. Abuse exposure is bounded by Lambda reserved concurrency + Cognito on
-  # every mutation route. Check: aws wafv2 list-web-acls --scope CLOUDFRONT
-  # --region us-east-1 (must be empty; a new ACL here must come with real rules).
+  # OPS-safety-net-drift Step 2 (2026-07-28): this ACL is MANDATORY, not a
+  # control. The owner chose to delete it (RuleCount 0 + default Allow = a
+  # control in name only), but the apply was rejected by AWS: "Distributions
+  # with a pricing plan subscription must have a web ACL resource" — this
+  # distribution is on the CloudFront Free flat-rate pricing plan (see the
+  # FEAT-music-edge-cache note above), and that plan force-attaches an ACL.
+  # So the line below is a plan requirement; whether it carries real rules is
+  # a separate owner decision (RFC OQ2 follow-up). Do not read its presence
+  # as "we have a WAF".
+  web_acl_id = "arn:aws:wafv2:us-east-1:${var.account_id}:global/webacl/CreatedByCloudFront-72420c9a/02494b05-2403-41eb-8e1f-21b161bee794"
 
   tags = {
     Name = "myblog-prod-distribution"
