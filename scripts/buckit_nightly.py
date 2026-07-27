@@ -73,19 +73,20 @@ in the `/write` '임시 저장함' inbox, not only a `docs/buckit/` file (owner 
     dropped; the comment keeps this a single-repo, no-contract-change job. The draft carries NO
     `album_ids`, so it does NOT enter `post_albums` (the reviewed-set + this job's own exclusion
     source) — a nightly draft is not yet a published review.
-  * Grow-once (CURRENTLY INERT — see below): the script marks the memo grown by stamping the new
-    `post_id` on the item AND clearing `prep_tonight` in one PATCH. That route is member-scoped
-    (`provisioned_member_id`), not owner-gated, so the draft agent gets 404 rather than 403 — it
-    owns no buckets. Forcing it open would mean resolving the acting user from something other than
-    the token, i.e. the impersonation path Phase A exists to avoid, so it is left alone. Effect: the
-    memo stays checked and the album is redrafted next night, where the album-unique slug makes the
-    POST 409 — safe and visible. The owner unchecking the memo after taking the draft ends it.
-    Automating this belongs to Phase B's bucket-derived ownership. The `post_id` stamp durably
-    excludes the album next run (CHECKED_SQL filters `post_id IS NULL`), so even a lost
-    `prep_tonight` clear or a crash between POST and PATCH does NOT re-create the draft — and the
-    album-unique slug makes any re-POST 409 (rejected, never duplicated). A draft or PATCH failure
-    is non-fatal — the `docs/buckit/` file is the backup. The model still has NO tools; a
-    prompt-injection in a memo cannot redirect a write,
+  * Grow-once (server-side since backend #134): after a draft is created the script calls
+    `POST /api/buckets/nightly-grow {album_id, post_id}` — the backend stamps the post_id AND
+    clears `prep_tonight` on every one of the OWNER's checked items for that album, with the
+    acting user pinned server-side from OWNER_SUB (never from the request). The generic item
+    PATCH could not do this: it is member-scoped (`provisioned_member_id`) and the agent owns no
+    buckets, so it 404'd by design — and forcing it open would have meant resolving the acting
+    user from something other than the token, the impersonation path Phase A exists to avoid.
+    The `post_id` stamp durably excludes the album next run (CHECKED_SQL filters
+    `post_id IS NULL`); the album-unique slug makes any re-POST 409 (rejected, never
+    duplicated). Delivery failures keep the files (docs/buckit/ is the backup) but now EXIT
+    NON-ZERO — 2 = identity rejected, 3 = token mint / delivery infrastructure, 4 = draft
+    created but the memo is still checked (grow failed or a 409-stuck leftover) — because a
+    silent delivery skip is exactly how the 2026-07 403 hid for 17 days. The model still has NO
+    tools; a prompt-injection in a memo cannot redirect a write,
     because every write target (title, album_id, bucket/item ids) comes from the trusted DB export,
     never from the model's text (which only fills `body_mdx`, a draft that is never published).
 
@@ -277,13 +278,18 @@ WHERE i.prep_tonight = true
   AND b.user_id <> %(owner_sub)s;
 """
 
+# The candidate subqueries below mirror CHECKED_SQL's owner scope (A-4). They cannot leak —
+# their results only ever attach to memos CHECKED_SQL exported — but reading foreign users'
+# checked rows for nothing is exactly the kind of drift the owner filter exists to prevent.
 RESEARCH_SQL = """
 SELECT album_id, result_md, finished_at
 FROM album_research
 WHERE status = 'done' AND result_md IS NOT NULL
   AND album_id IN (
-        SELECT album_id FROM review_bucket_items
-        WHERE prep_tonight = true AND post_id IS NULL
+        SELECT i.album_id FROM review_bucket_items i
+        JOIN review_buckets b ON b.id = i.bucket_id
+        WHERE i.prep_tonight = true AND i.post_id IS NULL
+          AND b.user_id = %(owner_sub)s
   )
 ORDER BY finished_at DESC NULLS LAST;
 """
@@ -294,8 +300,10 @@ SELECT album_id,
        count(*) FILTER (WHERE played_at > now() - INTERVAL '{RECENT_DAYS} days') AS plays_recent
 FROM spotify_play_events
 WHERE album_id IN (
-        SELECT album_id FROM review_bucket_items
-        WHERE prep_tonight = true AND post_id IS NULL
+        SELECT i.album_id FROM review_bucket_items i
+        JOIN review_buckets b ON b.id = i.bucket_id
+        WHERE i.prep_tonight = true AND i.post_id IS NULL
+          AND b.user_id = %(owner_sub)s
   )
 GROUP BY album_id;
 """
@@ -377,8 +385,8 @@ def export_checked_memos(conn) -> tuple[list[dict], str]:
             "the owner's blog. See docs/rfcs/FIX-nightly-draft-identity.md §4.",
             foreign["n"], foreign["users"],
         )
-    research = _fetch_all(conn, RESEARCH_SQL)
-    recency = _fetch_all(conn, RECENCY_SQL)
+    research = _fetch_all(conn, RESEARCH_SQL, {"owner_sub": OWNER_SUB})
+    recency = _fetch_all(conn, RECENCY_SQL, {"owner_sub": OWNER_SUB})
 
     research_md: dict[str, str] = {}
     for r in research:  # newest finished_at first ⇒ keep the freshest note per album
@@ -679,7 +687,8 @@ def mint_agent_token() -> str:
     being true on 2026-07-08 (backend 392dd50 owner-gated POST /api/posts), and every delivery has
     failed 403 since. The job now has its own identity — nightly-agent@ratemymusic.blog, sub
     64885d4c-00c1-7082-8c40-8cb1a31d8078 — which the backend admits via
-    `require_owner_or_draft_agent` on POST /api/posts and **nowhere else**.
+    `require_owner_or_draft_agent` on POST /api/posts and the grow-once
+    POST /api/buckets/nightly-grow (backend #134), and **nowhere else**.
 
     Blast radius, and how it is bounded: this identity is NOT owner-equivalent. `require_owner`
     still rejects it on all 38 owner routes, and `create_post` COERCES its posts to status='draft'
@@ -714,8 +723,8 @@ def mint_agent_token() -> str:
 
 def _api(method: str, path: str, token: str, body: dict | None = None) -> tuple[int, dict | None]:
     """One authed JSON request to the raw API Gateway. The Bearer token skips edge_guard; BOTH
-    POST /api/posts and the bucket item PATCH are explicit Cognito-authorized routes (the smoke
-    token passes the API-GW authorizer / the backend's require_cognito_token). Returns
+    POST /api/posts and POST /api/buckets/nightly-grow are explicit Cognito-authorized routes (the
+    agent token passes the API-GW authorizer / the backend's require_cognito_token). Returns
     (status, parsed_body_or_None); **status 0 = a transport error** (DNS/connect/timeout), which the
     caller treats as a non-ok skip — so a Neon/Lambda cold-start at 03:00 can't crash the run.
     The token is NEVER logged; an HTTP error surfaces as its code + a short body."""
@@ -797,20 +806,31 @@ def _pair_files_to_memos(memos: list[dict],
 
 def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) -> dict:
     """Create one `status='draft'` post per memo whose draft was written, then mark that memo
-    GROWN: stamp the new post_id on the item AND clear prep_tonight, both in one PATCH. NEVER
-    publishes; makes no raw DB write (every write goes via the authed API). Drafts carry NO
-    album_ids → they never enter post_albums (the reviewed-set / exclusion source).
+    GROWN via the dedicated endpoint: `POST /api/buckets/nightly-grow {album_id, post_id}`
+    stamps the post_id AND clears prep_tonight on every one of the OWNER's checked items for
+    that album, server-side (backend #134; the acting user is pinned from the Lambda's
+    OWNER_SUB, never from this request). The generic item PATCH cannot do this — it is
+    member-scoped and the agent owns no buckets (404 by design). NEVER publishes; makes no raw
+    DB write. Drafts carry NO album_ids → they never enter post_albums (the reviewed-set /
+    exclusion source).
 
-    Durable grow-once (audit fix): stamping post_id excludes the album next run via CHECKED_SQL's
-    `post_id IS NULL`, so even a lost prep_tonight clear / a crash between POST and PATCH does NOT
-    re-create the draft — create+exclude are idempotent. The album-unique slug (see _draft_title)
-    means a re-POST after a stamp failure 409s (REJECTED, never duplicated). All non-2xx is
-    non-fatal: the docs/buckit file is the backup. Returns {created, grown, skipped}."""
+    Failure accounting — the buckets drive main()'s exit code:
+      * denied      — 401/403 on create: identity wiring broke (permanent) → exit 2.
+      * stuck       — 409 on create: a PRIOR run created this album's draft but its grow never
+        landed, so the memo is still checked and regenerates nightly. Recover with one
+        nightly-grow call using the post id from that run's "draft created: id=…" log line,
+        or uncheck the memo. → exit 4.
+      * grow_failed — created tonight but the grow call did not land; same consequence and
+        recovery as stuck. → exit 4.
+      * skipped     — transport error / 5xx: transient, retry next night → exit 0.
+    Returns {created, grown, skipped, denied, stuck, grow_failed}."""
     pairs, orphans = _pair_files_to_memos(memos, files)
     created: list[tuple[str, str]] = []
     grown = 0
     skipped: list[str] = []
-    denied: list[str] = []   # 401/403 — permanent auth rejection, never "retry next run"
+    denied: list[str] = []       # 401/403 — permanent auth rejection, never "retry next run"
+    stuck: list[str] = []        # 409 — draft exists from a prior run, its grow never landed
+    grow_failed: list[str] = []  # created tonight, but the grow call did not land
 
     for m, draft in pairs:
         payload = {"title": _draft_title(m), "body_mdx": _draft_body(m, draft),
@@ -818,20 +838,28 @@ def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) 
         status, resp = _api("POST", "/api/posts", token, payload)
         if status in (401, 403):
             # PERMANENT, not transient. Since FIX-nightly-draft-identity Phase A the job holds
-            # its own identity (mint_agent_token) which the backend admits on this route, so a 403
-            # here now means that wiring broke — DRAFT_AGENT_SUB unset/mismatched in the Lambda
-            # env, or the guard reverted. Lumping it in with 409/5xx is what hid the original
-            # failure for 17 days. Escalate, and exit non-zero so launchd stops reporting success.
-            log.error("draft REJECTED PERMANENTLY (album %s, status %s): %s — the nightly job "
-                      "authenticates as the smoke user and this route is owner-gated. It will fail "
-                      "identically every night until the job is given an owner-accepted identity. "
-                      "The file under docs/buckit/ is now the ONLY copy of this draft.",
+            # its own identity which the backend admits on this route, so a 401/403 here means
+            # the wiring broke — DRAFT_AGENT_SUB unset/mismatched in the Lambda env, the guard
+            # reverted, or the agent account disabled (see infra/README.md "Nightly draft
+            # agent"). Lumping it in with 409/5xx is what hid the original failure for 17 days.
+            log.error("draft REJECTED PERMANENTLY (album %s, status %s): %s — the agent identity "
+                      "was not accepted. It will fail identically every night until the wiring is "
+                      "fixed. The file under docs/buckit/ is now the ONLY copy of this draft.",
                       m["album_id"], status, str(resp)[:200])
             denied.append(m["album_id"])
             continue
+        if status == 409:
+            # A prior run created this album's draft but never stamped the memo (pre-#134 grow
+            # was inert, or a crash between create and grow). Tonight's generation was wasted
+            # and will be again tomorrow. Do NOT duplicate the draft; flag loudly, exit 4.
+            log.error("draft already exists but the memo is STUCK checked (album %s): %s — its "
+                      "grow never landed. Recover: POST /api/buckets/nightly-grow with the post "
+                      "id from the original 'draft created: id=…' log line, or uncheck the memo.",
+                      m["album_id"], str(resp)[:200])
+            stuck.append(m["album_id"])
+            continue
         if status != 200 or not resp or "id" not in resp:
-            # 409 ⇒ this album's draft already exists (a prior run created it but failed to stamp);
-            # do NOT duplicate. status 0 / 5xx ⇒ transient; retry next run. Either way leave checked.
+            # status 0 / 5xx ⇒ transient; retry next run. Leave checked.
             log.warning("draft not created (album %s, status %s): %s — memo left checked, file kept",
                         m["album_id"], status, str(resp)[:200])
             skipped.append(m["album_id"])
@@ -840,20 +868,30 @@ def deliver_drafts(memos: list[dict], files: list[tuple[str, str]], token: str) 
         created.append((post_id, payload["title"]))
         log.info("draft created: id=%s slug=%s title=%r (album %s)",
                  post_id, resp.get("slug"), payload["title"], m["album_id"])
-        for it in m.get("items", []):  # grow-once: post_id (durable exclude) + clear prep_tonight
-            ps, pb = _api("PATCH", f"/api/buckets/{it['bucket_id']}/items/{it['item_id']}",
-                          token, {"prep_tonight": False, "post_id": post_id})
-            if ps == 200:
-                grown += 1
-            else:
-                log.warning("grow PATCH failed (item %s, status %s): %s — post_id not stamped; memo "
-                            "stays checked but the album-unique slug makes next run 409-skip (no dup)",
-                            it["item_id"], ps, str(pb)[:160])
+        # Grow-once, server-side: ONE call per memo. Album-level — an album checked in two of
+        # the owner's buckets is stamped in both rows by the server (grown counts item rows).
+        gs, gb = _api("POST", "/api/buckets/nightly-grow", token,
+                      {"album_id": m["album_id"], "post_id": post_id})
+        n = gb.get("grown") if isinstance(gb, dict) else None
+        if gs == 200 and isinstance(n, int):
+            grown += n
+            if n == 0:
+                # Gate passed and the service ran, but no row matched — the memo was already
+                # stamped/unchecked (e.g. a concurrent manual run). Not a failure.
+                log.warning("grow matched 0 items (album %s) — memo already stamped/unchecked?",
+                            m["album_id"])
+        else:
+            log.error("grow FAILED (album %s, status %s): %s — post_id not stamped; the memo "
+                      "stays checked and tomorrow night regenerates + 409s. Recover with one "
+                      "nightly-grow call using post id %s, or uncheck the memo.",
+                      m["album_id"], gs, str(gb)[:160], post_id)
+            grow_failed.append(m["album_id"])
 
     if orphans:
         log.warning("%d draft file(s) matched no memo — kept on disk, no draft: %s",
                     len(orphans), ", ".join(orphans))
-    return {"created": created, "grown": grown, "skipped": skipped, "denied": denied}
+    return {"created": created, "grown": grown, "skipped": skipped, "denied": denied,
+            "stuck": stuck, "grow_failed": grow_failed}
 
 
 # --- orchestration --------------------------------------------------------
@@ -952,27 +990,38 @@ def main() -> None:
         return
     try:
         token = mint_agent_token()
-    except Exception as e:  # noqa: BLE001 — any mint failure ⇒ keep the files, skip drafts
-        log.error("draft delivery skipped — agent token mint failed: %s; draft files were "
+    except Exception as e:  # noqa: BLE001 — keep the files, but a mint failure is delivery-broken
+        log.error("draft delivery FAILED — agent token mint failed: %s; draft files were "
                   "written and remain the backup", str(e)[:300])  # message distinguishes AccessDenied
-        return
+        sys.exit(3)  # was exit 0 — a silent delivery skip is how the 2026-07 403 hid for 17 days
     try:
         summary = deliver_drafts(memos, files, token)
-    except Exception as e:  # noqa: BLE001 — never crash after files are written (token in frame locals)
+    except Exception as e:  # noqa: BLE001 — never crash-dump after files are written (token in frame locals)
         log.error("draft delivery error (%s) — draft files were written and remain the backup",
                   type(e).__name__)
-        return
+        sys.exit(3)
     log.info("draft delivery: %d draft(s) created, %d memo(s) grown, %d skipped/failed, %d DENIED",
-             len(summary["created"]), summary["grown"], len(summary["skipped"]),
+             len(summary["created"]), summary["grown"],
+             len(summary["skipped"]) + len(summary["stuck"]) + len(summary["grow_failed"]),
              len(summary["denied"]))
     if summary["denied"]:
         # Everything is already written to disk, so exiting non-zero costs nothing and is the only
         # signal that reaches outside the log: `launchctl list` reports the exit status, and until
-        # now a permanently-rejected draft still exited 0 and read as a healthy run.
+        # ws #709 a permanently-rejected draft still exited 0 and read as a healthy run.
         log.error("EXITING NON-ZERO: %d draft(s) were generated tonight and permanently rejected on "
-                  "delivery. They exist only as files under %s/. Fix the job's identity.",
+                  "delivery. They exist only as files under %s/. Fix the agent wiring.",
                   len(summary["denied"]), _output_reldir())
         sys.exit(2)
+    if summary["stuck"] or summary["grow_failed"]:
+        # The draft exists but its memo is still checked — tomorrow night regenerates it for
+        # nothing. Distinct exit code so `launchctl list` separates "identity broken" (2) from
+        # "grow didn't land" (4); per-album recovery lines are above.
+        log.error("EXITING NON-ZERO: %d memo(s) remain checked with their draft already created "
+                  "(stuck=%d, grow_failed=%d) — tomorrow night regenerates them for nothing. "
+                  "See the per-album recovery lines above.",
+                  len(summary["stuck"]) + len(summary["grow_failed"]),
+                  len(summary["stuck"]), len(summary["grow_failed"]))
+        sys.exit(4)
 
 
 if __name__ == "__main__":
