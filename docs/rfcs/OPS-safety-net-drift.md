@@ -1,7 +1,7 @@
 # OPS-safety-net-drift: controls that are documented as working but aren't
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: in-progress (promoted 2026-07-28, owner approval in session)
+- **Owner**: owner
 - **Created**: 2026-07-26
 - **Plan row**: `plan.md` → OPS-safety-net-drift
 - **Source**: `docs/reviews/AUDIT-2026-07-26-system-audit.md` §9.2 (OPS-1, SEC-1, SEC-2) + §8 (DEP-1)
@@ -70,7 +70,9 @@ Steps are **independent and individually mergeable**; they are ordered by ratio 
 
 ### Step 1 — derive the cron alarm map, and fix the stale row (P1, infra + docs)
 
-Replace `local.worker_cron_rules`' hand-written map with one derived from the `aws_cloudwatch_event_rule` resources that target the worker Lambda, so coverage tracks reality. Correct the `plan.md` OPS row's "알람 2→12" sentence to state current coverage.
+**Built 2026-07-28.** Went one level deeper than the sentence below: the 13 worker-cron rule/target/permission trios were consolidated into a single `local.worker_crons` map (`infra/eventbridge.tf`) generating all three via `for_each`, and the alarm's `for_each` iterates `aws_cloudwatch_event_rule.worker_cron` — the resource map itself — so the hand-written alarm list no longer exists at all and a new cron gets its alarm by construction. 39 `moved` blocks keep state; **plan gate met exactly: `1 to add (cron_failed_invocations["isrc_backfill"]), 0 to change, 0 to destroy`.** Post-apply alarm-count check recorded in the PR.
+
+Original spec: Replace `local.worker_cron_rules`' hand-written map with one derived from the `aws_cloudwatch_event_rule` resources that target the worker Lambda, so coverage tracks reality. Correct the `plan.md` OPS row's "알람 2→12" sentence to state current coverage.
 
 ```
 # verify: terraform plan must show exactly the one missing alarm being added
@@ -120,6 +122,7 @@ The audit left a working scanner at `docs/reviews/audit-2026-07-26-raw/osv_scan.
 
 ## Decisions log
 
+- 2026-07-28 — Owner promoted draft → in-progress in session ("다음 rfc 찾아서 승격하고 작업 진행해보자") and Step 1 was built the same session. Design call: full `for_each` consolidation over the lighter "rebuild the map from resource references" reading — the lighter form still leaves a second hand-list to forget, which is the exact OPS-1 mechanism. `target_id`/`statement_id` are frozen per entry (both force replacement) so the consolidation is a pure state move.
 - 2026-07-26 — Owner chose "1 RFC + a grouped `plan.md` section" for the 21 audit findings, rather than one RFC per cluster or rows only. This RFC is that one RFC; the other 17 findings are `plan.md` rows.
 - 2026-07-26 — D-1 (nightly 403) deliberately **excluded** from this RFC. Its fix shape depends on an unmade owner decision between three auth approaches; if (b) service-identity or (c) relaxed draft gate is chosen, it becomes auth work and earns its own RFC. Tracked as a `plan.md` row with the options stated. See audit §7-1.
 - 2026-07-26 — DEP-2 excluded: its applicability was overturned during re-review (audit §9 C-4), leaving version hygiene only.
