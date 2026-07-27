@@ -577,6 +577,15 @@ interactive marker inside a line would be invalid nested content, and it caches 
 that an async annotation load would silently invalidate. Full reasoning and the chosen visual direction:
 `docs/design/lyrics-annotations/README.md`.
 
+**The render spec is decided** (2026-07-27) and lives in that same file under *The render spec*. It is
+the contract the implementation is built against, and it fixes more than the visual direction: the long
+span rule (A2, ends-only at 4+ segments), the overlap rule (B2, shorter span owns the line, with a
+required containment fallback), repeat/unmatched/disputed handling, ordering, note placement and the
+dark-theme ink rule. **One axis is a setting and only one** — the highlight treatment (`M0`–`M3`,
+default `M0`, persisted as `lys:anno-style`) — because marker density runs 9.5% to 64.7% per track and
+no fixed treatment is correct across that range. The other axes each have one answer the measurements
+point at, so they are not exposed.
+
 **Reproducing.** `python3 tools/genius_anchor.py --self-test` needs no DB and no network (PASS as of
 2026-07-26). The album measurement needs both a prod `DATABASE_URL` (SSM `/myblog/backend`, read-only)
 and a collected Genius payload:
@@ -759,6 +768,8 @@ drifted before.
 | 2026-07-26 | **Worker Lambda writes the Genius rows**, not a local poller — a local poller dies with the Mac (§6.9 O1) | 1 |
 | 2026-07-26 | `GET /api/lyrics/{id}` tightens to **`require_owner`**. Ships as its own PR — it 403s members who can read lyrics today (§6.9 O2) | 1 |
 | 2026-07-26 | `album_genius_facts` **stays a separate store**; `fetched_at` is the tiebreak when it disagrees with the track tables (§6.9 O3) | 1 |
+| 2026-07-27 | **Render spec fixed** — long spans A2 (ends-only at 4+), overlap B2 (shorter span owns the line) + containment fallback, note tracks its range, dark theme inverts ink only where the fill lands → design record | 1 |
+| 2026-07-27 | **Highlight treatment is the only setting** (`M0`–`M3`, default `M0`). Density runs 9.5–64.7% per track, so a fixed treatment is wrong on one end or the other; the other axes are not exposed | 1 |
 
 ## 8. What blocks execution
 

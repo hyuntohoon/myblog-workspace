@@ -125,6 +125,110 @@ Still unsolved, and visible in the artifact: a **12-line span** looks bad under 
 (M0 eats the screen, M2's bracket scrolls out of view), and the **3-in-201 overlap** has no rule —
 the later annotation currently just wins.
 
+## The render spec — decided 2026-07-27
+
+Everything above is exploration. This section is the **contract the implementation is built against**,
+written so a later change is diffable: if the rendering stops matching this, either the code drifted or
+this section did, and one of them is a bug.
+
+### One setting, two fixed rules
+
+**Highlight treatment is a setting; long spans and overlap are not.** That split is not a matter of
+taste — it follows from the measurements.
+
+Marker density is **9.5% to 64.7% per track** (201 of 590 lines album-wide). No single treatment
+survives that whole range: the yellow fill is right at the album average and becomes the page's ground
+at the dense end, while a treatment tuned for the dense end is invisible on a sparse track. **The data
+says a fixed choice is wrong here**, which is what justifies exposing it. Long spans and overlap are
+different — each has one answer the measurements point at, and offering alternatives would only invite
+picking a worse one.
+
+| Axis | Decision | Why it is settled or not |
+|---|---|---|
+| Highlight treatment | **Setting**, default `M0` | Density varies 6× per track; no fixed answer is correct across it |
+| Long spans | **Fixed: A2**, threshold 4 segments | One shape reads best at 12 lines and the alternatives each lose something |
+| Overlapping lines | **Fixed: B2** + containment fallback | The current behaviour can make an annotation unreachable; B2 cannot |
+| Repeats, unmatched, disputed, ordering | **Fixed** | Owner decisions or direct consequences of the measurement |
+
+### Highlight treatment — `lys:anno-style`, default `M0`
+
+Persisted beside the existing typographic mode (`lys:mode`, doc/liner) in `localStorage`, same pattern.
+
+- **`M0` — fill (default).** The chosen Genius house: a yellow block whose length is the range, a
+  margin bracket, an `N행` tail. Correct at the album average.
+- **`M1` — rule.** No fill; a bottom rule per marked line, and the fill is spent only on the open
+  annotation. For dense tracks. Costs scanability — you can no longer see where readings cluster.
+- **`M2` — margin only.** The text is untouched; the margin carries the whole affordance. Best reading
+  of the lyrics themselves; weakest signal that annotations exist, and there is no margin below the
+  two-column breakpoint.
+- **`M3` — reveal on open.** A faint rule everywhere, yellow only on the open annotation — yellow made
+  rare by construction. The only treatment that improves as density rises; costs discoverability.
+
+### Long spans — A2, ends only, at 4 segments or more
+
+One annotation in six covers 4+ segments; the longest measured is 12. At 12, a full fill takes two
+whole stanzas and the yellow stops being emphasis.
+
+- Fill **the first and last segment only**; leave the middle text alone.
+- The **gutter bracket runs the full height** and is what holds the two ends together as one
+  annotation — it is load-bearing, not decoration. Verified at 12 segments; **a span tall enough to
+  leave the viewport has not been verified** and is the known gap.
+- The `N행` tail sits at the last segment.
+- Below the threshold nothing changes — short spans keep the treatment the setting selects.
+
+### Overlapping lines — B2, the shorter span owns the line
+
+3 of 201 marked lines carry two claims; never three.
+
+- The line is owned by the **shorter (more specific)** span. The longer one stays reachable from its
+  own other lines, so nothing is lost.
+- The shared line renders a **doubled gutter rule** and a `해설 2` chip.
+- **Fallback, required:** if the shorter span is fully contained in the longer one *and* the longer one
+  has no unshared line, B2 would make the longer one unreachable. In that case open **both** notes,
+  stacked in lyric order. This case does not occur in the LUX measurement, so it will not show up in
+  testing — implement it from this rule, not from observed data.
+- What this replaces: the previous behaviour was "the later annotation wins", which was **a side effect
+  of a loop overwriting per line, not a decision**, and it silently deleted the other annotation.
+
+### The rules that were already settled
+
+- **Repeats (20%).** Number and bracket the **first occurrence only**. Later occurrences get an
+  unnumbered quiet rule and a `반복` tail. Opening either shows the same note, which states
+  `곡에서 N번 나옵니다`. No annotation ever carries two numbers.
+- **Unmatched (5.3%).** Not discarded — listed in a drawer under the sheet marked ㄱ·ㄴ·ㄷ. They
+  re-anchor by themselves if the lyrics are re-matched, because anchors are computed at read time.
+- **Disputed (`votes_total < 0`).** **Never receives the fill, in any treatment.** A −17 reading drawn
+  in the endorsing yellow reads as the site agreeing with it; it gets a rust rule and a
+  `커뮤니티에서 반박된 해석` flag instead.
+- **Ordering is position in the lyrics** — `(start_i, referent_ordinal)`, unanchored rows by
+  `referent_ordinal` alone. **Never by votes**: vote order surfaces translations, an explicit non-goal.
+- **Section referents** (`[Verso 1]`, 8 of 103) are stored and rendered on the section label itself,
+  never as an in-text highlight.
+
+### Note placement
+
+- **The note tracks its range.** Aligned to the first segment of the open span, clamped so a note
+  opened near the last line does not hang off the bottom. A column pinned to the top of the viewport
+  defeats the reason the margin structure was chosen at all.
+- **Below the two-column breakpoint** there is no margin, so the note opens **inline directly under its
+  own range**.
+
+### Dark theme
+
+Not a token swap. The body ink is near-white and near-white on the highlight yellow measures ~1.5:1.
+
+- The highlight shifts toward amber on the dark ground (`#FFF06A` → `#F5D316`).
+- **Invert the text to near-black only on lines the fill actually reaches** (12.4:1 after). Lines that
+  never receive the fill — disputed, repeat echoes, section labels — keep the light ink.
+- A 1px rule needs a brighter tone on near-black than it does on white.
+
+### Still unverified
+
+- A span tall enough to scroll out of the viewport (A2's bracket is the only thing joining its ends).
+- The B2 containment fallback — absent from the LUX data, so it has no test case yet.
+- Everything here was judged on **synthetic data matched to the measured properties**, not on real
+  lyrics. Density, span length, body length and vote distribution are reproduced; the words are not.
+
 ## Where this lands
 
 The host is **`myblog_front/src/components/member/lyrics/LyricsSheet.tsx`** — the static reader that
