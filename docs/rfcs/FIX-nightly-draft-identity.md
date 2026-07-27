@@ -1,6 +1,7 @@
 # FIX-nightly-draft-identity: give the nightly job an identity that can create drafts
 
-- **Status**: draft (**not yet accepted**; promotion is owner-only per hard rule 5)
+- **Status**: in-progress — Phase A (promoted draft → accepted → in-progress on explicit owner
+  approval, 2026-07-27 "싹다 추천으로 ㄱ"; hard rule 5 satisfied). Amendments in §6.
 - **Owner**: the owner
 - **Created**: 2026-07-27
 - **Plan row**: `plan.md` → FIX-nightly-draft-delivery (P0)
@@ -75,7 +76,9 @@ def require_owner_or_draft_agent(claims = Depends(require_cognito_token)) -> Dic
     An unset DRAFT_AGENT_SUB means no agent exists — it must never widen access."""
 ```
 
-Used on `create_post` and on the grow-once `PATCH /api/buckets/{id}/items/{id}`. Nothing else.
+Used on `create_post` and on the dedicated grow-once `POST /api/buckets/nightly-grow`. Nothing
+else. *(Amended 2026-07-27 — the original text named the item PATCH; that assumption was wrong,
+see §6-1.)*
 
 ### A-3. The agent cannot publish, structurally
 
@@ -127,7 +130,9 @@ A-S2 and A-S3 land before A-S4, or the job breaks in a new way. A-S1 gates every
 INFO draft delivery: 1 draft(s) created, 1 memo(s) grown, 0 skipped/failed, 0 DENIED
 ```
 
-with no non-zero exit. Until that appears, the P0 stays open.
+with no non-zero exit. Until that appears, the P0 stays open. *(Note: `grown` counts item rows —
+an album checked in two of the owner's buckets grows 2. Delivery failures now exit non-zero:
+2 = identity rejected, 3 = mint/infrastructure, 4 = draft created but memo still checked; §6-3.)*
 
 ## 4. Phase B — multi-user, planned now, built when triggered
 
@@ -171,3 +176,38 @@ per-bucket owner derivation. Nothing built in Phase A has to be undone.
   rides as an HTML comment in `body_mdx`.
 - **OQ3** — Does anything else authenticate as the smoke user and quietly depend on it *not* having
   draft-create rights? A grep of the deploy workflows settles it before A-S4.
+  **Answered 2026-07-27: the opposite is asserted.** `scripts/smoke.py` prod mode *requires* the
+  smoke user to get **403** on `POST /api/posts` (`_run_member_gate` — the member-gate probe).
+  Nothing depends on the smoke user having draft rights, and because the agent is a separate
+  account, #133 kept that assertion true. Reusing the smoke user (the A-5 shortcut) would have
+  broken the prod smoke — one more reason the dedicated identity was right.
+
+## 6. Amendments — 2026-07-27 (post-acceptance, same day)
+
+Everything below shipped the same day the RFC was accepted; recorded here so the body above
+stays readable as the original design.
+
+1. **A-2's PATCH assumption was wrong.** `PATCH /api/buckets/{id}/items/{id}` is not owner-gated —
+   it resolves the acting user from the verified JWT `sub` (`provisioned_member_id`), so the agent
+   404s (owns no buckets). Forcing it open would require an impersonation primitive. Backend #133
+   recorded this and shipped `require_owner_or_draft_agent` on `create_post` only; grow-once was
+   left deliberately inert (ws #716).
+2. **Grow-once shipped as a dedicated narrow endpoint** instead: `POST /api/buckets/nightly-grow
+   {album_id, post_id}` (backend #134, route ws #717). The server stamps `post_id` + clears
+   `prep_tonight` on the OWNER's checked items for the album; the acting user is pinned to
+   `OWNER_SUB` from settings — never the request body — so Phase B only swaps that pin for
+   bucket-derived ownership. Post must exist and be a draft; existing `post_id` never overwritten;
+   idempotent (repeat call → `grown=0`).
+3. **Hardening beyond the original scope** (backend #134 + the script cutover):
+   - `create_post` coercion widened: a non-owner caller's editorial fields (`album_ids` →
+     `post_albums`, `artist_ids`, `tags`, `genre_ids`, `rating`, `album_classics`,
+     `recommended_track_ids`, `subject_best_new` → `albums.best_new`) are dropped server-side.
+     The agent's writable surface is title/body/date/section.
+   - The nightly script exits non-zero on every delivery-broken state (2 = identity rejected,
+     3 = token mint / delivery infrastructure, 4 = draft created but memo still checked), not
+     only on 401/403 — a silent skip is how the original 403 hid for 17 days.
+   - `RESEARCH_SQL` / `RECENCY_SQL` candidate subqueries mirror A-4's owner scope (they could
+     not leak, but unscoped reads of foreign rows are drift waiting to happen).
+4. **Operational runbook** for the agent account (rotation / kill switch / repoint / exit-code
+   recovery) lives in `infra/README.md` → "Nightly draft agent"; the Cognito user and SSM param
+   are recorded as out-of-IaC items there.
