@@ -299,18 +299,56 @@ def _parity_check() -> int:
         return 0
     sys.path.insert(0, backend)
     try:
+        from app.services.genius_anchor import anchor_fragments as backend_anchor
+        from app.services.genius_anchor import normalize as backend_normalize
         from app.services.lyrics_service import parse_lrc as backend_parse
     except Exception as exc:                                  # noqa: BLE001 — advisory
         print(f"  [skip] backend not importable ({type(exc).__name__}) — parity not checked")
         return 0
 
-    theirs = [s.text for s in backend_parse(_SELF_TEST_LRC)]
+    failures = 0
+
+    backend_segments = backend_parse(_SELF_TEST_LRC)
+    theirs = [s.text for s in backend_segments]
     ours = parse_lrc(_SELF_TEST_LRC)
     if ours == theirs:
         print(f"  [ok ] parity with lyrics_service.parse_lrc ({len(ours)} segments)")
-        return 0
-    print(f"  [FAIL] parity: ours={ours!r} backend={theirs!r}")
-    return 1
+    else:
+        print(f"  [FAIL] parity: ours={ours!r} backend={theirs!r}")
+        failures += 1
+
+    # The anchoring algorithm now lives in BOTH places — app/services/genius_anchor.py
+    # is the authority, this module mirrors it for batch measurement. Comparing
+    # parse_lrc alone stopped being enough the moment that happened.
+    probes = ["De Madrugá!", "  ¿Quién,  pudiera? ", "Sexo, Violencia y Llantas"]
+    bad = [p for p in probes if normalize(p) != backend_normalize(p)]
+    if bad:
+        print(f"  [FAIL] normalize parity differs on {bad!r}")
+        failures += 1
+    else:
+        print(f"  [ok ] parity with genius_anchor.normalize ({len(probes)} probes)")
+
+    # Run the anchor cases against the fixture they were WRITTEN for — the
+    # line-splitting segments — not the LRC index fixture above, or the comparison
+    # degenerates to "both say unmatched" and stops discriminating.
+    from app.api.schemas import LyricsSegment  # local: only needed on the parity path
+
+    fragments = [f for f, _ in _SELF_TEST_CASES]
+    ours_a = [(a.status, a.span) for a in anchor_fragments(_SELF_TEST_SEGMENTS, fragments)]
+    theirs_a = [
+        (a.status, a.span)
+        for a in backend_anchor(
+            [LyricsSegment(i=i, text=t) for i, t in enumerate(_SELF_TEST_SEGMENTS)],
+            fragments,
+        )
+    ]
+    if ours_a == theirs_a:
+        print(f"  [ok ] parity with genius_anchor.anchor_fragments ({len(fragments)} fragments)")
+    else:
+        print(f"  [FAIL] anchor parity: ours={ours_a!r} backend={theirs_a!r}")
+        failures += 1
+
+    return failures
 
 
 def _self_test() -> int:
