@@ -1,4 +1,4 @@
-# Music Criticism — Writing & Revision Rules (v2.6, EN)
+# Music Criticism — Writing & Revision Rules (v2.7, EN)
 
 > **Language:** Rules in English. **All output in Korean (한국어)** — feedback, reconstruction, finished criticism.
 > **Scope:** Single-album, short-to-mid-length **experiential essays**. (Long-form analytical / academic criticism is out of scope.)
@@ -89,7 +89,10 @@ Either way: **ground judgment in fact and the real conversation, name the tensio
 
 ## 4. Review → Criticism checklist (how to revise)
 
-- [ ] **Lead = controlling idea.** Information appears only when it serves the viewpoint — placement anywhere is fine; only context-free listing misses.
+- [ ] **Lead = controlling idea — enacted, not announced.** Information appears only when it serves the viewpoint; placement anywhere is fine, only context-free listing misses. But the idea has to be *carried out*, never described: **no sentence about the piece itself** ("이 글이 끝까지 붙들 생각은 이렇다", "이 앨범의 진짜 중심은 …이다", "먼저 …부터 짚어야 한다"). Cut every one. Opening on something concrete — a decision the work made, a scene, a date, a credit — and letting the judgment come out of it beats opening on a summary of the work's quality. *(Measured 2026-07-27: 13 of 15 coded reviews open on something that is not the album, and none opens by naming its quality.)*
+- [ ] **Abstractions are paid for in the same paragraph.** 통일감 · 깊이 · 밀도 · 온도 · 간격 are placeholders, not observations. Each needs something a listener could point at, on the spot. "It has depth" is a promise; "the street name pins the feeling so the scene stops floating" is payment. If you cannot pay, cut the word rather than repeat it.
+- [ ] **Other records are named.** Every review in the coded sample situates the work against other music; one names six. Two or three, each with half a line on why it is the right comparison. A piece that compares the work only to itself has skipped the step that makes a judgment legible.
+- [ ] **The verdict is stated flat.** Hedge a fact you could not confirm, or a reading the work genuinely leaves open — never your own conclusion. `~쪽에 가깝다` · `~처럼 읽힌다` · `~할 수도 있다` in a judgment sentence is the tell.
 - [ ] **No track-walking.** Tracks = evidence for the viewpoint, not a plot. Drop the ones that don't earn it.
 - [ ] **Audible evidence on the core claims.** Missing → `[passage]`, ask.
 - [ ] **Intent marked (a)/(b).** Evidence-less (b) marked as a hunch or cut.
@@ -97,7 +100,7 @@ Either way: **ground judgment in fact and the real conversation, name the tensio
 - [ ] **Reappraisal → move from then → now perception** (a paragraph or two).
 - [ ] **Score last**, a by-product; "why that score" is the body.
 - [ ] End with **"listen next"** (link-out).
-- [ ] **Keep the user's own expressions** — they are the voice.
+- [ ] **Keep the user's own expressions** — they are the voice. Keep them *inside your prose*, though: setting them in quotation marks and bold turns the piece into a report about the source material. They are the voice of the writing, not a source it cites.
 
 ## 5. Empathy
 
@@ -121,6 +124,7 @@ Either way: **ground judgment in fact and the real conversation, name the tensio
 
 ### Change log
 
+- **v2.7 (2026-07-28):** §4 sharpened from a 1:1 comparison of three published reviews against four of our own drafts (method + evidence → `docs/editorial/research-note-requirements.md`). Four habits appeared in every draft we produced and none of the published pieces. "Lead = controlling idea" was being executed as **announcing** it — so the checklist now says enacted-not-announced and bans the sentence-about-the-piece outright, since opening on a concrete thing is what the coded sample actually does (13 of 15 open on something that is not the album). Added: abstractions must be paid for in the same paragraph; other records must be named (two or three, with a reason); the verdict is stated flat, hedging reserved for unconfirmed facts. And "keep the user's own expressions" now says what it does *not* mean — the drafter had been setting them in bold quotation marks, which turns a review into a report about its source. The ★ honesty line is unchanged.
 - **v2.6:** Added **§3.5 Situate it** — ground judgment in confirmed facts _and_ the existing critical conversation (especially where critics disagree = the album's live tension). Tool-enabled runs (the critique endpoint) research + fact-check + reflect real criticism then take a stance; no-tool runs (the overnight drafter) use the provided research note and generate the tension by close reading. Tool-agnostic so the same file is safe inlined into the no-tool nightly job. Reinforces §3-1 / §3-2 / §7-3; the ★ honesty line is unchanged. (Renamed §6's "after the skeleton stands" → "after the structure stands" to avoid collision with the Buckit Nightly "skeleton" term.) Recorded **two owner-flagged anti-patterns** under §3.5: (1) no in-body critic-quoting — research is background, the body stays the owner's voice; (2) no imposed metaphor-conceit (e.g. a "room/거주" frame) — develop the owner's own images, not a grafted one.
 - **v2.5:** Split "insufficient material" into a **factual gap** (handled in §2, hard) vs a **viewpoint / grounds gap** (no clear take, or a take with no reason). Added the missing behavior to **§0**: when material is thin on viewpoint/grounds, the AI **reflects back the seed already in the user's words and asks for the one missing piece** — never a vague "insufficient," never a guess, never an invented seed. Kept §7 at three (it already mirrors viewpoint, research, and judgment from the writer's side; the new piece is an _input-stage AI behavior_, so it belongs in §0, not §7).
 - **v2.4:** Two-tier reframe — ★ honesty line (hard) vs aim & checkpoint (you judge); style itself unruled, expression free. Softened (b) deletion → "mark as hunch or cut." Added research/source self-check. Folded intent interpretation-vs-evaluation into §3-3 and a §7 question (not a rule). Moved empathy-evidence into §5. Capped §7 at three.
