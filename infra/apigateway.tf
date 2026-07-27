@@ -428,6 +428,19 @@ resource "aws_apigatewayv2_route" "buckets_items_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# FIX-nightly-draft-identity: grow-once for the 03:00 draft agent. The item
+# PATCH above is member-scoped (the agent owns no buckets → 404 by design), so
+# after creating a draft the nightly job calls this narrow route instead; the
+# backend pins the acting user to OWNER_SUB server-side and only stamps the
+# owner's checked memos for the named album (backend fix/nightly-draft-grow).
+resource "aws_apigatewayv2_route" "buckets_nightly_grow_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/buckets/nightly-grow"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Member library: to-listen queue (FEAT-member-dashboard Step 2, D18) ---
 # GET /api/library/to-listen and GET /api/library/reviewed are served by the
 # catch-all `api_get_proxy` route above (edge_guard at the Lambda). The to-listen
