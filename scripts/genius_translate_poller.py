@@ -228,8 +228,13 @@ def is_translatable(body: str) -> bool:
     return len(letters) >= 12
 
 
-def _translate_batch_once(bodies: list[str]) -> list[str]:
-    """One `claude -p` call over a batch; returns translations in input order."""
+def _translate_batch_once(bodies: list[str]) -> list[str | None]:
+    """One `claude -p` call over a batch; returns translations in input order.
+
+    Batch-shape problems (no array, wrong count, bad item shape) raise
+    EngineValidationError; a per-item validation failure yields None in that
+    slot instead, so the rest of the batch survives.
+    """
     claude_bin = shutil.which("claude")
     if claude_bin is None:
         raise TransientEngineError("claude CLI not on PATH")
@@ -281,25 +286,48 @@ def _translate_batch_once(bodies: list[str]) -> list[str]:
     if set(by_n) != set(range(1, len(bodies) + 1)):
         raise EngineValidationError(f"index set != 1..{len(bodies)}: {head}")
     out = [by_n[n].strip() for n in range(1, len(bodies) + 1)]
-    for ko in out:
-        if len(ko) < 4:
-            raise EngineValidationError(f"suspiciously short item: {ko!r}")
     # The array contract rejects a refusal by SHAPE, but cannot notice an item
-    # that parsed fine and simply was not translated. Checked against the SOURCE:
-    # a body with no prose in it (a bare embed URL) is SUPPOSED to come back
-    # unchanged, so demanding Korean there fails a batch over a non-problem.
+    # that parsed fine and simply was not translated. Item-level checks return
+    # None for that slot instead of raising, so one bad item cannot discard the
+    # other five translations in the batch. Checked against the SOURCE:
+    # - a body with no prose in it (a bare embed URL) is SUPPOSED to come back
+    #   unchanged, so demanding Korean there fails over a non-problem;
+    # - a quote-heavy body legitimately keeps its quotes in the original
+    #   language (per the prompt), so the absolute hangul threshold is waived
+    #   when the output moved meaningfully toward Korean relative to its source.
+    #   An untranslated item has the same hangul ratio as its source; a real
+    #   translation raises it even when long English quotes dominate the total.
+    checked: list[str | None] = []
     for src, ko in zip(bodies, out):
-        if is_translatable(src) and hangul_ratio(ko) < 0.15:
-            raise EngineValidationError(f"item is not Korean: {ko[:60]!r}")
-    return out
+        if len(ko) < 4:
+            log.warning("suspiciously short item: %r", ko)
+            checked.append(None)
+        elif (is_translatable(src) and hangul_ratio(ko) < 0.15
+                and hangul_ratio(ko) - hangul_ratio(src) < 0.05):
+            log.warning("item is not Korean: %r", ko[:60])
+            checked.append(None)
+        else:
+            checked.append(ko)
+    return checked
 
 
-def translate_batch(bodies: list[str]) -> list[str]:
+def translate_batch(bodies: list[str]) -> list[str | None]:
+    """Batch translate with one retry; a None slot is a per-item give-up."""
     try:
+        first = _translate_batch_once(bodies)
+    except EngineValidationError as err:
+        log.warning("batch validation failed, retrying once: %s", err)
         return _translate_batch_once(bodies)
-    except EngineValidationError as first:
-        log.warning("batch validation failed, retrying once: %s", first)
-        return _translate_batch_once(bodies)
+    bad = sum(1 for ko in first if ko is None)
+    if not bad:
+        return first
+    log.warning("%d item(s) failed validation, retrying once", bad)
+    try:
+        second = _translate_batch_once(bodies)
+    except EngineValidationError as err:
+        log.warning("retry failed batch-level (%s) — keeping first-pass results", err)
+        return first
+    return [a if a is not None else b for a, b in zip(first, second)]
 
 
 def _chunks(rows: list[dict]) -> list[list[dict]]:
@@ -319,21 +347,32 @@ def _chunks(rows: list[dict]) -> list[list[dict]]:
     return out
 
 
-def _do_chunk(chunk: list[dict]) -> tuple[list[tuple[int, str, str]], str | None]:
-    """Translate one chunk off-thread. Returns (writes, failure_kind)."""
+def _do_chunk(chunk: list[dict]) -> tuple[list[tuple[int, str, str]], list[int], bool]:
+    """Translate one chunk off-thread. Returns (writes, failed_ids, transient).
+
+    failed_ids are terminal for their rows — leaving a validation give-up as
+    `pending` re-claims the identical rows on every firing, forever (observed
+    live 2026-07-28: one quote-heavy batch of 6 burned two CLI calls a minute).
+    """
     bodies = [r["body_source"] for r in chunk]
     try:
         kos = translate_batch(bodies)
     except TransientEngineError as e:
         log.warning("transient on batch of %d: %s", len(chunk), e)
-        return [], "transient"
+        return [], [], True
     except EngineValidationError as e:
         log.error("giving up on batch of %d: %s", len(chunk), e)
-        return [], "failed"
-    return [
-        (r["genius_annotation_id"], ko, compute_body_fingerprint(r["body_source"]))
-        for r, ko in zip(chunk, kos)
-    ], None
+        return [], [r["genius_annotation_id"] for r in chunk], False
+    writes, failed_ids = [], []
+    for r, ko in zip(chunk, kos):
+        if ko is None:
+            failed_ids.append(r["genius_annotation_id"])
+        else:
+            writes.append((r["genius_annotation_id"], ko,
+                           compute_body_fingerprint(r["body_source"])))
+    if failed_ids:
+        log.error("giving up on %d item(s) of batch of %d", len(failed_ids), len(chunk))
+    return writes, failed_ids, False
 
 
 def run_batch(conn, limit: int) -> dict:
@@ -347,13 +386,13 @@ def run_batch(conn, limit: int) -> dict:
     # Threads, not processes: each worker just waits on a subprocess. The DB is
     # touched only back on this thread, so there is no shared-session hazard.
     with ThreadPoolExecutor(max_workers=max(1, PARALLEL)) as pool:
-        for writes, failure in pool.map(_do_chunk, chunks):
-            if failure == "transient":
+        for writes, failed_ids, transient in pool.map(_do_chunk, chunks):
+            if transient:
                 metrics["transient"] += 1
                 continue
-            if failure == "failed":
+            for aid in failed_ids:
+                mark_failed(conn, aid)
                 metrics["failed"] += 1
-                continue
             for aid, ko, fp in writes:
                 mark_done(conn, aid, ko, fp)
                 metrics["done"] += 1
