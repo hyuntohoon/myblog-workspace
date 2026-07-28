@@ -83,6 +83,11 @@ from app.services.lyrics_service import (  # noqa: E402
     normalize_lyrics,
 )
 from myblog_shared_db.llm import CliEngine, LLMJob, LLMTransientError  # noqa: E402
+from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
+    LLMSubscriptionCooldown,
+    coordinated_run,
+    ensure_subscription_available,
+)
 
 REGION = "ap-northeast-2"
 SSM_PARAM = "/myblog/backend"          # SecureString JSON holding DATABASE_URL
@@ -268,13 +273,15 @@ def _claude_translate_once(lines: list[str]) -> list[str]:
         raise TransientEngineError("claude CLI not on PATH")
     prompt = PROMPT_HEADER + "\n".join(f"{n}: {ln}" for n, ln in enumerate(lines, 1))
     try:
-        res = CliEngine(binary=claude_bin).run(LLMJob(
+        res = coordinated_run(CliEngine(binary=claude_bin), LLMJob(
             feature="lyrics_translate",
             prompt=prompt,
             model=ENGINE_CLI_MODEL,
             output_mode=None,
             timeout_s=ENGINE_TIMEOUT_S,
-        ))
+        ), feature="lyrics_translate")
+    except LLMSubscriptionCooldown:
+        raise
     except LLMTransientError as e:
         raise TransientEngineError(str(e)) from None
     stdout = res.result
@@ -314,21 +321,48 @@ def claude_translate(lines: list[str]) -> list[str]:
 
 
 # --- orchestration ------------------------------------------------------------
-def process_one(conn) -> bool:
-    """Claim and process one row. True if a row was handled, False if queue empty."""
-    with conn.cursor() as cur:
-        cur.execute(CLAIM_SQL)
-        claim = cur.fetchone()
-    conn.commit()  # release the lock; claimed_at now gates other pollers
-    if claim is None:
-        return False
-    track_id = claim["track_id"]
-    target_lang = claim["lang"] or "ko"
-
+def _mark_failed_fresh(track_id, error: str) -> None:
+    conn = connect()
     try:
-        with conn.cursor() as cur:
-            cur.execute(SOURCE_SQL, (track_id,))
-            src = cur.fetchone()
+        mark_failed(conn, track_id, error)
+    finally:
+        conn.close()
+
+
+def _mark_done_fresh(track_id, stored: list[dict], fingerprint: str) -> None:
+    conn = connect()
+    try:
+        mark_done(conn, track_id, stored, fingerprint)
+    finally:
+        conn.close()
+
+
+def process_one() -> bool:
+    """Claim and process one row. True if a row was handled, False if queue empty."""
+    claim = None
+    track_id = None
+    try:
+        # Wait behind an in-flight worker and reject a known cooldown before a
+        # DB row receives claimed_at. The actual dispatch still rechecks under
+        # the same lock, closing the race with other pollers as far as possible.
+        ensure_subscription_available()
+        read_conn = connect()
+        try:
+            with read_conn.cursor() as cur:
+                cur.execute(CLAIM_SQL)
+                claim = cur.fetchone()
+            read_conn.commit()  # claimed_at is now the durable retry gate
+            if claim is None:
+                return False
+            track_id = claim["track_id"]
+            target_lang = claim["lang"] or "ko"
+            with read_conn.cursor() as cur:
+                cur.execute(SOURCE_SQL, (track_id,))
+                src = cur.fetchone()
+        finally:
+            # Materialize claim + source before any shared-lock wait or model call.
+            read_conn.close()
+
         if src is None:
             raise RuntimeError("track vanished")
 
@@ -338,21 +372,21 @@ def process_one(conn) -> bool:
         ) if src["match_status"] is not None else None
         out = normalize_lyrics(row)
         if out.availability != "ok":
-            mark_failed(conn, track_id, "source_unavailable")
+            _mark_failed_fresh(track_id, "source_unavailable")
             log.warning("row %s source availability=%s — failed", track_id, out.availability)
             return True
 
         non_gap = [s for s in out.segments if s.text != ""]
         joined = " ".join(s.text for s in non_gap)
         if hangul_ratio(joined) >= HANGUL_DOMINANT_RATIO:
-            mark_failed(conn, track_id, "korean_source")
+            _mark_failed_fresh(track_id, "korean_source")
             log.info("row %s Korean-dominant (%.0f%%) — closed without engine call",
                      track_id, hangul_ratio(joined) * 100)
             return True
 
         if target_lang != "ko":
             # The frozen prompt translates into Korean only (viewer only requests ko).
-            mark_failed(conn, track_id, f"unsupported_target_lang: {target_lang}")
+            _mark_failed_fresh(track_id, f"unsupported_target_lang: {target_lang}")
             log.warning("row %s target lang %r unsupported — failed", track_id, target_lang)
             return True
 
@@ -362,13 +396,18 @@ def process_one(conn) -> bool:
         t0 = time.monotonic()
         try:
             texts_ko = claude_translate([s.text for s in non_gap])
+        except LLMSubscriptionCooldown as e:
+            # The row's committed claimed_at remains the retry gate. Propagate a
+            # distinct signal so this firing does not claim four more rows.
+            log.info("subscription cooldown on %s — stopping this firing: %s", track_id, e)
+            raise
         except TransientEngineError as e:
             # NOT a translation verdict — leave the claim in place; the 20-min
             # stale-claim window retries on a later cycle (RFC failure policy).
             log.warning("transient engine failure on %s — claim kept: %s", track_id, e)
             return True
         except EngineValidationError as e:
-            mark_failed(conn, track_id, f"engine_validation: {e}")
+            _mark_failed_fresh(track_id, f"engine_validation: {e}")
             log.error("engine validation FAILED %s (both attempts): %s", track_id, e)
             return True
         dt = time.monotonic() - t0
@@ -376,13 +415,16 @@ def process_one(conn) -> bool:
         ko_by_i = {s.i: t for s, t in zip(non_gap, texts_ko)}
         stored = [{"i": s.i, "text_ko": ko_by_i.get(s.i, "")} for s in out.segments]
         fingerprint = compute_source_fingerprint(out.normalizer_version, out.segments)
-        mark_done(conn, track_id, stored, fingerprint)
+        _mark_done_fresh(track_id, stored, fingerprint)
         log.info("done %s in %.1fs — %d lines translated, fp=%s…",
                  track_id, dt, len(non_gap), fingerprint[:12])
+    except LLMSubscriptionCooldown:
+        raise
     except Exception as e:  # noqa: BLE001 — any failure marks the row; poller stays up
-        conn.rollback()
+        if track_id is None:
+            raise
         log.error("FAILED %s: %s", track_id, e)
-        mark_failed(conn, track_id, str(e))
+        _mark_failed_fresh(track_id, str(e))
     return True
 
 
@@ -396,23 +438,29 @@ def main() -> int:
                       help="run the sweep, report the inserted count, exit without claiming")
     args = ap.parse_args()
 
-    conn = connect()
+    sweep_conn = connect()
     try:
-        sweep(conn)
-        if args.sweep_only:
-            return 0
-        limit = None if args.drain else BATCH_PER_RUN
-        handled = 0
-        while limit is None or handled < limit:
-            if not process_one(conn):
-                break
-            handled += 1
-            if limit is None or handled < limit:
-                time.sleep(INTER_RUN_SLEEP_S)
-        if handled == 0:
-            log.info("no pending translation request")
+        sweep(sweep_conn)
     finally:
-        conn.close()
+        sweep_conn.close()
+    if args.sweep_only:
+        return 0
+    limit = None if args.drain else BATCH_PER_RUN
+    handled = 0
+    stopped_for_cooldown = False
+    while limit is None or handled < limit:
+        try:
+            did_handle = process_one()
+        except LLMSubscriptionCooldown:
+            stopped_for_cooldown = True
+            break
+        if not did_handle:
+            break
+        handled += 1
+        if limit is None or handled < limit:
+            time.sleep(INTER_RUN_SLEEP_S)
+    if handled == 0 and not stopped_for_cooldown:
+        log.info("no pending translation request")
     return 0
 
 

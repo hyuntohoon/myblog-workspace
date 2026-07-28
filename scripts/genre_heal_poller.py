@@ -30,6 +30,13 @@ from pathlib import Path
 
 import psycopg
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_shared_db" / "src"))
+
+from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
+    LLMSubscriptionCooldown,
+    ensure_subscription_available,
+)
+
 log = logging.getLogger("genre-heal-poller")
 
 ROOT = Path(__file__).resolve().parent.parent  # myblog-workspace/
@@ -98,6 +105,13 @@ def _run_backfill() -> int:
 
 
 def run_once() -> int:
+    if os.environ.get("GENRE_HEAL_LLM") != "neuralwatt":
+        try:
+            ensure_subscription_available()
+        except LLMSubscriptionCooldown as e:
+            log.info("subscription cooldown — leaving genre request unclaimed: %s", e)
+            return 0
+
     url = _db_url()
     with psycopg.connect(url) as conn, conn.cursor() as cur:
         cur.execute(
@@ -120,12 +134,25 @@ def run_once() -> int:
     rc = _run_backfill()
 
     with psycopg.connect(url) as conn, conn.cursor() as cur:
-        cur.execute(
-            "UPDATE genre_backfill_requests SET finished_at = now() WHERE id = %s",
-            (req_id,),
-        )
+        if rc == 0:
+            cur.execute(
+                "UPDATE genre_backfill_requests SET finished_at = now() WHERE id = %s",
+                (req_id,),
+            )
+        else:
+            # A cooldown can begin after preflight, and any other subprocess
+            # failure is equally not a completed request. Put it back on the
+            # same independent queue for the next 30-minute firing.
+            cur.execute(
+                "UPDATE genre_backfill_requests "
+                "SET claimed_at = NULL, finished_at = NULL WHERE id = %s",
+                (req_id,),
+            )
         conn.commit()
-    log.info("request #%s done (backfill rc=%d)", req_id, rc)
+    if rc == 0:
+        log.info("request #%s done", req_id)
+    else:
+        log.warning("request #%s requeued after backfill rc=%d", req_id, rc)
     return rc
 
 

@@ -7,7 +7,9 @@
   button) and runs the EXISTING backfill_genres.py --incremental --label --execute
   (S1 mapping → S2 iTunes → S3 LLM) — the same pipeline as the daily 04:00 genre-backfill
   launchd, just on-demand. With no pending request it exits in milliseconds; launchd
-  suppresses overlapping runs while a backfill is still going.
+  suppresses overlapping runs while a backfill is still going. A shared Claude
+  cooldown leaves the row unclaimed; any failed backfill is re-queued instead of
+  being stamped finished.
 
   This is the LOCAL half of the web button: the cloud endpoint only enqueues a row;
   claude -p (S3) runs here on the owner's Max subscription. Auth: claude reads

@@ -119,6 +119,10 @@ sys.path.insert(0, os.path.join(
 
 from myblog_shared_db.llm import CliEngine, LLMJob, ToolPolicy, build_argv  # noqa: E402
 from myblog_shared_db.llm.exceptions import LLMTransientError  # noqa: E402
+from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
+    LLMSubscriptionCooldown,
+    coordinated_run,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -592,9 +596,17 @@ LLM_RETRY_SLEEP_S = 60
 def run_claude_with_retry(prompt: str) -> dict:
     """run_claude, retried on transient engine failures. Validation errors are terminal."""
     last: Exception | None = None
-    for attempt in range(1, LLM_RETRIES + 1):
+    attempt = 1
+    while attempt <= LLM_RETRIES:
         try:
             return run_claude(prompt)
+        except LLMSubscriptionCooldown as e:
+            # No request was made, so this must not spend the once-nightly retry
+            # budget and create a 24-hour gap. Wait for the shared reset instead.
+            log.warning("Claude cooldown active — waiting %ds without spending retry budget",
+                        e.retry_after_s)
+            time.sleep(e.retry_after_s)
+            continue
         except LLMTransientError as e:
             last = e
             if attempt == LLM_RETRIES:
@@ -602,6 +614,7 @@ def run_claude_with_retry(prompt: str) -> dict:
             log.warning("claude attempt %d/%d failed transiently (%s) — retrying in %ds",
                         attempt, LLM_RETRIES, str(e)[:160], LLM_RETRY_SLEEP_S)
             time.sleep(LLM_RETRY_SLEEP_S)
+            attempt += 1
     log.error("claude failed %d/%d attempts — giving up for tonight", LLM_RETRIES, LLM_RETRIES)
     raise last  # type: ignore[misc]
 
@@ -613,7 +626,7 @@ def run_claude(prompt: str) -> dict:
     LLMValidationError on non-zero exit, timeout, JSON/parse failure, an `is_error`
     result, or an empty result (uncaught in main, same crash-and-log outcome as the
     RuntimeErrors it replaces)."""
-    res = ENGINE.run(_job(prompt))
+    res = coordinated_run(ENGINE, _job(prompt), feature="buckit_nightly")
     return {
         "result": res.result,
         "tokens_in": res.tokens_in,
