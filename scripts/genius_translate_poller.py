@@ -47,6 +47,7 @@ import shutil
 import sys
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -66,7 +67,14 @@ MT_MODEL = "claude.sonnet"
 TRANSLATOR_VERSION = "genius-v1"          # bump on any prompt/engine change
 ENGINE_CLI_MODEL = os.environ.get("GENIUS_CLAUDE_MODEL", "sonnet")
 ENGINE_TIMEOUT_S = 180                    # one body; the lyrics poller needs 300 for a whole track
-BATCH_PER_RUN = 1                         # one per firing; launchd fires every 60s
+BATCH_PER_RUN = 24                        # annotations per firing (see BATCH_SIZE)
+# Annotations per `claude -p` call. One-per-call cost 18.8s each, nearly all of it
+# process + model start-up; batching amortises that. Bounded by chars as well as
+# count because the 2026-07-25 session lost two runs to "response stalled
+# mid-stream" — 38 bodies in one call. Size the OUTPUT, not just the input.
+BATCH_SIZE = 6
+MAX_BATCH_CHARS = 7000
+PARALLEL = int(os.environ.get("GENIUS_TRANSLATE_PARALLEL", "5"))
 # The 03:00 Editor Buckit nightly draft runs `claude -p` on the same subscription,
 # and parallel CLI use has already killed it once via the shared usage limit. A
 # 60s poller spanning that window would do it again, predictably, so the poller
@@ -75,19 +83,17 @@ QUIET_HOURS = (2, 4)                      # [02:00, 04:00) local
 INTER_CALL_SLEEP_S = 1.5                  # spacing between subprocesses
 MAX_BODY_CHARS = 6000                     # skip absurd outliers rather than stall the batch
 
-# Shapes of a `claude -p` answer that is ABOUT the request instead of being the
-# translation. A refusal written in Korean passes every "is this Korean" check,
-# which is how 25890 was stored as a translation on the first live run.
-_REFUSAL_MARKERS = (
-    "이 요청은", "요청하신", "번역 요청", "무관한", "프로젝트 작업", "코드베이스",
-    "죄송", "도와드릴 수", "i can't", "i cannot", "i'm unable", "as an ai",
-)
 
+# JSON-array contract, like the lyrics poller. This is not only a batching device:
+# a refusal or a meta-answer does not parse as the expected array, so the output
+# shape itself rejects it. The free-text version had to detect refusals by
+# keyword, which is why one was stored as a translation on the first live run.
 PROMPT_HEADER = (
-    "아래는 어떤 노래 가사 한 구절에 달린 해설이야. 이걸 한국어로 **의역**해줘 —\n"
+    "아래 항목들은 노래 가사 구절에 달린 해설이야. 각 항목을 한국어로 **의역**해줘 —\n"
     "축자적 직역이 아니라, 글의 정서와 핵심 의미를 자연스러운 한국어로 옮겨.\n"
     "문단 구분은 원문을 따라가고, 인용은 인용으로 남겨. 이미 한국어면 그대로 둬.\n"
-    "해설 자체만 출력하고 설명이나 머리말은 붙이지 마.\n"
+    "출력은 오직 JSON 배열만, 설명·머리말 금지:\n"
+    '[{"i":<항목 번호>,"ko":"<의역>"}]\n'
     "---\n"
 )
 
@@ -189,78 +195,149 @@ def hangul_ratio(text: str) -> float:
 
 # --- engine -----------------------------------------------------------------
 
-def _translate_once(body: str) -> str:
+def _extract_json_array(stdout: str) -> str | None:
+    """First top-level [...] block. The CLI sometimes wraps prose around it."""
+    depth = 0
+    start = None
+    for i, ch in enumerate(stdout):
+        if ch == "[":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0 and start is not None:
+                return stdout[start:i + 1]
+    return None
+
+
+def _translate_batch_once(bodies: list[str]) -> list[str]:
+    """One `claude -p` call over a batch; returns translations in input order."""
     claude_bin = shutil.which("claude")
     if claude_bin is None:
         raise TransientEngineError("claude CLI not on PATH")
+    prompt = PROMPT_HEADER + "\n\n".join(
+        f"[{n}]\n{b}" for n, b in enumerate(bodies, 1)
+    )
     try:
         res = CliEngine(binary=claude_bin).run(LLMJob(
             feature="genius_translate",
-            prompt=PROMPT_HEADER + body,
+            prompt=prompt,
             model=ENGINE_CLI_MODEL,
             output_mode=None,
             timeout_s=ENGINE_TIMEOUT_S,
-            # NEUTRAL cwd. Left unset, the subprocess inherits the workspace root,
-            # reads CLAUDE.md, decides a song annotation is "unrelated to this
-            # session's project work" and answers with that instead of a
-            # translation. Observed live on annotation 25890.
+            # NEUTRAL cwd. Left unset the subprocess inherits the workspace root,
+            # reads CLAUDE.md, and answers that a song annotation is unrelated to
+            # this project instead of translating it. Observed live on 25890.
             cwd=tempfile.gettempdir(),
         ))
     except LLMTransientError as e:
         raise TransientEngineError(str(e)) from None
 
-    out = (res.result or "").strip()
-    if not out:
+    stdout = (res.result or "").strip()
+    if not stdout:
         raise TransientEngineError("empty stdout")
-    if len(out) < 8:
-        raise EngineValidationError(f"suspiciously short output: {out!r}")
-    # A Korean-language refusal passes a Korean-language check. The hangul ratio
-    # alone let "이 요청은 이 세션의 프로젝트 작업과 무관한…" through and stored it
-    # as a translation, so the meta-answer shapes are named explicitly.
-    low = out.lower()
-    for marker in _REFUSAL_MARKERS:
-        if marker in low:
-            raise EngineValidationError(f"meta-answer, not a translation: {out[:80]!r}")
-    if hangul_ratio(out) < 0.15:
-        raise EngineValidationError(f"output is not Korean (hangul {hangul_ratio(out):.2f})")
+    head = stdout[:200]
+    raw = _extract_json_array(stdout)
+    if raw is None:
+        # A refusal or meta-answer lands here — it is not an array, so the output
+        # CONTRACT rejects it. No keyword sniffing needed.
+        raise EngineValidationError(f"no JSON array in output: {head}")
+    try:
+        # strict=False allows RAW newlines inside strings. Annotation bodies have
+        # paragraphs, so the model emits real line breaks rather than \n escapes,
+        # and strict parsing rejected whole batches over it — a retry then a
+        # discard, twice the budget for nothing. The lyrics poller never hit this
+        # because a lyric line has no paragraphs.
+        items = json.loads(raw, strict=False)
+    except json.JSONDecodeError as e:
+        raise EngineValidationError(f"bad JSON ({e}): {head}") from None
+    if not isinstance(items, list) or len(items) != len(bodies):
+        got = len(items) if isinstance(items, list) else type(items).__name__
+        raise EngineValidationError(f"item count {got} != {len(bodies)}: {head}")
+    by_n: dict[int, str] = {}
+    for it in items:
+        if not (isinstance(it, dict) and isinstance(it.get("i"), int)
+                and isinstance(it.get("ko"), str)):
+            raise EngineValidationError(f"bad item shape {it!r:.80}: {head}")
+        by_n[it["i"]] = it["ko"]
+    if set(by_n) != set(range(1, len(bodies) + 1)):
+        raise EngineValidationError(f"index set != 1..{len(bodies)}: {head}")
+    out = [by_n[n].strip() for n in range(1, len(bodies) + 1)]
+    for ko in out:
+        if len(ko) < 4:
+            raise EngineValidationError(f"suspiciously short item: {ko!r}")
+        # The array contract rejects a refusal by SHAPE, but it cannot notice an
+        # item that parsed fine and simply was not translated. Lenient threshold:
+        # a real translation of a quote-heavy annotation still clears it.
+        if hangul_ratio(ko) < 0.15:
+            raise EngineValidationError(f"item is not Korean: {ko[:60]!r}")
     return out
 
 
-def translate(body: str) -> str:
+def translate_batch(bodies: list[str]) -> list[str]:
     try:
-        return _translate_once(body)
+        return _translate_batch_once(bodies)
     except EngineValidationError as first:
-        log.warning("validation failed, retrying once: %s", first)
-        return _translate_once(body)
+        log.warning("batch validation failed, retrying once: %s", first)
+        return _translate_batch_once(bodies)
 
 
-# --- run --------------------------------------------------------------------
+def _chunks(rows: list[dict]) -> list[list[dict]]:
+    """Split by BOTH count and total chars — whichever bounds first."""
+    out: list[list[dict]] = []
+    cur: list[dict] = []
+    size = 0
+    for r in rows:
+        n = len(r["body_source"])
+        if cur and (len(cur) >= BATCH_SIZE or size + n > MAX_BATCH_CHARS):
+            out.append(cur)
+            cur, size = [], 0
+        cur.append(r)
+        size += n
+    if cur:
+        out.append(cur)
+    return out
+
+
+def _do_chunk(chunk: list[dict]) -> tuple[list[tuple[int, str, str]], str | None]:
+    """Translate one chunk off-thread. Returns (writes, failure_kind)."""
+    bodies = [r["body_source"] for r in chunk]
+    try:
+        kos = translate_batch(bodies)
+    except TransientEngineError as e:
+        log.warning("transient on batch of %d: %s", len(chunk), e)
+        return [], "transient"
+    except EngineValidationError as e:
+        log.error("giving up on batch of %d: %s", len(chunk), e)
+        return [], "failed"
+    return [
+        (r["genius_annotation_id"], ko, compute_body_fingerprint(r["body_source"]))
+        for r, ko in zip(chunk, kos)
+    ], None
+
 
 def run_batch(conn, limit: int) -> dict:
     metrics = {"claimed": 0, "done": 0, "failed": 0, "transient": 0}
     rows = claim(conn, limit)
     metrics["claimed"] = len(rows)
-    for row in rows:
-        aid = row["genius_annotation_id"]
-        body = row["body_source"]
-        try:
-            ko = translate(body)
-        except TransientEngineError as e:
-            # Left pending on purpose: the next run retries. Marking it failed
-            # here would turn a session-budget hiccup into a permanent verdict.
-            log.warning("transient on %s: %s", aid, e)
-            metrics["transient"] += 1
-            continue
-        except EngineValidationError as e:
-            log.error("giving up on %s: %s", aid, e)
-            mark_failed(conn, aid)
-            metrics["failed"] += 1
-            continue
-        # The fingerprint is of the SOURCE we translated, so a later re-fetch that
-        # changes the body makes the read path withhold this Korean automatically.
-        mark_done(conn, aid, ko, compute_body_fingerprint(body))
-        metrics["done"] += 1
-        time.sleep(INTER_CALL_SLEEP_S)
+    if not rows:
+        return metrics
+
+    chunks = _chunks(rows)
+    # Threads, not processes: each worker just waits on a subprocess. The DB is
+    # touched only back on this thread, so there is no shared-session hazard.
+    with ThreadPoolExecutor(max_workers=max(1, PARALLEL)) as pool:
+        for writes, failure in pool.map(_do_chunk, chunks):
+            if failure == "transient":
+                metrics["transient"] += 1
+                continue
+            if failure == "failed":
+                metrics["failed"] += 1
+                continue
+            for aid, ko, fp in writes:
+                mark_done(conn, aid, ko, fp)
+                metrics["done"] += 1
     return metrics
 
 
@@ -279,14 +356,28 @@ def main() -> int:
     conn = connect()
     total = {"claimed": 0, "done": 0, "failed": 0, "transient": 0}
     try:
+        stalls = 0
         while True:
             m = run_batch(conn, args.limit)
             for k, v in m.items():
                 total[k] += v
-            # Stop when a pass produced nothing: either the queue is empty, or
-            # everything in it is failing transiently and hammering will not help.
-            if not args.drain or m["claimed"] == 0 or m["done"] == 0:
+            if not args.drain or m["claimed"] == 0:
                 break
+            if m["done"] > 0:
+                stalls = 0
+                continue
+            # A pass that translated nothing is usually a momentary CLI rate
+            # limit, not an empty queue — running 5 workers can trip one and it
+            # clears in seconds. Backing off and retrying beats ending a drain of
+            # hundreds of rows on one bad minute; three stalls in a row is a real
+            # wall and worth stopping for.
+            stalls += 1
+            if stalls >= 3:
+                log.warning("three passes with no progress — stopping the drain")
+                break
+            wait = 30 * stalls
+            log.warning("no progress (transient=%d) — backing off %ds", m["transient"], wait)
+            time.sleep(wait)
     finally:
         conn.close()
     log.info("genius-translate done: %s", total)
