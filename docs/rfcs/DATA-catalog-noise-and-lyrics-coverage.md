@@ -1,6 +1,6 @@
 # DATA-catalog-noise-and-lyrics-coverage: stop ingesting noise, make lyrics coverage converge
 
-- **Status**: draft (needs owner accept — hard rule 5)
+- **Status**: accepted (owner-approved in-session 2026-07-28)
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
 - **Plan row**: `plan.md` → DATA-catalog-noise-and-lyrics-coverage
@@ -321,7 +321,13 @@ plus reverting the ORDER BY.
 
 ---
 
-### Step 4 — album-scoped expedite (after Step 3)
+### Step 4 — album-scoped expedite (after Step 3) — ✅ SHIPPED + prod-smoked 2026-07-28
+
+> **Shipped as worker #86** (squash-merged, deploy run 30359450119). Prod smoke ran the exact
+> Verification block below: one `aws sqs send-message` with the MFF album id → all 8 `not_found`
+> rows re-evaluated within ~16 s and **8/8 promoted to `matched`** (album 11/11); the 3
+> pre-existing `matched` rows untouched. Evidence table in the worker #86 PR comment.
+> The deferred route + button ("former PR2") remains deferred as written.
 
 `reassess_album(album_id, limit=None, cooldown_sec=None)` + `_fetch_album_tracks` (a copy of the Step-3
 `_fetch_unresolved_tracks` that **omits the exclusion**), one dispatch line in
