@@ -244,7 +244,12 @@ def _translate_batch_once(bodies: list[str]) -> list[str]:
         # CONTRACT rejects it. No keyword sniffing needed.
         raise EngineValidationError(f"no JSON array in output: {head}")
     try:
-        items = json.loads(raw)
+        # strict=False allows RAW newlines inside strings. Annotation bodies have
+        # paragraphs, so the model emits real line breaks rather than \n escapes,
+        # and strict parsing rejected whole batches over it — a retry then a
+        # discard, twice the budget for nothing. The lyrics poller never hit this
+        # because a lyric line has no paragraphs.
+        items = json.loads(raw, strict=False)
     except json.JSONDecodeError as e:
         raise EngineValidationError(f"bad JSON ({e}): {head}") from None
     if not isinstance(items, list) or len(items) != len(bodies):
@@ -351,14 +356,28 @@ def main() -> int:
     conn = connect()
     total = {"claimed": 0, "done": 0, "failed": 0, "transient": 0}
     try:
+        stalls = 0
         while True:
             m = run_batch(conn, args.limit)
             for k, v in m.items():
                 total[k] += v
-            # Stop when a pass produced nothing: either the queue is empty, or
-            # everything in it is failing transiently and hammering will not help.
-            if not args.drain or m["claimed"] == 0 or m["done"] == 0:
+            if not args.drain or m["claimed"] == 0:
                 break
+            if m["done"] > 0:
+                stalls = 0
+                continue
+            # A pass that translated nothing is usually a momentary CLI rate
+            # limit, not an empty queue — running 5 workers can trip one and it
+            # clears in seconds. Backing off and retrying beats ending a drain of
+            # hundreds of rows on one bad minute; three stalls in a row is a real
+            # wall and worth stopping for.
+            stalls += 1
+            if stalls >= 3:
+                log.warning("three passes with no progress — stopping the drain")
+                break
+            wait = 30 * stalls
+            log.warning("no progress (transient=%d) — backing off %ds", m["transient"], wait)
+            time.sleep(wait)
     finally:
         conn.close()
     log.info("genius-translate done: %s", total)
