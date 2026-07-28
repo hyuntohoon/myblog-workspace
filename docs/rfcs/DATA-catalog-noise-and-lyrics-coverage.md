@@ -143,7 +143,13 @@ expedite path must always bypass it).
 
 ---
 
-### Step 1 — search ranking (`parallel`)
+### Step 1 — search ranking (`parallel`) — ✅ 1a SHIPPED + prod-smoked 2026-07-28 (1b undecided)
+
+> **1a shipped as music #63.** Prod smoke ran the Verification bar below: `Butterfly` went from
+> twenty *Madama Butterfly* scenes to BTS (1–6) / Travis Scott (7) / Smashing Pumpkins (14–15)
+> with classical 3/20 at the tail; `Suite` moved *BITTERSUITE* from rank 226 to **4**, though that
+> page stays 16/20 classical — the opus-token residue **1b** exists for. 1b remains a
+> post-observation owner decision, as written.
 
 **1a (required).** `myblog_music/app/repositories/track_repo.py:44-49` and `:57`: replace
 `Track.views.desc()` with `Album.popularity.desc().nullslast()`, adding an explicit
@@ -183,7 +189,16 @@ curl -s "$MUSIC_API/api/music/search/unified?q=Butterfly&type=track&limit=20" | 
 
 ---
 
-### Step 2 — ingest choke point (`parallel`)
+### Step 2 — ingest choke point (`parallel`) — ✅ SHIPPED 2026-07-28
+
+> **Shipped as worker #88 + the mandatory twin sweep as backend #141.** One deviation from the
+> SQL sketch below, by design: the counters this step also mandates are uncomputable if excluded
+> rows never leave the database, so the shipped shape **classifies in SQL** (same predicate,
+> decoy list, `hashtext` holdout — as EXISTS/boolean columns) **and filters in Python** behind
+> `INGEST_EXCLUDE_CLASSICAL`. Prod read-only check before merge: 129/1,745 eligible artists
+> (7.4%) classify classical, holdout keeps 2 flowing, decoys (AC/DC, Led Zeppelin, the Rolling
+> Stones, Queen, ROSALÍA) all pass. The success metric below (37% → ≤8% trailing-7-day classical
+> share) is an open observation gate, ~2026-08-11.
 
 `myblog_worker/worker/service/album_ingest_service.py:43-50`, `_SELECT_ELIGIBLE`: exclude artists whose
 **artist-level** Spotify genres are classical, with an allowlist escape and a holdout.
