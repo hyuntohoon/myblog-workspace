@@ -4,8 +4,9 @@
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
 - **Last investigated**: 2026-07-25 (deep investigation session — supersedes the morning capture)
-- **Last updated**: 2026-07-26 — §6.6 rewritten: anchoring is measured, not pending; an annotation
-  spans a **range**, not a line. Visual direction chosen → `docs/design/lyrics-annotations/README.md`
+- **Last updated**: 2026-07-28 — §6.5 R-table marked with shipped state; the viewer sub-thread
+  (§6.6 + §6.9) is **live in prod end-to-end** (fetch → store → Korean bodies → owner-only read →
+  in-sheet render); stale "not there today" claims in §6.7/§6.9/§8/§11 corrected against code
 - **Plan row**: `plan.md` → FEAT-lyrics-annotations (Backlog)
 
 > **How to read this document.** The 2026-07-25 morning session wrote a capture from a brainstorm.
@@ -14,8 +15,12 @@
 > is the corrected state. §9 lists what was superseded so nobody re-derives it. Every number here is
 > reproducible; §10 carries the SQL.
 >
-> **Thread 1 is cleared to build** as of 2026-07-26 — schema (§6.9), anchoring (§6.6) and the visual
-> direction are all settled. **Thread 2 is not**: it still waits on the filter-shape decision (§8).
+> **Thread 1's viewer sub-thread is SHIPPED and running in prod** as of 2026-07-28 (fetch → store →
+> Korean bodies → owner-only read → render; PR map → §6.5 "Shipped state"). What remains of Thread 1
+> is the research-pipeline half (§6.5 R-table statuses). **Thread 2 now executes under
+> `DATA-catalog-noise-and-lyrics-coverage`** (accepted 2026-07-28): its Steps 3–4 — pool hygiene and
+> the album expedite, this RFC's §5 Step B/Step A — shipped the same day (worker #84/#85/#86), which
+> also resolves the §8 filter-shape blocker.
 
 ---
 
@@ -484,15 +489,35 @@ the overall numbers.
 
 Raw rows: `tools/out/genius_probe.jsonl` (gitignored; re-runnable and resumable).
 
-| ID | What | Size | Key files |
-|---|---|---|---|
-| **R0** | Coverage probe over the 88 bucketed albums: per-language match rate and per-field fill rate for the four fields the notes actually lack | S | new `tools/genius_probe.py`, cloning the resumable-batch skeleton of `tools/lyrics_batch_api.py:1-27` |
-| **R1** | `album_genius_facts` — materialised per-album facts store + a $0 local poller | M | new `scripts/genius_facts_poller.py`, sibling of `scripts/research_poller.py` (same SSM read + psycopg claim-gate shape) |
-| **R2** | Inject the facts block into the **research** prompt | S | `scripts/research_poller.py` — add `_genius_block(conn, album_id)` beside `_album_block` (`:110-121`); append in `build_prompt` (`:153-161`) |
-| **R3** | Facts as a first-class **nightly-draft** context field | M | `scripts/buckit_nightly.py` — `GENIUS_SQL` beside `RESEARCH_SQL` (`:233-242`); `m['genius_md']` in `export_checked_memos` (`:302-401`) |
-| **R4** | `[확인: Genius]` source tier + a mechanical provenance footer that survives the model ignoring the prompt | S | `scripts/album_research_v2.md:23-44` (★ block) and `:94-97` (출처 못 찾은 것) |
-| **R5** | Prose tier — `description` + annotation bodies | S | `scripts/genius_facts_poller.py` |
-| **R6** | **Catalog-internal lineage & credit graph** — producer/writer clusters *within a bucket*, and interpolation edges between catalog albums | M | `scripts/editor_buckit.py` — extend `export_bucket_context` (`:219-345`); reuse the genre/artist cluster machinery at `:279-291` |
+#### Shipped state (2026-07-28) — the §6.6/§6.9 viewer sub-thread is live end-to-end
+
+The pipeline this table's R-steps consume from shipped **outside the R-numbering**, as the viewer
+sub-thread. Every leg is merged and running in prod:
+
+| Leg | Where | PRs |
+|---|---|---|
+| Fetch | worker `genius_fetch` job — writes the `track_genius_songs` row **before** its `track_genius_annotations`, one transaction per track; bucketed albums first, 15 tracks/run; unset token = logged no-op | worker #83 + hourly EventBridge ws #726 |
+| Store | shared_db **V49 applied to prod**, service pins bumped | (rollout → §6.9) |
+| Korean bodies | `scripts/genius_translate_poller.py`, resident on launchd (60 s interval); batches by output size; one annotation per call | ws #732 (poller) + #734 (scheduled) + #736 (batching, 18.8 s → 3.4 s/annotation) + #737 (validation-retry loop fix) |
+| Read | `annotations` field on `GET /api/lyrics/{spotify_track_id}`, anchored per request, attached above the availability early-return; **owner-only per O2** | backend #135 (read) + #139 (gate) |
+| Render | `LyricsSheet.tsx` in-text layer per the render spec | front #317 (+ #316 contract sync, #319 403-as-state, #322 tear-off window fix) |
+
+Translation queue is **steady-state** (prod, 2026-07-28): 2,416 `done`, backlog cleared; pending at
+any instant is fresh hourly-fetch arrivals draining, plus any rows the claim SQL holds because the
+parent song's `match_status ≠ 'matched'` (by design — a wrong song's commentary must not be paid for).
+
+**What remains is the research-pipeline half of this table** — statuses below verified against code
+2026-07-28 (grep for `genius` in each key file).
+
+| ID | Status (2026-07-28) | What | Size | Key files |
+|---|---|---|---|---|
+| **R0** | ✅ **done** — ws #712, 2026-07-26 | Coverage probe over the 88 bucketed albums: per-language match rate and per-field fill rate for the four fields the notes actually lack | S | new `tools/genius_probe.py`, cloning the resumable-batch skeleton of `tools/lyrics_batch_api.py:1-27` |
+| **R1** | ◐ **substrate shipped, store not built.** The track-scoped store (§6.9) now holds `credits` + `relationships` and grows hourly — `album_genius_facts` + `genius_facts_poller.py` do not exist. Remaining call: materialise per-album from the track tables vs fetch separately (revisits O3) | M | new `scripts/genius_facts_poller.py`, sibling of `scripts/research_poller.py` (same SSM read + psycopg claim-gate shape) |
+| **R2** | ❌ not started (no genius code in `research_poller.py`) | Inject the facts block into the **research** prompt | S | `scripts/research_poller.py` — add `_genius_block(conn, album_id)` beside `_album_block` (`:110-121`); append in `build_prompt` (`:153-161`) |
+| **R3** | ❌ not started (no genius code in `buckit_nightly.py`) | Facts as a first-class **nightly-draft** context field | M | `scripts/buckit_nightly.py` — `GENIUS_SQL` beside `RESEARCH_SQL` (`:233-242`); `m['genius_md']` in `export_checked_memos` (`:302-401`) |
+| **R4** | ❌ not started (no Genius tier in `album_research_v2.md`) | `[확인: Genius]` source tier + a mechanical provenance footer that survives the model ignoring the prompt | S | `scripts/album_research_v2.md:23-44` (★ block) and `:94-97` (출처 못 찾은 것) |
+| **R5** | ◐ **annotation bodies done** (viewer pipeline above); **song descriptions not**: `description` stored on 272/297 songs but `description_ko` is 0-filled, untranslated and unserved | S | `scripts/genius_translate_poller.py` (extend to descriptions) |
+| **R6** | ❌ not started (no genius code in `editor_buckit.py`) | **Catalog-internal lineage & credit graph** — producer/writer clusters *within a bucket*, and interpolation edges between catalog albums | M | `scripts/editor_buckit.py` — extend `export_bucket_context` (`:219-345`); reuse the genre/artist cluster machinery at `:279-291` |
 
 **R6 is the capability no external service can provide**, because it is a property of *this* catalog
 rather than of any album: "three albums in this bucket share Noah Goldstein" is only computable here.
@@ -598,19 +623,20 @@ The *LUX* payload lived in the 2026-07-25 session scratchpad and **was not prese
 is 45 API calls and ~25 seconds (§6.3). The table above is carried from that run. R0's `tools/genius_probe.py`
 should write its payload somewhere durable so the next re-measure does not start by re-fetching.
 
-Placement warning: `get_normalized` early-returns at `:229-233` (`if out.availability != "ok"`) before
+Placement warning: `get_normalized` early-returns (`if out.availability != "ok"`) before
 `attach_translation`. Anything attached there is invisible for `not_found` tracks, so the metadata block
-must attach **above** that return.
+must attach **above** that return. **Honoured in the shipped read path** — backend #135 attaches
+annotations above the early return (`lyrics_service.py`, `attach_annotations`), so no-lyrics tracks
+still carry their annotations.
 
 The store this section's anchors run against: **§6.9**.
 
 ### 6.7 Token
 
-Issued 2026-07-25. Client access token only — Client ID/Secret are unused for reads. Destination:
-`/myblog/worker` as `GENIUS_ACCESS_TOKEN` (adding a key is inert for the running Lambda —
-`config.py:151-168` `_load_secrets` reads only known keys; `GEMINI_API_KEY` sits there unwired as
-precedent). Omit `--key-id` to keep the existing KMS key. Add `GENIUS_ACCESS_TOKEN` to CLAUDE.md's
-never-log list.
+Issued 2026-07-25. Client access token only — Client ID/Secret are unused for reads.
+**Placed: `GENIUS_ACCESS_TOKEN` is in SSM `/myblog/worker` (verified 2026-07-28) and the worker
+`genius_fetch` job reads it** — an unset key degrades to a logged no-op, not an error. It is on
+CLAUDE.md's never-log list.
 
 ### 6.8 Licensing / terms
 
@@ -702,25 +728,26 @@ annotations: [ { id, ordinal, start_i, end_i, occurrences, status,
 
 #### Migration and rollout
 
-`V49__track_genius_annotations.sql` — two new tables, additive and reversible, nothing references them
-until the backend consumer lands. Plain `V{N}__` SQL wrapping its own `BEGIN … COMMIT`. Rule 3 applies:
-**human approval before any prod apply**, and the file self-commits, so `\i` inside an outer
-transaction is not a dry run.
-
-Rollout order, in this sequence: migration written → **prod apply (pre-merge, human-run)** → each
-service repo's `shared_db` git pin bumped → `openapi.json` regenerated and merged in the workspace →
-frontend types regenerated (`pnpm generate:types`, or the front deploy gate fails). Both schema mirrors
-(`src/myblog_shared_db/_generated_schema.sql` and `tests/canonical_schema.sql`) must be regenerated and
-diffed against each other before commit — their byte-identity is convention-only and has silently
-drifted before.
+**Done 2026-07-27.** `V49__track_genius_annotations.sql` is applied to prod, the service pins are
+bumped (backend and worker both import the models), the contract is merged, and `api.gen.ts` was
+regenerated (front #316). The rollout followed the planned order: migration written → **prod apply
+(pre-merge, human-run)** → each service repo's `shared_db` git pin bumped → `openapi.json` regenerated
+and merged in the workspace → frontend types regenerated (`pnpm generate:types`). The canonical
+schema mirror pair — workspace `docs/contracts/schema.sql` ↔ shared_db `tests/canonical_schema.sql`,
+whose byte-identity is convention-only and has silently drifted before — is **byte-identical with the
+V49 tables present (verified 2026-07-28)**. (An earlier draft of this section named
+`_generated_schema.sql` as the twin; that file is generated-from-models and was never the
+byte-identity pair.)
 
 #### Questions raised by this design — all three answered 2026-07-26
 
-- **O1 — who writes the rows → the worker Lambda.** §8's secondary list carried "worker Lambda vs
+- **O1 — who writes the rows → the worker Lambda. Shipped** (worker #83 + hourly EventBridge
+  ws #726; the token prerequisite is met — §6.7). §8's secondary list carried "worker Lambda vs
   local poller" unresolved; the owner chose the worker. A local poller dies with the Mac, and there is
-  precedent — a 07-20 reboot stalled a queue for 3 days. **Prerequisite:** `GENIUS_ACCESS_TOKEN` must
-  reach SSM `/myblog/worker` first (§6.7); it is not there today, and the token currently sits in
-  plaintext in a local scheduled-task file.
+  precedent — a 07-20 reboot stalled a queue for 3 days. One nuance the shipped state added: the
+  **fetch** runs in Lambda, but the **Korean-body translation** runs as a resident local poller
+  (`genius_translate_poller.py`, ws #732/#734) — it needs `claude -p` on the owner's subscription,
+  which has no Lambda equivalent. Different answer, different reason; not an inconsistency.
 
 - **O2 — the read route moves to owner-only.** `get_lyrics` currently depends on
   `require_cognito_token`, so **every logged-in member** can read the lyrics corpus, while
@@ -728,12 +755,12 @@ drifted before.
   close that gap: `GET /api/lyrics/{spotify_track_id}` becomes `require_owner`, and the annotation
   fields inherit the tightened gate rather than widening it.
 
-  **This is a regression for existing members and does not ship with the annotation work.** The lyrics
-  sheet has been live since FEAT-lyrics-sheet (2026-07-08) and is reachable from the `/members/` 개요
-  tab; a non-owner member reading lyrics today will get a 403 after this change. It needs **its own
-  small PR** — route guard + the front's empty/denied state + a prod smoke that checks both an owner
-  token and a member token — landed before or independently of the annotation store, never bundled
-  into it. The guard must fail closed on missing config, per the house rule.
+  **Shipped 2026-07-28 as its own pair of PRs, per the plan below**: backend #139 (route guard,
+  fail-closed, + tests that can actually see the gate) and front #319 (the 403 rendered as a state,
+  not an error). The original reasoning, kept for the record: this is a regression for existing
+  members — the lyrics sheet has been live since FEAT-lyrics-sheet (2026-07-08) and is reachable from
+  the `/members/` 개요 tab, so a non-owner member reading lyrics gets a 403 after this change. That is
+  why it needed its own small PR, never bundled into the annotation store.
 
 - **O3 — `album_genius_facts` stays a separate store.** The owner chose to keep both: R1 fetches for
   the research prompt, these tables serve the viewer. That is the simpler build, and it is recorded
@@ -775,18 +802,22 @@ drifted before.
 
 1. ~~**RFC promotion `draft → accepted`**~~ — **done 2026-07-26**, explicit owner approval. Thread 1
    is cleared to build.
-2. **Filter shape — still open, and it blocks Thread 2 only.** E (genre + title form + vocal guard,
-   0 FP) vs F (empirical label yield, 2 FP, no genre dependency) vs both composed. Owner was
-   mid-decision when this record was written; **F emerged after the question was asked and may change
-   the answer.** Thread 1 does not touch the filter and is not waiting on this.
+2. ~~**Filter shape — still open, and it blocks Thread 2 only.**~~ — **resolved 2026-07-28**: the
+   filter shipped as **E ∪ F composed** through `DATA-catalog-noise-and-lyrics-coverage` Step 3
+   (worker #84 + bind-param fix #85), with the album expedite (§5 Step A) following as its Step 4
+   (worker #86, prod-smoked on MFF — 8/8 `not_found` → `matched`). Thread 2's execution lives in
+   that RFC from here on; this RFC keeps the measurements (§3–§5) as their evidence base. The
+   original record, for context: E (genre + title form + vocal guard, 0 FP) vs F (empirical label
+   yield, 2 FP, no genre dependency) vs both composed.
 
 Secondary, non-blocking: split Thread 2 into its own `plan.md` row (the RFC's own OQ5).
 
 Resolved since this section was written: the two matcher defects (§3.6) were **fixed 2026-07-26**
 (worker #80/#81 + workspace #698) — the `isrc_backfill` EventBridge rule still needs a human
-`terraform apply`. Genius runs from the **worker Lambda**, not a local poller (§6.9 O1), which makes
-the SSM token placement (§6.7) a prerequisite rather than a nicety. **Thread 1's storage schema is no
-longer open** — §6.9 — and anchoring is measured, not pending — §6.6.
+`terraform apply`. **Thread 1's viewer sub-thread has since shipped end-to-end** (2026-07-27/28 —
+fetch, store, translation, owner-only read, render; PR map → §6.5 "Shipped state"), so nothing blocks
+Thread 1 execution anymore; what remains of Thread 1 is the research-pipeline half of §6.5
+(R1–R4, R6, and R5's description remainder).
 
 ## 9. Superseded — do not re-derive
 
@@ -858,5 +889,9 @@ GROUP BY 1;
 1. Read this document. **Do not re-derive §3; do re-check anything time-sensitive** (LRCLIB coverage
    moves within a day — that is the lesson of §9).
 2. Get the two blockers in §8 answered.
-3. If Thread 2 is approved: Step B, then Step A, in separate sessions unless the owner says "go".
-4. Thread 1 needs only the Genius token, which the owner issued 2026-07-25.
+3. Thread 2's Step B and Step A **both shipped 2026-07-28** as `DATA-catalog-noise-and-lyrics-coverage`
+   Steps 3–4 (worker #84/#85/#86); follow Thread 2 in that RFC, not here.
+4. Thread 1's viewer sub-thread is **shipped and running** (§6.5 "Shipped state"); the remaining
+   Thread 1 work is the research-pipeline integration — R2/R3/R4/R6 untouched, R1's per-album
+   materialisation call open (O3), R5's description tier unfilled. Check the 2026-07-29 six-album
+   KR/EN anchor regression result (§6.6) before building on the anchoring numbers.
