@@ -66,7 +66,12 @@ MT_MODEL = "claude.sonnet"
 TRANSLATOR_VERSION = "genius-v1"          # bump on any prompt/engine change
 ENGINE_CLI_MODEL = os.environ.get("GENIUS_CLAUDE_MODEL", "sonnet")
 ENGINE_TIMEOUT_S = 180                    # one body; the lyrics poller needs 300 for a whole track
-BATCH_PER_RUN = 20                        # annotations per non-drain firing
+BATCH_PER_RUN = 1                         # one per firing; launchd fires every 60s
+# The 03:00 Editor Buckit nightly draft runs `claude -p` on the same subscription,
+# and parallel CLI use has already killed it once via the shared usage limit. A
+# 60s poller spanning that window would do it again, predictably, so the poller
+# stands down around it. Owner-visible: --force ignores the window.
+QUIET_HOURS = (2, 4)                      # [02:00, 04:00) local
 INTER_CALL_SLEEP_S = 1.5                  # spacing between subprocesses
 MAX_BODY_CHARS = 6000                     # skip absurd outliers rather than stall the batch
 
@@ -263,7 +268,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--limit", type=int, default=BATCH_PER_RUN)
     ap.add_argument("--drain", action="store_true", help="keep going until the queue is empty")
+    ap.add_argument("--force", action="store_true", help="run even inside the nightly quiet window")
     args = ap.parse_args()
+
+    hour = time.localtime().tm_hour
+    if QUIET_HOURS[0] <= hour < QUIET_HOURS[1] and not args.force:
+        log.info("inside the %02d:00-%02d:00 nightly window — standing down", *QUIET_HOURS)
+        return 0
 
     conn = connect()
     total = {"claimed": 0, "done": 0, "failed": 0, "transient": 0}
