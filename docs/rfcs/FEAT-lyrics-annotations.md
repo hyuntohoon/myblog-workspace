@@ -17,8 +17,10 @@
 >
 > **Thread 1's viewer sub-thread is SHIPPED and running in prod** as of 2026-07-28 (fetch → store →
 > Korean bodies → owner-only read → render; PR map → §6.5 "Shipped state"). What remains of Thread 1
-> is the research-pipeline half (§6.5 R-table statuses). **Thread 2 is not cleared**: it still waits
-> on the filter-shape decision (§8).
+> is the research-pipeline half (§6.5 R-table statuses). **Thread 2 now executes under
+> `DATA-catalog-noise-and-lyrics-coverage`** (accepted 2026-07-28): its Steps 3–4 — pool hygiene and
+> the album expedite, this RFC's §5 Step B/Step A — shipped the same day (worker #84/#85/#86), which
+> also resolves the §8 filter-shape blocker.
 
 ---
 
@@ -800,10 +802,13 @@ byte-identity pair.)
 
 1. ~~**RFC promotion `draft → accepted`**~~ — **done 2026-07-26**, explicit owner approval. Thread 1
    is cleared to build.
-2. **Filter shape — still open, and it blocks Thread 2 only.** E (genre + title form + vocal guard,
-   0 FP) vs F (empirical label yield, 2 FP, no genre dependency) vs both composed. Owner was
-   mid-decision when this record was written; **F emerged after the question was asked and may change
-   the answer.** Thread 1 does not touch the filter and is not waiting on this.
+2. ~~**Filter shape — still open, and it blocks Thread 2 only.**~~ — **resolved 2026-07-28**: the
+   filter shipped as **E ∪ F composed** through `DATA-catalog-noise-and-lyrics-coverage` Step 3
+   (worker #84 + bind-param fix #85), with the album expedite (§5 Step A) following as its Step 4
+   (worker #86, prod-smoked on MFF — 8/8 `not_found` → `matched`). Thread 2's execution lives in
+   that RFC from here on; this RFC keeps the measurements (§3–§5) as their evidence base. The
+   original record, for context: E (genre + title form + vocal guard, 0 FP) vs F (empirical label
+   yield, 2 FP, no genre dependency) vs both composed.
 
 Secondary, non-blocking: split Thread 2 into its own `plan.md` row (the RFC's own OQ5).
 
@@ -884,7 +889,8 @@ GROUP BY 1;
 1. Read this document. **Do not re-derive §3; do re-check anything time-sensitive** (LRCLIB coverage
    moves within a day — that is the lesson of §9).
 2. Get the two blockers in §8 answered.
-3. If Thread 2 is approved: Step B, then Step A, in separate sessions unless the owner says "go".
+3. Thread 2's Step B and Step A **both shipped 2026-07-28** as `DATA-catalog-noise-and-lyrics-coverage`
+   Steps 3–4 (worker #84/#85/#86); follow Thread 2 in that RFC, not here.
 4. Thread 1's viewer sub-thread is **shipped and running** (§6.5 "Shipped state"); the remaining
    Thread 1 work is the research-pipeline integration — R2/R3/R4/R6 untouched, R1's per-album
    materialisation call open (O3), R5's description tier unfilled. Check the 2026-07-29 six-album
