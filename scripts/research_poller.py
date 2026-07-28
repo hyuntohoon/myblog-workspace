@@ -56,6 +56,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_shared_db" / "src"))
 
 from myblog_shared_db.llm import CliEngine, LLMJob, ToolPolicy  # noqa: E402
+from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
+    LLMSubscriptionCooldown,
+    coordinated_run,
+    ensure_subscription_available,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -191,14 +196,14 @@ def run_claude(prompt: str) -> dict:
     grounding evidence. tokens_in stays cache-inclusive (an order-of-magnitude
     audit field, not a bill — $0 on the subscription).
     """
-    res = ENGINE.run(LLMJob(
+    res = coordinated_run(ENGINE, LLMJob(
         feature="research_poller",
         prompt=prompt,
         model=CLAUDE_MODEL,
         tools=ToolPolicy(allowed=("WebSearch", "WebFetch")),
         output_mode="json",
         timeout_s=CLAUDE_TIMEOUT_S,
-    ))
+    ), feature="research_poller")
     return {
         "result": res.result,
         "tokens_in": res.tokens_in,
@@ -281,21 +286,46 @@ def mark_failed(conn, row_id, error: str) -> None:
 
 
 # --- orchestration --------------------------------------------------------
-def process_one(conn, base_prompt: str) -> bool:
+def _mark_research_done_fresh(row_id, res: dict) -> None:
+    conn = connect()
+    try:
+        mark_done(conn, row_id, res)
+    finally:
+        conn.close()
+
+
+def _mark_research_failed_fresh(row_id, error: str) -> None:
+    conn = connect()
+    try:
+        mark_failed(conn, row_id, error)
+    finally:
+        conn.close()
+
+
+def process_one(base_prompt: str) -> bool:
     """Claim and process one row. Returns True if a row was handled, False if the
     queue was empty."""
-    row = claim_row(conn)
-    if row is None:
-        return False
-
-    row_id = row["id"]
-    refine = bool(row["result_md"])  # restart clears result_md; first-run never had one
-    kind = "refine" if refine else "research"
-    if row["prompt_version"] != PROMPT_VERSION:
-        log.warning("row %s prompt_version=%s but poller vendors %s — using vendored",
-                    row_id, row["prompt_version"], PROMPT_VERSION)
+    row = None
     try:
-        meta = album_meta(conn, row["album_id"])
+        # Do not turn a known shared cooldown into one new running row per
+        # launchd firing. The model dispatch rechecks under the same lock.
+        ensure_subscription_available()
+        read_conn = connect()
+        try:
+            row = claim_row(read_conn)
+            if row is None:
+                return False
+            meta = album_meta(read_conn, row["album_id"])
+        finally:
+            # Materialize the claimed job before any shared-lock wait or web/model call.
+            read_conn.close()
+
+        row_id = row["id"]
+        refine = bool(row["result_md"])  # restart clears result_md; first-run never had one
+        kind = "refine" if refine else "research"
+        if row["prompt_version"] != PROMPT_VERSION:
+            log.warning("row %s prompt_version=%s but poller vendors %s — using vendored",
+                        row_id, row["prompt_version"], PROMPT_VERSION)
         log.info("claimed %s [%s] album=%s — %s", row_id, kind, meta["title"], meta["artists"])
         prompt = build_prompt(
             base_prompt, meta,
@@ -306,16 +336,22 @@ def process_one(conn, base_prompt: str) -> bool:
         t0 = time.monotonic()
         res = run_claude(prompt)
         dt = time.monotonic() - t0
-        mark_done(conn, row_id, res)
+        _mark_research_done_fresh(row_id, res)
         log.info(
             "done %s in %.1fs — %d chars, tokens_in=%d tokens_out=%d web=%d model=%s",
             row_id, dt, len(res["result"]), res["tokens_in"], res["tokens_out"],
             res["search_count"], res["model"],
         )
+    except LLMSubscriptionCooldown:
+        # Keep status=running as the existing 20-minute stale-claim retry gate;
+        # do not turn a shared cooldown into an immediate failed-row retry loop.
+        raise
     except Exception as e:  # noqa: BLE001 — any failure marks the row, loop continues
-        conn.rollback()
+        if row is None:
+            raise
+        row_id = row["id"]
         log.error("FAILED %s: %s", row_id, e)
-        mark_failed(conn, row_id, str(e))
+        _mark_research_failed_fresh(row_id, str(e))
     return True
 
 
@@ -330,11 +366,14 @@ def main() -> None:
     args = ap.parse_args()
 
     base_prompt = load_base_prompt()
-    conn = connect()
     log.info("poller up (model=%s, prompt=%s, db=myblog/backend)", CLAUDE_MODEL, PROMPT_VERSION)
     try:
         while True:
-            handled = process_one(conn, base_prompt)
+            try:
+                handled = process_one(base_prompt)
+            except LLMSubscriptionCooldown as e:
+                log.info("subscription cooldown — leaving claimed research row for retry: %s", e)
+                return
             if handled:
                 time.sleep(args.sleep)        # serial spacing between runs
                 continue
@@ -345,8 +384,6 @@ def main() -> None:
             time.sleep(args.interval)
     except KeyboardInterrupt:
         log.info("interrupted — exiting")
-    finally:
-        conn.close()
 
 
 if __name__ == "__main__":

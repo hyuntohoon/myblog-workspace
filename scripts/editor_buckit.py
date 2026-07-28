@@ -47,6 +47,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_shared_db" / "src"))
 
 from myblog_shared_db.llm import CliEngine, LLMJob, ToolPolicy  # noqa: E402
+from myblog_shared_db.llm.subscription_guard import coordinated_run  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -392,14 +393,14 @@ def run_claude(prompt: str) -> dict:
     cache-inclusive (an order-of-magnitude audit field, not a bill — $0 on
     the subscription).
     """
-    res = ENGINE.run(LLMJob(
+    res = coordinated_run(ENGINE, LLMJob(
         feature="editor_buckit",
         prompt=prompt,
         model=CLAUDE_MODEL,
         tools=ToolPolicy(allowed=("WebSearch", "WebFetch")),
         output_mode="json",
         timeout_s=CLAUDE_TIMEOUT_S,
-    ))
+    ), feature="editor_buckit")
     return {
         "result": res.result,
         "tokens_in": res.tokens_in,

@@ -21,9 +21,9 @@ from lyric lines:
   The 2026-07-25 session lost two runs to exactly this: an agent given 4 tracks /
   38 annotations died on "response stalled mid-stream", and splitting into 2+1+1
   succeeded immediately. Size the output, not the input.
-* **It translates one annotation per call.** A 1:1 line contract makes sense for
-  lyrics, where a dropped line silently misaligns the whole track. Here each body is
-  independent prose, so a per-body call means a refusal or a stall costs one row.
+* **It batches at most six annotations / 7,000 source characters per call.** Each
+  body remains independently indexed and validated, so one bad item does not discard
+  the other usable translations. Calls are serialized across every local LLM worker.
 
 **The fingerprint is a twin and must not drift.** The read path recomputes
 `sha256(body_source)` and withholds `body_ko` when it differs
@@ -47,7 +47,7 @@ import shutil
 import sys
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -60,6 +60,11 @@ sys.path.insert(0, str(ROOT / "myblog_shared_db" / "src"))
 # Same fingerprint as the read path — parity by construction, not by copy.
 from app.services.lyrics_service import compute_body_fingerprint  # noqa: E402
 from myblog_shared_db.llm import CliEngine, LLMJob, LLMTransientError  # noqa: E402
+from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
+    LLMSubscriptionCooldown,
+    coordinated_run,
+    ensure_subscription_available,
+)
 
 REGION = "ap-northeast-2"
 SSM_PARAM = "/myblog/backend"
@@ -74,13 +79,11 @@ BATCH_PER_RUN = 24                        # annotations per firing (see BATCH_SI
 # mid-stream" — 38 bodies in one call. Size the OUTPUT, not just the input.
 BATCH_SIZE = 6
 MAX_BATCH_CHARS = 7000
-PARALLEL = int(os.environ.get("GENIUS_TRANSLATE_PARALLEL", "5"))
 # The 03:00 Editor Buckit nightly draft runs `claude -p` on the same subscription,
 # and parallel CLI use has already killed it once via the shared usage limit. A
 # 60s poller spanning that window would do it again, predictably, so the poller
 # stands down around it. Owner-visible: --force ignores the window.
 QUIET_HOURS = (2, 4)                      # [02:00, 04:00) local
-INTER_CALL_SLEEP_S = 1.5                  # spacing between subprocesses
 MAX_BODY_CHARS = 6000                     # skip absurd outliers rather than stall the batch
 
 
@@ -108,6 +111,7 @@ class EngineValidationError(RuntimeError):
 
 # --- secrets / db -----------------------------------------------------------
 
+@lru_cache(maxsize=1)
 def database_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if not url:
@@ -242,7 +246,7 @@ def _translate_batch_once(bodies: list[str]) -> list[str | None]:
         f"[{n}]\n{b}" for n, b in enumerate(bodies, 1)
     )
     try:
-        res = CliEngine(binary=claude_bin).run(LLMJob(
+        res = coordinated_run(CliEngine(binary=claude_bin), LLMJob(
             feature="genius_translate",
             prompt=prompt,
             model=ENGINE_CLI_MODEL,
@@ -252,7 +256,7 @@ def _translate_batch_once(bodies: list[str]) -> list[str | None]:
             # reads CLAUDE.md, and answers that a song annotation is unrelated to
             # this project instead of translating it. Observed live on 25890.
             cwd=tempfile.gettempdir(),
-        ))
+        ), feature="genius_translate")
     except LLMTransientError as e:
         raise TransientEngineError(str(e)) from None
 
@@ -375,27 +379,48 @@ def _do_chunk(chunk: list[dict]) -> tuple[list[tuple[int, str, str]], list[int],
     return writes, failed_ids, False
 
 
-def run_batch(conn, limit: int) -> dict:
+def run_batch(limit: int) -> dict:
     metrics = {"claimed": 0, "done": 0, "failed": 0, "transient": 0}
-    rows = claim(conn, limit)
+    try:
+        ensure_subscription_available()
+    except LLMSubscriptionCooldown as e:
+        log.info("subscription cooldown — skipping queue read: %s", e)
+        metrics["transient"] = 1
+        return metrics
+    read_conn = connect()
+    try:
+        rows = claim(read_conn, limit)
+    finally:
+        # Materialize the queue slice before any lock wait or model call. Never
+        # carry a Neon session/transaction across external work.
+        read_conn.close()
     metrics["claimed"] = len(rows)
     if not rows:
         return metrics
 
     chunks = _chunks(rows)
-    # Threads, not processes: each worker just waits on a subprocess. The DB is
-    # touched only back on this thread, so there is no shared-session hazard.
-    with ThreadPoolExecutor(max_workers=max(1, PARALLEL)) as pool:
-        for writes, failed_ids, transient in pool.map(_do_chunk, chunks):
-            if transient:
-                metrics["transient"] += 1
-                continue
-            for aid in failed_ids:
-                mark_failed(conn, aid)
-                metrics["failed"] += 1
-            for aid, ko, fp in writes:
-                mark_done(conn, aid, ko, fp)
-                metrics["done"] += 1
+    # Keep domain batching independent, but issue subscription-backed calls in
+    # sequence.  The shared guard also serializes these calls against the lyrics
+    # and research workers running in other launchd processes.
+    for chunk in chunks:
+        writes, failed_ids, transient = _do_chunk(chunk)
+        if transient:
+            metrics["transient"] += 1
+            # A subscription/CLI transient normally affects the following chunks
+            # too. Stop this firing after the first one so an unclassified silent
+            # failure can never fan out into four real calls before cooldown.
+            break
+        if failed_ids or writes:
+            write_conn = connect()
+            try:
+                for aid in failed_ids:
+                    mark_failed(write_conn, aid)
+                    metrics["failed"] += 1
+                for aid, ko, fp in writes:
+                    mark_done(write_conn, aid, ko, fp)
+                    metrics["done"] += 1
+            finally:
+                write_conn.close()
     return metrics
 
 
@@ -411,33 +436,30 @@ def main() -> int:
         log.info("inside the %02d:00-%02d:00 nightly window — standing down", *QUIET_HOURS)
         return 0
 
-    conn = connect()
     total = {"claimed": 0, "done": 0, "failed": 0, "transient": 0}
-    try:
-        stalls = 0
-        while True:
-            m = run_batch(conn, args.limit)
-            for k, v in m.items():
-                total[k] += v
-            if not args.drain or m["claimed"] == 0:
-                break
-            if m["done"] > 0:
-                stalls = 0
-                continue
-            # A pass that translated nothing is usually a momentary CLI rate
-            # limit, not an empty queue — running 5 workers can trip one and it
-            # clears in seconds. Backing off and retrying beats ending a drain of
-            # hundreds of rows on one bad minute; three stalls in a row is a real
-            # wall and worth stopping for.
-            stalls += 1
-            if stalls >= 3:
-                log.warning("three passes with no progress — stopping the drain")
-                break
-            wait = 30 * stalls
-            log.warning("no progress (transient=%d) — backing off %ds", m["transient"], wait)
-            time.sleep(wait)
-    finally:
-        conn.close()
+    stalls = 0
+    while True:
+        m = run_batch(args.limit)
+        for k, v in m.items():
+            total[k] += v
+        if not args.drain or m["claimed"] == 0:
+            break
+        if m["done"] > 0:
+            stalls = 0
+            continue
+        # A pass that translated nothing is usually a momentary CLI rate
+        # limit, not an empty queue — repeated calls can trip one and it
+        # clears in seconds. Backing off and retrying beats ending a drain of
+        # hundreds of rows on one bad minute; three stalls in a row is a real
+        # wall and worth stopping for. The shared subscription guard handles
+        # cross-poller concurrency and the longer account-level cooldown.
+        stalls += 1
+        if stalls >= 3:
+            log.warning("three passes with no progress — stopping the drain")
+            break
+        wait = 30 * stalls
+        log.warning("no progress (transient=%d) — backing off %ds", m["transient"], wait)
+        time.sleep(wait)
     log.info("genius-translate done: %s", total)
     return 0
 

@@ -4,14 +4,14 @@
   (FEAT-lyrics-annotations Thread 1).
 
   Fires genius_translate_poller.py every 60 seconds — the same rhythm as its
-  sibling com.myblog.lyrics-translate-poller.plist, owner-pinned. Each run claims
-  ONE pending track_genius_annotations row, translates the body with headless
-  `claude -p --model sonnet`, then exits. With an empty queue it exits in
+  sibling com.myblog.lyrics-translate-poller.plist, owner-pinned. Each run reads
+  up to 24 pending annotations and translates bounded batches of up to six with
+  headless `claude -p --model sonnet`, then exits. With an empty queue it exits in
   milliseconds (one indexed Neon SELECT); launchd suppresses overlapping runs, so
   a translation running past 60s is safe.
 
-  Measured: 18.8s per annotation. The 649-row backlog at merge time is therefore
-  about 3.4 hours of actual CLI time, spread over ~11 hours of wall clock.
+  Calls share a cross-process single-flight guard with the lyrics, research,
+  editorial, and genre workers; an observed usage limit starts a shared cooldown.
 
   IT STANDS DOWN 02:00–04:00. The Editor Buckit nightly draft runs `claude -p` at
   03:00 on the same subscription, and parallel CLI use has already killed that job
@@ -59,7 +59,7 @@
         <string>/Users/park_hyun/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
 
-    <!-- Every 60s; each run claims one annotation then exits. -->
+    <!-- Every 60s; each run handles one bounded annotation batch then exits. -->
     <key>StartInterval</key>
     <integer>60</integer>
 
