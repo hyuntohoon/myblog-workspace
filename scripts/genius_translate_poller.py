@@ -211,6 +211,23 @@ def _extract_json_array(stdout: str) -> str | None:
     return None
 
 
+_URLISH = re.compile(r"^\s*(https?://\S+\s*)+$")
+
+
+def is_translatable(body: str) -> bool:
+    """Is there prose here at all?
+
+    Some annotation bodies are a bare video-embed URL. The model correctly returns
+    them unchanged, and a "did it come back Korean?" check then reads that as a
+    failed translation and kills the whole batch — twice, with the retry. Nothing
+    is wrong; there was nothing to translate.
+    """
+    if _URLISH.match(body):
+        return False
+    letters = [ch for ch in body if ch.isalpha()]
+    return len(letters) >= 12
+
+
 def _translate_batch_once(bodies: list[str]) -> list[str]:
     """One `claude -p` call over a batch; returns translations in input order."""
     claude_bin = shutil.which("claude")
@@ -267,10 +284,12 @@ def _translate_batch_once(bodies: list[str]) -> list[str]:
     for ko in out:
         if len(ko) < 4:
             raise EngineValidationError(f"suspiciously short item: {ko!r}")
-        # The array contract rejects a refusal by SHAPE, but it cannot notice an
-        # item that parsed fine and simply was not translated. Lenient threshold:
-        # a real translation of a quote-heavy annotation still clears it.
-        if hangul_ratio(ko) < 0.15:
+    # The array contract rejects a refusal by SHAPE, but cannot notice an item
+    # that parsed fine and simply was not translated. Checked against the SOURCE:
+    # a body with no prose in it (a bare embed URL) is SUPPOSED to come back
+    # unchanged, so demanding Korean there fails a batch over a non-problem.
+    for src, ko in zip(bodies, out):
+        if is_translatable(src) and hangul_ratio(ko) < 0.15:
             raise EngineValidationError(f"item is not Korean: {ko[:60]!r}")
     return out
 
