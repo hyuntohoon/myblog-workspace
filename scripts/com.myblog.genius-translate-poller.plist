@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Launchd automation for the Genius annotation-translation poller
+  (FEAT-lyrics-annotations Thread 1).
+
+  Fires genius_translate_poller.py every 60 seconds — the same rhythm as its
+  sibling com.myblog.lyrics-translate-poller.plist, owner-pinned. Each run claims
+  ONE pending track_genius_annotations row, translates the body with headless
+  `claude -p --model sonnet`, then exits. With an empty queue it exits in
+  milliseconds (one indexed Neon SELECT); launchd suppresses overlapping runs, so
+  a translation running past 60s is safe.
+
+  Measured: 18.8s per annotation. The 649-row backlog at merge time is therefore
+  about 3.4 hours of actual CLI time, spread over ~11 hours of wall clock.
+
+  IT STANDS DOWN 02:00–04:00. The Editor Buckit nightly draft runs `claude -p` at
+  03:00 on the same subscription, and parallel CLI use has already killed that job
+  once through the shared usage limit. A 60s poller spanning the window would do it
+  again, predictably. `--force` overrides for a manual run.
+
+  LOCAL half by necessity, not preference: the fetch job that fills body_source runs
+  in the worker Lambda (RFC §6.9 O1), but translation needs the owner's claude
+  subscription, which has no Lambda equivalent. Same constraint as the lyrics poller.
+  The PATH below must include the claude binary (~/.local/bin); boto3 resolves
+  DATABASE_URL from SSM /myblog/backend with the owner's AWS creds. Uses the backend
+  venv python because the fingerprint is imported from the backend read path — a
+  local reimplementation that drifted would mark every translation stale.
+
+  INSTALL (owner's machine):
+    cp scripts/com.myblog.genius-translate-poller.plist ~/Library/LaunchAgents/
+    launchctl load -w ~/Library/LaunchAgents/com.myblog.genius-translate-poller.plist
+
+  STATUS / LOGS:
+    launchctl list | grep genius-translate
+    tail -f ~/Library/Logs/myblog-genius-translate-poller.log
+
+  DRAIN BY HAND (ignores the quiet window):
+    myblog_backend/.venv/bin/python scripts/genius_translate_poller.py --drain --force
+
+  STOP (kill switch — rows stay pending; the sheet shows "아직 준비되지 않았습니다"):
+    launchctl unload -w ~/Library/LaunchAgents/com.myblog.genius-translate-poller.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.myblog.genius-translate-poller</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/park_hyun/myblog-workspace/myblog_backend/.venv/bin/python</string>
+        <string>/Users/park_hyun/myblog-workspace/scripts/genius_translate_poller.py</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/park_hyun</string>
+        <key>PATH</key>
+        <string>/Users/park_hyun/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- Every 60s; each run claims one annotation then exits. -->
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/park_hyun/myblog-workspace</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-genius-translate-poller.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-genius-translate-poller.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>
