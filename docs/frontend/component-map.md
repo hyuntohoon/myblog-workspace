@@ -59,7 +59,8 @@ to compound actions).
 |---|---|---|---|---|
 | Review tracklist (vanilla, public) | `scripts/albumDetail.client.ts` (row render `:66,:71`; delegated handlers `:124-144`) | two buttons/row: `.lfq-tt-play` (▶) + `.lfq-tt-add` (＋) | ▶ → `requestPlayback({kind:'track',trackId,title})` (`:130`); ＋ → `window` event `pb:add-track` (`:144`) → `ReviewTrackAdder` | **no — excluded** |
 | Pocket tray drawer members | `components/member/pocket/PocketTray.tsx:587` | React `<button onClick={onPlay}>` ▶ (list view) | `onPlay`→`playbackTargetFor` (`:53-59`)→`requestPlayback` (`:412`) | no (tray lyrics deferred — RFC OQ4, separate React root) |
-| Member `AlbumDetail` tracklist | `components/member/AlbumDetail.tsx` `Tracklist` | `TrackRow` — 가사 (when track has `spotify_id`) → lyrics viewer non-live | none | **TrackRow** (`lyrics`) |
+| Member `AlbumDetail` tracklist (`StandardModal`) | `components/album/AlbumDetailView.tsx` `Tracklist` | `TrackRow` — a small 가사 button (when the track has `spotify_id`) → **`LyricsSheet`** | none | **TrackRow** (`lyrics`) |
+| Member `AlbumDetail` **memo window** (bucket albums) | `components/member/AlbumDetail.tsx` `MemoWindow` (`memo-tracks` / `.memo-trow-btn`) | **the whole row is the button** → `LyricsSheet` | none | **NO — hand-rolled twin of the row above** |
 | `LikedBoard` list rows | `components/member/LikedBoard.tsx` `Row` | `TrackRow` — identity → `onOpen` (detail, **member modal** — writable path, NOT the event); 가사 → lyrics viewer non-live; ⋯ → 담기/평론쓰기 (surface-specific trailing) | none | **TrackRow** (`open`+`lyrics`); card view NOT adopted (no lyrics affordance there) |
 | Search track rows (public) | `components/search/SearchPage.tsx` (`SearchTrackRow`), `HeaderSearch` `ResultRow` (dropdown 트랙 rows) | **Step 3**: a track with a DB `albumId` opens the app-wide album overlay (`openTrackAlbum`); id-less (Spotify-only) rows stay static | none | no (bespoke → `openTrackAlbum`) |
 | Artist top-tracks (public) | `components/artist/ArtistHub.tsx` `art-tt-open` | **Step 3**: `<button>` → `openTrackAlbum` (Music_TrackItem.album_id always set) | none | no (bespoke → `openTrackAlbum`) |
@@ -69,10 +70,24 @@ to compound actions).
 in exactly **2 files**: `scripts/albumDetail.client.ts` and `components/member/pocket/PocketTray.tsx`.
 TrackRow adds **no** play affordance anywhere (OQ2 default).
 
-**Static lyrics entry** (privacy-scoped): TrackRow's `lyrics` action opens `SelfDashboard`'s
-`LyricsViewer` mount with `{trackId, progressMs: null, live: false}` — authed
-member island only; grep-verified no lyric affordance/import exists in any public-route
-component (FEAT-lyrics-viewer invariant unchanged).
+**Static lyrics entry** (privacy-scoped): both static entries route through `SelfDashboard`'s
+`openStaticLyrics`, which mounts **`LyricsSheet`** — not `LyricsViewer`. Only `NowPlaying`'s 가사 tap
+opens the viewer (`kind: 'live'`). Authed member island only; grep-verified no lyric affordance or
+import exists in any public-route component. The public `AlbumOverlay` renders the same
+`AlbumDetailView` but omits `onOpenLyrics`, and that omission IS the privacy boundary — the tracklist
+simply has no lyrics affordance when the prop is absent.
+
+**Since 2026-07-28 the sheet is owner-only**: `GET /api/lyrics/{id}` is `require_owner`, so a
+signed-in non-owner opening either entry gets an explicit "가사는 운영자만 볼 수 있어요" state
+(RFC `FEAT-lyrics-annotations` §6.9 O2).
+
+> ⚠️ **Two tracklists, one lyrics destination.** The memo window replaced the shared `TrackRow` with
+> its own compact `memo-trow`, which is why its rows once had no 가사 affordance at all and got a
+> *second* hand-rolled one instead of being moved back. They are deliberately different
+> interactions — a small action button vs. a whole-row target in a narrow window — so this is not
+> pending cleanup. **It is a place a change must be made twice.** Widening `TrackRowActions` to
+> express "the whole row opens lyrics" would let them merge, but that is an RFC OQ2 product decision,
+> not a refactor.
 
 ## Entity navigation — `lib/entityLinks.ts`
 
