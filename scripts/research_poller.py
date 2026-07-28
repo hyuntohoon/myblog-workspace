@@ -372,7 +372,10 @@ def main() -> None:
             try:
                 handled = process_one(base_prompt)
             except LLMSubscriptionCooldown as e:
-                log.info("subscription cooldown — leaving claimed research row for retry: %s", e)
+                log.info(
+                    "subscription cooldown — stopping this firing; queue work remains retryable: %s",
+                    e,
+                )
                 return
             if handled:
                 time.sleep(args.sleep)        # serial spacing between runs
