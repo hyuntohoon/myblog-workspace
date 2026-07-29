@@ -5,7 +5,7 @@
 **Account**: `338183196042`  
 **Type**: Standard queue (NOT FIFO)  
 **DLQ**: `album-sync-dlq` — redrive `maxReceiveCount=3`, 14-day retention, CloudWatch-alarmed (observe-only, no auto-redrive). Visibility timeout: 720s (raised from 30s to clear the worker timeout, STAB-3, applied 2026-06-05).  
-**Producer**: `myblog_music` (album sync, Format A/B — `app/clients/sqs_client.py`, Lambda: `musicApi`) + `myblog_backend` (job-control, Format C — `app/clients/sqs_client.py`, Lambda: `ratemymusic-api`)  
+**Producer**: `myblog_music` (album sync, Format A/B — `app/clients/sqs_client.py`, Lambda: `musicApi`) + `myblog_backend` (job-control, Format C — `app/clients/sqs_client.py`, Lambda: `ratemymusic-api`) + workspace `scripts/research_poller.py` (Format C `genius_fetch` readiness nudge, boto3 from the owner's machine)  
 **Consumer**: `myblog_worker` (`worker/handler.py`, Lambda: `blogWorkerLambda`)
 
 ---
@@ -63,7 +63,8 @@ These carry a `job` key and **no** `album_ids`/`market` fields.
 | `spotify_library_sync` | backend `SqsClient.send_library_sync` | `POST /api/buckets/spotify-library/sync` | mirror saved-albums Library (GET/PUT/DELETE `/me/albums`); writes gated on the worker's own `SPOTIFY_LIBRARY_WRITES_ENABLED` |
 | `spotify_refresh` | backend `SqsClient.send_listening_refresh` | `POST /api/library/refresh-recent` | re-pull recently-played → `spotify_recent_tracks` (V14) |
 | `lyrics_incremental` | worker self-chain `sqs_producer.enqueue_lyrics_incremental` — sent once per invocation after an album-sync record lands (worker #62); also send-able manually | — | run one bounded incremental LRCLIB lyrics pass now (near-real-time; the 15-min EventBridge cron is the safety net). Optional `limit`. The lyrics branch never re-chains (no feedback loop). |
-| `lyrics_reassessment` | manual only | — | run one bounded reassessment pass over unresolved lyrics rows. Optional `limit`. |
+| `lyrics_reassessment` | manual only | — | run one bounded reassessment pass over unresolved lyrics rows. Optional `limit`. With `album_id` (uuid string) the pass is album-scoped out of turn (the DATA-catalog-noise Step 4 expedite; optional `cooldown_sec` bounds a double-fire). |
+| `genius_fetch` | workspace `research_poller.py` `_nudge_unready_albums` (readiness nudge, ≤1/album/5 min) — also send-able manually | — | run one bounded Genius annotation fetch over research-requested albums. Optional `limit`. With `album_id` (uuid string) the pass is scoped to that album — the research claim gate's collection path; duplicates are cheap (only still-missing tracks are selected, all writes upsert). |
 
 The worker dispatches on the `job` key (`handler.py`) **before** the Format A/B branches and before the
 unknown-format fallthrough — so these are recognized messages, not "unknown format".
