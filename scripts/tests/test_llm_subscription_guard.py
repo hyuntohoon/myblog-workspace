@@ -254,8 +254,27 @@ def test_lyrics_closes_read_connection_before_model_wait(monkeypatch) -> None:
 def test_research_closes_read_connection_before_model_wait(monkeypatch) -> None:
     import research_poller as research
 
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            pass
+
+        def execute(self, _sql, _params=None) -> None:
+            pass
+
+        def fetchall(self):
+            return []  # nudge sees no waiting albums; facts block renders 0/0
+
     class ReadConn:
         closed = False
+
+        def cursor(self):
+            return Cursor()
+
+        def commit(self) -> None:
+            pass
 
         def close(self) -> None:
             self.closed = True

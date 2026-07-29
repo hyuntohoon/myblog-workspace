@@ -4,9 +4,11 @@
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
 - **Last investigated**: 2026-07-25 (deep investigation session — supersedes the morning capture)
-- **Last updated**: 2026-07-28 — §6.5 R-table marked with shipped state; the viewer sub-thread
-  (§6.6 + §6.9) is **live in prod end-to-end** (fetch → store → Korean bodies → owner-only read →
-  in-sheet render); stale "not there today" claims in §6.7/§6.9/§8/§11 corrected against code
+- **Last updated**: 2026-07-29 — **R1/R2/R4 implemented**: research requests are now the Genius
+  collection trigger (per-album, lyrics-blind eligibility; catalog-wide matched-lyrics pool retired),
+  the research claim gate waits for collection readiness (90-min partial fallback + SQS nudge), and
+  the prompt gets an album-level facts block derived from the track tables with a `[확인: Genius]`
+  tier (O3 re-resolved to **derive**, §6.9). Viewer sub-thread unchanged and live since 07-28.
 - **Plan row**: `plan.md` → FEAT-lyrics-annotations (Backlog)
 
 > **How to read this document.** The 2026-07-25 morning session wrote a capture from a brainstorm.
@@ -496,7 +498,7 @@ sub-thread. Every leg is merged and running in prod:
 
 | Leg | Where | PRs |
 |---|---|---|
-| Fetch | worker `genius_fetch` job — writes the `track_genius_songs` row **before** its `track_genius_annotations`, one transaction per track; bucketed albums first, 15 tracks/run; unset token = logged no-op | worker #83 + hourly EventBridge ws #726 |
+| Fetch | worker `genius_fetch` job — writes the `track_genius_songs` row **before** its `track_genius_annotations`, one transaction per track; 15 tracks/run; unset token = logged no-op. **Retargeted 2026-07-29**: eligibility is now research demand (`album_research` albums, active requests first, lyrics-blind) + an `album_id` nudge param; the original catalog-wide matched-lyrics pool (~11.3k) is retired | worker #83 + hourly EventBridge ws #726; retarget 2026-07-29 |
 | Store | shared_db **V49 applied to prod**, service pins bumped | (rollout → §6.9) |
 | Korean bodies | `scripts/genius_translate_poller.py`, resident on launchd (60 s interval); batches by output size; one annotation per call | ws #732 (poller) + #734 (scheduled) + #736 (batching, 18.8 s → 3.4 s/annotation) + #737 (validation-retry loop fix) |
 | Read | `annotations` field on `GET /api/lyrics/{spotify_track_id}`, anchored per request, attached above the availability early-return; **owner-only per O2** | backend #135 (read) + #139 (gate) |
@@ -506,16 +508,16 @@ Translation queue is **steady-state** (prod, 2026-07-28): 2,416 `done`, backlog 
 any instant is fresh hourly-fetch arrivals draining, plus any rows the claim SQL holds because the
 parent song's `match_status ≠ 'matched'` (by design — a wrong song's commentary must not be paid for).
 
-**What remains is the research-pipeline half of this table** — statuses below verified against code
-2026-07-28 (grep for `genius` in each key file).
+**The research-pipeline half landed 2026-07-29 (R1/R2/R4)**; statuses below re-verified against
+code the same day. Remaining: R3, R5's description tier, R6.
 
 | ID | Status (2026-07-28) | What | Size | Key files |
 |---|---|---|---|---|
 | **R0** | ✅ **done** — ws #712, 2026-07-26 | Coverage probe over the 88 bucketed albums: per-language match rate and per-field fill rate for the four fields the notes actually lack | S | new `tools/genius_probe.py`, cloning the resumable-batch skeleton of `tools/lyrics_batch_api.py:1-27` |
-| **R1** | ◐ **substrate shipped, store not built.** The track-scoped store (§6.9) now holds `credits` + `relationships` and grows hourly — `album_genius_facts` + `genius_facts_poller.py` do not exist. Remaining call: materialise per-album from the track tables vs fetch separately (revisits O3) | M | new `scripts/genius_facts_poller.py`, sibling of `scripts/research_poller.py` (same SSM read + psycopg claim-gate shape) |
-| **R2** | ❌ not started (no genius code in `research_poller.py`) | Inject the facts block into the **research** prompt | S | `scripts/research_poller.py` — add `_genius_block(conn, album_id)` beside `_album_block` (`:110-121`); append in `build_prompt` (`:153-161`) |
+| **R1** | ✅ **done 2026-07-29, as DERIVE** — album-level facts are computed at prompt-build time from the track tables (`_render_genius_block` in `scripts/research_poller.py`): coverage counts, producer/writer cores, session-staff recurrences (corporate boilerplate filtered), per-track sample/interpolation relations both directions, confirmed-absence line. `album_genius_facts` + `genius_facts_poller.py` were **not** built — O3 re-resolved, §6.9 | M | `scripts/research_poller.py` (`GENIUS_FACTS_SQL`, `_render_genius_block`) |
+| **R2** | ✅ **done 2026-07-29** — `_genius_block` appended in `build_prompt` after the 앨범 block; the claim gate holds a fresh request until every album track has a `track_genius_songs` row (any status = attempted), with a 90-min partial fallback and an SQS `album_id` nudge to the worker (Records-loop routed + handler test; 5-min/album cooldown; hourly cron = fallback). Gate→nudge→attempted→claim→render executed on the Neon test branch, and hold/claim simulated on prod inside BEGIN..ROLLBACK | S | `scripts/research_poller.py` (`CLAIM_SQL` gate, `GENIUS_PENDING_SQL`, `_nudge_unready_albums`), worker `handler.py` Records branch |
 | **R3** | ❌ not started (no genius code in `buckit_nightly.py`) | Facts as a first-class **nightly-draft** context field | M | `scripts/buckit_nightly.py` — `GENIUS_SQL` beside `RESEARCH_SQL` (`:233-242`); `m['genius_md']` in `export_checked_memos` (`:302-401`) |
-| **R4** | ❌ not started (no Genius tier in `album_research_v2.md`) | `[확인: Genius]` source tier + a mechanical provenance footer that survives the model ignoring the prompt | S | `scripts/album_research_v2.md:23-44` (★ block) and `:94-97` (출처 못 찾은 것) |
+| **R4** | ✅ **done 2026-07-29** — `[확인: Genius]` confirmed tier in the ★ honesty block (+ 샘플링/기반 1차-근거 rule + 출처-못-찾은-것 exclusion), vendored `album_research_v2.md` and canonical `docs/editorial/album-research-prompt.md` kept byte-identical; block-side provenance = fetch-date range + per-track 근거 링크, and the zero-match/lookup-failure paths explicitly ban the tier | S | `scripts/album_research_v2.md`, `docs/editorial/album-research-prompt.md` |
 | **R5** | ◐ **annotation bodies done** (viewer pipeline above); **song descriptions not**: `description` stored on 272/297 songs but `description_ko` is 0-filled, untranslated and unserved | S | `scripts/genius_translate_poller.py` (extend to descriptions) |
 | **R6** | ❌ not started (no genius code in `editor_buckit.py`) | **Catalog-internal lineage & credit graph** — producer/writer clusters *within a bucket*, and interpolation edges between catalog albums | M | `scripts/editor_buckit.py` — extend `export_bucket_context` (`:219-345`); reuse the genre/artist cluster machinery at `:279-291` |
 
@@ -771,6 +773,15 @@ byte-identity pair.)
   which is why both tables carry it. If drift becomes visible in practice, collapsing R1 onto these
   tables remains available and this decision is the thing to revisit.
 
+  **Re-resolved 2026-07-29 — R1 built as DERIVE, no second store.** By the time R1 was built, the
+  implemented state had answered the question this decision left open: the track-scoped store was
+  already accumulating exactly the credits/relationships R1 needs, and the drift cost this entry
+  itself names ("stored twice and disagree") had no remaining upside to buy. Album-level facts are
+  now computed at prompt-build time from `track_genius_songs` (`_render_genius_block` in
+  `scripts/research_poller.py`); there is one store, `fetched_at` still rides every derived block as
+  its provenance date range, and the viewer and the research prompt can no longer disagree by
+  construction.
+
 ---
 
 ## 7. Decisions log
@@ -797,6 +808,10 @@ byte-identity pair.)
 | 2026-07-26 | `album_genius_facts` **stays a separate store**; `fetched_at` is the tiebreak when it disagrees with the track tables (§6.9 O3) | 1 |
 | 2026-07-27 | **Render spec fixed** — long spans A2 (ends-only at 4+), overlap B2 (shorter span owns the line) + containment fallback, note tracks its range, dark theme inverts ink only where the fill lands → design record | 1 |
 | 2026-07-27 | **Highlight treatment is the only setting** (`M0`–`M3`, default `M0`). Density runs 9.5–64.7% per track, so a fixed treatment is wrong on one end or the other; the other axes are not exposed | 1 |
+| 2026-07-29 | **Research requests are the Genius collection trigger.** Eligibility = `album_research` demand, per album, lyrics-blind (credits/relationships are useful without lyrics); the catalog-wide matched-lyrics pool (~11.3k) is retired | 1 |
+| 2026-07-29 | **Research waits for collection readiness**: claim gate holds until every album track has a row (matched/ambiguous/not_found all count as attempted — permanent failures never block), SQS `album_id` nudge for immediacy, 90-min partial fallback, hourly cron as backstop | 1 |
+| 2026-07-29 | **O3 re-resolved: R1 derives at prompt time from the track tables** — no `album_genius_facts`, no second fetch, no cross-store drift; facts from `matched` rows only (the translate poller's wrong-song hold, applied to notes) | 1 |
+| 2026-07-29 | **Tradeoff recorded with the retarget**: a bucketed-but-never-researched album no longer accumulates viewer annotations (the sheet reads stored rows only). Demand flows exclusively through research requests; widening eligibility to bucket membership (`OR review_bucket_items`) is available but needs an explicit owner call | 1 |
 
 ## 8. What blocks execution
 
@@ -891,7 +906,8 @@ GROUP BY 1;
 2. Get the two blockers in §8 answered.
 3. Thread 2's Step B and Step A **both shipped 2026-07-28** as `DATA-catalog-noise-and-lyrics-coverage`
    Steps 3–4 (worker #84/#85/#86); follow Thread 2 in that RFC, not here.
-4. Thread 1's viewer sub-thread is **shipped and running** (§6.5 "Shipped state"); the remaining
-   Thread 1 work is the research-pipeline integration — R2/R3/R4/R6 untouched, R1's per-album
-   materialisation call open (O3), R5's description tier unfilled. Check the 2026-07-29 six-album
-   KR/EN anchor regression result (§6.6) before building on the anchoring numbers.
+4. Thread 1's viewer sub-thread is **shipped and running** (§6.5 "Shipped state"), and the
+   research-pipeline core **landed 2026-07-29**: R1 (derive) + R2 (gated prompt injection) + R4
+   (source tier) — see the R-table and the O3 re-resolution (§6.9). Remaining Thread 1 work:
+   R3 (nightly-draft field), R5's description tier, R6 (catalog graph). Check the 2026-07-29
+   six-album KR/EN anchor regression result (§6.6) before building on the anchoring numbers.

@@ -239,28 +239,28 @@ locals {
     }
 
     # Genius annotation fetch (FEAT-lyrics-annotations Thread 1). Selects tracks
-    # with matched lyrics and no Genius row, BUCKETED ALBUMS FIRST, and writes
+    # of RESEARCH-REQUESTED albums (album_research rows, active requests first)
+    # with no Genius row yet — lyrics status is not a condition — and writes
     # track_genius_songs + its track_genius_annotations in one transaction per
-    # track. Bounded by settings.GENIUS_FETCH_BATCH_LIMIT (15).
+    # track. Bounded by settings.GENIUS_FETCH_BATCH_LIMIT (15). The catalog-wide
+    # matched-lyrics pool this cron used to drain is retired.
     #
-    # HOURLY, sized from measurement rather than taste. One default batch on prod
-    # took 53.3s — 44% of the 120s Lambda timeout — at 15 tracks. Per-track cost
-    # swings with a song's referent pages (2.32s light, 4.55s annotation-heavy),
-    # so 15 is the worst-case fit, not the average.
+    # Batch sizing from measurement: one default batch on prod took 53.3s — 44%
+    # of the 120s Lambda timeout — at 15 tracks. Per-track cost swings with a
+    # song's referent pages (2.32s light, 4.55s annotation-heavy), so 15 is the
+    # worst-case fit, not the average.
     #
-    # Why hourly rather than faster: 360 tracks/day drains the 635 bucketed
-    # tracks — the ones the lyrics sheet can actually open — in about two days,
-    # after which the schedule is only keeping up with new intake. The remaining
-    # ~11k trickle behind them. 45 Genius API calls an hour is polite for a
-    # third-party read API with unpublished limits; every 15 minutes would be 4×
-    # that permanently, to finish a backlog nobody is waiting on.
+    # HOURLY is now the FALLBACK cadence, not the primary path: the research
+    # poller nudges blogSQS {"job":"genius_fetch","album_id":...} the moment a
+    # research request is waiting on collection, so the cron only covers nudge
+    # failures and the done-album backfill. Most firings select nothing.
     #
     # :30 keeps it off the hour boundary the other crons cluster on.
     # The manual blogSQS {"job":"genius_fetch"} message works either way, and an
     # unset GENIUS_ACCESS_TOKEN makes the job a logged no-op rather than an error.
     genius_fetch = {
       name         = "worker-genius-fetch"
-      description  = "Hourly Genius annotation fetch (bucketed albums first, 15 tracks/run)"
+      description  = "Hourly Genius fetch fallback (research-requested albums, 15 tracks/run)"
       schedule     = "cron(30 * * * ? *)"
       input        = { job = "genius_fetch" }
       target_id    = "blogWorkerLambda-genius-fetch"

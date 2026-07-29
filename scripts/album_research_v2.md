@@ -41,6 +41,14 @@
 - ★ **Non-audible only.** Skip anything the critic learns by listening ("fast," "dark," "aggressive").
   Describe the production *method*, never the sonic *result* — "guitar through sustain unit + loops"
   ○ / "guitar that sounds like a synth" ✕.
+- ★ **Pipeline-provided Genius facts are a confirmed tier.** When a `## Genius 확인 사실` block is
+  provided below, its credits and sample/interpolation relationships are pre-verified primary-source
+  data: cite them as `[확인: Genius]` (plus the per-track 근거 링크 when given) without re-searching.
+  The block covers only tracks it marks matched — on a matched track, an absent relationship is a
+  *confirmed* absence; on an unmatched/unfetched track it stays 미확인. Web search still supplies
+  context (who these people are, why it matters), but a web claim that contradicts the block goes to
+  상충 — never silently override it. No block, or a block saying 미매칭/조회 실패 → the tier does not
+  exist for this album; never write `[확인: Genius]` then.
 - ★ **Output in Korean.**
 
 ## Workflow (fixed order)
@@ -74,6 +82,8 @@
 
 ## 샘플링 / 기반 (★최우선)
    무엇 위에 지어졌는가.
+   · Genius 확인 사실 블록이 있으면 그 관계 목록([확인: Genius])이 1차 근거 — 검색은 그
+     관계의 맥락(원곡·경위) 보강용. "관계 없음(확인)"이면 확인된 부재로 기술.
    · 장르 무관: 문자 그대로의 샘플·인터폴레이션 존재 여부를 항상 먼저 검색.
      (비샘플 장르에도 결정적 샘플이 있다 — Kid A의 Lansky, brat의 무크레딧 인터폴레이션.)
    · 샘플 기반 장르(힙합·phonk 등) → 샘플·인터폴레이션·원소스가 본문.
@@ -97,7 +107,8 @@
    각 질문은 위 섹션에서 인용한 사실 1개 이상에 명시적으로 기댈 것 — 근거 없는 자유 생성 금지.
 
 ## 출처 못 찾은 것
-   검색했지만 확인 못 한 항목. 솔직하게 나열. 하위 항목:
+   검색했지만 확인 못 한 항목. 솔직하게 나열. Genius 블록이 이미 확인한 항목은 여기 두지
+   말 것; 반대로 Genius가 미매칭/미조회인 트랙의 크레딧·샘플은 여기서 그 사실을 명시. 하위 항목:
    · 상충 — 출처끼리 다른 사실. 전부 병기, 미해결 표시.
    · 불채택 — 어느 링크된 페이지로도 추적 안 되는 검색 요약층 서술. 배제 근거 1줄.
 ```
