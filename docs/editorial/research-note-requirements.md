@@ -138,8 +138,53 @@ Two owner decisions on 07-27 shrank the credits work rather than growing it:
   raised it.
 
 Net: **v2 covers 1 of the 6 gaps, v4 covers 4** (comparison points, interview primaries, and
-partially earlier-work and sample meaning). That remains the argument for adopting v4 rather than
-continuing to patch v2.
+partially earlier-work and sample meaning). ~~That remains the argument for adopting v4 rather than
+continuing to patch v2.~~
+
+**Overturned by measurement, 2026-07-30 — port, do not swap.** The section-count comparison above
+was never run against output. It has now been, twice, out of band (no `PROMPT_VERSION` change, no DB
+write), with the album block, the Genius block, engine, model and tools held identical and the base
+prompt as the only variable.
+
+**The clean test — Beyoncé *RENAISSANCE*, scored against Pitchfork's review** (Julianne Escobedo
+Shepherd, 9.0, 2022-08-01; chosen as a Pitchfork #1 album of the year inside the last ten years that
+is also in our catalogue). Neither note cited pitchfork.com, so the yardstick stayed independent.
+Coding the 22 non-audible claims the review actually uses:
+
+**v2 12/22, v4 12/22 — a tie, with almost no overlap in *which* twelve.**
+
+| | Found only by this arm |
+|---|---|
+| **v2** | Vjuan Allure (the root of the vogue-fem "Ha" lineage), Princess Loko, A. G. Cook / PC Music |
+| **v4** | the Uncle Jonny dedication (HIV, and house music entering the family home — sourced to Exclaim! + W + a Tina Knowles quote, with the death date correctly left `[미확인]`), Ts Madison, Homecoming/Beychella |
+
+The axes differ rather than the quality: v4 is stronger on biography and primary statements, v2 on
+genealogy and credits. Swapping trades one for the other. **Both miss the same seven**, including the
+review's most impressive passage — the chain from *Pure/Honey* back through MikeQ to Vjuan Allure's
+rework of Masters at Work's "The Ha Dance" (1991) — plus Trigger Man, the dembow/Shabba Ranks route,
+Kelman Duran, and liner notes as a source at all. **That gap belongs to neither prompt and is the
+larger opportunity.**
+
+**A regression found in v4, independent of the tie.** v2's rule 36 bans "ratings, scores, awards,
+chart positions, **or others' critical verdicts**"; v4's rule 32 keeps everything except that last
+clause. In the second test (*ONYX*) v4 duly read the published IZM review and pulled its *readings*
+in as inputs — 20 references, including IZM's genre characterisation, its tempo observation, and its
+verdict on `PPAP` cited as `확인 1건`. This is the contamination v2's clause exists to prevent, and
+it is a predictable cost of rebuilding from a coding of 38 reviews: a statistical pass can see what
+reviews *contain*, never what a research note must *avoid*.
+
+(That same contamination voids the *ONYX* arm as an independent score — every fact there that looked
+like a v4 win traces to the review being used as the yardstick. Recorded so nobody re-derives it.)
+
+**Cost.** v4 draws 1.5–3× the input tokens and 1.25–1.7× the wall clock per note (*RENAISSANCE*:
+424 s / 487k in for v2 against 712 s / 1,487k for v4). The 03:00 draft agent shares the same
+subscription.
+
+**Therefore:** port v4's biography / primary-statement pressure into v2, keep v2's others'-verdicts
+ban, and add the liner-notes + sample-chain-depth rule neither prompt has. Adoption of v4 as a swap
+would additionally have to solve the two blockers below (the `PROMPT_VERSION` filter hiding all
+existing notes, and `[확인: Genius]` appearing 0× in v4 against 3× in v2 — switching today would
+drop the wrong-song defence added on 2026-07-30). Tracked in `plan.md`.
 
 Also fixed while here: `research_poller.py`'s `ADDENDUM` instructed the model to record residual
 disambiguation "inside the `앨범 식별` section", a section v4 does not define. It is now written
