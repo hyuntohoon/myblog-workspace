@@ -129,6 +129,22 @@ def test_title_divergence_is_flagged_without_being_called_a_verdict():
     assert "slom (1/1트랙 — 2 Simon Says)" in block
 
 
+def test_a_person_credited_in_two_roles_does_not_pool_their_tracks():
+    """RENAISSANCE, 2026-07-30: Beyoncé and The-Dream both produce AND write, and
+    a single shared attribution map pooled the two roles under one key — the
+    count said 3/14 while the list showed six tracks, one of them twice."""
+    rows = [
+        _row("T1", "matched", track_no=1, url="u1", fetched=FETCHED,
+             credits={"producers": ["X"], "writers": ["X"], "performances": []}, rels={}),
+        _row("T2", "matched", track_no=2, url="u2", fetched=FETCHED,
+             credits={"producers": ["X"], "writers": [], "performances": []}, rels={}),
+    ]
+    block = rp._render_genius_block(rows)
+    assert "프로듀서: X (2/2트랙 — 1 T1 · 2 T2)" in block
+    assert "작곡·작사: X (1/2트랙 — 1 T1)" in block, "the writer line must not inherit producer tracks"
+    assert "1 T1 · 1 T1" not in block, "no track may repeat inside one credit"
+
+
 def test_feature_suffix_alone_is_not_a_divergence():
     """Genius routinely drops the feature credit from a title; flagging that
     benign difference would bury the one that matters."""
