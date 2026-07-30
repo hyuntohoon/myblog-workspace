@@ -350,6 +350,11 @@ def _render_genius_block(rows: list[dict]) -> str:
                      + " · ".join(_top_counts(recurring_perf, m, 10, attrib_perf)))
 
     lines.append("### 샘플·인터폴레이션 / 파생 관계")
+    lines.append(
+        "- ※ 이 목록은 Genius에 **등재된** 관계이고 **1홉**이다. 등재는 클리어된 관계 위주라 "
+        "무크레딧 샘플은 구조상 담기지 않으며, 원곡이 다시 무엇에서 왔는지도 여기 없다. "
+        "부재는 'Genius에 등재되지 않음'이지 '샘플이 없음'이 아니다."
+    )
     rel_tracks = []
     no_rel = 0
     for r in matched:
@@ -381,6 +386,89 @@ def _render_genius_block(rows: list[dict]) -> str:
     if len(block) > GENIUS_BLOCK_MAX_CHARS:
         block = block[:GENIUS_BLOCK_MAX_CHARS] + "\n… (Genius 블록 길이 초과로 절단)\n"
     return block
+
+
+def _render_catalog_block(other: list[dict], genres: list[dict], xref: list[dict],
+                          mates: list[dict], buckets: list[dict]) -> str:
+    lines = ["## 카탈로그 (파이프라인 제공 — 우리 DB에서 파생)"]
+    lines.append(
+        "- ※ 이 블록은 **오너의 라이브러리**에서 나온 것이지 디스코그래피가 아니다. "
+        "전작이 여기 없다는 것은 **우리가 안 갖고 있다**는 뜻이지 존재하지 않는다는 뜻이 아니다. "
+        "**이 블록의 부재를 근거로 삼지 말 것.**"
+    )
+
+    if genres:
+        tags = []
+        for g in genres:
+            gs = list(g["genres"] or [])[:6]
+            if gs:
+                tags.append(f"{g['name']}: {', '.join(gs)}")
+        if tags:
+            lines.append("### 아티스트 장르 태그 (Spotify 유래)")
+            for t in tags:
+                lines.append(f"- {t}")
+
+    lines.append(f"### 같은 아티스트의 다른 앨범 — 우리 카탈로그 보유분 ({len(other)}장)")
+    if other:
+        for r in other:
+            year = r["release_date"].year if r.get("release_date") else "연도 미상"
+            bits = [str(year), r.get("album_type") or ""]
+            if r.get("label"):
+                bits.append(r["label"])
+            if r.get("bucketed"):
+                bits.append("버킷에 담김")
+            lines.append(f"- {r['title']} ({' · '.join(b for b in bits if b)})")
+    else:
+        lines.append("- 보유분 없음 — **전작이 없다는 뜻이 아니다.** 전작은 웹에서 확인할 것.")
+
+    if xref:
+        lines.append("### 카탈로그 내부 크레딧 교차 (이 앨범 ↔ 우리가 가진 다른 앨범)")
+        for r in xref:
+            ex = " · ".join(r["examples"] or [])
+            lines.append(f"- {r['person']}: 다른 {r['albums']}장에도 참여 — {ex}")
+        lines.append(
+            "  ※ 교차는 **매칭된 Genius 크레딧을 가진 앨범들 사이에서만** 계산된다. "
+            "수집 안 된 앨범은 교차에 나타나지 않는다."
+        )
+
+    if mates:
+        lines.append("### 같은 레이블의 다른 아티스트 — 보유분")
+        for r in mates:
+            year = r["release_date"].year if r.get("release_date") else "?"
+            lines.append(f"- {r['name']} — {r['title']} ({year})")
+
+    if buckets:
+        lines.append(
+            "### 오너 컬렉션 신호: " + " · ".join(b["name"] for b in buckets)
+            + " — 이미 담아둔 것이므로, 오너가 아는 맥락은 다시 설명하지 말 것."
+        )
+
+    block = "\n".join(lines) + "\n"
+    if len(block) > CATALOG_MAX_CHARS:
+        block = block[:CATALOG_MAX_CHARS] + "\n… (카탈로그 블록 길이 초과로 절단)\n"
+    return block
+
+
+def _catalog_block(conn, album_id) -> str:
+    """Derive the CATALOG block. Same failure split as the Genius block: a DB
+    failure propagates (retryable, no subscription spent), a render failure fails
+    open with the block omitted rather than blocking research."""
+    with conn.cursor() as cur:
+        cur.execute(CATALOG_OTHER_ALBUMS_SQL, (album_id, album_id))
+        other = cur.fetchall()
+        cur.execute(CATALOG_GENRES_SQL, (album_id,))
+        genres = cur.fetchall()
+        cur.execute(CATALOG_CREDIT_XREF_SQL, {"album": album_id})
+        xref = cur.fetchall()
+        cur.execute(CATALOG_LABELMATES_SQL, (album_id, album_id))
+        mates = cur.fetchall()
+        cur.execute(CATALOG_BUCKETS_SQL, {"album": album_id})
+        buckets = cur.fetchall()
+    try:
+        return _render_catalog_block(other, genres, xref, mates, buckets)
+    except Exception as e:  # noqa: BLE001 — render-only fail-open
+        log.warning("catalog block render failed for %s: %s", album_id, e)
+        return ""
 
 
 def _genius_block(conn, album_id) -> str:
@@ -443,10 +531,13 @@ REFINE_HEADER = """
 
 
 def build_prompt(base: str, meta: dict, *, refine: bool, prior_note: str | None,
-                 instruction: str | None, genius_block: str | None = None) -> str:
+                 instruction: str | None, genius_block: str | None = None,
+                 catalog_block: str | None = None) -> str:
     parts = [base, ADDENDUM, _album_block(meta)]
     if genius_block:
         parts.append(genius_block)
+    if catalog_block:
+        parts.append(catalog_block)
     if refine:
         parts.append(REFINE_HEADER.format(
             instruction=(instruction or "(지시 없음 — 출처 재검증 및 보강)").strip(),
@@ -540,6 +631,81 @@ GROUP BY ar.album_id
 ORDER BY min(ar.requested_at)
 LIMIT {NUDGE_MAX_ALBUMS};
 """
+
+# --- CATALOG block (our own database — the one input class no service sells) ---
+# Everything here is a property of *this* library, so absence is never evidence:
+# a prior album we do not hold is a gap in the collection, not a gap in the
+# discography. The block says so about itself, for the same reason the Genius
+# block now declares its one-hop limit — an undeclared block reads as complete.
+CATALOG_MAX_CHARS = 4000
+
+CATALOG_OTHER_ALBUMS_SQL = """
+SELECT DISTINCT a.title, a.release_date, a.album_type, a.label,
+       EXISTS (SELECT 1 FROM review_bucket_items bi WHERE bi.album_id = a.id) AS bucketed
+FROM albums a
+JOIN album_artists aa ON aa.album_id = a.id
+WHERE aa.artist_id IN (SELECT artist_id FROM album_artists WHERE album_id = %s)
+  AND a.id <> %s
+ORDER BY a.release_date DESC NULLS LAST
+LIMIT 25;
+"""
+
+CATALOG_GENRES_SQL = """
+SELECT ar.name, ar.genres
+FROM artists ar
+JOIN album_artists aa ON aa.artist_id = ar.id
+WHERE aa.album_id = %s AND ar.genres IS NOT NULL;
+"""
+
+# Credit people shared between this album and ANY other album we hold. This is
+# the catalog-internal lineage no external service can compute (RFC R6) — "these
+# two records share a producer" is a fact about our shelf, not about the world.
+CATALOG_CREDIT_XREF_SQL = """
+WITH mine AS (
+    SELECT DISTINCT jsonb_array_elements_text(
+               COALESCE(g.credits->'producers', '[]'::jsonb)
+             || COALESCE(g.credits->'writers', '[]'::jsonb)) AS person
+    FROM track_genius_songs g
+    JOIN tracks t ON t.id = g.track_id
+    WHERE t.album_id = %(album)s AND g.match_status = 'matched'
+), theirs AS (
+    SELECT a.title AS album, jsonb_array_elements_text(
+               COALESCE(g.credits->'producers', '[]'::jsonb)
+             || COALESCE(g.credits->'writers', '[]'::jsonb)) AS person
+    FROM track_genius_songs g
+    JOIN tracks t ON t.id = g.track_id
+    JOIN albums a ON a.id = t.album_id
+    WHERE t.album_id <> %(album)s AND g.match_status = 'matched'
+)
+SELECT th.person, count(DISTINCT th.album) AS albums,
+       (array_agg(DISTINCT th.album))[1:4] AS examples
+FROM theirs th JOIN mine m ON m.person = th.person
+GROUP BY th.person
+ORDER BY count(DISTINCT th.album) DESC, th.person
+LIMIT 12;
+"""
+
+CATALOG_LABELMATES_SQL = """
+SELECT DISTINCT ar.name, a.title, a.release_date
+FROM albums a
+JOIN album_artists aa ON aa.album_id = a.id
+JOIN artists ar ON ar.id = aa.artist_id
+WHERE a.label IS NOT NULL
+  AND a.label = (SELECT label FROM albums WHERE id = %s)
+  AND a.id <> %s
+ORDER BY a.release_date DESC NULLS LAST
+LIMIT 10;
+"""
+
+CATALOG_BUCKETS_SQL = """
+SELECT DISTINCT b.name
+FROM review_bucket_items bi
+JOIN review_buckets b ON b.id = bi.bucket_id
+WHERE bi.album_id = %(album)s
+   OR bi.artist_id IN (SELECT artist_id FROM album_artists WHERE album_id = %(album)s)
+LIMIT 10;
+"""
+
 
 ALBUM_SQL = """
 SELECT a.title, a.release_date, a.label, a.spotify_id, a.album_type, a.total_tracks,
@@ -709,6 +875,7 @@ def process_one(base_prompt: str) -> bool:
                 return False
             meta = album_meta(read_conn, row["album_id"])
             genius_block = _genius_block(read_conn, row["album_id"])
+            catalog_block = _catalog_block(read_conn, row["album_id"])
         finally:
             # Materialize the claimed job before any shared-lock wait or web/model call.
             read_conn.close()
@@ -726,6 +893,7 @@ def process_one(base_prompt: str) -> bool:
             prior_note=row["result_md"],
             instruction=row["last_instruction"],
             genius_block=genius_block,
+            catalog_block=catalog_block,
         )
         t0 = time.monotonic()
         res = run_claude(prompt)

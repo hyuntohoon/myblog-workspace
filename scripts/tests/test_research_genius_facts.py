@@ -15,7 +15,7 @@ What these pin:
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -143,6 +143,58 @@ def test_a_person_credited_in_two_roles_does_not_pool_their_tracks():
     assert "프로듀서: X (2/2트랙 — 1 T1 · 2 T2)" in block
     assert "작곡·작사: X (1/2트랙 — 1 T1)" in block, "the writer line must not inherit producer tracks"
     assert "1 T1 · 1 T1" not in block, "no track may repeat inside one credit"
+
+
+def test_relationship_list_declares_its_one_hop_registered_limit():
+    """Genius records what was registered/cleared, so block silence means "no
+    relationship on Genius", never "no samples". The block that does not say so
+    reads as confirmed, the prompt's depth rule never fires, and uncredited
+    interpolations stay invisible (brat, 2 of them)."""
+    rows = [_row("A", "matched", credits={}, rels={"samples": ["X — Y"]}, fetched=FETCHED)]
+    block = rp._render_genius_block(rows)
+    assert "1홉" in block, "one hop must be declared or the chain is never followed"
+    assert "등재" in block and "무크레딧" in block
+
+
+# ── the CATALOG block ───────────────────────────────────────────────────────
+
+def test_catalog_block_refuses_to_let_absence_be_evidence():
+    """It derives from the owner's library, so a missing prior album means we do
+    not hold it — the block must say so in both the header and the empty case."""
+    block = rp._render_catalog_block([], [], [], [], [])
+    assert "디스코그래피가 아니다" in block
+    assert "부재를 근거로 삼지 말 것" in block
+    assert "전작이 없다는 뜻이 아니다" in block
+
+
+def test_catalog_block_carries_the_catalog_internal_credit_crossing():
+    """The one fact no external service can compute: these two records on THIS
+    shelf share a person (RFC R6 in miniature)."""
+    block = rp._render_catalog_block(
+        other=[{"title": "Prior LP", "release_date": date(2019, 9, 3),
+                "album_type": "album", "label": "Some Label", "bucketed": True}],
+        genres=[{"name": "Artist", "genres": ["korean hip hop"]}],
+        xref=[{"person": "slom", "albums": 2, "examples": ["NOWITZKI", "Other"]}],
+        mates=[{"name": "Labelmate", "title": "Their LP", "release_date": date(2021, 1, 1)}],
+        buckets=[{"name": "To Listen"}],
+    )
+    assert "Prior LP (2019 · album · Some Label · 버킷에 담김)" in block
+    assert "slom: 다른 2장에도 참여 — NOWITZKI · Other" in block
+    assert "korean hip hop" in block
+    assert "Labelmate — Their LP (2021)" in block
+    assert "To Listen" in block
+    # the crossing is only computable where Genius credits exist — say so
+    assert "수집 안 된 앨범은 교차에 나타나지 않는다" in block
+
+
+def test_catalog_block_reaches_the_prompt_after_the_genius_block():
+    meta = {"title": "T", "artists": ["A"], "album_type": "album",
+            "release_date": None, "label": None, "total_tracks": 1, "spotify_id": None}
+    prompt = rp.build_prompt("BASE", meta, refine=False, prior_note=None, instruction=None,
+                             genius_block="## Genius 확인 사실 (파이프라인 제공 — 조사 대상 앨범)\n- x\n",
+                             catalog_block="## 카탈로그 (파이프라인 제공 — 우리 DB에서 파생)\n- y\n")
+    assert prompt.index("## 앨범 (조사 대상)") < prompt.index("## Genius 확인 사실")
+    assert prompt.index("## Genius 확인 사실") < prompt.index("## 카탈로그")
 
 
 def test_feature_suffix_alone_is_not_a_divergence():
