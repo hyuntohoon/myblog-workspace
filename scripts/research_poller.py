@@ -308,18 +308,26 @@ def _render_genius_block(rows: list[dict]) -> str:
     writers: dict[str, int] = {}
     producers: dict[str, int] = {}
     perf: dict[str, int] = {}
-    attrib: dict[str, list[str]] = {}
+    # One attribution map PER ROLE, never one shared map. A person credited in
+    # two roles (Beyoncé and The-Dream produce and write on RENAISSANCE) would
+    # otherwise pool both roles' tracks under one key, so the count and the
+    # track list disagreed and tracks repeated — "The-Dream (3/14트랙 — 1 … · 6
+    # BREAK MY SOUL · 6 BREAK MY SOUL · …)".
+    attrib_w: dict[str, list[str]] = {}
+    attrib_p: dict[str, list[str]] = {}
+    attrib_perf: dict[str, list[str]] = {}
 
-    def _seen(bucket: dict[str, int], key: str, row: dict) -> None:
+    def _seen(bucket: dict[str, int], attrib: dict[str, list[str]],
+              key: str, row: dict) -> None:
         bucket[key] = bucket.get(key, 0) + 1
         attrib.setdefault(key, []).append(_track_label(row))
 
     for r in matched:
         credits = r["credits"] or {}
         for w in set(credits.get("writers") or []):
-            _seen(writers, w, r)
+            _seen(writers, attrib_w, w, r)
         for p in set(credits.get("producers") or []):
-            _seen(producers, p, r)
+            _seen(producers, attrib_p, p, r)
         seen_perf = set()
         for entry in credits.get("performances") or []:
             role = entry.get("role") or ""
@@ -328,18 +336,18 @@ def _render_genius_block(rows: list[dict]) -> str:
             for a in entry.get("artists") or []:
                 seen_perf.add(f"{role} — {a}" if role else a)
         for key in seen_perf:
-            _seen(perf, key, r)
+            _seen(perf, attrib_perf, key, r)
 
     m = len(matched)
     lines.append(f"### 크레딧 ({m}개 매칭 트랙 집계 — 소수 트랙 크레딧은 출처 트랙 병기)")
     if producers:
-        lines.append("- 프로듀서: " + " · ".join(_top_counts(producers, m, 12, attrib)))
+        lines.append("- 프로듀서: " + " · ".join(_top_counts(producers, m, 12, attrib_p)))
     if writers:
-        lines.append("- 작곡·작사: " + " · ".join(_top_counts(writers, m, 12, attrib)))
+        lines.append("- 작곡·작사: " + " · ".join(_top_counts(writers, m, 12, attrib_w)))
     recurring_perf = {k: n for k, n in perf.items() if n >= 2} or perf
     if recurring_perf:
         lines.append("- 세션·스태프(반복 크레딧 위주): "
-                     + " · ".join(_top_counts(recurring_perf, m, 10, attrib)))
+                     + " · ".join(_top_counts(recurring_perf, m, 10, attrib_perf)))
 
     lines.append("### 샘플·인터폴레이션 / 파생 관계")
     rel_tracks = []
