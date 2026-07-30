@@ -4,7 +4,11 @@
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
 - **Last investigated**: 2026-07-25 (deep investigation session — supersedes the morning capture)
-- **Last updated**: 2026-07-29 — **R1/R2/R4 implemented**: research requests are now the Genius
+- **Last updated**: 2026-07-30 — **post-merge gate closed**: the first real research request ran end
+  to end in prod (ONYX, click → note in 9 m 57 s; gate held, nudge fired, 12/12 collected in 21 s,
+  claimed at 107 s). It caught two block defects — a wrong-song match cited as confirmed, and zero
+  source links on nine matched tracks — now fixed by an evidence layer in `_render_genius_block`
+  (§6.10). Previously, 2026-07-29 — **R1/R2/R4 implemented**: research requests are now the Genius
   collection trigger (per-album, lyrics-blind eligibility; catalog-wide matched-lyrics pool retired),
   the research claim gate waits for collection readiness (90-min partial fallback + SQS nudge), and
   the prompt gets an album-level facts block derived from the track tables with a `[확인: Genius]`
@@ -514,10 +518,10 @@ code the same day. Remaining: R3, R5's description tier, R6.
 | ID | Status (2026-07-28) | What | Size | Key files |
 |---|---|---|---|---|
 | **R0** | ✅ **done** — ws #712, 2026-07-26 | Coverage probe over the 88 bucketed albums: per-language match rate and per-field fill rate for the four fields the notes actually lack | S | new `tools/genius_probe.py`, cloning the resumable-batch skeleton of `tools/lyrics_batch_api.py:1-27` |
-| **R1** | ✅ **done 2026-07-29, as DERIVE** — album-level facts are computed at prompt-build time from the track tables (`_render_genius_block` in `scripts/research_poller.py`): coverage counts, producer/writer cores, session-staff recurrences (corporate boilerplate filtered), per-track sample/interpolation relations both directions, confirmed-absence line. `album_genius_facts` + `genius_facts_poller.py` were **not** built — O3 re-resolved, §6.9 | M | `scripts/research_poller.py` (`GENIUS_FACTS_SQL`, `_render_genius_block`) |
+| **R1** | ✅ **done 2026-07-29, as DERIVE**; **evidence layer added 2026-07-30** — album-level facts are computed at prompt-build time from the track tables (`_render_genius_block` in `scripts/research_poller.py`): coverage counts, producer/writer cores, session-staff recurrences (corporate boilerplate filtered), per-track sample/interpolation relations both directions, confirmed-absence line. `album_genius_facts` + `genius_facts_poller.py` were **not** built — O3 re-resolved, §6.9. The first real e2e (§6.10) showed the aggregate alone is not citable: it now also ships a **매칭 근거** section (per matched track: Genius title, confidence, URL, `⚠︎ 곡명 불일치`), **names** the unmatched tracks instead of counting them, and attributes any credit on ≤3 tracks to those tracks | M | `scripts/research_poller.py` (`GENIUS_FACTS_SQL`, `_render_genius_block`) |
 | **R2** | ✅ **done 2026-07-29** — `_genius_block` appended in `build_prompt` after the 앨범 block; the claim gate holds a fresh request until every album track has a `track_genius_songs` row (any status = attempted), with a 90-min partial fallback and an SQS `album_id` nudge to the worker (Records-loop routed + handler test; 5-min/album cooldown; hourly cron = fallback). Gate→nudge→attempted→claim→render executed on the Neon test branch, and hold/claim simulated on prod inside BEGIN..ROLLBACK | S | `scripts/research_poller.py` (`CLAIM_SQL` gate, `GENIUS_PENDING_SQL`, `_nudge_unready_albums`), worker `handler.py` Records branch |
 | **R3** | ❌ not started (no genius code in `buckit_nightly.py`) | Facts as a first-class **nightly-draft** context field | M | `scripts/buckit_nightly.py` — `GENIUS_SQL` beside `RESEARCH_SQL` (`:233-242`); `m['genius_md']` in `export_checked_memos` (`:302-401`) |
-| **R4** | ✅ **done 2026-07-29** — `[확인: Genius]` confirmed tier in the ★ honesty block (+ 샘플링/기반 1차-근거 rule + 출처-못-찾은-것 exclusion), vendored `album_research_v2.md` and canonical `docs/editorial/album-research-prompt.md` kept byte-identical; block-side provenance = fetch-date range + per-track 근거 링크, and the zero-match/lookup-failure paths explicitly ban the tier | S | `scripts/album_research_v2.md`, `docs/editorial/album-research-prompt.md` |
+| **R4** | ✅ **done 2026-07-29**, tightened 2026-07-30 — `[확인: Genius]` confirmed tier in the ★ honesty block (+ 샘플링/기반 1차-근거 rule + 출처-못-찾은-것 exclusion); block-side provenance = fetch-date range + per-track 근거 링크, and the zero-match/lookup-failure paths explicitly ban the tier. **The tier is per matched track, not per album**: a `⚠︎ 곡명 불일치` track is carved out of the cite-without-re-searching rule (§6.10). Vendored `album_research_v2.md` and canonical `docs/editorial/album-research-prompt.md` are identical **over the shared range** — the canonical file also carries a workspace-only validation log behind an explicit "do not paste" marker, so they were never byte-identical end to end (this row said so until 2026-07-30). Parity is now pinned by `scripts/tests/test_prompt_mirror.py` rather than by convention | S | `scripts/album_research_v2.md`, `docs/editorial/album-research-prompt.md` |
 | **R5** | ◐ **annotation bodies done** (viewer pipeline above); **song descriptions not**: `description` stored on 272/297 songs but `description_ko` is 0-filled, untranslated and unserved | S | `scripts/genius_translate_poller.py` (extend to descriptions) |
 | **R6** | ❌ not started (no genius code in `editor_buckit.py`) | **Catalog-internal lineage & credit graph** — producer/writer clusters *within a bucket*, and interpolation edges between catalog albums | M | `scripts/editor_buckit.py` — extend `export_bucket_context` (`:219-345`); reuse the genre/artist cluster machinery at `:279-291` |
 
@@ -782,6 +786,69 @@ byte-identity pair.)
   its provenance date range, and the viewer and the research prompt can no longer disagree by
   construction.
 
+### 6.10 First real research request, e2e (2026-07-30) — the post-merge gate, and what it caught
+
+The R1/R2/R4 merge left one gate open: a real owner-issued research request, end to end in prod.
+Ran it on **ONYX / 사이먼 도미닉** — the only bucketed album with no research row and no Genius rows,
+so the readiness gate had to hold. Chain, from the owner's click:
+
+| +t | Event | Evidence |
+|---|---|---|
+| 0 s | `POST /api/research/albums/{id}` → `queued` | `album_research` row |
+| 3 s | poller fires: nudge sent, **claim held** | `nudged genius_fetch for 1 waiting album(s)` immediately followed by `queue empty` — a queued row that did not claim |
+| 21 s | worker collection complete, 12/12 tracks | matched 9 · ambiguous 3 · not_found 0 |
+| 107 s | next firing **claims** → `running` | `claimed … album=ONYX` |
+| 597 s | `done`, 12,077 chars | 489.9 s model run; `[확인: Genius]` used 4× |
+
+The gate, the nudge, the attempted-counts-as-ready rule and the tier all behaved as designed. The
+90-minute partial fallback never engaged and the hourly cron never participated — exactly the
+intended division of labour. **Two defects surfaced that only a real note could surface.**
+
+**(1) A wrong-song match was presented as citable.** Track 2 `Simon Says` matched Genius's *왈
+(Simon Says)* — a different 2018 single by the same artist — at confidence **0.7424**, status
+`matched`, and its credits (slom / Pharoahe Monch / Simon Dominic) entered the block under the
+`[확인: Genius]` tier. The note caught it on its own, cross-checking 벅스 and a lyrics page to show
+the 2026 track carries no feature credit, and filed it as 상충 · 미해결. That is the honesty layer
+working, but it worked *despite* the block: the prompt told it to cite the tier without
+re-searching, and nothing in the block hinted the row was worth doubting.
+
+The one column that showed the collision — `genius_title`, added by V49 with the comment "so a bad
+match is visible in a query without an API call" — **was never selected into `GENIUS_FACTS_SQL`.**
+The evidence had been collected and stored for exactly this, and then not rendered.
+
+**Raising `GENIUS_MIN_CONFIDENCE` (0.62) would not have helped, and would have cost.** The collision
+scored 0.7424 with **0.91 title similarity** (`왈 (Simon Says)` contains `Simon Says` outright),
+while four *correct* matches on the same album scored lower — 0.6526, 0.6535, 0.6651, 0.6758. Any
+threshold that kills the false positive kills them first. The separation is not on the score axis,
+so the fix is evidence, not arithmetic.
+
+**(2) Nine matched tracks produced zero source links.** The block emitted 근거 링크 only for tracks
+carrying a *relationship*; ONYX has none, so every one of its nine matched Genius URLs was dropped.
+The note recorded the consequence twice — "미매칭 3트랙(어느 트랙인지 블록에 미기재)" — and could not
+attribute the suspect credits to a track, which is precisely why (1) had to stay 미해결.
+
+**Fix** (`scripts/research_poller.py`, workspace-only — no schema, no contract, no deploy):
+
+- `GENIUS_FACTS_SQL` selects `genius_title` / `genius_artist`
+- a **매칭 근거** section, before the credits that depend on it: per matched track, the Genius title,
+  the confidence, the URL, and `⚠︎ 곡명 불일치` when the titles differ (trailing `(feat. …)` normalised
+  away first — Genius drops feature credits from titles and flagging that would bury the real signal)
+- unmatched tracks are **named** with their status, not counted
+- a credit on ≤3 tracks names those tracks, so a suspect credit traces to a suspect row
+- the flag's own line states it is not a verdict: 원제/로마자 병기 makes benign divergence common in a
+  Korean catalogue (4 of 9 ONYX rows flag, one of them the true positive)
+- the prompt's tier rule is now **per matched track**, carving the flagged track out of
+  cite-without-re-searching (both prompt copies, §6.5 R4)
+
+Rejected while fixing: `search_count` is not a defect — `run_claude` hardcodes 0 and documents why
+(`LLMResult` does not surface `usage.server_tool_use`; the field was ruled unreliable 2026-06-11).
+All nine historical rows read 0. The citations inside `result_md` remain the grounding evidence.
+
+Not built, deliberately: Genius exposes a song's release date and album, which would catch this
+collision class *decisively* rather than by flag. That is a V50 column plus a worker change plus a
+cross-repo pin rollout — a step of its own, and the evidence layer above removes its urgency. Left
+as a follow-up rather than folded into a bug fix.
+
 ---
 
 ## 7. Decisions log
@@ -812,6 +879,8 @@ byte-identity pair.)
 | 2026-07-29 | **Research waits for collection readiness**: claim gate holds until every album track has a row (matched/ambiguous/not_found all count as attempted — permanent failures never block), SQS `album_id` nudge for immediacy, 90-min partial fallback, hourly cron as backstop | 1 |
 | 2026-07-29 | **O3 re-resolved: R1 derives at prompt time from the track tables** — no `album_genius_facts`, no second fetch, no cross-store drift; facts from `matched` rows only (the translate poller's wrong-song hold, applied to notes) | 1 |
 | 2026-07-29 | **Tradeoff recorded with the retarget**: a bucketed-but-never-researched album no longer accumulates viewer annotations (the sheet reads stored rows only). Demand flows exclusively through research requests; widening eligibility to bucket membership (`OR review_bucket_items`) is available but needs an explicit owner call | 1 |
+| 2026-07-30 | **`matched` ships its evidence, and the confidence threshold stays put.** The block renders each matched track's Genius title, confidence and URL, names the unmatched tracks, and attributes few-track credits to their source track. A threshold raise was considered and rejected: the ONYX collision scored 0.7424 with 0.91 title similarity, above four *correct* matches on the same album — the separation is not on the score axis (§6.10) | 1 |
+| 2026-07-30 | **A `⚠︎ 곡명 불일치` flag is a prompt to verify, never a verdict.** Korean catalogues carry 원제/로마자 병기 routinely, so the literal-difference test flags benign rows too; the block says so, and the prompt carves the flagged track out of the "cite without re-searching" rule instead of demoting it (§6.10) | 1 |
 
 ## 8. What blocks execution
 
@@ -908,6 +977,10 @@ GROUP BY 1;
    Steps 3–4 (worker #84/#85/#86); follow Thread 2 in that RFC, not here.
 4. Thread 1's viewer sub-thread is **shipped and running** (§6.5 "Shipped state"), and the
    research-pipeline core **landed 2026-07-29**: R1 (derive) + R2 (gated prompt injection) + R4
-   (source tier) — see the R-table and the O3 re-resolution (§6.9). Remaining Thread 1 work:
-   R3 (nightly-draft field), R5's description tier, R6 (catalog graph). Check the 2026-07-29
-   six-album KR/EN anchor regression result (§6.6) before building on the anchoring numbers.
+   (source tier) — see the R-table and the O3 re-resolution (§6.9). Its post-merge gate closed
+   2026-07-30 with the first real request (§6.10); read that section before touching the block, and
+   note the one follow-up it deliberately did not build (Genius release-date/album corroboration as
+   a V50 column, which would settle the same-artist same-title collision class outright). Remaining
+   Thread 1 work: R3 (nightly-draft field), R5's description tier, R6 (catalog graph). Check the
+   2026-07-29 six-album KR/EN anchor regression result (§6.6) before building on the anchoring
+   numbers.

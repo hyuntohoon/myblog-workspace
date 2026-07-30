@@ -25,12 +25,16 @@ sys.path.insert(0, str(ROOT / "myblog_shared_db" / "src"))
 import research_poller as rp  # noqa: E402
 
 
-def _row(title, status, *, credits=None, rels=None, url=None, fetched=None):
+def _row(title, status, *, credits=None, rels=None, url=None, fetched=None,
+         track_no=1, genius_title=None, confidence=None):
     return {
         "title": title,
-        "track_no": 1,
+        "track_no": track_no,
         "match_status": status,
-        "match_confidence": 0.9 if status == "matched" else None,
+        "match_confidence": confidence if confidence is not None
+        else (0.9 if status == "matched" else None),
+        "genius_title": genius_title if genius_title is not None else title,
+        "genius_artist": "A",
         "genius_url": url,
         "credits": credits,
         "relationships": rels,
@@ -73,9 +77,69 @@ def test_facts_come_from_matched_rows_only():
              rels={"samples": ["EVIL — EVIL"]}),
     ]
     block = rp._render_genius_block(rows)
-    assert "P (1/1트랙)" in block and "W (1/1트랙)" in block
+    assert "P (1/1트랙 — 1 Good)" in block and "W (1/1트랙 — 1 Good)" in block
     assert "EVIL" not in block, "an ambiguous match may be a different song entirely"
     assert "매칭 1/2트랙" in block
+
+
+# ── match evidence (the 2026-07-30 ONYX e2e findings) ───────────────────────
+
+def test_unmatched_tracks_are_named_not_just_counted():
+    """"미매칭 3트랙" with no names left the note unable to say which facts were
+    missing — it recorded the gap as 미해결 rather than as a track list."""
+    rows = [
+        _row("Fine", "matched", track_no=1, credits={}, rels={}, fetched=FETCHED),
+        _row("Murky", "ambiguous", track_no=2),
+        _row("Absent", "not_found", track_no=3),
+        _row("Unseen", None, track_no=4),
+    ]
+    block = rp._render_genius_block(rows)
+    assert "2 Murky [모호]" in block
+    assert "3 Absent [Genius 미등재]" in block
+    assert "4 Unseen [미조회]" in block
+
+
+def test_every_matched_track_carries_its_genius_title_confidence_and_url():
+    """ONYX: 9 matched tracks, 0 relationships, and therefore 0 source links —
+    the old block emitted links only for relationship-bearing tracks."""
+    rows = [
+        _row("Solo", "matched", track_no=1, credits={"producers": ["P"]}, rels={},
+             url="https://genius.com/solo", confidence=0.74, fetched=FETCHED),
+    ]
+    block = rp._render_genius_block(rows)
+    assert "https://genius.com/solo" in block, "a matched track with no relationship still needs its source"
+    assert "신뢰도 0.74" in block
+    assert "### 매칭 근거" in block
+
+
+def test_title_divergence_is_flagged_without_being_called_a_verdict():
+    """The real collision: our `Simon Says` → Genius `왈 (Simon Says)`, a
+    different 2018 single by the same artist, matched at 0.7424."""
+    rows = [
+        _row("Simon Says", "matched", track_no=2, genius_title="왈 (Simon Says)",
+             credits={"writers": ["Pharoahe Monch"], "producers": ["slom"]},
+             rels={}, url="https://genius.com/ss", confidence=0.7424, fetched=FETCHED),
+    ]
+    block = rp._render_genius_block(rows)
+    assert "⚠︎ 곡명 불일치" in block
+    assert "왈 (Simon Says)" in block, "the stored genius_title is the evidence"
+    assert "동명이곡" in block, "the flag must name the failure mode it guards"
+    assert "오매칭 확정이 아니다" in block, "a literal difference is not a verdict"
+    # and the suspect credits must point back at the suspect track
+    assert "slom (1/1트랙 — 2 Simon Says)" in block
+
+
+def test_feature_suffix_alone_is_not_a_divergence():
+    """Genius routinely drops the feature credit from a title; flagging that
+    benign difference would bury the one that matters."""
+    rows = [
+        _row("No.1 Stunna (feat. 100KGOLD)", "matched", track_no=7,
+             genius_title="No.1 Stunna", credits={}, rels={},
+             url="https://genius.com/n", fetched=FETCHED),
+    ]
+    block = rp._render_genius_block(rows)
+    assert "⚠︎ 곡명 불일치" not in block, "a dropped feature credit is not a divergence"
+    assert "7 No.1 Stunna" in block
 
 
 def test_confirmed_absence_is_distinct_from_unchecked():

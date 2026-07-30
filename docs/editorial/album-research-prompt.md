@@ -41,13 +41,17 @@
 - ★ **Non-audible only.** Skip anything the critic learns by listening ("fast," "dark," "aggressive").
   Describe the production *method*, never the sonic *result* — "guitar through sustain unit + loops"
   ○ / "guitar that sounds like a synth" ✕.
-- ★ **Pipeline-provided Genius facts are a confirmed tier.** When a `## Genius 확인 사실` block is
-  provided below, its credits and sample/interpolation relationships are pre-verified primary-source
-  data: cite them as `[확인: Genius]` (plus the per-track 근거 링크 when given) without re-searching.
+- ★ **Pipeline-provided Genius facts are a confirmed tier — per matched track, never per album.** When
+  a `## Genius 확인 사실` block is provided below, its credits and sample/interpolation relationships are
+  primary-source data: cite them as `[확인: Genius]` (plus that track's 근거 링크) without re-searching.
   The block covers only tracks it marks matched — on a matched track, an absent relationship is a
-  *confirmed* absence; on an unmatched/unfetched track it stays 미확인. Web search still supplies
-  context (who these people are, why it matters), but a web claim that contradicts the block goes to
-  상충 — never silently override it. No block, or a block saying 미매칭/조회 실패 → the tier does not
+  *confirmed* absence; on an unmatched/unfetched track it stays 미확인. **One exception: a track flagged
+  `⚠︎ 곡명 불일치`.** `matched` is a similarity threshold, not proof of identity, and the flag means the
+  block's Genius title for that track differs from ours — usually a harmless 원제/로마자 병기, sometimes
+  the same artist's *different song of the same name*. Confirm that track's identity before citing its
+  facts; if you cannot, record 상충 and do not use the tier for it. Web search still supplies context
+  (who these people are, why it matters), but a web claim that contradicts the block goes to 상충 —
+  never silently override it. No block, or a block saying 미매칭/조회 실패 → the tier does not
   exist for this album; never write `[확인: Genius]` then.
 - ★ **Output in Korean.**
 

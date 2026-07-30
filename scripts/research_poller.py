@@ -54,8 +54,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 # shared_db is read from the LOCAL checkout via src-path injection (not the git
@@ -176,9 +178,47 @@ _BOILERPLATE_ROLES = {
 }
 
 
-def _top_counts(counter: dict, matched: int, cap: int) -> list[str]:
+# A credit carried by only a few tracks is the one a wrong match can forge, so
+# those name their tracks; a credit spanning the record needs no pointer and the
+# list would just crowd the block.
+ATTRIB_MAX_TRACKS = 3
+# Per-track evidence lines, capped so a 60-track compilation cannot crowd out the
+# credit/relationship sections that follow it.
+EVIDENCE_MAX_LINES = 30
+
+_FEAT_RE = re.compile(r"\s*[\(\[]\s*(?:feat|ft|featuring|with)\b[^\)\]]*[\)\]]", re.I)
+
+
+def _fold_title(text: str) -> str:
+    """Comparison form for our-title vs Genius-title.
+
+    The trailing feature credit is stripped first: Genius routinely titles a
+    track without it (`No.1 Stunna` for our `No.1 Stunna (feat. 100KGOLD)`), and
+    flagging that benign difference would bury the one that matters.
+    """
+    text = _FEAT_RE.sub("", text or "")
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return " ".join("".join(ch if ch.isalnum() or ch.isspace() else " " for ch in text.lower()).split())
+
+
+def _track_label(row: dict) -> str:
+    no = row.get("track_no")
+    return f"{no} {row['title']}" if no is not None else str(row["title"])
+
+
+def _top_counts(counter: dict, matched: int, cap: int,
+                attrib: dict | None = None) -> list[str]:
     ranked = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[:cap]
-    return [f"{name} ({n}/{matched}트랙)" for name, n in ranked]
+    out = []
+    for name, n in ranked:
+        where = ""
+        if attrib and n <= ATTRIB_MAX_TRACKS:
+            tracks = attrib.get(name) or []
+            if tracks:
+                where = " — " + " · ".join(tracks)
+        out.append(f"{name} ({n}/{matched}트랙{where})")
+    return out
 
 
 def _render_genius_block(rows: list[dict]) -> str:
@@ -190,9 +230,19 @@ def _render_genius_block(rows: list[dict]) -> str:
     reported as coverage so the model can tell a *confirmed* absence (matched,
     no relationships) from "could not check" — the distinction 78/78 past notes
     could not make.
+
+    `matched` is a threshold verdict, not a guarantee, so every matched track
+    also ships its evidence: the Genius title, the confidence and the song URL.
+    The 2026-07-30 ONYX e2e is why — our `Simon Says` matched Genius's *왈
+    (Simon Says)*, a different 2018 single by the same artist, at 0.7424, and
+    its credits went into the block as citable while the one column that showed
+    the collision (`genius_title`, stored by V49 for exactly this) was never
+    rendered. Raising the threshold would not have caught it: title similarity
+    was 0.91, and four correct matches on the same album scored lower.
     """
     total = len(rows)
     matched = [r for r in rows if r["match_status"] == "matched"]
+    unmatched = [r for r in rows if r["match_status"] != "matched"]
     ambiguous = sum(1 for r in rows if r["match_status"] == "ambiguous")
     not_found = sum(1 for r in rows if r["match_status"] == "not_found")
     missing = sum(1 for r in rows if r["match_status"] is None)
@@ -202,6 +252,16 @@ def _render_genius_block(rows: list[dict]) -> str:
         f"- 커버리지: 매칭 {len(matched)}/{total}트랙"
         f" (모호 {ambiguous} · Genius 미등재 {not_found} · 미조회 {missing})"
     )
+    if unmatched:
+        _status_ko = {"ambiguous": "모호", "not_found": "Genius 미등재", None: "미조회"}
+        lines.append(
+            "- 사실 확인 불가 트랙: "
+            + " · ".join(
+                f"{_track_label(r)} [{_status_ko.get(r['match_status'], r['match_status'])}]"
+                for r in unmatched
+            )
+            + " — 이 트랙들에 대해서는 크레딧·관계의 유무를 어느 쪽으로도 주장하지 말 것"
+        )
     if not matched:
         lines.append(
             f"- Genius 미매칭 (0/{total} 트랙) — 사실의 부재가 아니라 조회의 부재다. "
@@ -216,19 +276,50 @@ def _render_genius_block(rows: list[dict]) -> str:
         lo, hi = min(fetched).date(), max(fetched).date()
         when = f", 수집 {lo}" + (f"~{hi}" if hi != lo else "")
     lines.append(
-        f"- 출처: Genius API 공식 크레딧·관계 데이터{when}. 아래 항목은 재검색 없이 "
-        "`[확인: Genius]`로 인용 가능; 웹 출처와 상충하면 상충으로 기록할 것."
+        f"- 출처: Genius API 공식 크레딧·관계 데이터{when}. 아래 항목은 트랙 단위로 "
+        "`[확인: Genius]`로 인용 가능(⚠︎ 표시 트랙 제외 — 아래 매칭 근거 참조); "
+        "웹 출처와 상충하면 상충으로 기록할 것."
     )
+
+    # Per-track evidence FIRST: the credits below are only citable to the extent
+    # the reader can check which song they actually came from.
+    lines.append("### 매칭 근거 (트랙별 — Genius가 이 트랙이라고 본 곡)")
+    divergent = 0
+    for r in matched[:EVIDENCE_MAX_LINES]:
+        got = r.get("genius_title") or "(곡명 미저장)"
+        conf = r.get("match_confidence")
+        conf_s = f"{conf:.2f}" if conf is not None else "?"
+        flag = ""
+        if r.get("genius_title") and _fold_title(r["title"]) != _fold_title(r["genius_title"]):
+            flag = " ⚠︎ 곡명 불일치"
+            divergent += 1
+        url = f" {r['genius_url']}" if r.get("genius_url") else ""
+        lines.append(f"- {_track_label(r)} → Genius “{got}” (신뢰도 {conf_s}){url}{flag}")
+    if len(matched) > EVIDENCE_MAX_LINES:
+        lines.append(f"- … 외 {len(matched) - EVIDENCE_MAX_LINES}트랙 (길이 제한으로 생략)")
+    if divergent:
+        lines.append(
+            f"- ⚠︎ {divergent}건은 우리 트랙 표기와 Genius 곡명이 문자적으로 다르다는 뜻일 뿐, "
+            "오매칭 확정이 아니다 (한국어 원제와 로마자·영문 병기가 흔하다). 다만 **같은 아티스트의 "
+            "동명이곡**일 수 있으므로, 해당 트랙의 크레딧·관계를 `[확인: Genius]`로 인용하기 전에 "
+            "그 Genius 곡이 이 앨범의 그 트랙이 맞는지 확인하고, 확인되지 않으면 상충으로 기록할 것."
+        )
 
     writers: dict[str, int] = {}
     producers: dict[str, int] = {}
     perf: dict[str, int] = {}
+    attrib: dict[str, list[str]] = {}
+
+    def _seen(bucket: dict[str, int], key: str, row: dict) -> None:
+        bucket[key] = bucket.get(key, 0) + 1
+        attrib.setdefault(key, []).append(_track_label(row))
+
     for r in matched:
         credits = r["credits"] or {}
         for w in set(credits.get("writers") or []):
-            writers[w] = writers.get(w, 0) + 1
+            _seen(writers, w, r)
         for p in set(credits.get("producers") or []):
-            producers[p] = producers.get(p, 0) + 1
+            _seen(producers, p, r)
         seen_perf = set()
         for entry in credits.get("performances") or []:
             role = entry.get("role") or ""
@@ -237,17 +328,18 @@ def _render_genius_block(rows: list[dict]) -> str:
             for a in entry.get("artists") or []:
                 seen_perf.add(f"{role} — {a}" if role else a)
         for key in seen_perf:
-            perf[key] = perf.get(key, 0) + 1
+            _seen(perf, key, r)
 
     m = len(matched)
-    lines.append(f"### 크레딧 ({m}개 매칭 트랙 집계)")
+    lines.append(f"### 크레딧 ({m}개 매칭 트랙 집계 — 소수 트랙 크레딧은 출처 트랙 병기)")
     if producers:
-        lines.append("- 프로듀서: " + " · ".join(_top_counts(producers, m, 12)))
+        lines.append("- 프로듀서: " + " · ".join(_top_counts(producers, m, 12, attrib)))
     if writers:
-        lines.append("- 작곡·작사: " + " · ".join(_top_counts(writers, m, 12)))
+        lines.append("- 작곡·작사: " + " · ".join(_top_counts(writers, m, 12, attrib)))
     recurring_perf = {k: n for k, n in perf.items() if n >= 2} or perf
     if recurring_perf:
-        lines.append("- 세션·스태프(반복 크레딧 위주): " + " · ".join(_top_counts(recurring_perf, m, 10)))
+        lines.append("- 세션·스태프(반복 크레딧 위주): "
+                     + " · ".join(_top_counts(recurring_perf, m, 10, attrib)))
 
     lines.append("### 샘플·인터폴레이션 / 파생 관계")
     rel_tracks = []
@@ -265,20 +357,17 @@ def _render_genius_block(rows: list[dict]) -> str:
             if len(targets) > 4:
                 shown += f" 외 {len(targets) - 4}건"
             parts.append(f"{label}: {shown}")
-        rel_tracks.append((r["title"], parts, r["genius_url"]))
-    for title, parts, _url in rel_tracks:
-        lines.append(f"- {title}: " + " / ".join(parts))
+        rel_tracks.append((_track_label(r), parts))
+    for label, parts in rel_tracks:
+        lines.append(f"- {label}: " + " / ".join(parts))
     if no_rel:
         lines.append(
             f"- 관계 없음(확인): {no_rel}/{m}트랙 — 매칭된 트랙에 등재된 샘플·인터폴레이션·파생 "
             "관계가 없음을 확인. (미매칭 트랙의 관계 유무는 확인 불가로 남음)"
         )
-
-    urls = [(t, u) for t, _p, u in rel_tracks if u]
-    if urls:
-        lines.append("### 근거 링크 (관계 사실의 트랙별 출처)")
-        for title, url in urls[:15]:
-            lines.append(f"- {title}: {url}")
+    # No separate link section: the per-track 근거 URLs now sit in 매칭 근거 above,
+    # for every matched track rather than only the ones carrying a relationship.
+    # That gap is what left 9 matched tracks with 0 links on ONYX (2026-07-30).
 
     block = "\n".join(lines) + "\n"
     if len(block) > GENIUS_BLOCK_MAX_CHARS:
@@ -464,6 +553,7 @@ GROUP BY a.id;
 # credits/relationships, and a second fetched store could silently disagree).
 GENIUS_FACTS_SQL = """
 SELECT t.title, t.track_no, g.match_status, g.match_confidence,
+       g.genius_title, g.genius_artist,
        g.genius_url, g.credits, g.relationships, g.fetched_at
 FROM tracks t
 LEFT JOIN track_genius_songs g ON g.track_id = t.id

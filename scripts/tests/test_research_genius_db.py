@@ -122,5 +122,9 @@ def test_gate_holds_then_claims_then_renders(conn):
         cur.execute(rp.GENIUS_FACTS_SQL, (album,))
         block = rp._render_genius_block(cur.fetchall())
         assert "매칭 1/2트랙" in block
-        assert "P (1/1트랙)" in block
+        assert "P (1/1트랙 — Gate Test Track)" in block, "a few-track credit names its source track"
         assert "[확인: Genius]" in block
+        # The evidence columns V49 stores for bad-match detection must survive the
+        # round trip through GENIUS_FACTS_SQL, not just exist in the schema.
+        assert "### 매칭 근거" in block
+        assert "https://genius.com/gate-test" in block
