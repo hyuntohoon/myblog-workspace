@@ -159,11 +159,16 @@ Coding the 22 non-audible claims the review actually uses:
 | **v4** | the Uncle Jonny dedication (HIV, and house music entering the family home — sourced to Exclaim! + W + a Tina Knowles quote, with the death date correctly left `[미확인]`), Ts Madison, Homecoming/Beychella |
 
 The axes differ rather than the quality: v4 is stronger on biography and primary statements, v2 on
-genealogy and credits. Swapping trades one for the other. **Both miss the same seven**, including the
-review's most impressive passage — the chain from *Pure/Honey* back through MikeQ to Vjuan Allure's
-rework of Masters at Work's "The Ha Dance" (1991) — plus Trigger Man, the dembow/Shabba Ranks route,
-Kelman Duran, and liner notes as a source at all. **That gap belongs to neither prompt and is the
-larger opportunity.**
+genealogy and credits. Swapping trades one for the other. **Both miss the same seven**: "The Ha Dance" (1991),
+Masters at Work, the Trigger Man beat, the dembow/Shabba Ranks route, Kelman Duran, Ivy Park, and
+**liner notes as a source at all**. Five of those are one continuous chain plus its siblings —
+*Pure/Honey* back through MikeQ to Vjuan Allure's rework of "The Ha Dance", the review's most
+impressive passage — so the miss is *depth*, which no rule in either prompt asks for. **That gap
+belongs to neither prompt and is the larger opportunity.**
+
+**The coding sheet, the raw notes and the exact blocks as fed are checked in** at
+`docs/reviews/measurements/2026-07-30-research-prompt-v2-vs-v4/` — all 22 items with their per-arm
+O/X and match patterns, so the `12/22` above is checkable rather than asserted.
 
 **A regression found in v4, independent of the tie.** v2's rule 36 bans "ratings, scores, awards,
 chart positions, **or others' critical verdicts**"; v4's rule 32 keeps everything except that last
