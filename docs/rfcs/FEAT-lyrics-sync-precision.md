@@ -1,6 +1,6 @@
 # FEAT-lyrics-sync-precision: remove the fixed sync lead and re-anchor on events
 
-- **Status**: accepted
+- **Status**: in-progress (all three steps resolved — outstanding: the owner's real-device listen check, see below. Promotion to `done` is the owner's call.)
 - **Owner**: 오너
 - **Created**: 2026-08-01
 - **Plan row**: `plan.md` → FEAT-lyrics-sync-precision
@@ -76,6 +76,19 @@ Steps are sequential but each is independently mergeable and independently rever
 
 ### Step 1 — Boundary-scheduled focus + fast attack + honest lead constant
 
+> ✅ Done 2026-08-01 — front #325, merge SHA `0f5748b` (shipped with Step 2 in one PR: Step 2's `playing` flag is a scheduler guard, so splitting them would have merged a scheduler that cannot be paused). Deploy run `30647516837` succeeded; prod bundle `SelfDashboard.DnJ4MT3o.js` carries the new code and no longer contains `SYNC_LEAD_MS`, and prod CSS `collection.B36CYv6u.css` serves `.lyv-line.is-focus{…transition:opacity .12s ease-out,…}`.
+>
+> **Measured on the real DOM** (CDP against the actual `/members/?me` dashboard, with only `api.spotify.com/v1/me/player` stubbed by a controllable fake player), line flip vs. the stub's true position:
+>
+> ```
+> toLine 4  flip at 12935ms   line starts 13000ms   lead 65ms
+> toLine 5  flip at 15935ms   line starts 16000ms   lead 65ms
+> toLine 6  flip at 18935ms   line starts 19000ms   lead 65ms
+> toLine 7  flip at 21935ms   line starts 22000ms   lead 65ms
+> ```
+>
+> **Zero variance.** 65 rather than 80 is the rAF sampler costing ~1 frame. The old interval's spread was 0–250 ms by construction, so this is the structural claim confirmed by measurement rather than argument. Computed style confirmed the asymmetry: focused line `0.12s`, every other line `0.35s`.
+
 Replaces the 250 ms interval with next-boundary `setTimeout` scheduling, splits the line transition into fast-attack / slow-release, and re-derives the residual lead constant.
 
 **Changes**
@@ -104,6 +117,24 @@ Plus a real-browser clickthrough (front UI change → DoD): open the viewer on a
 
 ### Step 2 — Event-driven re-anchoring + pause awareness
 
+> ✅ Done 2026-08-01 — front #325, merge SHA `0f5748b`. Prod bundle carries `[lyrics-sync] residual` and `state:l.is_playing?"playing":"paused"`.
+>
+> **Discontinuities measured mid-track** (the first run happened to freeze on the *last* line, where "did not advance" is trivially true — redone):
+>
+> ```
+> seek backwards to 5200ms  → re-anchored to line 1        (expected 1)  PASS
+> pause at line 2, hold 7s  → still line 2, 2 boundaries passed          PASS
+> resume                    → line 3                       (expected 3)  PASS
+> ```
+>
+> Resume lands on truth rather than on a clock that kept running through the pause — the point of carrying the position on `paused`.
+>
+> **Request floor**, attributed per subscriber: 8 events in ~500 ms → 1 viewer read; 2 events 1.7 s apart → 1 viewer read; `visibilitychange` → 1 viewer read.
+>
+> **Deviation from the RFC as written, and why.** The RFC planned to treat an `idle` result at a previously-playing anchor as "paused". That cannot freeze *accurately* — `idle` carries no position, so the frozen line would have been guessed from an already-ageing estimate. Instead `readLivePlayback` gained a real `paused` state carrying the held position. The cost is a shared-type change, so all three consumers were swept rather than left to a default: `NowPlaying.applyLive` keeps its idle behavior explicitly, and **`NowPlayingLyricsEntry` was routing the new state into its `확인 실패` branch** — a real latent bug in the change, caught by the sweep and not by the type checker.
+>
+> **Known cost, recorded not hidden**: with the viewer open on the dashboard, one transport command now causes **two** reads — `NowPlaying`'s pre-existing 1:1 confirmation read plus the viewer's. Attributed by closing the viewer and re-measuring (2 → 1). Both are 1:1 with a user action, so it is not a storm; it is a natural dedupe target once `FEAT-lyrics-viewer-playback` gives the viewer its own transport buttons.
+
 Teaches the viewer that playback can stop or jump, using signals the browser already delivers.
 
 **Changes**
@@ -131,6 +162,20 @@ Plus a real-browser clickthrough: pause from the member player bar with the view
 
 ### Step 3 — Measure the in-page output latency (go/no-go)
 
+> ❌ **NO-GO 2026-08-01 — measured, then closed. Ships no code.** The step was written to be its own answer, and the answer is no.
+>
+> ```
+> baseLatency     0.00533 s   (5.3 ms)
+> outputLatency   0.016   s   (16 ms)  — steady across suspended / resumed / actively rendering
+> sinkId          unsupported
+> ```
+>
+> 16 ms is an order of magnitude below the terms Step 1 removed (125 ms, 175 ms), so even a perfect reading would not be worth an estimate term. But the decisive objection is **structural, not empirical**: Spotify's SDK does not play through our `AudioContext`, so this measures our own graph, not Spotify's pipeline — and for Connect remote playback, the dominant case, the audio is not even on this machine. Bluetooth A2DP delay is 150–250 ms; an API reporting 16 ms for our own sink cannot see it. `sinkId` being unsupported means we could not even confirm which output device the context was bound to.
+>
+> Scope of the measurement, stated so it is not over-read: one machine, one output path, Chrome. The structural objection holds regardless of hardware, which is why no Bluetooth re-test was pursued.
+>
+> **Consequence**: audio output delay is now a recorded, accepted limit of this RFC rather than an open thread. Nothing in the shipped system tries to correct it.
+
 The one error source that cannot be derived from the API is how long after `progress_ms` the sound actually reaches the owner's ears. It is unobservable for Spotify Connect remote playback. It *may* be observable when the browser itself is the active device (the `Buckit` SDK device in `@lib/spotifyPlayback`), via `AudioContext.outputLatency` / `baseLatency`.
 
 **This step is a measurement first.** Instrument and read the values on the owner's real devices (wired, Bluetooth, in-page SDK device active vs. not). Then:
@@ -153,8 +198,14 @@ Plus the measurement itself, quoted in the PR: `outputLatency` / `baseLatency` r
 
 ## Open questions
 
-1. **`PERCEPTUAL_LEAD_MS` final value** — blocks nothing; Step 1 ships at 80 ms and the owner adjusts after listening on a real device. The value is a single named constant precisely so tuning is a one-line change.
-2. **Does `AudioContext.outputLatency` reflect the actual output path on the owner's hardware?** — blocks Step 3 only, and Step 3 is structured as its own answer.
+1. ~~**`PERCEPTUAL_LEAD_MS` final value**~~ — **OPEN, and it is the one thing left in this RFC.** Shipped at 80 ms. Everything measurable was measured; what remains cannot be: whether 80 ms *feels* right is the owner's ear on the owner's hardware. It is a single named constant in `LyricsViewer.tsx` precisely so tuning it is a one-line change. Feels late → raise it; lines flip too early → lower it.
+2. ~~**Does `AudioContext.outputLatency` reflect the actual output path?**~~ — **ANSWERED 2026-08-01: no.** See Step 3.
+
+## Not verified, and why
+
+The live path against **real Spotify playback** was never exercised locally: the viewer only opens while something is actually playing on the owner's account, and the CDP run stubbed `api.spotify.com/v1/me/player` with a controllable fake player. Everything downstream of that stub — the scheduler, the freeze, the re-anchor, the CSS — ran on the real DOM in the real dashboard. What the stub cannot tell us is whether Spotify's own `progress_ms` is stale in practice.
+
+That is exactly what Step 2's residual log is for: `[lyrics-sync] residual` in the browser console, on every event re-anchor. It is now collecting in prod, from real use, and nothing acts on it — by design (see the Decisions log).
 
 ## Decisions log
 
@@ -167,3 +218,7 @@ Plus the measurement itself, quoted in the PR: `outputLatency` / `baseLatency` r
 | 2026-08-01 | Owner: drop live staleness estimation ("3번 빼자"). The residual is still logged by Step 2, so acting on it later needs data, not a rewrite. | 2 |
 | 2026-08-01 | Owner: playback controls + queue split into `FEAT-lyrics-viewer-playback` (draft). This RFC consumes `MYBLOG_PLAYBACK_CHANGED`, which already exists, so it does not wait on that RFC. | 2 |
 | 2026-08-01 | Owner approved all steps in one session (rule 4 satisfied by explicit approval) and promoted this RFC to `accepted` (rule 5). | — |
+| 2026-08-01 | Steps 1+2 shipped in ONE PR (front #325, `0f5748b`) rather than two: Step 2's `playing` flag is a guard on Step 1's scheduler, so merging Step 1 alone would have put a scheduler in prod that cannot be paused. | 1, 2 |
+| 2026-08-01 | `readLivePlayback` gained a real `paused` state instead of the RFC's planned "treat `idle` as paused". `idle` carries no position, so freezing on it means guessing from an ageing estimate — the opposite of this RFC's point. Cost paid: a shared-type change swept across all three consumers, which surfaced `NowPlayingLyricsEntry` mis-routing the new state into its failure branch. | 2 |
+| 2026-08-01 | **Step 3 NO-GO.** `outputLatency` = 16 ms here, but the disqualifier is structural: the Spotify SDK does not play through our `AudioContext`, and under Connect the audio is on another device entirely. Audio output delay becomes a recorded accepted limit, not an open thread. | 3 |
+| 2026-08-01 | Two reads per transport command while the viewer is open (`NowPlaying`'s + the viewer's) accepted as-is and recorded, rather than deduped now — both are 1:1 with a user action, and `FEAT-lyrics-viewer-playback` is the natural place to collapse them. | 2 |
