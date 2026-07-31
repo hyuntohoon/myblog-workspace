@@ -273,7 +273,8 @@ C2·C4·C6이 각각 다른 것을 앨범에 매달면 같은 정보가 여러 �
 4. **쓰기는 기존 경로 재사용** — `PUT /api/reviews/albums/{album_id}`를 **부분 갱신**으로 만든다(본문에 실제로 담긴 필드만 적용). `review_candidate`는 이 요청에 얹는다. 결과 상태가 전부 비면(별점 없음 · 글 없음 · 후보 아님) 행을 지운다. 응답은 작성자 본인 것이므로 비공개 필드를 포함한 **별도 스키마**로 나가고, 공개 목록 스키마와 섞지 않는다.
 5. **내 상태 읽기 = `GET /api/me/album-states`** (선택적 `album_id` 필터). 인증 GET은 edge_guard 캐치올을 타므로 **API Gateway 라우트 추가가 없고, 따라서 `terraform apply`가 없다**(`GET /api/me`, `GET /api/me/tracked-artists`와 같은 경로).
 6. **화면 두 곳**. (a) 앨범 화면 — 공개 오버레이와 회원 모달이 같은 `AlbumRatingBlock`을 쓰므로 한 번 고치면 양쪽에 붙는다. 후보 토글은 **별점 없이도, 편집 모드에 들어가지 않고도** 누를 수 있어야 한다(C6: 듣기 전에도 가능). (b) 버킷 화면 — 앨범 커버 위 배지 + 토글. 이미 있는 리서치 선택 토글·배지와 같은 자리·같은 패턴을 쓴다(데스크톱은 커버 위, 터치는 액션시트 항목).
-7. **내부 이름 정리 (별도 커밋)** — `AlbumReview` → `AlbumRating`, `ReviewService` → `RatingService`, 프런트 `reviews.api.ts` → `ratings.api.ts` 등. **테이블 이름 `album_reviews`와 API 경로 `/api/reviews/*`는 그대로 둔다** (충돌 #11의 결정). 어차피 이 단계가 shared_db 핀을 올리므로 배포를 한 번 더 돌리지 않아도 되고, 동작 변경과 섞이지 않게 커밋만 분리한다.
+7. **내부 이름 정리 (별도 커밋)** — `AlbumReview` → `AlbumRating`, `ReviewService` → `RatingService`, pydantic 클래스 4개, `REVIEW_COMMENT_MAX` 등. **테이블 이름 `album_reviews`와 API 경로 `/api/reviews/*`는 그대로 둔다** (충돌 #11의 결정). 어차피 이 단계가 shared_db 핀을 올리므로 배포를 한 번 더 돌리지 않아도 되고, 동작 변경과 섞이지 않게 커밋만 분리한다.
+   - **경로 이름을 딴 파일은 안 바꾼다 (구현 중 판단 2026-07-31)**: 백엔드 `routes/reviews.py`, 프런트 `reviews.api.ts`는 자기가 담당하는 **경로**(`/api/reviews/*`)에서 이름을 가져온 파일이다. 경로를 남겨두기로 한 마당에 파일만 바꾸면 파일 이름과 계약이 서로 어긋난다. 안에 든 **심볼**만 매칭에 맞춘다. 같은 이유로 `REVIEW_DAILY_CAP`(배포된 환경변수)과 JSON 필드 이름(`review_count` 등, 계약의 일부)도 그대로 둔다.
 
 이 단계에 **들어가지 않는 것**: AI 정리(Step 3), 통합 쓰기 입구(Step 4), 프로필 통계(Step 2), "평론 쓸 것" 목록 화면(Step 2). 후보 표시는 이 단계에서 **찍고 지우는 것까지**이고, 모아 보는 것은 다음 단계다.
 
