@@ -923,22 +923,35 @@ CREATE INDEX IF NOT EXISTS ix_track_genius_annotations_translation_status
 -- time (no denormalized counter on albums); idx_album_reviews_album_id keeps the
 -- scan cheap, idx_album_reviews_user_created serves the newest-first profile feed.
 -- =============================================================================
+-- V50 (FEAT-album-review-authoring Step 1) widened one row into "the member's
+-- state for this album": rating is the PUBLIC facet, review_candidate a private
+-- one, and rating may be absent (a mark can precede listening). EVERY PUBLIC
+-- READ MUST FILTER `rating IS NOT NULL` — a rating-less row is private data
+-- sitting in a public table.
 CREATE TABLE IF NOT EXISTS album_reviews (
-  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    UUID        NOT NULL REFERENCES users (id)  ON DELETE CASCADE,
-  album_id   UUID        NOT NULL REFERENCES albums (id) ON DELETE CASCADE,
-  rating     NUMERIC(2,1) NOT NULL,
-  comment    TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID        NOT NULL REFERENCES users (id)  ON DELETE CASCADE,
+  album_id         UUID        NOT NULL REFERENCES albums (id) ON DELETE CASCADE,
+  rating           NUMERIC(2,1),                      -- NULL = state without a rating (V50)
+  comment          TEXT,                              -- the 한줄평; requires a rating
+  review_candidate BOOLEAN     NOT NULL DEFAULT FALSE, -- private: "I'll write a 평론 on this"
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_album_reviews_user_album UNIQUE (user_id, album_id),
   CONSTRAINT ck_album_reviews_rating_halfstep
-    CHECK (rating >= 0.5 AND rating <= 5.0 AND mod(rating, 0.5) = 0)
+    CHECK (rating IS NULL OR (rating >= 0.5 AND rating <= 5.0 AND mod(rating, 0.5) = 0)),
+  CONSTRAINT ck_album_reviews_comment_needs_rating
+    CHECK (comment IS NULL OR rating IS NOT NULL),
+  CONSTRAINT ck_album_reviews_state_not_empty
+    CHECK (rating IS NOT NULL OR review_candidate)
 );
 CREATE INDEX IF NOT EXISTS idx_album_reviews_album_id
   ON album_reviews (album_id);
 CREATE INDEX IF NOT EXISTS idx_album_reviews_user_created
   ON album_reviews (user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_album_reviews_user_candidate
+  ON album_reviews (user_id)
+  WHERE review_candidate;
 
 -- =============================================================================
 -- Daily Picks — owner-curated "song of the day" store (V39; FEAT-today-buckit Step 3)
