@@ -113,7 +113,9 @@ Plus a real-browser clickthrough at desktop and 390 px: each button issues its c
 
 ---
 
-### Step 2 — Queue screen (view only)
+### Step 2 — Queue screen (view only) — **SHIPPED + prod-verified 2026-08-01**
+
+front #328 `d66f173` · deploy run 30688315730 success · prod smoke 19/0 · new-bundle markers confirmed in the live `SelfDashboard` chunk and member CSS.
 
 `☰ 대기열` swaps the panel body to a scrollable list; `←` returns.
 
@@ -133,6 +135,20 @@ pnpm lint && pnpm exec astro check && pnpm test
 ```
 
 Plus a real-browser clickthrough: open with a real queue, scroll it, return, confirm the lyrics line is still correct; force a 403/timeout and confirm graceful degrade.
+
+**What shipped, where it differs from the plan above**
+
+- Rows are inert `<li>`s rather than anything tappable-looking. Step 3 is what decides which rows can be jumped to (it needs the playback `context`, and OQ2 is open); a row that looks tappable and isn't would promise what this step cannot keep.
+- `☰` is a **toggle** (`aria-pressed`), so the bar itself is a second way back alongside `←`. It is deliberately **not** gated on `transportDead` — a queue *read* and a transport *command* fail independently.
+- 다시 시도 renders only for a transient failure. `no-capability` and `token` survive any number of retries, so each gets a plain sentence instead.
+- 204 is an **empty queue**, not a failure.
+- 번역 / ↻ / ⚙ hide while the queue is up (they act on the lyrics surface); ✕ stays.
+- One thing the plan did not anticipate: **the return had to be made to LAND, not glide.** The clock keeps running while the queue is open, so `focus` has usually moved on; leaving `positionedRef` true made the remounted list animate up from its identity transform. Reset it while the queue is up and the return re-centres instantly on the *current* line. Measured across a full open → queue → return round trip: exactly one `/api/lyrics` fetch, i.e. "no re-read" held.
+- `.lyv-head-id` needed `margin-right: auto`: `.lyv-head` is `space-between`, which only reads correctly with two children, and `←` made it three.
+
+**Verified in a browser** (CDP, live `/members/?u=owner&tab=overview`, playback stubbed after the owner's device went idle mid-session), desktop 1440 + mobile 390×844×3: open/return; ESC returns to lyrics before closing the viewer; 403 / 500 / 204-empty each degrade in-panel without closing the viewer; 다시 시도 re-reads (1 call → 2); ⏭ with the queue open re-reads the queue exactly once and swaps both list and head; long titles ellipsis without widening the panel (the only horizontal overflow is `.lyv-bg`'s deliberate 150 % overscan); rows 52 px, ☰ 44 px, 대기열 label drops below 400 px.
+
+**Remaining, owner-only**: one real-device pass — ☰ 대기열 on a phone with music actually playing, list matches the Spotify app, `←` returns to the right lyric line.
 
 **Rollback**: revert.
 
@@ -191,7 +207,26 @@ Plus a real-browser clickthrough covering all three cases: album context (jump w
               // 403 → re-consent required, decide before building
    ```
 
-   **Still unrun as of 2026-08-01.** Step 1 does not depend on it and proceeded without it (owner, 2026-08-01). Step 2 does not start until the probe returns a status, and if it returns 403 the re-consent cost is an owner decision before any Step 2 code.
+   **ANSWERED 2026-08-01 — 200, no re-consent. Everything above this line was wrong, and wrong in an instructive way.**
+
+   The analysis above reasoned from `STREAMING_SCOPES`, the constant that *requests* scopes. The grant actually stored in `/myblog/spotify` was minted with a broader consent than that constant asks for, and a token minted from it today carries **both** documented scopes:
+
+   ```
+   [mint] granted: streaming user-modify-playback-state user-library-read
+                   user-follow-read user-library-modify
+                   user-read-playback-state user-read-currently-playing
+                   user-read-recently-played
+   [queue]  GET /v1/me/player/queue → 200 · currently_playing present · 19 items
+   [player] GET /v1/me/player       → 200 · is_playing false · context type album
+   ```
+
+   Note the second line: the queue reads **200 even while paused**, so the screen does not need live playback to be useful.
+
+   Members were never at risk either. The member connect URL (`SPOTIFY_SCOPES` in `myblog_front/src/components/member/integrations.api.ts`) has asked for `user-read-currently-playing` all along; only a pre-playback *legacy* grant could lack it, and `spotifyGrantNeedsReconsent` already flags those. `readQueue` still maps 403/404 to `no-capability` for exactly that shape.
+
+   **The probe did not need the owner or a browser.** It was written up as "owner, signed in on the live site — the browser holds a real streaming token, no test account does". That framing confused *whose* token it is with *where it is held*: the owner's browser token is minted server-side from `streaming_refresh_token`, so reading that secret from SSM and minting directly answers the identical question with no human in the loop. The step sat blocked on a human for a day for no reason. **Before parking a question on "owner-only", check whether the credential is reachable from the server.**
+
+   The wider lesson, in one line: **a constant that requests a scope is not evidence of the scope that was granted.** Ask the live grant.
 2. **User-added queue items under an album/playlist context.** — blocks Step 3. `/me/player/queue` returns one flat `queue[]` and does not mark which entries came from the context versus the user's manual queue. A `context_uri` + `offset` jump only works for the former. Options: (a) make every row inert whenever any ambiguity exists, (b) attempt the jump and degrade on failure, (c) match rows against the context's track list with a second request. Owner picked "되는 경우만 점프" as the *behaviour*; this question is how we determine "되는 경우" without lying to the user.
 3. **Does the bar belong on the dock/static sheet too?** — blocks nothing; currently a non-goal. Raise only if the owner asks after using it.
 4. **Should `sendPlayerCommand` dispatch `MYBLOG_PLAYBACK_CHANGED`?** — blocks nothing; found during Step 1. It does not today, so `FEAT-lyrics-sync-precision` Step 2's `'command'` residual channel has never observed a transport command, and any conclusion drawn from that series is about `sendConnectPlay` only. Adding the dispatch would fix the channel in one line, but `NowPlaying.tsx:528` listens too and would start re-reading after its own commands — a behaviour change to a shipped component, hence not folded into Step 1. Decide alongside whatever next consumes the residual series.
@@ -206,6 +241,7 @@ Plus a real-browser clickthrough covering all three cases: album context (jump w
 | 2026-08-01 | Scope fixed to 재생/일시정지/다음/이전/대기열. Volume, shuffle, repeat, transfer, 좋아요 stay out. | — |
 | 2026-08-01 | OQ1 narrowed from code, not from a probe: the two scopes the queue endpoint documents sit on two **different** refresh tokens (`SCOPES` vs `STREAMING_SCOPES` in `scripts/spotify_bootstrap_token.py`) and the browser's token is missing `user-read-currently-playing`. Whether Spotify enforces it is the only open half; a 2-line console probe settles it. | 2 |
 | 2026-08-01 | Owner: Status draft → **accepted**, and Step 1 starts without the OQ1 probe — OQ1 gates Step 2 only, so blocking Step 1 on it buys nothing. | — |
+| 2026-08-01 | **OQ1 answered: 200, no re-consent, Step 2 unblocked.** The narrowing above reasoned from `STREAMING_SCOPES` — the constant that *requests* scopes — but the grant actually stored in `/myblog/spotify` was minted with a broader consent and carries both documented scopes. Two corrections carried forward: a requested-scope constant is not evidence of a granted scope, and the question was never owner-only (the browser's token is minted server-side from a secret in SSM, so it is answerable without a human). | 2 |
 | 2026-08-01 | Browser verification of Step 1 disproved the draft's `sendPlayerCommand` → `MYBLOG_PLAYBACK_CHANGED` claim (`:424` is `sendConnectPlay`, a different function; a live listener saw 0 events from ⏯⏭⏮). The first audit pass repeated the claim instead of checking it, and its "next/prev swaps lyrics for free" conclusion fell with it. Step 1 therefore owns both the `playing` write and the post-skip identity read. Raised as OQ4 whether the dispatch should simply be added. | 1 |
 | 2026-08-01 | Current state re-audited against code after front #325 and corrected: wrong component path (`member/` → `member/lyrics/`), every `LyricsViewer.tsx` line number stale, and the panel foot is occupied by `.lyv-return`, not empty. Three facts #325 introduced are now load-bearing for Step 1 — the `playing` flag already exists, its only writer is a re-read behind a 1.5 s floor (so Step 1 writes it optimistically), and next/prev inherits the track swap for free. | 1 |
 | 2026-08-01 | Split out of the sync brainstorm into its own RFC: new UI surface, new Spotify API, mobile touch design and a possible re-consent — a different risk profile and a different verification from timing math. Cross-refs `FEAT-member-player` (queue was a Step 6 candidate) and `FEAT-lyrics-sync-precision` (consumes the commands as re-anchor events). | — |
