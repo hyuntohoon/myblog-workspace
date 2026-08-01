@@ -154,14 +154,16 @@ Plus a real-browser clickthrough: open with a real queue, scroll it, return, con
 
 ---
 
-### Step 3 — Context jump (되는 경우만)
+### Step 3 — Context jump (되는 경우만) — **SHIPPED + prod-verified 2026-08-02**
+
+front #329 `2a4fd9e` · deploy run 30708914030 success · prod smoke 19/0 · new-bundle markers confirmed in the live assets (`play-context` in `_astro/spotifyPlayback.*.js`, `is-tappable` in the member CSS).
 
 Tapping a queue row starts that track when it belongs to the current album/playlist context.
 
 **Changes**
 
 - `GET /v1/me/player` already returns the playback `context` (`uri`, `type`) — currently unread by `readLivePlayback`. Surface it.
-- When `context.type` is `album` or `playlist`, a row tap issues `PUT /v1/me/player/play` with `context_uri` + `offset: { uri: <track uri> }` (a new `PlayerCommand` kind, so it inherits the existing token retry and `MYBLOG_PLAYBACK_CHANGED` dispatch).
+- When `context.type` is `album` or `playlist`, a row tap issues `PUT /v1/me/player/play` with `context_uri` + `offset: { uri: <track uri> }` (a new `PlayerCommand` kind, so it inherits the existing 401 re-mint retry — **not** a `MYBLOG_PLAYBACK_CHANGED` dispatch; this line said otherwise and was wrong for the same reason the Current state section records, `sendPlayerCommand` has never dispatched).
 - **Fallback (OQ2, answered 2026-08-01)**: when the context jump fails, or there is no context at all, re-issue `play` with `uris: [tapped, ...the rest of the visible queue after it]`. Carrying the tail is the point — a lone-track `uris` replaces the context and deletes everything queued behind it. If that also fails, an in-panel notice; never a silent no-op.
 - Consequence: rows are **tappable by default**, not inert-by-default. The draft assumed we had to predict which rows could be reached; the fallback removes the need to predict. A row stays inert only when there is nothing to send at all (no context *and* nothing behind it).
 - The queue screen already renders `재생 중` separately from the numbered rows, so "the rest of the queue after the tapped row" is a plain slice of what is on screen — no second request, no matching heuristic.
@@ -174,6 +176,28 @@ pnpm lint && pnpm exec astro check && pnpm test
 ```
 
 Plus a real-browser clickthrough covering the three paths the fallback chain creates: (1) album context, tap a context row → jumps with the context intact; (2) tap a user-added row → the context jump fails and the `uris` tail takes over, and **the rows below the tapped one are still there afterwards** (that is the check that proves the tail was carried, and the one a lone-track fallback would fail); (3) force both to fail → an in-panel notice, viewer stays open, lyrics unaffected.
+
+**What shipped, where it differs from the plan above**
+
+- The chain lives in its own module, `queueJump.ts`, rather than inside the viewer. The one property this step exists to protect — *the fallback carries the tail* — is then pinned by a unit test that does not have to mount a 1450-line component. `queueJump.test.ts` names the lone-track fallback as the regression it guards, so a future reader cannot mistake the tail for incidental.
+- **The context is read alongside the queue, not at tap time.** The viewer never called `readLivePlayback` on open (it seeds from `initialProgressMs`), so `context` would have been `null` on the first tap and *every* first jump would have silently taken the fallback — defeating link 1 entirely. The queue-open effect now runs `Promise.all([readQueue(), readLivePlayback()])`, and `refresh()` keeps the context current for free thereafter. Cost: one extra request per queue open; benefit: the tap itself stays one round trip.
+- A failed `readLivePlayback` (`unavailable`) **keeps** the previously known context rather than clearing it. A failed read is not evidence the context is gone, and clearing would drop the next tap to the fallback for no reason.
+- Row markup moved into a `QueueRowBody` sub-component. Making rows tappable created a third shape (재생 중 / tappable / uri-less) of the same badge-plus-title markup; leaving it copied three times is exactly the twin-drift class this repo hardened against.
+- `QueueEntry.uri` is nullable and a missing uri does **not** drop the row — the list must not silently disagree with the Spotify app. No `spotify:track:${id}` synthesis either: an episode's uri is not a track uri, and guessing would send a wrong one.
+
+**Verified in a browser** (CDP, the real `/members/` dashboard; Spotify stubbed at the network boundary rather than commanded, so no music was started on the owner's device at 01:30), desktop 1440 + mobile 390×844×3. The stub mutates its own playback state on a successful `play`, so "the rows below survived" is read off the re-rendered screen, not off a fixed list:
+
+| path | observed |
+| --- | --- |
+| context row tapped | **one** `PUT /play` `{context_uri, offset:{uri}}`, fallback never issued; queue re-read to the album tail |
+| user-added row tapped | context jump 403s (offset not in context), fallback sends `uris: [u1, a3, a4]`, and 네 번째 곡 / 다섯 번째 곡 **are still on screen afterwards** |
+| both links 403 | in-panel notice, viewer stays open, queue intact, every row disabled (`no-capability` is sticky) |
+
+Also: ESC on the queue still returns to lyrics before closing the viewer; returning lands on the correct lyric line; rows 56 px at 390 px; a title wider than the panel ellipsises without horizontal overflow; no console errors.
+
+One thing worth recording because it cost time and was **not** a code defect: the local stub emitted lyric segments keyed `index` while the schema field is `i`, which surfaced as a React duplicate-key error pointing at `LyricsViewer`. A harness bug can look exactly like a component fault — check the fixture against the schema before reading the warning as a finding.
+
+**Remaining, owner-only**: one real-device pass — on a phone with music actually playing, tap a hand-queued song and confirm the songs below it are still queued in the Spotify app afterwards.
 
 **Rollback**: revert. Steps 1–2 stand alone.
 
@@ -244,6 +268,14 @@ Plus a real-browser clickthrough covering the three paths the fallback chain cre
 3. **Does the bar belong on the dock/static sheet too?** — blocks nothing; currently a non-goal. Raise only if the owner asks after using it.
 4. **Should `sendPlayerCommand` dispatch `MYBLOG_PLAYBACK_CHANGED`?** — blocks nothing; found during Step 1. It does not today, so `FEAT-lyrics-sync-precision` Step 2's `'command'` residual channel has never observed a transport command, and any conclusion drawn from that series is about `sendConnectPlay` only. Adding the dispatch would fix the channel in one line, but `NowPlaying.tsx:528` listens too and would start re-reading after its own commands — a behaviour change to a shipped component, hence not folded into Step 1. Decide alongside whatever next consumes the residual series.
 
+   **Premise corrected 2026-08-02 (Step 3), from code — and it cuts against the one-line fix.** Two claims about this channel were floating around and both were loose. The dispatch is only half the story: `logResidual` has exactly **one** call site, `LyricsViewer.tsx:594`, and it sits inside `refresh`'s *same-track* branch. The track-changed branch re-seeds the anchor and logs nothing. So:
+
+   - Step 1's `refresh('command')` after a skip does **not** feed the channel in the ordinary case — a skip changes the track, which is precisely the branch that skips the residual. (A carried-forward note claiming ⏭/⏮ residuals "are already being recorded, only ⏯ is empty" is wrong for this reason.)
+   - Step 3 adds nothing to it either: a jump changes the track too.
+   - The only transport command that can land a residual today is one that resolves to the *same* track (⏮ restarting the current song).
+
+   Consequence for the question itself: **adding the dispatch would not repair the channel in one line.** The residual would still be dropped on every track-changing command. Anyone picking this up must decide about the log site as well as the dispatch. Still blocks nothing; still not decided here.
+
 ## Decisions log
 
 | Date | Decision | Step |
@@ -257,6 +289,8 @@ Plus a real-browser clickthrough covering the three paths the fallback chain cre
 | 2026-08-01 | **Owner real-device pass on Steps 1+2 — all green.** Queue list scrolls past the fold, `←` returns to the correct lyric line, ⏭/⏸ work, and the queue refreshes with the track. One false alarm resolved on the way: a queue that looked wrong was **repeat mode**, not a bug (repeated ids are why rows are keyed `${id}:${index}`). Steps 1+2 now have no outstanding human check. | 1, 2 |
 | 2026-08-01 | **OQ2 answered: option (b) — try, fall back, give up.** Context jump first; on failure re-issue `play` with `uris: [tapped, ...rest of the visible queue]`; if that fails too, an in-panel notice. The fallback carries the TAIL, not the lone track, because `uris` replaces the context and a single-track fallback would silently delete everything queued behind the tap. Cost the owner accepted: the album context is gone either way, so Spotify will not autoplay past the re-sent tail. Side effect on the design — rows become tappable by default, since the fallback removes the need to predict which rows are reachable. | 3 |
 | 2026-08-01 | **OQ1 answered: 200, no re-consent, Step 2 unblocked.** The narrowing above reasoned from `STREAMING_SCOPES` — the constant that *requests* scopes — but the grant actually stored in `/myblog/spotify` was minted with a broader consent and carries both documented scopes. Two corrections carried forward: a requested-scope constant is not evidence of a granted scope, and the question was never owner-only (the browser's token is minted server-side from a secret in SSM, so it is answerable without a human). | 2 |
+| 2026-08-02 | **Step 3 shipped as specified — the fallback chain, unchanged from the owner's OQ2 answer.** Two things the plan did not anticipate, both structural rather than cosmetic: the viewer had no `readLivePlayback` on open, so the context had to be read alongside the queue or *every* first tap would have silently taken the fallback and link 1 would never have run; and the chain was extracted to `queueJump.ts` so "the tail is carried" is pinned by a unit test instead of resting on a clickthrough. | 3 |
+| 2026-08-02 | **OQ4's premise corrected from code, and it makes the question bigger, not smaller.** `logResidual` has one call site and it lives in `refresh`'s same-track branch, so a track-*changing* command never lands a residual no matter who dispatches what. Adding the dispatch to `sendPlayerCommand` would therefore not repair the `'command'` channel on its own — the log site has to move too. Recorded, not decided. | 4 |
 | 2026-08-01 | Browser verification of Step 1 disproved the draft's `sendPlayerCommand` → `MYBLOG_PLAYBACK_CHANGED` claim (`:424` is `sendConnectPlay`, a different function; a live listener saw 0 events from ⏯⏭⏮). The first audit pass repeated the claim instead of checking it, and its "next/prev swaps lyrics for free" conclusion fell with it. Step 1 therefore owns both the `playing` write and the post-skip identity read. Raised as OQ4 whether the dispatch should simply be added. | 1 |
 | 2026-08-01 | Current state re-audited against code after front #325 and corrected: wrong component path (`member/` → `member/lyrics/`), every `LyricsViewer.tsx` line number stale, and the panel foot is occupied by `.lyv-return`, not empty. Three facts #325 introduced are now load-bearing for Step 1 — the `playing` flag already exists, its only writer is a re-read behind a 1.5 s floor (so Step 1 writes it optimistically), and next/prev inherits the track swap for free. | 1 |
 | 2026-08-01 | Split out of the sync brainstorm into its own RFC: new UI surface, new Spotify API, mobile touch design and a possible re-consent — a different risk profile and a different verification from timing math. Cross-refs `FEAT-member-player` (queue was a Step 6 candidate) and `FEAT-lyrics-sync-precision` (consumes the commands as re-anchor events). | — |
