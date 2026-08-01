@@ -162,8 +162,9 @@ Tapping a queue row starts that track when it belongs to the current album/playl
 
 - `GET /v1/me/player` already returns the playback `context` (`uri`, `type`) — currently unread by `readLivePlayback`. Surface it.
 - When `context.type` is `album` or `playlist`, a row tap issues `PUT /v1/me/player/play` with `context_uri` + `offset: { uri: <track uri> }` (a new `PlayerCommand` kind, so it inherits the existing token retry and `MYBLOG_PLAYBACK_CHANGED` dispatch).
-- When there is no context, rows are inert — no tap handler, no hover affordance, so a row never looks tappable and then fails.
-- OQ2 below decides how rows are treated when a context exists but the row is a user-added queue item.
+- **Fallback (OQ2, answered 2026-08-01)**: when the context jump fails, or there is no context at all, re-issue `play` with `uris: [tapped, ...the rest of the visible queue after it]`. Carrying the tail is the point — a lone-track `uris` replaces the context and deletes everything queued behind it. If that also fails, an in-panel notice; never a silent no-op.
+- Consequence: rows are **tappable by default**, not inert-by-default. The draft assumed we had to predict which rows could be reached; the fallback removes the need to predict. A row stays inert only when there is nothing to send at all (no context *and* nothing behind it).
+- The queue screen already renders `재생 중` separately from the numbered rows, so "the rest of the queue after the tapped row" is a plain slice of what is on screen — no second request, no matching heuristic.
 
 **Verification**
 
@@ -172,7 +173,7 @@ cd myblog_front
 pnpm lint && pnpm exec astro check && pnpm test
 ```
 
-Plus a real-browser clickthrough covering all three cases: album context (jump works), no context / single-track playback (rows inert), and a user-queued item under a context (behaviour per OQ2).
+Plus a real-browser clickthrough covering the three paths the fallback chain creates: (1) album context, tap a context row → jumps with the context intact; (2) tap a user-added row → the context jump fails and the `uris` tail takes over, and **the rows below the tapped one are still there afterwards** (that is the check that proves the tail was carried, and the one a lone-track fallback would fail); (3) force both to fail → an in-panel notice, viewer stays open, lyrics unaffected.
 
 **Rollback**: revert. Steps 1–2 stand alone.
 
@@ -228,6 +229,18 @@ Plus a real-browser clickthrough covering all three cases: album context (jump w
 
    The wider lesson, in one line: **a constant that requests a scope is not evidence of the scope that was granted.** Ask the live grant.
 2. **User-added queue items under an album/playlist context.** — blocks Step 3. `/me/player/queue` returns one flat `queue[]` and does not mark which entries came from the context versus the user's manual queue. A `context_uri` + `offset` jump only works for the former. Options: (a) make every row inert whenever any ambiguity exists, (b) attempt the jump and degrade on failure, (c) match rows against the context's track list with a second request. Owner picked "되는 경우만 점프" as the *behaviour*; this question is how we determine "되는 경우" without lying to the user.
+
+   **ANSWERED 2026-08-01 (owner). Option (b), with the fallback specified: try → fall back → give up.**
+
+   1. **Try** `context_uri` + `offset: { uri }` when a context exists. This is the only jump that keeps the album/playlist context intact.
+   2. **Fall back** on failure (or no context) to `PUT /v1/me/player/play` with **`uris: [tapped, ...the rest of the visible queue after it]`** — not `uris: [tapped]` alone.
+   3. **Give up** with an in-panel notice if that also fails. Never silently do nothing.
+
+   Why the fallback carries the tail rather than the single track: `uris` **replaces** the playback context, so a lone-track fallback would jump one song and delete everything queued behind it — a much larger loss than the tap was worth, and invisible until the track ends. Re-sending the tail reconstructs exactly what the screen was already showing, so from the member's side nothing disappears. What is genuinely lost either way is the *album context itself*: once the re-sent tail runs out, Spotify has nothing to continue from, where the real context would have kept going. The owner accepted that trade knowingly — the queue the member can see is worth more than autoplay past the end of it.
+
+   `uris` accepts well over the ~20 items this endpoint ever returns, so the tail always fits in one request.
+
+   Note this makes "되는 경우만 점프" cover **every** row in practice: step 2 works for a user-added item, and step 1 works for a context item. Rows stay inert only when there is nothing to send at all. The original worry — a row that looks tappable and then fails — is answered by the fallback existing, not by predicting which rows are which.
 3. **Does the bar belong on the dock/static sheet too?** — blocks nothing; currently a non-goal. Raise only if the owner asks after using it.
 4. **Should `sendPlayerCommand` dispatch `MYBLOG_PLAYBACK_CHANGED`?** — blocks nothing; found during Step 1. It does not today, so `FEAT-lyrics-sync-precision` Step 2's `'command'` residual channel has never observed a transport command, and any conclusion drawn from that series is about `sendConnectPlay` only. Adding the dispatch would fix the channel in one line, but `NowPlaying.tsx:528` listens too and would start re-reading after its own commands — a behaviour change to a shipped component, hence not folded into Step 1. Decide alongside whatever next consumes the residual series.
 
@@ -241,6 +254,8 @@ Plus a real-browser clickthrough covering all three cases: album context (jump w
 | 2026-08-01 | Scope fixed to 재생/일시정지/다음/이전/대기열. Volume, shuffle, repeat, transfer, 좋아요 stay out. | — |
 | 2026-08-01 | OQ1 narrowed from code, not from a probe: the two scopes the queue endpoint documents sit on two **different** refresh tokens (`SCOPES` vs `STREAMING_SCOPES` in `scripts/spotify_bootstrap_token.py`) and the browser's token is missing `user-read-currently-playing`. Whether Spotify enforces it is the only open half; a 2-line console probe settles it. | 2 |
 | 2026-08-01 | Owner: Status draft → **accepted**, and Step 1 starts without the OQ1 probe — OQ1 gates Step 2 only, so blocking Step 1 on it buys nothing. | — |
+| 2026-08-01 | **Owner real-device pass on Steps 1+2 — all green.** Queue list scrolls past the fold, `←` returns to the correct lyric line, ⏭/⏸ work, and the queue refreshes with the track. One false alarm resolved on the way: a queue that looked wrong was **repeat mode**, not a bug (repeated ids are why rows are keyed `${id}:${index}`). Steps 1+2 now have no outstanding human check. | 1, 2 |
+| 2026-08-01 | **OQ2 answered: option (b) — try, fall back, give up.** Context jump first; on failure re-issue `play` with `uris: [tapped, ...rest of the visible queue]`; if that fails too, an in-panel notice. The fallback carries the TAIL, not the lone track, because `uris` replaces the context and a single-track fallback would silently delete everything queued behind the tap. Cost the owner accepted: the album context is gone either way, so Spotify will not autoplay past the re-sent tail. Side effect on the design — rows become tappable by default, since the fallback removes the need to predict which rows are reachable. | 3 |
 | 2026-08-01 | **OQ1 answered: 200, no re-consent, Step 2 unblocked.** The narrowing above reasoned from `STREAMING_SCOPES` — the constant that *requests* scopes — but the grant actually stored in `/myblog/spotify` was minted with a broader consent and carries both documented scopes. Two corrections carried forward: a requested-scope constant is not evidence of a granted scope, and the question was never owner-only (the browser's token is minted server-side from a secret in SSM, so it is answerable without a human). | 2 |
 | 2026-08-01 | Browser verification of Step 1 disproved the draft's `sendPlayerCommand` → `MYBLOG_PLAYBACK_CHANGED` claim (`:424` is `sendConnectPlay`, a different function; a live listener saw 0 events from ⏯⏭⏮). The first audit pass repeated the claim instead of checking it, and its "next/prev swaps lyrics for free" conclusion fell with it. Step 1 therefore owns both the `playing` write and the post-skip identity read. Raised as OQ4 whether the dispatch should simply be added. | 1 |
 | 2026-08-01 | Current state re-audited against code after front #325 and corrected: wrong component path (`member/` → `member/lyrics/`), every `LyricsViewer.tsx` line number stale, and the panel foot is occupied by `.lyv-return`, not empty. Three facts #325 introduced are now load-bearing for Step 1 — the `playing` flag already exists, its only writer is a re-read behind a 1.5 s floor (so Step 1 writes it optimistically), and next/prev inherits the track swap for free. | 1 |
