@@ -39,7 +39,18 @@ Rules marked **🔒 hook-enforced** are auto-denied by PreToolUse hooks in `.cla
 4. Never run >1 RFC step per session — unless (a) the RFC marks steps as `parallel`/`additive` or declares a single-PR merge, or (b) the user explicitly OKs the next step (e.g. "next step", "go", "gogo"). Reason: each gap enforces a prod-observe + direction-recheck gate (see PR-reviews-polymorphic — 4 steps reached prod before full revert).
 5. Never self-promote RFC Status **without explicit in-session user approval**. `draft` → `accepted` (and `accepted` → `in-progress`) default to human-only; on explicit approval (e.g. "승격해" / "promote"), Claude may make the Status edit. Absent approval, default no.
 6. 🔒 Never `terraform apply -target=...` without explicit go-ahead. Always run full plan; stop on unexpected drift.
-7. 🔒 (partial — force-push to main) Never push or merge without explicit go-ahead. An explicit push approval covers PR open + CI pass + squash merge + branch delete as a single flow (stop and report on CI fail / merge conflict / unexpected drift). User can opt out per request with "push only" to halt at PR open. `git add` + `commit` need no approval.
+7. 🔒 (partial — force-push to main) **Push + merge is autonomous once verification is green** (owner rule 2026-08-01, replacing the prior ask-first default). When every applicable pre-merge DoD check passes, proceed through PR open → CI pass → squash merge → branch delete without asking. `git add` + `commit` never needed approval either.
+
+   **Green means all of these, actually run and actually passing** — not "should pass", not "unrelated to my change":
+   - the repo's own suite (`pytest` / `pnpm lint` + `pnpm exec astro check` + `pnpm test`), quoted in the PR body
+   - PR CI green on every required check (workspace has no PR-CI — its own suite is the gate)
+   - `terraform plan` clean for any touched stack
+   - frontend UI change → real-browser clickthrough done
+   - no foreign commits in the worktree (`origin/main..HEAD` is only mine)
+
+   **Still stop and ask** — these are not "verification failures", so they need naming separately: any red or missing check, merge conflict, unexpected `terraform` drift, a rule-3 prod migration, a destructive/irreversible step, HEAD found on an unexpected branch, or signs another session shares the worktree. Also stop when the change is green but the *approach* turned out different from what was agreed — green tests do not ratify a changed plan.
+
+   User can still opt out per request with "push only" (halt at PR open) or "PR만" .
 8. 🔒 Never skip git hooks (`--no-verify`, `--no-gpg-sign`) unless user says so.
 9. Never add a synchronous Spotify call to a user-facing endpoint.
 
