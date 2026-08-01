@@ -139,7 +139,32 @@ Plus a real-browser clickthrough covering all three cases: album context (jump w
 
 ## Open questions
 
-1. **Does the current token carry the scope the queue endpoint needs?** — blocks Step 2. Spotify's Get User's Queue documents `user-read-currently-playing` **and** `user-read-playback-state`. `playback.api.ts:8` states the minted token carries `user-read-playback-state`; whether `user-read-currently-playing` is granted is unverified. If it is missing this needs a re-consent, which `FEAT-member-player` treated as a significant cost (좋아요 was called out as its *sole* re-consent item). **Probe the live token before designing around it.**
+1. **Does the browser's token carry the scope the queue endpoint needs?** — blocks Step 2. **Narrowed from code 2026-08-01, and the news is bad.** `scripts/spotify_bootstrap_token.py` mints two *distinct* refresh tokens with disjoint scope sets:
+
+   ```python
+   SCOPES = (                      # the WORKER's read token
+       "user-read-recently-played user-read-currently-playing "
+       "user-library-read user-library-modify "
+       "user-follow-read"
+   )
+   STREAMING_SCOPES = "streaming user-read-playback-state user-modify-playback-state"
+   ```
+
+   Spotify's Get User's Queue documents `user-read-currently-playing` **and** `user-read-playback-state`. Those two scopes live on **different tokens**, and neither token holds both:
+   - the browser's streaming token (what `readLivePlayback` and any queue call would use) has `user-read-playback-state` but **not** `user-read-currently-playing`;
+   - the worker's read token has `user-read-currently-playing` but not `user-read-playback-state` — and it is server-side, never in the browser, so it is not a route to the queue anyway.
+
+   What is still unverified is only whether Spotify **enforces** both for this endpoint. If it does, Step 2 requires re-minting `streaming_refresh_token` with `user-read-currently-playing` added — an owner re-consent, the cost `FEAT-member-player` called out as its sole such item (좋아요). That is a real gate on Step 2, not a footnote.
+
+   **Cheapest decisive probe** (30 s, owner, signed in on the live site — the browser holds a real streaming token, no test account does):
+
+   ```js
+   // console on https://www.ratemymusic.blog/members/?me , with the dashboard open
+   const t = await (await fetch('/api/playback/spotify-token')).json()
+   const r = await fetch('https://api.spotify.com/v1/me/player/queue', { headers: { Authorization: `Bearer ${t.access_token}` } })
+   r.status   // 200 → no re-consent needed, Step 2 is cheap
+              // 403 → re-consent required, decide before building
+   ```
 2. **User-added queue items under an album/playlist context.** — blocks Step 3. `/me/player/queue` returns one flat `queue[]` and does not mark which entries came from the context versus the user's manual queue. A `context_uri` + `offset` jump only works for the former. Options: (a) make every row inert whenever any ambiguity exists, (b) attempt the jump and degrade on failure, (c) match rows against the context's track list with a second request. Owner picked "되는 경우만 점프" as the *behaviour*; this question is how we determine "되는 경우" without lying to the user.
 3. **Does the bar belong on the dock/static sheet too?** — blocks nothing; currently a non-goal. Raise only if the owner asks after using it.
 
@@ -151,4 +176,5 @@ Plus a real-browser clickthrough covering all three cases: album context (jump w
 | 2026-08-01 | Owner: the queue is a full screen swap, not an overlaid sheet. The viewer's vertical drag is already line-stepping, so a sheet would force gesture arbitration at a boundary; a swap has zero conflict by construction. | 2 |
 | 2026-08-01 | Owner: 되는 경우만 점프 — rows jump where Spotify permits it and are inert otherwise. "Repeat ⏭ until we arrive" was rejected (slow, pollutes listening history). | 3 |
 | 2026-08-01 | Scope fixed to 재생/일시정지/다음/이전/대기열. Volume, shuffle, repeat, transfer, 좋아요 stay out. | — |
+| 2026-08-01 | OQ1 narrowed from code, not from a probe: the two scopes the queue endpoint documents sit on two **different** refresh tokens (`SCOPES` vs `STREAMING_SCOPES` in `scripts/spotify_bootstrap_token.py`) and the browser's token is missing `user-read-currently-playing`. Whether Spotify enforces it is the only open half; a 2-line console probe settles it. | 2 |
 | 2026-08-01 | Split out of the sync brainstorm into its own RFC: new UI surface, new Spotify API, mobile touch design and a possible re-consent — a different risk profile and a different verification from timing math. Cross-refs `FEAT-member-player` (queue was a Step 6 candidate) and `FEAT-lyrics-sync-precision` (consumes the commands as re-anchor events). | — |
