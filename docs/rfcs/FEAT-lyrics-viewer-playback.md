@@ -1,6 +1,6 @@
 # FEAT-lyrics-viewer-playback: transport controls and the queue inside the lyrics viewer
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 오너
 - **Created**: 2026-08-01
 - **Plan row**: `plan.md` → FEAT-lyrics-viewer-playback
@@ -21,7 +21,9 @@ The full-screen live lyrics viewer stops being read-only. A bottom bar carries �
 
 ## Current state
 
-**Mount point.** `LyricsViewer` is mounted only at `myblog_front/src/components/member/SelfDashboard.tsx:198`, for `lyrics.kind === 'live'` (tapped from `NowPlaying`). `LyricsSheet` (`:199`) and `AlbumDetail`'s `DockableLyricsSheet` are separate components on the static path.
+> Re-audited against code 2026-08-01 **after front #325** (`feat(lyrics): remove the fixed sync lead and re-anchor on playback events`, +263 lines in `LyricsViewer.tsx`), which landed between this RFC's drafting and its acceptance. The file path and every `LyricsViewer.tsx` line number in the original draft were wrong; the three subsections marked **[#325]** are new facts the draft could not have known.
+
+**Mount point.** `LyricsViewer` lives at `myblog_front/src/components/member/lyrics/LyricsViewer.tsx` (**not** `member/LyricsViewer.tsx`, as the draft said) and is mounted only at `myblog_front/src/components/member/SelfDashboard.tsx:198`, for `lyrics.kind === 'live'` (tapped from `NowPlaying`), with `canRefresh` set. `LyricsSheet` (`:199`) and `AlbumDetail`'s `DockableLyricsSheet` are separate components on the static path.
 
 **Command transport already exists.** `myblog_front/src/lib/spotifyPlayback.ts:331`:
 
@@ -31,15 +33,32 @@ export type PlayerCommand =
   | { kind: 'next' } | { kind: 'previous' }
 ```
 
-`sendPlayerCommand` (`:345`) issues the Spotify Connect call client-side with the member's minted token, retries once on a mid-session 401, never throws, and returns `{ ok: true }` or a typed failure (`no-capability` / `token` / `transient`). On success it dispatches `MYBLOG_PLAYBACK_CHANGED` (`:34`, `:424`). `NowPlaying.tsx` is the only consumer today (`:367` play/pause, `:402` seek, `:429` next/prev — member-player Steps 3 and 6a). **Nothing new is needed for 재생/일시정지/다음/이전.**
+`sendPlayerCommand` (`:345`) issues the Spotify Connect call client-side with the member's minted token, retries once on a mid-session 401, never throws, and returns `{ ok: true }` or a typed failure (`no-capability` / `token` / `transient`). `NowPlaying.tsx` is the only consumer today (`:371` play/pause, `:406` seek, `:433` next/prev — member-player Steps 3 and 6a). **Nothing new is needed on the wire for 재생/일시정지/다음/이전.**
+
+**`sendPlayerCommand` does NOT dispatch `MYBLOG_PLAYBACK_CHANGED`.** The draft claimed it did, citing `spotifyPlayback.ts:424` — but `:424` sits inside `sendConnectPlay` (`:390`), a different function, the one that starts an album/track from a card. `sendPlayerCommand`'s success path is a bare `return { ok: true }` (`:363-364`). Confirmed in a browser 2026-08-01: with a listener attached, ⏭ and ⏸ produced **zero** events.
+
+Two things follow, and Step 1 depends on both:
+
+- The `MYBLOG_PLAYBACK_CHANGED` → `resync('command')` wiring `FEAT-lyrics-sync-precision` Step 2 added (`LyricsViewer.tsx:686`) has **never fired for a transport command** — only for "playback started elsewhere on the page". Its `ResyncSource = 'command'` residual channel has correspondingly never recorded a transport round-trip, so any accuracy series read off it is not measuring what its name says. The in-code comment asserting otherwise was corrected in this step.
+- Making `sendPlayerCommand` dispatch would be the tidier fix, but `NowPlaying.tsx:528` also listens, so it would give a shipped component a new self-triggered re-read. Out of scope here — recorded as OQ4.
 
 **Queue is not implemented anywhere.** `grep` for `me/player/queue` in `myblog_front/src` returns only `/api/todays-pick/queue` (an unrelated backend route) and a `pocketBuckit/leaf.ts` comment. The Spotify queue endpoint has never been called.
 
-**The viewer's chrome.** Header (`LyricsViewer.tsx:747`) carries the eyebrow + title block on the left and an actions cluster on the right: 번역 · ↻ · ⚙ · ✕. The bottom of the panel is empty. `.lyv-list` uses `padding: 38vh 28px` and the focused line is centred at `boxH * 0.42` (`applyCenter`, `LyricsViewer.tsx:527`).
+**The viewer's chrome.** Header (`LyricsViewer.tsx:918`) carries the eyebrow + title block on the left and an actions cluster on the right: 번역 · ↻ · ⚙ · ✕. `.lyv-list` uses `padding: 38vh 28px` and the focused line is centred at `boxH * 0.42` (`applyCenter`, `LyricsViewer.tsx:656`).
 
-**The gesture model is the constraint.** `.lyv-scroll` is `overflow: hidden` with `touch-action: none`; vertical pointer drag is captured as **line stepping** (`onPointerMove`, `LyricsViewer.tsx:636`, `DRAG_STEP = 56`), wheel is captured as stepping (`WHEEL_STEP = 80`), and a real drag suppresses the click so it cannot double as tap-to-focus. A scrollable list cannot share this surface — hence the owner's choice of a full screen swap rather than an overlaid sheet (2026-08-01).
+The bar's space comes out of the list for free: `.lyv-panel` is a flex column and `.lyv-body` is `flex: 1; min-height: 0` (`layout.css:758`), so a sibling bar shrinks `.lyv-scroll` rather than overlaying it, and `boxH` shrinks with it.
+
+**The panel foot is NOT empty** (the draft claimed it was). `.lyv-return` — the browse-mode snap-back countdown ring — floats there: `position: absolute; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); width/height: 42px; z-index: 4` (`layout.css:474`), rendered whenever `suspended` (`LyricsViewer.tsx:908`). That is exactly where a ~60 px transport bar lands. Step 1 must lift it above the bar.
+
+**The gesture model is the constraint.** `.lyv-scroll` is `overflow-y: hidden` with `touch-action: none`; vertical pointer drag is captured as **line stepping** (`onPointerMove`, `LyricsViewer.tsx:807`, `DRAG_STEP = 56`), wheel is captured as stepping (`WHEEL_STEP = 80`), and a real drag suppresses the click so it cannot double as tap-to-focus. A scrollable list cannot share this surface — hence the owner's choice of a full screen swap rather than an overlaid sheet (2026-08-01).
 
 **Capability degrade already has a shape.** member-player Step 3 established the pattern: a failed command surfaces a short inline line and degrades the control rather than throwing, with `no-capability` distinguished from `transient`.
+
+**[#325] The `playing` flag already exists.** `FEAT-lyrics-sync-precision` Step 2 shipped, so `const [playing, setPlaying] = useState(true)` is live at `LyricsViewer.tsx:360` and already gates the focus scheduler (`:735`). The draft's "whichever RFC ships first owns the flag" hedge is dead — Step 1 **consumes** it and must not redeclare it.
+
+**[#325] …and before Step 1 nothing could write it from a transport command at all.** `playing` is only ever set from the *result* of a `readLivePlayback()` (`:528`). The one path that was supposed to trigger such a read after a command is the `MYBLOG_PLAYBACK_CHANGED` listener — which, per the correction above, never fires for `sendPlayerCommand`. Even where it does fire it drops the read when the previous one was less than `EVENT_RESYNC_FLOOR_MS = 1500` ago (`:130`, `:579`). **So Step 1 must set `playing` at command-issue time — not as an optimisation, but as the only mechanism.** Verified: without it a ⏸ leaves the icon claiming playback and the scheduler advancing lines over silence.
+
+**[#325] The lyrics swap after next/prev is NOT free** (the first audit pass got this wrong, on the strength of the same bad dispatch claim). Nothing re-reads identity after a skip, so the viewer keeps showing the previous track's lyrics indefinitely. Step 1 issues that read itself, and `refresh` gained a single-slot queue so a read requested while one is in flight is remembered rather than dropped — otherwise ⏭⏭ lands the viewer one track behind.
 
 ## Target state
 
@@ -69,10 +88,12 @@ export type PlayerCommand =
 
 **Changes**
 
-- New `.lyv-transport` bar rendered inside `.lyv-panel` below `.lyv-body`, live entries only (`canRefresh` already marks the live entry).
-- Play/pause reflects a `playing` flag. `FEAT-lyrics-sync-precision` Step 2 introduces that flag for the clock; if this RFC ships first, it owns the flag and that RFC consumes it. Either order works — the flag is one `useState`.
-- Failures reuse the member-player degrade shape: `no-capability` disables the cluster with a one-line reason, `transient` shows a brief inline notice via the existing `notice` state (`LyricsViewer.tsx:432`), `token` routes to the existing streaming-status messages.
-- Centring math: `applyCenter` targets `boxH * 0.42` of `.lyv-scroll`'s height. Since the bar shrinks `.lyv-scroll` rather than overlaying it, `boxH` shrinks with it and the focus line stays centred. Verify the measurement cache (`measureRef`) is invalidated when the bar appears/disappears.
+- New `.lyv-transport` bar rendered inside `.lyv-panel` as a sibling of `.lyv-body`, live entries only (`canRefresh` already marks the live entry). **Outside** the `phase.k === 'ready' && n > 0` fragment (`LyricsViewer.tsx:1057`) that wraps `.lyv-body` — otherwise the bar disappears on loading / error / "가사 없음", which is precisely when the owner wants ⏭ to escape the track.
+- Play/pause reflects the **existing** `playing` flag (`:360`, shipped by `FEAT-lyrics-sync-precision` Step 2 — see Current state). Do not redeclare it.
+- **Set `playing` optimistically when the command is issued**, not from the resync that follows. The `MYBLOG_PLAYBACK_CHANGED` → `resync('command')` path is rate-limited to one read per 1.5 s (`EVENT_RESYNC_FLOOR_MS`), so a quick ⏭ then ⏸ otherwise leaves the icon and the focus scheduler both believing playback is running. Revert the optimistic write if `sendPlayerCommand` returns `ok: false`; the eventual resync remains the correction of record.
+- Failures reuse the member-player degrade shape: `no-capability` disables the cluster with a one-line reason, `transient` shows a brief inline notice via the existing `notice` state (`LyricsViewer.tsx:515`), `token` routes to the existing streaming-status messages.
+- Centring math: `applyCenter` targets `boxH * 0.42` of `.lyv-scroll`'s height. Since the bar shrinks `.lyv-scroll` rather than overlaying it, `boxH` shrinks with it and the focus line stays centred. **`measureRef` caches `boxH` (`:654`) and is invalidated only on `[showKo, lyvStyle]` (`:688`) and `resize` (`:709`)** — a bar that appears or disappears is neither, so its mount/unmount must join that invalidation set.
+- Lift `.lyv-return` (the browse countdown ring, `layout.css:474`) above the bar so the two never overlap; it currently sits at `bottom: calc(28px + env(safe-area-inset-bottom))`, inside the bar's footprint.
 - Mobile: `env(safe-area-inset-bottom)` padding, ≥44 px touch targets at 390 px.
 
 **Verification**
@@ -82,7 +103,11 @@ cd myblog_front
 pnpm lint && pnpm exec astro check && pnpm test
 ```
 
-Plus a real-browser clickthrough at desktop and 390 px: each button issues its command against a live device; the focused line stays centred with the bar present; `prefers-reduced-motion` unaffected.
+Plus a real-browser clickthrough at desktop and 390 px: each button issues its command against a live device; the focused line stays centred with the bar present; `prefers-reduced-motion` unaffected. Three checks come from the #325 audit:
+
+- **⏭ then ⏸ within 1.5 s** — the icon must show paused and the lyrics must stop advancing (this is the case the resync floor swallows).
+- **⏭ alone** — the lyrics swap to the next track with no Step-1 code doing it (the #325 listener path).
+- **Browse-drag mid-playback** so `.lyv-return` renders — the ring and the bar must not overlap at 390 px with a safe-area inset.
 
 **Rollback**: revert. No persisted state.
 
@@ -165,8 +190,11 @@ Plus a real-browser clickthrough covering all three cases: album context (jump w
    r.status   // 200 → no re-consent needed, Step 2 is cheap
               // 403 → re-consent required, decide before building
    ```
+
+   **Still unrun as of 2026-08-01.** Step 1 does not depend on it and proceeded without it (owner, 2026-08-01). Step 2 does not start until the probe returns a status, and if it returns 403 the re-consent cost is an owner decision before any Step 2 code.
 2. **User-added queue items under an album/playlist context.** — blocks Step 3. `/me/player/queue` returns one flat `queue[]` and does not mark which entries came from the context versus the user's manual queue. A `context_uri` + `offset` jump only works for the former. Options: (a) make every row inert whenever any ambiguity exists, (b) attempt the jump and degrade on failure, (c) match rows against the context's track list with a second request. Owner picked "되는 경우만 점프" as the *behaviour*; this question is how we determine "되는 경우" without lying to the user.
 3. **Does the bar belong on the dock/static sheet too?** — blocks nothing; currently a non-goal. Raise only if the owner asks after using it.
+4. **Should `sendPlayerCommand` dispatch `MYBLOG_PLAYBACK_CHANGED`?** — blocks nothing; found during Step 1. It does not today, so `FEAT-lyrics-sync-precision` Step 2's `'command'` residual channel has never observed a transport command, and any conclusion drawn from that series is about `sendConnectPlay` only. Adding the dispatch would fix the channel in one line, but `NowPlaying.tsx:528` listens too and would start re-reading after its own commands — a behaviour change to a shipped component, hence not folded into Step 1. Decide alongside whatever next consumes the residual series.
 
 ## Decisions log
 
@@ -177,4 +205,7 @@ Plus a real-browser clickthrough covering all three cases: album context (jump w
 | 2026-08-01 | Owner: 되는 경우만 점프 — rows jump where Spotify permits it and are inert otherwise. "Repeat ⏭ until we arrive" was rejected (slow, pollutes listening history). | 3 |
 | 2026-08-01 | Scope fixed to 재생/일시정지/다음/이전/대기열. Volume, shuffle, repeat, transfer, 좋아요 stay out. | — |
 | 2026-08-01 | OQ1 narrowed from code, not from a probe: the two scopes the queue endpoint documents sit on two **different** refresh tokens (`SCOPES` vs `STREAMING_SCOPES` in `scripts/spotify_bootstrap_token.py`) and the browser's token is missing `user-read-currently-playing`. Whether Spotify enforces it is the only open half; a 2-line console probe settles it. | 2 |
+| 2026-08-01 | Owner: Status draft → **accepted**, and Step 1 starts without the OQ1 probe — OQ1 gates Step 2 only, so blocking Step 1 on it buys nothing. | — |
+| 2026-08-01 | Browser verification of Step 1 disproved the draft's `sendPlayerCommand` → `MYBLOG_PLAYBACK_CHANGED` claim (`:424` is `sendConnectPlay`, a different function; a live listener saw 0 events from ⏯⏭⏮). The first audit pass repeated the claim instead of checking it, and its "next/prev swaps lyrics for free" conclusion fell with it. Step 1 therefore owns both the `playing` write and the post-skip identity read. Raised as OQ4 whether the dispatch should simply be added. | 1 |
+| 2026-08-01 | Current state re-audited against code after front #325 and corrected: wrong component path (`member/` → `member/lyrics/`), every `LyricsViewer.tsx` line number stale, and the panel foot is occupied by `.lyv-return`, not empty. Three facts #325 introduced are now load-bearing for Step 1 — the `playing` flag already exists, its only writer is a re-read behind a 1.5 s floor (so Step 1 writes it optimistically), and next/prev inherits the track swap for free. | 1 |
 | 2026-08-01 | Split out of the sync brainstorm into its own RFC: new UI surface, new Spotify API, mobile touch design and a possible re-consent — a different risk profile and a different verification from timing math. Cross-refs `FEAT-member-player` (queue was a Step 6 candidate) and `FEAT-lyrics-sync-precision` (consumes the commands as re-anchor events). | — |
