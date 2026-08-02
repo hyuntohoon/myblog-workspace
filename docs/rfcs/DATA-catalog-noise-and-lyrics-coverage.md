@@ -276,7 +276,20 @@ to **≤ 8%** within two weeks.
 
 ---
 
-### Step 3 — lyrics pool hygiene + recency-tiered re-check
+### Step 3 — lyrics pool hygiene + re-check ordering — ✅ 3a SHIPPED 2026-07-28, 3b SHIPPED 2026-08-03
+
+> **3a shipped as worker #84 + #85** — as **rule F alone**, not `E ∪ F`. The owner chose F on
+> 2026-07-28: both catch the same rows (E 3,494 / F 3,493), but F is one SQL block over data we
+> already store and is self-correcting, where E needs a genre allowlist plus two regex
+> vocabularies maintained forever. E was never implemented and no longer needs to be — the
+> holdout below was supposed to measure whether E's cold-start advantage costs anything, and
+> after five days it does not (see 3a Measured). **The prose below describing `E ∪ F` and the
+> roman-numeral / vocal-form regex traps is kept as the design record of a rule that did not
+> ship.** Prod state 2026-08-03: 3,297 rows marked, 202 held out.
+>
+> **3b shipped as worker #93** — but **not as written**. The recency re-order this step was
+> named for was measured and dropped; what shipped is the queue inversion that the original
+> text mentioned only in passing. See 3b below.
 
 Two changes to `myblog_worker/worker/service/lyrics_reassessment_service.py:138-163`.
 
@@ -311,28 +324,73 @@ verdict is a different status (`no_lyrics`, 882 rows, 435 of them classical). Th
 **measured source yield: 0/120 on live re-probe**, not a claim about the works. Because the ground can
 move, the holdout is mandatory, not optional.
 
-**3b — re-order the queue by release recency.** Replace stalest-first with a recency tier: albums
-released ≤60 days first, then 60–365, then the rest. Expected hit rate **1.54% → toward 26.7%** for the
-recent tier. Reserve a small slot for tier-1 so the best-of supersession path
+**3b as designed — re-order the queue by release recency.** Replace stalest-first with a recency tier:
+albums released ≤60 days first, then 60–365, then the rest. Expected hit rate **1.54% → toward 26.7%**
+for the recent tier. Reserve a small slot for tier-1 so the best-of supersession path
 (`lyrics_reassessment_service.py:77-82`, currently **dead** — tier-0 always fills `LIMIT 150`) can
 finally execute.
 
-**Holdout**: leave a random ~5% (≈175 rows) of the excluded set in the queue. If the rule is right their
-promotion rate stays ~0; if it climbs, that rate **is** the misclassification rate. Baseline for
-comparison: **1.54% (45 promotions / 2,925 re-checks over 20 days)**.
+#### 3b as measured, 2026-08-03 — the recency premise did not survive, the aside was the prize
+
+Re-measured before implementing (`docs/sql/lyrics_pool_health.sql`, written in this step because the
+path this section had always pointed at did not exist):
+
+| | RFC premise (2026-07-25) | Measured 2026-08-03 | |
+|---|---|---|---|
+| yield by release recency, **live LRCLIB re-probe** | 26.7% (≤60 d non-classical) vs 0.8% (raw pool) — a 32× signal | **10.95% / 10.77% / 8.70%** (n=137/130/138) | flat |
+| yield by release recency, **30-day corpus history** | — | **5.46% / 4.94% / 5.50%** | flat |
+| best-of arm reachability | "currently dead" (an aside) | 11,033 unresolved ahead of 2,765 best-of rows, `LIMIT 150` | **structurally unreachable** |
+| best-of supersession yield | not measured | **83.6%** (112/134 sampled) resolve to a strictly stronger `exact-title` | 15× the pool |
+
+**Why recency evaporated, and why that is the system working.** The RFC's 26.7% was conditioned on
+"≤60 days **and non-classical**"; its 0.8% comparator was the *raw* pool, classical included. Release
+recency was never the causal signal — it was a proxy for *"not a dead-source label"*. Step 3a now tests
+that directly and better, so once 3a shipped the proxy had nothing left to explain. The gain the RFC
+attributed to recency was already banked: pool yield **1.54% → ~5.5%**, drain **2.25 → 18.4/day**.
+
+**What shipped instead: invert the queue and drain the best-of backlog first.** A best-of slot is worth
+~15 unresolved slots (83.6% vs 5.5%), so `_fetch_unresolved_tracks` orders `best-of-%` matched rows
+*ahead* of the unresolved pool. ~2,765 rows at 150/run ≈ **19 runs**, then it is done — a superseded row
+changes its own basis and leaves the arm, so the backlog is self-consuming.
+
+**The termination hazard, and the two things that fix it.** ~16% of best-of rows cannot be superseded:
+a re-check reproduces the same best-of basis and `should_replace` refuses a lateral swap (`2 > 2` is
+false), so the row is **re-checked but never written**. Under a stalest-first order whose cursor is
+`updated_at`, a row that is never written never moves — those ~450 rows would have owned all 150 slots
+*forever* and unresolved recovery would have stopped dead. This is a trap the "reserve a small slot"
+design had too, just slower. Fixes: (i) `TrackLyricsWriter.touch` advances the rotation cursor when the
+guard keeps a row — content untouched, opt-in per caller because the incremental collector's
+`guard_kept` means "a peer owns this row" and must **not** touch it; (ii) `LYRICS_BESTOF_RECHECK_INTERVAL_DAYS
+= 30` then rests it. Measured safe: 2,611 of 2,765 backlog rows (94.4%) are 30–90 days old, so the
+interval does not block the initial sweep.
+
+**Holdout** (3a): leave a random ~5% (≈175 rows) of the excluded set in the queue. If the rule is right
+their promotion rate stays ~0; if it climbs, that rate **is** the misclassification rate. Baseline as
+written: 1.54% (45 promotions / 2,925 re-checks over 20 days). **Measured 2026-08-03: 5 / 202 = 2.48%**,
+against a pool that now yields ~5.5% — the holdout resolves at less than half the rate of the rows the
+rule left alone, so rule F is not parking rows that would have matched. Note the comparator moved with
+the pool: 2.48% is *below* today's baseline, not above the stale 1.54% one.
 
 **Verification**:
 ```
-cd myblog_worker && pytest tests/test_lyrics_reassessment.py
-# prod, after 3 daily ticks:
-psql "$DATABASE_URL" -f docs/sql/lyrics_pool_health.sql   # net daily change must be <= 0 (today: +180/day)
+cd myblog_worker && pytest                        # 484 passed, 43 skipped (all TEST_DB_URL / live-API gated)
+psql "$DATABASE_URL" -f docs/sql/lyrics_pool_health.sql
+# query 6 must report bestof_reachable, and after ~19 daily ticks the head returns to unresolved
 ```
+The selection carries a bind parameter inside `make_interval(days => :n)` — the #84 → #85 failure class,
+which MagicMock tests cannot reach. It was executed against the **prod planner read-only** before merge:
+150/150 rows returned, all best-of, and the touch UPDATE verified inside a rolled-back transaction
+(cursor moved, `match_status` + basis unchanged, restored on ROLLBACK).
 
-**Success metric**: net pool change ≤ 0/day within 7 days (from **+180/day**), and daily promotions rise
-from **2.25/day**.
+**Success metric**: `bestof_superseded` > 0 on the first tick, and the backlog (query 6) trending to
+~450 unsupersedable rows within ~19 ticks, at which point the head returns to unresolved on its own.
+~~net pool change ≤ 0/day within 7 days~~ — **retired as unreachable by this step**: intake is ~57/day
+and one full pool rotation takes 74 days, so drain is bounded by rotation, not by ordering. Net is
+**+38/day**, down from +180 at design time. Closing the gap needs a bigger re-check budget or fewer
+rows entering, neither of which is Step 3.
 
 **Rollback**: `UPDATE track_lyrics SET evidence = evidence - 'excluded_by' WHERE evidence ? 'excluded_by';`
-plus reverting the ORDER BY.
+plus reverting the ORDER BY. The 3b half is code-only — no data is written that a revert must undo.
 
 ---
 
