@@ -263,7 +263,19 @@ exactly 1 GET, pause survives, device-less body omits, disconnected = zero reads
 `SelfDashboard.*.js`. Owner real-active-device clickthrough CONFIRMED 2026-07-20 ("2번
 동작한다") — Step 4 fully closed.
 
-### Step 5 — play from the site (unified play ladder + device picker) — REFRAMED 2026-08-02
+### Step 5 — play from the site (unified play ladder + device picker) — REFRAMED 2026-08-02 · ✅ SHIPPED + prod-verified 2026-08-02 (front #334, `9df4c7a`, deploy 30740995167)
+
+> **Shipped 2026-08-02** — front #334, squash `9df4c7a`. `play(intent)` replaces `requestPlayback` + `sendConnectPlay`;
+> all six surfaces call only it. Device picker rides the Step 4 device line. Media Session bound on
+> rung 2 only. Persistence via the `astro:before-swap` override the OQ4 measurement pointed to.
+> Verification below; the owner's real-device items are still open.
+>
+> **The implementation insight, recorded because it changed the work's size**: the two paths differed
+> by *exactly one query parameter*. Both PUT the same body to `/v1/me/player/play`; only `device_id`
+> differs. So the ladder is not a merge of two subsystems — it is one request with a fallback on that
+> parameter, which is why rung selection could stay attempt-then-fallback (the 404 the old path already
+> returned *is* the signal) rather than a `GET /me/player/devices` probe. One request on the happy
+> path; D28 holds by construction.
 
 The draft framed this as "add an in-page SDK device as an opt-in output". That framing was
 wrong twice over: the SDK device **already exists and already plays** (`requestPlayback`,
@@ -315,6 +327,27 @@ in-page device always costs some. Rung 2 is a fallback, not a peer — and the U
 today) on every one of the six surfaces; device picker switches output both directions;
 navigate across ≥3 pages mid-playback without a gap; OS media keys drive the in-page device;
 CDP mobile 390 pass.
+
+**Verification actually run (2026-08-02, front #334)** — split by what a session can and cannot
+reach, because most of this list needs a Premium account that only the owner has.
+
+Machine-checkable, all green: `pnpm lint` clean · `astro check` **0 errors** · `pnpm test`
+**173 passed** (12 new) · `pnpm build` 2143 pages. The 12 new tests pin the three properties that
+would let this regress silently — the 404 is a **hand-off** not a dead end; the two rungs send an
+**identical body** and differ by `device_id` alone; and a play that cannot possibly sound
+(visitor / dormant 503 / unresolvable) **never downloads the ~1 MB SDK**.
+
+Real browser (CDP, local dev server) — aimed at the piece with the widest blast radius, the swap
+override: audio host **ALIVE across 3 hops**, all **6 persisted islands** intact, **0 duplicate
+head scripts**, the mobile drawer still interactive *after* an override-driven swap (the
+script-re-execution risk), the inert path unchanged, no console errors.
+
+**Prod smoke (2026-08-02, after deploy 30740995167)**: the old dead-end string `재생 중인 Spotify 기기가 없어요` is **gone** from the live `AlbumOverlay` chunk — the message only existed because a cold start had nowhere to go, so its absence is the behavior change. The override was re-run against prod itself, on the same page that destroyed the iframe that morning: audio **ALIVE across 3 hops**, 6/6 persisted islands, no console errors. Inert path re-checked on prod too — correct page, 6 islands, header script still interactive, no duplicated head scripts.
+
+**Still open — owner, real device**: cold-start play on each of the six surfaces; device switching
+both directions; OS media keys driving the in-page device; CDP mobile 390 on the picker. These need
+a live Premium session and a second Connect device, so no session can close them. ⚠️ Until the
+first item is checked, "재생 시작이 안 된다" is fixed *in test*, not *in use*.
 
 #### OQ4 measurement — the SDK iframe and `ClientRouter` (prod, 2026-08-02)
 
@@ -485,6 +518,9 @@ clickthrough pending (checklist in #302 body).
 | 2026-08-02 | Device transfer moved **6e → Step 5**; remainder of 6e (shuffle/repeat/volume) stays a candidate. Media Session API added to Step 5 as mandatory, not decorative | 5, 6 |
 | 2026-08-02 | **Owner question answered by measurement, not docs: one app serves every user.** 6/6 Dev-Mode-removed capabilities answer 200 ⇒ Extended Quota Mode, unlimited users, no allowlist, no second app registration ever needed. Recorded the corollary as a standing risk: since 2025-05-15 individuals cannot obtain extended access, so this grant is irreplaceable and *already-shipped* catalog/library/좋아요 features depend on it | all |
 | 2026-08-02 | **Step 5 scoped owner-only.** The owner's live grant already carries `streaming` (measured) ⇒ zero re-consent. Member tier deferred not for consent fatigue but because prod has 1 Spotify integration total — shipping it now would deploy something unverifiable. Member code path still built; only the scope stays closed | 5 |
+| 2026-08-02 | **Step 5 SHIPPED** (front #334, `9df4c7a`). The implementation found the ladder was smaller than the reframing implied: the two paths differ by **exactly one query parameter** — same endpoint, same body, only `device_id` — so rung selection stayed attempt-then-fallback (the 404 the old path already returned *is* the "no active device" signal) instead of a `GET /me/player/devices` probe. One request on the happy path, D28 by construction. The device picker reused the Step 4 device line as its own trigger rather than adding chrome. Media Session bound on rung 2 only, so it never competes with a real device's own app | 5 |
+| 2026-08-02 | **The swap override is inert unless this tab is the audio device** — that guard is what makes a site-wide navigation change shippable. With no audio host in `<body>`, Astro's default swap runs untouched, so the ordinary navigation keeps stock behavior and stock risk. Also decided: copy upstream's `swapBodyElement` faithfully (persist-id match, the `astro-island` props copy, `attachShadowRoots`) rather than simplify it — the props-copy default is opt-*out*, so "this site does not need it" was an assumption worth not making | 5 |
+| 2026-08-02 | **Left alone on purpose**: `sendPlayerCommand` still does not dispatch `MYBLOG_PLAYBACK_CHANGED` for transport kinds. Unifying the play paths made it tempting to close, but that is `FEAT-lyrics-viewer-playback` OQ4's open decision — a step must not silently resolve another RFC's open question | 5 |
 | 2026-08-02 | **OQ4 CLOSED by prod measurement — the SDK iframe does NOT survive a `ClientRouter` navigation, and `data-astro-transition-persist` does not save it.** Measured twice over: a runtime-injected node has no counterpart in the incoming document and is dropped, and even inside a genuinely persisted island (host survived as the same node object) the iframe still reloaded. Root cause is not Astro-specific — `swapBodyElement` re-inserts, and re-insertion destroys an iframe's browsing context; Astro guarantees node identity, which is a different guarantee than the one audio needs. Working fix measured: an `astro:before-swap` override mutating `<body>` in place — real SDK iframe, 3 hops, 0 reloads, 0 detaches. Verdict: Step 5 = ladder rewrite **+** a contained swap-strategy change in `layout.astro`, whose blast radius is every navigation and which needs its own regression pass. Corollary: persistence is a **rung-2-only** problem — rung 1 plays on another device, so it is global for free | 5 |
 | 2026-08-02 | **Audio quality settles the ladder order**: Web Playback SDK caps at AAC 256 kbps and Spotify Lossless (2025-09, 24-bit FLAC) excludes the web player, so remote control costs zero quality and the in-page device always costs some. "Remote first" is a correctness argument, not a preference — and rung 2 must say it is degraded | 5 |
 | 2026-08-02 | **Negative finding, recorded so it is not re-planned**: we were NOT grandfathered into the 2024-11-27 deprecations. Recommendations, Audio Features, Audio Analysis, Related Artists, genre seeds, featured playlists and `preview_url` are all dead for this app too (measured). No feature may assume derived mood/energy or "similar artists". Separately, `user-top-read` is alive but ungranted → recorded as OQ5, belonging to `FEAT-album-review-authoring` | — |
