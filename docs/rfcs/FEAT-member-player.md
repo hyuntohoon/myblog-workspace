@@ -316,6 +316,48 @@ today) on every one of the six surfaces; device picker switches output both dire
 navigate across ≥3 pages mid-playback without a gap; OS media keys drive the in-page device;
 CDP mobile 390 pass.
 
+#### OQ4 measurement — the SDK iframe and `ClientRouter` (prod, 2026-08-02)
+
+Run before any UI work, as the OQ demanded. CDP against **prod** (`www.ratemymusic.blog`), the
+site's real `ClientRouter`, the real `https://sdk.scdn.co/spotify-player.js`. No prod state was
+written. Same-origin probe iframes were stamped with a value on their `contentWindow` so the
+measurement distinguishes **the node surviving** from **the browsing context surviving** — the
+distinction the whole question turns on. For the cross-origin SDK iframe, a re-fired `load`
+event plus a `MutationObserver` detach count stand in for the stamp.
+
+| # | What was measured | Result |
+|---|---|---|
+| 1 | SDK iframe after one navigation (today's behavior) | **destroyed.** `sdk.scdn.co/embedded/index.html` is appended straight to `<body>`; after a `/` → `/reviews/` hop there are **0** SDK iframes. `window.Spotify` and module state survive — the JS context was never the problem. |
+| 2 | The presumed fix: `data-astro-transition-persist` on the injected iframe | **refuted — NODE GONE.** Persist matches an element against a **counterpart in the incoming document**; a runtime-injected node has none, so it is dropped outright. |
+| 3 | The iframe placed *inside* a genuinely persisted island (`pocket-buckit`) | **refuted again, and more sharply.** The host survived as the *same node object* (`hostIsSameNode: true`) and the iframe inside it still came back **RELOADED**. |
+| 4 | Control: moving an iframe within one document | **RELOADED.** Re-insertion destroys the browsing context — this is the root cause, not anything Astro-specific. |
+| 5 | Candidate fix: `astro:before-swap` override that mutates `<body>` in place | **ALIVE (context kept).** |
+| 6 | Same override with the **real SDK iframe**, 3 consecutive hops | **0 reloads, 0 detach events, same node** across `/` → `/reviews/` → `/genres/` → `/releases/`. |
+
+**Why persist cannot work here** — read from `astro/dist/transitions/swap-functions.js`:
+`swapBodyElement` does `oldElement.replaceWith(newElement)` and then, for each persisted element,
+`newEl.replaceWith(el)`. Both are re-insertions. Astro preserves *node identity* by design; the
+HTML spec destroys an iframe's browsing context on re-insertion regardless. The two guarantees
+are simply different things, and audio needs the one Astro does not offer.
+
+**The path that works.** `swapFunctions` is a public export of `astro:transitions/client`
+(verified in Astro 5.15.9 — `vite-plugin-transitions.js` re-exports it from the virtual module),
+so the override composes the official `deselectScripts` / `swapRootAttributes` /
+`swapHeadElements` / `saveFocus` and replaces only `swapBodyElement` with an in-place variant
+that never detaches the audio host. **The prototype above is not shippable as written**: it
+replaced `<head>` wholesale and skipped script de-duplication, which would re-execute page
+scripts. The shipped version must reuse Astro's own head/script handling and override the body
+step alone.
+
+**What this costs.** The override sits in `layout.astro` and changes how **every** navigation on
+the site swaps — a wider blast radius than the ladder itself. Whatever else Step 5 gets sliced
+into, this piece needs its own regression pass over the persisted islands (`PocketBuckit`,
+`AlbumOverlay`, the four header roots) and over `astro:page-load` consumers.
+
+**One consequence worth stating plainly**: this whole problem belongs to **rung 2 only**. When
+rung 1 remote-controls a real Connect device, the audio is not in the tab at all, so it is
+global for free. Persistence is the price of the fallback, not of the feature.
+
 ### Step 5b — `/write` layout refactor (playback follows into the editor)
 
 `write-layout.astro` is 35 lines used by exactly one page and carries **no `ClientRouter`, no
@@ -394,16 +436,15 @@ clickthrough pending (checklist in #302 body).
    detail: the confirmation read is skipped while paused, since a paused player reads as
    `idle` in the one-shot contract and would collapse the card; the optimistic anchor is
    exact there anyway.
-4. **Does the Web Playback SDK's hidden iframe survive a `ClientRouter` navigation?** OPEN,
-   blocking Step 5's "전역 재생" requirement. The site already runs Astro `ClientRouter`
-   (`layout.astro:52`) and already persists islands (`PocketBuckit`, `AlbumOverlay`,
-   the four header roots), so the JS context and the player object survive a navigation —
-   but the SDK appends its own audio-bearing iframe to `<body>`, which ClientRouter swaps.
-   If it is torn out, sound stops on every navigation and the whole "global playback" premise
-   needs a different approach. Documentation does not answer this. Presumed fix is tagging the
-   SDK-created iframe with `data-astro-transition-persist` after `ready`, but that is a guess
-   until measured. **This is the first thing Step 5 must test, before any UI work** — the
-   answer decides whether Step 5 is a ladder rewrite or an architecture change.
+4. ~~**Does the Web Playback SDK's hidden iframe survive a `ClientRouter` navigation?**~~ —
+   **CLOSED, measured on prod 2026-08-02 (CDP, `www.ratemymusic.blog`, real ClientRouter, real
+   `sdk.scdn.co` script). Answer: NO — and the presumed fix is refuted.** Details in
+   §"OQ4 measurement" below. Short form: the iframe is destroyed on every navigation; tagging it
+   `data-astro-transition-persist` does **not** save it; the working fix is an
+   `astro:before-swap` swap override that mutates `<body>` in place instead of replacing it
+   (measured: 3 hops, 0 reloads). Step 5 is therefore **a ladder rewrite plus a contained
+   swap-strategy change** — not the architecture change this OQ feared, but not a one-attribute
+   fix either.
 5. **Cross-RFC candidate, not owned here** — `user-top-read` (one scope add; endpoint verified
    alive) yields the owner's most-played artists/tracks over 4 weeks / 6 months / all time.
    The product use is "많이 들었는데 아직 평가를 안 쓴 앨범", which is a real-data seed for the
@@ -444,6 +485,7 @@ clickthrough pending (checklist in #302 body).
 | 2026-08-02 | Device transfer moved **6e → Step 5**; remainder of 6e (shuffle/repeat/volume) stays a candidate. Media Session API added to Step 5 as mandatory, not decorative | 5, 6 |
 | 2026-08-02 | **Owner question answered by measurement, not docs: one app serves every user.** 6/6 Dev-Mode-removed capabilities answer 200 ⇒ Extended Quota Mode, unlimited users, no allowlist, no second app registration ever needed. Recorded the corollary as a standing risk: since 2025-05-15 individuals cannot obtain extended access, so this grant is irreplaceable and *already-shipped* catalog/library/좋아요 features depend on it | all |
 | 2026-08-02 | **Step 5 scoped owner-only.** The owner's live grant already carries `streaming` (measured) ⇒ zero re-consent. Member tier deferred not for consent fatigue but because prod has 1 Spotify integration total — shipping it now would deploy something unverifiable. Member code path still built; only the scope stays closed | 5 |
+| 2026-08-02 | **OQ4 CLOSED by prod measurement — the SDK iframe does NOT survive a `ClientRouter` navigation, and `data-astro-transition-persist` does not save it.** Measured twice over: a runtime-injected node has no counterpart in the incoming document and is dropped, and even inside a genuinely persisted island (host survived as the same node object) the iframe still reloaded. Root cause is not Astro-specific — `swapBodyElement` re-inserts, and re-insertion destroys an iframe's browsing context; Astro guarantees node identity, which is a different guarantee than the one audio needs. Working fix measured: an `astro:before-swap` override mutating `<body>` in place — real SDK iframe, 3 hops, 0 reloads, 0 detaches. Verdict: Step 5 = ladder rewrite **+** a contained swap-strategy change in `layout.astro`, whose blast radius is every navigation and which needs its own regression pass. Corollary: persistence is a **rung-2-only** problem — rung 1 plays on another device, so it is global for free | 5 |
 | 2026-08-02 | **Audio quality settles the ladder order**: Web Playback SDK caps at AAC 256 kbps and Spotify Lossless (2025-09, 24-bit FLAC) excludes the web player, so remote control costs zero quality and the in-page device always costs some. "Remote first" is a correctness argument, not a preference — and rung 2 must say it is degraded | 5 |
 | 2026-08-02 | **Negative finding, recorded so it is not re-planned**: we were NOT grandfathered into the 2024-11-27 deprecations. Recommendations, Audio Features, Audio Analysis, Related Artists, genre seeds, featured playlists and `preview_url` are all dead for this app too (measured). No feature may assume derived mood/energy or "similar artists". Separately, `user-top-read` is alive but ungranted → recorded as OQ5, belonging to `FEAT-album-review-authoring` | — |
 | 2026-07-20 | **Capability-classification audit (owner request)**: the RFC's Full/Fallback pair under-specified real member situations (Last.fm-only, free-vs-Premium, old-scope generation were implicit or absent) and no user-facing surface explains per-situation availability. Added the **user-situation capability matrix** (canonical; every new player feature must amend it in the same PR) + **Step 7 candidate** (7a 연동 tab 기능 안내 / 7b 플레이어 인라인 "왜 컨트롤이 없나요?" / 7c 설명서 페이지, matrix-driven). Notable user-facing asymmetries: 좋아요·device hint work on FREE accounts (controls alone are Premium); Last.fm = display-only | 7 |
