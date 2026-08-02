@@ -305,6 +305,34 @@ exactly 1 GET, pause survives, device-less body omits, disconnected = zero reads
 
 ### Step 5 — play from the site (unified play ladder + device picker) — REFRAMED 2026-08-02 · ✅ SHIPPED + prod-verified 2026-08-02 (front #334, `9df4c7a`, deploy 30740995167)
 
+> **Follow-up the same day — front #340 `a592360`. Step 5 shipped with no way to start.**
+>
+> The owner, looking at the live site: *"브라우저에서 실행 진입지점 자체가 없어."* Correct. This
+> step's verification asked whether each of the six play surfaces **works** and never whether a
+> member can **find** one. All six are buried — behind an album overlay, four levels into a bucket
+> action sheet, in a tray needing prior contents, behind playback that is already running, or on a
+> review page with zero instances — and the transport only renders once something is already
+> playing. Cold open with nothing playing: nothing to press.
+>
+> **Rung 2 was worse — it was circular.** `이 브라우저에서 재생` lives in the device picker; the
+> picker opened only from the `Listening on <device>` line; that line needs `moment.deviceName`,
+> which needs playback to already exist. The entire second rung was unreachable unless you were
+> already playing somewhere else. There was no way to say "use this browser".
+>
+> Fixed in the idle bar — the screen showing at exactly that moment: **`▶ 이어듣기`** (plays the
+> last heard track via `spotify_track_id`, no catalog resolve, through the ladder so it raises this
+> tab when no device is active) and the **device picker rendered with `name={null}`**. Verified
+> from a genuine cold state (nothing playing, zero devices): both entries visible on all three
+> variants, and the ladder fires for real — `PUT /play` → 404 → `PUT /play?device_id=…` → 204.
+>
+> Same class, also from that day: **`/help/player` (7c) shipped with zero inbound links** — its only
+> path was the 7b popover, which appears solely on an already-degraded bar. Both integration guides
+> now link it.
+>
+> **Prod smoke (deploy 30753102657, `a592360`)**: `이어듣기`, `재생 기기 선택` and the
+> `help/player` link are all present in the live dashboard chunk — the entrances exist in
+> production, not just in the branch.
+
 > **Shipped 2026-08-02** — front #334, squash `9df4c7a`. `play(intent)` replaces `requestPlayback` + `sendConnectPlay`;
 > all six surfaces call only it. Device picker rides the Step 4 device line. Media Session bound on
 > rung 2 only. Persistence via the `astro:before-swap` override the OQ4 measurement pointed to.
@@ -653,6 +681,7 @@ clickthrough pending (checklist in #302 body).
 | 2026-08-02 | Device transfer moved **6e → Step 5**; remainder of 6e (shuffle/repeat/volume) stays a candidate. Media Session API added to Step 5 as mandatory, not decorative | 5, 6 |
 | 2026-08-02 | **Owner question answered by measurement, not docs: one app serves every user.** 6/6 Dev-Mode-removed capabilities answer 200 ⇒ Extended Quota Mode, unlimited users, no allowlist, no second app registration ever needed. Recorded the corollary as a standing risk: since 2025-05-15 individuals cannot obtain extended access, so this grant is irreplaceable and *already-shipped* catalog/library/좋아요 features depend on it | all |
 | 2026-08-02 | **Step 5 scoped owner-only.** The owner's live grant already carries `streaming` (measured) ⇒ zero re-consent. Member tier deferred not for consent fatigue but because prod has 1 Spotify integration total — shipping it now would deploy something unverifiable. Member code path still built; only the scope stays closed | 5 |
+| 2026-08-02 | **Step 5 shipped without an entrance; fixed in front #340.** Verification asked "does each surface work", never "can a user find one" — all six play surfaces are buried and the transport only appears once playing, so a cold open had nothing to press. Rung 2 was **circular**: the in-page device sat in a picker reachable only from a line that requires playback to already exist. Entrances added to the idle bar (`▶ 이어듣기` + device picker with no active device). `/help/player` likewise had zero inbound links. **Rule taken from it: reachability is a separate check from function** | 5, 7c |
 | 2026-08-02 | **Step 6 COMPLETE — 6c+6e shipped** (front #336, `2052148`). 6c's RFC premise was wrong: the queue endpoint takes a track or episode uri, so it cannot ride 6b's album-level surfaces. It is **track-only**, and it deliberately does NOT ladder — queueing onto a device that is not playing is meaningless, so a 404 says "start playing" instead of raising a device to hold an unheard queue | 6c |
 | 2026-08-02 | **6c ships dormant, measured not assumed**: its only surface is `/review/[slug]` and prod has **zero** review pages (index, sitemap, empty `content/blog` with no CI step, and a real build emitting 0 all agree). Prod smoke confirmed its code sits in `_slug_.*` chunks no built page references. The reachable alternative — adding an action to the live overlay's `TrackRow` — was refused: that contract reserves new row actions as an owner product decision (ARCH-entity-interaction-contract OQ2) | 6c |
 | 2026-08-02 | **A volume 403 is NOT a capability loss.** Real Connect targets accept transport and reject volume, and Spotify answers with the same 403 it uses for "not Premium" — routing it through the shared 403-probe would degrade the tier and hide play/pause because a speaker has no volume API. `sendPlaybackMode` splits them: volume → `unsupported-on-device`, shuffle/repeat → capability loss. 6e otherwise costs **zero** extra requests (it reads the one-shot body already fetched) | 6e |
