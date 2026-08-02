@@ -143,13 +143,16 @@ expedite path must always bypass it).
 
 ---
 
-### Step 1 — search ranking (`parallel`) — ✅ 1a SHIPPED + prod-smoked 2026-07-28 (1b undecided)
+### Step 1 — search ranking (`parallel`) — ✅ 1a SHIPPED + prod-smoked 2026-07-28; **1b DROPPED 2026-08-03**
 
 > **1a shipped as music #63.** Prod smoke ran the Verification bar below: `Butterfly` went from
 > twenty *Madama Butterfly* scenes to BTS (1–6) / Travis Scott (7) / Smashing Pumpkins (14–15)
 > with classical 3/20 at the tail; `Suite` moved *BITTERSUITE* from rank 226 to **4**, though that
-> page stays 16/20 classical — the opus-token residue **1b** exists for. 1b remains a
-> post-observation owner decision, as written.
+> page stays 16/20 classical — the opus-token residue **1b** was written for.
+>
+> **1b is dropped.** Re-measured against live prod on 2026-08-03 (OQ1 below); the residue is real but
+> it sits almost entirely on queries where classical results are the correct answer, and the specced
+> `WHERE`-predicate form would empty them. No code shipped for 1b.
 
 **1a (required).** `myblog_music/app/repositories/track_repo.py:44-49` and `:57`: replace
 `Track.views.desc()` with `Album.popularity.desc().nullslast()`, adding an explicit
@@ -165,13 +168,14 @@ popularity.
 **Measured effect: 45.9% → 15.1% classical, with zero classifier and therefore zero false-positive
 surface.**
 
-**1b (optional, decide after 1a lands).** A reversible read-side predicate in the same `WHERE`, isolated
-in a new `myblog_music/app/services/classical_filter.py` mirroring how `compilation_filter.py` isolates
-the DATA-release-noise predicate, behind `CLASSICAL_FILTER_ENABLED: bool = False` and
-`CLASSICAL_FILTER_HOLDOUT_HEX: str = "0"` (1-in-16 rows stay visible, so the misclassification rate stays
-measurable). Combined effect **45.9% → 7.0%**. The classifier *alone* only reaches 26.8%, because much of
-the residue is opera/aria titles carrying no opus token — **1a is what handles those**, which is why 1b is
-optional and second.
+**1b (optional, decide after 1a lands) — DROPPED 2026-08-03, never implemented.** As specced: a reversible
+read-side predicate in the same `WHERE`, isolated in a new `myblog_music/app/services/classical_filter.py`
+mirroring how `compilation_filter.py` isolates the DATA-release-noise predicate, behind
+`CLASSICAL_FILTER_ENABLED: bool = False` and `CLASSICAL_FILTER_HOLDOUT_HEX: str = "0"` (1-in-16 rows stay
+visible, so the misclassification rate stays measurable). Claimed combined effect **45.9% → 7.0%**,
+classifier alone 26.8%. **Those numbers were never re-derivable** — the 50-query set behind the 45.9%
+denominator is not recorded anywhere, so only the per-query figures survive as evidence. See OQ1 for the
+2026-08-03 re-measurement that closed this out.
 
 No contract change (response shape unchanged), no new route ⇒ no `infra/apigateway.tf`, no
 `terraform apply`.
@@ -185,7 +189,7 @@ curl -s "$MUSIC_API/api/music/search/unified?q=Butterfly&type=track&limit=20" | 
 # BTS / Travis Scott / Smashing Pumpkins must appear inside the first 20
 ```
 
-**Rollback**: revert the ORDER BY (1a) / flip `CLASSICAL_FILTER_ENABLED=False` (1b).
+**Rollback**: revert the ORDER BY (1a). 1b has no rollback because it has no code.
 
 ---
 
@@ -461,21 +465,61 @@ psql "$DATABASE_URL" -c "SELECT t.title, tl.match_status FROM tracks t JOIN trac
 
 ## Open questions
 
-1. **Ship Step 1b, or stop at 1a?** — 1a alone is 45.9% → 15.1% with zero false-positive surface; 1b adds
-   a classifier for → 7.0%. Blocks Step 1's second half. *(Recommend: land 1a, look at the result, then
-   decide. 1a carries no classification risk at all.)*
+1. ~~**Ship Step 1b, or stop at 1a?**~~ — **ANSWERED 2026-08-03: stop at 1a. 1b is dropped, owner
+   decision, no code shipped.** Measured first, as the step required.
+
+   **Instrument** — live prod `GET /api/music/search/unified?type=track&limit=20`, 50 one-word queries,
+   each result classified by the **shipped Step 2 predicate** (artist-genre JSONB with the `클래식 록`
+   decoy list) applied to the track's artists ∪ its album's artists. Instrument check: `Butterfly`
+   returns **3/20**, reproducing the 2026-07-28 prod-smoke figure exactly.
+
+   **The residue did not shrink — but it is not where the RFC assumed.** `Suite` is **17/20** today
+   against 16/20 on 07-28; `Prelude` and `Nocturne` are 17/20 each. Splitting the 50 queries by what the
+   query word *is*:
+
+   | bucket | queries | classical | share |
+   |---|---|---|---|
+   | ordinary English words (`Love`, `Night`, `Butterfly`, `Winter`, `Theme`, …) | 28 | 63 / 549 | **11.5%** |
+   | classical form-words (`Concerto`, `Etude`, `Sonata`, `Suite`, `Prelude`, …) | 22 | 325 / 399 | **81.5%** |
+
+   20 of the 28 ordinary-word queries return **0/20** classical. The ordinary-word residue is
+   concentrated in four: `Winter` 11, `Spring` 11, `Autumn` 10, `Romance` 16. The 81.5% bucket is the
+   decision-log line "classical must stay findable" working as intended — a user typing `Concerto`
+   wants concertos.
+
+   **Why the specced form is a no-go.** 86% of the residue (333/388) carries an opus/movement token, so
+   1b's key *works* — which is the problem. Catalog-wide substring matches vs. non-classical
+   alternatives: `Concerto` **326 / 0**, `Etude` **103 / 0**, `Suite` **270 / 3**. A `WHERE` predicate
+   keyed on that token empties the `Concerto` result page, leaves `Etude` ~2 rows and `Suite` ~3. That
+   is a direct contradiction of this RFC's own 2026-07-25 decision, latent until 1a shipped and made the
+   residue's shape visible.
+
+   **Why the safe form is not worth building.** Re-shaped as an `ORDER BY` demotion instead of a filter,
+   1b carries zero findability risk — but demotion can only promote non-classical rows that exist.
+   Ceilings: `Winter` 11→5, `Spring` 11→7, `Theme` 4→0, `Romance` 16→**15** (only 5 non-classical
+   matches exist), `Autumn` 10→**10** (order changes, page does not). Ordinary-word share **11.5% →
+   ~8.7%**, on three queries. And that 63 is itself inflated by classifier false positives — `Sun`'s one
+   "classical" row is Agust D's *Snooze* (Ryuichi Sakamoto features), same for `Wild` and `River`: the
+   artist-genre key flags the guest, not the track.
+
+   **The cheaper lever, if this is ever reopened.** The entire residue originates in **164 albums** of
+   3,127, holding **5,631 tracks = 20.7% of the catalog** — mostly budget compilations padded to the
+   50-track ingest cap (`"Golden Melodies: Bach, Mozart & more"`, `"Summer Sunsets"`,
+   `"065 Piano Essentials"`, …). An enumerable 164-row album set is a better-aimed target than a new
+   title-token classifier. Not proposed here; noted so the next reader does not re-derive it.
 2. **Is `INGEST_CLASSICAL_ALLOWLIST` seeded with Debussy and Michael Korstick?** — the owner already
    follows both via `user_artist_tracks`. Blocks Step 2. *(Recommend: yes, seed them.)*
 3. ~~**Does Step 3b (recency re-order) make Step 4 unnecessary?**~~ — **MOOT, closed 2026-08-02 by
-   events rather than by an answer.** Step 4 shipped + prod-smoked on 2026-07-28 while Step 3 is still
-   unshipped, so the ordering this question assumed never happened and there is nothing left to decide.
-   The live question, if anyone wants it, is the inverse: **now that Step 4 exists, does 3b still earn
-   its keep?** Re-ask it against measured expedite usage when Step 3 is actually picked up — do not
-   inherit this row's recommendation, which was written for the opposite sequence.
+   events rather than by an answer.** Step 4 shipped + prod-smoked on 2026-07-28 before Step 3, so the
+   ordering this question assumed never happened. Fully settled since: Step 3b shipped 2026-08-03 and is
+   **not** a recency re-order at all (the recency premise did not survive re-measurement — see §3b), so
+   there is no version of this question left to re-ask.
 4. ~~**How many steps this session?**~~ — **EXPIRED.** This was a scheduling question about the
    2026-07-28 session, which shipped 1a, 2 and 4. It is not an open question about the work; leaving it
-   in this list made the RFC read as having twice the unresolved decisions it actually has. The only
-   thing still unshipped here is **Step 3**.
+   in this list made the RFC read as having twice the unresolved decisions it actually has.
+
+**No open questions remain.** Every step is shipped or dropped; what is left is the observation gates
+recorded in Step 2 and Step 3b, which are calendar items, not decisions.
 
 ## Decisions log
 
@@ -487,3 +531,4 @@ psql "$DATABASE_URL" -c "SELECT t.title, tl.match_status FROM tracks t JOIN trac
 | 2026-07-25 | Block at ingest, not at each downstream surface | 2 |
 | 2026-07-25 | Every exclusion is reversible **and** carries a holdout that measures its own error rate | 2, 3 |
 | 2026-07-25 | MFF's 8 tracks get filled **by the feature**, not by a manual prod write | 4 |
+| 2026-08-03 | **Step 1b dropped** — the residue 1b targets is concentrated on queries where classical *is* the right answer, and the specced `WHERE` form would empty them (OQ1) | 1 |
