@@ -138,7 +138,7 @@ Key asymmetries worth stating to users (Step 7 surfaces them): **좋아요(6d)�
 문제); Last.fm 연동은 표시 전용 (라이브 바·가사·컨트롤은 전부 Spotify 연동 필요); 구스코프
 멤버는 재동의 한 번으로 무료여도 device hint까지 올라옴.
 
-### Step 7 (candidate) — capability transparency — 7a PROMOTED + ✅ SHIPPED 2026-07-21 (front #302); 7b/7c stay candidates
+### Step 7 — capability transparency — ✅ COMPLETE 2026-08-02 (7a front #302; **7b+7c front #337 `c8e951e`**)
 
 Recorded 2026-07-20 (owner: "언젠가 설정이나 설명서를 통해 알 수 있도록, 기능 상으로도 확인
 및 추가할 수 있도록"). Today the only capability feedback is the degrade toast + reconnect
@@ -160,6 +160,46 @@ Premium / Spotify connect would unlock*. Scope when promoted (owner picks the su
 **Verification (whichever subset ships)**: per-situation CDP fixture matrix (each row of the
 capability table = one mocked session, assert the announced feature set matches); 설명서
 content diffed against the RFC matrix in review.
+
+#### 7b + 7c shipped 2026-08-02 (front #337) — the single-source rule had already been broken
+
+Step 7's own rule is that the matrix is the single source and every surface regenerates from it.
+**It was already violated before this step.** 7a hand-rolled the rows inside
+`SpotifyIntegrationTab`; `SettingsApp` then grew a second copy, and the two had **drifted** —
+'스냅샷' in one, '최근 재생 스냅샷' in the other for the same capability. 7b and 7c would have made
+four copies, so the rows moved into `@lib/playerCapabilityMatrix` first and the surfaces became
+renderers. The refactor deleted three derived locals and a duplicated copy table from
+`SettingsApp`; that deletion is the point of it.
+
+**7b** puts "왜 컨트롤이 없나요?" in the same panel-bottom-edge slot as the reconnect and device
+lines, replacing the degrade toast as the *durable* explanation — the toast fires once, at the
+moment of failure, so a member arriving later sees a bar that merely looks broken. `whyNoControls`
+names the ONE next action and returns null when nothing is wrong, so the affordance is absent
+exactly when it should be. The integrations read fires only when the popover opens.
+
+**7c** is `/help/player`, rendering the same rows with `situation: null` — prerendered, no session,
+one code path for two audiences.
+
+**Two defects the render caught that the type checker could not**: `unlockedBy` was derived from a
+fake "disconnected" state, so the sessionless page chipped **every** row `필요 Spotify 연동`
+including the Premium-only ones (now names each capability's inherent gate, pinned by a test); and
+기기 안내 read `재동의 필요 없음` directly above `필요 Spotify 연동` — both true, together
+contradictory.
+
+**Verified end to end through the real degrade path**, not a forced state: a control that Spotify
+403s degrades the tier, the transport disappears, the 7b line appears, and its popover reads
+"Spotify가 컨트롤을 거절했어요…" linking to `/help/player/`. Tests pin the two asymmetries the RFC
+says the product keeps getting backwards — 좋아요 and 기기 안내 survive a transport `no-capability`
+probe, and only the transport is Premium-gated.
+
+**Prod smoke (deploy 30749644584, `c8e951e`)**: `/help/player/` is live (200) and its prerendered
+HTML carries all nine rows with per-row requirements intact — `최근 재생 스냅샷 → Spotify 또는
+Last.fm 연동 필요`, `기기 안내 · 기기 전환 → Spotify 연동 필요 · 무료 계정 가능` (the copy fix),
+`재생/일시정지/seek → Spotify Premium 필요`, `좋아요 → 재동의 필요 · 무료 계정 가능`. The 7b trigger
+`왜 컨트롤이 없나요` is in the live dashboard chunk, and both the refusal copy and the
+`/help/player/` link resolve to the shared `playerCapabilityMatrix.*.js` — the single source is
+literally one chunk in production. Trivial leftover, not worth a deploy of its own: the page still
+emits the now-unused `.hp-unlock` CSS rules.
 
 **7a shipped (front #302)**: "이 연동으로 열리는 기능" guide on both integration surfaces
 (설정 panel + dashboard 연동 tab), matrix-driven, with current standing = connected state +
@@ -466,7 +506,7 @@ Cognito when logged out. Separately, `/write` logs a React **hydration mismatch*
 (SSR has no localStorage → renders `dirty`, hydrates `saved`); reproduced on a plain full reload,
 i.e. the pre-5b model, so it is **pre-existing and independent of routing**. Left alone — its own fix.
 
-### Step 6 (candidate menu) — Connect control extensions — PROMOTED 2026-07-21, subset 6a+6b+6d ✅ SHIPPED (front #302 + bucket-row entry in #303)
+### Step 6 — Connect control extensions — ✅ COMPLETE 2026-08-02 (6a+6b+6d front #302/#303; **6c+6e front #336 `2052148`**)
 
 Recorded 2026-07-20 on owner request ("rfc 작성해두고, 해당 스텝 진행할 때 선택할 수 있도록").
 **Owner selected 6a+6b+6d at promotion (2026-07-21 go, same message as the 7a pick); 6c/6e
@@ -497,6 +537,45 @@ stay candidates below.** All are client-side Spotify Web API calls with the memb
 Scope impact summary: only 6d re-consents; 6a/6b/6c/6e ride the Step 1 grant as-is.
 **Verification (whichever subset ships)**: CDP assert matrix per control incl. 403/404
 degrade + mobile 390; owner real-device clickthrough for the shipped subset.
+
+#### 6c + 6e shipped 2026-08-02 (front #336) — and 6c's premise did not survive
+
+**The RFC filed 6c as riding "the same surfaces as 6b". It cannot.** Every 6b surface is
+album-level and Spotify documents the queue uri as *"Must be a track or an episode uri"*; an
+album would mean one request per track behind a single tap. So `queueTrack` takes a **track**
+and the album surfaces keep 재생 only.
+
+6c also **does not use the Step 5 ladder**, deliberately: queueing onto a device that is not
+playing is meaningless, so a 404 stays a 404 and says "먼저 재생을 시작해 주세요" rather than
+raising an in-page device to hold a queue nobody hears.
+
+**⚠️ 6c is deployed but unreachable, and this was measured, not assumed.** Its only surface is
+the `/review/[slug]` tracklist and **prod has zero review pages** — prod `/reviews/` lists none,
+the sitemap has none, `content/blog` is empty with no CI step filling it, and a real build emits
+0 pages under `dist/review`. The prod smoke confirmed the consequence: 6c's code compiles into
+the review page's own `_slug_.*` chunks, which **no built page references**. It waits on the
+first published review, beside the per-track ▶ that is already dormant there for the same reason.
+
+**The reachable alternative was considered and refused.** The live album overlay renders
+per-track rows via the shared `TrackRow`, whose contract reserves `play`/`add` as *unimplemented
+slots* because granting a surface a new action is "a product decision (RFC OQ2)". That belongs
+to the owner.
+
+**6e** reads shuffle/repeat/volume from the **same one-shot `GET /me/player`** the bar already
+fires (`shuffle_state` / `repeat_state` / `device.volume_percent`) — exactly how `deviceName`
+arrived in Step 4. Measured in-browser: still **one** player read, so D28 holds by construction.
+
+The rule worth keeping: **a volume 403 is not a capability loss.** Real Connect targets accept
+transport and reject volume (fixed-output speakers, TVs, car heads), and Spotify answers with the
+same 403 it uses for "not Premium" — feeding that to the shared 403-probe would degrade the tier
+and hide play/pause because a speaker has no volume API. Volume 403 → `unsupported-on-device`;
+shuffle/repeat 403 stay capability losses. Both pinned by tests, and `unsupported-on-device` is
+verified present in the live prod bundle.
+
+The 390 pass changed two things: the mode controls **clipped the total-duration label**, so they
+now drop entirely on narrow (the design references put them first in the miniaturization drop
+order); and the first repeat glyph was the same two-arrow shape as shuffle, confusable at 13px,
+redrawn as a closed loop.
 
 **Shipped (6a+6b+6d, front #302; bucket-row 6b entry in front #303)**: 6a = `sendPlayerCommand`
 next/previous (POST verb branch), ⏮ ⏭ on full/banner only (drop order), exactly one
@@ -574,6 +653,10 @@ clickthrough pending (checklist in #302 body).
 | 2026-08-02 | Device transfer moved **6e → Step 5**; remainder of 6e (shuffle/repeat/volume) stays a candidate. Media Session API added to Step 5 as mandatory, not decorative | 5, 6 |
 | 2026-08-02 | **Owner question answered by measurement, not docs: one app serves every user.** 6/6 Dev-Mode-removed capabilities answer 200 ⇒ Extended Quota Mode, unlimited users, no allowlist, no second app registration ever needed. Recorded the corollary as a standing risk: since 2025-05-15 individuals cannot obtain extended access, so this grant is irreplaceable and *already-shipped* catalog/library/좋아요 features depend on it | all |
 | 2026-08-02 | **Step 5 scoped owner-only.** The owner's live grant already carries `streaming` (measured) ⇒ zero re-consent. Member tier deferred not for consent fatigue but because prod has 1 Spotify integration total — shipping it now would deploy something unverifiable. Member code path still built; only the scope stays closed | 5 |
+| 2026-08-02 | **Step 6 COMPLETE — 6c+6e shipped** (front #336, `2052148`). 6c's RFC premise was wrong: the queue endpoint takes a track or episode uri, so it cannot ride 6b's album-level surfaces. It is **track-only**, and it deliberately does NOT ladder — queueing onto a device that is not playing is meaningless, so a 404 says "start playing" instead of raising a device to hold an unheard queue | 6c |
+| 2026-08-02 | **6c ships dormant, measured not assumed**: its only surface is `/review/[slug]` and prod has **zero** review pages (index, sitemap, empty `content/blog` with no CI step, and a real build emitting 0 all agree). Prod smoke confirmed its code sits in `_slug_.*` chunks no built page references. The reachable alternative — adding an action to the live overlay's `TrackRow` — was refused: that contract reserves new row actions as an owner product decision (ARCH-entity-interaction-contract OQ2) | 6c |
+| 2026-08-02 | **A volume 403 is NOT a capability loss.** Real Connect targets accept transport and reject volume, and Spotify answers with the same 403 it uses for "not Premium" — routing it through the shared 403-probe would degrade the tier and hide play/pause because a speaker has no volume API. `sendPlaybackMode` splits them: volume → `unsupported-on-device`, shuffle/repeat → capability loss. 6e otherwise costs **zero** extra requests (it reads the one-shot body already fetched) | 6e |
+| 2026-08-02 | **Step 7 COMPLETE — 7b+7c shipped** (front #337, `c8e951e`), but only after fixing the rule Step 7 exists to enforce: the matrix was **already duplicated and drifted** between `SpotifyIntegrationTab` and `SettingsApp`. Rows now live in `@lib/playerCapabilityMatrix` and all surfaces render from it. Two defects the render caught and the type checker could not: `unlockedBy` derived from a fake disconnected state chipped every sessionless row `필요 Spotify 연동` including Premium-only ones, and 기기 안내 read `재동의 필요 없음` above `필요 Spotify 연동` | 7b, 7c |
 | 2026-08-02 | **Step 5b SHIPPED** (front #335, `8e82d74`) — and it corrected its own named risk. `/write` was **not** unprotected: `pagehide` already flushed the draft. The hazard is that client-side routing does not *fire* `pagehide`, so this step would have introduced the loss it was written to prevent. Fix is a flush on `astro:before-preparation`, not a confirm dialog — the guarantee is restored exactly, so nothing needs warning about | 5b |
 | 2026-08-02 | **A hazard the RFC never named: the `/write` login gate would have been bypassed.** `deselectScripts` marks a page script already-executed by src, so it runs once and never again — a second client-side arrival would walk in. **`data-astro-rerun` is a trap**: any attribute makes Astro treat the script as `is:inline`, dropping bundling, and the module imports `@lib/auth` → it would ship as a raw `.ts` src and 404. The module re-arms on `astro:page-load` instead, path-checked because the listener outlives the page | 5b |
 | 2026-08-02 | **"Mount the persisted player shell" read strictly** — `ClientRouter` + the persist script and nothing else. No site header/footer/PocketBuckit/AlbumOverlay on `/write`: pulling site chrome into a full-screen editor is a product change wearing a refactor's clothes, and those islands not persisting there is already today's behavior | 5b |
