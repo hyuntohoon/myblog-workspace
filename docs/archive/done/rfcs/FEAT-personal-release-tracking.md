@@ -1,6 +1,6 @@
 # FEAT-personal-release-tracking: Personal release tracking (개인 발매 피드 / Release Radar)
 
-- **Status**: done (2026-07-21, archived — all 5 steps SHIPPED + prod-smoked by 2026-07-18; implementation closed → moved to `docs/archive/done/rfcs/`. H1 re-measure ~2026-07-27 stands as a separate observation gate, does not block closeout. Original accept line below.)
+- **Status**: done (2026-07-21, archived — all 5 steps SHIPPED + prod-smoked by 2026-07-18; implementation closed → moved to `docs/archive/done/rfcs/`. H1 re-measure was a separate observation gate — **re-measured 2026-08-03, verdict unchanged, gate closed** (see H1 below); plan.md row dropped. Original accept line below.)
   <br>_Accepted_ (2026-07-15, owner in-session approval — "시작하자"; H1 measured
   2026-07-14 against live #548 poller data: **thin-but-usable, not first-class**.
   **Step 1–3 착수 2026-07-15** — 2-phase execution: Step 1 schema → Steps 2∥3
@@ -14,7 +14,7 @@
   Decisions log 2026-07-18.)
 - **Owner**: TBD
 - **Created**: 2026-07-08
-- **Plan row**: `plan.md` → FEAT-personal-release-tracking
+- **Plan row**: `plan.md` → FEAT-personal-release-tracking (dropped 2026-08-03 — closed out; history → `docs/archive/done/2026-07.md` + `git log`)
 - **Follow-on to**: `FEAT-release-calendar` (#548), which reserved *"per-user
   subscriptions + 확인 state ... Separate RFC ... after
   `FEAT-multi-user-accounts` Phase 0"*. Phase 0 shipped (0c #565, 2026-07-08),
@@ -250,6 +250,18 @@ its payoff is exactly what H1 must measure.
   tab. Caveat: ~46 h ≈ currently-announced inventory, not steady-state
   discovery; re-measure at #548's OQ4 checkpoint (~2026-07-27) before final
   placement.
+  **RE-MEASURED 2026-08-03 — verdict unchanged, gate closed.** Same read-only
+  probe, now over 3 weeks of poller data (rows first seen 07-12 → 08-02, 1,015
+  total) instead of ~46 h. Future rows **57 → 81**, artists carrying one
+  **47 → 66**, watchlist **1,533 → 1,839** (denominator = the live poll scope,
+  `popularity >= 50` ∪ user-tracked) ⇒ coverage **3.1% → 3.6%**. iTunes still
+  earns its pass: MB 40 artists / iTunes 37, distinct 66 ⇒ **+65% artist
+  coverage over MB-only** (was +45%). Lead time p50 **24 d** / p90 54 d / max
+  90 d (was 31/62/80). Types 63 album / 10 single / 6 EP / 1 other / 1 untyped.
+  Confirm link 0/81 — expected, every future row is pre-release `announced`.
+  **Still thin-but-usable, NOT first-class**: three weeks of steady state moved
+  coverage by half a point, so OQ1's appears-only-when-present strip stays the
+  right placement and Upcoming does not graduate to a tab.
 - **H2** — new-release detection latency after release + dedup accuracy.
 - **H3** — album/EP/single classification disagreement across sources.
 - **H4** — release-event → catalog match rate (drives how often "confirmed →
@@ -303,8 +315,10 @@ its payoff is exactly what H1 must measure.
    Real-browser CDP verified (desktop + 390 px mobile + light/dark); prod
    smoke confirmed static delivery + authed add/remove/feed-shape cycle.
 
-**All 5 steps DONE.** RFC implementation closed; H1 re-measure ~07-27 still
-stands as a separate observation gate (does not block closeout).
+**All 5 steps DONE.** RFC implementation closed; the H1 re-measure that stood
+as a separate observation gate was **run 2026-08-03 over 3 weeks of poller data
+— verdict unchanged (thin-but-usable, not first-class), gate closed**, and the
+plan.md row was dropped. Numbers → H1 above.
 
 ## Decisions log
 

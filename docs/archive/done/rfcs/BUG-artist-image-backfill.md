@@ -1,9 +1,9 @@
 # BUG-artist-image-backfill: artist photo NULL backlog + missing backfill loop
 
-- **Status**: done (all 3 steps shipped + prod-smoked 2026-07-19 — worker #74/#75, infra ws #647 applied; weekly `still_null ≈ 0` stays as an observation gate)
+- **Status**: done (all 3 steps shipped + prod-smoked 2026-07-19 — worker #74/#75, infra ws #647 applied; weekly `still_null ≈ 0` was an observation gate; **CLOSED 2026-08-03** — measured `still_null` **0 / 5,700 artists**, sentinel 510. The denominator grew ~4× since ship, so the sweep is absorbing new artists, not just holding the one-shot result. plan.md row dropped)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
-- **Plan row**: `plan.md` → BUG-artist-image-backfill
+- **Plan row**: `plan.md` → BUG-artist-image-backfill (dropped 2026-08-03 — closed out; history → `docs/archive/done/2026-07.md` + `git log`)
 - **Origin**: 2026-07-18 UI planning session, area 6. Independent of all other areas — **can ship first.**
 
 ---
@@ -110,7 +110,8 @@ full reconcile), constant input `{"job":"artist_photo_backfill"}` → blogWorker
 = exactly 3 add / 0 change / 0 destroy; applied same day. Post-apply smoke: `describe-rule`
 ENABLED + target input verified, manual `lambda invoke` → 200 with DB unchanged (still_null 0,
 sentinel 460 / 5,107) — expected no-op. First scheduled run = Sun 20:00 UTC; weekly
-`still_null ≈ 0` (denominator = all `artists` rows) remains as the observation gate.
+`still_null ≈ 0` (denominator = all `artists` rows) was the observation gate — **closed
+2026-08-03**: measured 0 / 5,700 artists (sentinel 510).
 
 ## Open questions
 
