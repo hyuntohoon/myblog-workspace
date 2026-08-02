@@ -46,6 +46,36 @@ anywhere; control calls are client-side with the user's token (CLAUDE.md rule 9)
   device 'Buckit' :177, control via client-side `PUT v1/me/player/play`.
 - Clock-estimate reference: `LyricsViewer.tsx:25-50` (`estimatedMs = anchorMs +
   (performance.now() − wallMs)`), `applyAnchor` :277-289.
+### Measured 2026-08-02 (app + owner token, not docs or dashboard)
+
+Probed with a client-credentials token and with tokens minted from the stored refresh tokens
+in SSM `/myblog/spotify`. Recipe kept so this is re-runnable, not a one-time claim.
+
+- **We are in Extended Quota Mode — measured, 6/6.** Every capability the Feb/Mar 2026
+  Development-Mode change removed still answers 200: `search?limit=50` (returns 50, Dev caps
+  at 10), batch `/albums` `/artists` `/tracks`, `popularity` + `available_markets` fields,
+  `/browse/new-releases`, `/artists/{id}/top-tracks`. Existing Dev-Mode apps were force-migrated
+  2026-03-09, so this is a post-migration observation. ⇒ **unlimited users, no allowlist; a
+  growing user base never needs a second app registration** (owner question, 2026-08-02).
+- **That grant is irreplaceable.** Since 2025-05-15 only registered organizations with ≥250k
+  MAU may request extended access — individuals cannot apply at all. A newly registered app
+  today would be Development Mode permanently, which would break *already-shipped* features:
+  the music/worker catalog sync uses the batch endpoints and library sync + the 6d heart use
+  `/me/tracks` `/me/albums` `/me/following`, all of which Dev Mode removed.
+- **The owner's stored grant already contains `streaming`** (full set: `streaming
+  user-modify-playback-state user-read-playback-state user-read-currently-playing
+  user-read-recently-played user-library-read user-library-modify user-follow-read`; both
+  `refresh_token` and `streaming_refresh_token` carry it). ⇒ Step 5 needs **no re-consent**.
+  `/me/player/devices` and `/me/player/queue` both read 200 today.
+- **Not grandfathered into the 2024-11-27 deprecations** — measured dead for us too:
+  Recommendations, available-genre-seeds, **Audio Features**, Audio Analysis, Related Artists,
+  Featured Playlists, `preview_url` (null). No feature may be planned on derived mood/energy
+  or "similar artists"; `popularity` (already stored) is the only quantitative signal left.
+- **`user-top-read` is alive but ungranted** (403 = missing scope, not 404 = removed) → "가장
+  많이 들은 아티스트/곡". Not a player feature — recorded as a cross-RFC candidate below.
+- **Prod reality check**: 4 users, **1** Spotify integration (the owner). The member mint path
+  built in Steps 1–2 has never been exercised by a second account.
+
 - **Spotify 2026-02 changes verified** (migration guide + changelog, fetched 2026-07-18):
   player endpoints (`PUT /me/player/play|pause|seek`, `GET /me/player`, `currently-playing`)
   are **not** in the removal list. Dev-Mode apps lose `GET /me`'s `product` field (and batch
@@ -94,6 +124,14 @@ unshipped 6c/6e remain design-level.
 | 멤버, Spotify 신스코프 + **무료** | ✅ | ✅ | — (403-probe → fallback) | ✅ (읽기 scope, 무료 OK) | ✅ | — (SDK init 실패) | — (Premium) | ✅ (**무료 가능**) |
 | 멤버, Spotify 신스코프 + **Premium** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (opt-in) | ✅ | ✅ |
 | 방문자 (남의 공개 멤버 페이지) | ✅ 공개 now-playing strip (`via Last.fm/Spotify` provenance)만 | — | — | — | — | — | — | — |
+
+**Amendment 2026-08-02 (Step 5 reframe).** The `S5 in-page 기기` column narrows to
+**owner-only at ship time** — every member row reads `—` until the `streaming` scope is opened
+(see Step 5 scope). Two further columns are implied by the Step 5 ladder and apply to the same
+rows as `S6a-c/e`: **기기 선택기** (needs `user-read-playback-state`, so 구스코프 row = `—`,
+free + Premium rows = ✅) and **콜드 스타트 재생** (rung 2 is Premium-only, so the free row
+stays `—` and keeps only rung 1's "활성 기기가 있을 때"). The matrix is not rewritten here
+because the shipped columns are unchanged; the implementing PR must fold these in properly.
 
 Key asymmetries worth stating to users (Step 7 surfaces them): **좋아요(6d)는 무료 계정도
 됨**, 컨트롤(재생 조작)은 Premium 전용; **device hint는 무료도 됨** (Premium이 아니라 scope
@@ -225,11 +263,77 @@ exactly 1 GET, pause survives, device-less body omits, disconnected = zero reads
 `SelfDashboard.*.js`. Owner real-active-device clickthrough CONFIRMED 2026-07-20 ("2번
 동작한다") — Step 4 fully closed.
 
-### Step 5 — in-page SDK device (opt-in output)
+### Step 5 — play from the site (unified play ladder + device picker) — REFRAMED 2026-08-02
 
-Swap `getStreamingToken()` per the seam for members with `streaming` scope; 'Buckit' device
-becomes selectable output. Premium-gated by SDK init failure (second capability signal).
-**Verification**: SDK connects for a Premium member; non-Premium init failure degrades cleanly.
+The draft framed this as "add an in-page SDK device as an opt-in output". That framing was
+wrong twice over: the SDK device **already exists and already plays** (`requestPlayback`,
+FEAT-spotify-streaming-playback, done 2026-06-25), and the actual defect is not a missing
+output — it is that **the site has two unrelated play paths and the newer one cannot cold
+start**.
+
+**The defect, stated precisely.** Six surfaces start playback, split by build date, not design:
+
+| Path | Surfaces | Cold start (nothing playing anywhere) |
+|------|----------|----------------------------------------|
+| SDK — `requestPlayback()`, sends `device_id` | Pocket tray ▶, review tracklist ▶ | ✅ works |
+| Connect remote — `sendConnectPlay()` / `sendPlayerCommand()`, deliberately omits `device_id` | album overlay "이 앨범 재생", bucket row, player-bar transport, lyrics-viewer track jump | ❌ 404 `no-active-device` |
+
+Everything the owner actually uses is on the second row. Hence "재생 시작이 안 된다".
+
+**Target — one `play(target)` ladder, every surface calls only it** (owner, 2026-08-02):
+
+1. active Connect device exists → **remote-control it** (default; see audio-quality note below)
+2. none → **raise this tab as the 'Buckit' device** and play there, with a quiet
+   "이 브라우저에서 재생 중 (음질 제한)" marker
+3. not Premium → no playback; notice + "Spotify에서 열기"
+
+Plus, in the same step:
+
+- **Device picker** (owner: "스포티파이처럼 클릭을 통해서 변경") — `GET /v1/me/player/devices`
+  + `PUT /v1/me/player` transfer, the in-page 'Buckit' device listed alongside real ones.
+  **Pulled out of the 6e candidate bundle**; the rest of 6e (shuffle/repeat/volume) stays a
+  candidate.
+- **Media Session API** — once this tab emits audio it must own the OS media keys, lock
+  screen and headset buttons, or the sound has no visible source. Not optional decoration.
+- **Global persistence** — playback must survive navigation (owner: "전역으로 할 수 있게
+  해야만 해"). See the ClientRouter note in Current state and OQ4.
+
+**Scope: owner-only** (owner, 2026-08-02). Measured that day: the owner's stored grant
+already carries `streaming`, so this ships with **zero re-consent**. The member path is built
+but its scope stays closed — prod has 4 users and exactly **1** Spotify integration (the
+owner), so shipping the member tier now would deploy an unverifiable feature. Opening it later
+is a scope-string change plus the Step 1 banner idiom; the `getStreamingToken()` seam already
+absorbs the difference.
+
+**Audio quality is why "remote first" is correct, not just a preference** (researched
+2026-08-02). The Web Playback SDK is capped at **AAC 256 kbps**; Spotify Lossless (2025-09,
+24-bit/44.1 kHz FLAC) is native-app/Connect-device only and explicitly excluded from the web
+player. Remote-controlling a real device therefore costs **zero** audio quality, while the
+in-page device always costs some. Rung 2 is a fallback, not a peer — and the UI should say so.
+
+**Verification**: real-browser clickthrough with nothing playing anywhere (the case that 404s
+today) on every one of the six surfaces; device picker switches output both directions;
+navigate across ≥3 pages mid-playback without a gap; OS media keys drive the in-page device;
+CDP mobile 390 pass.
+
+### Step 5b — `/write` layout refactor (playback follows into the editor)
+
+`write-layout.astro` is 35 lines used by exactly one page and carries **no `ClientRouter`, no
+header/footer, no PocketBuckit, no AlbumOverlay, no PWA chrome** — it is an island detached
+from the site shell. Any navigation between it and `layout.astro` is a full document load, so
+Step 5's persistence stops at the editor door. Owner approved refactoring it (2026-08-02:
+"수정을 하자 … 가장 오래된 기능이기도 하니까").
+
+Split from Step 5 deliberately: this changes the lifecycle of a 16-component editor island,
+and folding it in would make "the sound stopped" ambiguous between the SDK and the editor.
+
+Scope: add `ClientRouter`, mount the persisted player shell, reconcile the two layouts' `head`
+and body structure. **Named risk**: `/write` holds unsaved prose and has **no `beforeunload`
+guard today** (grep-verified) — client-side routing changes what "navigating away" means, so
+an `astro:before-preparation` guard is part of this step, not a follow-up.
+
+**Verification**: playback continues across `/write` ↔ site in both directions; an in-progress
+draft survives (or blocks) a client-side navigation; writer suite + real-browser pass.
 
 ### Step 6 (candidate menu) — Connect control extensions — PROMOTED 2026-07-21, subset 6a+6b+6d ✅ SHIPPED (front #302 + bucket-row entry in #303)
 
@@ -254,8 +358,10 @@ stay candidates below.** All are client-side Spotify Web API calls with the memb
   NEW scopes `user-library-read` + `user-library-modify`** → member re-consent (Step 1
   banner idiom, granted-scope string already stored). NOT Premium-gated (free accounts can
   like). Liked-state read = one extra GET per track change, event-driven (D28-compatible).
-- **6e 셔플/반복/볼륨/기기 전환** — `PUT /v1/me/player/{shuffle,repeat,volume}` +
-  `/v1/me/player` transfer. Same scope, no re-consent. Lowest value; grouped as one item.
+- **6e 셔플/반복/볼륨/~~기기 전환~~** — `PUT /v1/me/player/{shuffle,repeat,volume}`.
+  Same scope, no re-consent. Lowest value; grouped as one item. **Device transfer was pulled
+  out of this bundle into Step 5 (2026-08-02)** — a play ladder whose second rung raises a new
+  device is unusable without a way to choose between devices, so it is not an extra there.
 
 Scope impact summary: only 6d re-consents; 6a/6b/6c/6e ride the Step 1 grant as-is.
 **Verification (whichever subset ships)**: CDP assert matrix per control incl. 403/404
@@ -288,6 +394,23 @@ clickthrough pending (checklist in #302 body).
    detail: the confirmation read is skipped while paused, since a paused player reads as
    `idle` in the one-shot contract and would collapse the card; the optimistic anchor is
    exact there anyway.
+4. **Does the Web Playback SDK's hidden iframe survive a `ClientRouter` navigation?** OPEN,
+   blocking Step 5's "전역 재생" requirement. The site already runs Astro `ClientRouter`
+   (`layout.astro:52`) and already persists islands (`PocketBuckit`, `AlbumOverlay`,
+   the four header roots), so the JS context and the player object survive a navigation —
+   but the SDK appends its own audio-bearing iframe to `<body>`, which ClientRouter swaps.
+   If it is torn out, sound stops on every navigation and the whole "global playback" premise
+   needs a different approach. Documentation does not answer this. Presumed fix is tagging the
+   SDK-created iframe with `data-astro-transition-persist` after `ready`, but that is a guess
+   until measured. **This is the first thing Step 5 must test, before any UI work** — the
+   answer decides whether Step 5 is a ladder rewrite or an architecture change.
+5. **Cross-RFC candidate, not owned here** — `user-top-read` (one scope add; endpoint verified
+   alive) yields the owner's most-played artists/tracks over 4 weeks / 6 months / all time.
+   The product use is "많이 들었는데 아직 평가를 안 쓴 앨범", which is a real-data seed for the
+   `FEAT-album-review-authoring` Step 2 "평론 쓸 것" queue — that queue currently has to be
+   built from seed data because ratings are still 0. Recorded here because it was discovered
+   while probing the grant; **it belongs to that RFC, not this one.** Owner has not scoped it.
+
 3. **Where the re-consent banner lives** — RESOLVED fully 2026-07-19 (owner): integrations tab
    (Step 1) + inline player line on grant breakage (Step 3): a mint 502 (or a 404 following a
    same-session 502, sessionStorage-bridged) renders a panel-bottom-edge reconnect line
@@ -315,4 +438,12 @@ clickthrough pending (checklist in #302 body).
 | 2026-07-20 | **Step 4 owner real-device check CONFIRMED** ("2번 동작한다") — Step 4 fully closed. Same message: owner asked what else the player could control → **Step 6 candidate menu recorded** (6a next/prev, 6b play specific track/album, 6c queue, 6d 좋아요 Liked Songs [only item needing re-consent: `user-library-read/modify`], 6e shuffle/repeat/volume/transfer) — owner selects the subset when the step is promoted; nothing scoped-in yet. Remaining scope = Step 5 + Step 6 selection, both rule-4 gated | 4/6 |
 | 2026-07-21 | Owner go (batch prompt): Step 6 promoted with subset **6a+6b+6d** + Step 7 promoted as **7a only** — explicit candidate-promotion approval in the same message; both steps executed in one PR per the owner's parallel-batch instruction | 6/7 |
 | 2026-07-21 | **Step 6 (6a/6b/6d) + 7a SHIPPED + prod-smoked** — front #302 (+ bucket-row 6b entry in front #303 per the BucketBoard file-ownership split with FEAT-bucket-identity B). CDP 37/37 + 6/6; prod deploy 29783059420, markers verified. Free-like/Premium-control asymmetry enforced end-to-end (library 403 never degrades transport; transport 403 never hides the heart). Owner real-device checklist pending in #302. Remaining scope = Step 5 + candidates 6c/6e + 7b/7c | 6/7 |
+| 2026-08-02 | **Step 5 reframed from "add an SDK output" to "one play ladder".** The premise that an in-page device was missing was wrong — `requestPlayback` has shipped and played since 2026-06-25. The real defect is that six play surfaces are split across two unrelated paths by build date, and the four the owner actually uses are Connect-remote, which 404s with nothing already playing. Owner: build both, **remote wins when a device is active**, plus a click-to-switch device picker | 5 |
+| 2026-08-02 | Owner: **"전역으로 할 수 있게 해야만 해"** — playback surviving navigation is a requirement, not a nicety. Existing `ClientRouter` + `transition:persist` infrastructure covers the main layout by construction; the SDK's own iframe is the unverified part (OQ4) and `/write` is a known gap (Step 5b) | 5, 5b |
+| 2026-08-02 | Owner approved refactoring `write-layout.astro` ("가장 오래된 기능이기도 하니까"). Split out as **Step 5b** rather than folded in — it alters a 16-component editor island's lifecycle, and mixing it in would make a playback gap ambiguous between SDK and editor | 5b |
+| 2026-08-02 | Device transfer moved **6e → Step 5**; remainder of 6e (shuffle/repeat/volume) stays a candidate. Media Session API added to Step 5 as mandatory, not decorative | 5, 6 |
+| 2026-08-02 | **Owner question answered by measurement, not docs: one app serves every user.** 6/6 Dev-Mode-removed capabilities answer 200 ⇒ Extended Quota Mode, unlimited users, no allowlist, no second app registration ever needed. Recorded the corollary as a standing risk: since 2025-05-15 individuals cannot obtain extended access, so this grant is irreplaceable and *already-shipped* catalog/library/좋아요 features depend on it | all |
+| 2026-08-02 | **Step 5 scoped owner-only.** The owner's live grant already carries `streaming` (measured) ⇒ zero re-consent. Member tier deferred not for consent fatigue but because prod has 1 Spotify integration total — shipping it now would deploy something unverifiable. Member code path still built; only the scope stays closed | 5 |
+| 2026-08-02 | **Audio quality settles the ladder order**: Web Playback SDK caps at AAC 256 kbps and Spotify Lossless (2025-09, 24-bit FLAC) excludes the web player, so remote control costs zero quality and the in-page device always costs some. "Remote first" is a correctness argument, not a preference — and rung 2 must say it is degraded | 5 |
+| 2026-08-02 | **Negative finding, recorded so it is not re-planned**: we were NOT grandfathered into the 2024-11-27 deprecations. Recommendations, Audio Features, Audio Analysis, Related Artists, genre seeds, featured playlists and `preview_url` are all dead for this app too (measured). No feature may assume derived mood/energy or "similar artists". Separately, `user-top-read` is alive but ungranted → recorded as OQ5, belonging to `FEAT-album-review-authoring` | — |
 | 2026-07-20 | **Capability-classification audit (owner request)**: the RFC's Full/Fallback pair under-specified real member situations (Last.fm-only, free-vs-Premium, old-scope generation were implicit or absent) and no user-facing surface explains per-situation availability. Added the **user-situation capability matrix** (canonical; every new player feature must amend it in the same PR) + **Step 7 candidate** (7a 연동 tab 기능 안내 / 7b 플레이어 인라인 "왜 컨트롤이 없나요?" / 7c 설명서 페이지, matrix-driven). Notable user-facing asymmetries: 좋아요·device hint work on FREE accounts (controls alone are Premium); Last.fm = display-only | 7 |
