@@ -1,9 +1,15 @@
 # FEAT-lyrics-viewer-playback: transport controls and the queue inside the lyrics viewer
 
-- **Status**: accepted
+- **Status**: done (2026-08-03, archived — Steps 1–3 all SHIPPED + prod-smoked
+  and all three owner-confirmed on a real device (2026-08-01, 2026-08-02); the
+  last open item, OQ4, was answered and shipped 2026-08-03 in front #342. No
+  observation gates remain → moved to `docs/archive/done/rfcs/`. Original
+  status line below.)
+  <br>_accepted_ (오너 승격 2026-08-01)
 - **Owner**: 오너
 - **Created**: 2026-08-01
-- **Plan row**: `plan.md` → FEAT-lyrics-viewer-playback
+- **Plan row**: dropped 2026-08-03 — nothing left to track; history in `git log`
+  and `docs/archive/done/2026-08.md`
 
 ---
 
@@ -293,7 +299,7 @@ Post-fix under the same 1.2 s lag: header correct at 150 ms and never reverts; 3
 
    Note this makes "되는 경우만 점프" cover **every** row in practice: step 2 works for a user-added item, and step 1 works for a context item. Rows stay inert only when there is nothing to send at all. The original worry — a row that looks tappable and then fails — is answered by the fallback existing, not by predicting which rows are which.
 3. **Does the bar belong on the dock/static sheet too?** — blocks nothing; currently a non-goal. Raise only if the owner asks after using it.
-4. **Should `sendPlayerCommand` dispatch `MYBLOG_PLAYBACK_CHANGED`?** — blocks nothing; found during Step 1. It does not today, so `FEAT-lyrics-sync-precision` Step 2's `'command'` residual channel has never observed a transport command, and any conclusion drawn from that series is about `sendConnectPlay` only. Adding the dispatch would fix the channel in one line, but `NowPlaying.tsx:528` listens too and would start re-reading after its own commands — a behaviour change to a shipped component, hence not folded into Step 1. Decide alongside whatever next consumes the residual series.
+4. **Should `sendPlayerCommand` dispatch `MYBLOG_PLAYBACK_CHANGED`?** — ~~blocks nothing~~ **CLOSED 2026-08-03 — yes, with three guards (answer at the bottom); front #342.** Found during Step 1. It does not today, so `FEAT-lyrics-sync-precision` Step 2's `'command'` residual channel has never observed a transport command, and any conclusion drawn from that series is about `sendConnectPlay` only. Adding the dispatch would fix the channel in one line, but `NowPlaying.tsx:528` listens too and would start re-reading after its own commands — a behaviour change to a shipped component, hence not folded into Step 1. Decide alongside whatever next consumes the residual series.
 
    **Premise corrected 2026-08-02 (Step 3), from code — and it cuts against the one-line fix.** Two claims about this channel were floating around and both were loose. The dispatch is only half the story: `logResidual` has exactly **one** call site, `LyricsViewer.tsx:594`, and it sits inside `refresh`'s *same-track* branch. The track-changed branch re-seeds the anchor and logs nothing. So:
 
@@ -303,10 +309,27 @@ Post-fix under the same 1.2 s lag: header correct at 150 ms and never reverts; 3
 
    Consequence for the question itself: **adding the dispatch would not repair the channel in one line.** The residual would still be dropped on every track-changing command. Anyone picking this up must decide about the log site as well as the dispatch. Still blocks nothing; still not decided here.
 
+   **ANSWERED 2026-08-03 (owner) — yes, dispatch. Both of the premises above were partly wrong, and the second one hid a regression.**
+
+   **The log site does not move, and the 2026-08-02 correction over-read its own finding.** A residual is predicted-minus-actual *position*. A track change destroys the prediction — the anchor belonged to the previous song — so ⏭/⏮ have **nothing to measure**, which is not the same as a measurement being dropped. The same-track branch is the right and only place for `logResidual`. What that correction did get right is that the dispatch alone was not the fix; what it missed is where the actual hole was. ⏸/▶ keep the track, so they are measurable — and until this change the viewer issued **no read at all** after them (`runCommand` reads only after a skip, via `confirmSkip`). That is the empty half of the channel, and the dispatch fills exactly it.
+
+   **The dispatch was not a one-line change, for a reason nobody had written down.** `NowPlaying.applyLive` folded `paused` into its `idle` branch — `setMoment(null)`, `is_playing: false`, `setPaused(false)`. Harmless while nothing could deliver a paused read mid-session; the moment a ⏸ pressed in the viewer or on a headset dispatches, that fold wipes the progress bar, duration, device hint and mode controls and flips the button back to ▶. The card collapsing in response to its own pause. `NowPlaying.playPause` doing **no** confirmation read is not an oversight — it is the workaround that kept this invisible.
+
+   So the answer ships with three guards, none of them optional:
+
+   - `applyLive` renders `paused` alongside `playing` (moment kept, `paused: true`); only `idle` still clears. Verified by a control run in the browser: the same event carrying an `idle` read still collapses the card, so the new branch is doing real work.
+   - The NowPlaying listener ignores events raised by its **own** commands (`controlBusyRef`). This preserves `playPause`'s deliberate no-read and keeps `seek`/`skip` at one confirmation read each instead of two. Events from other surfaces still land — that is the whole point.
+   - The viewer gains `awaitingPlayState`, the third member of the `awaitingTrack` / `awaitingChangeFrom` family (and the third instance of "when a race is found, grep the file for every other site of the same shape" — see the 2026-08-02 entry in the decisions log). A read still reporting the state we just commanded away from is dropped rather than written back over the optimistic `playing` write. Deliberately **no** confirmation loop: unlike a skip or a jump, the optimistic write is already the right answer, so a dropped read costs one residual sample and nothing else.
+
+   Modes — shuffle / repeat / volume — do **not** dispatch. The event means "the playhead or the track moved"; those move neither, NowPlaying already reconciles them off the next one-shot, and the viewer has no volume control to justify a read per slider move.
+
+   **One thing the question did not anticipate: the series needed a label before it needed samples.** `estimateMs` ages an anchor by wall time with no notion of pause, so a residual measured against a held player carries the elapsed round-trip inside it. The two live samples from the browser run were **37,084 ms** (`readState: 'paused'`) and **89 ms** (`readState: 'playing'`) — side by side in one series, indistinguishable without the state they were taken in. `logResidual` now records `readState`. Had the dispatch landed alone, OQ4 would have opened a channel that arrives unreadable.
+
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-03 | **OQ4 closed: dispatch, plus the two things the question did not know it was asking for.** The owner picked the dispatch over a viewer-local fix, knowingly taking the behaviour change to a shipped component. What the audit found on the way is the part worth keeping: the 2026-08-02 "the log site has to move too" correction over-read itself — a track change destroys the prediction, so ⏭/⏮ have nothing to measure and the log site is already right; the real empty half was ⏸/▶, which issued no read at all. And the dispatch would have collapsed the NowPlaying card on the first ⏸ from another surface, because `applyLive` folded `paused` into `idle` — a latent defect that only a paused read could expose, and nothing could deliver one until now. `playPause`'s missing confirmation read was the workaround that hid it. Shipped in front #342 with three guards (paused branch, self-event suppression, `awaitingPlayState`) and a `readState` label on the residual, without which the newly-opened series would have mixed a 37,084 ms paused sample with an 89 ms live one. | 4 |
 | 2026-08-01 | Owner: controls go in an always-visible bottom bar, not the header and not a tap-to-reveal overlay — thumb reach and no hunting, at the cost of ~60 px of lyric height. | 1 |
 | 2026-08-01 | Owner: the queue is a full screen swap, not an overlaid sheet. The viewer's vertical drag is already line-stepping, so a sheet would force gesture arbitration at a boundary; a swap has zero conflict by construction. | 2 |
 | 2026-08-01 | Owner: 되는 경우만 점프 — rows jump where Spotify permits it and are inert otherwise. "Repeat ⏭ until we arrive" was rejected (slow, pollutes listening history). | 3 |
