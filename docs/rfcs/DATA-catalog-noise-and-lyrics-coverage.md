@@ -408,11 +408,16 @@ psql "$DATABASE_URL" -c "SELECT t.title, tl.match_status FROM tracks t JOIN trac
    decide. 1a carries no classification risk at all.)*
 2. **Is `INGEST_CLASSICAL_ALLOWLIST` seeded with Debussy and Michael Korstick?** — the owner already
    follows both via `user_artist_tracks`. Blocks Step 2. *(Recommend: yes, seed them.)*
-3. **Does Step 3b (recency re-order) make Step 4 unnecessary?** — 3b lifts the automatic hit rate toward
-   26.7% for recent releases, which is most of what the expedite button was for. Blocks Step 4 scope.
-   *(Recommend: land 3, measure for a week, then decide whether 4 still earns its keep.)*
-4. **How many steps this session?** — hard rule 4 allows one per session unless the owner says go. Steps
-   1 and 2 are marked `parallel` and touch different repos. *(Recommend: 1 and 2 together, then 3, then 4.)*
+3. ~~**Does Step 3b (recency re-order) make Step 4 unnecessary?**~~ — **MOOT, closed 2026-08-02 by
+   events rather than by an answer.** Step 4 shipped + prod-smoked on 2026-07-28 while Step 3 is still
+   unshipped, so the ordering this question assumed never happened and there is nothing left to decide.
+   The live question, if anyone wants it, is the inverse: **now that Step 4 exists, does 3b still earn
+   its keep?** Re-ask it against measured expedite usage when Step 3 is actually picked up — do not
+   inherit this row's recommendation, which was written for the opposite sequence.
+4. ~~**How many steps this session?**~~ — **EXPIRED.** This was a scheduling question about the
+   2026-07-28 session, which shipped 1a, 2 and 4. It is not an open question about the work; leaving it
+   in this list made the RFC read as having twice the unresolved decisions it actually has. The only
+   thing still unshipped here is **Step 3**.
 
 ## Decisions log
 
