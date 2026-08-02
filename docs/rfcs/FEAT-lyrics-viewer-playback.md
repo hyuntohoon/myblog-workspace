@@ -169,6 +169,8 @@ Plus a real-browser clickthrough: open with a real queue, scroll it, return, con
 
 front #329 `2a4fd9e` · deploy run 30708914030 success · prod smoke 19/0 · new-bundle markers confirmed in the live assets (`play-context` in `_astro/spotifyPlayback.*.js`, `is-tappable` in the member CSS).
 
+**오너 실기기 확인 — 통과 (2026-08-02). 이 단계에 남은 항목은 없다.** 실제 폰에서 직접 추가한 곡을 탭한 뒤 **그 아래 곡들이 Spotify 앱 대기열에 그대로 남아 있었다.** 이것이 이 단계의 유일한 사람-확인 항목이었던 이유는, 폴백이 꼬리를 같이 싣는지가 **기기의 Spotify 앱 상태로만 드러나기** 때문이다 — 단독 곡으로 폴백하는 버그였다면 뒤에 쌓인 대기열이 조용히 사라졌을 것이고, 브라우저에서는 그 소멸이 보이지 않는다. `queueJump.test.ts`가 같은 성질을 단위 테스트로 잡고 있지만, 그건 우리 코드가 무엇을 보내는지를 고정할 뿐 Spotify가 그 결과로 무엇을 남기는지는 말해주지 않는다.
+
 Tapping a queue row starts that track when it belongs to the current album/playlist context.
 
 **Changes**
