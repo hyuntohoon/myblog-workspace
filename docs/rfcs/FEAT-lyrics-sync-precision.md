@@ -198,7 +198,13 @@ Plus the measurement itself, quoted in the PR: `outputLatency` / `baseLatency` r
 
 ## Open questions
 
-1. ~~**`PERCEPTUAL_LEAD_MS` final value**~~ — **OPEN, and it is the one thing left in this RFC.** Shipped at 80 ms. Everything measurable was measured; what remains cannot be: whether 80 ms *feels* right is the owner's ear on the owner's hardware. It is a single named constant in `LyricsViewer.tsx` precisely so tuning it is a one-line change. Feels late → raise it; lines flip too early → lower it.
+1. ~~**`PERCEPTUAL_LEAD_MS` final value**~~ — **STILL OPEN, but the question was malformed and is now two questions.** Shipped at 80 ms. Everything measurable was measured; what remains cannot be: whether it *feels* right is the owner's ear on the owner's hardware.
+
+   **2026-08-02 — the owner reported the lyrics running early, on the `flat` style. That was not taste drifting; it was a real defect this RFC shipped.** 80 was derived as "~60 ms midpoint of the new 120 ms attack + ~20 ms deliberate lead" — but **only `blur` has an attack.** `blur` announces "now" by fading opacity over that ramp; `flat` announces it in colour, which snaps with no ramp at all (`layout.css` — deliberate, it is the Apple-Music look the owner asked for, and the Step 1 comment even notes the flat variant "never had this lag"). Applying one number to both therefore left `flat` leading by the full 80 ms while `blur` led by ~20 ms net. Split in front #333 into `BLUR_LEAD_MS = 80` / `FLAT_LEAD_MS = 20`, with the relationship pinned by a unit test rather than by prose. The look was not touched — only the mis-calibrated number.
+
+   **The methodological point, because this RFC is about exactly this:** Step 1's own reasoning named the attack midpoint as a *term in the sum*, and the code then applied the sum to a variant where that term is zero. A constant justified by a mechanism must be scoped to where the mechanism exists. The Step 1 comment claiming the change "converges the two variants onto the same timing" was the tell, and it was wrong: 120 ms and 0 ms are not converged.
+
+   *Remaining:* the owner re-listens on **flat at 20 ms** and on **blur at 80 ms** — two judgements now, not one. Feels late → raise; flips early → lower. Each is still a one-line change.
 2. ~~**Does `AudioContext.outputLatency` reflect the actual output path?**~~ — **ANSWERED 2026-08-01: no.** See Step 3.
 
 ## Not verified, and why

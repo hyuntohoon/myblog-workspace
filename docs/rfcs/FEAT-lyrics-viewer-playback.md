@@ -107,6 +107,17 @@ Plus a real-browser clickthrough at desktop and 390 px: each button issues its c
 
 - **⏭ then ⏸ within 1.5 s** — the icon must show paused and the lyrics must stop advancing (this is the case the resync floor swallows).
 - **⏭ alone** — the lyrics swap to the next track with no Step-1 code doing it (the #325 listener path).
+  **This check shipped broken and the owner found it in prod on 2026-08-02 — fixed in front #333.**
+  Step 1 issued its identity read, but exactly ONE, and Spotify Connect keeps answering
+  `GET /me/player` with the pre-skip track for a beat after its 204. That stale read is
+  indistinguishable from an ordinary same-track read, so `refresh` took its same-track branch,
+  re-anchored to the track being left, and never asked again. Step 3's queue-row jump had
+  already solved the identical race with a retry loop; the skip never got one. Both now share
+  `confirmTransport()`. **A skip cannot name its destination, so it names the track it is
+  leaving (`awaitingChangeFrom`) and waits for any read that disagrees.**
+  The lesson for the remaining steps: **a post-command read-back is a race, and a verification
+  that reads back once can win it by luck.** Re-verify this class against a stub that lags
+  (front #333 ships one) or against a real device, never against an instant answer.
 - **Browse-drag mid-playback** so `.lyv-return` renders — the ring and the bar must not overlap at 390 px with a safe-area inset.
 
 **Rollback**: revert. No persisted state.
@@ -219,7 +230,7 @@ Post-fix under the same 1.2 s lag: header correct at 150 ms and never reverts; 3
 
 ## Open questions
 
-1. **Does the browser's token carry the scope the queue endpoint needs?** — blocks Step 2. **Narrowed from code 2026-08-01, and the news is bad.** `scripts/spotify_bootstrap_token.py` mints two *distinct* refresh tokens with disjoint scope sets:
+1. **Does the browser's token carry the scope the queue endpoint needs?** — ~~blocks Step 2~~ **CLOSED 2026-08-01 (answer below); Step 2 shipped.** **Narrowed from code 2026-08-01, and the news is bad.** `scripts/spotify_bootstrap_token.py` mints two *distinct* refresh tokens with disjoint scope sets:
 
    ```python
    SCOPES = (                      # the WORKER's read token
@@ -266,7 +277,7 @@ Post-fix under the same 1.2 s lag: header correct at 150 ms and never reverts; 3
    **The probe did not need the owner or a browser.** It was written up as "owner, signed in on the live site — the browser holds a real streaming token, no test account does". That framing confused *whose* token it is with *where it is held*: the owner's browser token is minted server-side from `streaming_refresh_token`, so reading that secret from SSM and minting directly answers the identical question with no human in the loop. The step sat blocked on a human for a day for no reason. **Before parking a question on "owner-only", check whether the credential is reachable from the server.**
 
    The wider lesson, in one line: **a constant that requests a scope is not evidence of the scope that was granted.** Ask the live grant.
-2. **User-added queue items under an album/playlist context.** — blocks Step 3. `/me/player/queue` returns one flat `queue[]` and does not mark which entries came from the context versus the user's manual queue. A `context_uri` + `offset` jump only works for the former. Options: (a) make every row inert whenever any ambiguity exists, (b) attempt the jump and degrade on failure, (c) match rows against the context's track list with a second request. Owner picked "되는 경우만 점프" as the *behaviour*; this question is how we determine "되는 경우" without lying to the user.
+2. **User-added queue items under an album/playlist context.** — ~~blocks Step 3~~ **CLOSED 2026-08-01 by the fallback recorded in Step 3; Step 3 shipped.** `/me/player/queue` returns one flat `queue[]` and does not mark which entries came from the context versus the user's manual queue. A `context_uri` + `offset` jump only works for the former. Options: (a) make every row inert whenever any ambiguity exists, (b) attempt the jump and degrade on failure, (c) match rows against the context's track list with a second request. Owner picked "되는 경우만 점프" as the *behaviour*; this question is how we determine "되는 경우" without lying to the user.
 
    **ANSWERED 2026-08-01 (owner). Option (b), with the fallback specified: try → fall back → give up.**
 
@@ -303,6 +314,7 @@ Post-fix under the same 1.2 s lag: header correct at 150 ms and never reverts; 3
 | 2026-08-01 | **Owner real-device pass on Steps 1+2 — all green.** Queue list scrolls past the fold, `←` returns to the correct lyric line, ⏭/⏸ work, and the queue refreshes with the track. One false alarm resolved on the way: a queue that looked wrong was **repeat mode**, not a bug (repeated ids are why rows are keyed `${id}:${index}`). Steps 1+2 now have no outstanding human check. | 1, 2 |
 | 2026-08-01 | **OQ2 answered: option (b) — try, fall back, give up.** Context jump first; on failure re-issue `play` with `uris: [tapped, ...rest of the visible queue]`; if that fails too, an in-panel notice. The fallback carries the TAIL, not the lone track, because `uris` replaces the context and a single-track fallback would silently delete everything queued behind the tap. Cost the owner accepted: the album context is gone either way, so Spotify will not autoplay past the re-sent tail. Side effect on the design — rows become tappable by default, since the fallback removes the need to predict which rows are reachable. | 3 |
 | 2026-08-01 | **OQ1 answered: 200, no re-consent, Step 2 unblocked.** The narrowing above reasoned from `STREAMING_SCOPES` — the constant that *requests* scopes — but the grant actually stored in `/myblog/spotify` was minted with a broader consent and carries both documented scopes. Two corrections carried forward: a requested-scope constant is not evidence of a granted scope, and the question was never owner-only (the browser's token is minted server-side from a secret in SSM, so it is answerable without a human). | 2 |
+| 2026-08-02 | **The lag fix was applied to one call site and its twin was left behind — the owner found the twin the same day.** The row below drew exactly the right lesson for the queue-row jump and stopped there; ⏭/⏮ was the other post-command read-back in the same file and kept its single unconfirmed read, so a skip left the viewer on the previous track's lyrics. Fixed in front #333 by extracting `confirmTransport()` and putting **both** callers on it: the jump waits for the track it named, the skip (which cannot name a destination) waits for any read that disagrees with the track it left. The generalisable rule is not "model the lag" — that was already written down — it is **when a race is found, grep the file for every other site of the same shape before closing it.** Verification now carries a regression guard asserting the one-read version FAILS against a lagging stub. | 1 |
 | 2026-08-02 | **`play` is asynchronous — one read after it is a guess, not a fact.** The owner's device pass caught the title not following a jump; the cause was a single unconfirmed identity read landing before Spotify had applied the play, and the viewer writing that stale answer back over everything. Fixed by making the jump write identity from the tapped row and demoting the read to a bounded confirmation. **The Step 3 verification could not have caught it**: the stub changed state in the same tick as its 204, so no read could ever be stale. A harness that answers instantly cannot exercise a propagation race — model the lag. | 3 |
 | 2026-08-02 | **Bundle-marker verification has two traps, both hit today.** Crawling `/members/` for a new-bundle marker went two levels deep while `LyricsViewer` sits three levels down, so the chunk under test was never compared and a shipped fix read as missing. And a change that adds no string literal has no greppable marker at all once identifiers are minified. The reliable method: crawl the import graph to a fixed point, and diff two local builds (with/without the commit) for a construct that survives minification — constants do. | 3 |
 | 2026-08-02 | **Step 3 shipped as specified — the fallback chain, unchanged from the owner's OQ2 answer.** Two things the plan did not anticipate, both structural rather than cosmetic: the viewer had no `readLivePlayback` on open, so the context had to be read alongside the queue or *every* first tap would have silently taken the fallback and link 1 would never have run; and the chain was extracted to `queueJump.ts` so "the tail is carried" is pinned by a unit test instead of resting on a clickthrough. | 3 |
