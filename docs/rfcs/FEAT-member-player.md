@@ -412,10 +412,22 @@ script-re-execution risk), the inert path unchanged, no console errors.
 
 **Prod smoke (2026-08-02, after deploy 30740995167)**: the old dead-end string `재생 중인 Spotify 기기가 없어요` is **gone** from the live `AlbumOverlay` chunk — the message only existed because a cold start had nowhere to go, so its absence is the behavior change. The override was re-run against prod itself, on the same page that destroyed the iframe that morning: audio **ALIVE across 3 hops**, 6/6 persisted islands, no console errors. Inert path re-checked on prod too — correct page, 6 islands, header script still interactive, no duplicated head scripts.
 
-**Still open — owner, real device**: cold-start play on each of the six surfaces; device switching
-both directions; OS media keys driving the in-page device; CDP mobile 390 on the picker. These need
-a live Premium session and a second Connect device, so no session can close them. ⚠️ Until the
-first item is checked, "재생 시작이 안 된다" is fixed *in test*, not *in use*.
+**✅ OWNER CONFIRMED 2026-08-03 — the core gate is closed.** The owner exercised the idle-bar
+entrance on a real device and reported 확인 완료. That closes the one item this whole step existed
+for: **sound actually comes out from a cold start**, which also means the ladder's rung-1 → rung-2
+hand-off and the in-page device work in use, not only in test. `재생 시작이 안 된다` is fixed.
+
+**Still open — narrower than before, and none of it blocks.** These were never covered by the
+cold-start check and still need the owner (a live Premium session + a second Connect device):
+
+- the five *other* play surfaces individually (album overlay, bucket row, pocket tray, lyrics queue
+  jump; the review tracklist stays dormant until a review publishes)
+- device switching **both directions** against a real second device
+- OS media keys / lock screen driving the in-page device
+- audio surviving `/write` ↔ site by ear (Step 5b was verified structurally + by CDP, not by sound)
+
+Being precise about scope on purpose: an earlier session summary claimed this confirmation would
+close "대부분" of the remainder. It does not — it closes the most important one.
 
 #### OQ4 measurement — the SDK iframe and `ClientRouter` (prod, 2026-08-02)
 
@@ -681,6 +693,7 @@ clickthrough pending (checklist in #302 body).
 | 2026-08-02 | Device transfer moved **6e → Step 5**; remainder of 6e (shuffle/repeat/volume) stays a candidate. Media Session API added to Step 5 as mandatory, not decorative | 5, 6 |
 | 2026-08-02 | **Owner question answered by measurement, not docs: one app serves every user.** 6/6 Dev-Mode-removed capabilities answer 200 ⇒ Extended Quota Mode, unlimited users, no allowlist, no second app registration ever needed. Recorded the corollary as a standing risk: since 2025-05-15 individuals cannot obtain extended access, so this grant is irreplaceable and *already-shipped* catalog/library/좋아요 features depend on it | all |
 | 2026-08-02 | **Step 5 scoped owner-only.** The owner's live grant already carries `streaming` (measured) ⇒ zero re-consent. Member tier deferred not for consent fatigue but because prod has 1 Spotify integration total — shipping it now would deploy something unverifiable. Member code path still built; only the scope stays closed | 5 |
+| 2026-08-03 | **Owner confirmed the cold start on a real device** (확인 완료), exercising the idle-bar `▶ 이어듣기` added in front #340. The step's defining defect — "재생 시작이 안 된다" — is fixed **in use**, and rung 2 demonstrably produces sound. Remaining owner items narrowed to: the five other play surfaces, two-way device switching, OS media keys, and `/write` audio by ear. Recorded because a human-observation signal is exactly what gets lost between sessions | 5 |
 | 2026-08-02 | **Step 5 shipped without an entrance; fixed in front #340.** Verification asked "does each surface work", never "can a user find one" — all six play surfaces are buried and the transport only appears once playing, so a cold open had nothing to press. Rung 2 was **circular**: the in-page device sat in a picker reachable only from a line that requires playback to already exist. Entrances added to the idle bar (`▶ 이어듣기` + device picker with no active device). `/help/player` likewise had zero inbound links. **Rule taken from it: reachability is a separate check from function** | 5, 7c |
 | 2026-08-02 | **Step 6 COMPLETE — 6c+6e shipped** (front #336, `2052148`). 6c's RFC premise was wrong: the queue endpoint takes a track or episode uri, so it cannot ride 6b's album-level surfaces. It is **track-only**, and it deliberately does NOT ladder — queueing onto a device that is not playing is meaningless, so a 404 says "start playing" instead of raising a device to hold an unheard queue | 6c |
 | 2026-08-02 | **6c ships dormant, measured not assumed**: its only surface is `/review/[slug]` and prod has **zero** review pages (index, sitemap, empty `content/blog` with no CI step, and a real build emitting 0 all agree). Prod smoke confirmed its code sits in `_slug_.*` chunks no built page references. The reachable alternative — adding an action to the live overlay's `TrackRow` — was refused: that contract reserves new row actions as an owner product decision (ARCH-entity-interaction-contract OQ2) | 6c |
