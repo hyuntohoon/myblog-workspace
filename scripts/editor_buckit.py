@@ -36,8 +36,10 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
+import unicodedata
 from datetime import date
 from pathlib import Path
 
@@ -67,6 +69,38 @@ RESEARCH_EXCERPT_CHARS = 600          # per done-note excerpt cap (bounds the pr
 MAX_RESEARCH_EXCERPTS = 30            # cap research notes embedded; log when more exist
 RECENT_DAYS = 30                      # play-event recency window
 CLUSTER_MIN = 2                       # a genre/artist is a "cluster" at >= this many bucketed albums
+
+# --- Genius catalog graph (FEAT-lyrics-annotations R6) --------------------
+# The one thing no external service can compute: relations that hold *inside
+# this catalog*. Two shapes, both derived from the track-scoped Genius store
+# (`track_genius_songs`), MATCHED rows only — an ambiguous match may be a
+# different song entirely, and a wrong credit must not enter an idea deck
+# (the same hold R1 applies to research notes).
+CONNECTOR_MIN_ALBUMS = 2   # a credit name is a "connector" at >= this many bucket albums
+CONNECTOR_MAX = 15         # rendered creative connectors, strongest first
+CONNECTOR_TECH_MAX = 8     # …and post-production ones, listed apart so they can't crowd the above
+LINEAGE_MAX = 25           # rendered cross-artist lineage edges
+# The far side of a lineage edge is confirmed by looking for the Genius artist
+# string inside our album's credited artists. That check loses all meaning on a
+# compilation: `"072 Classical Music Discoveries"` credits 37 composers, so any
+# composer name "matches" it. Above this many credited artists the album is a
+# haystack, not an identification.
+LINEAGE_MAX_TARGET_ARTISTS = 8
+
+# Corporate boilerplate rides `credits.performances` on nearly every track
+# (Label / Publisher / ℗ / © at 14-15/15 on prod). Left in, "Universal Music
+# Group connects 30 albums" would outrank every real person. Twin of
+# research_poller._BOILERPLATE_ROLES.
+_BOILERPLATE_ROLES = {
+    "label", "publisher", "distributor",
+    "copyright ©", "phonographic copyright ℗",
+}
+
+# Post-production hints. These people are real connectors — the RFC's own
+# example is an engineer — but a handful of them master most of pop music, so
+# they are ranked in their own list instead of ahead of the writers.
+_TECH_ROLE_HINTS = ("engineer", "engineering", "mixing", "mastering",
+                    "programmer", "programming", "technician")
 
 
 # --- paths ----------------------------------------------------------------
@@ -170,6 +204,40 @@ FROM post_albums pa
 JOIN albums a ON a.id = pa.album_id;
 """
 
+# R6. Every Genius row for a bucket candidate — ALL statuses, so coverage can
+# be reported honestly (the RFC's "사실의 부재가 아니라 조회의 부재" rule); the
+# graph itself is built from the `matched` subset only.
+GENIUS_SQL = """
+SELECT t.album_id,
+       t.title           AS track_title,
+       t.track_no,
+       g.match_status,
+       g.credits,
+       g.relationships
+FROM track_genius_songs g
+JOIN tracks t ON t.id = g.track_id
+WHERE t.album_id IN (SELECT DISTINCT album_id FROM review_bucket_items WHERE post_id IS NULL)
+ORDER BY t.album_id, t.track_no;
+"""
+
+# The far side of a lineage edge can be ANY album we own, not just a bucketed
+# one — "this bucket album samples something already in the catalog" is the
+# whole point. So the index spans the catalog (27k tracks / 3.1k albums on
+# prod, two flat queries; the per-row artist subquery that made an earlier
+# probe slow is deliberately split out into CATALOG_ALBUM_SQL).
+CATALOG_TRACK_SQL = """
+SELECT t.title, t.album_id FROM tracks t;
+"""
+
+CATALOG_ALBUM_SQL = """
+SELECT a.id AS album_id,
+       a.title,
+       COALESCE((SELECT array_agg(ar.name ORDER BY ar.name)
+                   FROM album_artists aa JOIN artists ar ON ar.id = aa.artist_id
+                  WHERE aa.album_id = a.id), '{}') AS artists
+FROM albums a;
+"""
+
 
 def _fetch_all(conn, sql):
     with conn.cursor() as cur:
@@ -217,12 +285,291 @@ def _signal_lines(c: dict) -> list[str]:
     return out
 
 
+# --- R6: the catalog-internal graph ---------------------------------------
+_REL_LABELS = {
+    "samples": "샘플",
+    "interpolates": "인터폴레이션",
+    "sampled_in": "이 곡을 샘플한 쪽",
+    "interpolated_by": "이 곡을 인터폴레이션한 쪽",
+    "cover_of": "커버 원곡",
+    "covered_by": "커버한 쪽",
+    "remix_of": "리믹스 원곡",
+    "remixed_by": "리믹스한 쪽",
+    "live_version_of": "라이브 원곡",
+    "performed_live_as": "라이브 버전",
+}
+
+_FEAT_RE = re.compile(r"\s*[\(\[]\s*(?:feat|ft|featuring|with)\b[^\)\]]*[\)\]]", re.I)
+
+
+def _fold(text: str) -> str:
+    """Comparison form for matching Genius's free-text relation strings against
+    our own titles/artists.
+
+    Byte-for-byte twin of `research_poller._fold_title`, and the parity is
+    pinned by `scripts/tests/test_editor_buckit_genius.py` rather than by
+    convention — the two scripts are independent operator tools and importing a
+    whole poller (which configures logging and constructs an engine at import)
+    for one helper would couple them far more than the copy costs.
+    """
+    text = _FEAT_RE.sub("", text or "")
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return " ".join("".join(ch if ch.isalnum() or ch.isspace() else " " for ch in text.lower()).split())
+
+
+def _album_label(title: str, artists: list[str]) -> str:
+    """`Artist 『Title』`, with the artist list bounded.
+
+    Uncapped, one compilation ("072 Classical Music Discoveries", 37 credited
+    composers) turns a single edge into a 600-character line.
+    """
+    if not artists:
+        who = "(미상)"
+    elif len(artists) > 3:
+        who = ", ".join(artists[:3]) + f" 외 {len(artists) - 3}인"
+    else:
+        who = ", ".join(artists)
+    return f"{who} 『{title}』"
+
+
+def _role_class(role: str) -> str | None:
+    """창작 / 기술, or None when the role does not belong in a connector list.
+
+    Two whole categories are dropped, both of which outnumber the people they
+    would displace. A studio is a place, not shared personnel — `Mastered At`
+    and `Mixed At` alone carry ~490 credits on prod, and in the first run of
+    this section five of the top twelve "connectors" were studios. `Video …`
+    roles (director, editor, hair stylist) staff the music video, not the
+    record an idea card would be about.
+    """
+    r = (role or "").strip().lower()
+    if not r or r in _BOILERPLATE_ROLES or r.endswith(" at") or r.startswith("video "):
+        return None
+    return "기술" if any(h in r for h in _TECH_ROLE_HINTS) else "창작"
+
+
+def _distinct_artist_groups(artist_sets: list[frozenset[str]]) -> int:
+    """How many genuinely different acts these albums represent.
+
+    Any two albums sharing a credited artist merge into one group. Without the
+    merge, a remix EP credited "Honey Dijon, Madonna, Sabrina Carpenter" counts
+    as a second act against Madonna's own album, and every same-artist
+    packaging edge — remix EP, live album, deluxe reissue — reads as a
+    cross-artist connection. Measured on prod: 114 names sit on ≥2 bucket
+    albums, but only 56 span ≥2 acts once this merge runs.
+    """
+    groups: list[set[str]] = []
+    for s in artist_sets:
+        cur = set(s)
+        for g in [g for g in groups if g & cur]:
+            groups.remove(g)
+            cur |= g
+        groups.append(cur)
+    return len(groups)
+
+
+def _credit_connectors(matched: list[dict],
+                       cand_by: dict[str, dict]) -> tuple[list[str], list[str]]:
+    """People who tie two or more bucket albums together.
+
+    "이 버킷의 세 앨범이 Noah Goldstein을 공유한다" is a property of *this*
+    bucket; no external service can compute it. A connector must span ≥2 acts,
+    otherwise it is just a band member appearing across their own discography.
+
+    Returns (창작, 기술) separately. Mixed into one list the post-production
+    names win outright — they work on nearly everything — and the writers and
+    producers, which are what an idea card is actually made of, fall off the
+    bottom.
+    """
+    by_name: dict[str, dict[str, set[str]]] = {}
+    creative: set[str] = set()
+
+    def _seen(name: str, role: str, album_id: str, klass: str) -> None:
+        n = (name or "").strip()
+        if not n:
+            return
+        by_name.setdefault(n, {}).setdefault(album_id, set()).add(role)
+        if klass == "창작":
+            creative.add(n)
+
+    for r in matched:
+        aid = str(r["album_id"])
+        if aid not in cand_by:
+            continue
+        credits = r["credits"] or {}
+        for w in set(credits.get("writers") or []):
+            _seen(w, "작가", aid, "창작")
+        for p in set(credits.get("producers") or []):
+            _seen(p, "프로듀서", aid, "창작")
+        for perf in credits.get("performances") or []:
+            role = (perf.get("role") or "").strip()
+            klass = _role_class(role)
+            if klass is None:
+                continue
+            for a in set(perf.get("artists") or []):
+                _seen(a, role, aid, klass)
+
+    ranked = []
+    for name, albums in by_name.items():
+        if len(albums) < CONNECTOR_MIN_ALBUMS:
+            continue
+        sets = [frozenset(_fold(a) for a in cand_by[aid]["artists"]) for aid in albums]
+        acts = _distinct_artist_groups(sets)
+        if acts < 2:
+            continue
+        ranked.append((acts, len(albums), name, albums))
+
+    ranked.sort(key=lambda t: (-t[0], -t[1], t[2]))
+
+    def _line(acts: int, n_alb: int, name: str, albums: dict[str, set[str]]) -> str:
+        # Creative roles first, because the displayed roles are truncated and
+        # the creative one is what put this name in the creative list. Sorted
+        # alphabetically, Bryce Bordone showed as three engineering roles while
+        # the single producer credit that classified him stayed hidden.
+        roles = sorted(
+            {role for rs in albums.values() for role in rs},
+            key=lambda r: (0 if r in ("작가", "프로듀서") else 1 if _role_class(r) == "창작" else 2, r),
+        )
+        role_s = "·".join(roles[:3]) + ("…" if len(roles) > 3 else "")
+        where = ", ".join(
+            _album_label(cand_by[aid]["title"], cand_by[aid]["artists"]) for aid in list(albums)[:5]
+        )
+        more = f" 외 {n_alb - 5}장" if n_alb > 5 else ""
+        return f"- {name} ({role_s}) — {acts}팀 {n_alb}장: {where}{more}"
+
+    art = [_line(*t) for t in ranked if t[2] in creative][:CONNECTOR_MAX]
+    tech = [_line(*t) for t in ranked if t[2] not in creative][:CONNECTOR_TECH_MAX]
+    return art, tech
+
+
+def _lineage_edges(matched: list[dict], cand_by: dict[str, dict],
+                   track_index: dict[str, list[dict]],
+                   album_index: dict[str, dict]) -> tuple[list[str], int]:
+    """Sample/interpolation/cover relations whose OTHER side we also own.
+
+    Genius stores a relation as the free string "Artist — Title", so the far
+    side is resolved by folded title plus an artist check; an unresolvable
+    string is simply not an edge (this never asserts a relation we cannot see
+    both ends of). Returns the cross-act edges — the ones worth an idea card —
+    and a count of the same-act ones, which on prod are overwhelmingly release
+    packaging (a remix EP, a live album) and would bury the rest at equal
+    weight: 31 cross vs 69 same on the 2026-08-03 measurement.
+    """
+    cross: list[str] = []
+    same = 0
+    seen: set[tuple] = set()
+
+    for r in matched:
+        aid = str(r["album_id"])
+        cand = cand_by.get(aid)
+        if cand is None:
+            continue
+        from_acts = frozenset(_fold(a) for a in cand["artists"])
+        for typ, items in (r["relationships"] or {}).items():
+            if not isinstance(items, list):
+                continue
+            for raw in items:
+                if "—" not in (raw or ""):
+                    continue
+                other_artist, other_title = raw.split("—", 1)
+                ft, fa = _fold(other_title), _fold(other_artist)
+                if not ft or not fa:
+                    continue
+                for target in track_index.get(ft, ()):
+                    if target["album_id"] == aid:
+                        continue  # same album: not an inter-album edge
+                    meta = album_index.get(target["album_id"])
+                    if meta is None or len(meta["artists"]) > LINEAGE_MAX_TARGET_ARTISTS:
+                        continue
+                    if fa not in _fold(", ".join(meta["artists"])):
+                        continue
+                    key = (aid, r["track_title"], typ, ft)
+                    if key in seen:
+                        break
+                    seen.add(key)
+                    if from_acts & frozenset(_fold(a) for a in meta["artists"]):
+                        same += 1
+                    else:
+                        cross.append(
+                            f"- [{_REL_LABELS.get(typ, typ)}] "
+                            f"{_album_label(cand['title'], cand['artists'])} / {r['track_title']}"
+                            f" → {_album_label(meta['title'], meta['artists'])} / {target['title']}"
+                        )
+                    break
+    return cross, same
+
+
+def _genius_graph_section(genius_rows: list[dict], cand_by: dict[str, dict],
+                          cat_tracks: list[dict], cat_albums: list[dict]) -> list[str]:
+    """The R6 block: shared credits inside the bucket, lineage inside the catalog."""
+    if not cand_by:
+        return []
+
+    rows = [r for r in genius_rows if str(r["album_id"]) in cand_by]
+    matched = [r for r in rows if r["match_status"] == "matched"]
+    with_rows = {str(r["album_id"]) for r in rows}
+    with_matched = {str(r["album_id"]) for r in matched}
+
+    out = ["## 카탈로그 내부 연결 (Genius 크레딧·관계 파생 — 외부 서비스로는 계산 불가)"]
+    out.append(
+        f"- 커버리지: 후보 {len(cand_by)}장 중 Genius 조회된 앨범 {len(with_rows)}장"
+        f" (그중 크레딧을 인용할 수 있는 매칭 보유 {len(with_matched)}장)."
+        " 조회되지 않은 앨범에 대해 '연결이 없다'고 쓰지 말 것 —"
+        " 사실의 부재가 아니라 조회의 부재다."
+    )
+    if not matched:
+        out.append("- 매칭된 Genius 행이 없어 이번 회차에 계산할 연결이 없다.")
+        out.append("")
+        return out
+
+    track_index: dict[str, list[dict]] = {}
+    for t in cat_tracks:
+        track_index.setdefault(_fold(t["title"]), []).append(
+            {"title": t["title"], "album_id": str(t["album_id"])}
+        )
+    album_index = {
+        str(a["album_id"]): {"title": a["title"], "artists": list(a["artists"] or [])}
+        for a in cat_albums
+    }
+
+    art, tech = _credit_connectors(matched, cand_by)
+    cross, same = _lineage_edges(matched, cand_by, track_index, album_index)
+
+    out.append("")
+    out.append(f"### 크레딧 연결자 — 창작 (버킷 앨범 ≥{CONNECTOR_MIN_ALBUMS}장 참여 + 서로 다른 팀 ≥2)")
+    out.extend(art or ["- 없음 — 이번 버킷의 앨범들은 창작 인력을 공유하지 않는다."])
+    if tech:
+        out.append("")
+        out.append("### 크레딧 연결자 — 믹싱·마스터링 등 후반 (같은 마감을 공유한다는 뜻)")
+        out.extend(tech)
+    out.append("")
+    out.append("(스튜디오 같은 장소 역할과 뮤직비디오 크루는 위 두 목록에서 제외했다.)")
+    out.append("")
+    out.append("### 카탈로그 내부 혈통 (샘플·인터폴레이션·커버의 반대편을 우리가 보유)")
+    if cross:
+        out.extend(cross[:LINEAGE_MAX])
+        if len(cross) > LINEAGE_MAX:
+            out.append(f"- … 외 {len(cross) - LINEAGE_MAX}건 (길이 제한으로 생략)")
+    else:
+        out.append("- 없음 (다른 팀으로 이어지는 간선 기준).")
+    if same:
+        out.append(
+            f"- 같은 팀 내부 간선 {same}건은 생략 — 대부분 리믹스반·라이브반·디럭스 같은 발매 포장이다."
+        )
+    out.append("")
+    return out
+
+
 def export_bucket_context(conn) -> str:
     """Assemble the compact, read-only 버킷 컨텍스트 block (the grounding spine)."""
     rows = _fetch_all(conn, UNWRITTEN_SQL)
     research = _fetch_all(conn, RESEARCH_SQL)
     recency = _fetch_all(conn, RECENCY_SQL)
     reviewed = _fetch_all(conn, REVIEWED_SQL)
+    genius = _fetch_all(conn, GENIUS_SQL)
+    cat_tracks = _fetch_all(conn, CATALOG_TRACK_SQL)
+    cat_albums = _fetch_all(conn, CATALOG_ALBUM_SQL)
 
     reviewed_ids = {str(r["album_id"]) for r in reviewed}
 
@@ -322,6 +669,8 @@ def export_bucket_context(conn) -> str:
         parts.append(f"## 아티스트 클러스터 (버킷 내 ≥{CLUSTER_MIN}장)")
         parts.extend(a_clusters)
         parts.append("")
+
+    parts.extend(_genius_graph_section(genius, cand_by, cat_tracks, cat_albums))
 
     parts.append("## 미작성 버킷 앨범 (작성 후보 · 앨범별 1회, 버킷 멤버십 병기)")
     parts.append("형식: [album_id] 제목 — 아티스트 | 장르 | 발매 | 버킷 | 신호\n")
