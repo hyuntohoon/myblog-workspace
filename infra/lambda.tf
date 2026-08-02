@@ -37,18 +37,18 @@ resource "aws_lambda_function" "backend" {
       # the account actually used to sign in; the original naver.com native user
       # (9488ed3c…) is stuck in FORCE_CHANGE_PASSWORD, so require_owner 403'd the
       # live admin on all owner-gated routes (buckets/library/posts) until repointed.
-      OWNER_SUB            = "0468fd3c-2011-70f5-0681-b852ddaade41"
+      OWNER_SUB = "0468fd3c-2011-70f5-0681-b852ddaade41"
       # FIX-nightly-draft-identity Phase A: the nightly draft agent
       # (nightly-agent@ratemymusic.blog, created 2026-07-27). Accepted by
       # require_owner_or_draft_agent on POST /api/posts ONLY — require_owner and
       # its 38 routes are unchanged — and create_post coerces its posts to
       # status='draft', so this identity cannot publish. Empty would mean "no
       # agent" and degrade to owner-only; it is never a wildcard.
-      DRAFT_AGENT_SUB      = "64885d4c-00c1-7082-8c40-8cb1a31d8078"
-      GITHUB_REPO_OWNER    = "hyuntohoon"
-      GITHUB_REPO_NAME     = "myblog_front"
-      GITHUB_REPO_BRANCH   = "main"
-      CONTENT_DIR          = "content/blog"
+      DRAFT_AGENT_SUB    = "64885d4c-00c1-7082-8c40-8cb1a31d8078"
+      GITHUB_REPO_OWNER  = "hyuntohoon"
+      GITHUB_REPO_NAME   = "myblog_front"
+      GITHUB_REPO_BRANCH = "main"
+      CONTENT_DIR        = "content/blog"
       # FEAT-member-dashboard Step 3: manual "지금 새로고침" → SQS; 연동 status read.
       SQS_QUEUE_URL = aws_sqs_queue.blog_sqs.url
       # CHORE-secrets-ssm-migration: secrets read from SSM Parameter Store (SM removed Step 7).
@@ -88,8 +88,16 @@ resource "aws_lambda_function" "music" {
       # and stay public. PREREQ: deploy the myblog_music JWKS->503 handler first
       # (PR #42) + verify the pool's JWKS URL is reachable from this Lambda's
       # egress, else a JWKS outage 500s. Off-switch = remove this ENV line.
-      ENV                  = "prod"
-      FASTAPI_ROOT_PATH    = "/api"
+      ENV               = "prod"
+      FASTAPI_ROOT_PATH = "/api"
+      # AUDIT-2026-07-26 A-5: QUEUE_NAME alone made SqsClient.__init__ resolve the
+      # URL with a blocking sqs:GetQueueUrl on EVERY /candidates call — the client
+      # is constructed per request (search.py) and that resolution sits OUTSIDE
+      # enqueue_album_sync's best-effort try/except, so an SQS blip 500'd an
+      # authed user request instead of just skipping the enqueue. Setting the URL
+      # (as backend and worker already do) removes both the round-trip and that
+      # failure path. QUEUE_NAME stays: SqsClient still reads it for .fifo detection.
+      SQS_QUEUE_URL        = aws_sqs_queue.blog_sqs.url
       QUEUE_NAME           = "blogSQS"
       SECRETS_PARAM        = "/myblog/music" # CHORE-secrets-ssm-migration: SSM Parameter Store
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
