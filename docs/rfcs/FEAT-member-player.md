@@ -391,7 +391,7 @@ into, this piece needs its own regression pass over the persisted islands (`Pock
 rung 1 remote-controls a real Connect device, the audio is not in the tab at all, so it is
 global for free. Persistence is the price of the fallback, not of the feature.
 
-### Step 5b — `/write` layout refactor (playback follows into the editor)
+### Step 5b — `/write` layout refactor (playback follows into the editor) — ✅ SHIPPED + prod-verified 2026-08-02 (front #335, `8e82d74`, deploy 30742211114)
 
 `write-layout.astro` is 35 lines used by exactly one page and carries **no `ClientRouter`, no
 header/footer, no PocketBuckit, no AlbumOverlay, no PWA chrome** — it is an island detached
@@ -409,6 +409,62 @@ an `astro:before-preparation` guard is part of this step, not a follow-up.
 
 **Verification**: playback continues across `/write` ↔ site in both directions; an in-progress
 draft survives (or blocks) a client-side navigation; writer suite + real-browser pass.
+
+#### What the implementation corrected (2026-08-02, front #335)
+
+**The "named risk" above is half right, and the wrong half is the dangerous one.** `/write`
+genuinely has no `beforeunload` guard — but it was never exposed, because **`pagehide` already
+flushed the draft to localStorage**. The actual hazard runs the other way: client-side routing
+**does not fire `pagehide`**, so the island unmounts and the in-memory draft goes with it. Step 5b
+would have *introduced* the data loss it was written to prevent.
+
+And the fix is not the guard the RFC imagined. Flushing on `astro:before-preparation` restores the
+existing guarantee exactly — nothing is lost, so there is nothing to warn about, and no confirm
+dialog belongs in the path. Measured: typed prose **absent** from localStorage (214 B) → navigate
+away client-side → **present** (245 B), with the island confirmed unmounted and the 30 s autosave
+nowhere near firing, so the flush is the only thing that could have written it. Navigating back
+restored the text into the editor.
+
+**A second hazard the RFC did not name at all: the `/write` login gate would have been bypassed.**
+`write.guard.ts` is a page script, and Astro's `deselectScripts` marks a script already-executed
+*by src* — so it runs on a fresh load and **never again**, letting a second client-side arrival at
+`/write` through. `data-astro-rerun` is the documented opt-out and is a **trap here**: any
+attribute makes Astro treat the script as `is:inline`, dropping bundling, and the module imports
+`@lib/auth` — it would have shipped as a raw `.ts` src and 404'd (`astro check` warns `astro(4000)`
+out loud). The module re-arms itself on `astro:page-load` instead, with a path check because the
+listener outlives the page.
+
+**Scope narrowed against the RFC's own wording.** "Mount the persisted player shell" was read
+strictly: `ClientRouter` + the playback-persist script, and nothing else. No site header/footer, no
+PocketBuckit, no AlbumOverlay on `/write` — pulling site chrome into a full-screen editor is a
+product change wearing a refactor's clothes, and those islands not persisting onto `/write` is
+exactly today's behavior. Both sides need `ClientRouter` or the router falls back to a document
+load; the built output confirms `/write` and `/` share the **same** router and persist chunks.
+
+**Verified**: lint clean · `astro check` 0 errors · 173 tests · build 2145 pages. Real browser —
+`/write` ↔ site stays in **one document** in both directions (a window marker survives; before this
+step the execution context was destroyed), audio host **ALIVE** across both crossings, draft
+flushed and restored, `astro:page-load` fires on client-side arrival at `/write`.
+
+**Prod smoke (after deploy 30742211114)** — verified at the chunk level, which is what actually
+decides whether a navigation is client-side: `/write/` and `/` load the **same**
+`ClientRouter…C8icoCZT.js`; `/write/` installs the **same** `playbackPersist.client.CABP_EJe.js`
+that `layout.astro` does; and the login gate ships as bundled JS importing `auth`, with the
+`astro:page-load` re-arm and path check intact. Gate held live: logged out, clicking `/write`
+bounced to Cognito.
+
+Worth stating precisely now that it is deployed — **the re-arm's real scenario is not the
+logged-out first visit.** There the script has not run yet, so the head swap inserts and executes
+it either way. The hole it closes is: log in → visit `/write` → hit LOGOUT in the header →
+navigate back client-side. Without the re-arm, `deselectScripts` skips the already-executed gate
+and the editor opens.
+
+**Honest limits.** The logged-out redirect itself is not reproducible locally — `isLoggedIn()`
+returns `true` unconditionally on localhost — so the re-arm is verified structurally (listener
+present in the shipped chunk + the event demonstrably firing); prod `/write` still redirects to
+Cognito when logged out. Separately, `/write` logs a React **hydration mismatch** on the save dot
+(SSR has no localStorage → renders `dirty`, hydrates `saved`); reproduced on a plain full reload,
+i.e. the pre-5b model, so it is **pre-existing and independent of routing**. Left alone — its own fix.
 
 ### Step 6 (candidate menu) — Connect control extensions — PROMOTED 2026-07-21, subset 6a+6b+6d ✅ SHIPPED (front #302 + bucket-row entry in #303)
 
@@ -518,6 +574,9 @@ clickthrough pending (checklist in #302 body).
 | 2026-08-02 | Device transfer moved **6e → Step 5**; remainder of 6e (shuffle/repeat/volume) stays a candidate. Media Session API added to Step 5 as mandatory, not decorative | 5, 6 |
 | 2026-08-02 | **Owner question answered by measurement, not docs: one app serves every user.** 6/6 Dev-Mode-removed capabilities answer 200 ⇒ Extended Quota Mode, unlimited users, no allowlist, no second app registration ever needed. Recorded the corollary as a standing risk: since 2025-05-15 individuals cannot obtain extended access, so this grant is irreplaceable and *already-shipped* catalog/library/좋아요 features depend on it | all |
 | 2026-08-02 | **Step 5 scoped owner-only.** The owner's live grant already carries `streaming` (measured) ⇒ zero re-consent. Member tier deferred not for consent fatigue but because prod has 1 Spotify integration total — shipping it now would deploy something unverifiable. Member code path still built; only the scope stays closed | 5 |
+| 2026-08-02 | **Step 5b SHIPPED** (front #335, `8e82d74`) — and it corrected its own named risk. `/write` was **not** unprotected: `pagehide` already flushed the draft. The hazard is that client-side routing does not *fire* `pagehide`, so this step would have introduced the loss it was written to prevent. Fix is a flush on `astro:before-preparation`, not a confirm dialog — the guarantee is restored exactly, so nothing needs warning about | 5b |
+| 2026-08-02 | **A hazard the RFC never named: the `/write` login gate would have been bypassed.** `deselectScripts` marks a page script already-executed by src, so it runs once and never again — a second client-side arrival would walk in. **`data-astro-rerun` is a trap**: any attribute makes Astro treat the script as `is:inline`, dropping bundling, and the module imports `@lib/auth` → it would ship as a raw `.ts` src and 404. The module re-arms on `astro:page-load` instead, path-checked because the listener outlives the page | 5b |
+| 2026-08-02 | **"Mount the persisted player shell" read strictly** — `ClientRouter` + the persist script and nothing else. No site header/footer/PocketBuckit/AlbumOverlay on `/write`: pulling site chrome into a full-screen editor is a product change wearing a refactor's clothes, and those islands not persisting there is already today's behavior | 5b |
 | 2026-08-02 | **Step 5 SHIPPED** (front #334, `9df4c7a`). The implementation found the ladder was smaller than the reframing implied: the two paths differ by **exactly one query parameter** — same endpoint, same body, only `device_id` — so rung selection stayed attempt-then-fallback (the 404 the old path already returned *is* the "no active device" signal) instead of a `GET /me/player/devices` probe. One request on the happy path, D28 by construction. The device picker reused the Step 4 device line as its own trigger rather than adding chrome. Media Session bound on rung 2 only, so it never competes with a real device's own app | 5 |
 | 2026-08-02 | **The swap override is inert unless this tab is the audio device** — that guard is what makes a site-wide navigation change shippable. With no audio host in `<body>`, Astro's default swap runs untouched, so the ordinary navigation keeps stock behavior and stock risk. Also decided: copy upstream's `swapBodyElement` faithfully (persist-id match, the `astro-island` props copy, `attachShadowRoots`) rather than simplify it — the props-copy default is opt-*out*, so "this site does not need it" was an assumption worth not making | 5 |
 | 2026-08-02 | **Left alone on purpose**: `sendPlayerCommand` still does not dispatch `MYBLOG_PLAYBACK_CHANGED` for transport kinds. Unifying the play paths made it tempting to close, but that is `FEAT-lyrics-viewer-playback` OQ4's open decision — a step must not silently resolve another RFC's open question | 5 |
