@@ -195,6 +195,9 @@ resource "aws_apigatewayv2_route" "buckets_patch" {
 # GET /api/me rides the edge_guard catch-all (api_get_proxy) — the Lambda's
 # require_cognito_token validates the JWT and lazy-provisions the users row.
 # The mutations are Cognito-JWT gated here (buckets_patch pattern).
+# Same for the two authed reads under it, deliberately routeless:
+# GET /api/me/album-states (FEAT-album-review-authoring Step 1) and
+# GET /api/me/review-candidates (Step 2) — both private, both JWT-in-Lambda.
 resource "aws_apigatewayv2_route" "me_patch" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "PATCH /api/me"
