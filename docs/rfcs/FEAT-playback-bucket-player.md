@@ -632,9 +632,86 @@ tab's heartbeat is actually throttled to, and what a hard tab kill leaves behind
 either lets a hidden tab lose ownership it is still using, or leaves playback unclaimable after a
 crash. Recorded as a measured number with its recipe (memory `feedback-verify-by-running-not-reading`).
 
+#### Measured 2026-08-03 — Chrome 151.0.7922.72, macOS 25.6
+
+Recipe, so the numbers can be re-taken rather than trusted: two tabs of a static page on
+`http://127.0.0.1`, each running `setInterval(…, 1000)` that appends `{gap, at, visibilityState}` to
+`localStorage` and renews a lease record; each answers a `BroadcastChannel('m')` `ping` from a
+`onmessage` handler; the **foreground** tab reports both tabs' records to a local HTTP collector every
+5 s, so the hidden tab is never selected — selecting it to read it would end the throttling under
+measurement. Run against a **plain** Chrome (`--user-data-dir=<tmp>` and nothing else). The
+CDP/Puppeteer browser is useless here: it launches with `--disable-background-timer-throttling
+--disable-backgrounding-occluded-windows --disable-renderer-backgrounding`, so it reports no
+throttling at all — a control-free measurement that would have confirmed whatever we hoped
+(memory `feedback-measure-with-a-control`).
+
+| # | Measured | Value |
+|---|----------|-------|
+| M1 | Hidden tab's 1 s interval degrades to | **one wake per 60.0 s** (max gap 60005 ms) |
+| M2 | Time hidden before that degradation | **~65 s** — not the 5 minutes usually assumed |
+| M3 | Tab visibility when Chrome is not the frontmost app | **every tab is `hidden`**, the active one included |
+| M4 | `BroadcastChannel` ping answered by that fully-throttled tab | **≤2 ms, 48/48**, all while hidden, sustained past 11 min |
+| M5 | Lease left on disk by `SIGKILL` of the whole browser | **survives**, **42.6 s stale** at the instant of the kill |
+
+**What the numbers decide.** M3 is the one that reframes the problem: throttling is not an edge case
+for a tab the user "hid", it is the *normal* state of a playback tab the moment the user switches to
+another app. Combined with M1, a heartbeat-age threshold that never steals from a live owner has to
+exceed 60 s — and by M5 that leaves a *crashed* owner's playback unclaimable for over a minute, which
+is the opposite failure. **There is no safe-and-fast threshold.** So heartbeat age is demoted to
+permission to *ask*, never permission to *take*: liveness is proven by a challenge/response over the
+channel, which M4 shows is untouched by throttling because message handlers are not timer tasks.
+
+```ts
+HEARTBEAT_MS = 5_000   // renewal cadence; degrades to ~60 s when throttled, and that is now harmless
+STALE_MS     = 15_000  // the age at which a mirror starts CHALLENGING — not taking
+CHALLENGE_MS = 1_000   // answer window; measured worst answer was 2 ms, so this is ~500x margin
+```
+
+Worst-case reclaim after a crash is therefore `STALE_MS + CHALLENGE_MS` ≈ 16 s, and a throttled-but-live
+owner is challenged roughly every 15 s and keeps its lease every time, at a cost of two messages.
+
+**Design consequences beyond the constants.** Explicit transfer and stale reclaim are *different
+paths*: `claim()` is unconditional (T4 says a non-owner claiming the lease takes it — a user pressing
+the button must not be argued with), while automatic takeover is only ever reached through a
+challenge that went unanswered. And because `anchor.wallMs` is `performance.now()`, whose origin is
+per-document, the position anchor is translated to an epoch instant on the wire and rebuilt on
+receipt — shipping it raw would leave every mirror's progress line wrong by the tabs' age difference.
+
 **Verification**: two real tabs — transfer both directions; kill the owner (task-manager kill, not a
 clean close) and confirm the survivor can claim; background the owner past the timeout and confirm it
 is **not** stolen; rung-1 case confirms both tabs stay usable controls.
+
+#### Verified 2026-08-04 — two real tabs on the member dashboard, prod data
+
+Both tabs ran the real dashboard against prod through a Bearer-rewriting proxy, with a **stateful**
+Spotify stub (a stub that does not change state on play makes adoption report idle and erases every
+result — the play/pause distinction also has to match on `/v1/me/player/pause`, since that path
+contains the substring `/play`).
+
+| Scenario | Result |
+|---|---|
+| Rung 1 — both tabs usable controls | B pressed ⏸ and issued **0** Spotify calls; A executed `PUT /v1/me/player/pause`; both tabs flipped to ▶. One writer, two remotes. |
+| Transfer A→B | B's banner take-over moved the lease `cc87992e → 5c002078`; banner cleared, transport enabled, B raised its own device. |
+| Transfer B→A | A mirrored the track **B** had started (*Paranoid Android*), took over, lease back to `cc87992e`. |
+| Owner throttled, still alive | Lease aged to **39 s** — 2.6× `STALE_MS` — and was **never taken**. A answered every challenge from its message handler. A naive timeout steals at 15 s. |
+| Owner killed | Survivor reclaimed in **15.9 s**, against the predicted `STALE_MS + CHALLENGE_MS` ≈ 16 s. |
+| Mirror is read-only for *transport only* | On rung 2 the mirror's three transport buttons were `disabled` and the banner showed, while all queue rows stayed clickable — ownership never gates the queue. |
+| Mirror does not read Spotify | After an owner existed, the mirror issued **0** `GET /v1/me/player`. |
+
+The throttled-owner and killed-owner cases were produced by reproducing the *measured* signatures
+rather than by waiting on the browser: timers cleared = M1/M2 (the 5 s heartbeat simply never fires),
+outbound channel silenced = a dead renderer, which from every other tab is exactly a stale lease, no
+answer and no `released`. Closing the tab instead would have taken the clean-release path, which is
+the opposite of the case under test. That the lease *survives* a real process kill is M5, measured
+directly against Chrome's on-disk `Local Storage/leveldb` after `SIGKILL`.
+
+**Integrating with #348/#349, which landed on `main` mid-step.** Three things Step 7 had to add
+beyond the lease: `external` now-playing crosses the wire (without it a mirror renders "nothing is
+playing" while the owner shows a track — confidently wrong is worse than blank); `adoptLive()` is
+owner-only (two tabs adopting independently are two writers racing over one state, each overwriting
+the other with a slightly older read); and `replaceQueueAndPlay` takes the lease rather than
+forwarding, because ▶ can raise *this* tab as the SDK device and its Undo belongs to the tab that
+pressed. Each is covered by a test that was confirmed to fail without it.
 
 ---
 
