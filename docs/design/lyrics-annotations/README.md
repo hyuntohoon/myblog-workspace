@@ -5,9 +5,16 @@ tapping a marked passage opens the Genius commentary attached to it.
 
 **Chosen: the Genius house style** (`houses/genius.html`). Owner decision, 2026-07-26.
 
-`FEAT-lyrics-annotations` was promoted to **accepted on 2026-07-26**, so Thread 1 is cleared to build
-against this direction. This is the visual half of the record; the mechanism lives in
-`docs/rfcs/FEAT-lyrics-annotations.md` §6, and the storage schema in §6.9.
+`FEAT-lyrics-annotations` was promoted to **accepted on 2026-07-26** and **closed `done` on
+2026-08-03**; Thread 1 built out against this direction and shipped. This is the visual half of the
+record; the mechanism lives in `docs/archive/done/rfcs/FEAT-lyrics-annotations.md` §6, and the
+storage schema in §6.9.
+
+One measured caveat this record should carry: the in-text tier was chosen on *LUX*, and the closing
+KR/EN regression found **Korean anchors at 14–33% placed against an English control at 74–78%** —
+under the <40% band where that RFC's own rule says song-level panel only. It was left as is (32
+Korean songs / 86 annotations catalog-wide, and the unmatched drawer already absorbs the remainder),
+so a Korean sheet reads thin by design rather than by defect. RFC §6.6.
 
 ---
 
