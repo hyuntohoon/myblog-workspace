@@ -373,8 +373,13 @@ bucket must allow**; widening that index would touch every other bucket. `'playb
 already allows duplicates, and its serializer path already ships (the member-authoring follow-on
 renders playback tiles off the shared `TrackBrief`).
 
-**Gate**: human applies to Neon prod (rule #3) and confirms the CHECK + index exist **before** the
-backend pin bump (`reference-shared-db-cross-repo-rollout`).
+**Gate**: applied to Neon prod on the owner's go-ahead — **not human-only**. Hard rule #3 restricts
+*rollback* migrations; a forward migration is applied by Claude with approval, and there is precedent
+(V30/V31, 2026-06-24, "Claude, owner-approved"; V50, 2026-07-31). Procedure, which is what the gate
+actually enforces: `BEGIN…ROLLBACK` dry-run against prod first, then apply (each `V{N}__` file wraps
+its own `BEGIN…COMMIT` — memory `reference-migration-file-self-commits`), then re-verify the CHECK +
+index live, **before** the backend pin bump (`reference-shared-db-cross-repo-rollout`). Connection
+string via SSM `/myblog/backend` (`reference-database-url-psql`).
 
 **Rollback**: `DROP INDEX` + restore the two-value CHECK — trivial while no `type='playback'` row
 exists, **not** once one does, so it stays in its own migration.
@@ -403,7 +408,10 @@ exists, **not** once one does, so it stays in its own migration.
 guard (mocks cannot prove index/CHECK behavior — memory `feedback-sa-session-lifecycle-mock-blind`);
 `openapi` diff committed; route probed live.
 
-**Gate**: human applies the apigateway route; prod smoke quoted in the PR comment.
+**Gate**: `terraform apply` for the new route on the owner's go-ahead — again not human-only. Hard
+rule #6 bans `-target` without a go-ahead and requires a **full plan**; stop on unexpected drift.
+Precedent: the `worker-isrc-backfill` rule was applied this way (2026-07-26, "오너 승인으로
+`terraform apply` 실행, 3 add/0/0"). Then prod smoke quoted in the PR comment.
 
 ---
 
@@ -614,6 +622,7 @@ decided at Step 6 after the side-by-side comparison, not before.
 | 2026-08-03 | "Exactly one per user" uses the **existing per-user partial-unique idiom** (V40 re-scoped `single_done`/`single_spotify_library` from table-wide to per-user), so OQ12's no-global-singleton rule is honored by construction | 2 |
 | 2026-08-03 | The system-bucket delete guard is a **pattern fix, not a feature**: `delete_bucket` has no guard today, so `spotify_library` and `to_listen` are also deletable. Same PR, sweep named in the body | 3 |
 | 2026-08-03 | Step 5 (queue model) ships with **no play call at all**, so a Step-6 regression is unambiguously a player bug rather than a queue bug | 5 |
+| 2026-08-03 | **Correction (owner caught it): the schema and infra gates were written as "human applies", which misreads hard rule #3.** That rule restricts *rollback* migrations; a forward migration is Claude-applied with owner approval, and this repo has done exactly that (V30/V31 2026-06-24, V50 2026-07-31; `terraform apply` 2026-07-26). What the gate really enforces is the **procedure and the ordering** — dry-run, apply, live re-verify, and only then the pin bump — not who types it. Steps 2 and 3 corrected | 2, 3 |
 | 2026-08-03 | **Owner: Status draft → accepted**, both successor RFCs promoted, playback bucket first (v2's audit runs in parallel — different repos, no shared files) | — |
 | 2026-08-03 | **Owner (past the recommendation): members get BOTH rungs — open the `streaming` scope.** Recorded costs: the scope + re-consent belong to `FEAT-member-player`, every connected member re-consents (today: 1 account, already holding `streaming`), and the member tier ships unverified until a second Premium account exists. OQ1 closed | 3, 6 |
 | 2026-08-03 | **Owner: no expansion confirmation at any size + bucket-local Undo.** Reverses pocket-buckit D8's 1:N confirmation for this bucket only. OQ3 closed | 5 |
