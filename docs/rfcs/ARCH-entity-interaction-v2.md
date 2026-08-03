@@ -1,6 +1,6 @@
 # ARCH-entity-interaction-v2: one canonical definition per entity — identity, URL, open, data, actions, drag payload
 
-- **Status**: draft
+- **Status**: accepted (owner approval 2026-08-03, in-session)
 - **Owner**: TBD
 - **Created**: 2026-08-03
 - **Plan row**: `plan.md` → ARCH-entity-interaction-v2
@@ -433,6 +433,7 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-03 | **Owner: Status draft → accepted.** Runs in parallel with `FEAT-playback-bucket-player` (different repos, no shared files); only that RFC's Step 8 waits on Steps 1–3 here | 1 |
 | 2026-08-03 | Filed as a draft alongside `FEAT-playback-bucket-player` after a joint audit; scoped as the **third** RFC in the entity-interaction lineage (contract → unify → v2), inheriting both predecessors' contract points rather than replacing them | 1 |
 | 2026-08-03 | **`component-map.md` measured stale** — its "NowPlaying / LikedBoard artists not linkable" claim is false since front #293 (2026-07-19) and #299 (2026-07-21). Step 1 therefore re-measures every row instead of extending the map | 1 |
 | 2026-08-03 | **The album-detail revisit starts from the accurate state**, not the brief's framing: `ARCH-entity-interaction-unify` Step 1 already extracted the shared read body and struck component-map duplication #1. The live question is two hosts vs one, and the recommended default is **no further change** | 2 |

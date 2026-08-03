@@ -1,6 +1,6 @@
 # FEAT-playback-bucket-player: the system-owned Playback Bucket and its two player forms
 
-- **Status**: draft
+- **Status**: accepted (owner approval 2026-08-03, in-session; four decisions recorded below)
 - **Owner**: TBD
 - **Created**: 2026-08-03
 - **Plan row**: `plan.md` → FEAT-playback-bucket-player
@@ -9,6 +9,12 @@
   navigation-persistence override. **All shipped and prod-verified 2026-08-02, cold start
   owner-confirmed 2026-08-03** (front #334 `9df4c7a`, #335 `8e82d74`, #336, #337 `c8e951e`,
   #340 `a592360`, #342). This RFC **consumes** them and must not rebuild them.
+- **Prerequisite created by the owner's 2026-08-03 decisions — both live in OTHER RFCs, not here**:
+  (a) opening the member `streaming` OAuth scope, which belongs to `FEAT-member-player` (it owns
+  `integrations.api.ts` scopes and the re-consent banner idiom); (b) opening `GET /api/lyrics/{id}`
+  beyond `require_owner`, which belongs to the lyrics stream that closed it (`FEAT-lyrics-annotations`
+  §6.9 O2). This RFC **consumes** both and must not make either change itself — an auth-guard or
+  scope change smuggled into a playback step is exactly the pattern CLAUDE.md forbids.
 - **Depends on**: `docs/rfcs/ARCH-entity-interaction-v2.md` Steps 1–3 (canonical entity identity +
   the drag-payload contract + the interaction-conflict prototype) — gates this RFC's Step 8 only.
   Exactly two surfaces in the product are draggable today.
@@ -196,6 +202,11 @@ in `scripts/header.client.ts` (auth). Single-tab playback ownership is entirely 
   cosmetic): `delete_bucket` rejects `kind IN ('playback_queue','spotify_library','to_listen')` with
   409; `create_bucket` rejects `type='playback'` from user input; `move_bucket`/`reorder` are
   untouched, so position and parent stay fully user-controlled.
+- **Eligibility (owner decision 2026-08-03): members get BOTH rungs.** The member OAuth scope set
+  opens to include `streaming`, so a connected Premium member can remote-control an active device
+  (rung 1) *and* raise this tab as the in-page device (rung 2), exactly as the owner can. Free
+  accounts still fail rung 2 at `account_error` → `unsupported`, which the shipped ladder already
+  handles. The scope change itself is `FEAT-member-player`'s to make (see *Prerequisite* above).
 - **Losing Spotify permission preserves bucket and queue.** Eligibility gates *playing*, never
   *existing*. A member whose token route returns 404/503, or whose transport probe 403s, keeps the
   bucket, keeps every row, and sees a disabled player with the reason and the fix — the
@@ -506,38 +517,61 @@ ARCH-entity-interaction-v2   S1 ──> S2 ──> S3 ────────�
 
 Only questions whose answer changes the work.
 
-1. **Who gets a Playback Bucket, and which rung do they get?** *(blocks Step 3's auto-create trigger
-   and Step 6's scope.)* Eligibility is already two-tiered in shipped code: the member OAuth scope set
-   (`integrations.api.ts:55`) omits `streaming`, so a connected Premium **member** can drive **rung 1**
-   (remote-control an active device) but cannot raise **rung 2** (in-page audio). The owner's stored
-   grant does carry `streaming`. So "eligible Spotify playback permission" resolves to: owner = both
-   rungs; member = rung 1 only; unconnected = neither. **Recommended default**: create the bucket for
-   anyone who is rung-1 eligible, and let rung 2 degrade with the existing `unsupported`/matrix copy —
-   the bucket and queue are useful without in-page audio, and this needs no scope change or
-   re-consent. Needs an owner yes because the alternative (owner-only, matching Step 5's ship scope)
-   changes whether Step 6 must be verifiable on a second account, and prod has exactly **1** Spotify
-   integration.
+1. ~~**Who gets a Playback Bucket, and which rung do they get?**~~ **RESOLVED 2026-08-03 (owner):
+   members get BOTH rungs — open the `streaming` scope.** This goes past the recommended default
+   (rung 1 only, no scope change), so the costs are recorded rather than discovered later:
+   - **The scope change is not this RFC's to make.** `SPOTIFY_SCOPES` lives at
+     `myblog_front/src/components/member/integrations.api.ts:55` and the re-consent banner is
+     `FEAT-member-player` Step 1's idiom. It ships there, before this RFC's Step 6 can claim a member
+     tier. Filed as a prerequisite in the header.
+   - **Every already-connected member must re-consent.** Today that set is exactly one account (the
+     owner), whose stored grant already carries `streaming` — so the migration cost is ~zero *now* and
+     grows with each member who connects before the scope opens. Opening it sooner is cheaper.
+   - **It ships unverified on a second account.** Prod has 4 users and **1** Spotify integration. This
+     is precisely why `FEAT-member-player` Step 5 scoped itself owner-only. The member path will be
+     built and tested against mocks but not exercised by a real second Premium account unless one is
+     provisioned. Named here so it stays a known gap, not a surprise.
+   - Unchanged and fine: Extended Quota Mode is measured, so there is no user cap or allowlist, and a
+     free member still degrades correctly at rung 2 through the existing `unsupported` path.
 2. **Which expanded-player form?** *(blocks Step 6.)* In-page expansion / floating player / dedicated
    player surface / another justified option. **Not decidable from the code** — a product and design
    judgment, and the brief asks for a comparison first. Step 6 opens with a side-by-side comparison at
    realistic scale; the owner picks. **No default asserted**, because asserting one would defeat the
    comparison.
-3. **Where does "no confirmation" stop?** *(blocks Step 5's expansion UX.)* The default this RFC takes
-   is that an intentional drop into a queue needs no confirmation — the drop *is* the intent, and
-   bucket-local Undo (the D-series idiom) is the safety net. Genuinely open: is there a count above
-   which a silent expansion is surprising rather than convenient (a 40-track compilation, a box set)?
-   **Recommended default**: no confirmation at any size, Undo always; revisit only if the owner hits a
-   surprising expansion in real use. Needs a yes because it reverses a D8 rule.
-4. **Is the lyrics entry reachable for non-owner members?** *(blocks Step 6's lyrics affordance only.)*
-   `GET /api/lyrics/{id}` is `require_owner` (FEAT-lyrics-annotations §6.9 O2, 2026-07-28) and the
-   sheet already shows "가사는 운영자만 볼 수 있어요" to a signed-in non-owner. Both forms are required
-   to provide access to lyrics. If OQ1 resolves to "members too", the lyrics entry is a visible dead
-   end for every member. **Recommended default**: ship the entry with the existing owner-only state —
-   it is honest and already built — and leave the gate to the RFC that owns it. Flagged because it is
-   a privacy decision with a written rationale, not a UI detail.
+3. ~~**Where does "no confirmation" stop?**~~ **RESOLVED 2026-08-03 (owner): no confirmation at any
+   size, bucket-local Undo always.** A 40-track compilation expands silently like anything else. This
+   reverses FEAT-pocket-buckit D8's mandatory 1:N confirmation **for a drop onto this bucket only**;
+   every other bucket keeps it. Revisit only if a real expansion turns out to surprise in use — Undo
+   is what makes that cheap to find out.
+4. ~~**Is the lyrics entry reachable for non-owner members?**~~ **RESOLVED 2026-08-03 (owner): open
+   lyrics to members.** This goes past the recommended default (ship the existing owner-only state and
+   leave the gate alone), and it reverses a decision that shipped with a written rationale, so:
+   - **The guard change is not this RFC's to make.** `myblog_backend/app/api/routes/lyrics.py:37,56,75`
+     depends on `require_owner`; reverting it to `require_cognito_token` is an auth-guard change, which
+     CLAUDE.md routes to Claude directly, fail-closed, with a cross-repo twin grep. It belongs to the
+     lyrics stream (`FEAT-lyrics-annotations` §6.9 O2 shipped it as backend #139 + front #319), not to
+     a playback step. Filed as a prerequisite in the header.
+   - **What O2's rationale actually rested on**: `track_lyrics` is documented as **owner-only research
+     data** (`models.py:315-318`), and members *could* read lyrics until 2026-07-28. So this is a
+     re-widening, not a new exposure — the front already has the 403-as-a-state UI from #319 that would
+     become dead code.
+   - The FEAT-lyrics-viewer **public** invariant is untouched either way: no public route, page, search
+     or shared payload carries lyric text or its presence. Members are authed, not public.
+
+4b. **NEW, and genuinely undecided: do the annotations open too?** *(blocks the lyrics-opening step,
+   blocks nothing here.)* O2 tightened the route and the **annotation fields inherited the gate rather
+   than widening it** — those are Genius-derived facts plus Korean translations, a different kind of
+   content from the lyric text itself, with a third-party source. "가사를 멤버에게 개방" may or may not
+   have meant them. **Recommended default**: open the **lyric text** only and keep annotations
+   owner-only, since that is the smaller reversal and matches what the player forms actually need.
+   Also needs the `models.py:315-318` "owner-only research data" comment corrected either way, or it
+   becomes a false claim in the schema.
 5. **Mobile: what replaces the drag?** *(blocks Step 8; decided by `ARCH-entity-interaction-v2`'s
    prototype, not here.)* HTML5 drag has no touch support, and `AddToBucketMenu` is the shipped WCAG
    2.5.7 non-drag peer. Recorded here only as the consumption point.
+
+**OQ2 (expanded-player form) remains the one genuinely open product question**, by design — it is
+decided at Step 6 after the side-by-side comparison, not before.
 
 > **Closed before filing** — recorded so they are not re-opened: *does `sendPlayerCommand` announce
 > transport changes?* **Yes** since front #342 (transport kinds; modes excluded) — the session store
@@ -580,4 +614,8 @@ Only questions whose answer changes the work.
 | 2026-08-03 | "Exactly one per user" uses the **existing per-user partial-unique idiom** (V40 re-scoped `single_done`/`single_spotify_library` from table-wide to per-user), so OQ12's no-global-singleton rule is honored by construction | 2 |
 | 2026-08-03 | The system-bucket delete guard is a **pattern fix, not a feature**: `delete_bucket` has no guard today, so `spotify_library` and `to_listen` are also deletable. Same PR, sweep named in the body | 3 |
 | 2026-08-03 | Step 5 (queue model) ships with **no play call at all**, so a Step-6 regression is unambiguously a player bug rather than a queue bug | 5 |
+| 2026-08-03 | **Owner: Status draft → accepted**, both successor RFCs promoted, playback bucket first (v2's audit runs in parallel — different repos, no shared files) | — |
+| 2026-08-03 | **Owner (past the recommendation): members get BOTH rungs — open the `streaming` scope.** Recorded costs: the scope + re-consent belong to `FEAT-member-player`, every connected member re-consents (today: 1 account, already holding `streaming`), and the member tier ships unverified until a second Premium account exists. OQ1 closed | 3, 6 |
+| 2026-08-03 | **Owner: no expansion confirmation at any size + bucket-local Undo.** Reverses pocket-buckit D8's 1:N confirmation for this bucket only. OQ3 closed | 5 |
+| 2026-08-03 | **Owner (past the recommendation): open lyrics to members.** Reverses `FEAT-lyrics-annotations` §6.9 O2 (shipped backend #139 + front #319). The guard change belongs to the lyrics stream, not a playback step. Surfaced a sub-question the decision did not cover — **do the Genius-derived annotations open too** (OQ4b, recommended: lyric text only) — plus the now-false `models.py:315-318` "owner-only research data" comment. OQ4 closed | 6 |
 | 2026-08-03 | Eligibility is **two-tiered in shipped code** (member scope omits `streaming` → rung 1 only; owner gets both), so OQ1 is not "owner vs members" but "which rung does a member get" | 3, 6 |
