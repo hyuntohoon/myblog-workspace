@@ -247,9 +247,12 @@ it; neither owns state, neither talks to Spotify directly.
 - **Mini-player** — the Playback Bucket's representation inside Pocket, replacing the generic leaf
   chip/drawer for this one bucket: current track identity, transport, a compact queue, and the three
   entries. First real use of `PocketAction='queue'` and `PocketLeaf.ordered`.
-- **Expanded player** — the form when the bucket is taken outside Pocket. **Which form is not decided
-  here** — Step 6 compares in-page expansion, a floating player, and a dedicated player surface side
-  by side before one is picked (**OQ2**).
+- **Expanded player** — the form when the bucket is taken outside Pocket. **Decided at Step 6 (OQ2,
+  owner 2026-08-03): a docked side panel that tears off into a floating player.** Docked is the
+  default and the site layout yields the dock width, so it pushes rather than covers; the header tears
+  it free; dragging back over the dock slot snaps it home. At 390 there is no dock — it is the
+  full-height sheet with tabs. Both placements render the same session; tearing changes where the
+  panel is, never what it holds.
 - Both forms expose **lyrics**, **track information**, **album information**. Album info reuses
   `openAlbum` (`lib/entityEvents.ts`) — no new album surface. Track info and the lyrics entry route
   through `ARCH-entity-interaction-v2`'s canonical track behavior; the lyrics entry's reachability for
@@ -554,15 +557,30 @@ completion; remove-current advances; the shipped failure taxonomy rendered as on
 action per outcome; rung 2 labelled degraded. Lyrics / track info / album info on both forms.
 **Capability matrix amended in the same PR** (`@lib/playerCapabilityMatrix`).
 
-**Before the UI is written**: Step 6 opens with the **OQ2 comparison** — in-page expansion vs floating
-player vs dedicated surface, rendered side by side at realistic scale (`frontend-design` skill; the
-FEAT-pocket-buckit Design Atlas is this repo's precedent for comparing UI options). The owner picks;
-the pick is recorded in the Decisions log before implementation.
+**OQ2 ran first and is closed** (2026-08-03). The three candidates were rendered side by side at
+realistic scale — desktop plus a genuinely-390px mobile plate — and compared against four real
+products measured in a browser. The owner picked a **fourth** form that the comparison produced:
+
+> **A docked side panel that tears off into a floating player.** Docked is the default; the site
+> layout yields the dock width so the panel *pushes* rather than covers. Grab the header and pull —
+> the seam resists, then tears, and the panel becomes a free-floating player. Drag it back over the
+> dock slot and it snaps home. At 390 there is no dock: it is the full-height sheet with tabs.
+
+The tear/dock physics come from `DockableLyricsSheet` (FEAT-lyrics-sheet PR 2) — **extracted into a
+shared hook, not copied**. Two constraints this form adds, both site-wide rather than dashboard-local:
+the layout needs a dock-width contract (Pocket yields nothing today), and the dock CSS belongs in
+`pocket.css` because `member/layout.css` is dashboard-only.
 
 **Verification**: real-browser clickthrough (DoD) — drop into an empty queue starts audio; drop while
 playing appends without interrupting; drop while **paused** appends without resuming; completion
 removes the row and advances; removing the current item advances; a forced 404/403 leaves the queue
 intact with the right sentence; both forms reflect one session; mobile 390 via `emulate`.
+
+Placement adds four more, since the docked↔floating pair is the OQ2 decision and not a detail: the
+docked panel **pushes** (page content narrows, nothing is covered — measured, not eyeballed); a
+header drag past the threshold **tears** and the reserved slot collapses to 0; dragging the floating
+panel back over the slot **snaps home**; and playback is **unbroken across a tear, a dock, and a page
+navigation** — the point of the form is that moving the panel never touches the session.
 
 **Harness requirement, not optional**: the stub must model Spotify's asynchronous apply (≥1.2 s).
 `FEAT-lyrics-viewer-playback` shipped a real bug precisely here — a 204 is acceptance, not
@@ -644,11 +662,32 @@ Only questions whose answer changes the work.
      provisioned. Named here so it stays a known gap, not a surprise.
    - Unchanged and fine: Extended Quota Mode is measured, so there is no user cap or allowlist, and a
      free member still degrades correctly at rung 2 through the existing `unsupported` path.
-2. **Which expanded-player form?** *(blocks Step 6.)* In-page expansion / floating player / dedicated
-   player surface / another justified option. **Not decidable from the code** — a product and design
-   judgment, and the brief asks for a comparison first. Step 6 opens with a side-by-side comparison at
-   realistic scale; the owner picks. **No default asserted**, because asserting one would defeat the
-   comparison.
+2. ~~**Which expanded-player form?**~~ **RESOLVED 2026-08-03 (owner): the docked side panel is the
+   default, and it tears off into the floating player.** Not one of the three drawn — the comparison
+   produced a fourth, and the owner took it. The panel docks as a right column that the site layout
+   *yields width to* (it pushes, never covers); grabbing its header and pulling tears it into a
+   free-floating player; dragging back over the dock slot snaps it home.
+   - **The mechanism already ships.** `DockableLyricsSheet` (FEAT-lyrics-sheet PR 2) is exactly this
+     interaction — `TEAR_PX 70`, `RESIST 0.35`, ±2° tilt, a host-reserved slot that collapses to 0 when
+     the sheet floats and re-opens as a dashed drop target mid-drag. Step 6 **extracts that physics
+     rather than writing a second copy** (the duplicated-pattern rule); the lyrics sheet keeps its own
+     host geometry.
+   - **Mobile has no dock, by prior decision and by evidence.** `DockableLyricsSheet` is desktop-only
+     because header-drag fights scrolling, and the survey below found the same: Apple Music's web queue
+     panel simply *disappears* at 390. At 390 the playback panel is the full-height sheet with tabs.
+   - **Dock host = site-wide (owner).** Every page yields the dock width, not just the dashboard. Two
+     consequences recorded now rather than discovered: the layout gains a width contract it does not
+     have today (Pocket is a fixed overlay that yields nothing), and **the dock CSS must live in
+     `pocket.css`, not `member/layout.css`** — the latter is dashboard-only, so `.lys-dock-slot`'s
+     styles cannot simply be reused site-wide (memory `reference-member-css-dashboard-only-trap`).
+   - **What the survey measured** (real browsers, DOM measured, 2026-08-03): transport is a thin
+     always-there bar everywhere — SoundCloud `48px`, Apple Music `54px` (`61px` at 390), Genius `80px`
+     (`107px` at 390) — and **no service puts the queue in that bar**. Apple opens it as a `300px`
+     right panel that *pushes* the content. **No service was found floating a card over its own
+     content**, which is what killed the plain floating option as the default. Genius — the owner's own
+     reference — makes the lyrics the route and the player thin furniture. Bandcamp has no persistent
+     player at all: the controls scroll away. Spotify web and YouTube Music are **unmeasured** (both
+     gate the player behind login).
 3. ~~**Where does "no confirmation" stop?**~~ **RESOLVED 2026-08-03 (owner): no confirmation at any
    size, bucket-local Undo always.** A 40-track compilation expands silently like anything else. This
    reverses FEAT-pocket-buckit D8's mandatory 1:N confirmation **for a drop onto this bucket only**;
@@ -685,8 +724,9 @@ Only questions whose answer changes the work.
      one person. Worth one look at the Genius terms in that step — not a blocker, and not this RFC's
      call.
 
-**OQ2 (expanded-player form) remains the one genuinely open product question**, by design — it is
-decided at Step 6 after the side-by-side comparison, not before.
+**Every open question is now closed.** OQ2 was the last, and it closed the way it was supposed to:
+the comparison ran first, at realistic scale, and it changed the answer rather than ratifying a
+pre-picked one — the option the owner took was not among the three this RFC listed.
 
 > **Closed before filing** — recorded so they are not re-opened: *does `sendPlayerCommand` announce
 > transport changes?* **Yes** since front #342 (transport kinds; modes excluded) — the session store
@@ -738,3 +778,10 @@ decided at Step 6 after the side-by-side comparison, not before.
 | 2026-08-03 | **Owner: the annotations open too** (OQ4b, past the recommended lyric-text-only). The lyrics-opening step therefore covers the whole read — route + `annotations` field — and must, in the same PR, correct `models.py:315-318` ("owner-only research data", now false) and delete front #319's 403-as-a-state UI. Flagged for that step, not decided here: the annotations carry Genius-derived content, so attribution now reaches a wider audience | 6 |
 | 2026-08-03 | **Owner (past the recommendation): open lyrics to members.** Reverses `FEAT-lyrics-annotations` §6.9 O2 (shipped backend #139 + front #319). The guard change belongs to the lyrics stream, not a playback step. Surfaced a sub-question the decision did not cover — **do the Genius-derived annotations open too** (OQ4b, recommended: lyric text only) — plus the now-false `models.py:315-318` "owner-only research data" comment. OQ4 closed | 6 |
 | 2026-08-03 | Eligibility is **two-tiered in shipped code** (member scope omits `streaming` → rung 1 only; owner gets both), so OQ1 is not "owner vs members" but "which rung does a member get" | 3, 6 |
+| 2026-08-03 | **Owner: OQ2 closed — the expanded player is a DOCKED SIDE PANEL that TEARS OFF into a floating player.** None of the three forms this RFC listed; the side-by-side comparison produced a fourth and the owner took it. Docked is the default state and the host **yields width** (pushes, never covers); the header tears it free; dragging back over the slot snaps it home | 6 |
+| 2026-08-03 | **The tear/dock physics are extracted from `DockableLyricsSheet`, not re-implemented.** FEAT-lyrics-sheet PR 2 already shipped this exact interaction (`TEAR_PX 70` · `RESIST 0.35` · ±2° tilt · host-reserved slot that collapses to 0 and re-opens as a dashed drop target mid-drag). A second copy is the duplicated-pattern bug class CLAUDE.md names by hand | 6 |
+| 2026-08-03 | **Owner: the dock host is site-wide**, not dashboard-only. Consequences recorded up front: the site layout gains a width contract it does not have (Pocket is a fixed overlay that yields nothing today), and the dock CSS must live in **`pocket.css`** — `member/layout.css`, where `.lys-dock-slot` lives, is dashboard-only and would render the slot unstyled everywhere else | 6 |
+| 2026-08-03 | **No dock at 390 — the sheet with tabs instead.** Agrees with the prior decision (`DockableLyricsSheet` is desktop-only because header-drag fights scrolling) and with measurement: Apple Music's web queue panel is simply absent at 390 | 6 |
+| 2026-08-03 | **Audit finding the RFC had missed: the tail is not URIs.** T2's `play({kind:'uris', …})` needs provider URIs, but the queue projection carries DB `track_id` and the bucket payload has never included a Spotify id. The only resolver is `GET /api/playback/resolve?type=track&id=<one>` — **one id per request**, so a 40-track expansion is a 40-request play tap. Kept front-only for this step behind a resolver seam (`lib/playback/uris.ts`: memoised, in-flight-deduped, prefetched at low concurrency while the queue is on screen, misses dropped from the tail rather than failing the play), so the steady state at play time is **zero requests**. Found by re-verifying the RFC's own claims against the code before writing any | 6 |
+| 2026-08-03 | **Follow-up, deliberately not taken here because it is cross-repo: surface `tracks.spotify_id` on playback bucket items.** The column is already `NOT NULL UNIQUE`, so the URI is `spotify:track:<id>` with no lookup at all — the payload field deletes `lib/playback/uris.ts` outright and makes the tail free even cold. Not folded into Step 6 because it is backend + contract + front (three PRs in merge order) and would turn a front-only step cross-repo | — |
+| 2026-08-03 | **The comparison was run against real products, measured rather than recalled** (Genius · Apple Music web · SoundCloud · Bandcamp; Spotify web and YouTube Music unmeasured behind login). Two findings changed the decision: **nobody floats a card over their own content** (which is why the plain floating form is the torn-off state and not the default), and **nobody solved queue + lyrics + transport in one phone overlay** — every measured service either drops the queue on mobile or never had one | 6 |
