@@ -589,6 +589,39 @@ application, and a same-tick stub erases the window where a stale read returns t
 
 ---
 
+### Step 6b — front: the panel describes ALL playback, and ▶ replaces the queue
+
+Not planned. Added after the owner used Step 6 and reported three things, which turned
+out to be one thing: the session keyed on `currentItemId` — a **bucket row id** — so it
+could only ever know about playback it had started from the queue, and every other ▶ in
+the product called `play()` behind its back.
+
+**First half — adoption** (front #348). The session reads live playback on mount and on
+`MYBLOG_PLAYBACK_CHANGED` (no polling; D28 intact). A live track that matches a queue row
+adopts that row; anything else becomes `external` and is labelled as playing outside the
+queue. **Transport works in both cases** — the RFC's own non-goal already said Spotify is
+authoritative for what is *playing*, and Step 6 had shipped only the other half.
+
+**Second half — replacement.** ▶ on an album or a track makes it the queue and plays it,
+through one session entry (`replaceQueueAndPlay`) that all three ▶ call sites now use.
+Because there is no bulk delete, a replacement is N+1 requests, so the rule is **write
+first, delete second** — deleting first opens the failure window on an empty queue, where
+there is nothing to play and nothing left to undo. Displaced rows are pruned optimistically
+and deleted sequentially after playback starts. Destructive ⇒ **Undo**, using the shipped
+bucket-local idiom and no confirmation dialog (OQ3's trade).
+
+**Verification**: a CONTROL run — inverting the order to delete-first must fail the
+half-erased-queue invariant and both failures-preserve cases — plus real-browser sampling
+dense enough to prove no intermediate queue state exists, not merely that the end state is
+right.
+
+**Known, deliberately not fixed here**: a play/pause we issue triggers an adoption read
+inside Spotify's ack→apply window, and the stale answer overwrites the state we just set
+(display-only, self-heals on the next event). Fixing it needs either "ignore reads we
+caused" or an apply-window constant — and constants in this RFC are measured, not guessed.
+
+---
+
 ### Step 7 — front: single-tab ownership, transfer, and owner-tab failure recovery
 
 Lease + `BroadcastChannel` + `storage` fallback; mirror-mode rendering; explicit transfer; stale-lease
@@ -784,4 +817,12 @@ pre-picked one — the option the owner took was not among the three this RFC li
 | 2026-08-03 | **No dock at 390 — the sheet with tabs instead.** Agrees with the prior decision (`DockableLyricsSheet` is desktop-only because header-drag fights scrolling) and with measurement: Apple Music's web queue panel is simply absent at 390 | 6 |
 | 2026-08-03 | **Audit finding the RFC had missed: the tail is not URIs.** T2's `play({kind:'uris', …})` needs provider URIs, but the queue projection carries DB `track_id` and the bucket payload has never included a Spotify id. The only resolver is `GET /api/playback/resolve?type=track&id=<one>` — **one id per request**, so a 40-track expansion is a 40-request play tap. Kept front-only for this step behind a resolver seam (`lib/playback/uris.ts`: memoised, in-flight-deduped, prefetched at low concurrency while the queue is on screen, misses dropped from the tail rather than failing the play), so the steady state at play time is **zero requests**. Found by re-verifying the RFC's own claims against the code before writing any | 6 |
 | 2026-08-03 | **Follow-up, deliberately not taken here because it is cross-repo: surface `tracks.spotify_id` on playback bucket items.** The column is already `NOT NULL UNIQUE`, so the URI is `spotify:track:<id>` with no lookup at all — the payload field deletes `lib/playback/uris.ts` outright and makes the tail free even cold. Not folded into Step 6 because it is backend + contract + front (three PRs in merge order) and would turn a front-only step cross-repo | — |
+| 2026-08-03 | **Owner, after using Step 6 — three complaints, one cause.** (1) playing an album had no relationship to the queue; (2) a track had no ▶ that touched it; (3) whatever was actually sounding could not be controlled from the panel. All three because the session keyed on `currentItemId` (a **bucket row id**), so it could only ever know about playback **it had started from the queue** — and every other ▶ in the product went straight to `play()`, behind its back | 6b |
+| 2026-08-03 | **Complaint 3 closed by ADOPTION (first half, front #348).** The session reads `readLivePlayback` on mount and on `MYBLOG_PLAYBACK_CHANGED` — **no polling, D28 intact**. A live track matching a queue row adopts that row; anything else becomes `external` ("〈device〉에서 재생 중 · 대기열 밖"), and **transport works either way** — a player that can see what is playing but refuses to pause it is the bug, not the feature. `paused` is adopted rather than folded into idle, `unavailable` is a failure rather than silence, and the anchor is `readAtMs` | 6b |
+| 2026-08-03 | **Owner: ▶ REPLACES the queue and plays it** (complaints 1+2). Not append, not "play without touching the queue" — the thing you pressed *becomes* the queue. Consequence taken deliberately: every play in the product now passes through one entry (`replaceQueueAndPlay`), so the panel is right **by construction** rather than by adoption. Whether a track ▶ means "that one track" or "that track to the end of its album" is left to use — for now it replaces with exactly what was pressed | 6b |
+| 2026-08-03 | **Replacing is destructive ⇒ Undo, and no confirmation dialog** — the same trade OQ3 already made for album expansion, reusing the shipped bucket-local idiom (`AddToBucketMenu`: label + 되돌리기). Undo restores the rows but **does not restart the old audio**: the harm being undone is the lost queue, and cutting off what the member just started would be a second surprise, not a reversal of the first | 6b |
+| 2026-08-04 | **Ordering IS the correctness story, because there is no bulk delete.** A replacement is N+1 requests and any can fail, so: **write first, delete second**. Deleting first puts the failure window on an *empty* queue — old rows gone, new rows never written, nothing to play and nothing left to undo. Appending first means the worst case is a queue holding both lists: visibly wrong, but nothing lost. Displaced rows are pruned optimistically (so the panel is right immediately) and deleted **sequentially** — `position` is server-assigned and firing N deletes at a list being renumbered is an unmeasured race. A failed delete refetches the truth rather than leaving the optimistic prune lying | 6b |
+| 2026-08-04 | **The ordering rule is verified by a CONTROL, not by assertion.** Inverting `rewriteQueue` to delete-first fails exactly 4 tests — the half-erased-queue invariant plus both failures-preserve cases — so the suite is not self-satisfying. Separately measured in a real browser at 250 ms sampling: across a full replace the queue length was only ever 11 or 13, **never an intermediate value** | 6b |
+| 2026-08-04 | **Found while verifying, NOT fixed here: our own transport races its own adoption.** `MYBLOG_PLAYBACK_CHANGED` fires the moment a play/pause is acknowledged, and the `adoptLive()` it triggers reads **inside Spotify’s ack→apply window**, so the stale answer overwrites the state the action just set — start playback and the panel shows ▶, pause and it snaps back to Ⅱ. Display-only and self-heals on the next event. Left alone on purpose: the fix is either "ignore reads we caused" or an apply-window constant, and this RFC’s own Step 7 rule is that such constants are **measured, not guessed**. Owner decision pending. (First diagnosed against a stub that omitted `item.type`, which made *every* live read fall to `idle` — re-confirmed only after fixing the stub) | 6b |
+| 2026-08-04 | **The track ▶ ships DORMANT and that is recorded rather than worked around.** Its only surface is `albumDetail.client.ts`, loaded solely by `/review/[slug]`, and prod has **zero** review pages — the same position 6c’s 다음에 듣기 is in. It is wired and type-checked but cannot be clicked in prod, so the owner’s "it has to work from a track too" is only half-answered until a review page exists. Granting a track ▶ to a reachable surface is a product decision `TrackRow` explicitly reserves (OQ2 / `ARCH-entity-interaction-v2`), so it was not taken unilaterally | 6b |
 | 2026-08-03 | **The comparison was run against real products, measured rather than recalled** (Genius · Apple Music web · SoundCloud · Bandcamp; Spotify web and YouTube Music unmeasured behind login). Two findings changed the decision: **nobody floats a card over their own content** (which is why the plain floating form is the torn-off state and not the default), and **nobody solved queue + lyrics + transport in one phone overlay** — every measured service either drops the queue on mobile or never had one | 6 |
