@@ -475,6 +475,51 @@ Precedent: the `worker-isrc-backfill` rule was applied this way (2026-07-26, "�
 
 ### Step 5 — front: the bucket, the drop rules, the queue model (no player yet)
 
+> ✅ **SHIPPED 2026-08-03** — front #345. The queue is a correct, orderable,
+> duplicate-tolerating list and **not one note has been played**, which is what makes a
+> Step-6 regression unambiguously a player bug.
+>
+> Verified in a real browser against **prod data** (dev server → local proxy rewriting the
+> smoke JWT), not a synthetic harness:
+>
+> - **album → 12 rows in album order.** Dropping *OK Computer* expanded to Airbag →
+>   Paranoid Android → … → The Tourist, exactly the canonical order, from one POST.
+> - **duplicate track drop succeeds** — 12 → 13 rows, Paranoid Android now present twice,
+>   appended at the tail, flashed 추가 (not 이미 담겨 있어요; there is no 409 path here).
+> - **artist rejected, muted-not-hidden, no reflow.** Drag-over is not accepted
+>   (`defaultPrevented === false`) and **zero writes** are issued. In the tray the queue
+>   chip goes `opacity 0.38` with the reason `재생 대기열 — 트랙 · 앨범만 받아요` while
+>   staying visible, and every chip's `x/y/width` is byte-identical before / during /
+>   after the drag — the D-series no-reflow invariant, measured rather than assumed.
+> - **delete refused, without the blink.** The ⋯ menu offers only 이동 / 중첩 on the queue
+>   (삭제 present on a normal crate); the trash dock answers 시스템 버킷은 삭제할 수 없어요
+>   and opens no confirm dialog. This closes the prod observation carried since Step 3
+>   (the row vanished optimistically and then came back on the 409 refresh).
+> - **position move persists** — nested under a user crate and back out, server-confirmed,
+>   with all 13 rows intact. Non-deletable and position-movable are independent (T1).
+>
+> **`api.gen.ts` was NOT regenerated here** — it shipped in Step 4 (front #344) because the
+> front deploy gate diffs it against workspace `main`. The line below is stale; this step
+> only *consumed* `Backend_TrackExpansionResponse`.
+>
+> **Two things this step found that the plan did not predict:**
+>
+> 1. **`canAcceptAlbumDrag` has an in-repo twin** — `lib/pocketBuckit/boardDnd.ts`'s
+>    `boardDragAccepts`, which the tray uses because the Pocket island cannot read the
+>    board's live `dnd` (two React roots). A playback branch in only one of them would have
+>    let a tray chip preview an acceptance the board then refuses. Both were changed in the
+>    same PR and a table-driven test now pins them together case-for-case.
+> 2. 🔴 **The Step-3 delete guard is bypassable, and this step's client guard cannot close
+>    it** (see `BUG-playback-system-bucket-cascade` in `plan.md`). `review_buckets.parent_id`
+>    is `ON DELETE CASCADE` and `delete_bucket` checks only the *target's* own `kind`, so
+>    nesting a system bucket under a user crate and deleting that crate removes it. Measured
+>    on the test account: direct `DELETE` → **409**, but nest-then-delete-parent → **204**,
+>    and the Playback Bucket came back with a new id and 0 items. Reachable entirely through
+>    shipped UI (이동 / 중첩, then 삭제) and it affects `spotify_library` and `to_listen` too.
+>    **Deliberately not fixed here**: the fix belongs in `delete_bucket` (reject when the
+>    subtree contains a system bucket), and adding a client-only guard would be a fail-open
+>    mirror — it would hide the hole while the API stayed open.
+
 `api.gen.ts` regen. `boardDnd.ts` gains the third branch: `canAcceptAlbumDrag` rejects an artist
 source onto a `type==='playback'` target (drag-over: **stays in place**, muted, with a reason — the
 D-series invariant that the tray never reflows mid-drag); `routeAlbumDrop` routes album →
