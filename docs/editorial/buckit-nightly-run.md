@@ -45,6 +45,7 @@ The script has resolved the schema and assembled, per checked memo, into the con
 
 - **The memo text** — verbatim; the *only* source of viewpoint. Use it exactly; do not edit it.
 - **The album's confirmed facts** — credits / lineage / sound from the AI research note, genre/release facts, bucket. Facts only.
+- **The Genius facts block** — official credit and sample/interpolation data straight from the pipeline, per track. **For credits and relationships this outranks the research note** (the note is prose written *about* facts, and older notes were written before this data existed): where the two disagree, follow the block and record the disagreement. Tracks it marks 확인 불가 stay unclaimed in both directions, and `[확인: Genius]` may only be attached to facts taken from the block itself. A missing block means the lookup never happened — not that the album has no credits.
 - **Listening history** — light context only ("recent state"); not a recommendation engine.
 
 You cannot reach the DB, the repo, or the web. Use only what's in the context block. Anything absent is marked (`[근거 보강 필요: …]` / `[source?]`), never invented (★).

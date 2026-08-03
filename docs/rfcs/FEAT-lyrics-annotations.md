@@ -4,11 +4,15 @@
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
 - **Last investigated**: 2026-07-25 (deep investigation session — supersedes the morning capture)
-- **Last updated**: 2026-08-03 — **R6 shipped** (§6.11): the editor-buckit idea deck now carries the
-  catalog-internal graph — credit connectors across bucket albums and lineage edges whose far side we
-  own — with four measured noise classes filtered. The same session re-measured the two remaining
-  R-steps and **both moved**: R3's margin is mostly absorbed by R1 (9 of 89 albums are
-  Genius-without-note), and R5 is a cross-repo M rather than the poller-only S this table claimed.
+- **Last updated**: 2026-08-03 — **R3 shipped** (§6.12): the nightly draft prompt now carries the
+  Genius facts block directly, rendered by research_poller's renderer rather than a third copy. The
+  measurement that had deferred R3 the same morning was **wrong in its conclusion** — the overlap it
+  found was between *albums holding both artifacts*, not between albums whose note actually contains
+  the facts. Re-measured: only **3 of 88** Genius-carrying bucket albums have a note written after
+  the facts block shipped. Earlier that day, **R6 shipped** (§6.11): the editor-buckit idea deck now
+  carries the catalog-internal graph — credit connectors across bucket albums and lineage edges whose
+  far side we own — with four measured noise classes filtered. R5 was also re-measured: it is a
+  cross-repo M rather than the poller-only S this table claimed.
   Previously, 2026-07-30 — **post-merge gate closed**: the first real research request ran end
   to end in prod (ONYX, click → note in 9 m 57 s; gate held, nudge fired, 12/12 collected in 21 s,
   claimed at 107 s). It caught two block defects — a wrong-song match cited as confirmed, and zero
@@ -525,7 +529,7 @@ code the same day. Remaining: R3, R5's description tier, R6.
 | **R0** | ✅ **done** — ws #712, 2026-07-26 | Coverage probe over the 88 bucketed albums: per-language match rate and per-field fill rate for the four fields the notes actually lack | S | new `tools/genius_probe.py`, cloning the resumable-batch skeleton of `tools/lyrics_batch_api.py:1-27` |
 | **R1** | ✅ **done 2026-07-29, as DERIVE**; **evidence layer added 2026-07-30** — album-level facts are computed at prompt-build time from the track tables (`_render_genius_block` in `scripts/research_poller.py`): coverage counts, producer/writer cores, session-staff recurrences (corporate boilerplate filtered), per-track sample/interpolation relations both directions, confirmed-absence line. `album_genius_facts` + `genius_facts_poller.py` were **not** built — O3 re-resolved, §6.9. The first real e2e (§6.10) showed the aggregate alone is not citable: it now also ships a **매칭 근거** section (per matched track: Genius title, confidence, URL, `⚠︎ 곡명 불일치`), **names** the unmatched tracks instead of counting them, and attributes any credit on ≤3 tracks to those tracks | M | `scripts/research_poller.py` (`GENIUS_FACTS_SQL`, `_render_genius_block`) |
 | **R2** | ✅ **done 2026-07-29** — `_genius_block` appended in `build_prompt` after the 앨범 block; the claim gate holds a fresh request until every album track has a `track_genius_songs` row (any status = attempted), with a 90-min partial fallback and an SQS `album_id` nudge to the worker (Records-loop routed + handler test; 5-min/album cooldown; hourly cron = fallback). Gate→nudge→attempted→claim→render executed on the Neon test branch, and hold/claim simulated on prod inside BEGIN..ROLLBACK | S | `scripts/research_poller.py` (`CLAIM_SQL` gate, `GENIUS_PENDING_SQL`, `_nudge_unready_albums`), worker `handler.py` Records branch |
-| **R3** | ❌ not started (no genius code in `buckit_nightly.py`) — **but its margin was measured 2026-08-03 and is small**: R1 already ships Genius facts into the nightly prompt *indirectly*, because `RESEARCH_SQL` embeds the whole `result_md` and every note since 2026-07-29 was written against the facts block. Since the 07-29 retarget made research demand the collection trigger, the two populations now overlap almost completely — of the 89 unwritten bucket albums carrying Genius rows, **80 already carry a done research note; only 9 are Genius-without-note**. The remaining margin is those 9 plus re-supplying structured credits instead of prose. Not a verdict — an owner call on whether that margin is worth an M | Facts as a first-class **nightly-draft** context field | M | `scripts/buckit_nightly.py` — `GENIUS_SQL` beside `RESEARCH_SQL` (`:233-242`); `m['genius_md']` in `export_checked_memos` (`:302-401`) |
+| **R3** | ✅ **done 2026-08-03** — `GENIUS_SQL` (batched, LEFT JOIN, RESEARCH_SQL's owner scope) + `_genius_block` + `m['genius_md']` in `export_checked_memos`, emitted directly after the note. The renderer is **imported** from `research_poller`, not reimplemented — a third copy of that derivation logic is the twin-drift class. Source priority is now stated in both rule docs (`buckit-nightly.md` v0.6, run spec §3): for credits and relationships the block outranks the note, disagreement is followed *and* recorded, and `[확인: Genius]` may not be attached to a note-derived sentence. **The morning's deferral measurement was re-measured and reversed** — see §6.12 | Facts as a first-class **nightly-draft** context field | ~~M~~ **S–M** (renderer reused) | `scripts/buckit_nightly.py`; tests `scripts/tests/test_buckit_nightly_genius.py` |
 | **R4** | ✅ **done 2026-07-29**, tightened 2026-07-30 — `[확인: Genius]` confirmed tier in the ★ honesty block (+ 샘플링/기반 1차-근거 rule + 출처-못-찾은-것 exclusion); block-side provenance = fetch-date range + per-track 근거 링크, and the zero-match/lookup-failure paths explicitly ban the tier. **The tier is per matched track, not per album**: a `⚠︎ 곡명 불일치` track is carved out of the cite-without-re-searching rule (§6.10). Vendored `album_research_v2.md` and canonical `docs/editorial/album-research-prompt.md` are identical **over the shared range** — the canonical file also carries a workspace-only validation log behind an explicit "do not paste" marker, so they were never byte-identical end to end (this row said so until 2026-07-30). Parity is now pinned by `scripts/tests/test_prompt_mirror.py` rather than by convention | S | `scripts/album_research_v2.md`, `docs/editorial/album-research-prompt.md` |
 | **R5** | ◐ **annotation bodies done** (viewer pipeline above); **song descriptions not**. Numbers refreshed 2026-08-03: the store has grown to 1,086 songs, **860 carry a description and 526 clear 200 chars** (was 272/297 when this row was written), and `description_ko` is still **0-filled**. **The size is wrong, though — this is not an S and not poller-only**: `description_ko` appears in *no code in any repo*, only in the schema (`models.py`, the V49 migration and the two schema mirrors). Translating it produces data nothing reads, so a user-visible R5 is poller + backend read field + `openapi.json` + `api.gen.ts` + sheet render — a cross-repo step. R0 also sized the prose tier as "a bonus, not load-bearing" | ~~S~~ **M, cross-repo** | `scripts/genius_translate_poller.py`, backend `lyrics_service.py`/`schemas.py`, front `LyricsSheet.tsx` |
 | **R6** | ✅ **done 2026-08-03** — `export_bucket_context` now emits a 카탈로그 내부 연결 block: credit connectors (a name on ≥2 candidate albums spanning ≥2 *acts*) split into 창작 / 후반, plus catalog-internal lineage edges (a sample/interpolation/cover whose far side is a track we own), cross-act listed and same-act counted. Coverage is stated per the degradation rule, so an unfetched album never reads as "no connections". Four noise classes were found by running it against prod and are filtered, each for a stated reason (§6.11) | M | `scripts/editor_buckit.py` (`GENIUS_SQL`, `_credit_connectors`, `_lineage_edges`, `_genius_graph_section`); tests `scripts/tests/test_editor_buckit_genius.py` |
@@ -903,6 +907,71 @@ Verification: `python3 scripts/editor_buckit.py --dry-run` against prod (read-on
 the 27k-track / 3.1k-album catalog index) plus 14 unit tests, including a parity test pinning
 `editor_buckit._fold` byte-identical to its twin `research_poller._fold_title`.
 
+### 6.12 R3 (2026-08-03) — the deferral that its own measurement reversed
+
+R3 was deferred that same morning on a measurement, and shipped that same afternoon because the
+measurement was re-taken. Both numbers were right; the first one answered the wrong question.
+
+**What the morning measured.** Of the 89 (now 88, after the day's bucket churn) unwritten bucket
+albums carrying Genius rows, **80 also carry a done research note**. Since `RESEARCH_SQL` embeds the
+whole `result_md`, the inference was: the facts already reach the nightly prompt through the note,
+so R3's margin is the 9 albums with no note at all.
+
+**What the afternoon measured.** That overlap is between albums *holding both artifacts*. It says
+nothing about whether the note **contains** the facts — and the note is prose a model wrote, not the
+block. Splitting the 80 by when the note was written:
+
+| | albums |
+|---|---|
+| note written **after** the R1 facts block shipped (2026-07-29) | **3** |
+| note predates it — written when no Genius data existed | **77** |
+| no note at all | 8 |
+
+So for **85 of 88** the nightly prompt carried no Genius-derived fact of any kind. An independent
+marker grep agrees and is blunter: across the 81 freshest notes on unwritten bucket albums, 7
+mention Genius at all, **3** carry the `[확인: Genius]` tier, **1** has a 매칭 근거 section.
+
+The general trap, since this pipeline invites it repeatedly: *a stage's input existing is not the
+same as its output containing it.* Two artifacts co-existing on the same album is a join, not
+evidence of transfer. What had to be measured was the note text, and the note text was reachable
+all along.
+
+**Cost re-measured too.** The R-table sized R3 as an M against a not-yet-written renderer. R1's
+`_render_genius_block` has existed since 2026-07-29 — 167 lines encoding matched-rows-only, per-track
+evidence with `genius_title` (the ONYX mis-match, §6.10), confirmed-absence vs could-not-check, and
+per-role attribution maps. Reusing it makes R3 batch SQL + wiring + a source-priority rule.
+
+**Two fact sources now, so they are ranked.** The nightly rules said flatly "the research note is
+your fact source". Adding a second one silently would have left conflicts to resolve themselves
+toward the prose. `buckit-nightly.md` v0.6 and run spec §3 now say: for credits and
+sample/interpolation relations the block outranks the note, a disagreement is followed *and*
+recorded, tracks marked 확인 불가 stay unclaimed in both directions, and `[확인: Genius]` marks only
+what came from the block — never a sentence carried over from the note.
+
+**Two things only running it showed** (the §6.11 lesson again — a harmless execution path is the
+best review):
+
+1. **Never-fetched albums were paying ~1.1k chars to say nothing.** With zero matched tracks the
+   renderer lists every track as 미조회 and then states 0/n 미매칭 — the same fact twice. On LUX
+   (18 tracks) that is 1,124 chars; 13 of the 101 unwritten bucket albums are in this state. The
+   nightly collapses that case to a single tier-ban line (118 chars). The renderer is untouched —
+   a research note's needs are not a draft's, and the per-track list earns its length only once
+   *some* tracks matched.
+2. **The 6,000-char cap is real on rich albums.** IGOR renders 9/12 matched and truncates inside the
+   샘플·관계 list; coverage, evidence and the full 크레딧 section survive, so what is lost is the tail
+   of the derivative-relations list. Left as is deliberately: the cap belongs to the shared renderer,
+   and raising it here would change research prompts too.
+
+**One import trap, worth stating because the failure is silent.** `research_poller` calls
+`logging.basicConfig()` at module scope *without* `stream=`, and `basicConfig` no-ops once the root
+logger has handlers. A module-level import in `buckit_nightly` would run first and move the nightly's
+logs off stderr. The import is therefore lazy, inside `_genius_block`.
+
+Verification: 71 unit tests pass (1 skipped — the pre-existing `TEST_DB_URL` Neon test, GHA-only),
+plus the real context assembled against **prod** with three representative albums flipped to
+`prep_tonight` inside a transaction that is always rolled back (the R2 simulate-on-prod pattern):
+genius+note, genius-without-note, and no-genius-at-all all render as designed.
+
 ---
 
 ## 7. Decisions log
@@ -936,6 +1005,8 @@ the 27k-track / 3.1k-album catalog index) plus 14 unit tests, including a parity
 | 2026-07-30 | **`matched` ships its evidence, and the confidence threshold stays put.** The block renders each matched track's Genius title, confidence and URL, names the unmatched tracks, and attributes few-track credits to their source track. A threshold raise was considered and rejected: the ONYX collision scored 0.7424 with 0.91 title similarity, above four *correct* matches on the same album — the separation is not on the score axis (§6.10) | 1 |
 | 2026-08-03 | **R6 ships as two lists and one counted remainder.** Same-act lineage edges (69 of 101) are summarised not listed; places and video crew are not connectors; post-production names rank in their own list rather than being deleted or mixed in. Every filter is a measured displacement, not a taste call (§6.11) | 1 |
 | 2026-08-03 | **A rendered line must carry the evidence for its own classification** — creative roles sort first so the one credit that put a name in the creative list is the one shown. Same principle as §6.10's `genius_title` | 1 |
+| 2026-08-03 | **Two fact sources in the nightly prompt, explicitly ranked.** For credits and sample/interpolation relations the Genius block outranks the research note, a disagreement is followed *and* recorded, and `[확인: Genius]` marks only what came from the block. Adding a second fact source without a stated priority would have let conflicts resolve toward whichever prose the model read first (§6.12) | 1 |
+| 2026-08-03 | **A deferral built on an overlap count was reversed by measuring the text.** 80 of 88 albums holding both a Genius row and a note looked like coverage; only 3 of those notes were written after the facts block existed. Co-existence of two artifacts is a join, not evidence that one carries the other (§6.12) | 1 |
 | 2026-07-30 | **A `⚠︎ 곡명 불일치` flag is a prompt to verify, never a verdict.** Korean catalogues carry 원제/로마자 병기 routinely, so the literal-difference test flags benign rows too; the block says so, and the prompt carves the flagged track out of the "cite without re-searching" rule instead of demoting it (§6.10) | 1 |
 
 ## 8. What blocks execution
@@ -1037,9 +1108,10 @@ GROUP BY 1;
    2026-07-30 with the first real request (§6.10); read that section before touching the block, and
    note the one follow-up it deliberately did not build (Genius release-date/album corroboration as
    a V50 column, which would settle the same-artist same-title collision class outright).
-   **R6 shipped 2026-08-03** (§6.11). Remaining Thread 1 work is **R3 and R5, and both were
-   re-measured the same day — read the R-table before picking either**: R3's margin has largely been
-   absorbed by R1 (80 of 89 Genius-carrying bucket albums already reach the nightly prompt through
-   their research note; 9 do not), and R5 is not the S this document sized it as — `description_ko`
-   is read by no code anywhere, so a user-visible R5 is a cross-repo step. Check the 2026-07-29
+   **R6 shipped 2026-08-03** (§6.11) and **R3 the same day** (§6.12 — read it before trusting any
+   "already covered" claim in this document; the deferral it reversed was an overlap count standing
+   in for a text measurement). Remaining Thread 1 work is **R5 alone**, and it is not the S this
+   document sized it as — `description_ko` is read by no code anywhere, so a user-visible R5 is a
+   cross-repo step (poller + backend read field + `openapi.json` + `api.gen.ts` + sheet render), and
+   R0 called the prose tier a bonus rather than load-bearing. Check the 2026-07-29
    six-album KR/EN anchor regression result (§6.6) before building on the anchoring numbers.

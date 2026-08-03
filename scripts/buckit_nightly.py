@@ -298,6 +298,32 @@ WHERE status = 'done' AND result_md IS NOT NULL
 ORDER BY finished_at DESC NULLS LAST;
 """
 
+# FEAT-lyrics-annotations R3. Track-scoped Genius rows for the checked albums, in one
+# batch, shaped exactly like research_poller's per-album GENIUS_FACTS_SQL so the SAME
+# renderer can consume them (see `_genius_block` for why this is not a third copy of the
+# derivation logic). The LEFT JOIN is load-bearing: an album whose tracks were never
+# fetched must come back as tracks-with-NULL-status so the block can say "조회의 부재"
+# rather than vanish — a missing block reads as "no credits exist", which is the one
+# thing this pipeline must never imply.
+#
+# Owner scope mirrors RESEARCH_SQL above (A-4), not CHECKED_SQL: the extra `NOT IN
+# post_albums` filter is unnecessary here because rows only ever attach to memos
+# CHECKED_SQL exported.
+GENIUS_SQL = """
+SELECT t.album_id, t.title, t.track_no,
+       g.match_status, g.match_confidence, g.genius_title, g.genius_artist,
+       g.genius_url, g.credits, g.relationships, g.fetched_at
+FROM tracks t
+LEFT JOIN track_genius_songs g ON g.track_id = t.id
+WHERE t.album_id IN (
+        SELECT i.album_id FROM review_bucket_items i
+        JOIN review_buckets b ON b.id = i.bucket_id
+        WHERE i.prep_tonight = true AND i.post_id IS NULL
+          AND b.user_id = %(owner_sub)s
+  )
+ORDER BY t.album_id, t.track_no NULLS LAST, t.title;
+"""
+
 RECENCY_SQL = f"""
 SELECT album_id,
        max(played_at)                                                       AS last_played,
@@ -359,6 +385,69 @@ def _research_block(md: str | None) -> str:
     )
 
 
+def _genius_tier_ban(n_tracks: int = 0) -> str:
+    scope = f" (0/{n_tracks}트랙)" if n_tracks else ""
+    return (
+        f"- Genius 확인 사실{scope}: 조회 자체가 없다 — 사실의 부재가 아니라 조회의 부재다. "
+        "이 앨범의 크레딧·샘플 관계는 Genius로 확인 불가이며, `[확인: Genius]` 표기를 쓰지 말 것."
+    )
+
+
+def _genius_block(rows: list[dict] | None) -> str:
+    """The album's Genius facts, rendered by research_poller's renderer.
+
+    R3 supplies the facts DIRECTLY instead of relying on the research note to carry
+    them in prose. Measured 2026-08-03 against prod: of the 88 unwritten bucket albums
+    holding Genius rows, only 3 have a note written after the R1 facts block shipped
+    (2026-07-29) — 77 notes predate it and 8 albums have no note at all. So for 85 of
+    88 the nightly prompt currently contains no Genius-derived fact of any kind.
+
+    The renderer is IMPORTED, not reimplemented. Its 167 lines encode things that cost
+    real incidents to learn — facts from `matched` rows only, per-track evidence with
+    `genius_title` (the 2026-07-30 ONYX mis-match), confirmed-absence vs could-not-check,
+    per-role attribution maps — and a third copy of that logic (research_poller,
+    editor_buckit, here) is the twin-drift class this codebase keeps re-breaking.
+
+    The import is LAZY on purpose: `research_poller` calls `logging.basicConfig()` at
+    module scope WITHOUT `stream=`, and `basicConfig` no-ops once the root logger has
+    handlers. A module-level import here would run first and silently move this job's
+    logs off stderr.
+
+    Render failure fails OPEN with an explicit tier ban, the same split research_poller
+    uses: a rendering bug must degrade the prompt, never cost the night its drafts.
+    """
+    if not rows:
+        return _genius_tier_ban()
+    # Never-fetched album ⇒ collapse. Found by running this against prod (2026-08-03):
+    # for an album with zero Genius rows the renderer lists every track as 미조회 and
+    # THEN says 0/n 미매칭 — ~1.1k chars to say "we never looked" twice (18 tracks on
+    # LUX). 13 of the 101 unwritten bucket albums are in this state. The per-track list
+    # earns its length only when SOME tracks matched and the reader needs to know which
+    # ones did not; here the count carries the whole fact. The renderer stays untouched —
+    # a research note's needs are not a draft's.
+    if all(r["match_status"] is None for r in rows):
+        return _genius_tier_ban(len(rows))
+    try:
+        from research_poller import _render_genius_block  # noqa: PLC0415 — see docstring
+        block = _render_genius_block(rows)
+    except Exception as e:  # noqa: BLE001 — render-only fail-open
+        log.warning("genius facts render failed: %s", e)
+        return _genius_tier_ban(len(rows))
+    return (
+        "- Genius 확인 사실(파이프라인 제공 — 공식 크레딧·관계 데이터). 아래 두 구분선 사이가\n"
+        "  그 블록이다. 읽는 규칙:\n"
+        "  · **크레딧·샘플 관계에 대해서는 이 블록이 1차 출처다.** 리서치 노트는 그것을 풀어 쓴\n"
+        "    산문이고, 오래된 노트는 이 데이터가 존재하기 전에 쓰였다.\n"
+        "  · 노트와 이 블록이 크레딧·관계에서 어긋나면 **이 블록을 따르고, 어긋났다는 사실을 적어라**.\n"
+        "  · '확인 불가'로 표시된 트랙에 대해서는 유무를 어느 쪽으로도 주장하지 말 것.\n"
+        "  · `[확인: Genius]`는 **이 블록에서 가져온 사실에만** 붙인다. 노트에서 온 문장에는\n"
+        "    절대 붙이지 마라 — 편집자가 아침에 그 표기로 출처를 가른다.\n\n"
+        "<<<Genius_사실_시작>>>\n"
+        f"{block.strip()}\n"
+        "<<<Genius_사실_끝>>>\n"
+    )
+
+
 def _listen_line(rec: dict | None) -> str:
     if not rec:
         return "기록 없음"
@@ -391,12 +480,16 @@ def export_checked_memos(conn) -> tuple[list[dict], str]:
         )
     research = _fetch_all(conn, RESEARCH_SQL, {"owner_sub": OWNER_SUB})
     recency = _fetch_all(conn, RECENCY_SQL, {"owner_sub": OWNER_SUB})
+    genius = _fetch_all(conn, GENIUS_SQL, {"owner_sub": OWNER_SUB})
 
     research_md: dict[str, str] = {}
     for r in research:  # newest finished_at first ⇒ keep the freshest note per album
         aid = str(r["album_id"])
         research_md.setdefault(aid, r["result_md"])
     recency_by = {str(r["album_id"]): r for r in recency}
+    genius_by: dict[str, list[dict]] = {}  # R3 — track rows per album, renderer order preserved
+    for r in genius:
+        genius_by.setdefault(str(r["album_id"]), []).append(r)
 
     # dedupe checked items by album_id (an album checked in two buckets is one subject)
     memo_by: dict[str, dict] = {}
@@ -443,6 +536,7 @@ def export_checked_memos(conn) -> tuple[list[dict], str]:
         used_slugs.add(cand)
         m["slug"] = cand
         m["research_md"] = research_md.get(m["album_id"])
+        m["genius_md"] = _genius_block(genius_by.get(m["album_id"]))
         m["listen"] = _listen_line(recency_by.get(m["album_id"]))
 
     today = date.today().isoformat()
@@ -478,6 +572,9 @@ def export_checked_memos(conn) -> tuple[list[dict], str]:
             # model never mistakes it for a judgment seed (run spec: memo is the only viewpoint).
             parts.append("- 시스템 추천 태그(사실, 판단 아님): " + " / ".join(m["rec_reasons"]))
         parts.append(_research_block(m["research_md"]))
+        # R3 — directly after the note, so a credit that disagrees with the note's prose is
+        # readable side by side rather than half a context block away.
+        parts.append(m["genius_md"])
         parts.append(f"- 청취 기록: {m['listen']}")
         parts.append("")
 
