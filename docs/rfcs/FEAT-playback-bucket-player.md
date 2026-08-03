@@ -516,9 +516,15 @@ Precedent: the `worker-isrc-backfill` rule was applied this way (2026-07-26, "�
 >    on the test account: direct `DELETE` → **409**, but nest-then-delete-parent → **204**,
 >    and the Playback Bucket came back with a new id and 0 items. Reachable entirely through
 >    shipped UI (이동 / 중첩, then 삭제) and it affects `spotify_library` and `to_listen` too.
->    **Deliberately not fixed here**: the fix belongs in `delete_bucket` (reject when the
->    subtree contains a system bucket), and adding a client-only guard would be a fail-open
->    mirror — it would hide the hole while the API stayed open.
+>    **Not fixed in Step 5** (a client-only guard would have been a fail-open mirror), but
+>    **fixed the same day** in backend #150 + front #346: `delete_bucket` now asks the subtree
+>    question via `_system_bucket_in_subtree`, walking *up* from the user's ≤3 system buckets
+>    with the existing `_walk_ancestors` rather than adding a second tree traversal. Movement
+>    stays unrestricted — the destructive act is the delete, not the nesting. Re-probed on prod
+>    after deploy: direct delete 409, **nest-then-delete-parent now 409 too** (was 204) with
+>    `move it out first`, the queue surviving under the **same id** (it previously returned as a
+>    new empty bucket), and the parent deleting normally once the queue is moved out — so the
+>    guard is closed without being over-broad.
 
 `api.gen.ts` regen. `boardDnd.ts` gains the third branch: `canAcceptAlbumDrag` rejects an artist
 source onto a `type==='playback'` target (drag-over: **stays in place**, muted, with a reason — the
