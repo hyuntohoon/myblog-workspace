@@ -51,6 +51,15 @@ committing to arbitrary custom schemas. `general` = today's polymorphic bucket, 
 - **Changing a bucket's type after creation** (v1: type is set once at create).
 - **Renaming genuinely review-specific terms** (review / 평론 draft / 평론 workflow stay review-specific).
 
+> **FORWARD POINTER 2026-08-03 — the "playback-queue bucket" non-goal above is superseded (the
+> decision itself stands as the record of what was true then).** `docs/rfcs/FEAT-playback-bucket-player.md` makes the playback
+> queue a **first-class bucket** (`type='playback'`, `kind='playback_queue'`, one per user), which
+> reverses both "playback-queue bucket is a non-goal" and "playback stays separate from Buckit".
+> The **closed-enum principle** of this RFC is retained — the set becomes `('general','artist',
+> 'playback')` and stays non-user-extensible. This RFC's Artist accept-gate + server re-check
+> pattern and its `expandSource` idiom are reused, not replaced (album → **tracks** is a new
+> sibling of album → credited artists).
+
 ## Current state
 
 Verified against code 2026-06-25 (5-area discovery + a 3-agent adversarial fact-check).

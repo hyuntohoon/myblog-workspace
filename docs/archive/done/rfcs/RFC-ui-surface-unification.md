@@ -29,6 +29,16 @@ between tabs, with the 평가 list typography normalized onto the existing token
   (FEAT-member-player) — this RFC only supplies the id-plumbing those surfaces consume.
 - Hybrid/SSR rendering migration for `/artist/[id]` (rejected as too structural; see Step 5).
 
+> **FORWARD POINTER 2026-08-03 — owner decision 8 is re-examined, not reversed.**
+> `docs/rfcs/ARCH-entity-interaction-v2.md` OQ2 revisits the dual album-detail system at the
+> owner's request, starting from the accurate present state: `ARCH-entity-interaction-unify`
+> Step 1 already extracted the shared read-only `AlbumDetailView`, so what remains is one read
+> body with two **hosts** (event-opened read-only vs prop-threaded writable), plus the review
+> page's inline editorial tracklist as a genuinely distinct third surface. That RFC's
+> **recommended default is to keep two hosts and change nothing further**; the actionable
+> residue is the smaller `memo-trow` / `TrackRow` twin. The surface × treatment table here is
+> retained and gains a drag-payload column.
+
 ## Current state (inventories measured 2026-07-18; scratchpad notes: area4/area5/area9 files)
 
 **The written rule that already exists implicitly**: shared read-only path `openAlbum()` →
