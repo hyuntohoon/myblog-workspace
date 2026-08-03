@@ -1,6 +1,6 @@
 # FEAT-bucket-identity: strengthen the "bucket" as the core workflow unit
 
-- **Status**: in-progress (Direction A DONE 2026-06-16; **Direction B SHIPPED 2026-07-21, front #303** — landing-tab promotion left as an owner-pending proposal; Direction D surfaces remain)
+- **Status**: in-progress (Direction A DONE 2026-06-16; **Direction B SHIPPED 2026-07-21, front #303** — landing-tab promotion left as an owner-pending proposal; **Direction D AUDITED 2026-08-03 → GATED, no code opened** — 4 of its 5 collection types already shipped as dedicated non-bucket pages, and the remaining ones have zero data. Gates + re-measure recipe below)
 - **Owner**: 박지훈
 - **Created**: 2026-06-16
 - **Plan row**: `plan.md` → FEAT-bucket-identity
@@ -131,6 +131,70 @@ to feed the home in a way readers immediately understand.
 
 Status: **home shipped in Variant B** (front #176, `FEAT-home-redesign-v2` DONE);
 the public-collection bucket surfaces are the next concrete step here.
+
+> **2026-08-03 — Direction D current-state audit (no code opened; GATED).**
+> The line above ("the next concrete step") was written 2026-06-16 and is now **stale**.
+> Re-measured against front `origin/main` a53d0a4 + prod DB + live prod HTTP:
+>
+> **1. The infra claim holds.** `/collection` (`src/pages/collection.astro` →
+> `CollectionView`), the per-bucket `is_public` toggle (`BucketBoard.tsx:1151`,
+> `setBucketIsPublic` → `PATCH`), and `GET /api/buckets/public` are all live, and the
+> page is reachable from both the header nav and the footer. Nothing to build there.
+>
+> **2. Four of the five collection types shipped elsewhere — as dedicated pages, not buckets.**
+>
+> | Direction D wanted | What actually shipped | Bucket-based? |
+> | --- | --- | --- |
+> | 명반 모음 | `/canon` — auto-collects reviews rated ★4.0+ at build time | no |
+> | 이번 주 / 신보 모음 | `/releases` (public calendar) + `/radar` (member feed, noIndex) | no |
+> | 아티스트 모음 | `/artist/[id]` — artist hub with a build-time 평론한 앨범 overlay | no |
+> | 플레이리스트 / 추천 음반 모음 | home 오늘의 픽 (`todaysPick.ts`, `TodaySongBuckit`) — **track**-level, not an album collection | no |
+> | **장르 평론 모음** | **nothing** — `/genres` is the taxonomy Genre Map (`FEAT-genre-subgenres` Step 4); there is no per-genre review listing route (`src/pages/genres/` holds only `index.astro`) | — |
+>
+> So the *product need* Direction D described was largely met by purpose-built surfaces
+> while this RFC sat idle. Only 장르 평론 모음 is genuinely unbuilt.
+>
+> **3. Both halves are data-gated, for two different reasons.**
+> - *Review-based collections* (장르 평론 모음; also what feeds `/canon` and the artist
+>   overlay) — prod has **0 published posts** (5 drafts), **0 `album_reviews` rows**, and
+>   **0 MDX files** in the front `blog` content collection (which is a file `glob()` loader,
+>   so published posts must land in-repo to render). Live confirmation: `/canon` renders
+>   "아직 명반이 없습니다", `/reviews` renders "아직 리뷰가 없습니다". Any per-genre review
+>   page built today ships empty.
+> - *Album-based collections* (플레이리스트 / 추천 음반 모음) — **not** code-gated: the
+>   mechanism is live and prod holds 6 buckets with real albums. It is gated on the owner
+>   actually **curating** one. Public buckets today: **1 of 6**, and it is `To Review`
+>   (kind `review`, 47 items) — the owner's working queue, not curation.
+>
+> **4. Live finding — `/collection` was publicly showing the owner's working queue.**
+> `GET https://www.ratemymusic.blog/api/buckets/public` returned exactly one shelf:
+> `To Review`, 47 albums, attributed to handle `user-0468fd3c` (display_name identical —
+> a raw placeholder, no member profile name). **Owner judgment 2026-08-03: not intended,
+> should come down** (a leftover test toggle). Un-publishing it leaves `/collection` empty
+> until a real collection is curated — accepted. → owner action, listed below.
+>
+> **5. Curation affordance gap (recorded, not built).** The public contract
+> (`PublicCollection` in `src/lib/buckets.ts`) carries only `id / name / color / owner /
+> albums` — there is **no description field**, so a published 모음 cannot explain itself.
+> That runs straight into this section's own caveat ("if the meaning is provided too
+> minorly/abstractly, it loses meaning"). Not opened: with 0 curated collections there is
+> no measured harm yet, and building an affordance for absent data is the mistake this
+> audit exists to avoid.
+>
+> **Gates — what re-opens Direction D:**
+> - **장르 평론 모음** ← first published review lands (posts `status='published'` ≥ 1, and an
+>   MDX file in `myblog_front/content/blog/`). Denominator to state at re-measure: published
+>   posts, and how many distinct genres they span — a per-genre page needs ≥ 2 genres
+>   populated to read as a collection rather than a list.
+> - **앨범 모음 (playlist/추천)** ← the owner publishes at least one *curated* bucket
+>   (public, kind `review`, not a working queue). Re-measure: `SELECT count(*) FROM
+>   review_buckets WHERE is_public` — as of 2026-08-03 that is 1, and it is the wrong one.
+> - The **description-field** affordance is only worth building once ≥ 1 curated public
+>   bucket exists and reads as unexplained on `/collection`.
+>
+> **Owner action (not done by this session, by agreement):** set `To Review` back to
+> 비공개 — 프로필 → 버킷 탭 → 해당 버킷의 공개 설정 → `비공개`. There is no other public
+> bucket, so this empties `/collection`.
 
 ## Open questions
 
