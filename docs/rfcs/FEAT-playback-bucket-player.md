@@ -566,17 +566,21 @@ Only questions whose answer changes the work.
    - The FEAT-lyrics-viewer **public** invariant is untouched either way: no public route, page, search
      or shared payload carries lyric text or its presence. Members are authed, not public.
 
-4b. **NEW, and genuinely undecided: do the annotations open too?** *(blocks the lyrics-opening step,
-   blocks nothing here.)* O2 tightened the route and the **annotation fields inherited the gate rather
-   than widening it** — those are Genius-derived facts plus Korean translations, a different kind of
-   content from the lyric text itself, with a third-party source. "가사를 멤버에게 개방" may or may not
-   have meant them. **Recommended default**: open the **lyric text** only and keep annotations
-   owner-only, since that is the smaller reversal and matches what the player forms actually need.
-   Also needs the `models.py:315-318` "owner-only research data" comment corrected either way, or it
-   becomes a false claim in the schema.
-5. **Mobile: what replaces the drag?** *(blocks Step 8; decided by `ARCH-entity-interaction-v2`'s
-   prototype, not here.)* HTML5 drag has no touch support, and `AddToBucketMenu` is the shipped WCAG
-   2.5.7 non-drag peer. Recorded here only as the consumption point.
+4b. ~~**Do the annotations open too?**~~ **RESOLVED 2026-08-03 (owner): yes — annotations open with
+   the lyric text.** Past the recommendation (lyric text only), so the scope of the lyrics-opening
+   step is now the full read: `GET /api/lyrics/{id}` and the `annotations` field it carries, both to
+   `require_cognito_token`. Consequences to carry into that step, which still lives in the lyrics
+   stream and not here:
+   - **`models.py:315-318` must change in the same PR.** It documents `track_lyrics` as *owner-only
+     research data*; after this it is member-readable and the comment is simply false. A stale
+     comment on a table is how the next session mis-scopes a guard.
+   - **Front #319's 403-as-a-state UI becomes dead code** — both the sheet's "가사는 운영자만 볼 수
+     있어요" branch and the viewer's. Delete it in the same PR or it rots as an unreachable state.
+   - **The annotations carry third-party derived content** (Genius facts + Korean translations), which
+     the lyric text does not. Members are authed, so the FEAT-lyrics-viewer **public** invariant is
+     untouched either way; but attribution obligations, if any, now apply to a wider audience than
+     one person. Worth one look at the Genius terms in that step — not a blocker, and not this RFC's
+     call.
 
 **OQ2 (expanded-player form) remains the one genuinely open product question**, by design — it is
 decided at Step 6 after the side-by-side comparison, not before.
@@ -626,5 +630,6 @@ decided at Step 6 after the side-by-side comparison, not before.
 | 2026-08-03 | **Owner: Status draft → accepted**, both successor RFCs promoted, playback bucket first (v2's audit runs in parallel — different repos, no shared files) | — |
 | 2026-08-03 | **Owner (past the recommendation): members get BOTH rungs — open the `streaming` scope.** Recorded costs: the scope + re-consent belong to `FEAT-member-player`, every connected member re-consents (today: 1 account, already holding `streaming`), and the member tier ships unverified until a second Premium account exists. OQ1 closed | 3, 6 |
 | 2026-08-03 | **Owner: no expansion confirmation at any size + bucket-local Undo.** Reverses pocket-buckit D8's 1:N confirmation for this bucket only. OQ3 closed | 5 |
+| 2026-08-03 | **Owner: the annotations open too** (OQ4b, past the recommended lyric-text-only). The lyrics-opening step therefore covers the whole read — route + `annotations` field — and must, in the same PR, correct `models.py:315-318` ("owner-only research data", now false) and delete front #319's 403-as-a-state UI. Flagged for that step, not decided here: the annotations carry Genius-derived content, so attribution now reaches a wider audience | 6 |
 | 2026-08-03 | **Owner (past the recommendation): open lyrics to members.** Reverses `FEAT-lyrics-annotations` §6.9 O2 (shipped backend #139 + front #319). The guard change belongs to the lyrics stream, not a playback step. Surfaced a sub-question the decision did not cover — **do the Genius-derived annotations open too** (OQ4b, recommended: lyric text only) — plus the now-false `models.py:315-318` "owner-only research data" comment. OQ4 closed | 6 |
 | 2026-08-03 | Eligibility is **two-tiered in shipped code** (member scope omits `streaming` → rung 1 only; owner gets both), so OQ1 is not "owner vs members" but "which rung does a member get" | 3, 6 |
