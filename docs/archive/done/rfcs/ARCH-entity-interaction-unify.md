@@ -50,6 +50,15 @@ calling one helper, with no knowledge of routes vs overlays.
 - **No change to the lyrics viewer, bucket DnD, or now-playing paths.**
 - **No backend/contract/infra change.** This is a `myblog_front`-only refactor.
 
+> **FORWARD POINTER 2026-08-03 — the "possible later RFC" the album-route non-goal above parked
+> is now open.**
+> `docs/rfcs/ARCH-entity-interaction-v2.md` OQ1 asks whether an album (and a track) gets a
+> canonical URL, which is precisely the SEO/deep-link question deferred here — not a
+> re-litigation of the overlay decision, which stands. Separately, that RFC opens `TrackRow`'s
+> reserved `play`/`add` slots (this RFC's "no new play/add affordances" non-goal) and adds a
+> `drag` action. The Step-1 architect rule — the `ent:*` event cannot carry writable context, so
+> member surfaces stay on `onOpen(DetailTarget)` — is **retained as load-bearing** there.
+
 ## Current state
 
 Verified against `docs/frontend/component-map.md` (stamped 2026-07-03) + source

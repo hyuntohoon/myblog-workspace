@@ -8,6 +8,11 @@
 - **Repeals**: **D11** (read-only, no playback control — FEAT-nowplaying-live-sync). D1
   supersedes it: members whose own Spotify account supports it get real controls; everyone else
   gets a visual-only estimated progress bar. **D28 (no polling / one-shot sync) stays in force.**
+- **Consumed by**: `docs/rfcs/FEAT-playback-bucket-player.md` — the system-owned Playback Bucket
+  and its two player forms build on this RFC's **shipped** Step 5/5b output (`play(intent)` ladder,
+  device picker, Media Session, `astro:before-swap` persistence) and on Step 6's transport +
+  `MYBLOG_PLAYBACK_CHANGED` announcement (front #342). It adds no playback mechanism of its own and
+  must not re-specify these. Its OQ1 depends on this RFC's still-closed member `streaming` scope.
 
 ---
 

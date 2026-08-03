@@ -347,6 +347,17 @@ completion notification → inspect* — **not** a manual "Refresh summary" as t
 - **No Inbox-first default**: items are placed intentionally into purpose-defined buckets; an
   Inbox/Unsorted bucket is at most **one optional template**, never the default or first destination.
 
+> **FORWARD POINTER 2026-08-03 — two D8 rules are superseded for ONE bucket only.**
+> `docs/rfcs/FEAT-playback-bucket-player.md` introduces a system-owned Playback Bucket that is
+> **not deletable and not archivable at all** (superseding archive-by-default *for it*), and
+> takes **no confirmation** on an intentional album → tracks expansion dropped into it
+> (superseding the mandatory 1:N confirmation *for that drop*), with bucket-local Undo as the
+> safety net. Every other bucket keeps both rules unchanged. **Retained and now load-bearing**:
+> D8's duplicate policy (playback/queue allow duplicates — the schema already permits it), D7
+> (tree canonical, Pocket its projection — hence a movable position), and OQ10's hybrid queue
+> (server-persisted ordered membership + client-ephemeral playhead), which that RFC promotes to
+> its spine.
+
 ### Option matrix — `[visual]` = must be rendered side by side in the atlas
 
 - **A. Entry controls** — `[visual]` **three options** (D6 — count is open): (1) **one** persistent

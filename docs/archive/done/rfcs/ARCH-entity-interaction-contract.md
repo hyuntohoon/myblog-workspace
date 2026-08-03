@@ -187,6 +187,14 @@ resolve (redirect) + new artist links navigate. Prod smoke post-merge.
    from `ProfileApp`; a tray-side lyrics action would need a cross-island `pb:*` event or
    a second viewer mount. Out of scope until wanted.
 
+   > **FORWARD POINTER 2026-08-03 — OQ2's default is now superseded by owner product scope.**
+   > `docs/rfcs/ARCH-entity-interaction-v2.md` **grants** the reserved `play`/`add` slots and adds
+   > `drag`, because that RFC's scope (most album/track/artist representations become draggable)
+   > plus `FEAT-playback-bucket-player`'s track drops are exactly the product approval OQ2's
+   > default was waiting for. The default recorded here was correct for its time and is unchanged
+   > as history. The related non-goal "no album-detail unification" is re-examined there too —
+   > with a recommended outcome of **no further change**.
+
 ## Decisions log
 
 | Date | Decision | Step |
