@@ -68,6 +68,12 @@ almost none of them.
    for *BRAT* could only re-quote lines that press articles had already printed. A section that
    can only be filled second-hand is not worth its place in the prompt yet. Revisit when the
    Genius block exists.
+   **Revisited 2026-08-03 — the trigger fired and the answer did not change.** The Genius block
+   exists (live in the research prompt since 07-29, the nightly since 08-03) and the RFC is closed
+   `done`, but it never became a lyrics source: `FEAT-lyrics-annotations` §6.8 rules Genius out for
+   lyric *text* on API-legal grounds, and it only ever supplies annotations, credits and relations.
+   So this deferral stands on its own merits rather than on waiting — do not re-open it expecting
+   the Genius block to have solved it.
 2. **Comparison points — 3–6, each with one line on why it is comparable.**
    One review alone names six. `album_research_v2.md` has no section for this at all. The verdict
    stays the critic's; the note supplies candidates.
@@ -116,6 +122,12 @@ This also **raises** the value of the Genius block (`FEAT-lyrics-annotations`, d
 supplies lyrics, links to the artist's earlier work, and annotations that point at interviews —
 gaps 1, 3, and 6 at once. It remains unbuildable as currently scoped (its R0/R1 steps do not
 exist and no `GENIUS_ACCESS_TOKEN` is in SSM), but its priority is higher than previously judged.
+
+> **Superseded 2026-08-03.** The paragraph above is a record of what was true when it was written.
+> The token is in SSM, R0–R4 and R6 all shipped, and the facts block has been in the research prompt
+> since 2026-07-29 and in the nightly prompt since 2026-08-03. The RFC closed `done` →
+> `docs/archive/done/rfcs/FEAT-lyrics-annotations.md`. Nothing about the Genius block is unbuildable;
+> what it does **not** supply is lyrics text (API-legal decision, RFC §6.8), so gap 1 stays open.
 
 ## Changes made from this measurement
 

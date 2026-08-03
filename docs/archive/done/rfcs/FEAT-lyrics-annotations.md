@@ -1,10 +1,26 @@
 # FEAT-lyrics-annotations: lyrics coverage + "the story behind the lyrics"
 
-- **Status**: accepted (promoted 2026-07-26 with explicit owner approval, hard rule 5)
+- **Status**: done (2026-08-03, archived — Thread 1 is built out: R0–R4 and R6 shipped and prod-verified,
+  and **R5 was dropped by owner decision** (§6.13) once measurement showed it was a cross-repo step
+  buying an owner-only prose tier that R0 itself had called "a bonus, not load-bearing". The one
+  scheduled item still outstanding — the six-album KR/EN anchor regression, due 2026-07-29 and never
+  run — **was run 2026-08-03** and its result is recorded in §6.6 and §6.13; it changed no code by
+  decision. Thread 2 executes under `DATA-catalog-noise-and-lyrics-coverage`. No observation gates
+  remain → moved to `docs/archive/done/rfcs/`. Original status line below.)
+  <br>_accepted_ (promoted 2026-07-26 with explicit owner approval, hard rule 5)
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
 - **Last investigated**: 2026-07-25 (deep investigation session — supersedes the morning capture)
-- **Last updated**: 2026-08-03 — **R3 shipped** (§6.12): the nightly draft prompt now carries the
+- **Last updated**: 2026-08-03 (closing pass) — **R5 dropped, and the KR/EN anchor regression finally
+  ran** (§6.13). R5's own sizing was the argument against it: `description_ko` is read by no code in
+  any repo, so a user-visible tier meant migration → pin rollout → poller → backend → contract → front,
+  for 526 descriptions on an owner-only sheet that already renders line-anchored Korean annotations.
+  The regression contradicted this document's standing assumption that Korean's only risk was
+  coverage: coverage **is** thin (62/202 matched songs carry any annotation vs 553/631 for English),
+  **and** anchoring is too (KR placed 14.3/27.3/33.3% vs EN 78.1/74.3/76.4%, the English control
+  reproducing *LUX*'s 74.7%). All three Korean albums fall below this RFC's own <40% tier line. Left
+  unfixed on purpose — the in-text layer reaches 32 Korean songs / 86 annotations catalog-wide (1.4%
+  of volume) and the unmatched drawer is the designed fallback. Previously, **R3 shipped** (§6.12): the nightly draft prompt now carries the
   Genius facts block directly, rendered by research_poller's renderer rather than a third copy. The
   measurement that had deferred R3 the same morning was **wrong in its conclusion** — the overlap it
   found was between *albums holding both artifacts*, not between albums whose note actually contains
@@ -22,7 +38,8 @@
   the research claim gate waits for collection readiness (90-min partial fallback + SQS nudge), and
   the prompt gets an album-level facts block derived from the track tables with a `[확인: Genius]`
   tier (O3 re-resolved to **derive**, §6.9). Viewer sub-thread unchanged and live since 07-28.
-- **Plan row**: `plan.md` → FEAT-lyrics-annotations (Backlog)
+- **Plan row**: dropped 2026-08-03 — nothing left to track; history in `git log` and
+  `docs/archive/done/2026-08.md`
 
 > **How to read this document.** The 2026-07-25 morning session wrote a capture from a brainstorm.
 > A second session the same day re-derived every number from prod, live LRCLIB, and source, and
@@ -531,7 +548,7 @@ code the same day. Remaining: R3, R5's description tier, R6.
 | **R2** | ✅ **done 2026-07-29** — `_genius_block` appended in `build_prompt` after the 앨범 block; the claim gate holds a fresh request until every album track has a `track_genius_songs` row (any status = attempted), with a 90-min partial fallback and an SQS `album_id` nudge to the worker (Records-loop routed + handler test; 5-min/album cooldown; hourly cron = fallback). Gate→nudge→attempted→claim→render executed on the Neon test branch, and hold/claim simulated on prod inside BEGIN..ROLLBACK | S | `scripts/research_poller.py` (`CLAIM_SQL` gate, `GENIUS_PENDING_SQL`, `_nudge_unready_albums`), worker `handler.py` Records branch |
 | **R3** | ✅ **done 2026-08-03** — `GENIUS_SQL` (batched, LEFT JOIN, RESEARCH_SQL's owner scope) + `_genius_block` + `m['genius_md']` in `export_checked_memos`, emitted directly after the note. The renderer is **imported** from `research_poller`, not reimplemented — a third copy of that derivation logic is the twin-drift class. Source priority is now stated in both rule docs (`buckit-nightly.md` v0.6, run spec §3): for credits and relationships the block outranks the note, disagreement is followed *and* recorded, and `[확인: Genius]` may not be attached to a note-derived sentence. **The morning's deferral measurement was re-measured and reversed** — see §6.12 | Facts as a first-class **nightly-draft** context field | ~~M~~ **S–M** (renderer reused) | `scripts/buckit_nightly.py`; tests `scripts/tests/test_buckit_nightly_genius.py` |
 | **R4** | ✅ **done 2026-07-29**, tightened 2026-07-30 — `[확인: Genius]` confirmed tier in the ★ honesty block (+ 샘플링/기반 1차-근거 rule + 출처-못-찾은-것 exclusion); block-side provenance = fetch-date range + per-track 근거 링크, and the zero-match/lookup-failure paths explicitly ban the tier. **The tier is per matched track, not per album**: a `⚠︎ 곡명 불일치` track is carved out of the cite-without-re-searching rule (§6.10). Vendored `album_research_v2.md` and canonical `docs/editorial/album-research-prompt.md` are identical **over the shared range** — the canonical file also carries a workspace-only validation log behind an explicit "do not paste" marker, so they were never byte-identical end to end (this row said so until 2026-07-30). Parity is now pinned by `scripts/tests/test_prompt_mirror.py` rather than by convention | S | `scripts/album_research_v2.md`, `docs/editorial/album-research-prompt.md` |
-| **R5** | ◐ **annotation bodies done** (viewer pipeline above); **song descriptions not**. Numbers refreshed 2026-08-03: the store has grown to 1,086 songs, **860 carry a description and 526 clear 200 chars** (was 272/297 when this row was written), and `description_ko` is still **0-filled**. **The size is wrong, though — this is not an S and not poller-only**: `description_ko` appears in *no code in any repo*, only in the schema (`models.py`, the V49 migration and the two schema mirrors). Translating it produces data nothing reads, so a user-visible R5 is poller + backend read field + `openapi.json` + `api.gen.ts` + sheet render — a cross-repo step. R0 also sized the prose tier as "a bonus, not load-bearing" | ~~S~~ **M, cross-repo** | `scripts/genius_translate_poller.py`, backend `lyrics_service.py`/`schemas.py`, front `LyricsSheet.tsx` |
+| **R5** | ❌ **DROPPED 2026-08-03, owner decision** (§6.13). Annotation bodies were always done (viewer pipeline above); the **song-description tier is the part that will not be built**. Final numbers: 1,086 songs, **860 carry a description, 526 clear 200 chars**, `description_ko` still **0-filled**, all 526 on tracks that already have a lyrics row (66 albums, avg 659 chars, 347k total). The sizing is what killed it — `description_ko` appears in *no code in any repo*, only in the schema (`models.py`, V49, the two mirrors), and the store has no `description_source_fingerprint` / `description_translation_status` columns, so matching the annotation path's staleness guard means V51 → prod apply → four service pins → poller → backend → `openapi.json` → `api.gen.ts` → sheet render. A "cheap prompt-side R5" was considered and **rejected on provenance grounds**, not cost: a 6-sample read found 3 of 6 descriptions are pure interpretation or encyclopedia digression with no marker separating them from the citable 3, and R4's whole design is that separation | ~~S~~ **M+, cross-repo** — not built | — |
 | **R6** | ✅ **done 2026-08-03** — `export_bucket_context` now emits a 카탈로그 내부 연결 block: credit connectors (a name on ≥2 candidate albums spanning ≥2 *acts*) split into 창작 / 후반, plus catalog-internal lineage edges (a sample/interpolation/cover whose far side is a track we own), cross-act listed and same-act counted. Coverage is stated per the degradation rule, so an unfetched album never reads as "no connections". Four noise classes were found by running it against prod and are filtered, each for a stated reason (§6.11) | M | `scripts/editor_buckit.py` (`GENIUS_SQL`, `_credit_connectors`, `_lineage_edges`, `_genius_graph_section`); tests `scripts/tests/test_editor_buckit_genius.py` |
 
 **R6 is the capability no external service can provide**, because it is a property of *this* catalog
@@ -604,11 +621,43 @@ annotation feature ship independently of the lyrics viewer.
 drawer; <40% ⇒ song-level panel only. At 94.7% located and 74.7% unambiguous, **the in-text layer is the
 decision**, with the drawer retained for the unmatched remainder rather than as the primary surface.
 
-**Still open: Korean.** *LUX* is one non-Korean album. §6.2 measured 0/8 Korean tracks with ≥3 annotated
-lines, so the Korean risk is almost certainly *coverage* — whether there are annotations to anchor at
-all — rather than the anchoring rate. A six-album KR/EN regression is scheduled for **2026-07-29**
-(`~/.claude/scheduled-tasks/genius-anchor-multi-album-test/`). **Report coverage count and anchoring rate
-as separate numbers**: conflated, an absence of input will read as an anchoring failure.
+**Korean — the regression ran 2026-08-03, and this paragraph's prediction was half wrong.** What it
+used to say: *LUX* is one non-Korean album; §6.2 measured 0/8 Korean tracks with ≥3 annotated lines,
+so the Korean risk is "almost certainly *coverage* … rather than the anchoring rate", and a six-album
+KR/EN regression was scheduled for **2026-07-29**. **That regression never ran** — the scheduled-task
+directory it named (`~/.claude/scheduled-tasks/genius-anchor-multi-album-test/`) does not exist. It was
+run on 2026-08-03 during the closing pass, against the V49 store rather than a live collection (the
+tool predates the store, so its `--genius-json` input was generated from `track_genius_annotations`).
+
+Reported as two separate numbers, exactly as this paragraph demanded — because they disagree with
+each other's implication:
+
+| | matched songs | with ≥1 annotation | annotations | per annotated song |
+|---|---|---|---|---|
+| EN | 631 | 553 (87.6%) | 6,747 | 12.2 |
+| KO | 202 | **62 (30.7%)** | **140** | **2.3** |
+
+| Album (3 KR + 3 EN) | placed (unique+partial) | located at all |
+|---|---|---|
+| KO *24:26* | 33.3% | 41.7% |
+| KO *킁* | 27.3% | 63.6% |
+| KO *NOWITZKI* | 14.3% | 28.6% |
+| EN *ICEMAN* | 78.1% | 93.2% |
+| EN *Swimming* | 74.3% | 86.6% |
+| EN *Blonde* | 76.4% | 82.5% |
+
+**The English control reproduces *LUX*'s 74.7%**, so the Korean numbers are the catalog's, not the
+harness's — that control is the reason to trust the rest of the table. Coverage is thin as predicted
+(2.3 annotations per annotated Korean song against 12.2), **but anchoring is also poor**, which this
+paragraph said it almost certainly would not be. Against the tier rule recorded just above, all three
+Korean albums fall in the **<40% ⇒ song-level panel only** band while English sits in the ≥70% in-text
+band.
+
+**Left unfixed, deliberately.** The in-text layer only engages where a track has both annotations and
+synced lyrics: **32 Korean songs / 86 annotations** catalog-wide, against 496 songs / 6,227 annotations
+in English — Korean is 1.4% of the exposed volume. A Korean-specific tier branch is not worth building
+for that, and the unmatched drawer is the designed fallback, so a Korean sheet reads thin rather than
+broken. Revisit if the Korean catalog grows; the harness to re-measure is in §10.
 
 **Where it renders.** `myblog_front/src/components/member/lyrics/LyricsSheet.tsx` — the static reader,
 **not** `LyricsViewer.tsx`. The sheet renders each line as a `<p>` and already keys on the server segment
@@ -972,6 +1021,71 @@ plus the real context assembled against **prod** with three representative album
 `prep_tonight` inside a transaction that is always rolled back (the R2 simulate-on-prod pattern):
 genius+note, genius-without-note, and no-genius-at-all all render as designed.
 
+### 6.13 R5 dropped, and the regression that closed the document (2026-08-03)
+
+The closing session was asked one question — build R5 or not — and answered it by sizing R5 honestly
+for the first time. The answer changed the document's ending.
+
+**What R5 actually is.** The R-table sized the description tier as **S, poller-only**: extend
+`genius_translate_poller.py` to translate `description` into `description_ko`, done. A grep of
+`description_ko` across all six repos on `origin/main` says otherwise — it exists in
+`myblog_shared_db` (`models.py`, the V49 migration, `_generated_schema.sql`, `canonical_schema.sql`)
+and in workspace documentation, **and in no executable code anywhere**. Neither prompt reads it
+either: `research_poller.GENIUS_FACTS_SQL` and `buckit_nightly.GENIUS_SQL` both select credits and
+relationships and never touch `description`. Translating it would have produced a column nothing
+reads, so a user-visible R5 is poller + backend read field + `openapi.json` + `api.gen.ts` + sheet
+render.
+
+It is worse than that, because of a column asymmetry V49 left behind. `track_genius_annotations`
+carries six columns that make the translation *safe* — `body_source_fingerprint`,
+`translation_status`, `translated_at`, `translator_model`, `translator_version`, `body_source_lang` —
+and `attach_annotations` uses the first two to withhold a Korean body whose source has changed since
+translation (`compute_body_fingerprint`). `track_genius_songs` has `description` and `description_ko`
+and nothing else. Holding descriptions to the standard already set for annotation bodies therefore
+means a V51 migration, which per `reference-shared-db-cross-repo-rollout` means prod apply before
+merge, four service pins, then contract, then front. Skipping the guard would ship a path that
+silently serves a translation of text Genius has since rewritten — the exact failure the annotation
+path was built to prevent.
+
+**The store, finally measured** (prod, 2026-08-03): 1,086 songs, **860 with a description**, **526
+over 200 characters**, **0 translated**, avg 659 chars, 347k characters total, across **66 albums**.
+All 526 sit on tracks that already carry a `track_lyrics` row, so reach was never the objection.
+
+**A cheaper R5 existed and was rejected on provenance, not cost.** Since neither prompt carries
+`description`, the workspace-only variant — inject the English description into the nightly/research
+prompt, no translation, no contract, no deploy, the same shape as R3 and R6 — looked attractive. Six
+descriptions were read before proposing it. Three carry citable fact (*Cookie*: third single, debut
+self-titled EP, the release backlash; *The Abyss*: preview date, first performance city; *Nikes*: the
+magazine version's KOHH verse). Three do not: two are pure interpretation (*Glitter*, *Woods* — "Tyler's
+confession of love", "the woods as the worst of it") and one is an encyclopedia digression about
+decompression sickness (*The Bends*). **Nothing in the payload marks which is which.** R4 exists to
+keep confirmed fact separable from reading; feeding this blend into the prompt would import another
+writer's interpretation under the pipeline's own fact tier. Rejected.
+
+**Owner decision: drop.** The viewer already renders line-anchored Korean annotation bodies on the
+same sheet, which is the interpretive layer a whole-song summary would partly duplicate; the surface
+is owner-only; and R0 sized the prose tier as "a bonus, not load-bearing" before any of this was
+built. Nothing downstream depends on it. The schema columns stay — dropping them would cost a
+migration to remove data no one is harmed by.
+
+**The last scheduled item, run at last.** Closing the document required checking that nothing was
+outstanding, which surfaced two items. The `isrc_backfill` EventBridge rule that §8 recorded as
+awaiting a human `terraform apply` **is live** — `worker-isrc-backfill`, `ENABLED`,
+`cron(0 21 ? * SUN *)`. The six-album KR/EN anchor regression scheduled for 2026-07-29 **had never
+run**; its scheduled-task directory does not exist. It was run during this pass and its result is in
+§6.6. It contradicts this document's assumption that Korean's risk was coverage alone: coverage is
+thin (62 of 202 matched Korean songs carry any annotation, 2.3 per annotated song against English's
+12.2) **and** anchoring is poor (placed 14.3% / 27.3% / 33.3% against an English control of 78.1% /
+74.3% / 76.4% that reproduces *LUX*'s 74.7%). All three Korean albums land under this RFC's own <40%
+tier line. Left unfixed by the same decision that dropped R5 — the in-text layer touches 32 Korean
+songs and 86 annotations catalog-wide, 1.4% of exposed volume, and degrades to the unmatched drawer
+rather than breaking.
+
+**Method note for whoever re-runs it.** `tools/genius_anchor.py` predates V49: its `--album-id` path
+loads lyric segments from the DB but still expects annotations via `--genius-json`, a payload shaped
+for the live-API collection that no longer happens. Its module docstring advertises `--album-id`
+alone, which errors. §10 carries the bridge query.
+
 ---
 
 ## 7. Decisions log
@@ -1007,6 +1121,9 @@ genius+note, genius-without-note, and no-genius-at-all all render as designed.
 | 2026-08-03 | **A rendered line must carry the evidence for its own classification** — creative roles sort first so the one credit that put a name in the creative list is the one shown. Same principle as §6.10's `genius_title` | 1 |
 | 2026-08-03 | **Two fact sources in the nightly prompt, explicitly ranked.** For credits and sample/interpolation relations the Genius block outranks the research note, a disagreement is followed *and* recorded, and `[확인: Genius]` marks only what came from the block. Adding a second fact source without a stated priority would have let conflicts resolve toward whichever prose the model read first (§6.12) | 1 |
 | 2026-08-03 | **A deferral built on an overlap count was reversed by measuring the text.** 80 of 88 albums holding both a Genius row and a note looked like coverage; only 3 of those notes were written after the facts block existed. Co-existence of two artifacts is a join, not evidence that one carries the other (§6.12) | 1 |
+| 2026-08-03 | **R5 dropped (owner).** `description_ko` is read by no code in any repo, and the store lacks the fingerprint/status columns that make the annotation path's translations safe — so the tier the R-table called an S is a migration-led cross-repo rollout, bought for an owner-only prose layer that R0 called a bonus. The columns stay; removing them would cost a migration of its own (§6.13) | 1 |
+| 2026-08-03 | **The cheap version of R5 was rejected on provenance, not on cost.** Injecting raw Genius descriptions into the prompt needed no contract and no deploy, but 3 of 6 sampled descriptions are interpretation or digression with nothing marking them apart from the citable 3 — and separating fact from reading is what R4 is for (§6.13) | 1 |
+| 2026-08-03 | **Korean's anchoring gap is recorded and left unfixed.** The regression this document scheduled for 07-29 and never ran was run at close: Korean anchors at 14–33% placed against an English control at 74–78%, below this RFC's own <40% tier line, so the assumption that Korean's only risk was coverage was half wrong. Not fixed — 32 songs / 86 annotations catalog-wide, and the drawer is the designed fallback (§6.6) | 1 |
 | 2026-07-30 | **A `⚠︎ 곡명 불일치` flag is a prompt to verify, never a verdict.** Korean catalogues carry 원제/로마자 병기 routinely, so the literal-difference test flags benign rows too; the block says so, and the prompt carves the flagged track out of the "cite without re-searching" rule instead of demoting it (§6.10) | 1 |
 
 ## 8. What blocks execution
@@ -1024,8 +1141,9 @@ genius+note, genius-without-note, and no-genius-at-all all render as designed.
 Secondary, non-blocking: split Thread 2 into its own `plan.md` row (the RFC's own OQ5).
 
 Resolved since this section was written: the two matcher defects (§3.6) were **fixed 2026-07-26**
-(worker #80/#81 + workspace #698) — the `isrc_backfill` EventBridge rule still needs a human
-`terraform apply`. **Thread 1's viewer sub-thread has since shipped end-to-end** (2026-07-27/28 —
+(worker #80/#81 + workspace #698). The `isrc_backfill` EventBridge rule that this line recorded as
+awaiting a human `terraform apply` **is live** — verified 2026-08-03 against AWS:
+`worker-isrc-backfill`, `ENABLED`, `cron(0 21 ? * SUN *)`. **Thread 1's viewer sub-thread has since shipped end-to-end** (2026-07-27/28 —
 fetch, store, translation, owner-only read, render; PR map → §6.5 "Shipped state"), so nothing blocks
 Thread 1 execution anymore; what remains of Thread 1 is the research-pipeline half of §6.5
 (R1–R4, R6, and R5's description remainder).
@@ -1082,6 +1200,36 @@ WITH label_stats AS (
 SELECT * FROM label_stats WHERE attempts >= 50 AND hits::float/attempts < 0.02 ORDER BY attempts DESC;
 ```
 
+KR/EN anchor regression (§6.6). `tools/genius_anchor.py` predates V49 and still reads its annotations
+from `--genius-json`, so bridge the store into the payload it expects — one file per album, then feed
+both to the tool. Its docstring's `--album-id`-alone form errors:
+
+```sql
+-- → [{"no": track_no, "title": ..., "annotations": [{"fragment": ...}, ...]}, ...]
+SELECT t.track_no, t.title, a.fragment
+  FROM tracks t
+  JOIN track_genius_songs g ON g.track_id = t.id
+  JOIN track_genius_annotations a ON a.track_id = t.id
+ WHERE t.album_id = :album_id
+ ORDER BY t.track_no, a.referent_ordinal;
+```
+
+```bash
+python3 tools/genius_anchor.py --album-id <uuid> --genius-json <bridged.json>
+```
+
+Run at least one English album as a control in the same pass — a harness defect and a genuinely
+unanchorable catalogue look identical without one. English should land near *LUX*'s 74.7% placed.
+
+Coverage vs anchoring must be reported separately (§6.6):
+
+```sql
+SELECT g.language, count(*) AS matched,
+       count(*) FILTER (WHERE g.annotation_count > 0) AS with_anno,
+       sum(g.annotation_count) AS annos
+FROM track_genius_songs g WHERE g.match_status='matched' GROUP BY 1 ORDER BY 2 DESC;
+```
+
 Standing holdout audit (run monthly once Step B ships):
 
 ```sql
@@ -1095,23 +1243,26 @@ GROUP BY 1;
 -- holdout promotion rate materially above the 1.54% baseline (45/2,925 over 20 days) ⇒ rule is wrong
 ```
 
-## 11. Next-session resume order
+## 11. Closed — what this document is for now
 
-1. Read this document. **Do not re-derive §3; do re-check anything time-sensitive** (LRCLIB coverage
-   moves within a day — that is the lesson of §9).
-2. Get the two blockers in §8 answered.
-3. Thread 2's Step B and Step A **both shipped 2026-07-28** as `DATA-catalog-noise-and-lyrics-coverage`
-   Steps 3–4 (worker #84/#85/#86); follow Thread 2 in that RFC, not here.
-4. Thread 1's viewer sub-thread is **shipped and running** (§6.5 "Shipped state"), and the
-   research-pipeline core **landed 2026-07-29**: R1 (derive) + R2 (gated prompt injection) + R4
-   (source tier) — see the R-table and the O3 re-resolution (§6.9). Its post-merge gate closed
-   2026-07-30 with the first real request (§6.10); read that section before touching the block, and
-   note the one follow-up it deliberately did not build (Genius release-date/album corroboration as
-   a V50 column, which would settle the same-artist same-title collision class outright).
-   **R6 shipped 2026-08-03** (§6.11) and **R3 the same day** (§6.12 — read it before trusting any
-   "already covered" claim in this document; the deferral it reversed was an overlap count standing
-   in for a text measurement). Remaining Thread 1 work is **R5 alone**, and it is not the S this
-   document sized it as — `description_ko` is read by no code anywhere, so a user-visible R5 is a
-   cross-repo step (poller + backend read field + `openapi.json` + `api.gen.ts` + sheet render), and
-   R0 called the prose tier a bonus rather than load-bearing. Check the 2026-07-29
-   six-album KR/EN anchor regression result (§6.6) before building on the anchoring numbers.
+**There is no next session on this RFC.** It closed 2026-08-03 with R0–R4 and R6 shipped and R5
+dropped (§6.13). It is kept as the evidence base, not as a work queue. What to take from it:
+
+1. **Thread 2 is not here.** It executes under `DATA-catalog-noise-and-lyrics-coverage` — its Steps
+   3–4 are this RFC's §5 Step B / Step A and shipped 2026-07-28 (worker #84/#85/#86). §3's
+   measurements remain that RFC's evidence base; **do not re-derive them**, and §9 lists what was
+   already superseded (the lesson of §9 is that LRCLIB coverage moves within a day).
+2. **Before touching the shipped Genius pipeline**, read §6.10 (the first real request, and the two
+   block defects it caught) and §6.12 (the nightly facts block, and the source-priority rule that
+   governs conflicts between the block and a research note).
+3. **The one follow-up this RFC deliberately did not build**: Genius release-date/album corroboration
+   as a V50 column — the decisive fix for the same-artist same-title collision class of §6.10. It is
+   unclaimed and unrowed; give it its own plan row if it ever matters.
+4. **Two numbers here have measured expiry dates.** The anchoring tier was decided on *LUX* and holds
+   for English (§6.6 control, 74–78% placed) but **not for Korean** (14–33%, below the RFC's own <40%
+   line) — the Korean gap is recorded and knowingly unfixed at 32 songs / 86 annotations. If the
+   Korean catalogue grows materially, re-run the regression with §10's harness before assuming the
+   in-text layer is still the right tier for it.
+5. **Do not re-open R5 without re-reading §6.13 first.** Two of its arguments were sizing (which
+   would change if the schema or the read path changed) but the third was not: raw Genius
+   descriptions blend fact and interpretation with no marker, and that is a property of the source.
