@@ -360,6 +360,12 @@ decisions are never edited).
 
 ### Step 2 — `shared_db`: the `playback` bucket type + per-user singleton (rule #4 schema step)
 
+> ✅ **SHIPPED 2026-08-03** — shared_db #72, `V51__playback_bucket.sql`. Applied to Neon **prod**
+> and to the Neon **test branch** (the latter was current through V50, so Step 3's integration tests
+> do not start from drift). Dry-run confirmed the index actually rejects a second queue for the same
+> user before the apply; live re-verify on a fresh connection: `indisunique=t indisvalid=t`, 6 bucket
+> rows, 0 playback rows. **Do not re-apply.** Everything below is the original plan, unedited.
+
 `V<N>__playback_bucket.sql` (own `BEGIN…COMMIT`): widen `ck_review_buckets_type` to
 `('general','artist','playback')`; add `idx_review_buckets_single_playback` —
 `UNIQUE (user_id) WHERE kind = 'playback_queue'`. **No data backfill**: prod has 4 users of whom one
@@ -504,6 +510,7 @@ FEAT-member-player  S5 · S5b · S6 · S7  ✅ SHIPPED 2026-08-02 (cold start ow
                           v
 FEAT-playback-bucket-player  S1 ─> S2 ─> S3 ─> S4 ─> S5 ─> S6 ─> S7 ─> [S8]
                              docs   db    api   ctr  front player tabs  sources
+                              ✅     ✅  (S1 08-03; S2 prod-applied 08-03, shared_db #72)
                                                                           ^
 ARCH-entity-interaction-v2   S1 ──> S2 ──> S3 ────────────────────────────┘
                              audit  canon  payload contract

@@ -14,7 +14,15 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V47 (V47 authored + prod-applied
+-- This file shows clean canonical DDL through V51 (V51 authored 2026-08-03 —
+--   FEAT-playback-bucket-player Step 2, the 'playback' bucket type +
+--   idx_review_buckets_single_playback). NB: V49 and V50 DDL was already present
+--   in the body while BOTH version-claim blocks still read V47/V48 — the same
+--   header-vs-DDL drift the V46 incident produced. Corrected here after checking
+--   the body directly (V48 daily_pick_queue, V49 track_genius_annotations, V50
+--   album_reviews rating-nullable + review_candidate + its two CHECKs + the
+--   partial index are all present). The claim line is not self-verifying: read
+--   the DDL, not this sentence. Earlier: V47 authored + prod-applied
 --   2026-07-15 — FEAT-personal-release-tracking Step 1; V46 authored +
 --   prod-applied 2026-07-12 — FEAT-multi-user-accounts Phase 3c-a; V45 authored
 --   + prod-applied 2026-07-12 — FEAT-multi-user-accounts Phase 3b-b; V44
@@ -401,8 +409,8 @@ CREATE TABLE IF NOT EXISTS review_buckets (
   research_mode TEXT     NOT NULL DEFAULT 'off'
                          CHECK (research_mode IN ('off', 'all', 'selected')),  -- V16: auto-research scope (FEAT-album-research-notes)
   is_public  BOOLEAN     NOT NULL DEFAULT false,                           -- V18: public bucket viewer opt-in (FEAT-public-bucket-multiuser)
-  type       TEXT        NOT NULL DEFAULT 'general'                        -- V32: General vs Artist Buckit (FEAT-my-buckit-artist); orthogonal to kind; immutable after create (app-layer)
-             CONSTRAINT ck_review_buckets_type CHECK (type IN ('general', 'artist'))
+  type       TEXT        NOT NULL DEFAULT 'general'                        -- V32: General vs Artist Buckit (FEAT-my-buckit-artist); orthogonal to kind; immutable after create (app-layer); V51 widened to admit 'playback' (FEAT-playback-bucket-player)
+             CONSTRAINT ck_review_buckets_type CHECK (type IN ('general', 'artist', 'playback'))
 );
 CREATE INDEX IF NOT EXISTS idx_review_buckets_parent_id ON review_buckets(parent_id);
 -- At most one "작성 완료" (done) bucket PER USER (V40 re-scope; was a global (true) singleton).
@@ -411,6 +419,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_done
 -- At most one kind='spotify_library' mirror bucket PER USER (V15; V40 re-scope).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_spotify_library
   ON review_buckets (user_id) WHERE kind = 'spotify_library';
+-- At most one kind='playback_queue' bucket PER USER (V51, FEAT-playback-bucket-player):
+-- the system-owned playback queue. Same constant-expression partial-unique idiom as the
+-- two singletons above; makes the backend's lazy get-or-create idempotent at the schema
+-- level. Auto-created on first eligible bucket-tree read — never backfilled.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_review_buckets_single_playback
+  ON review_buckets (user_id) WHERE kind = 'playback_queue';
 
 -- V28/V30 (FEAT-pocket-buckit) generalized album-only membership to a TYPED relationship:
 --   V28 added item_type (DEFAULT 'album') + nullable typed FKs track_id/review_target_id;
@@ -1186,7 +1200,14 @@ CREATE TABLE IF NOT EXISTS spotify_member_now_playing (
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
--- This file is current through V48 (daily_pick_queue, FEAT-todays-pick-queue
+-- This file is current through V51 ('playback' bucket type +
+-- idx_review_buckets_single_playback, FEAT-playback-bucket-player Step 2 —
+-- authored 2026-08-03), after V50 (album_reviews rating→NULLABLE +
+-- review_candidate + ck_album_reviews_comment_needs_rating +
+-- ck_album_reviews_state_not_empty + idx_album_reviews_user_candidate,
+-- FEAT-album-review-authoring Step 1 — authored + prod-applied 2026-07-31),
+-- after V49 (track_genius_annotations, FEAT-lyrics-annotations), after V48
+-- (daily_pick_queue, FEAT-todays-pick-queue
 -- Step 1 — authored 2026-07-18; prod apply pending human approval), after V47
 -- (user_artist_tracks, FEAT-personal-release-tracking Step 1 — authored +
 -- prod-applied 2026-07-15), after V46 (user_id on
