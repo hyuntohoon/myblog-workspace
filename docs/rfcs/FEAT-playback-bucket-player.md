@@ -394,6 +394,31 @@ exists, **not** once one does, so it stays in its own migration.
 
 ### Step 3 — backend: auto-create, delete/create guards, album→tracks expansion
 
+> ✅ **SHIPPED 2026-08-03** — backend #TBD. Two things below turned out to be wrong when checked
+> against the code, and are corrected in place with the original text kept alongside:
+>
+> 1. **No new API Gateway route, and no `terraform apply`.** The plan called the expansion "a new
+>    authed POST", but the sibling it names — `expand_artist_source` — is **not** a separate
+>    endpoint: it rides `POST /api/buckets/{id}/items` with `item_type='artist'` + `source_album_id`,
+>    and `AddBucketItemRequest` already carries the `source_*` fields. Album expansion follows the
+>    same idiom (`item_type='playback'` + `source_album_id`), so `buckets_items_post`
+>    (`infra/apigateway.tf:410`) already covers it. Owner chose this shape 2026-08-03. The route
+>    probe (401=live vs 404=missing) is therefore moot — the route was live already.
+> 2. **There is no disc-number column.** The plan said "confirm the exact ordering columns —
+>    disc/track number"; the answer is that `tracks` carries `track_no` only. Order is
+>    `track_no ASC NULLS LAST` + `created_at`/`id` as a stable tiebreak, matching the canonical
+>    album-track order already used by `myblog_music`'s `track_repo`. Consequence, recorded rather
+>    than hidden: **multi-disc albums interleave**, because Spotify's `track_number` restarts on each
+>    disc. That gap is shared by every album-track read in the product and is not introduced here;
+>    closing it needs a `disc_no` column + backfill, which is not this RFC's.
+>
+> Also swept in the same PR, beyond the delete guard the plan named: the **publish** guard had the
+> identical per-kind drift (`is_public` rejected `spotify_library` only), so both now read one
+> `SYSTEM_BUCKET_KINDS` tuple. The type gate was extracted to `_assert_item_type_allowed` so the
+> single-row and expansion paths cannot drift apart either.
+>
+> Everything below is the original plan, unedited.
+
 - `get_or_create_playback_bucket(db, user_id)` — idempotent, mirroring
   `get_or_create_spotify_library_bucket`; called from the bucket-tree read.
 - `delete_bucket` — reject `kind IN ('playback_queue','spotify_library','to_listen')` → **409**.
@@ -637,6 +662,8 @@ decided at Step 6 after the side-by-side comparison, not before.
 | 2026-08-03 | **Owner: Status draft → accepted**, both successor RFCs promoted, playback bucket first (v2's audit runs in parallel — different repos, no shared files) | — |
 | 2026-08-03 | **Owner (past the recommendation): members get BOTH rungs — open the `streaming` scope.** Recorded costs: the scope + re-consent belong to `FEAT-member-player`, every connected member re-consents (today: 1 account, already holding `streaming`), and the member tier ships unverified until a second Premium account exists. OQ1 closed | 3, 6 |
 | 2026-08-03 | **Owner: no expansion confirmation at any size + bucket-local Undo.** Reverses pocket-buckit D8's 1:N confirmation for this bucket only. OQ3 closed | 5 |
+| 2026-08-03 | **Owner: album expansion rides the existing `POST /api/buckets/{id}/items`**, not a new endpoint — the sibling this step was modelled on (`expand_artist_source`) already does exactly that, and `AddBucketItemRequest` already carries `source_*`. Consequence: **no `infra/apigateway.tf` route and no `terraform apply`**, so the gate that this step was expected to stop at does not exist. Found by auditing the RFC's own claims against the code before writing any (memory `feedback-rfc-current-state-audit`) | 3 |
+| 2026-08-03 | **Album order is `track_no ASC NULLS LAST`; there is no disc column.** Recorded as a known limit rather than fixed: multi-disc albums interleave because Spotify's `track_number` restarts per disc. Pre-existing across every album-track read; a `disc_no` column + backfill is out of scope | 3 |
 | 2026-08-03 | **Owner: the annotations open too** (OQ4b, past the recommended lyric-text-only). The lyrics-opening step therefore covers the whole read — route + `annotations` field — and must, in the same PR, correct `models.py:315-318` ("owner-only research data", now false) and delete front #319's 403-as-a-state UI. Flagged for that step, not decided here: the annotations carry Genius-derived content, so attribution now reaches a wider audience | 6 |
 | 2026-08-03 | **Owner (past the recommendation): open lyrics to members.** Reverses `FEAT-lyrics-annotations` §6.9 O2 (shipped backend #139 + front #319). The guard change belongs to the lyrics stream, not a playback step. Surfaced a sub-question the decision did not cover — **do the Genius-derived annotations open too** (OQ4b, recommended: lyric text only) — plus the now-false `models.py:315-318` "owner-only research data" comment. OQ4 closed | 6 |
 | 2026-08-03 | Eligibility is **two-tiered in shipped code** (member scope omits `streaming` → rung 1 only; owner gets both), so OQ1 is not "owner vs members" but "which rung does a member get" | 3, 6 |
