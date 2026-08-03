@@ -394,7 +394,7 @@ exists, **not** once one does, so it stays in its own migration.
 
 ### Step 3 — backend: auto-create, delete/create guards, album→tracks expansion
 
-> ✅ **SHIPPED 2026-08-03** — backend #TBD. Two things below turned out to be wrong when checked
+> ✅ **SHIPPED 2026-08-03** — backend #149. Two things below turned out to be wrong when checked
 > against the code, and are corrected in place with the original text kept alongside:
 >
 > 1. **No new API Gateway route, and no `terraform apply`.** The plan called the expansion "a new
