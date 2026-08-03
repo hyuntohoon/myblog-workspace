@@ -448,6 +448,26 @@ Precedent: the `worker-isrc-backfill` rule was applied this way (2026-07-26, "�
 
 ### Step 4 — workspace: regenerate the merged contract
 
+> ✅ **SHIPPED 2026-08-03** — workspace #811. `tools/merge_openapi.py` over backend `6d5f02d` +
+> music `fa2e70d`: **88 paths, 155 schemas**, +39 lines and nothing removed. The whole diff is
+> three things, and each one confirms a Step-3 claim rather than adding to it:
+>
+> - `Backend_TrackExpansion` + `Backend_TrackExpansionResponse` — the album-drop response shape.
+> - `DELETE /api/buckets/{bucket_id}` gains a **409** response ("System bucket — cannot be deleted"),
+>   so the delete guard is now contract, not just behavior.
+> - `POST /api/buckets/{bucket_id}/items` gains a **third** union member next to `BucketItemResponse`
+>   and `ArtistExpansionResponse` — which is exactly what the front discriminates on in Step 5.
+>
+> **Zero path changes**, which is the independent check on Step 3's correction: had album expansion
+> really been a new authed POST, a new path would appear here and `infra/apigateway.tf` would be out
+> of date. It did not, and it is not.
+>
+> The front `api.gen.ts` regen (front #344) went out in the **same session, right behind the
+> workspace merge** — not as an early start on Step 5, but because the front deploy gate diffs
+> `api.gen.ts` against workspace `main`, so the two are one change split across two repos
+> (`feedback-frontend-api-gen-sync`). Order held: workspace merged first
+> (`reference-workspace-contract-merge-order`). Nothing else from Step 5 was touched.
+
 `tools/merge_openapi.py` → `docs/contracts/openapi.json`, merged **before** the front regen
 (`reference-workspace-contract-merge-order`).
 

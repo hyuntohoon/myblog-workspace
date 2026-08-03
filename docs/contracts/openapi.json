@@ -4486,6 +4486,39 @@
         "title": "TrackBrief",
         "type": "object"
       },
+      "Backend_TrackExpansion": {
+        "description": "FEAT-playback-bucket-player: the tracks an album drop appended to the Playback Bucket.\n\nNo `skipped` list, unlike BucketItemExpansion: the queue allows duplicates by design\n(FEAT-pocket-buckit D8 \u2014 no partial unique on item_type='playback'), so every track of the\nalbum is appended and nothing is dropped. `added` is in the order the rows were appended\n(album order), so the front can render the new queue tail without a re-read.",
+        "properties": {
+          "added": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_TrackBrief"
+            },
+            "title": "Added",
+            "type": "array"
+          }
+        },
+        "title": "TrackExpansion",
+        "type": "object"
+      },
+      "Backend_TrackExpansionResponse": {
+        "description": "FEAT-playback-bucket-player: the add-item response for an album dropped on the Playback\nBucket. Like ArtistExpansionResponse this is a DISTINCT shape from BucketItemResponse (there\nis no single membership row to echo), so POST /items returns a Union of the three and the\nfront discriminates on the presence of `expansion` (+ item_type to tell the two apart).",
+        "properties": {
+          "expansion": {
+            "$ref": "#/components/schemas/Backend_TrackExpansion"
+          },
+          "item_type": {
+            "const": "playback",
+            "default": "playback",
+            "title": "Item Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expansion"
+        ],
+        "title": "TrackExpansionResponse",
+        "type": "object"
+      },
       "Backend_TrackedArtistCandidate": {
         "properties": {
           "already_tracked": {
@@ -7221,6 +7254,9 @@
           "204": {
             "description": "Successful Response"
           },
+          "409": {
+            "description": "System bucket \u2014 cannot be deleted"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -7333,6 +7369,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Backend_ArtistExpansionResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Backend_TrackExpansionResponse"
                     }
                   ],
                   "title": "Response Add Item Api Buckets  Bucket Id  Items Post"
