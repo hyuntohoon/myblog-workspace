@@ -921,7 +921,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, first slice shipped 2026-08-04** (front #353 `46962eb`)
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -931,6 +931,28 @@ half-migrated entity is worse than a half-migrated surface.
 **Verification**: lint + astro check + `pnpm test`; CDP matrix — one drag and one non-drag add per
 surface group, an id-less entity proving non-draggable, mobile 390 pass; grep gate: no hand-rolled
 drag payload outside `lib/entityDrag.ts`.
+
+**First slice shipped 2026-08-04 (front #353): the two named free wins only.** §H and the
+2026-08-04 Decisions-log row single out **A11 `/collection`** and **C8 `ReleaseRadar`** as needing
+no contract change — the id was already there, only the wiring was missing. Both are now wired:
+
+- **A11**: each album card wrapped in a button that calls `openAlbum()` — matches the existing
+  "overlay, no drag" pattern already used by every other public read-only album representation
+  (A1/A7/A9). Drag was deliberately **not** added — an anonymous `/collection` visitor has no
+  bucket to drop into, and the RFC's own A11 row leaves "Drag" unbolded (unlike "Open"/"Actions"),
+  i.e. not part of the flagged gap.
+- **C8**: candidate and tracked-artist rows wrapped in `artistHref()` links (the `C2` catch-all
+  pattern, already used at 19 other call sites via `SearchPage.tsx`). The candidate row lives
+  inside a checkbox `<label>`; the link's `onClick` calls `stopPropagation()` so a click navigates
+  without also toggling the checkbox — verified live, not just read.
+
+No drag payload touched, so the grep gate holds trivially this slice. Verified live against real
+prod data (CDP, desktop + 390px, logged out + via a temp smoke-account JWT for the authed
+candidate/tracked rows — 0 residue left behind) and confirmed in the deployed bundle post-merge.
+**Remaining Step 5 scope is everything else**: `TrackRow`'s `play`/`add`/`drag` slots, the
+`memo-trow` adoption (E4), rendering E3's board reject-visual on every matrix cell (not just the
+tray), E1 Rule 0's G4/G5 violations, and E7's `ReviewCard` id projection — none of that shipped
+here; this slice was scoped narrowly to the two items the RFC already named as free-standing.
 
 ---
 
