@@ -992,7 +992,14 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
    rejected in favor of extraction. The genuinely actionable item is the smaller one: the
    `memo-trow` / `TrackRow` twin, where a lyrics change must be made twice. Owner confirmation still
    needed, because the brief asked for the revisit explicitly.
-3. **How far does "most representations" go?** *(blocks Step 5's scope.)* Some representations are
+3. ✅ **RESOLVED 2026-08-04 (owner) — recommended default adopted as-is.** Drag every representation
+   with a stable entity id **and** a browsing context; exclude command/keyboard surfaces and
+   selection-mode rows. Step 5 excludes exactly the three candidates Step 1 already named: `A8`/`B5`
+   `HeaderSearch` (keyboard command rows), `B9` 라이터 추천 트랙 ★ and `C9` 라이터 작품 검색
+   (selection-mode rows). No additional exclusions or inclusions added. Original text below, kept
+   because the argument it records is what the answer rests on.
+
+   **How far does "most representations" go?** *(blocks Step 5's scope.)* Some representations are
    arguably not drag sources: header-search dropdown rows (single-action keyboard rows — already
    excluded once, deliberately, in `RFC-ui-surface-unification` Step 4), writer ★-pick rows (a
    different selection semantic), and analysis-chart data points (query output with no entity id).
@@ -1085,3 +1092,4 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
 | 2026-08-04 | **Two Step-3 CDP scenarios were unreachable and were reached by relabelling, not skipped.** The smoke account has never synced Spotify, so it has no `kind='spotify_library'` bucket. A **real** server-side bucket was relabelled in flight (row, id and writes genuine; only the client sees the library kind), and the library fix was then measured **against a control** — same page, same row, library branch removed via HMR: `origin/main` **highlights** an artist row over the library, Step 3 does not. Not covered: server-side library semantics (sync, `source` flags) | 3 |
 | 2026-08-04 | **Member-side browser verification deferred to Step 3, on purpose.** The two draggable surfaces need a populated member board to exist in the DOM at all, and Step 3 already mandates a full CDP board+tray drag matrix. Step 1's six spot-checks are public-side; §F says so rather than implying full coverage | 3 |
 | 2026-08-04 | **Owner, OQ4 — the tap fallback wins by elimination, not by threshold-tuning.** Measured via raw CDP `Input.dispatchTouchEvent` (not `resize_page`, not a page-JS `DragEvent` stub) against a dedicated headless Chrome, on the app's own real surfaces with real prod-catalog albums seeded through 5 temp buckets (deleted after, zero residue): native `draggable` produced **zero `dragstart` events across 0–60px** on both the `BucketBoard` vertical list and the 최근 들은 앨범 horizontal strip — the browser's own `pointercancel` decides the scroll-vs-tap outcome before the app ever sees a drag start, so there is no pointer-drag threshold to port to Step 5. The kebab/`AddToBucketMenu` tap fallback is confirmed reliable (0px tap → sheet opens, every time). PocketTray's own pointer+6px-threshold+`touchAction:none` reorder — the one shipped touch-drag in the app — could not be confirmed to survive the harness (`data-reordering` never observed `true` across 21 polled frames of a slow 40px drag); recorded **unconfirmed, not disproven**, and Step 5 does not copy that pattern to new surfaces without a real-device check. Long-press drag is now rejected by two independent findings (Are.na's abandonment, Step 1; native drag's non-participation on touch, this step) and supported by none. Full table → §Step 4 | 4 |
+| 2026-08-04 | **Owner, OQ3 — recommended default adopted as-is, unblocking Step 5's scope.** Drag applies to every representation with a stable entity id **and** a browsing context; command/keyboard surfaces and selection-mode rows are excluded. The owner did not add or remove any exclusion beyond the three Step 1 already named (`HeaderSearch` A8/B5, 라이터 추천 트랙 ★ B9, 라이터 작품 검색 C9). Step 5 may now start | 5 |
