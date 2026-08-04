@@ -435,28 +435,46 @@ contract violations with a named owner step (Step 5), not merely observations.
 **Recorded in `component-map.md` by Step 6**, not here — the map is measured stale and Step 6 owns
 its rewrite; duplicating E1 into it now would create a second stale copy.
 
-### E2 — one drag payload
+### E2 — one drag payload — ✅ **shipped Step 3, 2026-08-04** (front #351)
 
-`lib/entityDrag.ts` — a single typed payload used by every draggable representation:
+`lib/entityDrag.ts` — a single typed payload used by every draggable representation. **The
+block below is the shipped shape**, which differs from this RFC's original sketch in three
+ways that the code forced; each is a Decisions-log row and the reasoning is in §Step 3.
 
 ```ts
 type EntityRef =
-  | { entity: 'album',  albumId: string,  title, artist, cover }
-  | { entity: 'track',  trackId: string,  albumId: string | null, title, artist }
-  | { entity: 'artist', artistId: string, name, image }
+  | { entity: 'album',  albumId: string,  title?, artist?, cover? }
+  | { entity: 'track',  trackId: string,  albumId: string | null, title?, artist? }
+  | { entity: 'artist', artistId: string, name?, image? }
+  | { entity: 'bucket', bucketId: string, name? }              // ← added: a bucket node drags too
 
-type DragPayload = {
-  ref: EntityRef
-  /** internal = a real bucket membership (MOVE default); external = any other surface (COPY/ADD). */
-  origin: { kind: 'internal', itemId: string, fromBucketId: string } | { kind: 'external' }
-}
+type DragOrigin =
+  | { kind: 'internal', itemId, fromBucketId, itemType? }      // a membership → MOVE
+  | { kind: 'library',  itemId, fromBucketId, itemType?, source? }  // ← added: a membership that COPIES
+  | { kind: 'external', fromBucketId?, itemType?, copies? }    // ← `copies`: does dropping ADD?
+
+type DragPayload = { ref: EntityRef | null, origin: DragOrigin }
 ```
 
-- **The move/add distinction is preserved by construction**: `origin.kind` carries it, replacing
-  today's implicit `copy` / `fromLib` / `fromBucketId` triad.
+- **The move/add distinction is preserved by construction**: `origin` carries it, replacing
+  today's implicit `copy` / `fromLib` / `fromBucketId` triad. **It needs three kinds, not two** —
+  a `spotify_library` row *is* a membership (it has an `itemId`; the trash can take it) yet it
+  **copies** out, because the bucket is sync-owned. Collapsing it into `internal` turns a copy
+  into a move.
+- **`external.copies` is the residue the binary missed.** `origin.kind` alone does not reproduce
+  the `copy` flag: a membership-less source bearing an album id but no copy affordance is a
+  *no-op* on a General bucket, and inferring `copy: true` from "not a membership" silently
+  converted that no-op into a `copyAlbum`. Caught by the round-trip test, not by review.
+- **`ref` is nullable.** A member row may point at no canonical entity (a review / snapshot row).
+  That is E1 Rule 0's inert entity, and it must stay a real *membership* — a review row still
+  moves between General buckets.
+- **Display fields are optional and no source fills them yet.** E1's "payload minimum" is a
+  Step 5 obligation; populating them in Step 3 would have been a surface change.
 - `DndItem` is **adapted, not deleted** — `boardDnd.ts`'s rules are correct and unit-tested; Step 3
   introduces an adapter both ways so board behavior is provably byte-identical before any surface is
   rewired. Renaming `kind:'album'` (which really means "a member of any type") is part of Step 3.
+  The rule *function* names (`canAcceptAlbumDrag`, `routeAlbumDrop`) were deliberately left alone —
+  E1/E3 cite them by symbol.
 - **A null id is non-draggable**, not a crashing drag — the `openTrackAlbum` no-op precedent
   (`ARCH-entity-interaction-unify` OQ4) extended to drag.
 
@@ -515,9 +533,12 @@ Cell-by-cell provenance, and the reasons that are not obvious from the verb:
   on `type` — so a track or artist row dragged onto it **highlights as accepted**, and
   `routeAlbumDrop`'s `isLib && !albumId` branch then returns silently: no insert, no message, no
   reason. Writing the matrix is what surfaced it; the gate and the route disagree because they key on
-  different axes. **Not fixed here** (docs-only) — assigned to **Step 3**, where the adapter touches
-  exactly this gate and `boardDnd.test.ts` can pin the case. It is a *visual-contract* fix; the
-  outcome (nothing is added) is already correct.
+  different axes. ~~**Not fixed here** (docs-only) — assigned to **Step 3**~~ → ✅ **fixed in Step 3** (front #351):
+  the gate now keys on `kind`, so the library no longer previews an acceptance it will refuse, and the
+  change landed in both twin files. **Step 3 also corrected this bullet's framing** — the board has no
+  reject visual for *any* cell, so "the one cell the code does not satisfy" was true only of the
+  *false accept*; rendering E3's muted-with-a-reason state on the board is a matrix-wide Step 5
+  obligation. See §Step 3.
 - **The trash rejects every non-album row**, and this is the sharpest instance of the reject state
   carrying meaning: the trash restores solely via the album re-add path, so accepting a track /
   artist / review / playback row would make 복원 a lie and the delete permanent. A `preexisting`
@@ -728,7 +749,7 @@ what changed since.
 
 ---
 
-### Step 3 — `lib/entityDrag.ts` + adapter, board behavior provably unchanged (front-only)
+### Step 3 — `lib/entityDrag.ts` + adapter, board behavior provably unchanged (front-only) — ✅ **DONE 2026-08-04**
 
 Introduce the payload and a bidirectional adapter to `DndItem`; rename `kind:'album'` to what it
 means; keep `boardDnd.ts`'s rules untouched. **No surface gains a drag in this step** — the point is
@@ -741,6 +762,79 @@ identical `ops` calls; real-browser CDP on the board + tray: move, copy-from-rec
 artist expansion, trash, bucket-into-bucket, and a rejected drag that does **not** reflow the tray.
 
 **Rollback**: revert — additive until a surface uses it.
+
+#### Result — front **#351**
+
+Shipped as specified: `lib/entityDrag.ts` + both adapters, every drag source building the payload,
+every rule call site adapting at the boundary, `kind:'album'` → `'member'`. `boardDnd.ts`'s routing
+was not rewritten. Both **cross-island wires** (`PB_DND_START` tray→board, `PB_BOARD_DND_START`
+board→tray) now carry the payload itself rather than a hand-rolled mirror of `DndItem` — the mirror
+was a second drift pair nobody had named.
+
+**The adapter is a measurement, not a claim.** A 27-payload corpus (every payload in
+`boardDnd.test.ts`, plus the four shapes the live drag sources actually build) is pushed through
+`fromDndItem` → `toDndItem` and required to produce, against each of the four accept-gate targets,
+the same accept answer **and the same recorded `ops` calls in the same order**. vitest **293 → 439**
+(baseline measured on `origin/main` in a detached worktree, not assumed). lint clean · astro check 0
+errors · build 2210 pages.
+
+**Three spec corrections came from writing the code** — all three are E2 amendments above and
+Decisions-log rows below: the third origin kind (`library`), `external.copies`, and the `bucket`
+ref. The first two are the same class of error: E2's two-value `origin` looked sufficient in prose
+and silently converted a copy into a move (and a no-op into a write) in code.
+
+**Two RFC-listed scenarios were unreachable with the smoke account, and were reached by relabelling
+rather than skipped.** The account has never synced Spotify, so it has no `kind='spotify_library'`
+bucket. One **real** server-side bucket was relabelled in flight by the local proxy — its row, id
+and every write stay genuine; only the client sees it as the library crate. It then rendered inside
+the Spotify 라이브러리 panel and was excluded from the tray rail, confirming both code paths before
+the drag tests ran. What this does **not** cover: server-side library semantics (sync, `source`
+flags). What it does cover is exactly what Step 3 changed — the kind-keyed accept gate and
+`routeAlbumDrop`'s `isLib` branch.
+
+**The library fix was measured against a control**, on the same page and the same row, with the
+library branch removed via HMR to reproduce `origin/main`:
+
+| gate | artist → library | album → library |
+|---|---|---|
+| `origin/main` | **highlighted** (the false accept) | highlighted |
+| Step 3 | **not highlighted, zero writes** | highlighted + `POST /items` (a copy) |
+
+Zero prod residue: every bucket used was created for the test and deleted afterwards.
+
+#### Scope call on the carried-over item — narrower than Step 2 described
+
+Step 2 assigned the invisible library rejection here and called it "the one cell where the code does
+not obey the doc". **Re-measured against the code, that description was too narrow**, and the
+correction is what bounds the fix: the board has **no reject visual for any cell**. `BucketCard`
+only ever sets a `hot` highlight when a drag is *accepted*; there is no muted state and no reason
+string anywhere on the board. E3's reject contract ("stays in place, muted, names the reason") is
+satisfied by the **tray** (`data-dropreject` + a title naming what the target takes) and by **no
+board cell at all**.
+
+So the item splits:
+
+- **Done in Step 3** — the library stops *previewing an acceptance it will refuse*. The gate keys on
+  `kind` (which identifies the library) instead of only `type`. One predicate, zero `ops` changes,
+  landed in **both** twin files per E3's drift-pair obligation, pinned by tests.
+- **Deferred to Step 5** — rendering E3's muted-with-a-reason state on the board. Absent for all six
+  targets, not just the library, so it is a surface obligation across the matrix — and Step 3 states
+  no surface changes.
+
+One residual asymmetry, recorded rather than hidden: the new gate is *stricter* than
+`routeAlbumDrop` for two rows that do not exist in prod (an artist row carrying an album; a track
+row carrying its parent album). The gate runs first on the board's only path to the library, so it
+can only prevent a write, never invent one. The test asserts the direction that matters — never
+highlight what the drop would not write.
+
+#### Noted, deliberately not done
+
+The `canAcceptAlbumDrag` / `boardDragAccepts` twin **can be dissolved**. E3 says they are duplicated
+because there is "no shared context" — but that reason applies to the live drag *state*, not to the
+*rule*, which is a pure function both files can import (`pocketBuckit/boardDnd.ts` already imports
+from `@lib/buckets`). Left alone on purpose: restructuring the verified rules module inside a
+prove-no-change step fights that step's own contract. **Step 5/6** owns it; until then the
+drift-guard test and the same-PR obligation stand.
 
 ---
 
@@ -894,4 +988,11 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
 | 2026-08-04 | **The E3 accept-gate is a drift pair, and that is written into the matrix.** `boardDnd.ts` `canAcceptAlbumDrag` and `pocketBuckit/boardDnd.ts` `boardDragAccepts` are duplicated on purpose (two React roots); **any cell change lands in both files in the same PR**, with `boardDnd.test.ts` asserting they agree case-for-case | 3 |
 | 2026-08-04 | **E1 Rule 0: "canonical id" constrains the *slot*, not the field name.** Three shapes circulate — nullable DB id (first-class), foreign-namespace id in a DB-id slot (G4 — now **prohibited**, convert at the producer or pass null), and async-resolved id (G5 — legal for navigation, **illegal for drag**: hold the id at `dragstart` or don't be draggable). Neither is fixed here; both become contract violations owned by Step 5 | 5 |
 | 2026-08-04 | **E1 is not copied into `component-map.md` yet.** The map is measured stale and Step 6 owns its rewrite; duplicating E1 now would create a second stale copy of a definition that is one step old | 6 |
+| 2026-08-04 | **Step 3 shipped; the adapter is a measurement, not a claim** (front #351). A 27-payload corpus — every payload in `boardDnd.test.ts` plus the four shapes the live drag sources build — round-trips through `fromDndItem`→`toDndItem` and must return the same accept answer **and the same `ops` calls in the same order** against all four accept-gate targets. vitest **293 → 439** (baseline measured on `origin/main`, not assumed) | 3 |
+| 2026-08-04 | **E2's two-value `origin` was wrong in code, twice, in the same class.** (a) A `spotify_library` row IS a membership yet **copies** out (the bucket is sync-owned), so a third kind `library` exists — collapsing it into `internal` turns a copy into a move. (b) `external` needs a `copies` bit: a membership-less source with an album id but no copy affordance is a **no-op** on a General bucket, and inferring `copy:true` from "not a membership" converted that no-op into a `copyAlbum`. **Both were caught by the round-trip test, not by review** — prose sufficiency is not code sufficiency | 3 |
+| 2026-08-04 | **`EntityRef` gains a `bucket` member.** E2 listed three content entities, but E3's matrix already gives Bucket its own column and a bucket node is one of the two things that drags today; without it the adapter is partial and the identity claim would not cover bucket-into-bucket. Also `ref` is **nullable** — a review/snapshot row points at no canonical entity (E1 Rule 0) and must stay a real membership | 3 |
+| 2026-08-04 | **Step 2's description of the library cell was too narrow, and the correction bounds the fix.** The board has **no reject visual for any cell** — `BucketCard` sets a highlight only when a drag is accepted. E3's reject contract is met by the tray and by no board cell at all. So Step 3 fixed the *false accept* (gate keys on `kind`, zero `ops` change, both twin files); **rendering muted-with-a-reason on the board is a matrix-wide Step 5 obligation**, not a library patch | 5 |
+| 2026-08-04 | **The cross-island wires were a second, unnamed drift pair.** `PB_DND_START` and `PB_BOARD_DND_START` each carried a hand-rolled mirror of `DndItem`; both now carry `DragPayload` itself, so the two React roots share the contract instead of each keeping a copy of the other's shape | 3 |
+| 2026-08-04 | **The accept-gate twin can be dissolved, and was deliberately not.** E3 justifies the duplication with "no shared context", but that applies to the live drag *state*, not the *rule* — a pure function both files can import. Restructuring the verified rules module inside a prove-no-change step fights that step's contract; **Step 5/6 owns it**, the drift-guard test stands until then | 6 |
+| 2026-08-04 | **Two Step-3 CDP scenarios were unreachable and were reached by relabelling, not skipped.** The smoke account has never synced Spotify, so it has no `kind='spotify_library'` bucket. A **real** server-side bucket was relabelled in flight (row, id and writes genuine; only the client sees the library kind), and the library fix was then measured **against a control** — same page, same row, library branch removed via HMR: `origin/main` **highlights** an artist row over the library, Step 3 does not. Not covered: server-side library semantics (sync, `source` flags) | 3 |
 | 2026-08-04 | **Member-side browser verification deferred to Step 3, on purpose.** The two draggable surfaces need a populated member board to exist in the DOM at all, and Step 3 already mandates a full CDP board+tray drag matrix. Step 1's six spot-checks are public-side; §F says so rather than implying full coverage | 3 |
