@@ -149,6 +149,10 @@ There is a smaller, concrete duplication the map does flag and which is *not* re
 `AlbumDetail`'s `MemoWindow` replaced `TrackRow` with its own `memo-trow`, so **the lyrics affordance
 exists twice, hand-rolled** — "a place a change must be made twice."
 
+> **Answered 2026-08-04 (owner): two hosts, no further unification — and the twin is what gets
+> fixed.** See **E6**. `shared/TrackRow.tsx` carries the `⚠️ TWIN` marker for exactly this pair, so
+> the code already knew; Step 5 owns the adoption.
+
 ### Component-map is stale — measured
 
 `docs/frontend/component-map.md` is stamped **2026-07-08** and states artist names are "**Not
@@ -374,11 +378,62 @@ well-established but would be assertion, not measurement, and this RFC does not 
 
 ## Target state
 
-### E1 — canonical entity definitions (written here, enforced in code)
+### E1 — canonical entity definitions (written here, enforced in code) — ✅ **filled Step 2, 2026-08-04**
 
-One table per entity covering: canonical id + null semantics, canonical URL (or "none, by decision"),
-open behavior, displayed data, action set, drag payload. Produced by Step 2 from Step 1's audit,
-recorded in this RFC **and** in `component-map.md`.
+Cited against `myblog_front` `origin/main` `40f27a6` (the same tree Step 1 measured). Symbol names
+are given alongside line numbers because line citations in this lineage decay within one step
+(Decisions log, 2026-08-04).
+
+**Rule 0 — "canonical id" is a rule about the *slot*, not a field name.** Step 1 §H found three id
+shapes in circulation, and the definitions below are what disambiguates them:
+
+| Shape | Where | What the contract says |
+|---|---|---|
+| Nullable DB id | the common case (`BoardAlbum.albumId`, `buckets.ts` `BoardAlbum`) | first-class; a null id makes the entity **inert**, never a crash (retains unify OQ3/OQ4) |
+| Foreign-namespace id in a DB-id slot | G4 — `releases/releaseShared.tsx` resolve-miss fallback writes a **Spotify** album id into `albumId` | **prohibited by this contract.** Convert at the producer or pass null; a consumer must never have to guess a slot's namespace |
+| Id resolved asynchronously per render | G5 — `NowPlaying` `resolveDbArtistId` | legal for *navigation*, illegal for *drag*: a drag source must hold the id at `dragstart` or not be draggable |
+
+Neither G4 nor G5 is fixed here — this RFC's non-goal stands. What changes is that they are now
+contract violations with a named owner step (Step 5), not merely observations.
+
+#### Album
+
+| Facet | Canonical definition | Cite |
+|---|---|---|
+| Canonical id | `albums.id` (DB uuid), carried as `albumId` / `album_id` | `lib/entityEvents.ts` `OpenAlbumDetail.albumId`; `lib/buckets.ts` `BoardAlbum.albumId` |
+| Null semantics | Nullable everywhere. Null ⇒ **no open, no 담기, no drag** — the surface renders as static content rather than a dead control (the existing `/search` A7 and `ArtistHub` A9 behavior, now the rule) | `boardDnd.ts` `routeAlbumDrop` library guard; `openTrackAlbum` early return |
+| Canonical URL | **None, by decision** (owner 2026-08-04, OQ1 — retains `ARCH-entity-interaction-unify` 2026-07-08). An album is addressed by id + open-event, never by path | `lib/entityLinks.ts` header comment ("albums have no route") |
+| Open | `openAlbum({albumId, title, artist, cover, year})` → the app-wide read-only overlay. In a member **write** context, `onOpen(DetailTarget)` → `member/AlbumDetail`. **Two hosts, by decision** (owner 2026-08-04, OQ2) | `entityEvents.ts` `openAlbum` / `ENT_OPEN_ALBUM`; `album/AlbumOverlay.tsx`; `member/AlbumDetail.tsx` |
+| Displayed data (payload minimum) | `title`, `artist`, `cover`, `year` — enough to paint the header without waiting on the detail fetch. A payload carrying only an id is legal but degrades to a blank flash | `entityEvents.ts` `OpenAlbumDetail` |
+| Actions | `open` (id present) · `add` 담기 · `drag` · `▶` (via `replaceQueueAndPlay`, never a raw `play()`) · 평가 / 메모 / 가사 — **member host only** | `AlbumDetailView.tsx`; `member/AlbumDetail.tsx` |
+| Drag payload | `{ entity:'album', albumId, title, artist, cover }` + `origin` (E2) | E2 |
+
+#### Track
+
+| Facet | Canonical definition | Cite |
+|---|---|---|
+| Canonical id | `tracks.id` (DB uuid). **`spotify_id` is not it** — it is a second namespace that travels alongside (`AlbumDetailView` passes both) and is what G2's `LikedRowVM.id` actually holds | `album/AlbumDetailView.tsx` tracklist; `member/LikedBoard.tsx` `LikedRowVM` |
+| Null semantics | Null track id ⇒ no 담기, no drag. Opening degrades to the **album** path, and a null album id there is a documented no-op | `entityEvents.ts` `openTrackAlbum` |
+| Canonical URL | **None** — and for a different reason than the album's, which is why OQ1's "the answer may differ for tracks" resolves to the same word with different content: a track has no page **and no window of its own**; its canonical destination is its album's overlay (retains unify Step 3) | `entityEvents.ts` `openTrackAlbum` |
+| Open | `openTrackAlbum({albumId, albumTitle, artist, cover, year})` | 〃 |
+| Displayed data | `title`, `artist`, parent album title, `track_no`, duration | `AlbumDetailView.tsx`; `buckets.ts` `BoardAlbum.durationSec` |
+| Actions | `lyrics?` (host-supplied — the public host deliberately omits it) · `open?` · `play?` · `add?` · `drag?` — the E4 slot set | `shared/TrackRow.tsx` |
+| Drag payload | `{ entity:'track', trackId, albumId \| null, title, artist }` + `origin` | E2 |
+
+#### Artist
+
+| Facet | Canonical definition | Cite |
+|---|---|---|
+| Canonical id | `artists.id` (DB uuid), carried as `artistId` / `artist_id` | `buckets.ts` `BoardAlbum.artistId` |
+| Null semantics | Null ⇒ the name renders as **plain text**, not a dead link — already the majority behavior at the 19 `artistHref(` call sites, now the rule | `lib/entityLinks.ts` `artistHref` |
+| Canonical URL | **`/artist/{id}/` — trailing slash canonical.** The only entity with a URL, and it stays that way. Built **only** by `artistHref`; hand-rolled `/artist/${…}` literals outside `entityLinks.ts` and `pages/` are contract violations | `lib/entityLinks.ts` `artistHref` + file header |
+| Open | Page navigation. Never an overlay — an artist has no window | 〃 |
+| Displayed data | `name`, `image` | `buckets.ts` `BoardAlbum.artist` |
+| Actions | `open` (nav) · `drag`. No 담기 from public surfaces today; an artist enters a bucket by drag or by Artist-bucket expansion | `boardDnd.ts` `routeAlbumDrop` artist branch |
+| Drag payload | `{ entity:'artist', artistId, name, image }` + `origin` | E2 |
+
+**Recorded in `component-map.md` by Step 6**, not here — the map is measured stale and Step 6 owns
+its rewrite; duplicating E1 into it now would create a second stale copy.
 
 ### E2 — one drag payload
 
@@ -416,9 +471,74 @@ each has a required visible state:
 | transform | target highlights **and names the transform** (`앨범 → 트랙 14곡`) | Artist bucket album→artists |
 | reject | target **stays in place**, muted, with a concise reason — never hidden, tray never reflows | `canAcceptAlbumDrag` false branch |
 
-Known targets and their matrix — General bucket, Artist bucket, Playback Bucket, trash dock, bucket
-node — filled in Step 2. The Playback Bucket's row is *specified* by
-`FEAT-playback-bucket-player` and *consumed* here.
+#### The matrix — ✅ **filled Step 2, 2026-08-04**
+
+Read from `boardDnd.ts` (`canAcceptAlbumDrag`, `canAcceptBucketDrag`, `routeAlbumDrop`) and
+`BucketBoard.tsx` (`TrashDock.accepts`) at `origin/main` `40f27a6`. **Nothing below is a proposal** —
+every cell states what the code does today, which is the point: E3 is the declaration the rules
+already obey, written down so a new surface cannot invent a fourth outcome.
+
+**The known-target list had a hole.** The RFC named five targets; the code has **six**. The
+Spotify-library bucket is a distinct target with its own rule (album-only, copy-in, null-album
+reject) that neither the General nor the Artist row covers.
+
+| Target | Album | Track | Artist | Bucket (container) |
+|---|---|---|---|---|
+| **General bucket** (`type` ∉ {`artist`,`playback`}) | direct-add | direct-add | direct-add | nest, cycle-guarded |
+| **Artist bucket** (`type='artist'`) | **transform** → credited artists | **transform** → credited artists | direct-add | nest, cycle-guarded |
+| **Playback Bucket** (`type='playback'`) | **transform** → its tracks, album order, N rows | direct-add — **one appended row, a COPY**; duplicates deliberate (D8 inverted) | **reject** | nest, cycle-guarded |
+| **Spotify-library bucket** (`kind='spotify_library'`) | direct-add **as a copy** | **reject** ⚠️ *silent today* | **reject** ⚠️ *silent today* | nest, cycle-guarded |
+| **Trash dock** | direct-add → recoverable trash — **unless** `source='preexisting'` (→ reject) or the drag is a `copy` source | **reject** | **reject** | direct-add, **with confirm**; a system bucket **409s with a reason** (server-side, subtree-wide) |
+| **Bucket node** (any bucket as a container) | — (same as its own type row above) | — | — | nest unless self or own subtree |
+
+Cell-by-cell provenance, and the reasons that are not obvious from the verb:
+
+- **General accepts everything** — `canAcceptAlbumDrag` returns `true` for any non-artist,
+  non-playback bucket; internal members route through `insertAlbum` (MOVE), and a `copy` / `fromLib`
+  source routes through `copyAlbum` (COPY). The move-vs-copy split is the D-series default, and E2's
+  `origin.kind` is what replaces today's three-flag inference.
+- **Artist bucket transforms both album and track** into their *credited artists* via `expandSource`;
+  an artist member itself moves in. A source bearing **no** artist-, album- or track-id is rejected
+  at drag-over — the review / playback / snapshot tiles.
+- **Playback Bucket rejects artists** — the Artist-bucket rule inverted, as
+  `FEAT-playback-bucket-player` specifies (its comparison-table rows 9 and 10). The album→**tracks**
+  expansion is the only expansion in the product that does not go to artists, and it is exempted from
+  D8's mandatory-confirmation rule by that RFC's owner decision 3 (no confirm, Undo instead) — the
+  exemption is scoped to this one target and is **not** generalized by E3.
+- **Same-bucket drop is a reposition, not a second copy** on both the Artist and Playback branches
+  (`it.fromBucketId === target.id` → return). On the Playback Bucket this is load-bearing: without it
+  the deliberate-duplicates rule would swallow every reorder.
+- **The library bucket rejects a null-album row** because a track/artist row has nothing to reconcile
+  against Spotify — the one place where "reject" protects a *sync contract* rather than a membership
+  semantic. ⚠️ **And today that rejection is invisible, which is the one place the code does not
+  already satisfy E3.** The library bucket is identified by `kind`, but `canAcceptAlbumDrag` keys only
+  on `type` — so a track or artist row dragged onto it **highlights as accepted**, and
+  `routeAlbumDrop`'s `isLib && !albumId` branch then returns silently: no insert, no message, no
+  reason. Writing the matrix is what surfaced it; the gate and the route disagree because they key on
+  different axes. **Not fixed here** (docs-only) — assigned to **Step 3**, where the adapter touches
+  exactly this gate and `boardDnd.test.ts` can pin the case. It is a *visual-contract* fix; the
+  outcome (nothing is added) is already correct.
+- **The trash rejects every non-album row**, and this is the sharpest instance of the reject state
+  carrying meaning: the trash restores solely via the album re-add path, so accepting a track /
+  artist / review / playback row would make 복원 a lie and the delete permanent. A `preexisting`
+  library album is rejected for the opposite reason — deleting it locally would not remove it from
+  Spotify and the next sync re-pulls it.
+- **Bucket-into-bucket** is guarded only against self and own-subtree; **moving a system bucket stays
+  free**. The guard that exists is on *delete*, server-side, over the whole subtree
+  (`_system_bucket_in_subtree`) — E3 declares no bucket-move restriction because there is none, and
+  inventing one here would duplicate a guard that already lives where it belongs.
+
+**Every accept-gate in this matrix is a drag-over preview, never the gate.** The server re-checks and
+400s. Two consequences Step 3 and Step 5 inherit:
+
+1. **The gate is a drift pair.** `boardDnd.ts` `canAcceptAlbumDrag` and
+   `pocketBuckit/boardDnd.ts` `boardDragAccepts` are duplicated on purpose (two React roots, no
+   shared context) and `boardDnd.test.ts` asserts they agree case-for-case. **A change to any cell in
+   this matrix lands in both files in the same PR** — the standing cross-repo twin rule, applied
+   inside one repo.
+2. **A reject cell must still render.** Per the state table above, the target stays in place, mutes,
+   and names the reason; the tray never reflows mid-drag. A cell that is "reject" is a UI obligation,
+   not an omission.
 
 ### E4 — action slots opened
 
@@ -428,6 +548,19 @@ row actions become `{lyrics?, open?, play?, add?, drag?}`. The two hand-rolled t
 review tracklist) are either brought onto the contract or listed as reasoned exceptions with a
 revival trigger — no fake unification (the `ARCH-entity-interaction-contract` house rule).
 
+**Step 2 assigns the two twins different verdicts** (owner 2026-08-04, OQ2):
+
+- **`memo-trow` → adopt.** The member `AlbumDetail`'s `MemoWindow` hand-rolls track rows that
+  `shared/TrackRow.tsx` already marks `⚠️ TWIN`, and the lyrics affordance therefore exists twice.
+  This is the concrete cost OQ2 was really about, and it is the item the owner kept. Owned by
+  **Step 5**, not Step 2 (docs-only). One trap to carry: `.memo-trow` is styled in
+  `styles/member/layout.css`, which is dashboard-scoped — adopting `TrackRow` here means checking the
+  style path, not just the markup.
+- **Review-page inline tracklist → documented exception, unchanged.** Retains comparison-table rows 8
+  and 10: it is a distinct surface, its revival trigger has fired, and **Step 4 decides
+  bridge-vs-adopt**. Step 2 does not pre-empt that, and prod has zero published reviews, so nothing
+  here is urgent.
+
 ### E5 — mobile and pointer conflicts, settled by measurement
 
 A prototype, not a library choice, decides: the pointer-drag threshold that coexists with vertical
@@ -436,6 +569,62 @@ and horizontal scroll, and the non-drag equivalent on touch. The default candida
 covers the new surfaces, and to measure whether a long-press drag can coexist with the scroll
 containers those surfaces live in.
 
+### E6 — the album-detail decision (OQ2, owner 2026-08-04)
+
+**Two hosts are retained. Nothing further is unified.**
+
+- Retains `RFC-ui-surface-unification` owner decision 8 (2026-07-18) and
+  `ARCH-entity-interaction-contract`'s non-goal; builds on `ARCH-entity-interaction-unify` Step 1,
+  which already extracted the shared read body.
+- **What changed since, and why it did not change the answer**: the read body is now shared
+  (`album/AlbumDetailView.tsx`), and drag is about to become a third behavior to keep in sync. Both
+  arguments cut *toward* the split rather than against it — the shared body means the remaining
+  difference is exactly the writable context, and the architect rule that the `ent:*` event cannot
+  carry writable context is unchanged. A merged host would have to branch internally on
+  `isLoggedIn()` + bucket presence, which is the option the Step-1 architect pass rejected in favor
+  of extraction.
+- **Consequence for E1**: "open" is a two-valued facet for albums (overlay / member modal), and that
+  is the contract, not drift. A surface picks by context — public and read contexts open the overlay,
+  dashboard work contexts open the modal, and the overlay is the default for anything new.
+- **What this decision does *not* cover**: `memo-trow` (adopt, above). The revisit was asked for and
+  the answer is "no change to the hosts, fix the twin" — the small item was always the real one.
+
+### E7 — public editorial surfaces get the album id (OQ1, owner 2026-08-04)
+
+**No album route. The id is projected instead.** Two separable questions, answered differently:
+
+| Question | Answer | Retains / supersedes |
+|---|---|---|
+| Does an album get a canonical URL? | **No** — the overlay stays the only way to open an album | **Retains** `ARCH-entity-interaction-unify`'s owner decision (2026-07-08). This RFC *is* the "possible later RFC" that decision deferred to, so the question is now **closed**, not parked again |
+| Do the public editorial surfaces get an album id? | **Yes** | Closes G1 as a Step-5 item |
+
+**Step 2 found the cost is lower than Step 1 recorded, and this is a correction of substance, not a
+line-number refresh.** Step 1 framed the second question as "put an id in the review frontmatter
+payload". The id is **already in the frontmatter, end to end**:
+
+- `myblog_backend` `app/services/publish_service.py` writes `albumIds:` and `artistIds:` into the
+  frontmatter it publishes.
+- `myblog_front` `src/content.config.ts` validates both — `albumIds: z.array(z.string()).default([])`,
+  `artistIds` alongside it.
+- `src/lib/reviews.ts` `buildReviewCards` **already reads `d.albumIds`** — it is part of the filter
+  that decides whether a post is a review at all (`e.data.albumIds.length > 0`).
+
+What it does *not* do is carry the field into the emitted `ReviewCard`, which is the JSON-safe object
+every public editorial surface consumes. So G1 is not "the id does not exist"; it is **"the
+projection drops it"**. The conclusion Step 1 drew stands unchanged — A12/A13/A14 cannot address an
+album by any mechanism — but the fix is a projection plus consumer wiring, with **no contract change,
+no backend change, and no migration**. That is also why it does not turn this front-only RFC into a
+cross-repo one.
+
+Scope, stated so Step 5 cannot quietly widen: project `albumIds` (and `artistIds`, same shape, same
+cost) onto `ReviewCard`, and wire the surfaces that then have something to address. **Not** a route,
+**not** an SEO deliverable, **not** a frontmatter or publish-service change. `SEO-review-structured-data`
+already ships `MusicAlbum` JSON-LD on review pages and is unaffected by this decision either way.
+
+One consequence worth stating plainly: **this unblocks nothing a user can see today.** Prod has zero
+published reviews, so every surface E7 serves is currently empty. It is a prerequisite, and Step 5's
+coverage count must not present it as a shipped capability.
+
 ---
 
 ## Comparison table — existing decision / retained / superseded / new
@@ -443,12 +632,12 @@ containers those surfaces live in.
 | # | Existing decision | Source | Verdict | What this RFC does |
 |---|---|---|---|---|
 | 1 | `lib/entityLinks.ts` is the artist/review href contract point; trailing slash canonical | contract Step 3 | **Retained** | Extended, not replaced |
-| 2 | `openAlbum` / `openTrackAlbum` window events; album/track have **no route** | unify Step 1/3 | **Retained** (the overlay); **URL question reopened with cause** | unify called an album route "a possible later RFC, not here" — the brief asks to define canonical URLs, so this *is* that later RFC → **OQ1** |
+| 2 | `openAlbum` / `openTrackAlbum` window events; album/track have **no route** | unify Step 1/3 | **Retained — and now closed** (owner, 2026-08-04) | Reopened as the "later RFC" unify deferred to, then **retained**: no album route, no track route. What Step 2 *adds* is the album **id** on the public editorial payload (E7) — the half of OQ1 that was never about URLs |
 | 3 | Artist click → route `/artist/[id]` | unify | **Retained unchanged** | The one entity whose canonical URL is settled |
 | 4 | Member surfaces stay on `onOpen(DetailTarget)`; the `ent:*` event cannot carry writable context | unify Step 1 architect rule | **Retained — load-bearing** | Constrains E1; "unifying" member call sites onto the event stays forbidden |
 | 5 | Null ids are first-class; non-navigable entities no-op rather than crash | unify OQ3/OQ4 | **Retained, extended to drag** | A null-id entity is non-draggable |
 | 6 | Read-only album body shared (`AlbumDetailView`); duplication #1 struck as resolved | unify Step 1 | **Retained** | The revisit starts from this state, not from "two duplicate modals" |
-| 7 | **Keep the dual album-detail system**, codify the rule instead | ui-surface-unification owner decision 8 | **Reopened with cause; outcome open** | What changed: the read body is now shared (#6) and drag is about to be added to every album representation. Step 2 answers "two hosts or one"; "no change" is an allowed answer → **OQ2** |
+| 7 | **Keep the dual album-detail system**, codify the rule instead | ui-surface-unification owner decision 8 | **Reopened, re-affirmed** (owner, 2026-08-04) | Both things that changed (shared read body, drag as a third synced behavior) cut *toward* the split. Two hosts retained; the actionable item is the `memo-trow` twin, assigned to Step 5 → **E6** |
 | 8 | The `/review/[slug]` inline editorial tracklist is a **distinct surface**, not a duplicate; deleting it regresses UX | unify Step-2 audit | **Retained unchanged** | Participates via the event bridge or is a documented exception; never rewritten |
 | 9 | `TrackRow` `play`/`add` are **reserved slots**; granting them is a product decision needing approval | contract OQ2 | **Superseded by owner product scope** | The brief's "most representations should support drag and drop" + playback drops *is* that approval. Slots open; `drag` added |
 | 10 | Vanilla review tracklist excluded from `TrackRow`; **revival trigger = a track action that must ship on the public review page** | contract non-goal | **Trigger fires — evaluated, not auto-executed** | Drag on public track rows meets the stated trigger. Step 4 decides bridge-vs-adopt; the non-goal against gratuitous migration still holds |
@@ -499,7 +688,36 @@ list of surfaces whose payload lacks the id needed to act — flagged, **not** f
 
 ---
 
-### Step 2 — canonical definitions + drop matrix + the album-detail decision (docs-only)
+### Step 2 — canonical definitions + drop matrix + the album-detail decision (docs-only) — ✅ **DONE 2026-08-04**
+
+Results: **E1** (three entity tables + Rule 0 on id shapes), **E3** (the six-target × four-entity drop
+matrix), **E6** (OQ2 — two hosts retained, `memo-trow` assigned to Step 5), **E7** (OQ1 — no album
+route, album id projected onto `ReviewCard`). Both open questions closed by the owner, 2026-08-04.
+
+Three things did not go as the step's own text assumed, and all three are recorded where they matter
+rather than smoothed over:
+
+- **The known-target list was short by one.** E3 named five drop targets; the code has six — the
+  Spotify-library bucket carries its own rule (album-only, copy-in, null-album reject) that no other
+  row covers.
+- **One cell is not satisfied by the code**: that library reject is **silent** — the gate keys on
+  `type` while the library is identified by `kind`, so the target highlights as accepting and the
+  route then no-ops without a reason. Assigned to Step 3.
+- **OQ1's cost was overstated by Step 1**, and re-checking the claim is what found it: the album id
+  is already in the frontmatter, in the schema, and already read by `buildReviewCards`; only the
+  emitted `ReviewCard` drops it. The blocked-action conclusion is unchanged — the price is not.
+
+The pattern across all three: **the value came from reading the code rather than transcribing the
+RFC's own prior text.** Step 1 recorded the same lesson about line numbers; Step 2 records it about
+claims.
+
+Verification met: every E1/E3 cell cites a symbol in `myblog_front` `origin/main` `40f27a6`, read
+from the tree rather than copied from Step 1; each decision names the prior decision it retains or
+supersedes and what changed since (E6, E7, comparison-table rows 2 and 7). The Playback Bucket row is
+consumed from `FEAT-playback-bucket-player`, which has shipped Steps 1–7, so it is recorded as
+measured code, not as pending.
+
+Original scope, for reference:
 
 Fill E1 and E3 from Step 1. Resolve **OQ1** (canonical URLs) and **OQ2** (two album-detail hosts or
 one) with the owner, both allowed to resolve as "no change". Record the drop matrix including the
@@ -579,7 +797,11 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
 
 ## Open questions
 
-1. **Does an album get a canonical URL?** *(blocks Step 2.)* `ARCH-entity-interaction-unify` decided
+1. ✅ **RESOLVED 2026-08-04 (owner) — no album route; the album id is projected onto `ReviewCard`
+   instead.** Full statement in **E7**; the two halves of the question were answered separately.
+   Original text below, kept because the argument it records is what the answer rests on.
+
+   **Does an album get a canonical URL?** *(blocked Step 2.)* `ARCH-entity-interaction-unify` decided
    **no `/album/[id]` route** (owner, 2026-07-08) in favor of the app-wide overlay, and explicitly
    parked "SEO/deep-link for albums" as "a possible later RFC". The brief now asks to define canonical
    URLs — so this is that later RFC and the question is legitimately live, not a re-litigation.
@@ -594,7 +816,10 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
    *any* mechanism today, route or overlay. That splits the question in two: "add a route?" and
    "put an id in the review frontmatter payload?" The second is cheaper, independently useful, and
    a prerequisite either way. Still the owner's call.
-2. **Two album-detail hosts, or one?** *(blocks Step 2.)* Stated accurately in *Current state*: the
+2. ✅ **RESOLVED 2026-08-04 (owner) — two hosts retained; the `memo-trow` twin is the item that gets
+   fixed, in Step 5.** Full statement in **E6**. The recommended default held. Original text below.
+
+   **Two album-detail hosts, or one?** *(blocked Step 2.)* Stated accurately in *Current state*: the
    read body is already shared; the split is read-only-event-host vs writable-prop-host. What changed
    since owner decision 8: the shared body landed, and drag is about to be added to every album
    representation, which means a third behavior to keep in sync across hosts.
@@ -660,4 +885,13 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
 | 2026-08-04 | **Two findings were deliberately NOT filed as payload gaps** — `/collection` (48 albums, id present, zero interactive descendants, measured in prod) and `ReleaseRadar` (holds `artist_id`, renders no hub link — `grep -c artistHref` = 0). The id is already there; these are Step 5 wiring, not a contract change, and conflating the two categories would have inflated the contract-change surface | 5 |
 | 2026-08-04 | **Are.na measured as the drag-semantics analogue** (`/explore`, logged out): every card `draggable="true"` (12/12), drag on the container that also wraps the navigating link (native DnD resolving click-vs-drag — the same mechanism `BucketBoard.tsx:617-618` documents), and a named non-drag peer ("Connect") coexisting with it. **At 390×844 touch, draggable drops 12 → 0 while the cards and "Connect" remain.** The closest analogue abandons drag on touch rather than implementing a long-press — external corroboration for OQ4's default, and it shifts the burden: long-press drag now needs a positive reason to exist | 4 |
 | 2026-08-04 | **The zero-review fact is recorded as scope-limiting, not trivia.** Prod has no published review (`a[href^="/review/"]` = 0 on home), so A10 and B4 — **the only public 담기 surface and the only track-담기 surface in the product** — are unreachable by anyone. Any Step-5 coverage claim that counts them is counting surfaces no user can reach | 5 |
+| 2026-08-04 | **Owner, OQ1 — no `/album/[id]` route.** **Retains** `ARCH-entity-interaction-unify`'s 2026-07-08 decision; this RFC was the "possible later RFC" it deferred to, so the question is **closed rather than parked again**. Tracks resolve to the same word for a different reason (no page *and* no window of their own — their canonical destination is the album overlay), so unify Step 3 is retained too | 2 |
+| 2026-08-04 | **Owner, OQ1 (second half) — the album id IS projected onto the public editorial payload** (E7). **Step 2 corrected Step 1's cost estimate by re-checking the claim**: the id is already written by `publish_service.py`, already validated in `content.config.ts`, and already read by `buildReviewCards` (it is part of the is-this-a-review filter); only the emitted `ReviewCard` drops it. So G1 is "the projection drops it", not "the id does not exist" — a front-only projection change, **no contract/backend/migration**, and the RFC stays front-only. The blocked-action conclusion is unchanged; only the price is. Wired in Step 5 | 5 |
+| 2026-08-04 | **Owner, OQ2 — two album-detail hosts retained; nothing further unified** (E6). **Re-affirms** `RFC-ui-surface-unification` owner decision 8. Both changes since (shared read body, drag as a third synced behavior) cut *toward* the split; a merged host would branch internally on `isLoggedIn()` + bucket presence, the option the Step-1 architect pass already rejected. The actionable item is the smaller one: **`memo-trow` adopts `TrackRow`** (Step 5, carrying the dashboard-scoped `.memo-trow` style trap); the review-page tracklist stays a documented exception with Step 4 deciding bridge-vs-adopt | 2 |
+| 2026-08-04 | **E3's known-target list was short by one — the Spotify-library bucket is a sixth drop target** with its own rule (album-only, copy-in, **reject** on a null-album row: a track/artist row has nothing to reconcile against Spotify). Found by reading `routeAlbumDrop` rather than transcribing the RFC's own list | 2 |
+| 2026-08-04 | **Writing E3 found the one cell the code does not satisfy: the Spotify-library reject is silent.** The library is identified by `kind`, but the accept-gate keys on `type`, so a track/artist row **highlights as accepted** and `routeAlbumDrop`'s `isLib && !albumId` branch then returns with no insert and no reason. Outcome is already correct (nothing is added); the *visual contract* is violated. Assigned to **Step 3** — the adapter touches that gate and `boardDnd.test.ts` can pin the case. Not fixed in Step 2 (docs-only) | 3 |
+| 2026-08-04 | **E3 declares no bucket-move restriction, deliberately.** Moving a system bucket stays free; the protection that exists is on **delete**, server-side, over the whole subtree (`_system_bucket_in_subtree`). Adding a move guard here would duplicate a guard that already lives where the destructive act is | 2 |
+| 2026-08-04 | **The E3 accept-gate is a drift pair, and that is written into the matrix.** `boardDnd.ts` `canAcceptAlbumDrag` and `pocketBuckit/boardDnd.ts` `boardDragAccepts` are duplicated on purpose (two React roots); **any cell change lands in both files in the same PR**, with `boardDnd.test.ts` asserting they agree case-for-case | 3 |
+| 2026-08-04 | **E1 Rule 0: "canonical id" constrains the *slot*, not the field name.** Three shapes circulate — nullable DB id (first-class), foreign-namespace id in a DB-id slot (G4 — now **prohibited**, convert at the producer or pass null), and async-resolved id (G5 — legal for navigation, **illegal for drag**: hold the id at `dragstart` or don't be draggable). Neither is fixed here; both become contract violations owned by Step 5 | 5 |
+| 2026-08-04 | **E1 is not copied into `component-map.md` yet.** The map is measured stale and Step 6 owns its rewrite; duplicating E1 now would create a second stale copy of a definition that is one step old | 6 |
 | 2026-08-04 | **Member-side browser verification deferred to Step 3, on purpose.** The two draggable surfaces need a populated member board to exist in the DOM at all, and Step 3 already mandates a full CDP board+tray drag matrix. Step 1's six spot-checks are public-side; §F says so rather than implying full coverage | 3 |
