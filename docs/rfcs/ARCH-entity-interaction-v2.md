@@ -571,12 +571,12 @@ revival trigger — no fake unification (the `ARCH-entity-interaction-contract` 
 
 **Step 2 assigns the two twins different verdicts** (owner 2026-08-04, OQ2):
 
-- **`memo-trow` → adopt.** The member `AlbumDetail`'s `MemoWindow` hand-rolls track rows that
-  `shared/TrackRow.tsx` already marks `⚠️ TWIN`, and the lyrics affordance therefore exists twice.
-  This is the concrete cost OQ2 was really about, and it is the item the owner kept. Owned by
-  **Step 5**, not Step 2 (docs-only). One trap to carry: `.memo-trow` is styled in
-  `styles/member/layout.css`, which is dashboard-scoped — adopting `TrackRow` here means checking the
-  style path, not just the markup.
+- **`memo-trow` → adopt.** ✅ **Done, Step 5 second slice (2026-08-05, front #354).** The member
+  `AlbumDetail`'s `MemoWindow` hand-rolled track rows that `shared/TrackRow.tsx` marked `⚠️ TWIN`, so
+  the lyrics affordance existed twice. Adopted via a new `openLyrics` action (whole-row identity
+  click, `role="button"` + keyboard support on the row — the shape a nested `open` button couldn't
+  express); the dead `.memo-trow*` CSS in `styles/member/layout.css` (the dashboard-scoped trap this
+  row warned about) is removed with it.
 - **Review-page inline tracklist → documented exception, unchanged.** Retains comparison-table rows 8
   and 10: it is a distinct surface, its revival trigger has fired, and **Step 4 decides
   bridge-vs-adopt**. Step 2 does not pre-empt that, and prod has zero published reviews, so nothing
@@ -921,7 +921,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, first slice shipped 2026-08-04** (front #353 `46962eb`)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, second slice shipped 2026-08-05** (front #354)
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -953,6 +953,45 @@ candidate/tracked rows — 0 residue left behind) and confirmed in the deployed 
 `memo-trow` adoption (E4), rendering E3's board reject-visual on every matrix cell (not just the
 tray), E1 Rule 0's G4/G5 violations, and E7's `ReviewCard` id projection — none of that shipped
 here; this slice was scoped narrowly to the two items the RFC already named as free-standing.
+
+**Second slice shipped 2026-08-05 (front #354): `TrackRow`'s `play`/`add`/`drag` slots opened, plus
+the `memo-trow` adoption (E4).** Two changes, one PR:
+
+- **`play`/`add`/`drag` opened.** `shared/TrackRow.tsx`'s `TrackRowActions` gains `play?: () => void`
+  and `add?: () => void` (plain trailing-button slots — no queue/bucket logic in the component, same
+  pattern as the existing `lyrics` slot) and `drag?: DragPayload` (E2's payload type). Granting `drag`
+  makes the row natively `draggable` and dispatches the payload on **both** the tray→board
+  (`PB_DND_START_EVENT`/`PB_DND_END_EVENT`) and board→tray (`PB_BOARD_DND_START_EVENT`/
+  `PB_BOARD_DND_END_EVENT`) bridges (`lib/pocketBuckit/events.ts`) — the same wire every existing
+  drag source already uses, so a future grant is a real, working drop source into both the board and
+  the tray with **no further plumbing**. Traced both listeners (`BucketBoard.tsx`'s `onDndStart`
+  populates the board's own live `dnd` from *any* dispatcher, not just the tray; `lib/pocketBuckit/
+  boardDnd.ts`'s mirror likewise) before reusing them, specifically to avoid the "accept preview but
+  no-op drop" failure class E3 flagged for the library bucket — reusing only the board→tray half
+  would have reproduced exactly that bug for a brand-new source. **No surface grants any of the three
+  in this slice** — that stays surface-by-surface, per Step 5's own split axis. Verified by 9 new
+  `TrackRow.test.tsx` cases (open-vs-openLyrics exclusivity, whole-row click+keyboard, play/add
+  callbacks, drag dispatch on dragstart/dragend), not by a live drop target (none exists yet).
+- **`memo-trow` adopted (E4).** `member/AlbumDetail.tsx`'s `MemoWindow` hand-rolled its own track
+  rows because `TrackRow`'s only identity action (`open`) means "open the album" — memo-trow's rows
+  have nothing else to click, the WHOLE row is the 가사 button. Rather than leave that gap open,
+  `TrackRowActions` gains `openLyrics` (mutually exclusive with `open`): when granted, the row's
+  `no`+identity+`cells` all sit under one `role="button"` element (keyboard Enter/Space included),
+  not a nested `<button>` — the shape the header comment said `TrackRow` "cannot express" until now.
+  `MemoWindow` now renders `TrackRow` with `openLyrics` when a track has a `spotify_id`, omitted
+  otherwise (same plain-row degrade as omitting `open`). The dead `.memo-trow*` CSS
+  (`styles/member/layout.css`) is removed — the twin is gone, not just quieted, so the file's own
+  "check both" warning is retired along with it.
+- Traded off deliberately: `drag` is real and dispatches the true bridge, but is **not yet exercised
+  on a live surface** (no CDP drag-and-drop matrix this slice — nothing to drag). `memo-trow`'s
+  migration **is** live-verified: CDP against a real bucket album (Troye Sivan's *Bloom*, added to a
+  temp General bucket) confirmed all 10 rows render as whole-row 가사 buttons and clicking one opens
+  the lyrics sheet with the correct title/artist/album/cover; temp bucket deleted immediately after
+  via page-context fetch (0 residue).
+
+**Remaining Step 5 scope**: granting `play`/`add`/`drag` on an actual surface, rendering E3's board
+reject-visual on every matrix cell, E1 Rule 0's G4/G5 violations, and E7's `ReviewCard` id
+projection.
 
 ---
 
@@ -1115,3 +1154,5 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
 | 2026-08-04 | **Member-side browser verification deferred to Step 3, on purpose.** The two draggable surfaces need a populated member board to exist in the DOM at all, and Step 3 already mandates a full CDP board+tray drag matrix. Step 1's six spot-checks are public-side; §F says so rather than implying full coverage | 3 |
 | 2026-08-04 | **Owner, OQ4 — the tap fallback wins by elimination, not by threshold-tuning.** Measured via raw CDP `Input.dispatchTouchEvent` (not `resize_page`, not a page-JS `DragEvent` stub) against a dedicated headless Chrome, on the app's own real surfaces with real prod-catalog albums seeded through 5 temp buckets (deleted after, zero residue): native `draggable` produced **zero `dragstart` events across 0–60px** on both the `BucketBoard` vertical list and the 최근 들은 앨범 horizontal strip — the browser's own `pointercancel` decides the scroll-vs-tap outcome before the app ever sees a drag start, so there is no pointer-drag threshold to port to Step 5. The kebab/`AddToBucketMenu` tap fallback is confirmed reliable (0px tap → sheet opens, every time). PocketTray's own pointer+6px-threshold+`touchAction:none` reorder — the one shipped touch-drag in the app — could not be confirmed to survive the harness (`data-reordering` never observed `true` across 21 polled frames of a slow 40px drag); recorded **unconfirmed, not disproven**, and Step 5 does not copy that pattern to new surfaces without a real-device check. Long-press drag is now rejected by two independent findings (Are.na's abandonment, Step 1; native drag's non-participation on touch, this step) and supported by none. Full table → §Step 4 | 4 |
 | 2026-08-04 | **Owner, OQ3 — recommended default adopted as-is, unblocking Step 5's scope.** Drag applies to every representation with a stable entity id **and** a browsing context; command/keyboard surfaces and selection-mode rows are excluded. The owner did not add or remove any exclusion beyond the three Step 1 already named (`HeaderSearch` A8/B5, 라이터 추천 트랙 ★ B9, 라이터 작품 검색 C9). Step 5 may now start | 5 |
+| 2026-08-05 | **Reusing the board⇄tray bridge for a brand-new drag source needed tracing first, not just importing the event names.** `PB_DND_START_EVENT` docs itself as "tray→board" and `PB_BOARD_DND_START_EVENT` as "board→tray" — dispatching only the board→tray half from `TrackRow` would have made the tray preview-accept a drop that silently no-ops (the board's own live `dnd`, which the drop handler actually reads, stays null), reproducing the exact "accept preview lies" bug class E3 flagged for the library bucket. Read both listeners (`BucketBoard.tsx` `onDndStart`, `lib/pocketBuckit/boardDnd.ts`) before reusing them: both populate their target generically from *any* dispatcher, so `TrackRow`'s `drag` slot dispatches **both** pairs and a future grant works against either drop target with no additional wiring | 5 |
+| 2026-08-05 | **`memo-trow`'s whole-row click needed a real design decision, not a one-line reuse of `open`.** `open` wraps only the identity cell (cover+text) — established behavior for its two existing consumers, not something to change. memo-trow's row has nothing else to click, so a new `openLyrics` action makes the OUTER row element (`no`+identity+`cells` together) the target, via `role="button"` + manual keyboard handling, not a nested `<button>` (invalid HTML if `open` were reused as-is). Verified live via CDP against a real bucket album, not just the vitest cases, since a synthetic harness can't catch a click-target that's visually a full row but functionally only the title text | 5 |
