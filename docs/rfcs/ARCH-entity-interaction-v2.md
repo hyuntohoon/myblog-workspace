@@ -178,6 +178,200 @@ introduces conflicts that **have not been measured here**:
 
 ---
 
+## Step 1 audit — measured 2026-08-04
+
+Measured against `myblog_front` **`origin/main` = `40f27a6`**, read from an isolated worktree (the
+shared checkout was 5 commits behind and would have produced stale citations). Nothing below is
+copied from `component-map.md`; every row is a fresh read, and every `path:line` in this section was
+re-verified by printing the cited line after the table was written.
+
+**The re-measure was not a formality — this RFC's own *Current state* is already stale.** The drag
+inventory it records as `BucketBoard.tsx:569` / `:965` and `PocketTray.tsx:435` / `:589` is now
+`:580` / `:981` and `:444` / `:641`. The *set* of draggable surfaces is unchanged (two), so the
+conclusion drawn from it stands — but four of five cited line numbers had moved in one day. Line
+citations in this lineage decay within a single step; Step 6's re-stamp of `component-map.md` should
+prefer symbol names over line numbers wherever a symbol exists.
+
+### A. Album representations
+
+`open` values: **overlay** = app-wide read-only `AlbumOverlay` via `openAlbum`; **modal** = member
+writable `AlbumDetail` via `onOpen(DetailTarget)`; **nav** = page navigation; **none** = inert.
+`add` = 담기 (`AddToBucketMenu` / `BucketPickerSheet`). `drag` = HTML5 `draggable`.
+
+| # | Surface | Cite | Album id in payload | Open | Actions | Drag |
+|---|---|---|---|---|---|---|
+| A1 | Home 신보 카드 | `home/NewReleasesCard.tsx:91` (artist `:102`) | DB `album_id` | overlay | — | no |
+| A2 | Home 오늘의 앨범 | `home/TodayAlbumBuckit.tsx:65` (artist `:74`) | DB `album_id` | overlay | — | no |
+| A3 | Home For-You 신보 | `home/ForYouReleasesCard.tsx:92` (artist `:98`) | DB, **non-null asserted** (`it.album_id!`) | overlay | — | no |
+| A4 | Home 오늘의 곡 (앨범으로) | `home/TodaySongBuckit.tsx:147,155` (artist `:161`) | DB `album_id` | overlay | — | no |
+| A5 | Home 오늘의 곡 히스토리 | `home/TodayPickHistory.tsx:99,108` (artist `:113`) | DB `album_id` | overlay | — | no |
+| A6 | 발매 이벤트 (캘린더 · 레이더) | `releases/releaseShared.tsx:212-214` (artist `:260`,`:294`) | **Spotify id**; DB id resolved async on click, and on miss the **Spotify id is passed as `albumId`** | overlay | — | no |
+| A7 | 검색 앨범 카드 | `search/SearchPage.tsx:73-85` (artist `:87`) | DB, **nullable** → static figure | overlay | — | no |
+| A8 | 헤더 검색 앨범 행 | `search/HeaderSearch.tsx:131-138`, `:154` | DB, **nullable** → keyboard target is `null` | overlay | — | no |
+| A9 | 아티스트 허브 디스코그래피 | `artist/ArtistHub.tsx:253-269` | DB, **nullable** → static div | overlay | — | no |
+| A10 | 평론 페이지 히어로 앨범 | `pages/review/[slug].astro:96,181,212,901-904` | DB `post.albumIds[0]` | overlay | **add** (`:238`) | no |
+| A11 | `/collection` 공개 컬렉션 | `collection/CollectionView.tsx:80` | DB `albumId` — **present** | **none** | **none** | no |
+| A12 | Canon 카드 | `canon/CanonPage.tsx:20` | **absent** (`lib/reviews.ts:10-31`) | nav → review | — | no |
+| A13 | 평론 인덱스 · 홈 평론 행 | `reviews/ReviewsIndex.tsx:209,229,245,368,386`; `home/EditorialHome.tsx:103,151` | **absent** | nav → review | — | no |
+| A14 | 검색 평론 카드 | `search/SearchPage.tsx:27`; `search/HeaderSearch.tsx:152` | **absent** | nav → review | — | no |
+| A15 | **Buckit 보드 멤버 칩** | `member/BucketBoard.tsx:580` | `BoardAlbum.albumId`, **nullable** (`lib/buckets.ts:45`) | modal `:627` (artist → hub `:621`; other kinds → no-op `:625`) | ✎ 평론표시 `:684`, ⋯ 액션시트 `:700`, ▶ `:2701` | **yes** — `DndItem` `:583`/`:585`/`:589` |
+| A16 | **Pocket 트레이 리스트 행** | `member/pocket/PocketTray.tsx:641` | `BoardAlbum.albumId`, nullable | overlay `:661` | ▶ `:665` (owner), − 제거 `:658` | **yes** — window event `:644` |
+| A17 | **Pocket 카드 뷰어 타일** | `member/pocket/PocketTray.tsx:444` | 〃 | artist → hub `:597`, album → overlay `:599` | − 제거 `:612` | **yes** — `dragBind` `:443-459` |
+| A18 | 공개 앨범 오버레이 (본체) | `album/AlbumOverlay.tsx` + `album/AlbumDetailView.tsx` | given | — | ▶ `:72-82` (logged-in only), 평가 블록; **가사 없음** | no |
+| A19 | 멤버 앨범 모달 (본체) | `member/AlbumDetail.tsx` (same shared body) | given | — | 가사(트랙별), 메모, 평가, 평론 보기 `:110` | no |
+| A20 | NowPlaying 현재 앨범 | `member/NowPlaying.tsx:216,224` | DB | overlay | — | no |
+| A21 | NowPlaying 최근 들은 앨범 | `member/NowPlaying.tsx:1564` | DB `it.album_id` | overlay | — | no |
+| A22 | 재생 패널 — 앨범 정보 | `member/playback/PlaybackPanel.tsx:103-111`, `:193` | `trackAlbumId ?? albumId` | overlay | 가사 `:191`, 트랙 정보 `:192` | no |
+| A23 | 평론 후보 카드 | `member/ReviewCandidates.tsx:24` (artist `:42`) | DB | overlay | 평론 쓰기 `:59` | no |
+| A24 | 멤버 프로필 평가 목록 | `member/MemberProfile.tsx:304,314` (artist `:326`) | DB | overlay | — | no |
+| A25 | 평론 탭 | `member/ReviewsTab.tsx:50-56` | DB `r.albumIds[0]` | overlay | 보기 `:105` | no |
+| A26 | 스포티파이 임포트 분석 | `member/ImportAnalysis.tsx:468` | DB `target.id` | — | **add** | no |
+| A27 | LikedBoard 카드 커버 | `member/LikedBoard.tsx:312` | DB, nullable → disabled | modal | ⋯ 메뉴 `:328` | no |
+
+### B. Track representations
+
+| # | Surface | Cite | Track id in payload | Open | Actions | Drag |
+|---|---|---|---|---|---|---|
+| B1 | 앨범 트랙리스트 (공유 본문) | `album/AlbumDetailView.tsx:56-73` | DB `t.id` + `t.spotify_id` | — | **가사만**, and only when the host passes `onOpenLyrics` (`:70`) — public omits it | no |
+| B2 | LikedBoard 리스트 행 | `member/LikedBoard.tsx:280-299` | **Spotify id only** (`LikedRowVM.id`, `:34-36`) — no DB track id | 앨범 modal `:294` | 가사 `:295`, ⋯ `:297` | no |
+| B3 | 멤버 메모창 `memo-trow` — **TWIN 1** | `member/AlbumDetail.tsx:429` | DB | whole row = 가사 | 가사 | no |
+| B4 | 평론 페이지 인라인 트랙리스트 (vanilla) — **TWIN 2** | `scripts/albumDetail.client.ts:58-71` | DB `t.id` | — | ▶ `:58`, ＋▶ 다음에 듣기 `:64`, **＋ 담기** `:69` → `pb:add-track` `:176` | no |
+| B5 | 검색 트랙 행 | `search/SearchPage.tsx:95-132`; `search/HeaderSearch.tsx:139-146` | `TrackHit.id` nullable, **unused** | **앨범** overlay (never the track) | — | no |
+| B6 | 아티스트 허브 주요 트랙 | `artist/ArtistHub.tsx:280-294` | not carried | **앨범** overlay | — | no |
+| B7 | 재생 큐 행 | `member/playback/PlaybackPanel.tsx:239-255` | `BoardAlbum.trackId` | — | ▶ `:239`, × 제거 `:255` | no |
+| B8 | 가사 뷰어 큐 | `member/lyrics/LyricsViewer.tsx:274` | DB | tap → jump | — | no |
+| B9 | 라이터 추천 트랙 ★ | `writer/RecommendedTracksBlock.tsx:71` | DB | — | selection toggle (different semantic) | no |
+
+**B4 is the most action-dense track row in the product and the only place a track can be 담기'd —
+and it is unreachable in prod** (zero published reviews; measured below). Every reachable track row
+today offers at most 가사.
+
+### C. Artist representations
+
+| # | Surface | Cite | Artist id in payload | Open | Drag |
+|---|---|---|---|---|---|
+| C1 | `/artist/[id]/` hub | `lib/entityLinks.ts:14` | — (route param) | canonical URL, trailing slash | no |
+| C2 | 링크로만 등장하는 이름 — the catch-all row: **19 `artistHref(` call sites across 16 files**, C3/C4/C6/C7 included | `grep -rn "artistHref(" src` | DB, mostly nullable → plain text on null | nav → hub | no |
+| C3 | **Buckit 보드 아티스트 멤버** | `member/BucketBoard.tsx:619-622` | `BoardAlbum.artistId` (`buckets.ts:58`) | nav → hub | **yes** |
+| C4 | **Pocket 트레이 아티스트 멤버** | `member/pocket/PocketTray.tsx:596-597` | 〃 | nav → hub | **yes** |
+| C5 | 검색 아티스트 카드 | `search/SearchPage.tsx:45` | nullable → `href` undefined (**dead card, deliberate**) | nav → hub | no |
+| C6 | NowPlaying 아티스트명 | `member/NowPlaying.tsx:1009-1039` | **not in the payload** — resolved async per render via `resolveDbArtistId` `:1018` | nav → hub when resolved, else plain text | no |
+| C7 | AlbumDetailView 아티스트 블록 | `album/AlbumDetailView.tsx:88-99` | DB `ar.id` | nav → hub | no |
+| C8 | 레이더 추적/후보 아티스트 | `releases/ReleaseRadar.tsx:328-338` | DB `c.artist_id` — **present** | **none** — `artistHref` count in this file is **0** | no |
+| C9 | 라이터 작품 검색 결과 | `writer/ArtistDetail.tsx:107,123,153` | DB | — (selection: `onPickArtist`/`onPickTrack`/`onPickAlbum`) | no |
+
+### D. Drag inventory — exact and grep-reproducible
+
+```
+grep -rn "draggable" myblog_front/src --include='*.tsx' --include='*.astro' --include='*.ts'
+```
+returns 9 hits at `origin/main` `40f27a6`; **4 are live drag sources**, and they are the RFC's two
+surfaces:
+
+- `BucketBoard.tsx:580` (member chip) · `:981` (bucket node — a container, not an entity)
+- `PocketTray.tsx:444` (card-viewer tile) · `:641` (list row)
+
+The other 5 are non-sources: `BucketBoard.tsx:691`,`:706` are `draggable={false}` (the ✎ and ⠿
+buttons opting **out** so a tap on them is not a drag start), and three are prose in comments
+(`genres/gm-shared.tsx:83`, `PocketTray.tsx:439`, `writer/WriterApp.tsx:26`). Any Step-5 grep gate
+must diff against this baseline rather than assert an absolute count
+(memory `feedback-grep-gate-needs-baseline-diff`).
+
+### E. Payload-gap list — flagged, not fixed
+
+Each gap is stated as *the action it blocks*, with a reproducing grep. **None is fixed in this step.**
+
+| # | Gap | Blocks | Reproduce |
+|---|---|---|---|
+| G1 | **Build-time `ReviewCard` carries no album or artist id** — only `slug` + display strings | A12/A13/A14 can never open an album, be dragged, or be 담기'd. This is the largest single class: every editorial surface on the public site | `grep -n "interface ReviewCard" -A 22 src/lib/reviews.ts` → no `*Id` field. Contrast `lib/member.ts:47`'s `MemberReview`, which **does** carry `albumIds` (used at `ReviewsTab.tsx:50`) — the member side of the same content already has the id the public side lacks |
+| G2 | **`LikedRowVM` has no DB track id** — `id` is the Spotify track id | B2 cannot 담기 a track (`addBucketTrack` needs a DB id) and cannot become a track drag source; only the album path via promote works | `grep -n "interface LikedRowVM" -A 24 src/components/member/LikedBoard.tsx` |
+| G3 | **Search `TrackHit.id` is carried but never used**; the row opens the album instead | B5 cannot address the track it displays | `grep -n "openTrackAlbum(t" src/components/search/*.tsx` — both call sites pass `t.albumId`, never `t.id` |
+| G4 | **Release events carry a Spotify album id, not a DB id**, and the async resolve **falls back to passing the Spotify id into `albumId`** | A6 can hand the overlay an id from the wrong namespace on a resolve miss — an id-*type* conflation, not merely a missing id | `sed -n '212,214p' src/components/releases/releaseShared.tsx` |
+| G5 | **`NowPlaying` artist ids are absent from the payload** and resolved per-render | C6 cannot be a drag source without a network round-trip first | `sed -n '1009,1022p' src/components/member/NowPlaying.tsx` |
+| G6 | **`ArtistHub` top tracks carry no track id** | B6 cannot address the track | `sed -n '280,294p' src/components/artist/ArtistHub.tsx` |
+
+Two more findings are **not** payload gaps — the id is present and the surface simply does nothing
+with it. They are cheaper to close than G1–G6 and are handed to Step 5, not to a contract change:
+
+- **A11 `/collection`** — 48 album covers on prod carrying `albumId`, with **zero** interactive
+  descendants (measured below). The richest inert album surface in the product.
+- **C8 `ReleaseRadar`** — the only artist surface that holds `artist_id` and renders **no hub link**;
+  every other artist name in the product links. `grep -c artistHref` on that file returns `0`.
+
+### F. Real-browser spot-check — prod, 2026-08-04
+
+Six checks on `https://www.ratemymusic.blog`, chosen to test claims that a code read could get wrong
+(not to re-confirm ones it settles). All ran logged out.
+
+| Surface | Claim tested | Measured |
+|---|---|---|
+| `/collection/` | A11 is fully inert | **48 `<figure>`, 0 clickable descendants, 0 draggable, `cursor:auto`** — confirmed |
+| `/search/?q=radiohead` | album/track/artist row behavior + no add/drag | 20 album cards, all with open buttons; **20 track rows, all labeled "앨범 상세 보기"**; artist links all trailing-slash; **draggable 0, 담기 0** |
+| album overlay (opened from search) | public overlay grants no lyrics/add/drag | buttons = **닫기, 로그인하고 평가 남기기** only; 가사 0; draggable 0; artist link present |
+| `/artist/<id>/` | discography + top tracks open the album, never the track | 1 clickable disco item, 1 top track labeled "**앨범** 상세 보기"; draggable 0, 담기 0 |
+| `/releases/` | A6's open affordance | **52 artist links**, and **0 album-open buttons** — the default view's events have no `spotify_album_id` yet, so they are album representations with *no id at all* |
+| `/` (home) | home tiles + review reachability | 12 `.nrl-open` + 4 `.otd-open` album tiles, each with an artist link; draggable 0, 담기 0; **`a[href^="/review/"]` = 0** |
+
+**Scope of this evidence, stated plainly.** The six checks cover the public side. The two draggable
+surfaces (A15–A17, C3–C4) are **member-only and were measured from source, not in a browser** — a
+prod board would have to be populated for the drag nodes to exist at all, and Step 3's verification
+already mandates a full CDP board+tray drag matrix. That is where the browser confirmation belongs;
+it is deferred deliberately, not skipped.
+
+**The zero-review finding is load-bearing, not trivia.** `a[href^="/review/"] = 0` on the home page
+confirms prod still has no published review, which means **A10 and B4 — the only public 담기 surface
+and the only track-담기 surface in the entire product — cannot be exercised by anyone today.** Any
+Step-5 claim of "most representations are draggable/addable" that counts those two is counting
+surfaces no user can reach.
+
+### G. External patterns — extended, not repeated
+
+The prior analyses stand and are not re-run: FEAT-pocket-buckit's conclusions on Spotify's overloaded
+"Add" and its churning queue, and `FEAT-playback-bucket-player` Step 6's four-service comparison
+(Genius / Apple Music web / SoundCloud / Bandcamp measured; Spotify web + YouTube Music left
+**unverified behind login walls**). What this step adds is the one thing those did not cover — **drag
+semantics** — measured on the closest product analogue.
+
+**Are.na `/explore`, logged out, 2026-08-04 (measured):**
+
+- **Every content card is `draggable="true"` — 12/12 on the page**, blocks and channels alike. Drag
+  is not an affordance granted to a privileged surface; it is the default state of a representation.
+- The draggable node is the **card container wrapping the `<a href>`**, not the image — so click
+  (navigate) and drag live on the same node, resolved by native HTML5 DnD. This is the identical
+  mechanism `BucketBoard.tsx:617-618` already relies on and documents ("a drag never fires a click").
+- Each card carries a **named non-drag peer action, "Connect"** — drag and the explicit button
+  coexist rather than substitute.
+- **At 390×844 with touch emulation, `draggable="true"` drops to 0 while the cards remain
+  (6 block + 10 channel) and "Connect" survives.** Verified this is not a render failure by counting
+  the cards in the same pass.
+
+That last measurement is the one that matters here: the closest analogue to this product **abandons
+drag entirely on touch and keeps the named button as the sole path** — it does not implement a
+long-press drag. That is external corroboration for OQ4's recommended default (`AddToBucketMenu` as
+the touch path), and it lowers the burden on Step 4: the prototype must still measure the *desktop*
+threshold-vs-scroll conflicts, but "long-press drag on mobile" now needs a positive reason to exist
+rather than merely failing to be ruled out.
+
+Not measured, with the reason: Spotify web and YouTube Music (login wall — same boundary Step 6 hit);
+Finder and Yoink (native macOS, no instrumentation path from here). Their drag conventions are
+well-established but would be assertion, not measurement, and this RFC does not launder the two.
+
+### H. What this feeds forward
+
+- **Step 2 (E1/E3)** inherits three id shapes that must appear in the canonical definitions:
+  nullable DB id (the common case), Spotify-id-in-an-`albumId`-slot (G4), and id-resolved-async
+  (G5). "Canonical id" cannot be a single field name.
+- **OQ1 (album URL)** gains a concrete argument it did not have: G1 means the *public editorial*
+  surfaces — the ones an album URL would most serve — cannot address an album at all today. The
+  question is therefore partly "add a route?" and partly "put an id in the frontmatter payload?",
+  and the second is cheaper and independently useful. Still the owner's call.
+- **OQ3 (how far "most" goes)** now has a measured exclusion list: selection-mode surfaces (B9, C9)
+  and keyboard command rows (A8, B5 via `HeaderSearch`), matching the recommended default.
+- **Step 5** starts from **two** free wins that need no contract change — A11 `/collection` and
+  C8 `ReleaseRadar` — and from the knowledge that its headline surfaces (A10, B4) are prod-unreachable.
+
+---
+
 ## Target state
 
 ### E1 — canonical entity definitions (written here, enforced in code)
@@ -278,7 +472,16 @@ containers those surfaces live in.
 One step per session (hard rule #4). Steps 1–3 are the prerequisite block for
 `FEAT-playback-bucket-player` Step 8.
 
-### Step 1 — full surface re-audit (docs-only, measurement)
+### Step 1 — full surface re-audit (docs-only, measurement) — ✅ **DONE 2026-08-04**
+
+Results: **§Step 1 audit — measured 2026-08-04** above (matrix A/B/C, drag inventory D, payload gaps
+E, browser spot-check F, external patterns G, feed-forward H). Verification met: every row cites
+`path:line` re-verified against `origin/main` `40f27a6`; six real-browser spot-checks on prod; the
+gap list is grep-reproducible. Boundary stated in §F: the two draggable surfaces are member-only and
+were measured from source — their browser confirmation is Step 3's mandated CDP matrix, deferred on
+purpose.
+
+Original scope, for reference:
 
 Re-measure **every** album / track / artist representation in `myblog_front/src` — id availability
 and nullability, open behavior, displayed data, actions, draggability — and compare relevant external
@@ -385,6 +588,12 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
    without a build. **No default asserted** — the trade (deep-linkable/shareable/indexable vs one more
    route, a build-time path problem for a growing catalog, and a second way to open an album) needs
    the owner, and the same question applies to tracks with a different answer likely.
+   **Step 1 adds a concrete argument the question did not have** (§Step 1 audit G1): the public
+   editorial surfaces an album URL would most serve — canon cards, the review index, home review
+   rows, search review cards — carry **no album id at all**, so they cannot address an album by
+   *any* mechanism today, route or overlay. That splits the question in two: "add a route?" and
+   "put an id in the review frontmatter payload?" The second is cheaper, independently useful, and
+   a prerequisite either way. Still the owner's call.
 2. **Two album-detail hosts, or one?** *(blocks Step 2.)* Stated accurately in *Current state*: the
    read body is already shared; the split is read-only-event-host vs writable-prop-host. What changed
    since owner decision 8: the shared body landed, and drag is about to be added to every album
@@ -402,11 +611,18 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
    **Recommended default**: drag every representation that has a stable entity id **and** lives in a
    browsing context; exclude command/keyboard surfaces and selection-mode rows, listing each
    exclusion with its reason. Needs a yes because "most" is the owner's word and the boundary is a
-   product call.
+   product call. **Step 1 supplies the exclusion list to say yes or no to**: selection-mode surfaces
+   (B9 라이터 추천 트랙 ★, C9 라이터 작품 검색) and keyboard command rows (A8/B5 `HeaderSearch`) —
+   exactly the shape the default predicted.
 4. **What replaces drag on touch?** *(blocks Step 5; answered by Step 4's measurement, not by
    opinion.)* Candidates: the shipped `AddToBucketMenu` on every surface (lowest risk, already the
    WCAG primary path), long-press drag, or a selection mode. Recorded as an OQ rather than
    pre-decided because the brief explicitly asks to prototype before fixing one interaction.
+   **Step 1 did not answer this, but it moved the burden** (§Step 1 audit G): Are.na — the closest
+   product analogue — drops `draggable` from 12 to **0** under 390×844 touch emulation while keeping
+   its cards and its named "Connect" button. It does not attempt a long-press drag. Step 4 still owes
+   the *desktop* threshold-vs-scroll measurement; what changed is that "long-press drag on mobile"
+   now needs a positive reason to exist rather than merely surviving a lack of evidence against it.
 
 ---
 
@@ -439,3 +655,9 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
 | 2026-08-03 | **The album-detail revisit starts from the accurate state**, not the brief's framing: `ARCH-entity-interaction-unify` Step 1 already extracted the shared read body and struck component-map duplication #1. The live question is two hosts vs one, and the recommended default is **no further change** | 2 |
 | 2026-08-03 | `boardDnd.ts`'s move/transform/reject rules are **retained verbatim**; only the payload around them is unified. Rewriting proven, unit-tested drop semantics was rejected as the largest avoidable risk in this RFC | 3 |
 | 2026-08-03 | `ARCH-entity-interaction-contract` OQ2's reserved `play`/`add` slots are **granted** — the brief's drag-and-drop scope plus the Playback Bucket's track drops constitute the product approval that OQ2's default was waiting for | 5 |
+| 2026-08-04 | **Step 1 audit landed.** The re-measure justified itself immediately: 4 of the 5 drag citations in this RFC's own *Current state* had moved in one day (`:569`→`:580`, `:965`→`:981`, `:435`→`:444`, `:589`→`:641`). The *conclusion* (two draggable surfaces) held. **Step 6 should re-stamp `component-map.md` with symbol names, not line numbers**, wherever a symbol exists — line citations in this lineage decay within a single step | 1 |
+| 2026-08-04 | **Payload gaps are recorded as blocked-actions, not missing fields, and none was fixed** (the RFC's own non-goal). Six are listed (G1–G6); the largest by far is **G1 — the build-time `ReviewCard` carries no album or artist id**, which is why every public editorial surface can only navigate. G4 is a different species and worth calling out separately: release events **pass a Spotify id into the `albumId` slot** on a resolve miss — an id-*namespace* conflation, not an absence | 1 |
+| 2026-08-04 | **Two findings were deliberately NOT filed as payload gaps** — `/collection` (48 albums, id present, zero interactive descendants, measured in prod) and `ReleaseRadar` (holds `artist_id`, renders no hub link — `grep -c artistHref` = 0). The id is already there; these are Step 5 wiring, not a contract change, and conflating the two categories would have inflated the contract-change surface | 5 |
+| 2026-08-04 | **Are.na measured as the drag-semantics analogue** (`/explore`, logged out): every card `draggable="true"` (12/12), drag on the container that also wraps the navigating link (native DnD resolving click-vs-drag — the same mechanism `BucketBoard.tsx:617-618` documents), and a named non-drag peer ("Connect") coexisting with it. **At 390×844 touch, draggable drops 12 → 0 while the cards and "Connect" remain.** The closest analogue abandons drag on touch rather than implementing a long-press — external corroboration for OQ4's default, and it shifts the burden: long-press drag now needs a positive reason to exist | 4 |
+| 2026-08-04 | **The zero-review fact is recorded as scope-limiting, not trivia.** Prod has no published review (`a[href^="/review/"]` = 0 on home), so A10 and B4 — **the only public 담기 surface and the only track-담기 surface in the product** — are unreachable by anyone. Any Step-5 coverage claim that counts them is counting surfaces no user can reach | 5 |
+| 2026-08-04 | **Member-side browser verification deferred to Step 3, on purpose.** The two draggable surfaces need a populated member board to exist in the DOM at all, and Step 3 already mandates a full CDP board+tray drag matrix. Step 1's six spot-checks are public-side; §F says so rather than implying full coverage | 3 |
