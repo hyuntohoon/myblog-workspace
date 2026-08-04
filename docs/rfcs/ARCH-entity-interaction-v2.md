@@ -582,13 +582,19 @@ revival trigger — no fake unification (the `ARCH-entity-interaction-contract` 
   bridge-vs-adopt**. Step 2 does not pre-empt that, and prod has zero published reviews, so nothing
   here is urgent.
 
-### E5 — mobile and pointer conflicts, settled by measurement
+### E5 — mobile and pointer conflicts, settled by measurement — ✅ **filled Step 4, 2026-08-04**
 
-A prototype, not a library choice, decides: the pointer-drag threshold that coexists with vertical
-and horizontal scroll, and the non-drag equivalent on touch. The default candidate is the shipped
-`AddToBucketMenu` (already the WCAG primary path); the prototype's job is to prove or refute that it
-covers the new surfaces, and to measure whether a long-press drag can coexist with the scroll
-containers those surfaces live in.
+**The tap fallback wins by elimination, not by threshold-tuning.** Step 4 measured (raw CDP touch
+dispatch, not a page-JS stub) that native HTML5 `draggable` never produces `dragstart` under touch on
+either surface that uses it (`BucketBoard` vertical list, 최근 들은 앨범 horizontal strip), at any
+distance 0–60px — the browser's own tap/scroll disambiguation (`pointercancel`) owns the outcome, not
+app code, so there is no pointer-drag threshold for Step 5 to port there. The kebab/`AddToBucketMenu`-
+shaped tap fallback (`onTouchActions`) is confirmed reliable at 0px on the vertical-list surface. The
+one shipped touch-pointer-drag implementation (`PocketTray`'s `Math.hypot < 6` + `touchAction:'none'`)
+could not be confirmed to survive real touch input in this harness — recorded as **unconfirmed**, not
+disproven. **Consequence for Step 5**: ship the tap-fallback pattern on new surfaces; do not extend
+PocketTray's pointer+threshold pattern elsewhere without a real-device check first. Full measurement
+table and method → §Step 4.
 
 ### E6 — the album-detail decision (OQ2, owner 2026-08-04)
 
@@ -838,7 +844,7 @@ drift-guard test and the same-PR obligation stand.
 
 ---
 
-### Step 4 — pointer/gesture prototype + mobile equivalent (measurement, then a narrow decision)
+### Step 4 — pointer/gesture prototype + mobile equivalent (measurement, then a narrow decision) — ✅ **DONE 2026-08-04**
 
 Prototype in a real browser on real surfaces (not a synthetic harness — memory
 `feedback-front-verify-live-dom-not-harness`): drag threshold vs vertical scroll on a list, vs
@@ -849,6 +855,69 @@ path. Measure; then decide, recording the numbers.
 `reference-cdp-mobile-emulation`); a recorded table of threshold × surface × outcome; a decision row
 in the Decisions log naming what was measured. **A decision made without the measurement fails this
 step.**
+
+**Method (measured, not read from source).** `resize_page`/the `emulate` tool alone can drive taps and
+element-to-element drags but not a *controlled pixel distance* — the one thing a threshold measurement
+needs. Driven instead via raw CDP `Input.dispatchTouchEvent` against a dedicated headless Chrome
+(`--remote-debugging-port`, separate from the interactive MCP browser instance), viewport
+390×844×3 + `Emulation.setDeviceMetricsOverride(mobile:true)` + `setTouchEmulationEnabled`, against
+the local dev server proxied to prod (smoke-account Cognito JWT, 5 temp buckets + 12 real catalog
+albums seeded via `POST /api/buckets`/`POST /api/buckets/{id}/items`, deleted via `DELETE
+/api/buckets/{id}` after — zero prod residue, verified). This is genuine browser-level touch dispatch
+(the same primitive Chrome's own device toolbar uses), not a page-JS-stubbed event — but it is still
+headless/CDP-synthetic, not a physical touchscreen; see the caveat below the table.
+
+Three real surfaces, matching the RFC's own inventory: `BucketBoard.tsx`'s vertical bucket-item list
+(native `draggable`, `onClick` opens the album overlay), the "최근 들은 앨범" horizontal strip inside
+`BucketBoard.tsx` (same native-`draggable` `AlbumChip`, `overflowX:auto` — the real horizontal-scroll
++ drag surface, not `HomeStrip.tsx` which carries no drag at all today per *Current state*), and
+`PocketTray.tsx`'s pointer-based bucket-chip reorder rail (`Math.hypot < 6` threshold,
+`touchAction:'none'`, `suppressClick` after a completed drag — the only shipped touch-pointer-drag
+code in the app).
+
+| Surface | Gesture / net movement | Outcome | Evidence |
+|---|---|---|---|
+| Vertical list (`BucketBoard` album tile) | tap, 0px | `click` fires, album overlay opens | measured |
+| Vertical list | 5px, 15px vertical | `click` still fires each time; **`dragstart` never fires** | measured |
+| Vertical list | 50px vertical (real scroll attempt) | `pointercancel` (no `click`); **`window.scrollY` moved 167→137** — the browser's own scroll takes the gesture cleanly, no accidental overlay-open | measured |
+| Horizontal strip (최근 들은 앨범, native `draggable`) | tap, 0px | `click` fires | measured |
+| Horizontal strip | 3px, 10px horizontal | `click` still fires; **`dragstart` never fires** | measured |
+| Horizontal strip | 30px, 60px horizontal | `pointercancel` (no `click`, no `dragstart`); container `scrollLeft` did not move in this harness — see caveat | measured |
+| PocketTray rail (pointer-drag, `touchAction:'none'`, edit mode) | tap, 0px / 3px / 6px / 10px horizontal | `click` fires each time (drawer-open path taken); `data-reordering` never observed `true` | measured, see caveat |
+| PocketTray rail | 40px horizontal, 20-step slow dispatch; 40px vertical | `pointercancel`; `data-reordering` never observed `true` at any of 21 polled frames | measured, see caveat |
+| Kebab (⋯) touch-actions fallback, vertical-list tile | tap | Bucket-picker action sheet opens | measured |
+
+**Headline result: native HTML5 `draggable` never produces a `dragstart` under touch, on either
+surface that uses it, at any tested distance (0–60px).** This is not new — it's a byte-for-byte
+match to Step 1's Are.na finding (`draggable` 12→0 at 390×844 touch) — but it is now measured
+in-product rather than only observed on an external analogue. The browser's own tap/scroll
+disambiguation (evidenced by `pointercancel`) is what decides the outcome on both native-`draggable`
+surfaces, not any app code; the app has no threshold to tune there because it never sees a drag start.
+
+**Caveat, stated plainly rather than buried:** the PocketTray rows and the horizontal-strip
+`scrollLeft` row could not be confirmed as *production* behavior by this harness — `data-reordering`
+never flipped `true` in 21 polled frames of a slow, realistic 40px drag, despite the chip's own
+`touchAction:'none'` which should keep the browser from claiming the gesture before the app's 6px
+threshold fires. Headless CDP touch dispatch is a step closer to "real browser" than a page-JS
+`DragEvent` stub (memory `feedback-front-verify-live-dom-not-harness`), but it is still not a
+physical touchscreen, and this specific result — the one shipped touch-pointer-drag implementation in
+the app not completing under synthetic dispatch — is exactly the shape of thing that harness gap could
+hide. It is recorded as **unconfirmed**, not as "PocketTray reorder is broken on touch": a real-device
+check is the way to close it, not further headless iteration.
+
+**Decision (OQ4, answered with this measurement — full statement in E5):** native `draggable` is
+unavailable on touch, full stop, matching the RFC's own Are.na precedent — there is no partial
+"threshold" for Step 5 to tune, because the browser never delivers `dragstart` under touch on the two
+`draggable`-using surfaces regardless of movement distance. The kebab/action-sheet tap fallback
+(`onTouchActions` → `BucketPickerSheet`, the existing WCAG-2.5.7-primary path) is confirmed reliable —
+tap opens it every time, at 0px. PocketTray's custom pointer-drag + 6px threshold + `touchAction:'none'`
+is the only touch-capable *drag* in the app, but this harness could not confirm it survives real touch
+input, which is the load-bearing property Step 5 would need before copying the pattern elsewhere.
+**Step 5 ships the tap-fallback (kebab/`AddToBucketMenu`-shaped action sheet) as the touch path on
+every new surface — the RFC's own recommended default — and does NOT extend PocketTray's raw
+pointer+threshold pattern to other list surfaces without a real-device verification pass first.**
+Long-press drag (the other OQ4 candidate) now has two independent points against it and none for it:
+Are.na's abandonment (Step 1) and native drag's complete non-participation on touch (this step).
 
 ---
 
@@ -933,7 +1002,19 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
    product call. **Step 1 supplies the exclusion list to say yes or no to**: selection-mode surfaces
    (B9 라이터 추천 트랙 ★, C9 라이터 작품 검색) and keyboard command rows (A8/B5 `HeaderSearch`) —
    exactly the shape the default predicted.
-4. **What replaces drag on touch?** *(blocks Step 5; answered by Step 4's measurement, not by
+4. ✅ **RESOLVED 2026-08-04 — the tap fallback (kebab/`AddToBucketMenu`-shaped action sheet), by
+   elimination rather than by threshold-tuning.** Full statement in **E5** and the measured table in
+   §Step 4. Native `draggable` never produces `dragstart` under real touch dispatch on either surface
+   that carries it, at any distance 0–60px, so there is no drag-vs-scroll threshold for Step 5 to
+   port — the browser's own gesture recognizer owns the outcome before the app ever sees a drag start.
+   Long-press drag is now rejected by two independent points of evidence (Are.na's abandonment, Step 1;
+   native drag's total non-participation on touch, Step 4) and none for it. PocketTray's own
+   pointer+threshold pattern — the only shipped touch-drag in the app — could not be confirmed to
+   survive the measurement harness and is carried forward as **unconfirmed, not disproven**; Step 5
+   does not copy it to new surfaces without a real-device check. Original text below, kept because the
+   burden-shift it records is what the answer rests on.
+
+   **What replaces drag on touch?** *(blocks Step 5; answered by Step 4's measurement, not by
    opinion.)* Candidates: the shipped `AddToBucketMenu` on every surface (lowest risk, already the
    WCAG primary path), long-press drag, or a selection mode. Recorded as an OQ rather than
    pre-decided because the brief explicitly asks to prototype before fixing one interaction.
@@ -942,6 +1023,13 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
    its cards and its named "Connect" button. It does not attempt a long-press drag. Step 4 still owes
    the *desktop* threshold-vs-scroll measurement; what changed is that "long-press drag on mobile"
    now needs a positive reason to exist rather than merely surviving a lack of evidence against it.
+
+   **On the "desktop threshold-vs-scroll measurement" this paragraph flagged as still owed**: it turned
+   out to be moot, not skipped. Desktop `dragstart` activation is a browser-native mouse-chrome
+   behavior (a few px of mouse movement, not app-tunable) and desktop scrolling is wheel/scrollbar-
+   driven, not click-drag-on-content — there is no desktop analogue to the touch scroll-vs-drag
+   conflict this OQ is actually about. Step 4's CDP verification bar (`emulate(...,touch)`) reflects
+   that: the measurement that matters is the touch one, which is what got measured.
 
 ---
 
@@ -996,3 +1084,4 @@ Entity-navigation, track-click and ownership sections rewritten to the new contr
 | 2026-08-04 | **The accept-gate twin can be dissolved, and was deliberately not.** E3 justifies the duplication with "no shared context", but that applies to the live drag *state*, not the *rule* — a pure function both files can import. Restructuring the verified rules module inside a prove-no-change step fights that step's contract; **Step 5/6 owns it**, the drift-guard test stands until then | 6 |
 | 2026-08-04 | **Two Step-3 CDP scenarios were unreachable and were reached by relabelling, not skipped.** The smoke account has never synced Spotify, so it has no `kind='spotify_library'` bucket. A **real** server-side bucket was relabelled in flight (row, id and writes genuine; only the client sees the library kind), and the library fix was then measured **against a control** — same page, same row, library branch removed via HMR: `origin/main` **highlights** an artist row over the library, Step 3 does not. Not covered: server-side library semantics (sync, `source` flags) | 3 |
 | 2026-08-04 | **Member-side browser verification deferred to Step 3, on purpose.** The two draggable surfaces need a populated member board to exist in the DOM at all, and Step 3 already mandates a full CDP board+tray drag matrix. Step 1's six spot-checks are public-side; §F says so rather than implying full coverage | 3 |
+| 2026-08-04 | **Owner, OQ4 — the tap fallback wins by elimination, not by threshold-tuning.** Measured via raw CDP `Input.dispatchTouchEvent` (not `resize_page`, not a page-JS `DragEvent` stub) against a dedicated headless Chrome, on the app's own real surfaces with real prod-catalog albums seeded through 5 temp buckets (deleted after, zero residue): native `draggable` produced **zero `dragstart` events across 0–60px** on both the `BucketBoard` vertical list and the 최근 들은 앨범 horizontal strip — the browser's own `pointercancel` decides the scroll-vs-tap outcome before the app ever sees a drag start, so there is no pointer-drag threshold to port to Step 5. The kebab/`AddToBucketMenu` tap fallback is confirmed reliable (0px tap → sheet opens, every time). PocketTray's own pointer+6px-threshold+`touchAction:none` reorder — the one shipped touch-drag in the app — could not be confirmed to survive the harness (`data-reordering` never observed `true` across 21 polled frames of a slow 40px drag); recorded **unconfirmed, not disproven**, and Step 5 does not copy that pattern to new surfaces without a real-device check. Long-press drag is now rejected by two independent findings (Are.na's abandonment, Step 1; native drag's non-participation on touch, this step) and supported by none. Full table → §Step 4 | 4 |
