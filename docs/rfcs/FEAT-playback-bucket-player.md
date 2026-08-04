@@ -615,10 +615,12 @@ half-erased-queue invariant and both failures-preserve cases — plus real-brows
 dense enough to prove no intermediate queue state exists, not merely that the end state is
 right.
 
-**Known, deliberately not fixed here**: a play/pause we issue triggers an adoption read
+~~**Known, deliberately not fixed here**: a play/pause we issue triggers an adoption read
 inside Spotify's ack→apply window, and the stale answer overwrites the state we just set
 (display-only, self-heals on the next event). Fixing it needs either "ignore reads we
-caused" or an apply-window constant — and constants in this RFC are measured, not guessed.
+caused" or an apply-window constant — and constants in this RFC are measured, not guessed.~~
+**FIXED 2026-08-04 — Step 8 preflight audit.** See §Playback Step 8 preflight audit below:
+a local-write sequence guard, not a guessed constant.
 
 ---
 
@@ -712,6 +714,80 @@ owner-only (two tabs adopting independently are two writers racing over one stat
 the other with a slightly older read); and `replaceQueueAndPlay` takes the lease rather than
 forwarding, because ▶ can raise *this* tab as the SDK device and its Undo belongs to the tab that
 pressed. Each is covered by a test that was confirmed to fail without it.
+
+---
+
+### Playback Step 8 preflight audit — six confirmed defects in the deployed player, fixed (2026-08-04)
+
+Not a numbered step. Owner asked, before Step 8 proceeds, for the currently deployed player to
+be investigated and fixed against real runtime behavior — not documented, not deferred. Audited
+against `origin/main` (front #351), not against this RFC's own prose, which had drifted from
+what actually shipped in 6b/7.
+
+**Confirmed and fixed:**
+
+1. **Our own transport raced its own adoption** (the line just above, now struck through).
+   `MYBLOG_PLAYBACK_CHANGED` fires the instant a command is acknowledged; the `adoptLive()` read
+   it triggers can still land inside Spotify's ack→apply window and read the PREVIOUS state,
+   overwriting a fresher local write. Fixed with a local-write sequence counter
+   (`localWriteSeq`/`authoritativePatch`): every authoritative local write (a play/toggle/advance
+   outcome) bumps it, and `adoptLive()` captures the counter before its read and discards the
+   result if it changed while the read was in flight. Correct at any window width — no constant
+   guessed.
+2. **Natural completion never reached the UI or queue.** `onCompleted()` (T2's "완료 시 제거")
+   had **zero callers** anywhere in the shipped app — nothing ever detected a track ending on its
+   own. Rung 2 (in-page SDK) now wires the SDK's own `player_state_changed` push event
+   (`spotifyPlayback.ts`) into the same `MYBLOG_PLAYBACK_CHANGED` signal every other trigger
+   already uses — a push event, not polling, D28 intact. Rung 1 (Connect remote — "everything the
+   owner actually uses is on this row") has no such signal, so `adoptLive()` now also schedules
+   ONE `setTimeout` per track near its expected end (cleared/re-armed at every real boundary,
+   never a loop) — T3's own words license "reads that are 1:1 with... a track boundary", predicted
+   rather than observed. On ANY confirmed track change away from the row it believed was current
+   — from either trigger — `adoptLive()` deletes that row and adopts whatever is live now, without
+   replaying a track Spotify is already playing. The 1500ms boundary buffer is a first-pass
+   estimate, **not measured** the way Step 7's lease constants were — flagged as a follow-up.
+3. **가사 / 트랙 정보 were wired to a literal no-op** (`NOOP_PLAYBACK_ENTRY`) at every
+   `PlaybackMini`/`PlaybackPanel` mount site in `PocketTray.tsx` — not a partial implementation,
+   a stub never connected to anything, with a comment already naming the fix
+   ("until they gain an app-wide event like albums"). 가사 now dispatches `ent:open-live-lyrics`
+   (`entityEvents.ts`, mirrors `ent:open-album`); `SelfDashboard` listens and opens the real
+   `LyricsViewer`. **트랙 정보 is left as-is, on purpose** — no track-only destination exists
+   anywhere in the product (that is `ARCH-entity-interaction-v2`'s canonical-track scope, the
+   same RFC Step 8 itself depends on); owner call this session was to skip it rather than invent
+   a destination.
+4. **앨범 정보 silently failed for playback outside the queue.** `ExternalNowPlaying` never carried
+   a Spotify album id even though the one-shot read (`playback.api.ts`'s `albumSpotifyId`) already
+   had it — so 앨범 정보 no-opped whenever `state.external` was set instead of a queue row. Now
+   threaded through and resolved via the existing `resolveDbAlbumId` (`@lib/spotifyCatalog`,
+   `by-spotify`) — no new endpoint.
+5. **The mobile sheet's 4-tab bar never switched content.** `role="tab"`/`aria-selected` on all
+   four (대기열/가사/트랙/앨범) implied a content switch that never happened — `.pbp-body` was
+   static and always rendered the queue view regardless of which tab was "selected". Replaced with
+   an honest layout: 대기열 is the only real tab (the only view that exists), the other three are
+   plain action buttons in the same slot, doing exactly what the desktop entry buttons do.
+
+**Verified**: `pnpm lint` clean, `pnpm exec astro check` 0 errors, `pnpm test` 447/447 (4 new:
+the write-seq race guard, confirmed-completion with/without a mismatch, rung-2
+`player_state_changed` wiring including that it never fires on its own). Real-browser CDP against
+a local dev server, desktop + 390×844 mobile, stubbed backend + Spotify: 가사 opens the real
+`LyricsViewer` end-to-end from a real click on both surfaces; 앨범 정보 resolves and opens the real
+album overlay for playback adopted as `external`; mobile sheet screenshot confirms the single real
+tab plus honest action buttons. Not independently re-verified against a live multi-minute track
+end or a real second device changing playback from outside the site — those remain owner
+real-device spot-checks, named rather than assumed.
+
+**Deliberately not touched**: `NowPlaying.tsx` (`components/member/NowPlaying.tsx`) is a SECOND,
+fully independent live-playback tracker — its own `readLivePlayback()` calls, its own
+`MYBLOG_PLAYBACK_CHANGED` listener, never sharing state with `lib/playback/session.ts`. It already
+had its own (different) fix for the same race class (`controlBusyRef` skips the confirmation read
+entirely while its own command is in flight), so it was not re-broken, but the two trackers were
+not unified — that is a larger, out-of-scope change this audit flags rather than takes.
+
+**Step 8's own gate is now separately satisfied**, not by this audit: `ARCH-entity-interaction-v2`
+Steps 1–4 all shipped 2026-08-04 (front #351, a concurrent session) — Step 8 named only Steps 1–3
+as its gate. → `docs/rfcs/ARCH-entity-interaction-v2.md`.
+
+→ `myblog_front` #352.
 
 ---
 
