@@ -155,10 +155,6 @@ selectors actually fire (reverted before commit, never entered the diff); `pnpm 
 ### Step 3 — playback state consolidation (front-only, cross-cutting `FEAT-member-player` +
 `FEAT-playback-bucket-player`)
 
-`NowPlaying`/`LyricsViewer` subscribe to `lib/playback/session.ts` instead of independently polling
-`readLivePlayback()`/listening to `MYBLOG_PLAYBACK_CHANGED`. Collapses `controlBusyRef` into
-`session.ts`'s existing `localWriteSeq` guard.
-
 **OQ1 resolved 2026-08-05**: stays a step of this RFC. `FEAT-member-player` has shipped every
 non-gated step and has no open slot to take new scope. `FEAT-playback-bucket-player`'s own Step 8
 preflight audit (front #351/#823) already looked at this exact gap — `NowPlaying`/`LyricsViewer`
@@ -167,9 +163,63 @@ staying a separate tracker from `lib/playback/session.ts` — and explicitly fla
 steps. Neither RFC claims this consolidation; this RFC exists for cross-cutting cleanup exactly like
 it, so it stays here.
 
-**Verification**: existing `playback/session.test.ts`/`NowPlaying`-adjacent tests extended to assert
-cross-tracker consistency (today: zero such tests, confirmed by this audit); real-browser check that
-lock-screen Media Session control still works when playback originates from the Playback Bucket panel.
+**Split into 3a/3b/3c 2026-08-05, against actual code, not the original one-paragraph estimate.**
+The step's original text ("subscribe to `session.ts` instead of polling; collapse `controlBusyRef`
+into `localWriteSeq`") undersold the size by roughly two orders of magnitude: `NowPlaying.tsx` is
+1,710 lines and `LyricsViewer.tsx` is 1,764, and neither's playback state is a thin wrapper — tier
+detection, device picker, shuffle/repeat/volume, liked-state, reconnect flow, Media Session
+publishing (`NowPlaying`) and the sub-100ms sync-precision anchor math `FEAT-lyrics-sync-precision`
+just finished tuning (`LyricsViewer`) all live in hooks structurally unrelated to `session.ts`'s
+queue-first model. A single-session rewrite of either is exactly the "larger, out-of-scope change"
+`FEAT-playback-bucket-player`'s own Step 8 audit already declined. Splitting isolates the one
+concretely-named bug from the two open-ended migrations, so the bug fix can ship on its own
+regression-testable PR while the bigger merges get their own session and design scrutiny each.
+
+#### Step 3a — fix the named race: `controlBusyRef` drops real external events (front-only, `NowPlaying.tsx` only)
+
+The actual bug `controlBusyRef` causes today: `NowPlaying`'s `onPlaybackChanged` listener does
+`if (controlBusyRef.current) return` — a blanket "ignore every `MYBLOG_PLAYBACK_CHANGED` while ANY
+of our own control calls (`playPause`/`seek`/`skip`/`setMode`) is in flight". That drops not only the
+echo of our own call (each of which already has its own confirmation read) but also a genuinely
+external change landing in the same window — e.g. someone pauses from their phone the instant this
+tab's own pause request is still in flight, and the card never learns about it until the next
+unrelated event. `session.ts` already solved this exact shape of problem with `localWriteSeq`: a
+monotonic counter bumped on every LOCAL authoritative write, so a read discards itself only if a
+*newer* local write raced ahead of it — never a blanket "was busy" flag. Port that pattern into
+`NowPlaying.tsx`'s own module scope (no dependency on `session.ts` itself, no new cross-module
+subscription — this step does not touch the architecture, only the guard). Grep confirmed
+`LyricsViewer.tsx`'s own `MYBLOG_PLAYBACK_CHANGED` listener (`onCommand` → `resync('command')`) has
+no equivalent busy-guard — it rate-limits instead (`EVENT_RESYNC_FLOOR_MS`) and deliberately does NOT
+ignore its own commands (that is how OQ4's residual-series measurement works) — so there is no twin
+to sweep here.
+
+**Verification**: a unit test simulating an in-flight control call plus a concurrent external
+`MYBLOG_PLAYBACK_CHANGED` (asserting the external event is NOT dropped); existing `NowPlaying` tests
+stay green; no real-device step needed — the fix is a pure guard-logic change, testable with mocked
+timing per `feedback-stub-must-model-async-lag`.
+
+#### Step 3b — `NowPlaying` sources "what's currently playing" from `playbackSession` (front-only)
+
+Narrower than the original full-hook merge: `NowPlaying` keeps its own tier/mode/like/device/
+reconnect state entirely local (none of that has a `session.ts` equivalent and folding it in is not
+this step's job). Only "what track is playing and its anchor" moves to read from `playbackSession`
+instead of `NowPlaying`'s own parallel `adoptLive`-equivalent, so a play started from the Playback
+Bucket panel is reflected here without `NowPlaying` running a second, independent live-read poller
+racing the session's own.
+
+**Verification**: cross-tracker consistency test (today: zero, confirmed by this audit) — start
+playback from the Bucket panel, assert `NowPlaying` converges without a page reload; real-browser
+check that lock-screen Media Session control still works with the shared source.
+
+#### Step 3c — `LyricsViewer` sources its sync anchor from `playbackSession` (front-only) — gated on 3b
+
+Highest-risk of the three: this is the exact file `FEAT-lyrics-sync-precision` tuned to sub-100ms
+drift, so any anchor-source change re-opens that measurement. Deliberately sequenced last, and gated
+on 3b landing and being prod-stable first — do not start 3c in the same session as 3b.
+
+**Verification**: the full CDP sync-precision regression battery `FEAT-lyrics-sync-precision` Step 2
+used (not unit tests alone) — real playback, boundary transitions, pause/resume — before this can be
+called done.
 
 ### Step 4 — `useDismissable` adoption sweep + G4 (front-only) — ✅ **DONE 2026-08-05**
 
@@ -245,6 +295,7 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 | 2026-08-05 | Owner reviewed the domain-audit findings and approved proceeding with all recommendations in-session ("다 추천으로 ㄱ"). Two concrete bugs (BUG-20) shipped immediately as ad hoc fixes, outside this RFC's step sequence, since they are plain bugs not architecture decisions. This RFC captures the remaining, genuinely multi-step work | 0 |
 | 2026-08-05 | `AddToBucketMenu`/`BucketPickerSheet` non-merge re-examined and reconfirmed — the real bug (BUG-20) was a third, unaudited call site (`LikedBoard`) missing a shared predicate, not duplication between the two named components. Non-goal restated accordingly | 0 |
 | 2026-08-05 | OQ1 answered — owner kept Step 3 (playback state consolidation) as this RFC's own step, not handed to `FEAT-member-player` (no open slot) or `FEAT-playback-bucket-player` (mid-sequence, already declared this exact unification out of its own scope) | 3 |
+| 2026-08-05 | **Step 3 split into 3a/3b/3c.** Reading `NowPlaying.tsx`/`LyricsViewer.tsx` against the RFC's one-paragraph estimate found the real scope roughly two orders of magnitude larger — ~3,500 combined lines of hardware-timing-sensitive code, not a thin polling wrapper. Owner: split rather than attempt in one session — 3a isolates the one concretely-named, cheaply-testable bug (`controlBusyRef` dropping real external events); 3b/3c are the actual architectural merges, sequenced by risk (`LyricsViewer`'s sync-precision anchor last, gated on 3b) | 3 |
 | 2026-08-05 | **Step 1 shipped.** `component-map.md`'s `ARCH-entity-interaction-v2` Step 6 overlap resolved by explicit handoff, not merge: E1 (entity canonical definitions) stays that RFC's own Step 6 to transcribe; this step added only the genuinely new cross-domain material (events/state-owners/modals) plus fixed two claims found actively wrong during verification, not merely stale | 1 |
 | 2026-08-05 | While spot-checking Step 1's claims, found `component-map.md`'s `TrackRow` action-set description and "no play affordance" line both still described the pre-`ARCH-entity-interaction-v2`-Step-5 shape. Fixed as part of this step rather than filed separately — a doc correction discovered while doing the doc-review verification this step already required, not new scope | 1 |
 | 2026-08-05 | **Step 2 shipped** (front #356). `PB_ADD_TRACK_EVENT` relocated from `ReviewTrackAdder.tsx` to `lib/pocketBuckit/events.ts` rather than left in place and merely allow-listed — the file's own React-free status is what let the vanilla script import it in the first place, so the fix and the guardrail's own rationale point the same direction. `album:detail` in `albumDetail.fetch.client.ts` kept as a named exception (filename-scoped), not moved — it's a documented-intentional single-file listener, not a drift pair | 2 |
