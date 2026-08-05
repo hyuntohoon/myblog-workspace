@@ -929,7 +929,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, sixth slice (TrackRow `add` grant) shipped 2026-08-05** (front #365)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, seventh slice (TrackRow `drag` grant on LikedBoard, G2 closed) shipped 2026-08-05** (front #366 + backend #152)
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -1132,6 +1132,39 @@ canonical DB `t.id` with no gap.
   works). Grep gate: `draggable`/`dataTransfer` hit count unchanged vs `origin/main` (this slice
   grants no drag). Prod smoke post-merge: `scripts/smoke.sh prod` 19/19 PASS, S3 `_astro/**` bundle
   timestamp confirmed fresh — quoted in PR #365's comment.
+
+**Seventh slice shipped 2026-08-05 (front #366 + backend #152): TrackRow's `drag` slot granted on
+`LikedBoard`, closing G2 as a side effect.** The sixth slice's own drag-deferral reasoning (scrim
+occludes the tray; `LikedBoard`/`BucketBoard` never share a tab) turned out not to fully apply here —
+this session re-measured before writing code and found `PocketTray` is mounted globally
+(`layout.astro`, `client:only` + `transition:persist`), independent of which `SelfDashboard` tab is
+active. `LikedBoard`→`PocketTray` has no scrim and no tab exclusivity to work around; only
+`LikedBoard`→`BucketBoard` (a *different*, board-specific drop target) and the two modal surfaces
+(`AlbumDetail`/memo-trow, still scrim-blocked) inherit the sixth slice's blockers. Owner picked this
+narrower slice over a z-index fix.
+
+- `LikedBoard`'s row gains `actions.drag` with `origin: { kind: 'external', copies: true }` (a liked
+  track is not a bucket membership) — the exact shape `TrackRow.test.tsx` already pinned.
+- **G2 surfaced as a live 500, not just a contract gap, and was closed in the same slice.** A real
+  trusted-CDP drag (`chrome-devtools` MCP's `drag()` tool — `dispatchEvent(DragEvent)` does not reach
+  this tree, see `reference-cdp-drag-needs-trusted-input`) onto the Playback Bucket chip fired the
+  full bridge correctly (`pb:dnd-start` → `pb:board-dnd-start` → `pb:board-drop`, a real
+  `POST /api/buckets/{id}/items` went out) but the backend 500'd: `_add_typed_item` resolved
+  `track_id` only via our internal `Track.id` PK, and `Backend_SavedTrackItem` (what `LikedBoard`
+  reads) carries only `spotify_track_id` — G2's own point. `Track.id == <spotify id>` was an
+  unhandled DB type error, not the 404 the code intended. Fixed backend-side: resolve by PK first,
+  fall back to `Track.spotify_id`, store the resolved id on the membership row (`myblog_backend`
+  PR #152, merged + deployed before the front grant).
+- Verified: front — lint/astro check 0 errors, `pnpm test` 496 passed (+1 new,
+  `LikedBoard.drag.test.tsx`); backend — full `pytest` against the Neon test branch, 801 passed / 1
+  skipped (pre-existing, unrelated) / 0 failed (+2 new: spotify-id fallback accepted, an unresolvable
+  id still 404s rather than 500ing). Real trusted-CDP drag against a local dev server proxied to real
+  prod data (smoke account, the CORS-proxy-with-real-JWT recipe) is what surfaced the bug pre-merge.
+  Prod smoke post-merge (after both PRs deployed, backend first): direct `POST` with a Spotify track
+  id → **201**, correct resolved internal track id echoed back, `DELETE` cleanup → 204, 0 residue —
+  quoted in both PR comments (#152, #366).
+- **`AlbumDetail`/memo-trow modal surfaces remain ungranted** — their scrim still occludes the tray;
+  that's the one part of the original three-surface drag gap still open for a future slice.
 
 ---
 
