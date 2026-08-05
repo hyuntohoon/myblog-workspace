@@ -101,16 +101,33 @@ live `LikedBoard` gap) + the `trashAlbum` temp-id guard. See `docs/archive/done/
 here only as the prerequisite G5 partially already satisfies (the function exists; the ESLint gate in
 Step 2 below still needs to ship to make it durable).
 
-### Step 1 — `component-map.md` rewrite as cross-domain registry (docs-only)
+### Step 1 — `component-map.md` rewrite as cross-domain registry (docs-only) — ✅ **DONE 2026-08-05**
 
-Add the event/state-owner/modal tables described above. Correct the two factual errors this audit
-found (the false `AddToBucketMenu` "manual ESC" claim; the incomplete ad hoc-modal exception list).
-Note the `MemoWindow` lyrics-dock exception with its actual reason. Subsumes/broadens
-`ARCH-entity-interaction-v2` Step 6's re-stamp, which should either merge into this step or explicitly
-hand off scope.
+Results: added the **Global CustomEvent registry**, **State-owner registry**, and **Modal / overlay
+registry** tables. Corrected the two factual errors this audit found — the false `AddToBucketMenu`
+"manual ESC" claim (it has zero ESC handling; `BucketPickerSheet` does have real ESC handling, so the
+old line's symmetry claim was also wrong, not just the "manual" word) and the stale-since-July "NowPlaying
+/ LikedBoard artists not linkable" claim (`ARCH-entity-interaction-v2` had already measured this false
+on 2026-08-04 but the doc itself was never fixed — corrected now, with a note that a *found*-stale claim
+can still outlive the finding). Noted the `MemoWindow` lyrics-dock exception's actual reason (remount
+safety for tear/dock) inline, since it previously existed only as a code comment.
 
-**Verification**: doc review; every claim spot-checked against code in the same session (same bar as
-`ARCH-entity-interaction-v2` Step 1/2).
+**Scope decision on the `ARCH-entity-interaction-v2` Step 6 overlap**: handed off, not merged. This
+step does NOT transcribe that RFC's E1 canonical album/track/artist definitions into `component-map.md`
+— `ARCH-entity-interaction-v2.md` stays the source for E1/E2/E3 until its own Step 6 runs. Recorded
+explicitly in the doc's header so a future reader doesn't assume E1 lives here.
+
+**Also updated while verifying claims** (found, not part of the original scope, fixed as trivial
+corrections rather than deferred): `TrackRow`'s "Ownership by domain" bullet and its "no play
+affordance" line both still described the pre-Step-5 `{lyrics?, open?}` action set — updated to the
+current `{lyrics?, open?, openLyrics?, play?, add?, drag?}` shape and to state precisely that the
+`play`/`add`/`drag` slots exist but are ungranted, not reserved.
+
+**Verification**: doc review; every claim in this step's new/changed prose was spot-checked against
+`myblog_front` `origin/main` `734925e` in this session (`TrackRow.tsx`'s `TrackRowActions` interface,
+`entityEvents.ts`/`pocketBuckit/events.ts`/`ReviewTrackAdder.tsx`'s event exports,
+`AlbumDetail.tsx`'s `MemoWindow` TrackRow usage, `AddToBucketMenu.tsx`/`BucketPickerSheet.tsx`'s ESC
+handling by direct grep) — same bar as `ARCH-entity-interaction-v2` Step 1/2.
 
 ### Step 2 — mechanical guardrails: G3 + G5 (front-only)
 
@@ -175,3 +192,5 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 |------|----------|------|
 | 2026-08-05 | Owner reviewed the domain-audit findings and approved proceeding with all recommendations in-session ("다 추천으로 ㄱ"). Two concrete bugs (BUG-20) shipped immediately as ad hoc fixes, outside this RFC's step sequence, since they are plain bugs not architecture decisions. This RFC captures the remaining, genuinely multi-step work | 0 |
 | 2026-08-05 | `AddToBucketMenu`/`BucketPickerSheet` non-merge re-examined and reconfirmed — the real bug (BUG-20) was a third, unaudited call site (`LikedBoard`) missing a shared predicate, not duplication between the two named components. Non-goal restated accordingly | 0 |
+| 2026-08-05 | **Step 1 shipped.** `component-map.md`'s `ARCH-entity-interaction-v2` Step 6 overlap resolved by explicit handoff, not merge: E1 (entity canonical definitions) stays that RFC's own Step 6 to transcribe; this step added only the genuinely new cross-domain material (events/state-owners/modals) plus fixed two claims found actively wrong during verification, not merely stale | 1 |
+| 2026-08-05 | While spot-checking Step 1's claims, found `component-map.md`'s `TrackRow` action-set description and "no play affordance" line both still described the pre-`ARCH-entity-interaction-v2`-Step-5 shape. Fixed as part of this step rather than filed separately — a doc correction discovered while doing the doc-review verification this step already required, not new scope | 1 |
