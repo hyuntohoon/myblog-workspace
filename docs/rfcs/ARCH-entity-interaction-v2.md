@@ -1017,7 +1017,13 @@ the `memo-trow` adoption (E4).** Two changes, one PR:
   framing; do not count it as a shipped user-facing capability in Step 5's coverage tally).
 
 **Remaining Step 5 scope**: granting `play`/`add`/`drag` on an actual surface, rendering E3's board
-reject-visual on every matrix cell, and E1 Rule 0's G4/G5 violations.
+reject-visual on every matrix cell, and E1 Rule 0's G5 violation (`NowPlaying`'s per-render async
+artist-id resolve — illegal for drag, `resolveDbArtistId` in `ArtistNames`). **G4 is no longer
+open**: `releaseShared.tsx`'s foreign-namespace-id fallback was fixed by a different RFC
+(`ARCH-entity-interaction-domain-audit`, front #358, 2026-08-05) — verified live against
+`origin/main`, `openReleased` now passes `unresolved: dbId == null` on the resolve-miss branch.
+Caught during this RFC's own next-session handoff (2026-08-05) before it was carried forward as a
+stale task — see `feedback-rfc-current-state-audit`.
 
 ---
 
