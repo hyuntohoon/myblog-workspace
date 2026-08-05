@@ -929,7 +929,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, second slice shipped 2026-08-05** (front #354)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, third slice (E7) shipped 2026-08-05** (front #362)
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -996,10 +996,28 @@ the `memo-trow` adoption (E4).** Two changes, one PR:
   temp General bucket) confirmed all 10 rows render as whole-row 가사 buttons and clicking one opens
   the lyrics sheet with the correct title/artist/album/cover; temp bucket deleted immediately after
   via page-context fetch (0 residue).
+- **E7 shipped (front #362, 2026-08-05): `albumIds`/`artistIds` projected onto `ReviewCard`/
+  `ReviewHit`, closing G1.** `buildReviewCards` already read `d.albumIds`/`d.artistIds` (part of
+  the is-this-a-review filter) but never emitted them — front-only, no contract/backend/migration,
+  exactly as scoped. Each card's cover becomes an `openAlbum()` peek button when an album id is
+  present (`SearchPage`'s review card reuses the file's own existing `AlbumCard`/
+  `.gs-albcard-open` pattern); the rest of the card is unchanged (still the review link). Wired:
+  `CanonPage`, all 5 `ReviewsIndex` card variants (editorial hero, default lead/side, list row,
+  grid card), `EditorialHome` (hero + latest row), `SearchPage`'s review facet.
+  **Deliberately not wired this slice**: `artistIds` → no artist-hub link — `ReviewCard.artist` is
+  a joined multi-artist display string, so `artistIds[0]` can't be safely mapped to it without a
+  real per-artist split (wiring it would have been a wrong link, not a missing one).
+  `HeaderSearch`'s compact instant-dropdown review row — its single-action-per-row keyboard model
+  (`flatAction`) doesn't fit a second interactive zone; left for a later slice if the gap turns out
+  to matter. Verified: lint/astro check 0 errors, vitest 38 files / 484 tests; CDP against 3 local
+  fixture posts (not committed) confirmed the cover button opens the overlay without navigating and
+  the no-albumId card renders no button, across all 4 surfaces + both `/reviews` view modes; no
+  DOM-nesting console warnings. Prod smoke: deploy health check green, all 4 touched pages 200 —
+  **prod has 0 published reviews, so this ships zero user-visible change today** (the RFC's own
+  framing; do not count it as a shipped user-facing capability in Step 5's coverage tally).
 
 **Remaining Step 5 scope**: granting `play`/`add`/`drag` on an actual surface, rendering E3's board
-reject-visual on every matrix cell, E1 Rule 0's G4/G5 violations, and E7's `ReviewCard` id
-projection.
+reject-visual on every matrix cell, and E1 Rule 0's G4/G5 violations.
 
 ---
 
