@@ -310,19 +310,36 @@ stated reason.
 
 | Component | Primitive | Notes |
 |---|---|---|
-| `AlbumOverlay`, `AlbumDetail`'s `StandardModal` + `MemoWindow`, `LyricsSheet`, `DockableLyricsSheet`, `LyricsViewer`, `PlaybackPanel`, `NowPlaying`, `AddArtistModal`, `AddAlbumModal`, `SettingsPanel`, `TodayPickHistory`, `TodaySongPicker`, `WriterApp`'s research drawer, `BucketBoard`'s create-bucket menu / delete-confirm modal / research panel | `useDismissable` | correct — ESC + focus trap/restore + the open-overlay stack (only the top-most layer acts) |
-| `ActionSheet` | own `useEffect` + `keydown` (ESC/scrim/✕), no focus trap | **named exception** — used solely inside `BucketBoard.tsx`; has its own test (`ActionSheet.test.tsx`) covering ESC/scrim/✕. Kept separate deliberately, not migrated in this step (`useDismissable` migration is `ARCH-entity-interaction-domain-audit` Step 4) |
-| `BucketPickerSheet` | own `useEffect` + `keydown` (ESC only, no focus trap) | ungapped exception — portaled, has real ESC handling, just not `useDismissable`'s trap/restore |
-| `AddToBucketMenu` | **none** | **gap, not a documented exception** — zero ESC handling of any kind (grep-verified). `component-map.md` wrongly claimed "manual ESC" here until this rewrite. Migration candidate, Step 4 |
-| `OverviewDash`'s `RecentAlbumsModal` / `RecentTracksModal` | own `useEffect` + `keydown`, ESC only | **gap** — same file (`OverviewDash.tsx`) also uses `useDismissable` correctly elsewhere (its own add-menu), i.e. the split is intra-file, not a principled boundary. Migration candidate, Step 4 |
-| `BucketBoard`'s `TrashDrawer` | own `useEffect` + `keydown`, ESC only, **and not portaled** (unlike every sibling sheet in the same file) | **gap, two axes** — ESC handling AND mount method both diverge from its neighbors in the same file. Whether the non-portal mount is intentional is an open question (`ARCH-entity-interaction-domain-audit` OQ3) |
-| `ImportAnalysis`, `writer/CommandPalette`, `writer/DraftsInbox`, `genres/gm-shared`'s peek dialog | own `useEffect` + `keydown`, ESC only | **gaps** — no stated reason to stay separate from `useDismissable`; migration candidates, Step 4 |
+| `AlbumOverlay`, `AlbumDetail`'s `StandardModal` + `MemoWindow`, `LyricsSheet`, `DockableLyricsSheet`, `LyricsViewer`, `PlaybackPanel`, `NowPlaying`, `AddArtistModal`, `AddAlbumModal`, `SettingsPanel`, `TodayPickHistory`, `TodaySongPicker`, `WriterApp`'s research drawer, `BucketBoard`'s create-bucket menu / delete-confirm modal / research panel / **`TrashDrawer`**, `OverviewDash`'s **`RecentAlbumsModal`** / **`RecentTracksModal`**, `ImportAnalysis`'s **`ItemDetailSlideover`**, `writer/**CommandPalette**`, `writer/**DraftsInbox**`, `genres/gm-shared`'s **`Peek`** | `useDismissable` | correct — ESC + focus trap/restore + the open-overlay stack (only the top-most layer acts). Bold names migrated `ARCH-entity-interaction-domain-audit` Step 4, 2026-08-05 |
+| `ActionSheet` | own `useEffect` + `keydown` (ESC/scrim/✕), no focus trap | **named exception** — used solely inside `BucketBoard.tsx`; has its own test (`ActionSheet.test.tsx`) covering ESC/scrim/✕. Deliberately not migrated by Step 4 |
+| `BucketPickerSheet` | own `useEffect` + `keydown` (ESC only, no focus trap) | ungapped exception — portaled, has real ESC handling, just not `useDismissable`'s trap/restore. Not in Step 4's migration list; still open |
+| `AddToBucketMenu` | **none** | **gap, not a documented exception** — zero ESC handling of any kind (grep-verified). Not in Step 4's migration list; still open |
+
+**Step 4 results (2026-08-05, front #357).** Migrated the seven gap rows this table previously
+listed (`RecentAlbumsModal`/`RecentTracksModal`, `TrashDrawer`, `ItemDetailSlideover`,
+`CommandPalette`, `DraftsInbox`, `gm-shared`'s `Peek`) into the `useDismissable` row above.
+`TrashDrawer` **stays non-portaled** — OQ3 resolved (owner: unintentional, not a documented
+exception) but Step 4's scope was the dismiss mechanism, not the mount method; the portal gap is
+now the only thing left open on that component, tracked here rather than re-opened as a new OQ.
+`AddToBucketMenu`/`BucketPickerSheet` were never in Step 4's migration list (RFC scope) and remain
+open gaps for a future step.
+
+Real-browser CDP verification caught a bug the interaction tests alone missed: `gm-shared`'s
+`Peek` is never unmounted by `GenreMap.tsx` — it renders once with `nodeId=null` and flips
+`nodeId` later — so a first attempt passing `useDismissable(true, ...)` (matching every other
+migrated component, which genuinely mount-on-open) ran the hook's mount-time effect exactly once,
+while `ref.current` was still `null`. ESC still worked (it reads `onClose` through a ref updated
+every render, independent of effect timing) but autoFocus and the Tab-trap silently never fired —
+a live regression against exactly what G4 exists to prevent. Fixed by keying `open` off `!!node`;
+confirmed on prod (`www.ratemymusic.blog/genres/`, live genre data) after deploy. Worth restating
+as a pattern: **`useDismissable(true, ...)` is only correct when the parent conditionally mounts
+the component** (`{open && <X/>}`); an always-mounted, internally-node-gated component needs its
+real open condition passed through.
 
 Overlay primitives (unchanged from before this step): `.lf-scrim`/`.lf-slideover`
 (`styles/member.css:193,203`), `.lf-modal-card`; z-tokens `--z-overlay:80`/`--z-panel:90`
-(`styles/global.css:52-53`). `useDismissable` itself (`lib/useDismissable.ts`) has **zero direct
-unit tests** despite 15+ consumers — the single most-reused piece of modal infrastructure is the
-least-tested; backfilling `useDismissable.test.ts` is part of Step 4, not deferred further.
+(`styles/global.css:52-53`). `useDismissable` itself (`lib/useDismissable.ts`) now has a dedicated
+`useDismissable.test.ts` (Step 4) — zero coverage before this despite 15+ consumers.
 
 ## Component-map impact template (paste into future RFCs)
 
