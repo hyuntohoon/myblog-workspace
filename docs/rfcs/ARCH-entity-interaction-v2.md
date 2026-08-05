@@ -929,7 +929,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, seventh slice (TrackRow `drag` grant on LikedBoard, G2 closed) shipped 2026-08-05** (front #366 + backend #152)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, eighth slice (TrackRow `play` grant, member modal + public AlbumOverlay) shipped 2026-08-06** (front #367)
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -1165,6 +1165,50 @@ narrower slice over a z-index fix.
   quoted in both PR comments (#152, #366).
 - **`AlbumDetail`/memo-trow modal surfaces remain ungranted** — their scrim still occludes the tray;
   that's the one part of the original three-surface drag gap still open for a future slice.
+
+**Eighth slice shipped 2026-08-06 (front #367): TrackRow's `play` slot granted, both hosts.** The
+sixth slice's own record — *"`play` has no existing 'play this arbitrary un-queued track' primitive
+to reuse... building one is new queue/playback logic, a disproportionate scope add"* — was **wrong**,
+caught by this session's own current-state re-audit before writing any code (per
+`feedback-rfc-current-state-audit`): `playbackSession.replaceQueueAndPlay({kind:'track', trackId,
+title})` already existed, already had a test (`session.test.ts:605`), and was already live in
+production — the vanilla review page's per-track ▶ (`scripts/albumDetail.client.ts:147`) has called it
+since Step 6b of `FEAT-playback-bucket-player`. Nobody had wired it to the React `TrackRow`'s `play`
+slot. What looked like a new-primitive design question was a straight wire-up, the same shape as the
+sixth slice's `add` grant.
+
+- **`play` grant.** `AlbumDetailView`/`Tracklist` gains an `onPlayTrack?: (trackId: string, title:
+  string) => void` prop — identical shape to `onAddTrack`. Wired `actions.play` to it.
+- **Granted on BOTH hosts — unlike `add`.** The sixth slice withheld `add` from public `AlbumOverlay`
+  because "an anonymous reader has no bucket to add into" (A11's reasoning). That reasoning does not
+  transfer to `play`: `AlbumOverlay` already offers an album-level ▶ to any logged-in visitor
+  (`isLoggedIn() && !target.unresolved`), so withholding the track-level ▶ from the same surface has
+  no semantic basis. The member `AlbumDetail` modal (`StandardModal`) previously had **no play
+  affordance at all** (only `AlbumOverlay` did, at album granularity) — its toast (label + 되돌리기,
+  same 4200ms/no-confirm-dialog idiom) is ported verbatim from `AlbumOverlay`'s existing `playAlbum`,
+  since there was no prior notice mechanism in that modal to fold into.
+- No local busy/in-flight guard on either button, matching the vanilla page's own precedent — a double
+  click theoretically races two `rewriteQueue` calls, but the shipped vanilla version has carried
+  that same risk with no reported issue, and adding one here would be scope beyond what a wire-up
+  slice needs.
+- Verified: lint / astro check 0 errors / vitest 44 files, 499 passed (+3 new —
+  `AlbumDetailView.playTrack.test.tsx` ×2: per-track ▶ calls `onPlayTrack(dbId, title)`, no button when
+  omitted; `AlbumDetail.playTrack.test.tsx`: clicking ▶ calls `replaceQueueAndPlay` with the clicked
+  track and renders the returned toast). Real trusted-CDP click-through against real prod data (smoke
+  account, local dev + the CORS-proxy-with-real-JWT recipe), both hosts, on a real bucket album (Troye
+  Sivan *Bloom*): member modal — clicked a track ▶ → `POST /api/buckets/{id}/items` (new row) → old
+  13-row playback queue deleted one at a time → smoke account has no connected Spotify device, so the
+  play itself token-fails exactly like `AlbumOverlay`'s existing album ▶ does, showing "Spotify를
+  연동하면 이 곡을 재생할 수 있어요." + 되돌리기; public `AlbumOverlay` (dispatched `ent:open-album` on
+  the home page) — same replace-and-toast behavior confirmed on a different track. Restored to the
+  original 13 tracks in original order both times, 0 residue. **One test-methodology artifact, not a
+  product bug**: an earlier public-overlay attempt showed the queue grow 13→14 with nothing deleted —
+  caused by restoring the bucket between tests via a raw page-context `fetch()` that bypassed
+  `bucketStore`, desyncing the app's in-memory cache from the DB; a hard page reload before the retest
+  reproduced the correct replace-and-delete behavior cleanly. Prod smoke post-merge: `scripts/smoke.sh
+  prod` 19/19 PASS, S3 `_astro/**` bundle timestamp fresh — quoted in PR #367's comment.
+- **`AlbumDetail`/memo-trow modal `drag` remains the only open item in Step 5's original scope** — same
+  scrim-occlusion blocker as before, unaffected by this slice.
 
 ---
 
