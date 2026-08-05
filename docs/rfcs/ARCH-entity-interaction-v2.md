@@ -929,7 +929,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, fourth slice (board reject visual) shipped 2026-08-05** (front #363)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, fifth slice (E1 Rule 0 G5) shipped 2026-08-05** (front #364)
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -1048,14 +1048,40 @@ after — 0 residue. Post-merge: deploy green, live bundle (`SelfDashboard.*.js`
 `PocketBuckit.*.js`) confirmed to carry the new strings (`만 받아요`, `data-dropreject`), prod
 `/members/` 0 console errors — quoted in the PR #363 comment.
 
-**Remaining Step 5 scope**: granting `play`/`add`/`drag` on an actual surface, and E1 Rule 0's G5
-violation (`NowPlaying`'s per-render async artist-id resolve — illegal for drag,
-`resolveDbArtistId` in `ArtistNames`). **G4 is no longer open**: `releaseShared.tsx`'s
-foreign-namespace-id fallback was fixed by a different RFC (`ARCH-entity-interaction-domain-audit`,
-front #358, 2026-08-05) — verified live against `origin/main`, `openReleased` now passes
-`unresolved: dbId == null` on the resolve-miss branch. Caught during this RFC's own next-session
-handoff (2026-08-05) before it was carried forward as a stale task — see
-`feedback-rfc-current-state-audit`.
+**Fifth slice shipped 2026-08-05 (front #364): E1 Rule 0's G5 closed.** `NowPlaying`'s `ArtistNames`
+resolved each Spotify artist id to a catalog id independently per component instance via a local
+`useState`+`useEffect` promise chain (`resolveDbArtistId`) — Rule 0 flags that shape as legal for
+navigation but illegal for a future drag source, since a drag needs the id held synchronously at
+`dragstart`, not awaited. Fixed the acquisition path, not the gate:
+
+- `spotifyCatalog.ts` gains `getResolvedDbArtistId(spotifyId)` — a synchronous read of an
+  already-resolved id, backed by a small `Map` populated as a side effect of the existing
+  `resolveDbArtistId` promise chain. This is now the one sanctioned way a future drag source may
+  read the id (undefined ⇒ treat as not draggable, same as a null id elsewhere in E1).
+- `ArtistNames` seeds its render state from that synchronous cache on mount (an id another instance
+  already resolved renders as a link on first paint, no flash back to plain text) and routes its
+  resolution effect through the same cache, so render state is always exactly what
+  `getResolvedDbArtistId` would return — no divergence between what's on screen and what a future
+  `dragstart` handler would read.
+
+No gate/decision logic changed (still plain text until resolvable, link once resolved) and no drag
+was granted here — that stays a separate slice, per Step 5's own split. Verified: lint / astro check
+0 errors / vitest 39 files, 492 passed (+3 new — `ArtistNames.test.tsx`: plain-text-until-resolved →
+link, synchronous cache seed on a fresh mount, no-artists fallback). Prod smoke 19/19 PASS post-merge
+(quoted in PR #364's comment); live bundle (`SelfDashboard.D2DvxXkY.js`) confirmed fresh by S3
+timestamp right after deploy. Live artist-link click-through was **not** exercised — local dev's
+dummy Bearer token (`isLocalEnv()` bypass) can't authenticate against prod, and there was no local
+CORS-proxy-with-real-JWT set up this session (the pattern the fourth slice used, see its own
+verification note above) to do it safely; no visible UI change either way, so this was judged an
+acceptable gap rather than a blocker — see `feedback-never-echo-a-secret-slice` for why a raw JWT
+was not passed through a tool call as a shortcut.
+
+**Remaining Step 5 scope**: granting `play`/`add`/`drag` on an actual surface. **G4 is no longer
+open**: `releaseShared.tsx`'s foreign-namespace-id fallback was fixed by a different RFC
+(`ARCH-entity-interaction-domain-audit`, front #358, 2026-08-05) — verified live against
+`origin/main`, `openReleased` now passes `unresolved: dbId == null` on the resolve-miss branch.
+Caught during this RFC's own next-session handoff (2026-08-05) before it was carried forward as a
+stale task — see `feedback-rfc-current-state-audit`.
 
 ---
 
