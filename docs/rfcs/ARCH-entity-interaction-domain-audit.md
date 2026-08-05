@@ -129,14 +129,28 @@ current `{lyrics?, open?, openLyrics?, play?, add?, drag?}` shape and to state p
 `AlbumDetail.tsx`'s `MemoWindow` TrackRow usage, `AddToBucketMenu.tsx`/`BucketPickerSheet.tsx`'s ESC
 handling by direct grep) — same bar as `ARCH-entity-interaction-v2` Step 1/2.
 
-### Step 2 — mechanical guardrails: G3 + G5 (front-only)
+### Step 2 — mechanical guardrails: G3 + G5 (front-only) — ✅ **DONE 2026-08-05**
 
-ESLint rules banning (a) inline `new CustomEvent(` outside the two designated files, (b) the string
-literal `'spotify_library'` outside `lib/buckets.ts`. Fix the one live violation each rule would catch
-(`PB_ADD_TRACK_EVENT` in `scripts/albumDetail.client.ts:176`) in the same PR.
+ESLint `no-restricted-syntax` rules banning (a) inline `new CustomEvent('literal')` outside
+`lib/entityEvents.ts`/`lib/pocketBuckit/events.ts`, (b) the string literal `'spotify_library'`
+outside `lib/buckets.ts`. Both selectors live in a **single** `no-restricted-syntax` rule entry —
+flat config replaces, not merges, an array-valued rule when two config objects match the same file,
+so a first attempt at two separate blocks silently dropped the G3 selector (caught by the
+deliberately-reintroduced-violation check below, not by `pnpm lint` alone).
 
-**Verification**: `pnpm lint` clean with the new rules active; a deliberately-reintroduced violation
-in a throwaway diff confirms each rule actually fires, then is reverted before commit.
+Fixed the one live G3 violation: `PB_ADD_TRACK_EVENT` was a raw string literal in
+`scripts/albumDetail.client.ts:176`. Moved the constant out of `ReviewTrackAdder.tsx` (its prior
+home) into `lib/pocketBuckit/events.ts` — a React-free module — so the vanilla script can import it
+without pulling React into its bundle, which is the exact concern the old inline comment cited for
+keeping the literal duplicated instead of shared. G5 had zero live app-code violations (BUG-20 had
+already fixed the three call sites); one test fixture in `leaf.test.ts` used the raw literal for a
+bucket mock and was switched to `SLIB_KIND` so the rule holds with no exceptions carved out for
+tests. `scripts/albumDetail.fetch.client.ts`'s `album:detail` literal is excluded from G3 by
+filename — it's the registry's documented intentional exception, not the drift pattern this guards.
+
+**Verification**: `pnpm lint` clean with the new rules active; a throwaway probe file confirmed both
+selectors actually fire (reverted before commit, never entered the diff); `pnpm exec astro check`
+0 errors; `pnpm test` 463/463 passing. Shipped as front #356, prod smoke 19/19 after deploy.
 
 ### Step 3 — playback state consolidation (front-only, cross-cutting `FEAT-member-player` +
 `FEAT-playback-bucket-player`)
@@ -194,3 +208,4 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 | 2026-08-05 | `AddToBucketMenu`/`BucketPickerSheet` non-merge re-examined and reconfirmed — the real bug (BUG-20) was a third, unaudited call site (`LikedBoard`) missing a shared predicate, not duplication between the two named components. Non-goal restated accordingly | 0 |
 | 2026-08-05 | **Step 1 shipped.** `component-map.md`'s `ARCH-entity-interaction-v2` Step 6 overlap resolved by explicit handoff, not merge: E1 (entity canonical definitions) stays that RFC's own Step 6 to transcribe; this step added only the genuinely new cross-domain material (events/state-owners/modals) plus fixed two claims found actively wrong during verification, not merely stale | 1 |
 | 2026-08-05 | While spot-checking Step 1's claims, found `component-map.md`'s `TrackRow` action-set description and "no play affordance" line both still described the pre-`ARCH-entity-interaction-v2`-Step-5 shape. Fixed as part of this step rather than filed separately — a doc correction discovered while doing the doc-review verification this step already required, not new scope | 1 |
+| 2026-08-05 | **Step 2 shipped** (front #356). `PB_ADD_TRACK_EVENT` relocated from `ReviewTrackAdder.tsx` to `lib/pocketBuckit/events.ts` rather than left in place and merely allow-listed — the file's own React-free status is what let the vanilla script import it in the first place, so the fix and the guardrail's own rationale point the same direction. `album:detail` in `albumDetail.fetch.client.ts` kept as a named exception (filename-scoped), not moved — it's a documented-intentional single-file listener, not a drift pair | 2 |
