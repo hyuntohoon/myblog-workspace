@@ -929,7 +929,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, third slice (E7) shipped 2026-08-05** (front #362)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, fourth slice (board reject visual) shipped 2026-08-05** (front #363)
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -1016,14 +1016,46 @@ the `memo-trow` adoption (E4).** Two changes, one PR:
   **prod has 0 published reviews, so this ships zero user-visible change today** (the RFC's own
   framing; do not count it as a shipped user-facing capability in Step 5's coverage tally).
 
-**Remaining Step 5 scope**: granting `play`/`add`/`drag` on an actual surface, rendering E3's board
-reject-visual on every matrix cell, and E1 Rule 0's G5 violation (`NowPlaying`'s per-render async
-artist-id resolve — illegal for drag, `resolveDbArtistId` in `ArtistNames`). **G4 is no longer
-open**: `releaseShared.tsx`'s foreign-namespace-id fallback was fixed by a different RFC
-(`ARCH-entity-interaction-domain-audit`, front #358, 2026-08-05) — verified live against
-`origin/main`, `openReleased` now passes `unresolved: dbId == null` on the resolve-miss branch.
-Caught during this RFC's own next-session handoff (2026-08-05) before it was carried forward as a
-stale task — see `feedback-rfc-current-state-audit`.
+**Fourth slice shipped 2026-08-05 (front #363): E3's board reject-visual rendered on every matrix
+cell.** `BucketCard` only ever highlighted an accepting bucket (`dropTarget` → `hot`); a rejecting
+one rendered no feedback at all — exactly the gap flagged above (§ this section, "rendering E3's
+reject visual on every matrix cell" was still open). The tray already ships the contract
+(`pocket.css` `[data-dropreject]`: stays in place, mutes, names the reason); this wires the same
+idea onto the board without touching any gate:
+
+- `boardDnd.ts` gains a pure `memberAcceptsLabel(bucket)` that reads the same three branches
+  `canAcceptAlbumDrag` already answers and names what the target accepts (`"트랙 · 앨범"`,
+  `"아티스트 · 앨범 · 트랙"`, `"앨범"`) — General has no label because it never rejects a member
+  drag. Not a gate change, so the twin file (`lib/pocketBuckit/boardDnd.ts`) needed no edit — hard
+  rule 4's twin-sync applies to matrix *cells* (accept/reject answers), and none moved.
+- `BucketCard` gets a `dropReject` state (mirrors the existing `dropTarget` accept-highlight
+  exactly — same hover-driven trigger point, same lift-to-shared-state shape) that mutes the card
+  (opacity 0.4) and shows the reason via `title` when the hovered target refuses the in-flight
+  member drag; no `preventDefault` in the reject branch, so the drop stays genuinely disallowed.
+  `TrashDock` gets the analogous treatment with its own three reason branches (copy source /
+  preexisting library album / non-album row).
+- `widgets.css` adds `.crate-trash-card[data-reject='true']`, mirroring the tray's
+  `[data-dropreject]` opacity rule.
+
+Verified: lint / astro check 0 errors / vitest 38 files, 489 passed (+5 new — `memberAcceptsLabel`
+pinned against every branch `canAcceptAlbumDrag` can reject). Live CDP against prod data (smoke
+account, via a local CORS proxy rewriting the dev-mode dummy Bearer to a real smoke JWT — manual
+synthetic `dispatchEvent(DragEvent)` does NOT reach this React tree's handlers, confirmed the hard
+way this session; only a trusted native gesture does): a real drag confirmed the Playback Bucket
+still refuses an artist member (bucket counts unchanged) and the General bucket still accepts one
+(regression check, same gate the new visual paints). Temp General/Artist test buckets deleted
+after — 0 residue. Post-merge: deploy green, live bundle (`SelfDashboard.*.js` /
+`PocketBuckit.*.js`) confirmed to carry the new strings (`만 받아요`, `data-dropreject`), prod
+`/members/` 0 console errors — quoted in the PR #363 comment.
+
+**Remaining Step 5 scope**: granting `play`/`add`/`drag` on an actual surface, and E1 Rule 0's G5
+violation (`NowPlaying`'s per-render async artist-id resolve — illegal for drag,
+`resolveDbArtistId` in `ArtistNames`). **G4 is no longer open**: `releaseShared.tsx`'s
+foreign-namespace-id fallback was fixed by a different RFC (`ARCH-entity-interaction-domain-audit`,
+front #358, 2026-08-05) — verified live against `origin/main`, `openReleased` now passes
+`unresolved: dbId == null` on the resolve-miss branch. Caught during this RFC's own next-session
+handoff (2026-08-05) before it was carried forward as a stale task — see
+`feedback-rfc-current-state-audit`.
 
 ---
 
