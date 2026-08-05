@@ -166,7 +166,7 @@ two playback RFCs? Owner call (see Open Questions).
 cross-tracker consistency (today: zero such tests, confirmed by this audit); real-browser check that
 lock-screen Media Session control still works when playback originates from the Playback Bucket panel.
 
-### Step 4 — `useDismissable` adoption sweep + G4 (front-only)
+### Step 4 — `useDismissable` adoption sweep + G4 (front-only) — ✅ **DONE 2026-08-05**
 
 Migrate the ad hoc ESC/focus-trap components found (`ActionSheet` may stay documented as an
 intentional exception; `RecentAlbumsModal`, `RecentTracksModal`, `TrashDrawer`, `ImportAnalysis`,
@@ -176,6 +176,36 @@ least one interaction test per migrated component.
 
 **Verification**: `pnpm test` green including the new tests; CDP spot-check that ESC/backdrop/focus
 restore still work per migrated component.
+
+**Results (front #357).** All seven migrated to `useDismissable`, preserving `CommandPalette`'s and
+`DraftsInbox`'s conditional ESC (artist drill-in backs out / an armed delete row disarms, before
+falling through to `onClose`) rather than flattening them to a plain close. `ActionSheet` untouched,
+per the RFC's documented exception. Added `useDismissable.test.ts` (ESC-when-open,
+no-ESC-when-closed, Tab wrap both directions, focus-restore-on-close, nested-stack top-only, and
+`autoFocus:false`) plus one interaction test per migrated component, modeled on the existing
+`ActionSheet.test.tsx` pattern (render → ESC / backdrop / ✕ close, click-inside does not close).
+`pnpm lint` 0 errors, `astro check` 0 errors, `pnpm test` 36/36 files · 478/478 tests.
+
+**OQ3 resolved**: owner confirmed `TrashDrawer`'s non-portal mount was unintentional, not a
+documented exception — migrated on the same footing as the other six. Step 4's scope was the
+dismiss mechanism only, so the mount method itself is untouched; `TrashDrawer` now differs from its
+portaled siblings on exactly that one remaining axis (recorded in `component-map.md`, not a new OQ).
+
+**Real-browser CDP check found a live bug**, exactly the kind unit tests in isolation can miss:
+`gm-shared`'s `Peek` is never unmounted by `GenreMap.tsx` — it mounts once with `nodeId=null` and
+later flips `nodeId` — so passing `useDismissable(true, ...)` (the pattern correct for all six other,
+genuinely mount-on-open components) ran the hook's mount-time effect exactly once, while
+`ref.current` was still `null`. ESC still worked (`onClose` is read through a ref updated every
+render, independent of effect timing) but autoFocus and the Tab-trap silently never fired — a live
+regression against exactly what G4 exists to prevent, and one the render+interaction unit test for
+`Peek` didn't catch either (it renders `Peek` with a truthy `nodeId` from the first render, which
+never exercises the always-mounted-then-opened path `GenreMap.tsx` actually uses). Fixed by keying
+`open` off `!!node`; added a regression test that mounts `Peek` closed first, matching real usage,
+and confirmed it fails without the fix. Verified twice in a real browser: local dev (prod genre data
+via a `fetch` stub, since prod CORS blocks direct localhost calls) before merge, and
+`www.ratemymusic.blog/genres/` with live data after deploy — both show autoFocus landing on the `✕`
+close button, Shift+Tab wrapping to the last focusable, and Escape closing + restoring focus to the
+trigger chip.
 
 ### Step 5 — memo naming resolution (docs-only, coordinates with `FEAT-album-review-authoring`)
 
@@ -193,8 +223,10 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 2. **What is the actual planned design of `FEAT-album-review-authoring` Step 3's memo?** The gate gap
    means it hasn't been re-measured since 2026-08-03; whether its design still makes sense next to the
    shipped bucket memo is a product-intent question this audit can't answer from code.
-3. **Is `TrashDrawer`'s non-portal mount intentional** or simply missed? No comment states a reason
-   either way; needs a decision before Step 4 treats it as an exception or a migration target.
+3. ~~**Is `TrashDrawer`'s non-portal mount intentional** or simply missed?~~ **Resolved 2026-08-05**:
+   unintentional — migrated to `useDismissable` in Step 4 on the same footing as its siblings; the
+   non-portal mount itself is untouched (out of Step 4's scope) and is now the component's only
+   remaining divergence, tracked in `component-map.md`.
 4. **Should `useDismissable` also own backdrop+portal-mounting** (today it only owns ESC/focus-trap), or
    should a second shared primitive cover that half? Design-taste call, not code-dictated.
 
@@ -209,3 +241,5 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 | 2026-08-05 | **Step 1 shipped.** `component-map.md`'s `ARCH-entity-interaction-v2` Step 6 overlap resolved by explicit handoff, not merge: E1 (entity canonical definitions) stays that RFC's own Step 6 to transcribe; this step added only the genuinely new cross-domain material (events/state-owners/modals) plus fixed two claims found actively wrong during verification, not merely stale | 1 |
 | 2026-08-05 | While spot-checking Step 1's claims, found `component-map.md`'s `TrackRow` action-set description and "no play affordance" line both still described the pre-`ARCH-entity-interaction-v2`-Step-5 shape. Fixed as part of this step rather than filed separately — a doc correction discovered while doing the doc-review verification this step already required, not new scope | 1 |
 | 2026-08-05 | **Step 2 shipped** (front #356). `PB_ADD_TRACK_EVENT` relocated from `ReviewTrackAdder.tsx` to `lib/pocketBuckit/events.ts` rather than left in place and merely allow-listed — the file's own React-free status is what let the vanilla script import it in the first place, so the fix and the guardrail's own rationale point the same direction. `album:detail` in `albumDetail.fetch.client.ts` kept as a named exception (filename-scoped), not moved — it's a documented-intentional single-file listener, not a drift pair | 2 |
+| 2026-08-05 | **OQ3 resolved.** Owner: `TrashDrawer`'s non-portal mount was unintentional, not a documented reason to diverge — Step 4 migrated it to `useDismissable` alongside its six siblings. The mount method itself stayed out of Step 4's scope, so it's now the component's sole remaining divergence from its portaled neighbors | 4 |
+| 2026-08-05 | **Step 4 shipped** (front #357). Migrated seven ad hoc ESC-only dialogs to `useDismissable`; `ActionSheet` stays the one documented exception. A real-browser CDP check (not just the new unit tests) caught a live bug: `gm-shared`'s `Peek` is permanently mounted by `GenreMap.tsx` (`nodeId` starts `null`, flips later) rather than mount-on-open like the other six migrated components, so a first attempt at `useDismissable(true, ...)` ran its mount effect once while `ref.current` was still `null` — ESC kept working (reads `onClose` via a ref updated every render) but autoFocus/Tab-trap silently never fired. Fixed by keying `open` off `!!node`, with a regression test that mounts `Peek` closed first to match real usage. Confirmed on prod after deploy | 4 |
