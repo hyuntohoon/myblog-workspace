@@ -929,7 +929,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, eighth slice (TrackRow `play` grant, member modal + public AlbumOverlay) shipped 2026-08-06** (front #367)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — ✅ **DONE 2026-08-06 (ninth slice: TrackRow `drag` grant on AlbumDetail's two modals, front #368) — E4's original `play`/`add`/`drag` slot set is now granted somewhere sensible across all three TrackRow surface groups (LikedBoard, AlbumDetailView/Tracklist member+public, AlbumDetail modals)**
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -1209,6 +1209,58 @@ sixth slice's `add` grant.
   prod` 19/19 PASS, S3 `_astro/**` bundle timestamp fresh — quoted in PR #367's comment.
 - **`AlbumDetail`/memo-trow modal `drag` remains the only open item in Step 5's original scope** — same
   scrim-occlusion blocker as before, unaffected by this slice.
+
+**Ninth slice shipped 2026-08-06 (front #368): TrackRow's `drag` slot granted on both AlbumDetail
+modals — closes Step 5's original scope.** The owner picked option b-1 from the three the eighth
+slice's handoff presented: drop the scrim's `pointer-events` only for the duration of an active drag,
+rather than removing it permanently (which would also kill click-outside-to-close and background
+dimming for the modal's whole lifetime) or lowering the verification bar to dragstart-only.
+
+- **Mechanism.** A new `useDragScrimPassthrough()` hook (shared by `StandardModal` and `MemoWindow`)
+  listens for the same `PB_DND_START_EVENT`/`PB_DND_END_EVENT` every granted `TrackRow` already
+  dispatches on dragstart/dragend, toggling the scrim's inline `pointer-events` between the default and
+  `none` only for that window. `AlbumDetailView`/`Tracklist` gained an `enableDrag?: boolean` prop
+  (same host-gating shape as `onAddTrack` — public `AlbumOverlay` omits it, a public visitor has no
+  Pocket tray to drop onto) plus `albumId`, so `StandardModal` can grant it via
+  `memberRef({trackId, albumId})` + `origin:{kind:'external', copies:true}` (the same shape
+  `LikedBoard`'s seventh slice already pinned). `MemoWindow` wires `drag` directly onto its own
+  hand-rolled `TrackRow` the same way.
+- **A real bug, found only by driving an actual trusted drag, not by reading the diff.** The first
+  implementation set `pointer-events:none` on the *entire* scrim subtree, including the modal card —
+  reasoning that nothing inside a modal needs to be clickable mid-drag anyway. Real trusted-CDP testing
+  showed this **silently killed the native drag session**: `dragstart` fired correctly (the row's own
+  handler ran, `PB_DND_START_EVENT` dispatched with the right payload) but `dragover` and `drop` never
+  fired anywhere in the document for the rest of the gesture — confirmed by instrumenting
+  document-level capture listeners and comparing against a baseline drag with no modal in the way
+  (album cover → tray chip), which fired the full `dragenter`→`dragover`→`drop`→`board-drop` sequence
+  cleanly. The working theory: the drag *source* itself inheriting `pointer-events:none` from its own
+  ancestor mid-gesture confuses Chromium's native DnD hit-testing enough to abort the session outright,
+  even though the OS-level drag loop is not supposed to depend on the source element's own
+  hit-testability once `dragstart` has fired. **Fix**: keep the modal card
+  (`.lf-modal-card`/`.memo-modal`) explicitly `pointer-events:auto`, so only the backdrop *outside* the
+  card — never the actively-dragging row itself — becomes pass-through. After this, the exact same
+  trusted-CDP drag fired the complete correct sequence and a real `POST /api/buckets/{id}/items`
+  **201**'d.
+- Verified: lint / astro check 0 errors / vitest 46 files, 503 passed (+4 new —
+  `AlbumDetailView.dragTrack.test.tsx` ×2: dragstart payload shape, no draggable row when `enableDrag`
+  is omitted; `AlbumDetail.dragTrack.test.tsx` ×2: both `StandardModal` and `MemoWindow` — dragstart
+  payload shape and the scrim's `pointer-events` toggling `''→'none'→''` across
+  `PB_DND_START_EVENT`/`PB_DND_END_EVENT`, verified via `fireEvent.dragStart`/`dragEnd`). Real
+  trusted-CDP drag against real prod data (smoke account, local dev + the CORS-proxy-with-real-JWT
+  recipe), on a real bucket album (Troye Sivan *Bloom*): dragged a track out of the open `StandardModal`
+  onto the "재생 대기열" tray chip (opened before the modal, confirmed still present in the DOM
+  underneath) — full event sequence fired, real `POST` **201**'d, queue count updated correctly. One
+  test-methodology artifact along the way (not a product bug, same class as the eighth slice's): a
+  control-group drag of the whole album (used to establish the working baseline) added 10 extra rows on
+  top of the modal-drag test's addition; both cleaned up, queue restored to its original 13 tracks in
+  original order, 0 residue. Prod smoke post-merge: `scripts/smoke.sh prod` 19/19 PASS, S3 `_astro/**`
+  bundle timestamp fresh — quoted in PR #368's comment.
+- **Step 5's original scope — `play`/`add`/`drag` across the three TrackRow surface groups this RFC
+  named at Step 2 (`LikedBoard`, `AlbumDetailView`/`Tracklist` shared by the member modal + public
+  `AlbumOverlay`, and `AlbumDetail`'s two modals) — is now fully granted.** Nothing further is blocked;
+  remaining polish (e.g. extending `drag` to `AlbumOverlay`'s own tracklist, which was deliberately left
+  out of the eighth slice's scope as a surface nobody asked to extend) is a new, separately-scoped ask,
+  not a continuation of this Step.
 
 ---
 
