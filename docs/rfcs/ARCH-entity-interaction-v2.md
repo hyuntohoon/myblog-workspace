@@ -929,7 +929,7 @@ Are.na's abandonment (Step 1) and native drag's complete non-participation on to
 
 ---
 
-### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, fifth slice (E1 Rule 0 G5) shipped 2026-08-05** (front #364)
+### Step 5 — roll the contract out across surfaces (front-only, possibly split by surface group) — 🟡 **IN PROGRESS, sixth slice (TrackRow `add` grant) shipped 2026-08-05** (front #365)
 
 Apply E1–E4 surface by surface. Open `TrackRow`'s `play`/`add`/`drag` slots. Bring or document the
 two hand-rolled track-row twins. This is the step most likely to need splitting; the split axis is
@@ -1082,6 +1082,56 @@ open**: `releaseShared.tsx`'s foreign-namespace-id fallback was fixed by a diffe
 `origin/main`, `openReleased` now passes `unresolved: dbId == null` on the resolve-miss branch.
 Caught during this RFC's own next-session handoff (2026-08-05) before it was carried forward as a
 stale task — see `feedback-rfc-current-state-audit`.
+
+**Sixth slice shipped 2026-08-05 (front #365): TrackRow's `add` slot granted on the member
+`AlbumDetail` tracklist.** This session's own pre-work audit found exactly three live `TrackRow`
+consumers today — `LikedBoard` (B2), `AlbumDetailView`'s shared tracklist (B1, hosted by both the
+public `AlbumOverlay` and the member `AlbumDetail` modal), and memo-trow (B3, already
+`openLyrics`-only per the second slice). `LikedBoard` is blocked by G2 (no DB track id — a contract
+gap, out of this "wire it up" step's scope); memo-trow's whole-row-click contract makes it the
+wrong host for a second trailing action. That leaves `AlbumDetailView`, which already carries the
+canonical DB `t.id` with no gap.
+
+- **`add` grant.** `AlbumDetailView`/`Tracklist` gains an `onAddTrack?: (trackId: string, title:
+  string) => void` prop — same host-gating shape as `onOpenLyrics`: public `AlbumOverlay` omits it
+  (an anonymous reader has no bucket to add into, same reasoning as A11), the member `AlbumDetail`
+  modal (`StandardModal`, info/edit modes) supplies it. The actual add flow reuses
+  `AddToBucketMenu` (`item: {itemType:'track', trackId, title}`) via the exact pending-intent
+  pattern `ReviewTrackAdder` already established (a `{trackId, title, seq}` state bumped per click,
+  `AddToBucketMenu` keyed on `seq` with `autoOpen` + `render={() => null}`), minus the window-event
+  indirection `ReviewTrackAdder` needs for the vanilla review page — the modal and the tracklist
+  share one React tree here, so a plain callback suffices.
+- **`play` and `drag` NOT granted this slice — deliberately, and for different reasons.** `play`
+  has no existing "play this arbitrary un-queued track" primitive to reuse (every existing ▶ either
+  plays an already-queued row via `playbackSession.playAt(itemId)` or replaces-and-plays a whole
+  album/queue) — building one is new queue/playback logic, a disproportionate scope add for a
+  single-surface wire-up. `drag` is the one this session's own handoff prompt expected first: this
+  session **measured, before writing any code**, that no live `TrackRow` surface today coexists
+  with a reachable drop target. `AlbumDetail`'s and memo-trow's shared `.scrim` sits at
+  `z-index: var(--z-panel) = 90`; `PocketTray` sits at `--z-pocket:70` + 2 ≈ 72 — the scrim is
+  stacked above the tray, so a drag started inside either modal has no live drop surface under the
+  cursor once the pointer leaves the modal card. `LikedBoard` renders inside `StatsTab`, a
+  *different* dashboard tab than `BucketBoard` (`tab === 'bucket'`) — the two are never mounted
+  simultaneously. Granting `drag` on any of the three today would be dead weight: `draggable=true`
+  with no reachable target to land on, failing the RFC's own bar for a grant ("a real, working drop
+  source"). Presented three options to the owner (add-only this slice / fix the z-index this
+  session and complete drag / grant drag with dragstart-only verification, no live drop); owner
+  picked add-only, drag deferred to a future slice once a surface exists (or is made to exist) that
+  coexists with a drop target.
+- Verified: lint / astro check 0 errors / vitest 41 files, 495 passed (+3 new —
+  `AlbumDetailView.addTrack.test.tsx`: per-track ➕ calls `onAddTrack(dbId, title)`, no button when
+  `onAddTrack` is omitted; `AlbumDetail.addTrack.test.tsx`: clicking a track's ➕ mounts
+  `AddToBucketMenu` with that track's id/title, a second click on a different track remounts with a
+  fresh key). Live CDP against real prod data (smoke account, local dev + the CORS-proxy-with-real-
+  JWT recipe): clicked ➕ on a real bucket album's ("Bloom") first track → bucket picker opened with
+  the correct track title → picked queue mode (the only manual-add-capable bucket in this account is
+  the Playback Bucket, which rejects `item_type='track'` — first attempt correctly 400'd on that,
+  confirming the server-side gate; queue mode succeeded) → real `POST /api/buckets/{id}/items`
+  **201** → toast + bucket count 13→14 → cleaned up via page-context `DELETE` (13 confirmed, 0
+  residue). Mobile 390×844 pass confirmed by screenshot (sheet renders without overflow, tap-through
+  works). Grep gate: `draggable`/`dataTransfer` hit count unchanged vs `origin/main` (this slice
+  grants no drag). Prod smoke post-merge: `scripts/smoke.sh prod` 19/19 PASS, S3 `_astro/**` bundle
+  timestamp confirmed fresh — quoted in PR #365's comment.
 
 ---
 
