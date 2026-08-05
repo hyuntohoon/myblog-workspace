@@ -159,8 +159,13 @@ selectors actually fire (reverted before commit, never entered the diff); `pnpm 
 `readLivePlayback()`/listening to `MYBLOG_PLAYBACK_CHANGED`. Collapses `controlBusyRef` into
 `session.ts`'s existing `localWriteSeq` guard.
 
-**Open question before this step starts**: which RFC houses it — a step here, or a step in one of the
-two playback RFCs? Owner call (see Open Questions).
+**OQ1 resolved 2026-08-05**: stays a step of this RFC. `FEAT-member-player` has shipped every
+non-gated step and has no open slot to take new scope. `FEAT-playback-bucket-player`'s own Step 8
+preflight audit (front #351/#823) already looked at this exact gap — `NowPlaying`/`LyricsViewer`
+staying a separate tracker from `lib/playback/session.ts` — and explicitly flagged unifying them as
+"a larger, out-of-scope change" for itself, mid-sequence, while a concurrent session runs its later
+steps. Neither RFC claims this consolidation; this RFC exists for cross-cutting cleanup exactly like
+it, so it stays here.
 
 **Verification**: existing `playback/session.test.ts`/`NowPlaying`-adjacent tests extended to assert
 cross-tracker consistency (today: zero such tests, confirmed by this audit); real-browser check that
@@ -218,8 +223,9 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 
 ## Open questions
 
-1. **Who owns Step 3 (playback consolidation)** — a step here, or a step in `FEAT-member-player` /
-   `FEAT-playback-bucket-player`? Needs an explicit owner sequencing call.
+1. ~~**Who owns Step 3 (playback consolidation)** — a step here, or a step in `FEAT-member-player` /
+   `FEAT-playback-bucket-player`?~~ **Resolved 2026-08-05**: stays this RFC's Step 3 — see Step 3 body
+   for reasoning.
 2. **What is the actual planned design of `FEAT-album-review-authoring` Step 3's memo?** The gate gap
    means it hasn't been re-measured since 2026-08-03; whether its design still makes sense next to the
    shipped bucket memo is a product-intent question this audit can't answer from code.
@@ -238,6 +244,7 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 |------|----------|------|
 | 2026-08-05 | Owner reviewed the domain-audit findings and approved proceeding with all recommendations in-session ("다 추천으로 ㄱ"). Two concrete bugs (BUG-20) shipped immediately as ad hoc fixes, outside this RFC's step sequence, since they are plain bugs not architecture decisions. This RFC captures the remaining, genuinely multi-step work | 0 |
 | 2026-08-05 | `AddToBucketMenu`/`BucketPickerSheet` non-merge re-examined and reconfirmed — the real bug (BUG-20) was a third, unaudited call site (`LikedBoard`) missing a shared predicate, not duplication between the two named components. Non-goal restated accordingly | 0 |
+| 2026-08-05 | OQ1 answered — owner kept Step 3 (playback state consolidation) as this RFC's own step, not handed to `FEAT-member-player` (no open slot) or `FEAT-playback-bucket-player` (mid-sequence, already declared this exact unification out of its own scope) | 3 |
 | 2026-08-05 | **Step 1 shipped.** `component-map.md`'s `ARCH-entity-interaction-v2` Step 6 overlap resolved by explicit handoff, not merge: E1 (entity canonical definitions) stays that RFC's own Step 6 to transcribe; this step added only the genuinely new cross-domain material (events/state-owners/modals) plus fixed two claims found actively wrong during verification, not merely stale | 1 |
 | 2026-08-05 | While spot-checking Step 1's claims, found `component-map.md`'s `TrackRow` action-set description and "no play affordance" line both still described the pre-`ARCH-entity-interaction-v2`-Step-5 shape. Fixed as part of this step rather than filed separately — a doc correction discovered while doing the doc-review verification this step already required, not new scope | 1 |
 | 2026-08-05 | **Step 2 shipped** (front #356). `PB_ADD_TRACK_EVENT` relocated from `ReviewTrackAdder.tsx` to `lib/pocketBuckit/events.ts` rather than left in place and merely allow-listed — the file's own React-free status is what let the vanilla script import it in the first place, so the fix and the guardrail's own rationale point the same direction. `album:detail` in `albumDetail.fetch.client.ts` kept as a named exception (filename-scoped), not moved — it's a documented-intentional single-file listener, not a drift pair | 2 |
