@@ -228,7 +228,7 @@ lint 0 · astro check 0 · vitest 38/38 files · 482/482. Prod smoke 19/19 (gene
 playback-specific prod check needed for a pure client guard-logic change). 3b/3c unstarted, gated
 as originally sequenced.
 
-#### Step 3b — `NowPlaying` sources "what's currently playing" from `playbackSession` (front-only)
+#### Step 3b — `NowPlaying` sources "what's currently playing" from `playbackSession` (front-only) — ✅ **DONE 2026-08-05**
 
 Narrower than the original full-hook merge: `NowPlaying` keeps its own tier/mode/like/device/
 reconnect state entirely local (none of that has a `session.ts` equivalent and folding it in is not
@@ -240,6 +240,44 @@ racing the session's own.
 **Verification**: cross-tracker consistency test (today: zero, confirmed by this audit) — start
 playback from the Bucket panel, assert `NowPlaying` converges without a page reload; real-browser
 check that lock-screen Media Session control still works with the shared source.
+
+**Shipped (front #361).** `useNowPlaying` subscribes to `playbackSession` via `useSyncExternalStore`
+(the same pattern `PlaybackPanel.tsx` already uses), additively — `sync`/`onPlaybackChanged`/`skip`
+are unchanged and stay the source for tier/mode/like/device/reconnect. A new effect writes only
+`trackId`/`anchor`/`durationMs`/`paused` (plus a minimal `np` seed — see below) off
+`playbackSession.getSnapshot()`/`currentRow()`, gated on `controlBusyRef` so a session update
+landing while this card has its own control call in flight is deferred rather than applied (Step
+3a's exact race, crossing components — `playbackSession`'s own `localWriteSeq` has no visibility
+into a write this card made directly via `sendPlayerCommand`). Also calls
+`playbackSession.syncFromLive()` on mount, mirroring `PlaybackPanel`'s own mount trigger, so this
+card works standalone on pages with no Playback Bucket panel mounted.
+
+**Real-browser verification (local dev server + stub backend + in-page Spotify stub, ack→apply lag
+modeled per `feedback-stub-must-model-async-lag`) caught two real bugs before this shipped**, exactly
+the class of defect a unit-test-only pass would have missed:
+1. The render gate this card actually uses (`liveSnapshot(np)`, i.e. `np.is_playing && np.track`) is
+   **not** `moment` — the first implementation converged `moment` correctly but the card stayed on
+   `IdleBox` regardless, since `np` was only ever written by this card's own reads. Fixed by seeding
+   `np` minimally (title/artist/cover) off the queue row or `external` whenever the session converges
+   a genuinely new track; this card's own next read still overwrites it with the fuller picture.
+2. This card's own `onPlaybackChanged` read — fired by the same `MYBLOG_PLAYBACK_CHANGED` a
+   Bucket-panel-initiated play dispatches — can land with a stale `'idle'` read racing Spotify's
+   ack→apply lag, and its idle-clearing branch unconditionally wiped what the session's subscription
+   had just correctly set a moment earlier. Fixed by checking `playbackSession.getSnapshot()` fresh
+   before that branch clears anything — a stale idle read no longer overrides session's own
+   already-authoritative "something is playing".
+
+Lock-screen Media Session was verified **indirectly**, not via a full click-test: `publishNowPlaying`/
+`publishPlaybackState`/`publishPosition` (the effect keyed on `[np, moment, paused]`) is itself
+unchanged, and this session confirmed its inputs (`np`/`moment`/`paused`) are now correctly populated
+by the converged path. A full lock-screen test needs a rung-2 (in-page SDK) device — the stub harness
+only exercised rung 1 (Connect remote, via a direct `PUT /me/player/play` stub) since standing up the
+real Spotify Web Playback SDK was out of scope here. Noted rather than overclaimed.
+
+lint 0 · astro check 0 · vitest 38/38 files · 484/484 (2 new: cross-tracker convergence, deferred-
+during-control-call). Prod smoke 19/19 (general suite, same as Step 3a — no playback-specific prod
+check for a pure client-side change). 3c (`LyricsViewer` sync anchor) stays gated on this being
+prod-stable first, per the original sequencing — new session.
 
 #### Step 3c — `LyricsViewer` sources its sync anchor from `playbackSession` (front-only) — gated on 3b
 
