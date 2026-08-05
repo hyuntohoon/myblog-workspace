@@ -186,7 +186,7 @@ queue-first model. A single-session rewrite of either is exactly the "larger, ou
 concretely-named bug from the two open-ended migrations, so the bug fix can ship on its own
 regression-testable PR while the bigger merges get their own session and design scrutiny each.
 
-#### Step 3a — fix the named race: `controlBusyRef` drops real external events (front-only, `NowPlaying.tsx` only)
+#### Step 3a — fix the named race: `controlBusyRef` drops real external events (front-only, `NowPlaying.tsx` only) — ✅ **DONE 2026-08-05**
 
 The actual bug `controlBusyRef` causes today: `NowPlaying`'s `onPlaybackChanged` listener does
 `if (controlBusyRef.current) return` — a blanket "ignore every `MYBLOG_PLAYBACK_CHANGED` while ANY
@@ -208,6 +208,25 @@ to sweep here.
 `MYBLOG_PLAYBACK_CHANGED` (asserting the external event is NOT dropped); existing `NowPlaying` tests
 stay green; no real-device step needed — the fix is a pure guard-logic change, testable with mocked
 timing per `feedback-stub-must-model-async-lag`.
+
+**Shipped (front #360).** Ported `localWriteSeq` into a component-scope `useRef` counter on
+`NowPlaying`'s own hook (`useNowPlaying`, exported for testability) rather than a true module-level
+variable — a top-level `let` would leak state across the hook's mount/unmount in tests. Each of
+`playPause`/`seek`/`skip` bumps the counter right after its command comes back ok (the same point
+`rememberSpotifyTransportProbe('available')` already marks); `onPlaybackChanged` captures the
+counter before starting its read and discards the read only if the counter moved meanwhile.
+`controlBusyRef` itself is untouched — it still guards re-entrancy on all four control functions,
+including `setMode`, which never dispatches the event at all (`sendPlaybackMode` is excluded from
+`notifies`, confirmed by grep) and so needed no seq bump, only the listener decoupling.
+`NowPlaying.test.ts` (new) covers both halves: a genuinely external event landing while our own
+command is held open lands correctly, and the fix was confirmed to catch the regression by
+temporarily reverting to the old blanket guard and watching that case go red before restoring it;
+a second test holds a deferred echo-read open until *after* our own command's bump lands, proving
+the echo still self-discards (not just "usually wins the race" — the RFC's own "correct at any
+window width" framing, made deterministic rather than relying on incidental microtask ordering).
+lint 0 · astro check 0 · vitest 38/38 files · 482/482. Prod smoke 19/19 (general suite — no
+playback-specific prod check needed for a pure client guard-logic change). 3b/3c unstarted, gated
+as originally sequenced.
 
 #### Step 3b — `NowPlaying` sources "what's currently playing" from `playbackSession` (front-only)
 
@@ -313,4 +332,5 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 | 2026-08-05 | **OQ3 resolved.** Owner: `TrashDrawer`'s non-portal mount was unintentional, not a documented reason to diverge — Step 4 migrated it to `useDismissable` alongside its six siblings. The mount method itself stayed out of Step 4's scope, so it's now the component's sole remaining divergence from its portaled neighbors | 4 |
 | 2026-08-05 | **Step 4 shipped** (front #357). Migrated seven ad hoc ESC-only dialogs to `useDismissable`; `ActionSheet` stays the one documented exception. A real-browser CDP check (not just the new unit tests) caught a live bug: `gm-shared`'s `Peek` is permanently mounted by `GenreMap.tsx` (`nodeId` starts `null`, flips later) rather than mount-on-open like the other six migrated components, so a first attempt at `useDismissable(true, ...)` ran its mount effect once while `ref.current` was still `null` — ESC kept working (reads `onClose` via a ref updated every render) but autoFocus/Tab-trap silently never fired. Fixed by keying `open` off `!!node`, with a regression test that mounts `Peek` closed first to match real usage. Confirmed on prod after deploy | 4 |
 | 2026-08-05 | **External review of this RFC + Steps 1/2/4** ran (9 hypotheses, verified against code not the RFC's prose). Confirmed: (1) this RFC's own path for `component-map.md` had a `myblog_front/` prefix the file doesn't live under — corrected above, file itself unmoved; (3) the PR template promised in "Rule ownership and placement" was never shipped; (4) G3/G5's shared ESLint `ignores` cross-exempted each other's owner file — probed live, confirmed, fixed; (5) `spotify_library` had zero backend enforcement, not just frontend-only as designed — a direct API call bypassed `isManualAddTarget()` entirely on 4 service methods; (6) CI is real and required-to-pass-to-merge in practice (both #356/#357 had genuine green checks) but not *gated* — no branch protection; (9) G2 found two live, unfixed instances of the exact pattern it exists to prevent. Rejected: (8) — host selection is data-driven, not location-driven; only `ARCH-entity-interaction-v2`'s E6 prose was imprecise, not the code. Partially confirmed: (2) inventory/guardrail mixing exists but doesn't need a new document, just tighter pointers; (7) Step 2/4 status itself was accurate, Step 2 just had the scoping gap above. Fixes: front #358 (ESLint split, PR template, `insertAlbum` temp-id guard, `releaseShared.tsx` id-fallback gate), front #359 (doc-comment repo-prefix), backend #151 (`_assert_manual_add_allowed` on 4 methods) | — |
+| 2026-08-05 | **Step 3a shipped** (front #360). `controlBusyRef`'s blanket "ignore every event while ANY control call is in flight" replaced with a `localWriteSeq`-style per-read staleness check, scoped as a `useRef` counter inside `NowPlaying.tsx`'s own hook rather than true module scope (avoids state leaking across mount/unmount in tests, and the hook has only ever had one live instance anyway). `useNowPlaying` exported for testability. New unit tests confirmed against both the fix and a temporary revert to the old guard (red on revert, green on fix) | 3 |
 | 2026-08-05 | **G2 status corrected from "table row" to "two live gaps found, both fixed, still no CI gate."** `BucketBoard.tsx`'s `insertAlbum` had no `temp:`-id guard (same class BUG-20 fixed for `trashAlbum`); `releaseShared.tsx` passed a Spotify id into a DB-id-only field. Both fixed in front #358 (see item 9 above). The grep/CI gate G2 describes as its enforcement mechanism still does not exist — **G2 remains "Partially" enforceable, not "Yes,"** until that gate ships; do not read the two fixes as closing G2 itself | 2 |
