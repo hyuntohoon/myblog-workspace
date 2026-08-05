@@ -268,10 +268,9 @@ surface and is untouched (Step 2 audit).
 ## Global CustomEvent registry — added `ARCH-entity-interaction-domain-audit` Step 1, 2026-08-05
 
 Every `window.dispatchEvent(new CustomEvent(...))` name in the app, where it's declared, and
-whether it's actually single-owned. **Rule going forward** (`ARCH-entity-interaction-domain-audit`
-G3): a new app-level event's name+payload is declared in `lib/entityEvents.ts` or
-`lib/pocketBuckit/events.ts` — no inline `new CustomEvent(<string literal>)` anywhere else,
-including vanilla `scripts/`.
+whether it's actually single-owned. Descriptive inventory only — the rule itself (G3) and its
+enforcement live in `ARCH-entity-interaction-domain-audit.md`'s Guardrails table; see that RFC
+before adding a new event.
 
 | Event | Declared in | Dispatched from | Listened by | Single-owned? |
 |---|---|---|---|---|
@@ -299,14 +298,14 @@ What real-world state, which module is (or should be) canonical, who else touche
 | "What's currently playing" (track/queue/playing/device) | **should be** `lib/playback/session.ts` | `NowPlaying.tsx`'s `useNowPlaying()` hook and `LyricsViewer.tsx` **each independently** call `readLivePlayback()` and listen to `myblog:playback-changed`, each with its own hand-invented race guard for the same Spotify ack→apply window (`session.ts`'s `localWriteSeq` vs. `NowPlaying`'s `controlBusyRef`; `LyricsViewer` has a third, its own anchor/estimate loop) | **3 independent trackers, not consolidated.** Both `FEAT-member-player` and `FEAT-playback-bucket-player`'s own text name only 2 (session vs. NowPlaying); `LyricsViewer` is a third this audit found. Consolidation tracked as `ARCH-entity-interaction-domain-audit` Step 3 — **not started**, blocked on an owner sequencing decision (which RFC houses it) |
 | "One tab owns playback" (write lease) | `lib/playback/ownership.ts` (localStorage lease + `BroadcastChannel`, challenge/response reclaim) | only gates `session.ts`'s writes — `NowPlaying`/`LyricsViewer` act locally regardless of lease state | correctly single-owned for what it covers; does not (and structurally can't yet) cover the other two trackers above |
 | "My relationship to this album" (rating / candidate-mark / bucket memo / draft-review) | **no single owner — four independent silos, by design, not drift**: `AlbumRatingBlock` (rating/comment/candidate, `PUT /api/reviews/albums/{id}`, `album_reviews` row) / `ReviewCandidates` (a **third, separate** read of the same `review_candidate` flag via `GET /api/me/review-candidates`) / `MemoWindow`+`useBucketMemo` (`PATCH /api/buckets/{bucketId}/items/{itemId}`, `review_bucket_items.note`, bucket-scoped not album-scoped) / `WriterApp` (`POST/PUT /api/posts`, `posts` row + git commit) | — | three genuinely distinct commands over three DB rows (correct, keep separate — see reviews/memos audit); `ReviewCandidates`' redundant fetch of a flag `AlbumRatingBlock` already has is unassigned to any Step — noted here, not yet fixed |
-| Manual-add-target eligibility (is bucket X a valid drop for a user-initiated add) | `lib/buckets.ts` `isManualAddTarget()` (added BUG-20, 2026-08-05) | — | single-owned as of 2026-08-05; was 3 independent hardcodes + 1 omission before |
+| Manual-add-target eligibility (is bucket X a valid drop for a user-initiated add) | `lib/buckets.ts` `isManualAddTarget()` (added BUG-20, 2026-08-05) + `bucket_service.py` `_assert_manual_add_allowed()` (added 2026-08-05, external review item 5 follow-up) | — | single-owned per layer since 2026-08-05; frontend was 3 independent hardcodes + 1 omission before BUG-20, backend had **no** kind-based check at all (`_assert_item_type_allowed` keys on `type`, never `kind`) until this follow-up closed `add_item`/`expand_artist_source`/`expand_album_tracks`/`reorder` — a direct API call previously bypassed the frontend guard entirely |
 
 ## Modal / overlay registry — added `ARCH-entity-interaction-domain-audit` Step 1, 2026-08-05
 
 Every `role="dialog"`-shaped component, which primitive it's built on, and — if not
-`useDismissable` — whether that's a named, reasoned exception or an unreviewed gap.
-**Rule going forward** (G4): a new overlay uses `useDismissable` or gets a row added here with a
-stated reason.
+`useDismissable` — whether that's a named, reasoned exception or an unreviewed gap. Descriptive
+inventory only — the rule (G4) lives in `ARCH-entity-interaction-domain-audit.md`'s Guardrails
+table; see that RFC before adding a new overlay.
 
 | Component | Primitive | Notes |
 |---|---|---|

@@ -80,13 +80,24 @@ Rejected as unenforceable-and-vague: "reuse components where possible," "maintai
 
 ## Rule ownership and placement
 
-- **Single source of truth**: `myblog_front/docs/frontend/component-map.md` (broadened scope).
+- **Single source of truth**: `docs/frontend/component-map.md` **in this workspace repo**
+  (broadened scope) — corrected 2026-08-05 (external review item 1): this doc previously read
+  `myblog_front/docs/frontend/component-map.md`, but `myblog_front` has no `docs/` directory at
+  all. The file has always lived here (same repo as this RFC, `plan.md`, and every other RFC
+  about `myblog_front`-only work) — the RFC's own path was wrong, not the file's location. Two
+  in-repo `myblog_front` comments (`src/components/shared/TrackRow.tsx:5`,
+  `src/lib/entityLinks.ts:5`) point at `docs/frontend/component-map.md` with no repo prefix
+  either; both now say `myblog-workspace/docs/frontend/component-map.md (sibling repo)` so a
+  developer working solely in `myblog_front` doesn't look for it in their own checkout.
 - **Historical record**: this RFC + `ARCH-entity-interaction-v2` + the feature RFCs, unmodified.
-- **Executable enforcement**: myblog_front's own ESLint config / CI (G3, G5 immediately; G6, G2, G8 as
-  follow-on gates) — not the workspace repo, which has no per-repo CLAUDE.md by design (repo specifics
-  live in code + README).
-- **PR template**: `myblog_front/.github/PULL_REQUEST_TEMPLATE.md` gains G1/G7/G8 checklist lines.
-- No workspace-level CLAUDE.md change — nothing here crosses a repo boundary.
+- **Executable enforcement**: myblog_front's own ESLint config / CI (G3, G5 shipped Step 2; G6,
+  G2, G8 as follow-on gates) — not the workspace repo, which has no per-repo CLAUDE.md by design
+  (repo specifics live in code + README).
+- **PR template**: `myblog_front/.github/PULL_REQUEST_TEMPLATE.md` gains G1/G7/G8 checklist
+  lines — shipped 2026-08-05 (external review item 3; front #358).
+- No workspace-level CLAUDE.md change — nothing here crosses a repo boundary. (The
+  component-map.md ↔ myblog_front code-comment mismatch above was a documentation bug, not a
+  boundary decision — the doc's *ownership* was never in question, only its stated path.)
 
 ---
 
@@ -301,3 +312,5 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 | 2026-08-05 | **Step 2 shipped** (front #356). `PB_ADD_TRACK_EVENT` relocated from `ReviewTrackAdder.tsx` to `lib/pocketBuckit/events.ts` rather than left in place and merely allow-listed — the file's own React-free status is what let the vanilla script import it in the first place, so the fix and the guardrail's own rationale point the same direction. `album:detail` in `albumDetail.fetch.client.ts` kept as a named exception (filename-scoped), not moved — it's a documented-intentional single-file listener, not a drift pair | 2 |
 | 2026-08-05 | **OQ3 resolved.** Owner: `TrashDrawer`'s non-portal mount was unintentional, not a documented reason to diverge — Step 4 migrated it to `useDismissable` alongside its six siblings. The mount method itself stayed out of Step 4's scope, so it's now the component's sole remaining divergence from its portaled neighbors | 4 |
 | 2026-08-05 | **Step 4 shipped** (front #357). Migrated seven ad hoc ESC-only dialogs to `useDismissable`; `ActionSheet` stays the one documented exception. A real-browser CDP check (not just the new unit tests) caught a live bug: `gm-shared`'s `Peek` is permanently mounted by `GenreMap.tsx` (`nodeId` starts `null`, flips later) rather than mount-on-open like the other six migrated components, so a first attempt at `useDismissable(true, ...)` ran its mount effect once while `ref.current` was still `null` — ESC kept working (reads `onClose` via a ref updated every render) but autoFocus/Tab-trap silently never fired. Fixed by keying `open` off `!!node`, with a regression test that mounts `Peek` closed first to match real usage. Confirmed on prod after deploy | 4 |
+| 2026-08-05 | **External review of this RFC + Steps 1/2/4** ran (9 hypotheses, verified against code not the RFC's prose). Confirmed: (1) this RFC's own path for `component-map.md` had a `myblog_front/` prefix the file doesn't live under — corrected above, file itself unmoved; (3) the PR template promised in "Rule ownership and placement" was never shipped; (4) G3/G5's shared ESLint `ignores` cross-exempted each other's owner file — probed live, confirmed, fixed; (5) `spotify_library` had zero backend enforcement, not just frontend-only as designed — a direct API call bypassed `isManualAddTarget()` entirely on 4 service methods; (6) CI is real and required-to-pass-to-merge in practice (both #356/#357 had genuine green checks) but not *gated* — no branch protection; (9) G2 found two live, unfixed instances of the exact pattern it exists to prevent. Rejected: (8) — host selection is data-driven, not location-driven; only `ARCH-entity-interaction-v2`'s E6 prose was imprecise, not the code. Partially confirmed: (2) inventory/guardrail mixing exists but doesn't need a new document, just tighter pointers; (7) Step 2/4 status itself was accurate, Step 2 just had the scoping gap above. Fixes: front #358 (ESLint split, PR template, `insertAlbum` temp-id guard, `releaseShared.tsx` id-fallback gate), front #359 (doc-comment repo-prefix), backend #151 (`_assert_manual_add_allowed` on 4 methods) | — |
+| 2026-08-05 | **G2 status corrected from "table row" to "two live gaps found, both fixed, still no CI gate."** `BucketBoard.tsx`'s `insertAlbum` had no `temp:`-id guard (same class BUG-20 fixed for `trashAlbum`); `releaseShared.tsx` passed a Spotify id into a DB-id-only field. Both fixed in front #358 (see item 9 above). The grep/CI gate G2 describes as its enforcement mechanism still does not exist — **G2 remains "Partially" enforceable, not "Yes,"** until that gate ships; do not read the two fixes as closing G2 itself | 2 |
