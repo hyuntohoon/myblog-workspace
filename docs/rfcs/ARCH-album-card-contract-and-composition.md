@@ -549,6 +549,18 @@ with a manually-controlled deferred promise, call `copyAlbum(albumId, 'A')`, the
 'A', 'B', null)` before resolving, then resolve — assert the tile in B is promoted to the real id (not
 stuck at `tempId`), and that no orphan row is left in A.
 
+**RESOLVED 2026-08-06** (front #369, standalone bugfix, deployed + prod-verified). Added
+`findBucketByItemId` (searches the whole tree by `itemId`) and used it in place of
+`findBucket(t, toBucketId)` in `copyAlbum`'s resolve handler, so promotion always finds the tile
+wherever it currently lives, not just in the closure's original destination. `BucketBoard.test.tsx`
+(new, 0 prior coverage) pins exactly the scenario above via the real action-sheet UI + a manually
+deferred `addBucketItem` — confirmed to fail without the fix and pass with it. Known, intentionally
+out-of-scope residual: the server-side row still lands under the original `toBucketId` (A) even when
+the tile visually moved to B before the add resolved; this fix reconciles the client tree only. That
+row self-heals the next time A's order is persisted via a reorder. Full server-side relocation was
+judged out of scope for a standalone bugfix — Stage 6's hard prerequisite is satisfied either way,
+since Stage 6 only needed the promotion race itself fixed.
+
 ### BUG-22 — `playbackSession` convergence effect drops updates during no-confirmation control calls (not a card-architecture dependency; tracked separately)
 
 **Partially confirmed** — the originally-hypothesized bug (`onPlaybackChanged`'s blanket
