@@ -279,7 +279,7 @@ during-control-call). Prod smoke 19/19 (general suite, same as Step 3a — no pl
 check for a pure client-side change). 3c (`LyricsViewer` sync anchor) stays gated on this being
 prod-stable first, per the original sequencing — new session.
 
-#### Step 3c — `LyricsViewer` sources its sync anchor from `playbackSession` (front-only) — gated on 3b
+#### Step 3c — `LyricsViewer` sources its sync anchor from `playbackSession` (front-only) — gated on 3b — ✅ **DONE 2026-08-06**
 
 Highest-risk of the three: this is the exact file `FEAT-lyrics-sync-precision` tuned to sub-100ms
 drift, so any anchor-source change re-opens that measurement. Deliberately sequenced last, and gated
@@ -288,6 +288,34 @@ on 3b landing and being prod-stable first — do not start 3c in the same sessio
 **Verification**: the full CDP sync-precision regression battery `FEAT-lyrics-sync-precision` Step 2
 used (not unit tests alone) — real playback, boundary transitions, pause/resume — before this can be
 called done.
+
+**Results (front #374).** The RFC's own line names the destination ("sources its sync anchor from
+`playbackSession`") but not how far to go — code audit at start of session found `refresh()` couples
+the anchor to identity/jump/skip-confirmation/translation/cover/meta in one function, none of which
+this step should touch. Owner picked the conservative of two designs presented in-session: **additive
+adoption**, not a replacement. A new effect adopts `playbackSession`'s `anchor`/`playing`/`durationMs`
+whenever `playbackSession.currentSpotifyTrackId()` (new method, cache-only reverse lookup mirroring
+`rowForSpotifyTrack`'s forward direction) confirms the session is describing the SAME track this
+viewer has open; the viewer's own `readLivePlayback()`-driven `refresh()` is untouched and stays the
+only source whenever session cannot confirm the match. Guarded by the SAME `awaitingTrack`/
+`awaitingChangeFrom`/`awaitingPlayState` refs `refresh()` already carries — this viewer's own transport
+bypasses `playbackSession` entirely (`sendPlayerCommand` called directly), so session's re-adoption of
+the resulting `MYBLOG_PLAYBACK_CHANGED` races the identical ack→apply lag those guards exist to
+survive; without reusing them, this step would have reintroduced the OQ4-class flip-back bug into a
+second pathway.
+
+**CDP verification (stubbed backend + in-page Spotify fetch stub, ack→apply lag modeled, same harness
+family as `FEAT-lyrics-sync-precision` Step 2 and Step 3b above) proved both halves live, not just
+unit-tested**: (1) dispatching `MYBLOG_PLAYBACK_CHANGED` with an advanced stub position moved the
+viewer's focused line and `playing` state to match `playbackSession`'s freshly-adopted anchor; (2)
+pressing this viewer's own ⏸ and then feeding 3 concurrent stale "still playing" reads (this viewer's
+own guarded `refresh()`, `playbackSession.adoptLive()`, and `NowPlaying`'s own listener — confirming
+the fan-out the 2026-08-06 BUG-28 erratum above also found) held the paused state through the full
+guard window with no flip-back.
+
+lint 0 · astro check 0 · vitest 47/47 files · 510/510 (4 new: `currentSpotifyTrackId` cases in
+`session.test.ts`). Prod smoke 19/19 — PR #374 comment. RFC's original Step 3 scope (3a/3b/3c) is now
+fully shipped.
 
 ### Step 4 — `useDismissable` adoption sweep + G4 (front-only) — ✅ **DONE 2026-08-05**
 
@@ -374,3 +402,4 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 | 2026-08-05 | **G2 status corrected from "table row" to "two live gaps found, both fixed, still no CI gate."** `BucketBoard.tsx`'s `insertAlbum` had no `temp:`-id guard (same class BUG-20 fixed for `trashAlbum`); `releaseShared.tsx` passed a Spotify id into a DB-id-only field. Both fixed in front #358 (see item 9 above). The grep/CI gate G2 describes as its enforcement mechanism still does not exist — **G2 remains "Partially" enforceable, not "Yes,"** until that gate ships; do not read the two fixes as closing G2 itself | 2 |
 | 2026-08-06 | **Erratum — Step 3a's fix is real but does not cover the whole `controlBusyRef` surface.** A 2026-08-06 evidence-based audit re-verified Step 3a/3b against current code (`bcb6544`). Step 3a's fix (`onPlaybackChanged`'s `localWriteSeq`-style sequence gating) is confirmed correct and unchanged. But Step 3b's separate `playbackSession` convergence effect (`NowPlaying.tsx:704-743`) gates on `controlBusyRef.current` directly with no sequence check and no deferred replay — a structurally identical drop to the one Step 3a fixed, in a different code path Step 3a never touched. The effect's own safety-claim comment (`:700-702`, "this card's own confirm read is already in flight regardless and supersedes it a moment later") is false for `setMode` (shuffle/repeat/volume): it dispatches no `MYBLOG_PLAYBACK_CHANGED` and has no confirmation read at all, so a session update landing during a `setMode` call is dropped with no recovery until an unrelated future event happens to arrive. `NowPlaying.test.ts:254-303` already proves this is not incidental — it asserts the deferred update stays stale and labels it "the accepted tradeoff" via `playPause`, a milder case than `setMode`'s. Tracked as BUG-22 (`plan.md`), independent of this RFC's own step sequence — not a reopening of Step 3a, and not blocking Step 3c. Recommended fix: correct the `:700-702` comment to name the `setMode` exception, and extend sequence-gating to this effect or explicitly document the narrower accepted risk | 3 |
 | 2026-08-06 | **Erratum — a second, independently-discovered mount-time race in Step 3b's own code, plus confirmation that the "single-flight/centrally cached" target state is not yet realized anywhere.** BUG-22's fix (both rows above) is confirmed present against current HEAD (`cc16ab49`, front #370). A 2026-08-06 re-audit found `NowPlaying.tsx`'s mount effect (`:619-627`) fires `sync()` (direct `readLivePlayback()`) and `playbackSession.syncFromLive()` (→ `adoptLive()` → also `readLivePlayback()`) concurrently, unguarded against each other; the "playing" branch of `applyLive()` (`:345-372`) has no sequence/session check, unlike the "idle" branch Step 3b's own real-browser pass already hardened for a structurally identical race. Near a track boundary, response order is not guaranteed to match send order, so the card can revert one frame to an already-stopped track. Not covered by Step 3a (different listener), Step 3b (different branch), or Step 3c (unrelated — `LyricsViewer`'s anchor source). Tracked as `BUG-28` (`plan.md`), independent of this RFC's step sequence. Separately confirmed: a single `MYBLOG_PLAYBACK_CHANGED` event still fans out to 3 uncoordinated `readLivePlayback()` calls (`session.ts`/`NowPlaying`/`LyricsViewer`) with no request coalescing anywhere, including at the canonical `session.ts` layer — this RFC's own target-architecture text ("Spotify live reads = single-flight/centrally cached") remains aspirational after Step 3a/3b, not a regression, just not yet built | 3 |
+| 2026-08-06 | **Step 3c shipped** (front #374), closing the RFC's original Step 3 (3a/3b/3c). Owner picked the conservative of two in-session designs: `LyricsViewer` adopts `playbackSession`'s anchor/playing/durationMs additively (new `playbackSession.currentSpotifyTrackId()` confirms the same track first), never replacing the viewer's own `readLivePlayback()`-driven `refresh()`, which stays the fallback whenever session cannot confirm the match — identity/jump/skip/translation logic in `refresh()` untouched. Reused `refresh()`'s own `awaitingTrack`/`awaitingChangeFrom`/`awaitingPlayState` guard refs, since this viewer's own transport bypasses `playbackSession` and would otherwise race the same ack→apply lag those guards exist to survive (this is the same 3-way fan-out the erratum above named). CDP verification (stubbed backend + in-page Spotify fetch stub) proved both the adoption and the guard live, not just unit-tested. vitest 47/47 files·510/510. Prod smoke 19/19 | 3 |
