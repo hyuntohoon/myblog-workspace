@@ -20,6 +20,15 @@
 > track-click / overlay / cross-island / shared-chrome / global-event / state-ownership. A stale
 > "Verified" stamp is the signal to re-verify, not to trust — **and a current stamp does not
 > guarantee correctness either**: check the claim, not just the date.
+>
+> **Addendum 2026-08-06** (album-card audit, `docs/rfcs/ARCH-album-card-contract-and-composition.md`,
+> draft): no canonical album-card component or registry entry exists yet — this doc's album coverage
+> above stays scattered per-surface mentions until that RFC's Stage 3 ships a shared primitive; do not
+> add a canonical-card table row speculatively before then. Also: line 8's "granted `play`/`add`/`drag`
+> on every TrackRow surface that's going to get them" is accurate for the surfaces it names, but should
+> not be read as "every drag grant has its required touch-alternative pair" — `MemoWindow` is the one
+> counterexample (`drag` without `add`, tracked as BUG-24 in `plan.md`); this file's own "Ownership by
+> domain" § `TrackRow` bullet already states `MemoWindow`'s actual grant correctly (`openLyrics?+drag`).
 > Human-readable companion: [structure.md](structure.md).
 
 This is the artifact an LLM (or developer) reads to answer "who owns X" without re-grepping.

@@ -1,0 +1,664 @@
+# ARCH-album-card-contract-and-composition: one canonical album-card display model, composed by capability, not inherited
+
+- **Status**: draft
+- **Owner**: TBD
+- **Created**: 2026-08-06
+- **Plan row**: `plan.md` → ARCH-album-card-contract-and-composition
+- **Sibling, does not reopen**: `docs/rfcs/ARCH-entity-interaction-v2.md` (**closed**, ws #843) — that RFC
+  owns the canonical *entity* contract (identity, URL/open behavior, drag-payload shape, one
+  `TrackRow` capability contract). This RFC does not relitigate any of its settled decisions
+  (two album-detail hosts, no `/album/[id]` route, `AddToBucketMenu` as the WCAG 2.5.7 touch
+  primary). It builds the *presentational + compositional* layer one level up — the album **card**,
+  not the album **entity** — using that RFC's own `TrackRow` capability-contract pattern as the
+  direct precedent (see §Alternatives).
+- **Sibling, does not overlap steps with**: `docs/rfcs/ARCH-entity-interaction-domain-audit.md`
+  (draft, in-progress — cross-domain registry/guardrails for events/state-owners/modals). No shared
+  steps; this RFC's migration references two of that audit's guardrails (G2, G5) as prior art for
+  "capability injection instead of ad hoc grep-and-hope."
+- **Origin**: 2026-08-06 evidence-based audit, at owner request, following `ARCH-entity-interaction-v2`'s
+  closure — 7 parallel investigations run directly against `origin/main` (not against either RFC's
+  own completion claims) covering 6 hypothesized defects plus a full album-card representation
+  inventory. Exact HEADs inspected: `myblog-workspace` `b914194e0cec32f9bb2b795195a46f91740b45c8`,
+  `myblog_front` `bcb654405bde477c040a8e60a764212887c2c4f3`, `myblog_backend`
+  `9fa9c0f463faa37ff329922104ac2ee7ddc71543`.
+
+---
+
+## 0. Verified-defect summary (full evidence in §19)
+
+| # | Hypothesis | Verdict | One-line evidence |
+|---|---|---|---|
+| 1 | temp-ID cross-bucket movement race | **CONFIRMED** | `copyAlbum`'s resolve handler looks up its own closure `toBucketId`, not wherever the tile actually moved (`BucketBoard.tsx:2035-2098`) |
+| 2 | NowPlaying session update loss | **MIXED — named bug fixed, structurally identical gap survives elsewhere** | `onPlaybackChanged`'s blanket drop is fixed (front #360); the `playbackSession` convergence effect (Step 3b) still drops external updates during any control call with no confirmation read — worst for `setMode` — and the codebase's own test calls this "the accepted tradeoff" (`NowPlaying.tsx:700-743`, `NowPlaying.test.ts:254-303`) |
+| 3 | Concurrent queue replacement | **CONFIRMED, self-admitted in code** | `replaceQueueAndPlay()`/`rewriteQueue()` has no mutex/single-flight/generation-token/abort; one call site's own comment states the double-click race is untested and accepted (`session.ts:519-745`, `AlbumOverlay.tsx:108-111`) |
+| 4 | Missing touch alternative in MemoWindow | **CONFIRMED** | `MemoWindow`'s `TrackRow` was granted `drag` (front #368) without its required `add` tap-fallback peer — the one call site in the whole app where a drag grant shipped unpaired (`AlbumDetail.tsx:549-560`, cf. `TrackRow.tsx:199-209`) |
+| 5 | Ambiguous `OpenAlbumDetail` ID contract | **STRUCTURAL RISK, not currently live** | The namespace-conflating pattern exists in the type (`entityEvents.ts:15-31`) but exactly one of 27 producers uses it, and that one is already correctly guarded (`releaseShared.tsx:218`) — nothing type-enforces the pairing for the *next* producer |
+| 6 | Claude Review CI false-green | **CONFIRMED, live today** | `code-review.yml` step-skips (not job-skips) when `ANTHROPIC_API_KEY` is absent, and the key is not configured on `myblog_front` right now — every PR shows green identically whether the review ran or not |
+
+Defects 1/3/4/6 are CONFIRMED and unresolved. Defect 2 is partially fixed with a newly-found residual
+gap. Defect 5 is a real but currently-contained risk. None of the four confirmed defects were closed
+by `ARCH-entity-interaction-v2`'s closure or by `ARCH-entity-interaction-domain-audit`'s Steps 1-4 —
+see §19 for why each is tracked as an independent item rather than folded into this RFC's migration.
+
+---
+
+## 1. Context and concrete current inconsistencies
+
+A single visual concept — "here is an album" — is implemented independently at least **9 times** in
+`myblog_front` (inventory, HEAD `bcb6544`):
+
+| Representation (file:line) | Layout | Nav | Play | Add | Drag | Touch alt | Image fallback |
+|---|---|---|---|---|---|---|---|
+| `NewReleasesCard.CardItem` (`home/NewReleasesCard.tsx:77-107`) | grid tile | `openAlbum()` | — | — | — | n/a | `Cover` (home/ui.tsx) |
+| `ForYouReleasesCard.CardItem` (`home/ForYouReleasesCard.tsx:71-102`) | grid tile | `openAlbum()`, conditional on id | — | — | — | n/a | `Cover` |
+| `TodayAlbumBuckit.Card` (`home/TodayAlbumBuckit.tsx:56-104`) | grid tile | `openAlbum()` | — | — | — | n/a | `Cover` |
+| `TodaySongBuckit` (`home/TodaySongBuckit.tsx`) | single row | `openAlbum()` via button | — | — | — | n/a | `Cover` |
+| `BucketBoard.AlbumChip` (`member/BucketBoard.tsx:476-728`) | grid tile, bucket-scoped | `onOpen(DetailTarget)` | — | *is* the add target | full HTML5 DnD, 3 origin kinds | kebab action sheet | `AlbumArt` (member/ui.tsx, delegates to `Cover`) |
+| `LikedBoard.LkCover` row (`member/LikedBoard.tsx:276-350`) | table row | `openDetail()` | — | — | — | n/a | `LkCover` (own, 3rd impl) |
+| `AlbumDetail.MemoWindow` header (`member/AlbumDetail.tsx:417-556`) | modal header | n/a (already detail) | — | n/a | tracklist only, via shared `TrackRow` | **none — BUG-24** | `AlbumArt` |
+| `writer/SubjectHero` (`writer/SubjectHero.tsx`) | editor hero | n/a | — | — | — | n/a | inline hashed-glyph (4th impl) |
+| `AlbumOverlay`/`AlbumDetailView.Header` (`album/AlbumOverlay.tsx`) | modal, public | n/a | **▶, the only inline play in the app** | — | tracklist rows | n/a | not inspected |
+
+**Already-unified, worth preserving as precedent**: album/artist navigation (`openAlbum()` /
+`artistHref()` via `lib/entityLinks.ts`/`lib/entityEvents.ts`) is called identically from 6+ sites and
+is the one piece of this surface area `ARCH-entity-interaction-v2` already fixed correctly. The
+inconsistency is entirely in the **markup and capability wiring around** that shared navigation, not
+in navigation itself.
+
+**Accidental duplication, not intentional variation**:
+- `NewReleasesCard.CardItem`, `ForYouReleasesCard.CardItem`, `TodayAlbumBuckit.Card` are the same
+  component hand-copied three times — identical cover-wrap → title → artist-link → date structure,
+  only the scoped-CSS prefix (`nrl-`/`fyr-`/`otd-`) differs; the `dateLabel()` formatter is
+  byte-identical in two of the three.
+- Cover-art fallback exists **4 independent times** with 4 different visual results for the same
+  "no image" case: `Cover` (`home/ui.tsx:10-28`, initials span), `AlbumArt` (`member/ui.tsx:20-33`,
+  delegates to `Cover` for the no-image branch but has its own `<img>` for the has-image branch),
+  `LkCover` (`LikedBoard.tsx:343-350`, a third independent img-or-fallback wrapper), and
+  `SubjectHero`'s inline single-glyph hashed-hue background (fourth, no shared function at all).
+- `AlbumArt` already imports `Cover` across the `home/`↔`member/` directory boundary — this
+  **disproves** any assumption that home-owned and member-owned primitives can't be shared today;
+  the boundary is organizational, not technical.
+
+**A real, working precedent already exists one level down**: `shared/TrackRow.tsx`'s
+`TrackRowActions = {lyrics?, open?, openLyrics?, play?, add?, drag?}` is a genuine capability-contract
+component, consumed today by both `AlbumDetail.MemoWindow` and `LikedBoard` with different capability
+subsets granted per surface. This RFC's canonical model is that pattern moved up one level (album),
+not invented from scratch.
+
+**The one anti-pattern already live**: `BucketBoard.AlbumChip` bakes bucket-item identity (`itemId`,
+`temp:*` handling, move/reorder/remove ownership) directly into the presentational tile rather than
+receiving it as an injected capability. It is also the site of BUG-21 (§19) — evidence that domain
+state living inside a "shared" visual component is not just an architecture smell, it is where the
+one confirmed data-integrity bug in this audit actually lives.
+
+**Positive precedent for the review/editorial boundary**: `ARCH-entity-interaction-v2` Step 5's E7
+slice already projects `albumIds`/`artistIds` onto `ReviewCard`/`ReviewHit` (front #362) specifically
+so a published review's cover can open an album peek **without pretending the review document is an
+album**. `ReviewCard` stays its own type. This RFC formalizes that boundary rather than inventing it.
+
+---
+
+## 2. Problem statement
+
+There is no single answer to "what does an album look like in this product," so every new surface
+either hand-copies an existing tile (accidental duplication, 3 already) or bakes surface-specific
+state into what should be a dumb presentational component (`AlbumChip`, the one component
+implicated in a live data-integrity bug). Every future surface — the planned
+`FEAT-album-review-authoring` write entry (C1), any new Home recommendation rail, a future
+`/genres`-adjacent album list — faces the same choice with no contract to follow, and the DnD
+semantics (copy vs. move vs. reorder, album identity vs. bucket-item identity) are not written down
+anywhere a new author would find them.
+
+---
+
+## 3. Goals
+
+- One canonical album display-data shape, consumed by every surface.
+- One shared presentational primitive owning layout, typography, cover-fallback (consolidating the
+  4 existing implementations into 1), loading/skeleton state, and badge slots.
+- Small, named capability contracts (`open`, `play`, `add`, `drag`) injected per surface — the
+  `TrackRowActions` pattern, one level up.
+- Thin, surface-owned adapters (Home, Bucket, Memo, editorial) that hold all domain state
+  (`itemId`, `temp:*`, reorder, optimistic sync, memo text, editorial document state) and inject
+  capabilities into the shared primitive — never the reverse.
+- An explicit, written DnD contract distinguishing copy/add, reorder, and move, and album-entity
+  identity vs. bucket-item identity, so a new drag source or drop target has something to read before
+  inventing its own rule.
+- A durable fix path for the one confirmed touch-fallback gap (BUG-24) and a hardening path for the
+  one currently-contained ID-namespace risk (§19 defect 5), each as an individually-tracked
+  prerequisite/dependency — not silently absorbed into "the RFC is done."
+
+## 4. Non-goals
+
+- **Not reopening `ARCH-entity-interaction-v2`.** Its E1-E7 entity-level decisions (two album-detail
+  hosts, no `/album/[id]` route, drag-payload shape, `AddToBucketMenu` as touch primary) are inputs
+  to this RFC, not subjects of it.
+- **Not a big-bang replacement.** See §15 — surfaces migrate one at a time; legacy components are
+  deleted only after parity tests pass (Stage 9).
+- **No new branded-id types workspace-wide.** The sibling domain-audit RFC's non-goal stands for the
+  *existing* `albumId`/`spotifyAlbumId` convention. This RFC's canonical model introduces exactly two
+  named fields (`catalogAlbumId`, `spotifyAlbumId`, §6) for the *new* type it defines — a named-field
+  addition, not a branded-type retrofit of 27 existing call sites.
+- **Not merging `AlbumOverlay`/`AlbumDetail` (E6).** Independently re-affirmed twice already
+  (`ARCH-entity-interaction-v2` 2026-08-04, `ARCH-entity-interaction-domain-audit` 2026-08-05). Out
+  of scope again here.
+- **Not a `BucketBoard.tsx` monolith split.** Inherited non-goal from `ARCH-entity-interaction-v2`.
+  This RFC extracts `AlbumChip`'s *presentational* half onto the canonical primitive; `BucketBoard`
+  keeps owning bucket state, move/reorder ops, and the temp-id lifecycle (once BUG-21 is fixed).
+- **Not fixing BUG-21/22/23 or the Claude-review CI item as part of this RFC's migration diff.** Each
+  is an independently verifiable, independently mergeable item (§19). BUG-21 is a hard prerequisite
+  for Stage 6; the others are tracked but not blocking.
+- **Not touching `OpenAlbumDetail`'s existing `albumId`/`unresolved` shape.** §6's smart-constructor
+  hardening (defect 5) is scoped as its own small chore, referenced here as a dependency, not
+  rewritten by this RFC.
+
+---
+
+## 5. Canonical album display model
+
+```ts
+// New type — does not replace OpenAlbumDetail, DetailTarget, or BoardAlbum.
+// Surface adapters project their own state into this shape; the shared primitive
+// never sees anything but this shape plus injected capabilities.
+interface AlbumCardData {
+  catalogAlbumId: string | null   // DB id — null means "not yet resolved", first-class, never crashes
+  spotifyAlbumId: string | null   // present only when catalogAlbumId is null (unresolved fallback)
+  title: string
+  artist: string | null
+  artistId: string | null         // for artist-nav capability; null = artist not linkable
+  cover: string | null
+  year: number | null
+  loading?: boolean                // skeleton state — distinct from "loaded with no cover"
+}
+```
+
+Two always-present, independently-named fields — not one field plus a boolean flag. This is a
+direct, deliberate correction of the risk found in `OpenAlbumDetail` (§19 defect 5): a future author
+reading this type cannot construct an `AlbumCardData` that puts a Spotify id where a consumer expects
+a DB id, because there is no field that means both depending on a third field's value.
+
+The shared primitive renders purely off this shape (plus §7's injected capabilities) and off nothing
+else — no `itemId`, no `temp:` string, no bucket reference, no memo text, no review/editorial status.
+
+---
+
+## 6. Explicit identifier model
+
+- `catalogAlbumId: string | null` — the only field ever passed to a write call (rating, queue-replace,
+  bucket add). Null is legal and renders as non-interactive for those capabilities (mirrors the
+  existing, sound `null`-is-first-class convention from `ARCH-entity-interaction-v2` E1 Rule 0).
+- `spotifyAlbumId: string | null` — populated only as a display/navigation fallback when
+  `catalogAlbumId` is null. Never passed to a catalog-DB write call; a capability that needs a DB id
+  (rating, add-to-bucket) is simply not injected when `catalogAlbumId` is null, rather than trusting
+  every capability implementation to check the right field.
+- **Bucket-item identity is not album identity** and is never part of `AlbumCardData`. A bucket
+  surface adapter (`BucketAlbumCardAdapter`, §9) holds `itemId: string` (real id or `temp:${...}`)
+  separately, keyed alongside the `AlbumCardData` it renders. This is the direct fix for the
+  *architectural* half of BUG-21: today `AlbumChip` conflates "which album is this" with "which
+  bucket row is this" in one component, which is exactly why `copyAlbum`'s resolve handler had
+  nowhere unambiguous to look up "wherever this row is now."
+- **Dependency, not scope**: `OpenAlbumDetail`'s existing single-field-plus-flag shape
+  (`entityEvents.ts:15-31`) is not migrated to this model by this RFC. Recommended hardening (own
+  chore, §19): replace ad hoc `unresolved: dbId == null` call-site assignment with an exported smart
+  constructor (`openAlbumUnresolved(spotifyAlbumId, display)`) so a future fallback producer cannot
+  set one field without the other. This RFC's two-field `AlbumCardData` is the shape that constructor
+  should eventually target when `AlbumOverlay`/`AlbumDetailView` migrate (Stage 8), not a reason to
+  touch it sooner.
+
+---
+
+## 7. Capability interfaces
+
+Modeled directly on `TrackRowActions`, one level up:
+
+```ts
+interface AlbumCardCapabilities {
+  open?: () => void                    // required for any interactive card; absent = display-only
+  play?: () => void                    // absent = no play affordance rendered
+  add?: () => void                     // absent = no add-to-bucket affordance rendered
+  drag?: DragPayload                   // presence makes the tile draggable; ARCH-entity-interaction-v2's payload type
+  artistOpen?: () => void              // separate from `open` — the album tile and the artist name navigate independently
+}
+```
+
+Rules, carried over from `TrackRow`'s working precedent and from `ARCH-entity-interaction-v2`'s
+binding Rule #14:
+
+- **A capability that is not injected renders no affordance at all** — no disabled button, no
+  placeholder. This is what already makes `TrackRow` degrade cleanly when a slot is omitted, and is
+  the mechanism that must not be skipped again the way it was for `MemoWindow`'s `add` (BUG-24).
+- **`drag` must never be the only path to an operation.** Per Rule #14 (binding, measured by CDP:
+  native `draggable` fires zero `dragstart` events on touch at any distance), any adapter that
+  injects `drag` for an operation (move-to-bucket, reorder) **must** also inject a capability that
+  reaches the same operation without drag (typically `add`, opening `AddToBucketMenu`/an action
+  sheet). This rule is stated here as an enforceable contract precisely because BUG-24 shows the
+  narrative version of this rule (already written in `ARCH-entity-interaction-v2`) was not enough —
+  it needs to be a property of the capability type itself, checked at the adapter (§16 test strategy),
+  not prose an author has to remember.
+
+---
+
+## 8. Shared visual component responsibilities
+
+`AlbumCard` (new, `components/shared/AlbumCard.tsx`) owns and only owns:
+
+- Layout (grid tile / row — a `layout` prop, not a variant string, selects between the two literal
+  DOM shapes that already exist; no third layout is invented speculatively)
+- Typography (title, artist, year rendering)
+- Cover-art rendering + the single consolidated fallback (replacing `Cover`/`AlbumArt`/`LkCover`/
+  `SubjectHero`'s inline glyph with one implementation — `AlbumArt`'s existing delegation to `Cover`
+  is the natural merge base since that cross-boundary import already works)
+- Loading/skeleton rendering, keyed off `AlbumCardData.loading`
+- Rendering exactly the affordances implied by which capabilities are present (§7)
+- Named, typed slots for surface-contextual content (`badge?: ReactNode`, `secondaryLine?: ReactNode`)
+  — e.g. `TodayAlbumBuckit`'s "N년 전" pill, a future "selection reason" line, a future review-status
+  badge — rendered by the primitive but populated only by adapters
+
+`AlbumCard` must not import, reference, or receive as a typed prop: `itemId`, any `temp:`-shaped
+string, bucket/board types, `useBucketMemo` or any memo state, review/editorial document types, or
+any reorder/move/optimistic-sync function. If a future change needs the primitive to know about one
+of these, that is the signal the abstraction has been asked to do an adapter's job — per the user's
+explicit constraint, this is a redesign trigger, not a prop to add.
+
+---
+
+## 9. Surface adapter responsibilities
+
+Each adapter maps its own domain state → `AlbumCardData` + `AlbumCardCapabilities`, and owns
+everything `AlbumCard` must not:
+
+- **`HomeAlbumCardAdapter`** (`NewReleasesCard`, `ForYouReleasesCard`, `TodayAlbumBuckit`,
+  `ReviewCandidates`'s candidate row) — read-only, injects `open` (+`artistOpen` where an artist id
+  exists) only. Owns per-surface badge population (release-date pill, "N년 전", rating stars).
+- **`BucketAlbumCardAdapter`** (`BucketBoard.AlbumChip`'s presentational half) — the one adapter that
+  owns `itemId`/`temp:*` lifecycle, injects `open`, `add` (kebab action sheet — already the shipped
+  touch path here), and `drag` (paired, per Rule #14, already correctly paired today via the kebab
+  fallback). **Gated on BUG-21's fix landing first** (§15 Stage 6, §19).
+- **`MemoAlbumCardAdapter`** (`AlbumDetail.MemoWindow`'s header + its `TrackRow` usage) — owns memo
+  text state (`useBucketMemo`), injects `open`-equivalent (already n/a, it's the detail view itself)
+  for the album header, and for the **tracklist** must inject a paired `add` alongside the existing
+  `drag` — this is BUG-24's fix, done at the adapter boundary rather than by hand-patching
+  `MemoWindow` in place, so the pairing rule (§7) is structurally enforced going forward.
+- **`EditorialAlbumTargetAdapter`** (`writer/SubjectHero`, future review-authoring write entry C1) —
+  injects `open` (reopen album search) and a contextual `secondaryLine` slot for
+  "BEST NEW MUSIC"/selection reason. **Never** wraps a `ReviewCard` — see §12.
+
+---
+
+## 10. DnD entity and command contracts
+
+Building directly on `ARCH-entity-interaction-v2`'s `DragPayload`/`EntityRef` (E2/E3, unchanged,
+not reopened), stated explicitly for album cards because BUG-21 is exactly a case where this
+distinction was not tracked cleanly at the call-site level:
+
+| Source → Target | Command | Payload identity | Notes |
+|---|---|---|---|
+| Home → Bucket | copy/add | album entity identity only (`catalogAlbumId`) | no bucket-item identity exists yet; server creates a new row |
+| External album source → Bucket | copy/add | album entity identity only | same as above; "external" is `origin.kind='external'` per `BucketBoard.tsx:592-601` |
+| Bucket → same Bucket | reorder | bucket-item identity (`itemId`) | album identity is irrelevant to the command; server reorders existing rows |
+| Bucket → another Bucket | move | bucket-item identity (`itemId`) **and** the album identity the row denotes | both are needed: the item moves, and if the item id is still `temp:*` the client must know which album it denotes to correlate with the eventual add-POST response (BUG-21's exact gap) |
+
+A shared visual card never determines which of these four a given drag is — that decision is made by
+the **adapter** reading its own source/target `EntityRef`/`origin.kind`, exactly as `BucketBoard.tsx`'s
+`routeAlbumDrop`/`boardDnd.ts` already does at the entity level. This RFC does not change that
+routing logic (non-goal); it only requires that `BucketAlbumCardAdapter` be the single place that
+holds `itemId` alongside `catalogAlbumId`, so a move-in-flight has one, not zero, places to look up
+"where did this temp id actually end up" — the structural fix BUG-21's own bug report recommends.
+
+---
+
+## 11. Mouse, keyboard, and touch behavior
+
+- **Mouse**: hover reveals affordances currently hidden by default (matches `FEAT-album-review-authoring`'s
+  existing "quietly present" pattern for bucket action buttons — not reinvented here).
+- **Keyboard**: `open` is always reachable via Enter/Space on the tile (mirrors `TrackRow`'s existing
+  `role="button"` + manual keyboard handling for `openLyrics`, the established pattern for a
+  whole-row/whole-tile actionable target).
+- **Touch**: every capability that has a `drag`-based path **must** have a non-drag (tap) path, per
+  Rule #14 restated as a capability-type property in §7. `AddToBucketMenu`/kebab action-sheet is the
+  default primary touch path for add/move, matching the measured, owner-approved default
+  (`ARCH-entity-interaction-v2` OQ4, CDP-measured: native `draggable` produces zero `dragstart` on
+  touch at any distance). This RFC does not re-measure that finding; it inherits it as settled and
+  enforces it structurally for album cards the way BUG-24 shows it was not enforced for `MemoWindow`.
+
+---
+
+## 12. Review/editorial boundary
+
+- **An album selected as the subject of a future review** (the writer's chosen subject before
+  publishing, `ReviewCandidates`' "평론 쓰기 →" queue) is still an *album* — it uses `AlbumCard` with
+  contextual slots (`secondaryLine` for "선정 사유"/rating hint), via `EditorialAlbumTargetAdapter`.
+- **A published review/editorial document about an album** is a *document*, not an album, and
+  continues to render via `ReviewCard`/`ReviewHit` (`lib/reviews.ts`), unchanged by this RFC. This
+  boundary is not new — `ARCH-entity-interaction-v2` E7 already shipped exactly this separation
+  (`ReviewCard` gained a peek-open `albumIds`/`artistIds` projection specifically so it could *reference*
+  an album without *becoming* one). This RFC states the boundary explicitly as a standing rule so a
+  future author does not fold `ReviewCard` into `AlbumCard` "for consistency" — consistency here means
+  citing the same album id shape, not sharing a rendering primitive.
+
+---
+
+## 13. Alternatives considered
+
+- **Extend `TrackRow`'s pattern upward without a new component** — i.e. let `AlbumCard` just be a
+  `TrackRow` with different fields. Rejected: an album tile's layout (grid, cover-first) is
+  structurally different from a track row's (list, no-cover), and forcing one component to cover both
+  shapes is exactly the "growing variant" anti-pattern (§14) one level removed.
+- **Fix `AlbumChip` in place, generalize later** — patch BUG-21 inside `BucketBoard.tsx` without
+  extracting a shared primitive. Rejected as the sole plan: it would leave the other 8 representations
+  duplicated, and (per §1) the duplication itself, not just BUG-21, is the audited problem. Accepted as
+  a *sequencing* decision instead — BUG-21 is fixed as its own bug-fix PR before `AlbumChip` migrates
+  (§15 Stage 6), so the fix isn't entangled with an unrelated refactor's diff.
+- **A single `AlbumCard` with a `context: 'home' | 'bucket' | 'memo' | 'review'` prop** — considered
+  and rejected; see §14.
+
+## 14. Rejected inheritance, giant-variant, and God-props designs
+
+- **`HomeAlbumCard extends AlbumCard`** (or any inheritance chain) — rejected. Inheritance couples a
+  subclass to a superclass's internals across every future superclass change; the capability-injection
+  model (§7-9) gets the same code reuse without that coupling, and is already proven at the `TrackRow`
+  level.
+- **`variant="home" | "bucket" | "review" | ...`** — rejected. A variant string forces the shared
+  primitive to internally branch on domain concerns it is not supposed to know about (§8), which is
+  the same shape of problem `NowPlaying.tsx`'s multiple hand-rolled race guards created independently
+  in three different files (§19 defect 2) — branchy "shared" components accumulate untested edge paths
+  exactly where a typed capability list would have made the missing case (BUG-24's missing `add`) a
+  visible gap in a props object instead of an invisible gap in a branch nobody wrote.
+- **A growing list of optional callbacks bolted onto one giant props interface** (`onPlay?`, `onAdd?`,
+  `onDrag?`, `onRemove?`, `onReorder?`, `onMove?`, ... each surface adding its own) — rejected in favor
+  of the small, named `AlbumCardCapabilities` object (§7), which is closed over what a *card* can do,
+  not open-ended to what any *surface* might eventually want to do to it. Move/reorder/remove stay
+  adapter-owned operations that call `add`/`drag`'s injected functions, never new fields on the
+  capability type.
+- **Overloads that conceal incompatible domain contracts** (e.g. one `albumId: string` field silently
+  meaning "DB id" in some call paths and "Spotify id, degrade the UI" in others, gated by an unrelated
+  boolean) — rejected; this is precisely defect 5's risk shape (§19), and §6's two-named-field model
+  is the direct alternative.
+
+---
+
+## 15. Migration stages
+
+Corrected against the requested default ordering using this audit's evidence — reordered where a
+stage's actual current-code cost or risk differs from the generic assumption.
+
+**Stage 1 — identifier hardening (prerequisite chore, not this RFC's own diff)**
+Scope: ship the `openAlbumUnresolved()` smart constructor for `OpenAlbumDetail` (§6, §19 defect 5).
+Tests: unit test proving the constructor cannot be called without both fields agreeing.
+Compat: no consumer change required (existing call sites keep working; only the one fallback
+producer, `releaseShared.tsx`, migrates to the constructor).
+Rollback: trivial revert, zero downstream coupling since nothing depends on it yet.
+
+**Stage 2 — canonical card model + capability contracts (types only, no rendering change)**
+Scope: land `AlbumCardData`/`AlbumCardCapabilities` (§5, §7) as types + a no-op `AlbumCard` shim that
+is not yet wired into any surface.
+Tests: type-only; a snapshot test asserting the shim renders nothing observable when unused.
+Compat: zero — nothing consumes it yet.
+Rollback: delete the new files, no blast radius.
+
+**Stage 3 — extract the shared presentational primitive**
+Scope: implement `AlbumCard`'s real rendering (§8), consolidating the 4 cover-fallback
+implementations into 1 (built on `AlbumArt`'s existing delegation to `Cover`, since that cross-boundary
+import already works today — no new dependency direction needed).
+Tests: visual/DOM parity test against each of the 4 existing fallback renderers' current output
+(has-image / no-image / broken-image-url cases).
+Compat: still not wired into any live surface — pure addition.
+Rollback: delete; no live surface depends on it yet.
+
+**Stage 4 — migrate one low-risk Home surface**
+Scope: `NewReleasesCard` — chosen over `ForYouReleasesCard`/`TodayAlbumBuckit` as the simplest: no
+optional-id degrade branch (unlike `ForYouReleasesCard`), no unused-but-defined `spotify_album_id`
+field to reconcile (unlike `TodayAlbumBuckit`). Public, read-only, `open`-only capability.
+Tests: interaction test (click → `openAlbum()` called with correct id), visual parity against the
+pre-migration markup.
+Compat: `NewReleasesCard`'s old `CardItem` stays in the file, dead-code-eligible, until Stage 9.
+Rollback: swap the import back; no shared state touched.
+
+**Stage 5 — migrate the remaining Home surfaces**
+Scope: `ForYouReleasesCard` (wire the optional-id degrade as "no `open` capability injected" rather
+than a conditional `<span>`), `TodayAlbumBuckit` (badge slot for "N년 전"), `ReviewCandidates`'
+candidate row (badge slot for rating stars + the "평론 쓰기 →" link as a `secondaryLine`).
+Tests: one interaction + one parity test per surface, per the Stage 4 pattern.
+Compat: same as Stage 4, per surface.
+Rollback: per-surface, independent of the others.
+
+**Stage 6 — migrate Bucket via `BucketAlbumCardAdapter` — GATED on BUG-21's fix**
+Scope: extract `AlbumChip`'s presentational half onto `AlbumCard`; `BucketBoard.tsx` keeps 100% of
+`itemId`/`temp:*`/move/reorder/copy ownership, now expressed as capability injection instead of
+inline JSX branching.
+**Hard prerequisite**: BUG-21 must be fixed and its regression test (§19, fork-proposed delayed-promise
+test) merged *before* this stage starts — migrating the presentational half while the promotion bug
+is still live would mean the new adapter inherits and potentially obscures the same bug behind a
+refactored surface.
+Tests: the existing `BucketBoard.tsx` has zero component-level tests today (confirmed by this audit) —
+this stage is also where a `BucketBoard.test.tsx` (render + interaction, not just `boardDnd.test.ts`'s
+mocked-ops decision tables) is added, for both the adapter and to carry BUG-21's regression test
+forward once fixed.
+Compat: `AlbumChip`'s external props (as consumed by `BucketBoard.tsx`'s render loop) stay the same
+shape; only its internals change.
+Rollback: revert the adapter extraction; `BucketBoard.tsx`'s state ownership is untouched either way.
+
+**Stage 7 — migrate Memo and verify touch alternatives — ships BUG-24's fix**
+Scope: `MemoAlbumCardAdapter` for `MemoWindow`'s header; for the tracklist, add the paired `add`
+capability to `MemoWindow`'s `TrackRow` usage alongside the existing `drag` (the structural fix for
+BUG-24, done here rather than as an isolated patch, so §7's pairing rule governs it going forward).
+Tests: `AlbumDetail.dragTrack.test.tsx`-style unit test for the new `add` wiring, **plus a real CDP
+390px touch check** confirming a tap on the new affordance opens `AddToBucketMenu` from within
+`MemoWindow` — the exact verification step `ARCH-entity-interaction-v2`'s own Step 5 bar required
+(mobile 390 pass) but the ninth slice's own "Verified" section did not include for this surface.
+Compat: `MemoWindow`'s header markup changes; its memo-text state (`useBucketMemo`) is untouched.
+Rollback: revert the adapter; `TrackRow`'s `add` slot already exists and is safe to leave granted
+elsewhere even if this specific wiring is reverted.
+
+**Stage 8 — integrate editorial/review album targets**
+Scope: `EditorialAlbumTargetAdapter` for `writer/SubjectHero`; migrate its bespoke single-glyph
+fallback and layout onto `AlbumCard` with a `secondaryLine` slot for BEST NEW MUSIC/selection reason.
+Explicitly reaffirm (§12): `ReviewCard` is not touched and does not migrate onto `AlbumCard` — this
+stage's own tests must include a negative assertion that `ReviewCard`'s rendering path is unchanged.
+Tests: interaction test for `SubjectHero`'s "작품 변경" reopen flow; explicit `ReviewCard`-unchanged
+regression test.
+Compat: `SubjectHero`'s rating-input/BEST NEW MUSIC toggle are editorial-only state, untouched, passed
+through as adapter-owned controls alongside the card.
+Rollback: revert the adapter; `SubjectHero`'s editorial state is independent of the card's markup.
+
+**Stage 9 — remove duplicated legacy cards**
+Scope: delete `NewReleasesCard.CardItem`/`ForYouReleasesCard.CardItem`/`TodayAlbumBuckit.Card`'s old
+bespoke markup, `LikedBoard`'s standalone `LkCover`, `SubjectHero`'s inline fallback glyph, and the
+now-unused paths through `Cover`/`AlbumArt` that only the legacy components used.
+Tests: full parity-test suite (from Stages 4-8) must be green with zero regressions before any
+deletion; this stage adds no new behavior, only removes dead code.
+Compat: none needed — by construction, nothing outside the deleted files references the old markup.
+Rollback: `git revert` the deletion commit; low-risk since it's a pure removal.
+
+---
+
+## 16. Test strategy
+
+- **Capability-contract unit tests** per slot (open/play/add/drag present vs. absent → correct
+  affordance rendered vs. not), mirroring `TrackRow.test.tsx`'s existing 9-case pattern.
+- **One render+interaction test per migrated surface adapter**, following the precedent set by the
+  domain-audit RFC's Step 4 `useDismissable` sweep (a real interaction test per migrated component,
+  not just a decision-table unit test) — that sweep's own real-browser CDP check caught a live bug
+  (`gm-shared`'s `Peek`) that its unit test alone missed; this RFC's Stage 6/7 CDP checks exist for
+  the same reason.
+- **BUG-21's regression test** (delayed/controlled `addBucketItem()` promise; §19) ships as part of
+  BUG-21's own independent fix PR, not authored by this RFC's stages — Stage 6 only re-asserts it
+  still passes once `BucketAlbumCardAdapter` is layered on top.
+- **CDP 390px touch matrix** for every surface gaining a `drag` capability (Stage 6, mandatory for
+  Stage 7) — the verification bar `ARCH-entity-interaction-v2` itself established but the ninth slice
+  skipped for `MemoWindow`; this RFC does not repeat that omission.
+- **Visual/DOM parity tests** for every migrated surface, run before its legacy component is deleted
+  (Stage 9's gate).
+
+## 17. Rollback strategy
+
+Every stage after Stage 3 touches exactly one surface's adapter and leaves that surface's pre-existing
+bespoke component in the file, unused but present, until Stage 9. Rolling back any single stage
+(4-8) is swapping one import back — no shared-primitive or cross-surface state is touched by a
+single-surface migration. Rolling back Stage 3 itself (the primitive) is a plain revert as long as
+Stage 9 has not run (no legacy component has been deleted yet, so nothing depends exclusively on the
+primitive). Stage 9 is the only stage whose rollback requires restoring deleted files from git history
+rather than a forward-only swap — which is exactly why Stage 9's gate (full parity-test green) exists
+before that stage runs.
+
+## 18. Acceptance criteria
+
+- `AlbumCardData`/`AlbumCardCapabilities` types exist and typecheck; `AlbumCard` imports none of the
+  forbidden domain types listed in §8.
+- All 3 migrated Home surfaces (Stage 4-5) render with zero visual/DOM diff against their
+  pre-migration output, and their `open` navigation is interaction-tested.
+- `BucketAlbumCardAdapter` (Stage 6) does not ship until BUG-21's fix + regression test are merged;
+  the regression test still passes with the adapter layered on top.
+- `MemoAlbumCardAdapter` (Stage 7) ships with a working tap alternative for every drag-gated action,
+  confirmed by a real 390px CDP check, not a unit test alone.
+- `ReviewCard`'s rendering path is provably unchanged after Stage 8 (explicit negative test).
+- `docs/frontend/component-map.md` gains a canonical album-card registry entry once Stage 3 ships
+  (component + capability contract + consumer list) — not written speculatively now, before the
+  primitive exists (per the owner's instruction to update that doc only after verifying real
+  ownership).
+- Legacy per-surface card markup (Stage 9) is deleted only after every prior stage's parity tests are
+  green.
+
+---
+
+## 19. Dependencies on unresolved defects (full evidence)
+
+Each item below is independently verifiable and independently mergeable — none is a step of this
+RFC's own migration; each is referenced here only where it gates or elevates risk in a specific stage.
+
+### BUG-21 — temp-ID cross-bucket movement race (hard prerequisite for Stage 6)
+
+**CONFIRMED.** `BucketBoard.tsx:2035-2098`'s `copyAlbum(albumId, toBucketId)` splices an optimistic
+tile (`tempId = temp:${Date.now()}:${albumId}`) into `toBucketId`, fires
+`api.addBucketItem(toBucketId, albumId)`, and on resolve looks up `toBucketId` — its own closure
+variable, captured at call time — to find and promote the temp tile. `insertAlbum`
+(`BucketBoard.tsx:2101-2144`) correctly moves the tile (by `itemId`, which may be `temp:`-prefixed)
+between buckets in the tree and correctly skips `api.reorderItems` while any `temp:`-prefixed id is
+present. But if a user moves the still-pending tile from A to B before the POST resolves,
+`copyAlbum`'s resolve handler still looks in **A** (not wherever the tile now lives), finds nothing,
+and returns — the temp id is never promoted. The server's real row lands in A (that's what the POST
+targeted); the tile is stuck at `temp:*` in B until a full `refresh()` snaps it back to A. Additionally,
+the stuck temp tile permanently satisfies `insertAlbum`'s reorder-skip guard, so bucket B's reorders
+silently stop persisting as long as the ghost tile sits there. Not covered by BUG-20's two fixes
+(`trashAlbum`'s temp-id guard, `insertAlbum`'s reorder-skip) — both predate and survive this gap.
+Zero test coverage exists for `BucketBoard.tsx` at all (`boardDnd.test.ts` mocks `copyAlbum`/
+`insertAlbum` as `vi.fn()` and never exercises the real closures).
+
+**Proposed regression test**: mount the real `BucketBoard` ops (not mocked), stub `addBucketItem`
+with a manually-controlled deferred promise, call `copyAlbum(albumId, 'A')`, then `insertAlbum(tempId,
+'A', 'B', null)` before resolving, then resolve — assert the tile in B is promoted to the real id (not
+stuck at `tempId`), and that no orphan row is left in A.
+
+### BUG-22 — `playbackSession` convergence effect drops updates during no-confirmation control calls (not a card-architecture dependency; tracked separately)
+
+**Partially confirmed** — the originally-hypothesized bug (`onPlaybackChanged`'s blanket
+`controlBusyRef` drop) is fixed (front #360, `localWriteSeq`-style sequence gating,
+`NowPlaying.tsx:639-662`). A structurally identical, currently-shipped gap survives in the separate
+`playbackSession` convergence effect (Step 3b, `NowPlaying.tsx:704-743`): it gates on
+`controlBusyRef.current` directly, with no sequence check and no deferred replay. The code comment
+justifying this (`:700-702`) claims the card's own confirmation read supersedes the drop "a moment
+later" — true for `playPause`/`seek`/`skip`, false for `setMode` (`:525-560`), which never dispatches
+`MYBLOG_PLAYBACK_CHANGED` and has no confirmation read at all. `NowPlaying.test.ts:254-303` proves
+this is not incidental: it deliberately asserts the deferred update stays stale with the inline
+comment "the accepted tradeoff." **No dependency edge into this RFC** — it is a playback-state bug
+unrelated to any album-card surface; listed here only so it does not disappear behind either RFC's
+"done" framing. Recommended fix: correct the safety-claim comment to name the `setMode` exception, and
+either extend `localWriteSeq`-style gating to this effect or accept and document the narrower risk.
+
+### BUG-23 — `replaceQueueAndPlay()` has no concurrency protection (soft dependency: fix before granting `play` to new surfaces)
+
+**CONFIRMED, self-admitted in code.** `session.ts:692-745`'s `replaceQueueAndPlay()` has no mutex,
+single-flight dedup, generation token, or `AbortController`. `rewriteQueue` (`:519-537`) snapshots a
+`beforeIds` set, awaits the network round-trip, then diffs against that now-stale snapshot — two
+overlapping calls can each delete rows the other already removed (silently counted as `failed`) and
+both append, degrading "▶ replaces the queue" to "▶s append to each other's leftovers." `state.busy`
+is read as a UI `disabled` guard only on `PlaybackPanel.tsx`'s transport buttons, never on any of the
+5 actual queue-replace call sites. One call site's own comment (`AlbumOverlay.tsx:108-111`) states
+outright that the double-click race is untested and has "carried that exact risk with no reported
+issue" — a known, accepted, untested race. Today only `AlbumOverlay` exposes an inline `play`
+capability (§1 inventory); **this RFC's capability model (§7) makes `play` easy to grant to more
+surfaces**, which would multiply this race's exposure. Recommended: fix BUG-23 (a generation-token
+check on `replaceQueueAndPlay`'s final `authoritativePatch`, per the fork-proposed test design) before
+any Stage 4+ surface is granted the `play` capability beyond `AlbumOverlay`'s existing one.
+
+### BUG-24 — MemoWindow `TrackRow` drag grant shipped without paired touch alternative (absorbed into this RFC's Stage 7, not external)
+
+**CONFIRMED.** See §1/§15 Stage 7. `AlbumDetail.tsx:549-560` grants `drag` to `MemoWindow`'s `TrackRow`
+usage (front #368, the RFC's own "ninth slice") without `add` — the one place in the app where a drag
+grant shipped unpaired, violating `ARCH-entity-interaction-v2`'s own binding Rule #14. An erratum is
+recorded directly in that RFC (see below); the fix itself is this RFC's Stage 7 deliverable, not a
+separately-tracked bug, since fixing it in place (rather than via the new adapter) would just
+reproduce the same un-enforced-pairing risk for the next surface.
+
+**Erratum recorded in `ARCH-entity-interaction-v2.md`** (decisions log, dated 2026-08-06): the Step 5
+header's claim that "E4's original `play`/`add`/`drag` slot set is now granted somewhere sensible
+across all three TrackRow surface groups" is accurate at the surface-group level but not at the
+per-slot-pairing level for the `AlbumDetail modals` group specifically — `StandardModal` has `add`+
+`drag` paired; `MemoWindow` has `drag` alone. `component-map.md`'s own "Ownership by domain" table
+(`:244`, `openLyrics?+drag`) already recorded this correctly; only the Step 5 header's aggregate
+framing overclaimed.
+
+### Defect 5 — `OpenAlbumDetail` ID-namespace risk (soft prerequisite for §6, Stage 1)
+
+**STRUCTURAL RISK, not currently live.** `entityEvents.ts:15-31`'s `OpenAlbumDetail.albumId: string`
++ `unresolved?: boolean` can hold a Spotify id in a DB-id-shaped field, but of 27 producers found, only
+`releaseShared.tsx:218` ever does — and it already sets `unresolved` correctly (fixed front #358). The
+one consumer (`AlbumOverlay.tsx:153-168`) correctly gates `interactive`/`onPlayTrack` on the flag.
+Nothing type-enforces the pairing for a *future* producer, though. Recommended (§15 Stage 1, own
+chore, not this RFC's diff): an `openAlbumUnresolved()` smart constructor that always sets both fields
+together, closing the adoption gap without a branded-type retrofit.
+
+### Defect 6 — Claude Review CI false-green (unrelated; no dependency edge)
+
+**CONFIRMED, live today.** `myblog_front/.github/workflows/code-review.yml`'s `keycheck` step sets
+`has_key=false` and both real-review steps step-skip (not job-skip) when `ANTHROPIC_API_KEY` is
+absent — and it is absent today (`gh secret list --repo hyuntohoon/myblog_front` shows no such
+secret). A step-level skip does not produce a job-level "Skipped" conclusion in GitHub Actions; the
+Checks tab shows identical green whether the review ran or never ran. Deliberate since day one
+(`6b8551b`, chosen to avoid blocking PRs on a missing secret) — not a regression. Recommended: split
+into a `keycheck` job + a `code-review` job gated by a **job-level** `if:`, so a missing key produces
+a visibly grey "Skipped" check instead of green "Success." **No dependency edge into this RFC** —
+pure CI-infra hygiene, included in this audit's scope only because the owner's task explicitly asked
+for it; tracked as its own CHORE item in `plan.md`.
+
+---
+
+## 20. Affected files and components (based on `myblog_front` @ `bcb6544`)
+
+- `src/components/shared/AlbumCard.tsx` — **new**, the canonical primitive (Stage 3)
+- `src/components/shared/TrackRow.tsx` — unchanged, the direct precedent this RFC follows
+- `src/lib/entityLinks.ts`, `src/lib/entityEvents.ts` — unchanged by this RFC; `entityEvents.ts:15-31`
+  (`OpenAlbumDetail`) is the target of the independent Stage-1 hardening chore only
+- `src/components/home/NewReleasesCard.tsx` (Stage 4), `ForYouReleasesCard.tsx`, `TodayAlbumBuckit.tsx`
+  (Stage 5), `home/ui.tsx` (`Cover`, consolidation target for Stage 3)
+- `src/components/member/BucketBoard.tsx` (`AlbumChip` extraction, Stage 6; also BUG-21's fix site),
+  `member/ui.tsx` (`AlbumArt`, consolidation base for Stage 3)
+- `src/components/member/AlbumDetail.tsx` (`MemoWindow`, Stage 7 — also BUG-24's fix site;
+  `StandardModal` unchanged, already correctly paired)
+- `src/components/member/LikedBoard.tsx` (`LkCover`, deleted Stage 9)
+- `src/components/writer/SubjectHero.tsx` (Stage 8)
+- `src/components/album/AlbumOverlay.tsx`, `album/AlbumDetailView.tsx` — read only by this RFC;
+  `AlbumOverlay`'s `play` capability and its `replaceQueueAndPlay()` dependency are BUG-23's context,
+  not migrated by this RFC
+- `src/lib/reviews.ts` (`ReviewCard`) — explicitly unchanged, negative-tested in Stage 8
+- `docs/frontend/component-map.md` — gains the canonical registry entry after Stage 3 (not written now)
+- Not touched by this RFC, but named as dependencies: `src/lib/playback/session.ts` (BUG-23),
+  `member/NowPlaying.tsx` (BUG-22), `.github/workflows/code-review.yml` (defect 6)
+
+---
+
+## Open questions
+
+1. Should `TodaySongBuckit` (single-pick, owner-only-edit surface) migrate onto `AlbumCard` at all, or
+   stay bespoke given its owner-curation controls are unlike any other surface's capability set? Not
+   resolved by this audit — flagged for the owner at Stage 5 planning, not decided here.
+2. Should the Stage-1 `openAlbumUnresolved()` smart constructor eventually become the *only* way to
+   construct `AlbumCardData` with a `spotifyAlbumId` fallback, unifying the two identifier shapes? Left
+   open — Stage 8 (when `AlbumOverlay` is the last consumer of the old shape) is the natural point to
+   decide, not now.
+
+## Decisions log
+
+| Date | Decision | Step |
+|------|----------|------|
+| 2026-08-06 | RFC filed following the 2026-08-06 evidence-based audit (7 parallel investigations against `origin/main`, not against either sibling RFC's own completion claims). 4 of 6 hypothesized defects confirmed unresolved (BUG-21/23/24, defect 6); 1 partially fixed with a newly-found residual (BUG-22); 1 downgraded from "confirmed" to "structural risk, currently contained" (defect 5) | 0 |
