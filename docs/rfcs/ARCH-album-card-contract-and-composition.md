@@ -474,7 +474,7 @@ open paths worked, the review-editor link navigated correctly, the row card reta
 and no horizontal overflow appeared. Deploy run `31084951887` passed, including the built-in health
 smoke; the independent production regression smoke passed 19/19.
 
-**Stage 6 — migrate Bucket via `BucketAlbumCardAdapter` — GATED on BUG-21's fix**
+**Stage 6 — migrate Bucket via `BucketAlbumCardAdapter` (SHIPPED 2026-08-06, front #381, `5803776`)**
 Scope: extract `AlbumChip`'s presentational half onto `AlbumCard`; `BucketBoard.tsx` keeps 100% of
 `itemId`/`temp:*`/move/reorder/copy ownership, now expressed as capability injection instead of
 inline JSX branching.
@@ -489,6 +489,26 @@ forward once fixed.
 Compat: `AlbumChip`'s external props (as consumed by `BucketBoard.tsx`'s render loop) stay the same
 shape; only its internals change.
 Rollback: revert the adapter extraction; `BucketBoard.tsx`'s state ownership is untouched either way.
+Result: live `item_type === 'album'` memberships now render through the bucket-owned
+`BucketAlbumCardAdapter` and canonical `AlbumCard`. The adapter closes over `itemId`, bucket id,
+writable memo detail, temporary-id/move/reorder/copy operations, badges, research/mark state, and the
+existing `ActionSheet`; none enters the shared component. `AlbumCardAction` gained a domain-neutral
+descriptor form so Bucket can preserve its established `⋯` / "앨범 동작" control without teaching the
+primitive about buckets. Non-album memberships deliberately stay on the generalized legacy renderer,
+which is also exported as the Stage 9 parity fixture. BUG-21's delayed-promise regression remains live
+and green, with new tests pinning adapter projection, exact drag payloads, null-id inertness, legacy
+parity, and the non-album fallback.
+
+Verification: lint passed; Astro check reported 0 errors and 2 existing hints; Vitest passed 50 files /
+557 tests; the production build generated 21 pages plus the PWA. A local real-browser pass verified
+desktop and 390px card layouts, whole-card album-detail open, and the 390px action sheet with its
+mark/play/move/trash verbs. The full-card open hit-area is now a native drag source whenever drag is
+granted, and the component test starts drag from that real hit target to prove both DnD bridge pairs
+fire. Exact CDP touch emulation was unavailable in this session: the in-app browser exposed no CDP
+capability and the active Chrome profile had no control extension; the unchanged coarse-pointer CSS
+class and action callback remain covered by regression tests. Deploy run `31089538369` passed through
+S3 upload, CloudFront invalidation, and built-in health smoke; the independent production regression
+smoke passed 19/19. No API, contract, infrastructure, database, auth, or Spotify-call behavior changed.
 
 **Stage 7 — migrate Memo and verify touch alternatives — ships BUG-24's fix**
 Scope: `MemoAlbumCardAdapter` for `MemoWindow`'s header; for the tracklist, add the paired `add`
@@ -740,6 +760,7 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-06 | Stage 6 shipped (front #381, `5803776`; deploy `31089538369`; prod smoke 19/19). Live Bucket album memberships now use `BucketAlbumCardAdapter` over the canonical card; membership identity and operations remain bucket-owned, while non-album members remain on the legacy generalized renderer. Desktop and 390px real-browser layout/open/action-sheet checks passed; exact CDP touch emulation was unavailable because the in-app browser exposed no CDP and the active Chrome profile lacked the control extension, so that limitation is recorded rather than overstated. Next is Stage 7 (Memo adapter + BUG-24). | 6 |
 | 2026-08-06 | Stage 5 shipped (front #380, `cb3a734`; deploy `31084951887`; prod smoke 19/19). `ForYouReleasesCard`, `TodayAlbumBuckit`, and `ReviewCandidates` now use surface-owned adapters over the canonical card; optional-id For You items remain display-only, and the anniversary, rating, comment, and editor affordances retain their slots. Desktop and 390px real-browser checks passed. Per owner decision, `TodaySongBuckit` remains bespoke. Next is Stage 6 (Bucket adapter; BUG-21 prerequisite already shipped). | 5 |
 | 2026-08-06 | Stage 4 shipped (front #379, `e1268a7`; deploy `31082278000`; prod smoke 19/19). `NewReleasesCard` is the first live `AlbumCard` consumer through a Home-owned adapter; its release label, reviewed badge, intent prefetch, artist link, and album-overlay payload remain surface-owned. Desktop and 390px real-browser checks passed with no overflow, and the legacy renderer remains as the Stage 9 parity fixture. Next is Stage 5 (remaining Home surfaces). | 4 |
 | 2026-08-06 | Stage 3 shipped (front #377, `c32949a`; deploy `31079317610`; prod smoke 19/19). The shared `AlbumCard` now owns canonical grid/row presentation and capability-gated interaction, while remaining unused by live surfaces. Tests freeze the four legacy renderers' real, different DOM/style signatures and separately pin the intentional canonical normalization; `docs/frontend/component-map.md` now records the component contract and zero-consumer state. Next is Stage 4 (`NewReleasesCard`, open-only). | 3 |
