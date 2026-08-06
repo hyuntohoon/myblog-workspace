@@ -1,6 +1,6 @@
 # Frontend component map — developer / LLM reference
 
-> **Verified 2026-08-06** against `myblog_front` `origin/main` `e1268a7`
+> **Verified 2026-08-06** against `myblog_front` `origin/main` `5803776`
 > (`ARCH-entity-interaction-v2` Step 6 — the transcription the prior stamp deferred: E1's canonical
 > album/track/artist definitions are now recorded here (see "Entity navigation" below), not left
 > RFC-only. "Track-click behavior" is rewritten for the shipped state — Step 5's nine slices (front
@@ -30,6 +30,13 @@
 > not be read as "every drag grant has its required touch-alternative pair" — `MemoWindow` is the one
 > counterexample (`drag` without `add`, tracked as BUG-24 in `plan.md`); this file's own "Ownership by
 > domain" § `TrackRow` bullet already states `MemoWindow`'s actual grant correctly (`openLyrics?+drag`).
+>
+> **Album-card Stage 6 addendum 2026-08-06** (front #381): `BucketBoard` now has the second
+> adapter family over the canonical card. `BucketAlbumCardAdapter` projects album display data and
+> grants open + the paired action-sheet/drag capabilities; `itemId`, temp-id promotion, bucket
+> identity, move/reorder/copy, writable detail data, badges, research/mark state, and the action
+> sheet stay in `BucketBoard.tsx`. Only `item_type === 'album'` takes this path. Track, artist,
+> playback, review, and snapshot memberships remain on the generalized legacy renderer.
 > Human-readable companion: [structure.md](structure.md).
 
 This is the artifact an LLM (or developer) reads to answer "who owns X" without re-grepping.
@@ -75,15 +82,19 @@ while modified clicks retain native browser behavior. A granted drag emits both 
 pairs (`PB_DND_*` and `PB_BOARD_DND_*`) and derives `effectAllowed` from `DragPayload.origin`.
 Adapters may override `--album-card-cover-size`; dimensions and slot contents remain surface-owned.
 
-**Live consumers as of Stage 4: `home/NewReleasesCard.tsx`.** Its
-`NewReleaseAlbumCardAdapter` maps feed data to `AlbumCardData`, grants album-open and artist-open,
-and owns the release label, reviewed badge, intent prefetch, and album-overlay display payload. The
-legacy renderer remains in the same file as a parity fixture until Stage 9. Stages 5-8 will add the
-remaining Home, Bucket, Memo, and editorial adapters one surface at a time; the unrelated local
-`SearchPage.AlbumCard` is not this primitive. Bucket membership (`itemId`, `temp:*`, bucket/move
-state), memo state, and editorial form state are forbidden in the shared component and stay in
-adapters. Legacy album-surface `Cover`, `AlbumArt`, and `SubjectHero` fallback paths remain live until
-their planned migrations and Stage 9 deletion. `LikedBoard.LkCover` is retained outside this RFC's
+**Live consumers as of Stage 6:** the Home adapters in `home/NewReleasesCard.tsx`,
+`home/ForYouReleasesCard.tsx`, `home/TodayAlbumBuckit.tsx`, and
+`member/ReviewCandidates.tsx`, plus `member/BucketBoard.tsx`'s
+`BucketAlbumCardAdapter`. The Bucket adapter grants album open and the paired action-sheet/drag
+capabilities while retaining every membership operation and state at the Bucket boundary. The first
+Home adapter, `NewReleaseAlbumCardAdapter`, maps feed data to `AlbumCardData`, grants album-open and
+artist-open, and owns the release label, reviewed badge, intent prefetch, and album-overlay display
+payload. The unrelated local `SearchPage.AlbumCard` is not this primitive. Bucket membership
+(`itemId`, `temp:*`, bucket/move state), memo state, and editorial form state are forbidden in the
+shared component and stay in adapters. Legacy album-surface `Cover`, `AlbumArt`, and `SubjectHero`
+fallback paths remain until their planned migrations and Stage 9 deletion; Bucket's generalized
+legacy renderer remains live for non-album memberships and as a parity fixture. `LikedBoard.LkCover`
+is retained outside this RFC's
 migration because it presents saved-track rows/cards, not album cards. Stage 3 tests still freeze all
 four renderers' actual, different DOM/style signatures and separately pin the canonical two-letter fallback plus lazy/async
 image normalization; per-surface visual/interaction parity is the gate for Stages 4-8.
@@ -290,10 +301,11 @@ surface and is untouched (Step 2 audit).
   `LikedBoard` card view.
 - **album card rendering** — **shared `components/shared/AlbumCard.tsx`** with
   `styles/album-card.css`; display model and declared capability contract are registered in
-  "Album-card behavior" above. **First live consumer at Stage 4**:
-  `home/NewReleasesCard.tsx` through `NewReleaseAlbumCardAdapter` (album-open + artist-open only;
-  Home context stays outside the primitive). Other legacy surface renderers remain authoritative
-  until their Stages 5-8 adapters migrate, and no bucket/memo/editorial state may enter the primitive.
+  "Album-card behavior" above. Live adapters now cover all Stage 4-5 Home targets and Stage 6 Bucket
+  albums. `BucketAlbumCardAdapter` grants open + paired action-sheet/drag while keeping `itemId`,
+  temp ids, move/reorder/copy, writable detail fields, badges, and research/mark state outside the
+  primitive. Non-album Bucket members and the remaining Memo/editorial targets stay on legacy paths
+  until their planned stages; no bucket/memo/editorial state may enter the primitive.
 - **album detail** — the read-only body is the shared `components/album/AlbumDetailView.tsx`
   (Step 1), rendered by BOTH the app-wide `components/album/AlbumOverlay.tsx` (public, event-opened,
   `lib/albumDetail.ts` cache) and the member `components/member/AlbumDetail.tsx` (writable modal:
@@ -412,7 +424,7 @@ before adding a new event.
 | `ent:open-album` (`ENT_OPEN_ALBUM`) | `lib/entityEvents.ts` | ~15 public/member surfaces via `openAlbum()`/`openTrackAlbum()` | `AlbumOverlay.tsx` (layout-mounted) | yes |
 | `ent:album-state-changed` (`ENT_ALBUM_STATE_CHANGED`) | `lib/entityEvents.ts` | `notifyAlbumStateChanged()` | `BucketBoard.tsx` | yes |
 | `ent:open-live-lyrics` (`ENT_OPEN_LIVE_LYRICS`) | `lib/entityEvents.ts` | `openLiveLyrics()`, called from `PocketTray.tsx` | `SelfDashboard.tsx` | yes |
-| `pb:toggle`, `pb:closed`, `pb:open-state`, `pb:dnd-start`/`end`, `pb:board-dnd-start`/`end`, `pb:board-drop` | `lib/pocketBuckit/events.ts` (8 constants) | `BucketBoard.tsx`, `TrackRow.tsx`, `PocketTray.tsx`, `PocketBuckit.tsx`; `AlbumCard.tsx` is a declared producer when `drag` is granted but has no live consumer yet | `BucketBoard.tsx`, `PocketBuckit.tsx`, `pocketBuckit/boardDnd.ts` | yes |
+| `pb:toggle`, `pb:closed`, `pb:open-state`, `pb:dnd-start`/`end`, `pb:board-dnd-start`/`end`, `pb:board-drop` | `lib/pocketBuckit/events.ts` (8 constants) | `BucketBoard.tsx`, `TrackRow.tsx`, `PocketTray.tsx`, `PocketBuckit.tsx`; Stage 6's live `BucketAlbumCardAdapter` grants `AlbumCard.tsx` drag, so it now produces both DnD bridge pairs | `BucketBoard.tsx`, `PocketBuckit.tsx`, `pocketBuckit/boardDnd.ts` | yes |
 | `pb:add-track` (`PB_ADD_TRACK_EVENT`) | `lib/pocketBuckit/events.ts` | vanilla `scripts/albumDetail.client.ts` (imported constant) | `member/pocket/ReviewTrackAdder.tsx` (imported constant) | yes — centralized by `ARCH-entity-interaction-domain-audit` Step 2 |
 | `album:detail` | raw string, `scripts/albumDetail.fetch.client.ts` | 〃 | raw string, `scripts/albumDetail.client.ts` (module-scope, bound once by design — vanilla script, not a React effect) | intentional exception, not a gap — permanent module-scope listener by design, documented inline |
 | `myblog:playback-changed` (`MYBLOG_PLAYBACK_CHANGED`) | `lib/spotifyPlayback.ts` | `spotifyPlayback.ts` internals | `NowPlaying.tsx`, `LyricsViewer.tsx`, `lib/playback/session.ts` | yes (the *name* is single-owned; **the state it signals is not** — see the state-owner registry below) |
