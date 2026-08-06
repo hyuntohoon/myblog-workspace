@@ -25,11 +25,28 @@ __pycache__/
 # IDE
 .idea/
 .vscode/
-.claude/hooks/
-.claude/launch.json
-.claude/worktrees/
-# Plan-mode working files — session-local; the canonical plan lives in docs/rfcs/ + docs/plan.md
-.claude/plans/
+.claude/
+
+# Codex project configuration is shared; runtime state remains local.
+.codex/*
+!.codex/config.toml
+!.codex/hooks.json
+!.codex/agents/
+.codex/agents/*
+!.codex/agents/architect.toml
+!.codex/agents/debugger.toml
+!.codex/agents/explorer.toml
+!.codex/agents/planner.toml
+!.codex/agents/reviewer.toml
+!.codex/agents/test-engineer.toml
+!.codex/hooks/
+.codex/hooks/*
+!.codex/hooks/guard-bash.sh
+!.codex/hooks/guard-file-edits.sh
+!.codex/hooks/retire-session-claim.sh
+!.codex/rules/
+.codex/rules/*
+!.codex/rules/default.rules
 
 # Allure test artifacts (STAB-6)
 allure-results/
@@ -63,6 +80,5 @@ docs/design/lyrics-annotations/local/*
 # lyrics probe outputs (Step-1 read-only probe artifacts)
 tools/out/
 
-# tool caches (codex MCP home, pnpm store)
-.codex/
+# tool caches
 .pnpm-store/

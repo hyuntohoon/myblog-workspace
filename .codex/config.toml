@@ -1,0 +1,10 @@
+[agents]
+max_concurrent_threads_per_session = 3
+
+[features]
+hooks = true
+
+[mcp_servers.context7]
+startup_timeout_sec = 60
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]

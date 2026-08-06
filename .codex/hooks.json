@@ -1,0 +1,42 @@
+{
+  "description": "Workspace safety guards migrated from Claude Code.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/guard-bash.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking workspace command policy"
+          }
+        ]
+      },
+      {
+        "matcher": "^(apply_patch|Edit|Write)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/guard-file-edits.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking protected file policy"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "other",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/retire-session-claim.sh\"",
+            "timeout": 3,
+            "statusMessage": "Retiring workspace session claim"
+          }
+        ]
+      }
+    ]
+  }
+}

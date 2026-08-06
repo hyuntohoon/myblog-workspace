@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pocket Buckit Light References"
+  short_description: "Curate airy design references for the Pocket Buckit tray"
+  default_prompt: "Use $pocket-buckit-light-refs to gather and synthesize lighter-feel references for the Pocket Buckit tray."

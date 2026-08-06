@@ -1,0 +1,4 @@
+interface:
+  display_name: "Wrap Session"
+  short_description: "Verify completion and hand work to the next Codex thread"
+  default_prompt: "Use $wrap to verify this session and hand off the next approved step."
