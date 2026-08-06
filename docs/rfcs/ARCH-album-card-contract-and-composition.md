@@ -115,7 +115,9 @@ anywhere a new author would find them.
 
 - One canonical album display-data shape, consumed by every surface.
 - One shared presentational primitive owning layout, typography, cover-fallback (consolidating the
-  4 existing implementations into 1), loading/skeleton state, and badge slots.
+  3 album-surface implementations into 1), loading/skeleton state, and badge slots. `LikedBoard`'s
+  `LkCover` stays outside this goal because it renders saved-track rows/cards, not album cards;
+  Stage 3 retains it only as a comparative legacy fallback fixture.
 - Small, named capability contracts (`open`, `play`, `add`, `drag`) injected per surface — the
   `TrackRowActions` pattern, one level up.
 - Thin, surface-owned adapters (Home, Bucket, Memo, editorial) that hold all domain state
@@ -245,7 +247,7 @@ binding Rule #14:
 - Layout (grid tile / row — a `layout` prop, not a variant string, selects between the two literal
   DOM shapes that already exist; no third layout is invented speculatively)
 - Typography (title, artist, year rendering)
-- Cover-art rendering + the single consolidated fallback (replacing `Cover`/`AlbumArt`/`LkCover`/
+- Cover-art rendering + the single consolidated album fallback (replacing `Cover`/`AlbumArt`/
   `SubjectHero`'s inline glyph with one implementation — `AlbumArt`'s existing delegation to `Cover`
   is the natural merge base since that cross-boundary import already works)
 - Loading/skeleton rendering, keyed off `AlbumCardData.loading`
@@ -406,14 +408,29 @@ confirmed that no live surface imports it. Verification: lint pass, Astro check 
 files / 509 tests (2 new), deploy run `31075214832` success, prod smoke 19/19. No rendered UI, API,
 contract, infrastructure, or database change.
 
-**Stage 3 — extract the shared presentational primitive**
-Scope: implement `AlbumCard`'s real rendering (§8), consolidating the 4 cover-fallback
-implementations into 1 (built on `AlbumArt`'s existing delegation to `Cover`, since that cross-boundary
+**Stage 3 — extract the shared presentational primitive (SHIPPED 2026-08-06, front #377, `c32949a`)**
+Scope: implement `AlbumCard`'s real rendering (§8), establishing the single target for the 3
+album-surface fallback implementations (built on `AlbumArt`'s existing delegation to `Cover`, since that cross-boundary
 import already works today — no new dependency direction needed).
-Tests: visual/DOM parity test against each of the 4 existing fallback renderers' current output
-(has-image / no-image / broken-image-url cases).
+Tests: freeze each of the 4 existing fallback renderers' actual DOM/style signature, then test the
+canonical renderer's deliberate normalization separately (has-image / no-image / broken-image-url
+cases). Exact cross-renderer parity was an invalid premise: the legacy renderers already disagree.
 Compat: still not wired into any live surface — pure addition.
 Rollback: delete; no live surface depends on it yet.
+Result: `AlbumCard` now renders grid/row layouts, cover/fallback/loading states, title/artist/year,
+badge and secondary slots, and capability-gated `open`/`play`/`add`/`artistOpen`/`drag` behavior.
+Artist navigation remains a canonical anchor (modified clicks retain browser behavior), and drag
+dispatches both existing Pocket bridge pairs with origin-correct `effectAllowed`. The component
+imports no bucket/memo/editorial state, and a source sweep confirms zero live consumers.
+
+The legacy tests preserve the real differences rather than inventing equivalence: Home `Cover`
+omits `decoding`, `AlbumArt`/`LkCover` use `loading="lazy" decoding="async"`, `SubjectHero` uses an
+eager image; three no-image fallbacks show `KI`, while `SubjectHero` shows `K`. Broken URLs remain
+in the image branch on every legacy renderer. The canonical component deliberately normalizes to
+the two-letter `Cover` fallback and lazy/async images. Verification: lint pass, Astro check 0 errors
+and 0 warnings (2 existing hints), Vitest 49 files / 539 tests (24 AlbumCard cases), production
+build 21 pages + PWA, project reviewer pass, deploy run `31079317610` success, and prod smoke 19/19.
+No live rendered surface, API, contract, infrastructure, or database behavior changed.
 
 **Stage 4 — migrate one low-risk Home surface**
 Scope: `NewReleasesCard` — chosen over `ForYouReleasesCard`/`TodayAlbumBuckit` as the simplest: no
@@ -473,7 +490,7 @@ Rollback: revert the adapter; `SubjectHero`'s editorial state is independent of 
 
 **Stage 9 — remove duplicated legacy cards**
 Scope: delete `NewReleasesCard.CardItem`/`ForYouReleasesCard.CardItem`/`TodayAlbumBuckit.Card`'s old
-bespoke markup, `LikedBoard`'s standalone `LkCover`, `SubjectHero`'s inline fallback glyph, and the
+bespoke markup, `SubjectHero`'s inline fallback glyph, and the
 now-unused paths through `Cover`/`AlbumArt` that only the legacy components used.
 Tests: full parity-test suite (from Stages 4-8) must be green with zero regressions before any
 deletion; this stage adds no new behavior, only removes dead code.
@@ -497,8 +514,10 @@ Rollback: `git revert` the deletion commit; low-risk since it's a pure removal.
 - **CDP 390px touch matrix** for every surface gaining a `drag` capability (Stage 6, mandatory for
   Stage 7) — the verification bar `ARCH-entity-interaction-v2` itself established but the ninth slice
   skipped for `MemoWindow`; this RFC does not repeat that omission.
-- **Visual/DOM parity tests** for every migrated surface, run before its legacy component is deleted
-  (Stage 9's gate).
+- **Frozen legacy DOM/style signatures plus per-surface migration parity tests**: Stage 3 records
+  what each legacy fallback actually emits and the canonical normalization separately; Stages 4-8
+  must prove each migrated live surface preserves its intended visual/interaction result before the
+  legacy component is deleted (Stage 9's gate).
 
 ## 17. Rollback strategy
 
@@ -668,13 +687,14 @@ for it; tracked as its own CHORE item in `plan.md`.
   `member/ui.tsx` (`AlbumArt`, consolidation base for Stage 3)
 - `src/components/member/AlbumDetail.tsx` (`MemoWindow`, Stage 7 — also BUG-24's fix site;
   `StandardModal` unchanged, already correctly paired)
-- `src/components/member/LikedBoard.tsx` (`LkCover`, deleted Stage 9)
+- `src/components/member/LikedBoard.tsx` (`LkCover`, Stage 3 comparative fixture only; unchanged
+  because it renders saved-track rows/cards rather than an album-card surface)
 - `src/components/writer/SubjectHero.tsx` (Stage 8)
 - `src/components/album/AlbumOverlay.tsx`, `album/AlbumDetailView.tsx` — read only by this RFC;
   `AlbumOverlay`'s `play` capability and its `replaceQueueAndPlay()` dependency are BUG-23's context,
   not migrated by this RFC
 - `src/lib/reviews.ts` (`ReviewCard`) — explicitly unchanged, negative-tested in Stage 8
-- `docs/frontend/component-map.md` — gains the canonical registry entry after Stage 3 (not written now)
+- `docs/frontend/component-map.md` — canonical registry entry added in Stage 3
 - Not touched by this RFC, but named as dependencies: `src/lib/playback/session.ts` (BUG-23),
   `member/NowPlaying.tsx` (BUG-22), `.github/workflows/code-review.yml` (defect 6)
 
@@ -694,6 +714,7 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-06 | Stage 3 shipped (front #377, `c32949a`; deploy `31079317610`; prod smoke 19/19). The shared `AlbumCard` now owns canonical grid/row presentation and capability-gated interaction, while remaining unused by live surfaces. Tests freeze the four legacy renderers' real, different DOM/style signatures and separately pin the intentional canonical normalization; `docs/frontend/component-map.md` now records the component contract and zero-consumer state. Next is Stage 4 (`NewReleasesCard`, open-only). | 3 |
 | 2026-08-06 | Stage 2 shipped (front #373, `386539f`; deploy `31075214832`; prod smoke 19/19). `AlbumCardData` and `AlbumCardCapabilities` now form the canonical shared contract; the capability union rejects drag without its `add` tap fallback. The unused `AlbumCard` shim renders `null` and has no live consumers. Next is Stage 3 (shared presentation, still no live-surface migration). | 2 |
 | 2026-08-06 | Stage 1 shipped (front #372, `14ccaef`; deploy `31074197178`; prod smoke 19/19). `openAlbumUnresolved()` makes the Spotify-fallback id and `unresolved: true` an inseparable construction path, and the sole fallback producer now uses it. The independent `CHORE-openalbumdetail-id-pairing-guard` plan row is complete and removed; next is Stage 2 (types only). | 1 |
 | 2026-08-06 | Owner promoted the RFC from `draft` to `accepted`; implementation starts with Stage 1 only, preserving the RFC's staged migration and one-step-per-session gate. | 1 |
