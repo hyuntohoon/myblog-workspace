@@ -1264,12 +1264,47 @@ dimming for the modal's whole lifetime) or lowering the verification bar to drag
 
 ---
 
-### Step 6 — `component-map.md` rewrite + re-stamp (docs-only)
+### Step 6 — `component-map.md` rewrite + re-stamp (docs-only) — ✅ **DONE 2026-08-06**
 
 Entity-navigation, track-click and ownership sections rewritten to the new contract; the
 2026-07-08 stale rows corrected; impact template filled; `Verified` re-stamped.
 
-**Verification**: doc-only; every claim spot-checked against code in the same session.
+**Result.** E1's canonical album/track/artist definitions — deferred here by their own Step 2 note
+("duplicating E1 into `component-map.md` now would create a second stale copy of a definition that
+is one step old") — are now transcribed into `component-map.md`'s "Entity navigation" section, with
+Rule 0's id-shape table and the three per-entity facet tables, citing symbols over line numbers per
+this RFC's own Decisions-log guidance (2026-08-04: "line citations in this lineage decay within a
+single step"). "Track-click behavior" is rewritten with a per-surface `play`/`add`/`drag` grant
+table reflecting Step 5's actual shipped state, replacing the "no surface has granted them yet" line
+that had been true when written (2026-08-05) and false by the time this step ran (2026-08-06) — a
+same-lineage staleness window of one day, the same pattern this RFC's own Decisions log has recorded
+twice already (2026-08-04's line-number drift, `component-map.md`'s own prior "NowPlaying/LikedBoard
+not linkable" claim outliving the RFC that found it stale).
+
+**One correction this step made that was not on its own list going in**: re-verifying the play-path
+claims in "Track-click behavior" (needed to describe the new `play` grants accurately) surfaced that
+`requestPlayback`, the function name `component-map.md` had cited since before this RFC existed, does
+not exist — it was renamed `play()` (`lib/spotifyPlayback.ts`) during `FEAT-playback-bucket-player`,
+and the doc was never updated. The "imported in exactly 2 files" count was also wrong in both
+directions once corrected: `scripts/albumDetail.client.ts` no longer imports it at all (routes
+through `playbackSession.replaceQueueAndPlay`, the same call this RFC's own play-grant slices use),
+and `play()` is imported directly by four files today, not two. Grep-verified via `select:play` /
+`from '@lib/spotifyPlayback'` across `src/` — a rename can go stale in a doc from an edit its own
+author never saw, independent of how much time has passed; checking a grep-hit *count* is not the
+same as checking whether the *export* it names still exists.
+
+The impact template gained a filled entry for this RFC (Steps 1–6), matching the existing
+`ARCH-entity-interaction-unify` example's format. The doc's own top stamp is re-dated 2026-08-06
+against `myblog_front` `origin/main` `bcb6544`.
+
+**This was the RFC's last step.** All six steps are now ✅ DONE; nothing in this RFC's own scope
+remains open. `Status` is left at **accepted** here — promoting it further needs the owner's
+explicit go-ahead (hard rule 5), not something this step decides for itself.
+
+**Verification**: doc-only; every claim spot-checked against code in the same session (`BoardAlbum`/
+`OpenAlbumDetail` field presence, `routeAlbumDrop` export, the exact per-surface `actions={{...}}`
+wiring for `LikedBoard`/`AlbumDetailView`/`AlbumOverlay`/`MemoWindow`, and the `play()` import-site
+count all grep-confirmed against `myblog_front` `origin/main` `bcb6544` in this session).
 
 ---
 

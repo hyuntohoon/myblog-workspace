@@ -1,23 +1,25 @@
 # Frontend component map — developer / LLM reference
 
-> **Verified 2026-08-05** against `myblog_front` `origin/main` `734925e`
-> (`ARCH-entity-interaction-domain-audit` Step 1 — cross-domain rewrite: fixes two claims this
-> step found actively **wrong**, not merely stale — the "NowPlaying / LikedBoard artists not
-> linkable" line (false since front #293/#299, 2026-07-19/21 — `ARCH-entity-interaction-v2` had
-> already flagged this but the doc was never fixed) and the "`AddToBucketMenu` … manual ESC" line
-> (`AddToBucketMenu` has **zero** ESC handling of any kind — grep-verified, see the modal registry
-> below) — and adds the three cross-domain registries (events, state owners, modals) for the
-> domains `ARCH-entity-interaction-v2` scopes out. **Scope handoff, stated explicitly (this doc's
-> own "don't duplicate a full rule set across files" convention):** this step does **not** transcribe
-> `ARCH-entity-interaction-v2`'s E1 canonical album/track/artist definitions here — that transcription
-> is still that RFC's own Step 6, not done by this rewrite, and not duplicated here either. Until
-> Step 6 runs, `ARCH-entity-interaction-v2.md` itself is the source for E1/E2/E3; this doc only
-> points at it (see "Entity navigation" and "Track-click behavior" below, both updated for currency
-> but not restructured to hold E1's content).
+> **Verified 2026-08-06** against `myblog_front` `origin/main` `bcb6544`
+> (`ARCH-entity-interaction-v2` Step 6 — the transcription the prior stamp deferred: E1's canonical
+> album/track/artist definitions are now recorded here (see "Entity navigation" below), not left
+> RFC-only. "Track-click behavior" is rewritten for the shipped state — Step 5's nine slices (front
+> #353–#368; the grants specifically are #365 `add`, #366/#368 `drag`, #367 `play`) granted
+> `play`/`add`/`drag` on every TrackRow surface that's going to get them
+> (LikedBoard, the member+public `AlbumDetailView` tracklist, both `AlbumDetail` modals) and closed
+> the RFC's own scope; the "no surface has granted play/add/drag yet" line this doc carried since
+> 2026-08-05 is now false and is rewritten below with the real per-surface grant table. **Also caught
+> while re-verifying the play path, not something this step went looking for**: `requestPlayback`
+> (the name this doc cited) does not exist — it was renamed `play()` (`lib/spotifyPlayback.ts`)
+> before this RFC started, and the "imported in exactly 2 files" count was wrong in both directions —
+> `scripts/albumDetail.client.ts` no longer imports it at all (routes through
+> `playbackSession.replaceQueueAndPlay` instead), and `play()` itself is now imported directly by
+> **four** files, not two. A citation can go stale from a rename the citing doc's own author never
+> saw, not just from time — check the export, not just the grep hit count.
 > Re-verify (3 spot claims minimum) in the step of any RFC whose impact template touches
 > track-click / overlay / cross-island / shared-chrome / global-event / state-ownership. A stale
-> "Verified" stamp is the signal to re-verify, not to trust — **and per this step's own finding, a
-> current stamp does not guarantee correctness either**: check the claim, not just the date.
+> "Verified" stamp is the signal to re-verify, not to trust — **and a current stamp does not
+> guarantee correctness either**: check the claim, not just the date.
 > Human-readable companion: [structure.md](structure.md).
 
 This is the artifact an LLM (or developer) reads to answer "who owns X" without re-grepping.
@@ -50,22 +52,40 @@ Shared chrome (`Header`/`Footer`/`PocketBuckit`) is mounted once in `layouts/lay
 ## Track-click behavior — shared `TrackRow` for React member islands
 
 **Contract point** (ARCH-entity-interaction-contract Step 2; slots opened by
-`ARCH-entity-interaction-v2` Step 5, front #354, 2026-08-05):
+`ARCH-entity-interaction-v2` Step 5, front #354, 2026-08-05 — **all three now granted somewhere,
+front #362–#368, 2026-08-05/06, closing Step 5's scope**):
 `components/shared/TrackRow.tsx` — one row component with a **declared action set**
 `{lyrics?, open?, openLyrics?, play?, add?, drag?}`. `open` and `openLyrics` are mutually
 exclusive identity actions (`open` wraps only the identity cell; `openLyrics` makes the WHOLE
 row the click/keyboard target — the shape the memo window needs, see below). `play`/`add` are
 plain trailing-button slots with **no queue/bucket logic in the component** — the surface owns
-that. `drag` (E2 `DragPayload`) makes the row natively `draggable` and dispatches both the
-tray→board and board→tray bridge pairs (`PB_DND_*`/`PB_BOARD_DND_*`, see the event registry
-below) so a future grant works against either drop target with no further wiring.
-**No surface has granted `play`/`add`/`drag` yet** (verified by `TrackRow.test.tsx`'s callback
-tests firing in isolation, not a live drop target) — granting one is still a per-surface,
-Step-5-tracked decision; only the slot's *existence* stopped being reserved.
+that (`play` calls `playbackSession.replaceQueueAndPlay({kind:'track', trackId, title})`
+everywhere it's granted, never a raw `play()`). `drag` (E2 `DragPayload`) makes the row natively
+`draggable` and dispatches both the tray→board and board→tray bridge pairs
+(`PB_DND_*`/`PB_BOARD_DND_*`, see the event registry below).
+
+**Per-surface grant state (current, not "slots exist" — see the table below for exact actions
+per surface):**
+
+| Surface | `lyrics`/`openLyrics` | `play` | `add` | `drag` |
+|---|---|---|---|---|
+| `LikedBoard.Row` | `lyrics?` (host-supplied) | — | — | ✅ `{kind:'external', copies:true}` (front #366) |
+| `AlbumDetailView.Tracklist` — member (`AlbumDetail.StandardModal`) | `lyrics` | ✅ | ✅ | ✅ `enableDrag` (front #368) |
+| `AlbumDetailView.Tracklist` — public (`AlbumOverlay`) | — (privacy boundary) | ✅ gated `isLoggedIn() && !unresolved` (front #367) | — (no bucket to add into) | — (no tray to drop onto) |
+| `AlbumDetail.MemoWindow` (hand-rolled `TrackRow`, not via `Tracklist`) | `openLyrics?` (needs `spotify_id`) | — | — | ✅ unconditional (front #368) |
+
+`—` is a real, considered omission, not an oversight: `add`/`play` never reached `LikedBoard`
+because its rows are Spotify-library saved tracks, not bucket memberships, and nobody has asked
+for them there; `AlbumOverlay` omits `add` for the same reason `add`'s own eighth-slice writeup
+gives (a public visitor has no bucket to add into) but was deliberately granted `play` anyway,
+since it already offered an album-level ▶ to any logged-in visitor and withholding the
+track-level one had no semantic basis (see the RFC's eighth-slice decisions log entry).
+
 Consumers: `AlbumDetail` tracklist (via the shared `AlbumDetailView`, Step 1), `AlbumDetail`'s
 `MemoWindow` (via `openLyrics` — adopted Step 5, see below) + `LikedBoard` list rows (all three
-inside the `SelfDashboard` island). A future track action on these surfaces is wired in TrackRow
-once, not per surface.
+inside the `SelfDashboard` island); `AlbumDetailView`'s `Tracklist` is also mounted **publicly**
+by `AlbumOverlay` (grants `play` only, per the table above). A future track action on these
+surfaces is wired in TrackRow once, not per surface.
 Bespoke **public** track rows (`SearchPage.SearchTrackRow`, `HeaderSearch` `ResultRow`,
 `ArtistHub` top-tracks) are NOT TrackRow — they dispatch `openTrackAlbum` directly
 (ARCH-entity-interaction-unify Step 3; a track opens the app-wide album overlay).
@@ -78,20 +98,29 @@ to compound actions).
 
 | Surface | File:component | Click does | Playback path | Shared row? |
 |---|---|---|---|---|
-| Review tracklist (vanilla, public) | `scripts/albumDetail.client.ts` (row render `:66,:71`; delegated handlers `:124-144`) | two buttons/row: `.lfq-tt-play` (▶) + `.lfq-tt-add` (＋) | ▶ → `requestPlayback({kind:'track',trackId,title})` (`:130`); ＋ → `window` event `pb:add-track` (`:144`) → `ReviewTrackAdder` | **no — excluded** |
-| Pocket tray drawer members | `components/member/pocket/PocketTray.tsx:587` | React `<button onClick={onPlay}>` ▶ (list view) | `onPlay`→`playbackTargetFor` (`:53-59`)→`requestPlayback` (`:412`) | no (tray lyrics deferred — RFC OQ4, separate React root) |
-| Member `AlbumDetail` tracklist (`StandardModal`) | `components/album/AlbumDetailView.tsx` `Tracklist` | `TrackRow` — a small 가사 button (when the track has `spotify_id`) → **`LyricsSheet`** | none | **TrackRow** (`lyrics`) |
-| Member `AlbumDetail` **memo window** (bucket albums) | `components/member/AlbumDetail.tsx` `MemoWindow` (`AlbumDetail.tsx:435`) | `TrackRow` with `openLyrics` — **the whole row is the button** (own `role="button"`, keyboard support) → `LyricsSheet` | none | **TrackRow** (`openLyrics`) — adopted Step 5 (front #354, 2026-08-05); the twin noted below is **resolved**, not pending |
-| `LikedBoard` list rows | `components/member/LikedBoard.tsx` `Row` | `TrackRow` — identity → `onOpen` (detail, **member modal** — writable path, NOT the event); 가사 → lyrics viewer non-live; ⋯ → 담기/평론쓰기 (surface-specific trailing) | none | **TrackRow** (`open`+`lyrics`); card view NOT adopted (no lyrics affordance there) |
+| Review tracklist (vanilla, public) | `scripts/albumDetail.client.ts` (row render `:66,:71`; delegated handlers `:124-144`) | two buttons/row: `.lfq-tt-play` (▶) + `.lfq-tt-add` (＋) | ▶ → `playbackSession.replaceQueueAndPlay({kind:'track',trackId,title})` (`onRootClick`) | **no — excluded** |
+| Pocket tray drawer members | `components/member/pocket/PocketTray.tsx` `onPlay` | React `<button onClick={onPlay}>` ▶ (list view) | `onPlay`→`playbackTargetFor`→`play()` (`@lib/spotifyPlayback`, direct call — this is the one surface that still plays a queue *position*, not a replace) | no (tray lyrics deferred — RFC OQ4, separate React root) |
+| Member `AlbumDetail` tracklist (`StandardModal`) | `components/album/AlbumDetailView.tsx` `Tracklist` | `TrackRow` — 가사 (when `spotify_id` present) · ▶ · ＋ · draggable onto the Pocket tray | ▶ → `playbackSession.replaceQueueAndPlay({kind:'track', ...})` | **TrackRow** (`lyrics`+`play`+`add`+`drag`) |
+| Public `AlbumOverlay` tracklist | `components/album/AlbumOverlay.tsx` → same `AlbumDetailView.tsx` `Tracklist` | `TrackRow` — ▶ only, gated `isLoggedIn() && !target.unresolved` | ▶ → `playbackSession.replaceQueueAndPlay({kind:'track', ...})` | **TrackRow** (`play` only — no `lyrics`/`add`/`drag`) |
+| Member `AlbumDetail` **memo window** (bucket albums) | `components/member/AlbumDetail.tsx` `MemoWindow` | `TrackRow` with `openLyrics` — **the whole row is the button** (own `role="button"`, keyboard support) → `LyricsSheet`; also draggable onto the Pocket tray | none | **TrackRow** (`openLyrics?`+`drag`) — `openLyrics` adopted Step 5 second slice (front #354); `drag` added Step 5 ninth slice (front #368) |
+| `LikedBoard` list rows | `components/member/LikedBoard.tsx` `Row` | `TrackRow` — identity → `onOpen` (detail, **member modal** — writable path, NOT the event); 가사 → lyrics viewer non-live; draggable onto the Pocket tray; ⋯ → 담기/평론쓰기 (surface-specific trailing) | none | **TrackRow** (`open`+`lyrics?`+`drag`) — `drag` added Step 5 seventh slice (front #366); card view NOT adopted (no lyrics affordance there) |
 | Search track rows (public) | `components/search/SearchPage.tsx` (`SearchTrackRow`), `HeaderSearch` `ResultRow` (dropdown 트랙 rows) | **Step 3**: a track with a DB `albumId` opens the app-wide album overlay (`openTrackAlbum`); id-less (Spotify-only) rows stay static | none | no (bespoke → `openTrackAlbum`) |
 | Artist top-tracks (public) | `components/artist/ArtistHub.tsx` `art-tt-open` | **Step 3**: `<button>` → `openTrackAlbum` (Music_TrackItem.album_id always set) | none | no (bespoke → `openTrackAlbum`) |
 | Writer `RecommendedTracksBlock` / `ArtistDetail` | `components/writer/RecommendedTracksBlock.tsx:66-76`, `writer/ArtistDetail.tsx:43` | ★/☆ pick / `onPickTrack` (select-for-review) | none | no |
 
-`requestPlayback` (`lib/spotifyPlayback.ts:242`) — the **only** SDK owner — is imported
-in exactly **2 files**: `scripts/albumDetail.client.ts` and `components/member/pocket/PocketTray.tsx`.
-**Corrected 2026-08-05**: TrackRow's `play` slot exists (opened Step 5) but **no surface grants
-it yet**, so today it still adds no play affordance anywhere in practice — same outcome as the
-old "OQ2 default" line, different reason (an ungranted slot, not a reserved one).
+**Corrected 2026-08-06 — `requestPlayback` does not exist; it is `play()`** (`lib/spotifyPlayback.ts`,
+`export async function play`). Renamed before this RFC started; this doc simply never caught up. It
+is imported directly by **four** files today, not the "2" this doc previously claimed:
+`components/member/pocket/PocketTray.tsx`, `components/member/NowPlaying.tsx`,
+`components/member/lyrics/queueJump.ts`, and `lib/playback/session.ts` (which wraps it —
+`replaceQueueAndPlay`/`playFrom`/`togglePlay` all call `play()` internally, never re-implement the
+ladder). **`scripts/albumDetail.client.ts` no longer imports `play()`/`requestPlayback` at all** — its
+▶ now goes through `playbackSession.replaceQueueAndPlay`, the same call every `TrackRow` `play` grant
+uses, so **every per-track ▶ in the product — vanilla and React alike — is one call site**, which is
+exactly the "a second play path by accident" risk `FEAT-playback-bucket-player` Step 6 named and this
+RFC's Step 5 closed out. `PocketTray`'s own ▶ is the one deliberate exception: it plays a specific
+**queue position** the member tapped, not a replace-the-queue-with-one-track ▶, so it calls `play()`
+directly rather than through `replaceQueueAndPlay`.
 
 **Static lyrics entry** (privacy-scoped): both static entries route through `SelfDashboard`'s
 `openStaticLyrics`, which mounts **`LyricsSheet`** — not `LyricsViewer`. Only `NowPlaying`'s 가사 tap
@@ -124,6 +153,63 @@ in `pages/` internals (grep-gated in the RFC). OQ3 probe (2026-07-03): the Cloud
 viewer-request function serves the slashless form too (200, no redirect) — canonicalizing
 ends cache-key/URL drift, it does not fix a 404.
 
+### Canonical entity definitions — added `ARCH-entity-interaction-v2` Step 6, 2026-08-06
+
+**Recorded here for the first time** — the RFC's own E1 explicitly deferred this transcription to
+Step 6 rather than duplicate a definition that was still one step old (2026-08-04). This is the
+canonical reference for "what identifies an album/track/artist, and what can be done with one" —
+individual sections below (track-click, ownership) restate only the parts relevant to their own
+scope; this table is where a new surface should start.
+
+**Rule 0 — "canonical id" is about the *slot*, not a field name.** Three id shapes exist in the
+codebase and only one is contract-legal in a DB-id slot:
+
+| Shape | Legal? | Where seen |
+|---|---|---|
+| Nullable DB id | ✅ contract | the common case — `BoardAlbum.albumId` (`lib/buckets.ts`); a null id makes the entity **inert** (no open/add/drag), never a crash |
+| Foreign-namespace id in a DB-id slot | ❌ prohibited | `releaseShared.tsx` `openReleased()`'s old resolve-miss fallback (fixed via `unresolved` flag, `ARCH-entity-interaction-domain-audit`, front #358) |
+| Id resolved asynchronously per render | legal for **navigation**, illegal for **drag** | `NowPlaying.tsx` `resolveDbArtistId` / `getResolvedDbArtistId` — a drag source must hold the id synchronously at `dragstart` or not be draggable |
+
+#### Album
+
+| Facet | Definition | Where |
+|---|---|---|
+| Canonical id | `albums.id` (DB uuid), carried as `albumId`/`album_id` | `lib/entityEvents.ts` `OpenAlbumDetail.albumId`; `lib/buckets.ts` `BoardAlbum.albumId` |
+| Null semantics | Nullable everywhere; null ⇒ no open/add/drag, renders as static content | `boardDnd.ts` library guard; `openTrackAlbum` early return |
+| Canonical URL | **None, by decision** — addressed by id + open-event, never by path | `lib/entityLinks.ts` header comment |
+| Open | `openAlbum({albumId, title, artist, cover, year})` → app-wide read-only `AlbumOverlay`; member **write** context → `onOpen(DetailTarget)` → `member/AlbumDetail` (two hosts, by decision) | `lib/entityEvents.ts`; `album/AlbumOverlay.tsx`; `member/AlbumDetail.tsx` |
+| Actions | `open` · `add` 담기 · `drag` · `▶` (`playbackSession.replaceQueueAndPlay`, never a raw `play()`) · 평가/메모/가사 — **member host only** | `album/AlbumDetailView.tsx`; `member/AlbumDetail.tsx` |
+| Drag payload | `{entity:'album', albumId, title?, artist?, cover?}` + `origin` | `lib/entityDrag.ts` |
+
+#### Track
+
+| Facet | Definition | Where |
+|---|---|---|
+| Canonical id | `tracks.id` (DB uuid). **`spotify_id` is a second namespace, not the id** — travels alongside it | `album/AlbumDetailView.tsx` tracklist; `member/LikedBoard.tsx` `LikedRowVM` |
+| Null semantics | Null track id ⇒ no add/drag; opening degrades to the **album** path | `lib/entityEvents.ts` `openTrackAlbum` |
+| Canonical URL | **None** — no page and no window of its own; canonical destination is its album's overlay | `lib/entityEvents.ts` `openTrackAlbum` |
+| Open | `openTrackAlbum({albumId, albumTitle, artist, cover, year})` | 〃 |
+| Actions | `lyrics?` (host-supplied, public hosts omit it) · `open?` · `openLyrics?` (mutually exclusive with `open`) · `play?` · `add?` · `drag?` — see "Track-click behavior" above for the current per-surface grant table | `shared/TrackRow.tsx` |
+| Drag payload | `{entity:'track', trackId, albumId: string\|null, title?, artist?}` + `origin` | `lib/entityDrag.ts` |
+
+#### Artist
+
+| Facet | Definition | Where |
+|---|---|---|
+| Canonical id | `artists.id` (DB uuid), carried as `artistId`/`artist_id` | `lib/buckets.ts` `BoardAlbum.artistId` |
+| Null semantics | Null ⇒ name renders as plain text, never a dead link | `lib/entityLinks.ts` `artistHref` |
+| Canonical URL | **`/artist/{id}/`** — trailing-slash canonical; the only entity with a URL. Built only by `artistHref` | `lib/entityLinks.ts` |
+| Open | Page navigation. Never an overlay — an artist has no window | 〃 |
+| Actions | `open` (nav) · `drag`. No public 담기 — an artist enters a bucket by drag or Artist-bucket expansion | `boardDnd.ts` `routeAlbumDrop` artist branch |
+| Drag payload | `{entity:'artist', artistId, name?, image?}` + `origin` | `lib/entityDrag.ts` |
+
+The full drag-payload type (`DragOrigin`'s three kinds — `internal`/`library`/`external`), the
+drop-target matrix (which of the six bucket kinds direct-adds/transforms/rejects each entity type),
+and the `EntityRef`/`DragPayload` shape itself stay **RFC-only** (`ARCH-entity-interaction-v2.md`
+E2/E3) rather than duplicated here — this doc's own convention (see "don't duplicate a full rule
+set across files" in the prior stamp). Consult the RFC directly for those; this table exists so a
+new surface can answer "what identifies X and what can X do" without opening it.
+
 Artist names link to `/artist/[id]` on: search surfaces (`SearchPage` card, `HeaderSearch`
 row), tray/board artist members (`window.location.assign`), the public review hero, the member
 `AlbumDetail` InfoBody (`.lf-artist-link`, Step 3), and — **corrected 2026-08-05, was wrongly
@@ -151,9 +237,13 @@ surface and is untouched (Step 2 audit).
 ## Ownership by domain
 
 - **track row rendering** — **shared `components/shared/TrackRow.tsx`** (declared actions
-  `{lyrics?, open?, openLyrics?, play?, add?, drag?}` — see "Track-click behavior" above for the
-  full contract; consumers `AlbumDetail.Tracklist`, `AlbumDetail.MemoWindow` (`openLyrics`,
-  Step 5) + `LikedBoard.Row` list view); still hand-rolled: vanilla review tracklist
+  `{lyrics?, open?, openLyrics?, play?, add?, drag?}`, all three of `play`/`add`/`drag` granted
+  somewhere as of `ARCH-entity-interaction-v2` Step 5's ninth slice — see "Track-click behavior"
+  above for the current per-surface grant table). Consumers: `AlbumDetailView.Tracklist`, shared by
+  the member `AlbumDetail.StandardModal` (`lyrics`+`play`+`add`+`drag`) and the **public**
+  `AlbumOverlay` (`play` only); `AlbumDetail.MemoWindow`'s own hand-rolled `TrackRow`
+  (`openLyrics?`+`drag`); `LikedBoard.Row` list view (`open`+`lyrics?`+`drag`). Still hand-rolled:
+  vanilla review tracklist
   (`scripts/albumDetail.client.ts:66,71` +
   delegated handlers `:124-144`, excluded by RFC), `search/atoms.tsx` `ResultRow`
   (shared by `SearchPage`/`HeaderSearch`/`CommandPalette`, `action` union navigate/button/static),
@@ -347,7 +437,7 @@ Component-map impact — <RFC-ID> <title>
 Verified: YYYY-MM-DD (re-verify if frontend changed since ARCH-frontend-component-map)
 Routes touched:        /path (island) — public|authed
 Track-click paths hit:  review-tracklist | pocket-tray | liked-board-onOpen | search-static | writer-pick | albumdetail-readonly
-Play path:              none | requestPlayback (shared SDK layer) — entry surface:
+Play path:              none | play()/replaceQueueAndPlay (shared SDK layer, lib/spotifyPlayback.ts + lib/playback/session.ts) — entry surface:
 Overlay changed:        none | new overlay (reuses useDismissable + .lf-scrim | new panel shape)
 State owner:            bucketStore | pocket-events | pocket-intent | profile-local | ad-hoc
 Cross-island?:          no | yes (pb:* event: ____ ; shared store: ____)
@@ -368,4 +458,19 @@ State owner:            ad-hoc (host-local open target) + ent:open-album window 
 Cross-island?:          yes (ent:open-album — public-safe, NOT in pocketBuckit/events.ts ; shared store: none)
 Cache touched:          albumDetail (shared, sole) ; review sessionCache path untouched
 Duplicate it overlaps:  album-detail paths (read body shared; review inline tracklist intentionally separate — see #1)
+```
+
+### Filled — ARCH-entity-interaction-v2 (Steps 1–6, 2026-08-06)
+
+```
+Component-map impact — ARCH-entity-interaction-v2 (canonical entity contract + drag payload + action-slot rollout)
+Verified: 2026-08-06
+Routes touched:        none new — /members/ (AlbumDetail modal, LikedBoard), / and any ent:open-album caller (AlbumOverlay), all public|authed as before
+Track-click paths hit:  albumdetail-readonly (member StandardModal — now lyrics+play+add+drag) ; albumdetail-readonly (public AlbumOverlay — now play) ; liked-board-onOpen (now +drag) ; memo window (own hand-rolled row — now openLyrics+drag)
+Play path:              playbackSession.replaceQueueAndPlay({kind:'track', trackId, title}) — entry surfaces: member AlbumDetail StandardModal tracklist, public AlbumOverlay tracklist (gated isLoggedIn && !unresolved); same primitive the vanilla review page's per-track ▶ already used
+Overlay changed:        none new; existing StandardModal/MemoWindow .scrim gained a drag-scoped pointer-events passthrough (drops to 'none' only for the PB_DND_START_EVENT..PB_DND_END_EVENT window, restored after) so a drag begun inside either modal can reach PocketTray underneath
+State owner:            no new state store; drag payloads flow through the existing pb:dnd-*/pb:board-dnd-* window-event bridge (lib/entityDrag.ts memberRef() builds the ref)
+Cross-island?:          yes — drag grants dispatch the same PB_DND_START_EVENT/PB_BOARD_DND_START_EVENT pair every existing drag source uses; no new event added
+Cache touched:          none new (bucketStore, as every existing add/drag path already touches)
+Duplicate it overlaps:  none — this RFC is the one that unified the three-shape drag inference (copy/fromLib/fromBucketId) into a single typed DragPayload (E2); no new duplication introduced
 ```
