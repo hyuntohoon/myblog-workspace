@@ -1,6 +1,6 @@
 # Frontend component map — developer / LLM reference
 
-> **Verified 2026-08-06** against `myblog_front` `origin/main` `bcb6544`
+> **Verified 2026-08-06** against `myblog_front` `origin/main` `0504637`
 > (`ARCH-entity-interaction-v2` Step 6 — the transcription the prior stamp deferred: E1's canonical
 > album/track/artist definitions are now recorded here (see "Entity navigation" below), not left
 > RFC-only. "Track-click behavior" is rewritten for the shipped state — Step 5's nine slices (front
@@ -21,10 +21,11 @@
 > "Verified" stamp is the signal to re-verify, not to trust — **and a current stamp does not
 > guarantee correctness either**: check the claim, not just the date.
 >
-> **Addendum 2026-08-06** (album-card audit, `docs/rfcs/ARCH-album-card-contract-and-composition.md`,
-> draft): no canonical album-card component or registry entry exists yet — this doc's album coverage
-> above stays scattered per-surface mentions until that RFC's Stage 3 ships a shared primitive; do not
-> add a canonical-card table row speculatively before then. Also: line 8's "granted `play`/`add`/`drag`
+> **Album-card Stage 3 addendum 2026-08-06** (front #377): the canonical shared `AlbumCard` now
+> exists and is registered below, but deliberately has zero live consumers until Stage 4. Its tests
+> freeze the four legacy renderers' actual, different DOM/style signatures and separately record the
+> canonical cover normalization; they do not claim the legacy fallbacks were identical. Also: the
+> earlier "granted `play`/`add`/`drag`
 > on every TrackRow surface that's going to get them" is accurate for the surfaces it names, but should
 > not be read as "every drag grant has its required touch-alternative pair" — `MemoWindow` is the one
 > counterexample (`drag` without `add`, tracked as BUG-24 in `plan.md`); this file's own "Ownership by
@@ -57,6 +58,32 @@ File references are `path:line` anchors relative to `myblog_front/src/`.
 
 Shared chrome (`Header`/`Footer`/`PocketBuckit`) is mounted once in `layouts/layout.astro:35-38`.
 `write-layout.astro` is standalone (no Header/Footer/Pocket).
+
+## Album-card behavior — shared `AlbumCard`
+
+**Contract point** (`ARCH-album-card-contract-and-composition` Stage 3, front #377, 2026-08-06):
+`components/shared/AlbumCard.tsx`, with domain-neutral presentation in
+`styles/album-card.css`. `AlbumCardData` carries only
+`{catalogAlbumId, spotifyAlbumId, title, artist, artistId, cover, year, loading?}`. The declared
+capability set is `{open?, play?, add?, artistOpen?, drag?}`; its union makes `drag` structurally
+illegal unless the same adapter supplies the `add` tap/action-sheet path required on touch.
+
+The primitive owns `grid`/`row` layout, cover/image/fallback/loading states, title/artist/year,
+badge and `secondaryLine` slots, and whether each capability's affordance exists. Artist navigation
+is a real `artistHref()` anchor: an unmodified primary click may be intercepted by `artistOpen`,
+while modified clicks retain native browser behavior. A granted drag emits both existing bridge
+pairs (`PB_DND_*` and `PB_BOARD_DND_*`) and derives `effectAllowed` from `DragPayload.origin`.
+Adapters may override `--album-card-cover-size`; dimensions and slot contents remain surface-owned.
+
+**Live consumers: none as of Stage 3.** Only `AlbumCard.test.tsx` imports the component. Stages 4-8
+will add Home, Bucket, Memo, and editorial adapters one surface at a time; the unrelated local
+`SearchPage.AlbumCard` is not this primitive. Bucket membership (`itemId`, `temp:*`, bucket/move
+state), memo state, and editorial form state are forbidden in the shared component and stay in
+adapters. Legacy album-surface `Cover`, `AlbumArt`, and `SubjectHero` fallback paths remain live until
+their planned migrations and Stage 9 deletion. `LikedBoard.LkCover` is retained outside this RFC's
+migration because it presents saved-track rows/cards, not album cards. Stage 3 tests still freeze all
+four renderers' actual, different DOM/style signatures and separately pin the canonical two-letter fallback plus lazy/async
+image normalization; per-surface visual/interaction parity is the gate for Stages 4-8.
 
 ## Track-click behavior — shared `TrackRow` for React member islands
 
@@ -258,6 +285,11 @@ surface and is untouched (Step 2 audit).
   (shared by `SearchPage`/`HeaderSearch`/`CommandPalette`, `action` union navigate/button/static),
   `writer/RecommendedTracksBlock.tsx:66` (★ toggle), `writer/ArtistDetail.tsx:43` (`onPickTrack`),
   `LikedBoard` card view.
+- **album card rendering** — **shared `components/shared/AlbumCard.tsx`** with
+  `styles/album-card.css`; display model and declared capability contract are registered in
+  "Album-card behavior" above. **Zero live consumers at Stage 3**: legacy surface renderers remain
+  authoritative until their Stages 4-8 adapters migrate, and no bucket/memo/editorial state may
+  enter the primitive.
 - **album detail** — the read-only body is the shared `components/album/AlbumDetailView.tsx`
   (Step 1), rendered by BOTH the app-wide `components/album/AlbumOverlay.tsx` (public, event-opened,
   `lib/albumDetail.ts` cache) and the member `components/member/AlbumDetail.tsx` (writable modal:
@@ -376,8 +408,8 @@ before adding a new event.
 | `ent:open-album` (`ENT_OPEN_ALBUM`) | `lib/entityEvents.ts` | ~15 public/member surfaces via `openAlbum()`/`openTrackAlbum()` | `AlbumOverlay.tsx` (layout-mounted) | yes |
 | `ent:album-state-changed` (`ENT_ALBUM_STATE_CHANGED`) | `lib/entityEvents.ts` | `notifyAlbumStateChanged()` | `BucketBoard.tsx` | yes |
 | `ent:open-live-lyrics` (`ENT_OPEN_LIVE_LYRICS`) | `lib/entityEvents.ts` | `openLiveLyrics()`, called from `PocketTray.tsx` | `SelfDashboard.tsx` | yes |
-| `pb:toggle`, `pb:closed`, `pb:open-state`, `pb:dnd-start`/`end`, `pb:board-dnd-start`/`end`, `pb:board-drop` | `lib/pocketBuckit/events.ts` (7 constants) | `BucketBoard.tsx`, `TrackRow.tsx`, `PocketTray.tsx`, `PocketBuckit.tsx` | `BucketBoard.tsx`, `PocketBuckit.tsx`, `pocketBuckit/boardDnd.ts` | yes |
-| `pb:add-track` (`PB_ADD_TRACK_EVENT`) | **`ReviewTrackAdder.tsx:16`**, not `pocketBuckit/events.ts` — despite that file's own header comment citing it as the reason the file exists | `ReviewTrackAdder`'s callers, **and as a raw string literal** (not the imported constant) from the vanilla script `scripts/albumDetail.client.ts:176` | `ReviewTrackAdder.tsx:34` | **no — the exact drift the centralizing file warns against**, live today. Fix tracked: `ARCH-entity-interaction-domain-audit` Step 2 |
+| `pb:toggle`, `pb:closed`, `pb:open-state`, `pb:dnd-start`/`end`, `pb:board-dnd-start`/`end`, `pb:board-drop` | `lib/pocketBuckit/events.ts` (8 constants) | `BucketBoard.tsx`, `TrackRow.tsx`, `PocketTray.tsx`, `PocketBuckit.tsx`; `AlbumCard.tsx` is a declared producer when `drag` is granted but has no live consumer yet | `BucketBoard.tsx`, `PocketBuckit.tsx`, `pocketBuckit/boardDnd.ts` | yes |
+| `pb:add-track` (`PB_ADD_TRACK_EVENT`) | `lib/pocketBuckit/events.ts` | vanilla `scripts/albumDetail.client.ts` (imported constant) | `member/pocket/ReviewTrackAdder.tsx` (imported constant) | yes — centralized by `ARCH-entity-interaction-domain-audit` Step 2 |
 | `album:detail` | raw string, `scripts/albumDetail.fetch.client.ts` | 〃 | raw string, `scripts/albumDetail.client.ts` (module-scope, bound once by design — vanilla script, not a React effect) | intentional exception, not a gap — permanent module-scope listener by design, documented inline |
 | `myblog:playback-changed` (`MYBLOG_PLAYBACK_CHANGED`) | `lib/spotifyPlayback.ts` | `spotifyPlayback.ts` internals | `NowPlaying.tsx`, `LyricsViewer.tsx`, `lib/playback/session.ts` | yes (the *name* is single-owned; **the state it signals is not** — see the state-owner registry below) |
 | `astro:page-load`, `astro:after-swap`, `astro:before-swap`, `astro:before-preparation` | framework (Astro `ClientRouter`) | Astro | `AlbumOverlay.tsx`, `HeaderSearch.tsx`, several vanilla scripts | n/a — framework lifecycle hooks, not an app contract |
