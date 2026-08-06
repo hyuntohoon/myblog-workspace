@@ -1,6 +1,6 @@
 # ARCH-album-card-contract-and-composition: one canonical album-card display model, composed by capability, not inherited
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-08-06
 - **Plan row**: `plan.md` → ARCH-album-card-contract-and-composition
@@ -684,5 +684,6 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-06 | Owner promoted the RFC from `draft` to `accepted`; implementation starts with Stage 1 only, preserving the RFC's staged migration and one-step-per-session gate. | 1 |
 | 2026-08-06 | RFC filed following the 2026-08-06 evidence-based audit (7 parallel investigations against `origin/main`, not against either sibling RFC's own completion claims). 4 of 6 hypothesized defects confirmed unresolved (BUG-21/23/24, defect 6); 1 partially fixed with a newly-found residual (BUG-22); 1 downgraded from "confirmed" to "structural risk, currently contained" (defect 5) | 0 |
 | 2026-08-06 | BUG-22 fixed independently (front #370, `71bd0a3` / deploy 31064849495, prod smoke 19/19): the `playbackSession` convergence effect now bumps a `controlGen` counter in `setMode`'s `finally`, included in its dependency array, replaying the deferred session state once `setMode`'s busy window closes. `playPause`/`seek`/`skip`'s existing confirm-read path and its pinning test are unchanged. No card-architecture dependency — no effect on this RFC's stages. | — |
