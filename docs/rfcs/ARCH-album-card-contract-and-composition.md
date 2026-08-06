@@ -453,13 +453,26 @@ card or section overflow. Deploy run `31082278000` passed through S3 upload, Clo
 and built-in health smoke; the independent production regression smoke passed 19/19. No API,
 contract, infrastructure, database, auth, or other Home-surface behavior changed.
 
-**Stage 5 — migrate the remaining Home surfaces**
+**Stage 5 — migrate the remaining Home surfaces (SHIPPED 2026-08-06, front #380, `cb3a734`)**
 Scope: `ForYouReleasesCard` (wire the optional-id degrade as "no `open` capability injected" rather
 than a conditional `<span>`), `TodayAlbumBuckit` (badge slot for "N년 전"), `ReviewCandidates`'
 candidate row (badge slot for rating stars + the "평론 쓰기 →" link as a `secondaryLine`).
 Tests: one interaction + one parity test per surface, per the Stage 4 pattern.
 Compat: same as Stage 4, per surface.
 Rollback: per-surface, independent of the others.
+Result: `ForYouReleaseAlbumCardAdapter`, `TodayAlbumCardAdapter`, and
+`ReviewCandidateAlbumCardAdapter` now project their surface data and capabilities onto the canonical
+card. A For You item without a catalog id remains display-only and carries only its Spotify fallback
+id; Today Album keeps its anniversary badge; Review Candidates keeps its rating stars, comment, and
+editor link in the row slots. By owner decision, `TodaySongBuckit` remains bespoke because its
+single-pick curation controls do not fit the shared capability set. All three legacy renderers remain
+as Stage 9 parity fixtures.
+
+Verification: lint passed; Astro check reported 0 errors and 0 warnings (2 existing hints); Vitest
+passed 50 files / 551 tests. Real-browser checks passed on desktop and at 390×844: all three album
+open paths worked, the review-editor link navigated correctly, the row card retained its 56px cover,
+and no horizontal overflow appeared. Deploy run `31084951887` passed, including the built-in health
+smoke; the independent production regression smoke passed 19/19.
 
 **Stage 6 — migrate Bucket via `BucketAlbumCardAdapter` — GATED on BUG-21's fix**
 Scope: extract `AlbumChip`'s presentational half onto `AlbumCard`; `BucketBoard.tsx` keeps 100% of
@@ -695,6 +708,7 @@ for it; tracked as its own CHORE item in `plan.md`.
   (`OpenAlbumDetail`) is the target of the independent Stage-1 hardening chore only
 - `src/components/home/NewReleasesCard.tsx` (Stage 4), `ForYouReleasesCard.tsx`, `TodayAlbumBuckit.tsx`
   (Stage 5), `home/ui.tsx` (`Cover`, consolidation target for Stage 3)
+- `src/components/member/ReviewCandidates.tsx` (Stage 5)
 - `src/components/member/BucketBoard.tsx` (`AlbumChip` extraction, Stage 6; also BUG-21's fix site),
   `member/ui.tsx` (`AlbumArt`, consolidation base for Stage 3)
 - `src/components/member/AlbumDetail.tsx` (`MemoWindow`, Stage 7 — also BUG-24's fix site;
@@ -714,9 +728,9 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 ## Open questions
 
-1. Should `TodaySongBuckit` (single-pick, owner-only-edit surface) migrate onto `AlbumCard` at all, or
-   stay bespoke given its owner-curation controls are unlike any other surface's capability set? Not
-   resolved by this audit — flagged for the owner at Stage 5 planning, not decided here.
+1. **Resolved 2026-08-06 — keep `TodaySongBuckit` bespoke.** Its single-pick, owner-only curation
+   controls are unlike the shared card capability set; Stage 5 therefore migrated only the three
+   album-oriented surfaces named in its scope.
 2. Should the Stage-1 `openAlbumUnresolved()` smart constructor eventually become the *only* way to
    construct `AlbumCardData` with a `spotifyAlbumId` fallback, unifying the two identifier shapes? Left
    open — Stage 8 (when `AlbumOverlay` is the last consumer of the old shape) is the natural point to
@@ -726,6 +740,7 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-06 | Stage 5 shipped (front #380, `cb3a734`; deploy `31084951887`; prod smoke 19/19). `ForYouReleasesCard`, `TodayAlbumBuckit`, and `ReviewCandidates` now use surface-owned adapters over the canonical card; optional-id For You items remain display-only, and the anniversary, rating, comment, and editor affordances retain their slots. Desktop and 390px real-browser checks passed. Per owner decision, `TodaySongBuckit` remains bespoke. Next is Stage 6 (Bucket adapter; BUG-21 prerequisite already shipped). | 5 |
 | 2026-08-06 | Stage 4 shipped (front #379, `e1268a7`; deploy `31082278000`; prod smoke 19/19). `NewReleasesCard` is the first live `AlbumCard` consumer through a Home-owned adapter; its release label, reviewed badge, intent prefetch, artist link, and album-overlay payload remain surface-owned. Desktop and 390px real-browser checks passed with no overflow, and the legacy renderer remains as the Stage 9 parity fixture. Next is Stage 5 (remaining Home surfaces). | 4 |
 | 2026-08-06 | Stage 3 shipped (front #377, `c32949a`; deploy `31079317610`; prod smoke 19/19). The shared `AlbumCard` now owns canonical grid/row presentation and capability-gated interaction, while remaining unused by live surfaces. Tests freeze the four legacy renderers' real, different DOM/style signatures and separately pin the intentional canonical normalization; `docs/frontend/component-map.md` now records the component contract and zero-consumer state. Next is Stage 4 (`NewReleasesCard`, open-only). | 3 |
 | 2026-08-06 | Stage 2 shipped (front #373, `386539f`; deploy `31075214832`; prod smoke 19/19). `AlbumCardData` and `AlbumCardCapabilities` now form the canonical shared contract; the capability union rejects drag without its `add` tap fallback. The unused `AlbumCard` shim renders `null` and has no live consumers. Next is Stage 3 (shared presentation, still no live-surface migration). | 2 |
