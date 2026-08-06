@@ -577,7 +577,7 @@ unrelated to any album-card surface; listed here only so it does not disappear b
 "done" framing. Recommended fix: correct the safety-claim comment to name the `setMode` exception, and
 either extend `localWriteSeq`-style gating to this effect or accept and document the narrower risk.
 
-### BUG-23 — `replaceQueueAndPlay()` has no concurrency protection (soft dependency: fix before granting `play` to new surfaces)
+### BUG-23 — `replaceQueueAndPlay()` has no concurrency protection — **CLOSED 2026-08-06** (front #371, `b979992`)
 
 **CONFIRMED, self-admitted in code.** `session.ts:692-745`'s `replaceQueueAndPlay()` has no mutex,
 single-flight dedup, generation token, or `AbortController`. `rewriteQueue` (`:519-537`) snapshots a
@@ -589,9 +589,20 @@ is read as a UI `disabled` guard only on `PlaybackPanel.tsx`'s transport buttons
 outright that the double-click race is untested and has "carried that exact risk with no reported
 issue" — a known, accepted, untested race. Today only `AlbumOverlay` exposes an inline `play`
 capability (§1 inventory); **this RFC's capability model (§7) makes `play` easy to grant to more
-surfaces**, which would multiply this race's exposure. Recommended: fix BUG-23 (a generation-token
-check on `replaceQueueAndPlay`'s final `authoritativePatch`, per the fork-proposed test design) before
-any Stage 4+ surface is granted the `play` capability beyond `AlbumOverlay`'s existing one.
+surfaces**, which would multiply this race's exposure.
+
+**Erratum on this section's own original recommendation.** This section originally recommended a
+generation-token check on `replaceQueueAndPlay`'s final `authoritativePatch` (the BUG-22 pattern) as
+the fix. That was implemented first and proven **insufficient** by a delayed-promise regression test:
+the generation guard correctly drops the stale call's own final write, but `rewriteQueue`'s
+`beforeIds` corruption happens upstream of that write, in the snapshot itself — two overlapping calls
+both computed `added` against the SAME pre-press tree, so the second (generation-current) call's own
+`playFrom(0)` still named the FIRST press's track, because the queue itself, not just who gets to
+report on it, was already wrong. Shipped fix instead serializes `replaceQueueAndPlay()` onto a shared
+promise chain, so a new press's `beforeIds` snapshot is only ever taken after the prior press has
+fully settled (write, play, and its deletes) — closing the race at its actual source. Kept here as a
+recorded lesson for the next "soft dependency, fix later" bug in this RFC: verify a proposed minimal
+fix against a reproduction before treating the write-up's own recommendation as sufficient.
 
 ### BUG-24 — MemoWindow `TrackRow` drag grant shipped without paired touch alternative (absorbed into this RFC's Stage 7, not external)
 
