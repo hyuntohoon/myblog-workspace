@@ -510,7 +510,7 @@ class and action callback remain covered by regression tests. Deploy run `310895
 S3 upload, CloudFront invalidation, and built-in health smoke; the independent production regression
 smoke passed 19/19. No API, contract, infrastructure, database, auth, or Spotify-call behavior changed.
 
-**Stage 7 — migrate Memo and verify touch alternatives — ships BUG-24's fix**
+**Stage 7 — migrate Memo and verify touch alternatives (SHIPPED 2026-08-06, front #382, `775f683`)**
 Scope: `MemoAlbumCardAdapter` for `MemoWindow`'s header; for the tracklist, add the paired `add`
 capability to `MemoWindow`'s `TrackRow` usage alongside the existing `drag` (the structural fix for
 BUG-24, done here rather than as an isolated patch, so §7's pairing rule governs it going forward).
@@ -521,6 +521,30 @@ Tests: `AlbumDetail.dragTrack.test.tsx`-style unit test for the new `add` wiring
 Compat: `MemoWindow`'s header markup changes; its memo-text state (`useBucketMemo`) is untouched.
 Rollback: revert the adapter; `TrackRow`'s `add` slot already exists and is safe to leave granted
 elsewhere even if this specific wiring is reverted.
+Result: `MemoAlbumCardAdapter` now projects the memo's album identity and contextual metadata onto
+the canonical card while the host retains memo state, track actions, and lyrics ownership. The
+adapter's track-action return type requires `add` and `drag` together, closing BUG-24 at the boundary
+instead of relying on another call-site convention. `TrackRow` keeps whole-row lyrics only when it
+is the sole control; when `add` is present, lyrics becomes an identity-cell native button beside the
+add button, so interactive elements never nest. The shared card gained an optional display-only
+`eyebrow` slot to preserve the established cover → kicker → title order.
+
+The browser review also exposed a pre-existing nested-overlay gap: `AddToBucketMenu`'s portal was not
+registered above its host dismissable. It now joins the shared dismissable stack, autofocuses and
+traps focus inside the picker, closes before the memo on Escape, and restores focus to the track add
+button. Scroll locking remains owned by `ARCH-overlay-modal-isolation`; this stage did not widen into
+that RFC's 16-overlay adoption sweep.
+
+Verification: lint passed; Astro check reported 0 errors and 2 existing hints; Vitest passed 51 files /
+561 tests; the production build generated 21 pages plus the PWA. A real in-app browser pass at
+390×844 measured zero horizontal overflow and zero nested interactive elements, preserved the
+cover/eyebrow/title order, and confirmed that each draggable track exposes `add`. Tapping `So What`
+opened only the bucket picker, not lyrics. Real keyboard presses confirmed autofocus, Tab wrap,
+top-layer Escape, and trigger-focus restoration. The browser surface did not expose raw CDP touch
+dispatch, so the exact-CDP limitation remains recorded rather than overstated; the requested real
+390px touch/click path itself passed. Deploy run `31097251431` passed through S3 upload, CloudFront
+invalidation, and built-in health smoke; the independent production regression smoke passed 19/19.
+No API, contract, infrastructure, database, auth, or Spotify-call behavior changed.
 
 **Stage 8 — integrate editorial/review album targets**
 Scope: `EditorialAlbumTargetAdapter` for `writer/SubjectHero`; migrate its bespoke single-glyph
@@ -584,7 +608,8 @@ before that stage runs.
 - `BucketAlbumCardAdapter` (Stage 6) does not ship until BUG-21's fix + regression test are merged;
   the regression test still passes with the adapter layered on top.
 - `MemoAlbumCardAdapter` (Stage 7) ships with a working tap alternative for every drag-gated action,
-  confirmed by a real 390px CDP check, not a unit test alone.
+  confirmed by unit coverage and a real 390px browser interaction check. Raw CDP touch dispatch was
+  unavailable in the selected browser and is explicitly recorded rather than claimed.
 - `ReviewCard`'s rendering path is provably unchanged after Stage 8 (explicit negative test).
 - `docs/frontend/component-map.md` gains a canonical album-card registry entry once Stage 3 ships
   (component + capability contract + consumer list) — not written speculatively now, before the
@@ -678,7 +703,7 @@ fully settled (write, play, and its deletes) — closing the race at its actual 
 recorded lesson for the next "soft dependency, fix later" bug in this RFC: verify a proposed minimal
 fix against a reproduction before treating the write-up's own recommendation as sufficient.
 
-### BUG-24 — MemoWindow `TrackRow` drag grant shipped without paired touch alternative (absorbed into this RFC's Stage 7, not external)
+### BUG-24 — MemoWindow `TrackRow` drag grant shipped without paired touch alternative (RESOLVED by Stage 7)
 
 **CONFIRMED.** See §1/§15 Stage 7. `AlbumDetail.tsx:549-560` grants `drag` to `MemoWindow`'s `TrackRow`
 usage (front #368, the RFC's own "ninth slice") without `add` — the one place in the app where a drag
@@ -686,6 +711,10 @@ grant shipped unpaired, violating `ARCH-entity-interaction-v2`'s own binding Rul
 recorded directly in that RFC (see below); the fix itself is this RFC's Stage 7 deliverable, not a
 separately-tracked bug, since fixing it in place (rather than via the new adapter) would just
 reproduce the same un-enforced-pairing risk for the next surface.
+
+**Resolved 2026-08-06** in front #382 (`775f683`, deploy `31097251431`, prod smoke 19/19):
+`MemoAlbumCardAdapter` constructs a paired track-action set whose type requires both `add` and `drag`;
+the tap path opens `AddToBucketMenu` inside `MemoWindow`, and the real 390px browser check passed.
 
 **Erratum recorded in `ARCH-entity-interaction-v2.md`** (decisions log, dated 2026-08-06): the Step 5
 header's claim that "E4's original `play`/`add`/`drag` slot set is now granted somewhere sensible
@@ -760,6 +789,7 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-06 | Stage 7 shipped (front #382, `775f683`; deploy `31097251431`; prod smoke 19/19). `MemoAlbumCardAdapter` now renders the memo identity through the canonical card, and its typed track-action boundary requires `add` beside every `drag`, resolving BUG-24. The 390×844 real-browser pass found zero overflow/nested interaction and confirmed add opens only the bucket picker. A review-discovered nested-overlay gap was fixed at the shared `AddToBucketMenu`: focus, Tab, Escape order, and trigger restoration now work above the memo. Raw CDP touch dispatch was unavailable and is not claimed. Next is Stage 8, gated on Open Question 2's smart-constructor decision. | 7 |
 | 2026-08-06 | Stage 6 shipped (front #381, `5803776`; deploy `31089538369`; prod smoke 19/19). Live Bucket album memberships now use `BucketAlbumCardAdapter` over the canonical card; membership identity and operations remain bucket-owned, while non-album members remain on the legacy generalized renderer. Desktop and 390px real-browser layout/open/action-sheet checks passed; exact CDP touch emulation was unavailable because the in-app browser exposed no CDP and the active Chrome profile lacked the control extension, so that limitation is recorded rather than overstated. Next is Stage 7 (Memo adapter + BUG-24). | 6 |
 | 2026-08-06 | Stage 5 shipped (front #380, `cb3a734`; deploy `31084951887`; prod smoke 19/19). `ForYouReleasesCard`, `TodayAlbumBuckit`, and `ReviewCandidates` now use surface-owned adapters over the canonical card; optional-id For You items remain display-only, and the anniversary, rating, comment, and editor affordances retain their slots. Desktop and 390px real-browser checks passed. Per owner decision, `TodaySongBuckit` remains bespoke. Next is Stage 6 (Bucket adapter; BUG-21 prerequisite already shipped). | 5 |
 | 2026-08-06 | Stage 4 shipped (front #379, `e1268a7`; deploy `31082278000`; prod smoke 19/19). `NewReleasesCard` is the first live `AlbumCard` consumer through a Home-owned adapter; its release label, reviewed badge, intent prefetch, artist link, and album-overlay payload remain surface-owned. Desktop and 390px real-browser checks passed with no overflow, and the legacy renderer remains as the Stage 9 parity fixture. Next is Stage 5 (remaining Home surfaces). | 4 |

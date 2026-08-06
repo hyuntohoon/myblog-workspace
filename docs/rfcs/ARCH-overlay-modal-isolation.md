@@ -4,6 +4,10 @@
 - **Owner**: TBD
 - **Created**: 2026-08-06
 - **Plan row**: `plan.md` → ARCH-overlay-modal-isolation
+- **Partial prerequisite shipped 2026-08-06**: album-card Stage 7 (front #382, `775f683`) registered
+  `AddToBucketMenu` with `useDismissable` and verified autofocus, Tab trapping, top-layer Escape,
+  and trigger-focus restoration in a real 390×844 browser. This removes that part of Step 3; scroll
+  locking, overscroll containment, and the remaining overlay adoption sweep stay in this RFC.
 - **형제, 재론하지 않음**: `docs/rfcs/ARCH-entity-interaction-domain-audit.md` Step 4(완료, front #357) — ESC 키 해제 + 포커스 트랩(`useDismissable`) 7개 컴포넌트 이관은 이미 끝났고 이 RFC는 그 결정을 다시 열지 않는다. 이 RFC가 다루는 것은 Step 4가 **다루지 않은** 두 축 — 배경 스크롤 락(`useScrollLock`)의 입양 격차, 그리고 `AddToBucketMenu`(Step 4에서 명시적으로 범위 밖으로 남겨진 컴포넌트) 하나의 모달 시맨틱스 전체 — 이다.
 - **근거**: 2026-08-06 오너 지시로 돌린 아키텍처 감사, 두 개 병렬 조사(항목 10: 스크롤 격리 27개 오버레이 인벤토리, 항목 11: `AddToBucketMenu` a11y 전면 트레이스) — 세션 스크래치패드 `inv-5-modal-scroll-isolation.md` / `inv-6-addtobucketmenu-a11y.md`. front 인용 HEAD: `cc16ab49a08166a035701450588bcbea78431b09`.
 
@@ -30,7 +34,11 @@
 
 **추가로, 락이 걸리는 오버레이에서도 세 가지가 전혀 없다**(전체 트리 grep 0건): (a) 클래식 스크롤바 플랫폼(Windows/Linux 데스크톱)에서 스크롤바 폭만큼의 레이아웃 시프트를 막는 `padding-right`/`scrollbar-gutter` 보정, (b) iOS Safari의 `overflow:hidden`이 터치 스크롤을 확실히 못 막는 문제에 대한 `position:fixed`+오프셋 완화, (c) 내부 스크롤 경계에서 바깥으로 새는 걸 막는 `overscroll-behavior: contain`(모달 프리미티브 어디에도 없음, 무관한 CSS 4곳에만 존재).
 
-**`AddToBucketMenu.tsx:214`는 `role="dialog" aria-modal="true"`를 선언하지만 뒷받침하는 동작이 전혀 없다** — 포커스 이동/트랩/복원, ESC, 스크롤 락 전부 grep 0건(파일 전체). 배경 클릭 닫힘만 스크림의 네이티브 DOM 히트테스트로 정상 동작한다. **가장 구체적으로 확인된 결함**: `AlbumDetail.tsx:185-193`가 `StandardModal`(이미 `useDismissable`로 `openStack`에 등록됨) 안에 `AddToBucketMenu`를 `autoOpen`으로 중첩시키는 게 실제 배포된 경로인데, `AddToBucketMenu`는 그 `openStack`에 전혀 등록하지 않는다. 그 상태에서 ESC를 누르면 `openStack`엔 `StandardModal`의 토큰 하나뿐이라 그 토큰의 `onClose`가 실행돼 **`AddToBucketMenu`의 시트가 아니라 밑에 있는 앨범 상세 모달이 닫힌다** — `useDismissable`이 정확히 막으려던 실패 형태(자기 헤더 주석이 이 시나리오를 직접 인용)가, 그 계약에 가입 안 한 컴포넌트를 통해 실제로 재현된다. 시각적 z-index 스태킹 자체는 정상(96 > 90) — 키보드 해제 조정만 빠짐.
+**The audit's `AddToBucketMenu` keyboard defect is resolved.** Front #382 registered the picker
+portal with `useDismissable`, attached the dialog ref, and added a nested-host regression test. A
+real 390×844 browser pass confirmed initial focus, Tab wrap, top-layer Escape, and focus restoration.
+The picker still lacks `useScrollLock` and overscroll containment, so it remains in the 16-component
+scroll-isolation gap counted above. Visual z-index stacking remains unchanged and correct (96 > 90).
 
 ## Target state
 
@@ -62,16 +70,19 @@
 
 ---
 
-### Step 3 — `AddToBucketMenu` 전면 수정: `useDismissable` 가입 + 포커스 관리 + 스크롤 락
+### Step 3 — finish `AddToBucketMenu` scroll isolation (keyboard half already shipped)
 
-- `useDismissable`의 `openStack`에 등록(자체 시트 엘리먼트에 `useDismissable(sheetOpen, cancel, sheetRef)` 호출) — 이게 §Current state의 중첩 ESC 결함을 직접 고친다.
-- 시트 오픈 시 초기 포커스(첫 포커스 가능 요소 또는 시트 자체 컨테이너), 탭 트랩(이미 `useDismissable`이 제공), 닫힐 때 트리거 요소로 포커스 복원.
+- **Shipped independently in front #382**: register the sheet in `useDismissable`'s `openStack`,
+  autofocus the first control, trap Tab, close the top layer first on Escape, and restore focus.
 - Step 1의 조합 훅으로 스크롤 락.
 - 배경 비활성화(`inert`)는 이 컴포넌트 하나만 고치지 말고 `useDismissable` 자체에 옵션으로 추가할지 여부를 Open question으로 남김(§Non-goals) — 이 스텝은 `AddToBucketMenu`가 `useDismissable`이 오늘 제공하는 것(ESC/트랩/복원)까지만 정확히 받는 것을 목표로 하고, `useDismissable`이 아직 없는 기능까지 이 스텝에서 새로 발명하지 않는다.
 
-**Verification**: `inv-6-addtobucketmenu-a11y.md`에 설계된 중첩-ESC 회귀 테스트(`AlbumDetail`의 `StandardModal` 안에 `AddToBucketMenu`를 `autoOpen`으로 마운트, `Escape` 디스패치, 부모 `onClose`가 **호출되지 않음**을 단언 — 오늘은 이 단언이 실패함) + 포커스 이동/복원 테스트 신규 작성. 실브라우저 CDP로 중첩 시나리오(앨범 상세 → 담기 시트 → ESC) 확인 — 이 RFC를 실행하는 세션이 실제로 CDP 도구를 쓸 수 있을 때 수행, 못 하면 "실기기/실브라우저 미검증"으로 명시.
+**Verification**: front #382 already supplies the nested-host regression test and real-browser
+keyboard evidence for the shipped half. The remaining Step 3 work must add scroll-lock coverage and
+re-run the nested picker scenario after adopting the Step 1 composition hook.
 
-**Rollback**: `AddToBucketMenu` 한 파일 — 되돌리면 기존(결함 있는) 동작으로 복귀, 다른 컴포넌트 무영향.
+**Rollback**: revert only the future scroll-lock adoption. The already-shipped dismissable behavior
+is a prerequisite and must not be rolled back with this RFC's remaining work.
 
 ---
 
@@ -85,4 +96,5 @@
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-06 | Step 3's keyboard half shipped independently with album-card Stage 7 (front #382, `775f683`; deploy `31097251431`; prod smoke 19/19). Nested-host unit coverage and a real 390×844 browser pass verified autofocus, Tab wrap, top-layer Escape, and trigger-focus restoration. The RFC remains draft: Step 1/2 and Step 3's scroll-lock/overscroll portion are still open. | 3 (partial) |
 | 2026-08-06 | RFC 신설 — 2026-08-06 아키텍처 감사(항목 10 스크롤 격리, 항목 11 `AddToBucketMenu` a11y)에서 확인된 systemic 격차. `ARCH-entity-interaction-domain-audit` Step 4(ESC/포커스트랩)와 겹치지 않게 범위를 스크롤 락 입양 + `AddToBucketMenu` 단일 컴포넌트 전면 수정으로 한정 | 0 |
