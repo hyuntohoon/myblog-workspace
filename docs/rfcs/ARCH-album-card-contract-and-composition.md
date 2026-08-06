@@ -432,7 +432,7 @@ and 0 warnings (2 existing hints), Vitest 49 files / 539 tests (24 AlbumCard cas
 build 21 pages + PWA, project reviewer pass, deploy run `31079317610` success, and prod smoke 19/19.
 No live rendered surface, API, contract, infrastructure, or database behavior changed.
 
-**Stage 4 — migrate one low-risk Home surface**
+**Stage 4 — migrate one low-risk Home surface (SHIPPED 2026-08-06, front #379, `e1268a7`)**
 Scope: `NewReleasesCard` — chosen over `ForYouReleasesCard`/`TodayAlbumBuckit` as the simplest: no
 optional-id degrade branch (unlike `ForYouReleasesCard`), no unused-but-defined `spotify_album_id`
 field to reconcile (unlike `TodayAlbumBuckit`). Public, read-only, `open`-only capability.
@@ -440,6 +440,18 @@ Tests: interaction test (click → `openAlbum()` called with correct id), visual
 pre-migration markup.
 Compat: `NewReleasesCard`'s old `CardItem` stays in the file, dead-code-eligible, until Stage 9.
 Rollback: swap the import back; no shared state touched.
+Result: `NewReleaseAlbumCardAdapter` is the first live consumer of the canonical `AlbumCard`. It
+projects the feed item into `AlbumCardData`, grants only album-open and artist-open navigation, and
+keeps release-date copy, the reviewed-artist badge, intent prefetch, and the overlay display payload
+at the Home boundary. The old renderer remains as `LegacyCardItem` for the Stage 9 parity gate.
+
+Verification: lint passed; Astro check reported 0 errors and 0 warnings (2 existing hints); Vitest
+passed 49 files / 544 tests; the production build generated 21 pages plus the PWA. A local
+read-only fixture drove the real browser: at 1280×720 the 150px card opened the expected album
+overlay, and at 390×844 the 128px card retained its title, artist, release date, and badge with no
+card or section overflow. Deploy run `31082278000` passed through S3 upload, CloudFront invalidation,
+and built-in health smoke; the independent production regression smoke passed 19/19. No API,
+contract, infrastructure, database, auth, or other Home-surface behavior changed.
 
 **Stage 5 — migrate the remaining Home surfaces**
 Scope: `ForYouReleasesCard` (wire the optional-id degrade as "no `open` capability injected" rather
@@ -714,6 +726,7 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-06 | Stage 4 shipped (front #379, `e1268a7`; deploy `31082278000`; prod smoke 19/19). `NewReleasesCard` is the first live `AlbumCard` consumer through a Home-owned adapter; its release label, reviewed badge, intent prefetch, artist link, and album-overlay payload remain surface-owned. Desktop and 390px real-browser checks passed with no overflow, and the legacy renderer remains as the Stage 9 parity fixture. Next is Stage 5 (remaining Home surfaces). | 4 |
 | 2026-08-06 | Stage 3 shipped (front #377, `c32949a`; deploy `31079317610`; prod smoke 19/19). The shared `AlbumCard` now owns canonical grid/row presentation and capability-gated interaction, while remaining unused by live surfaces. Tests freeze the four legacy renderers' real, different DOM/style signatures and separately pin the intentional canonical normalization; `docs/frontend/component-map.md` now records the component contract and zero-consumer state. Next is Stage 4 (`NewReleasesCard`, open-only). | 3 |
 | 2026-08-06 | Stage 2 shipped (front #373, `386539f`; deploy `31075214832`; prod smoke 19/19). `AlbumCardData` and `AlbumCardCapabilities` now form the canonical shared contract; the capability union rejects drag without its `add` tap fallback. The unused `AlbumCard` shim renders `null` and has no live consumers. Next is Stage 3 (shared presentation, still no live-surface migration). | 2 |
 | 2026-08-06 | Stage 1 shipped (front #372, `14ccaef`; deploy `31074197178`; prod smoke 19/19). `openAlbumUnresolved()` makes the Spotify-fallback id and `unresolved: true` an inseparable construction path, and the sole fallback producer now uses it. The independent `CHORE-openalbumdetail-id-pairing-guard` plan row is complete and removed; next is Stage 2 (types only). | 1 |

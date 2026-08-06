@@ -1,6 +1,6 @@
 # Frontend component map — developer / LLM reference
 
-> **Verified 2026-08-06** against `myblog_front` `origin/main` `0504637`
+> **Verified 2026-08-06** against `myblog_front` `origin/main` `e1268a7`
 > (`ARCH-entity-interaction-v2` Step 6 — the transcription the prior stamp deferred: E1's canonical
 > album/track/artist definitions are now recorded here (see "Entity navigation" below), not left
 > RFC-only. "Track-click behavior" is rewritten for the shipped state — Step 5's nine slices (front
@@ -21,8 +21,8 @@
 > "Verified" stamp is the signal to re-verify, not to trust — **and a current stamp does not
 > guarantee correctness either**: check the claim, not just the date.
 >
-> **Album-card Stage 3 addendum 2026-08-06** (front #377): the canonical shared `AlbumCard` now
-> exists and is registered below, but deliberately has zero live consumers until Stage 4. Its tests
+> **Album-card Stage 4 addendum 2026-08-06** (front #379): the canonical shared `AlbumCard` now
+> has its first live consumer, `NewReleasesCard`, through a Home-owned adapter. Its tests
 > freeze the four legacy renderers' actual, different DOM/style signatures and separately record the
 > canonical cover normalization; they do not claim the legacy fallbacks were identical. Also: the
 > earlier "granted `play`/`add`/`drag`
@@ -75,8 +75,11 @@ while modified clicks retain native browser behavior. A granted drag emits both 
 pairs (`PB_DND_*` and `PB_BOARD_DND_*`) and derives `effectAllowed` from `DragPayload.origin`.
 Adapters may override `--album-card-cover-size`; dimensions and slot contents remain surface-owned.
 
-**Live consumers: none as of Stage 3.** Only `AlbumCard.test.tsx` imports the component. Stages 4-8
-will add Home, Bucket, Memo, and editorial adapters one surface at a time; the unrelated local
+**Live consumers as of Stage 4: `home/NewReleasesCard.tsx`.** Its
+`NewReleaseAlbumCardAdapter` maps feed data to `AlbumCardData`, grants album-open and artist-open,
+and owns the release label, reviewed badge, intent prefetch, and album-overlay display payload. The
+legacy renderer remains in the same file as a parity fixture until Stage 9. Stages 5-8 will add the
+remaining Home, Bucket, Memo, and editorial adapters one surface at a time; the unrelated local
 `SearchPage.AlbumCard` is not this primitive. Bucket membership (`itemId`, `temp:*`, bucket/move
 state), memo state, and editorial form state are forbidden in the shared component and stay in
 adapters. Legacy album-surface `Cover`, `AlbumArt`, and `SubjectHero` fallback paths remain live until
@@ -287,9 +290,10 @@ surface and is untouched (Step 2 audit).
   `LikedBoard` card view.
 - **album card rendering** — **shared `components/shared/AlbumCard.tsx`** with
   `styles/album-card.css`; display model and declared capability contract are registered in
-  "Album-card behavior" above. **Zero live consumers at Stage 3**: legacy surface renderers remain
-  authoritative until their Stages 4-8 adapters migrate, and no bucket/memo/editorial state may
-  enter the primitive.
+  "Album-card behavior" above. **First live consumer at Stage 4**:
+  `home/NewReleasesCard.tsx` through `NewReleaseAlbumCardAdapter` (album-open + artist-open only;
+  Home context stays outside the primitive). Other legacy surface renderers remain authoritative
+  until their Stages 5-8 adapters migrate, and no bucket/memo/editorial state may enter the primitive.
 - **album detail** — the read-only body is the shared `components/album/AlbumDetailView.tsx`
   (Step 1), rendered by BOTH the app-wide `components/album/AlbumOverlay.tsx` (public, event-opened,
   `lib/albumDetail.ts` cache) and the member `components/member/AlbumDetail.tsx` (writable modal:
