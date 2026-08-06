@@ -393,12 +393,18 @@ Result: `openAlbumUnresolved(spotifyAlbumId, display)` now owns both `albumId` a
 Astro check 0 errors, Vitest 48 files / 507 tests, deploy run `31074197178` success, prod smoke
 19/19. No API, contract, infrastructure, database, or rendered-UI change.
 
-**Stage 2 — canonical card model + capability contracts (types only, no rendering change)**
+**Stage 2 — canonical card model + capability contracts (SHIPPED 2026-08-06, front #373, `386539f`)**
 Scope: land `AlbumCardData`/`AlbumCardCapabilities` (§5, §7) as types + a no-op `AlbumCard` shim that
 is not yet wired into any surface.
 Tests: type-only; a snapshot test asserting the shim renders nothing observable when unused.
 Compat: zero — nothing consumes it yet.
 Rollback: delete the new files, no blast radius.
+Result: `components/shared/AlbumCard.tsx` now owns the canonical display model and capability contract.
+The capability type makes Rule #14 structural: a `drag` grant does not typecheck without the paired
+`add` tap/action-sheet path. The exported component intentionally returns `null`; a source sweep
+confirmed that no live surface imports it. Verification: lint pass, Astro check 0 errors, Vitest 49
+files / 509 tests (2 new), deploy run `31075214832` success, prod smoke 19/19. No rendered UI, API,
+contract, infrastructure, or database change.
 
 **Stage 3 — extract the shared presentational primitive**
 Scope: implement `AlbumCard`'s real rendering (§8), consolidating the 4 cover-fallback
@@ -688,6 +694,7 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-06 | Stage 2 shipped (front #373, `386539f`; deploy `31075214832`; prod smoke 19/19). `AlbumCardData` and `AlbumCardCapabilities` now form the canonical shared contract; the capability union rejects drag without its `add` tap fallback. The unused `AlbumCard` shim renders `null` and has no live consumers. Next is Stage 3 (shared presentation, still no live-surface migration). | 2 |
 | 2026-08-06 | Stage 1 shipped (front #372, `14ccaef`; deploy `31074197178`; prod smoke 19/19). `openAlbumUnresolved()` makes the Spotify-fallback id and `unresolved: true` an inseparable construction path, and the sole fallback producer now uses it. The independent `CHORE-openalbumdetail-id-pairing-guard` plan row is complete and removed; next is Stage 2 (types only). | 1 |
 | 2026-08-06 | Owner promoted the RFC from `draft` to `accepted`; implementation starts with Stage 1 only, preserving the RFC's staged migration and one-step-per-session gate. | 1 |
 | 2026-08-06 | RFC filed following the 2026-08-06 evidence-based audit (7 parallel investigations against `origin/main`, not against either sibling RFC's own completion claims). 4 of 6 hypothesized defects confirmed unresolved (BUG-21/23/24, defect 6); 1 partially fixed with a newly-found residual (BUG-22); 1 downgraded from "confirmed" to "structural risk, currently contained" (defect 5) | 0 |
