@@ -1,0 +1,38 @@
+# Read-only operational commands that were explicitly allowed in Claude Code.
+# These rules only affect commands Codex requests to run outside its sandbox.
+
+prefix_rule(
+    pattern = ["aws", "ssm", ["get-parameter", "get-parameters-by-path"]],
+    decision = "allow",
+    justification = "Read deployment parameters without changing AWS state.",
+    match = [
+        "aws ssm get-parameter --name /myblog/example",
+        "aws ssm get-parameters-by-path --path /myblog/",
+    ],
+)
+
+prefix_rule(
+    pattern = ["aws", "logs", ["get-log-events", "filter-log-events", "describe-log-streams", "describe-log-groups"]],
+    decision = "allow",
+    justification = "Inspect CloudWatch logs without changing AWS state.",
+    match = [
+        "aws logs get-log-events --log-group-name example --log-stream-name stream",
+        "aws logs filter-log-events --log-group-name example",
+        "aws logs describe-log-streams --log-group-name example",
+        "aws logs describe-log-groups",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "run", "watch"],
+    decision = "allow",
+    justification = "Watch an existing GitHub Actions run.",
+    match = ["gh run watch 123456"],
+)
+
+prefix_rule(
+    pattern = ["git", "fetch"],
+    decision = "allow",
+    justification = "Refresh remote refs without changing the worktree.",
+    match = ["git fetch origin --quiet"],
+)
