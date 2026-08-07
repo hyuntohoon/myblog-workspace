@@ -37,6 +37,14 @@
 > identity, move/reorder/copy, writable detail data, badges, research/mark state, and the action
 > sheet stay in `BucketBoard.tsx`. Only `item_type === 'album'` takes this path. Track, artist,
 > playback, review, and snapshot memberships remain on the generalized legacy renderer.
+>
+> **Album-card Stage 8 addendum 2026-08-07** (front #383): writer album subjects now render through
+> `EditorialAlbumTargetAdapter` over the canonical card. The adapter owns rating, BEST NEW MUSIC,
+> and reopen controls; `AlbumCard` receives only album display identity plus declared open capability
+> and presentation slots. Empty and artist subjects remain on the bespoke writer path, and published
+> `ReviewCard` remains a separate document renderer. `AlbumCardData` now requires
+> `unresolvedAlbumCardData()` for Spotify-only fallback construction; the sole current fallback in
+> `ForYouReleasesCard` uses it. `AlbumOverlay` and `AlbumDetailView` remain unchanged.
 > Human-readable companion: [structure.md](structure.md).
 
 This is the artifact an LLM (or developer) reads to answer "who owns X" without re-grepping.
@@ -82,17 +90,19 @@ while modified clicks retain native browser behavior. A granted drag emits both 
 pairs (`PB_DND_*` and `PB_BOARD_DND_*`) and derives `effectAllowed` from `DragPayload.origin`.
 Adapters may override `--album-card-cover-size`; dimensions and slot contents remain surface-owned.
 
-**Live consumers as of Stage 6:** the Home adapters in `home/NewReleasesCard.tsx`,
+**Live consumers as of Stage 8:** the Home adapters in `home/NewReleasesCard.tsx`,
 `home/ForYouReleasesCard.tsx`, `home/TodayAlbumBuckit.tsx`, and
 `member/ReviewCandidates.tsx`, plus `member/BucketBoard.tsx`'s
-`BucketAlbumCardAdapter`. The Bucket adapter grants album open and the paired action-sheet/drag
-capabilities while retaining every membership operation and state at the Bucket boundary. The first
+`BucketAlbumCardAdapter`, `member/AlbumDetail.tsx`'s `MemoAlbumCardAdapter`, and
+`writer/SubjectHero.tsx`'s `EditorialAlbumTargetAdapter`. The Bucket adapter grants album open and
+the paired action-sheet/drag capabilities while retaining every membership operation and state at the Bucket boundary. The first
 Home adapter, `NewReleaseAlbumCardAdapter`, maps feed data to `AlbumCardData`, grants album-open and
 artist-open, and owns the release label, reviewed badge, intent prefetch, and album-overlay display
 payload. The unrelated local `SearchPage.AlbumCard` is not this primitive. Bucket membership
 (`itemId`, `temp:*`, bucket/move state), memo state, and editorial form state are forbidden in the
-shared component and stay in adapters. Legacy album-surface `Cover`, `AlbumArt`, and `SubjectHero`
-fallback paths remain until their planned migrations and Stage 9 deletion; Bucket's generalized
+shared component and stay in adapters. Empty/artist writer subjects and published `ReviewCard` remain
+bespoke by design. Legacy album-surface `Cover`, `AlbumArt`, and `SubjectHero`
+parity fixtures remain until Stage 9 deletion; Bucket's generalized
 legacy renderer remains live for non-album memberships and as a parity fixture. `LikedBoard.LkCover`
 is retained outside this RFC's
 migration because it presents saved-track rows/cards, not album cards. Stage 3 tests still freeze all
@@ -301,11 +311,12 @@ surface and is untouched (Step 2 audit).
   `LikedBoard` card view.
 - **album card rendering** — **shared `components/shared/AlbumCard.tsx`** with
   `styles/album-card.css`; display model and declared capability contract are registered in
-  "Album-card behavior" above. Live adapters now cover all Stage 4-5 Home targets and Stage 6 Bucket
-  albums. `BucketAlbumCardAdapter` grants open + paired action-sheet/drag while keeping `itemId`,
-  temp ids, move/reorder/copy, writable detail fields, badges, and research/mark state outside the
-  primitive. Non-album Bucket members and the remaining Memo/editorial targets stay on legacy paths
-  until their planned stages; no bucket/memo/editorial state may enter the primitive.
+  "Album-card behavior" above. Live adapters now cover all Stage 4-5 Home targets, Stage 6 Bucket
+  albums, Stage 7 memo headers, and Stage 8 writer album subjects. `BucketAlbumCardAdapter` grants
+  open + paired action-sheet/drag while keeping `itemId`, temp ids, move/reorder/copy, writable detail fields, badges, and research/mark state outside the
+  primitive. `MemoAlbumCardAdapter` and `EditorialAlbumTargetAdapter` likewise retain memo/editorial
+  state at their surface boundaries. Non-album Bucket members, empty/artist writer subjects, and
+  published `ReviewCard` stay on bespoke paths; no bucket/memo/editorial state may enter the primitive.
 - **album detail** — the read-only body is the shared `components/album/AlbumDetailView.tsx`
   (Step 1), rendered by BOTH the app-wide `components/album/AlbumOverlay.tsx` (public, event-opened,
   `lib/albumDetail.ts` cache) and the member `components/member/AlbumDetail.tsx` (writable modal:

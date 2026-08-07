@@ -162,9 +162,7 @@ anywhere a new author would find them.
 // New type — does not replace OpenAlbumDetail, DetailTarget, or BoardAlbum.
 // Surface adapters project their own state into this shape; the shared primitive
 // never sees anything but this shape plus injected capabilities.
-interface AlbumCardData {
-  catalogAlbumId: string | null   // DB id — null means "not yet resolved", first-class, never crashes
-  spotifyAlbumId: string | null   // present only when catalogAlbumId is null (unresolved fallback)
+interface AlbumCardDisplayData {
   title: string
   artist: string | null
   artistId: string | null         // for artist-nav capability; null = artist not linkable
@@ -172,12 +170,27 @@ interface AlbumCardData {
   year: number | null
   loading?: boolean                // skeleton state — distinct from "loaded with no cover"
 }
+
+declare const unresolvedAlbumCardBrand: unique symbol
+
+type AlbumCardData = AlbumCardDisplayData & (
+  | { catalogAlbumId: string; spotifyAlbumId: null }
+  | { catalogAlbumId: null; spotifyAlbumId: null }
+  | {
+      catalogAlbumId: null
+      spotifyAlbumId: string
+      readonly [unresolvedAlbumCardBrand]: true // made only by unresolvedAlbumCardData(...)
+    }
+)
 ```
 
-Two always-present, independently-named fields — not one field plus a boolean flag. This is a
+Two always-present, independently-named fields — not one field plus a boolean flag. Stage 8 closed
+the remaining construction gap by branding the Spotify-only union member and exposing
+`unresolvedAlbumCardData()` as its only type-valid constructor. This is a
 direct, deliberate correction of the risk found in `OpenAlbumDetail` (§19 defect 5): a future author
 reading this type cannot construct an `AlbumCardData` that puts a Spotify id where a consumer expects
-a DB id, because there is no field that means both depending on a third field's value.
+a DB id, because there is no field that means both depending on a third field's value and the foreign
+fallback pair cannot be hand-built.
 
 The shared primitive renders purely off this shape (plus §7's injected capabilities) and off nothing
 else — no `itemId`, no `temp:` string, no bucket reference, no memo text, no review/editorial status.
@@ -200,12 +213,11 @@ else — no `itemId`, no `temp:` string, no bucket reference, no memo text, no r
   bucket row is this" in one component, which is exactly why `copyAlbum`'s resolve handler had
   nowhere unambiguous to look up "wherever this row is now."
 - **Dependency, not scope**: `OpenAlbumDetail`'s existing single-field-plus-flag shape
-  (`entityEvents.ts:15-31`) is not migrated to this model by this RFC. Recommended hardening (own
-  chore, §19): replace ad hoc `unresolved: dbId == null` call-site assignment with an exported smart
-  constructor (`openAlbumUnresolved(spotifyAlbumId, display)`) so a future fallback producer cannot
-  set one field without the other. This RFC's two-field `AlbumCardData` is the shape that constructor
-  should eventually target when `AlbumOverlay`/`AlbumDetailView` migrate (Stage 8), not a reason to
-  touch it sooner.
+  (`entityEvents.ts:15-31`) is not migrated to this model by this RFC. Its independent Stage 1
+  hardening shipped `openAlbumUnresolved(spotifyAlbumId, display)` so fallback producers cannot split
+  the id from the flag. Stage 8 mirrors that invariant inside `AlbumCardData` with
+  `unresolvedAlbumCardData()` and migrates its sole current Spotify-only producer; it does not migrate
+  the separate `AlbumOverlay`/`AlbumDetailView` host boundary.
 
 ---
 
@@ -546,7 +558,7 @@ dispatch, so the exact-CDP limitation remains recorded rather than overstated; t
 invalidation, and built-in health smoke; the independent production regression smoke passed 19/19.
 No API, contract, infrastructure, database, auth, or Spotify-call behavior changed.
 
-**Stage 8 — integrate editorial/review album targets**
+**Stage 8 — integrate editorial/review album targets (SHIPPED 2026-08-07, front #383, `1788bf1`)**
 Scope: `EditorialAlbumTargetAdapter` for `writer/SubjectHero`; migrate its bespoke single-glyph
 fallback and layout onto `AlbumCard` with a `secondaryLine` slot for BEST NEW MUSIC/selection reason.
 Explicitly reaffirm (§12): `ReviewCard` is not touched and does not migrate onto `AlbumCard` — this
@@ -556,6 +568,21 @@ regression test.
 Compat: `SubjectHero`'s rating-input/BEST NEW MUSIC toggle are editorial-only state, untouched, passed
 through as adapter-owned controls alongside the card.
 Rollback: revert the adapter; `SubjectHero`'s editorial state is independent of the card's markup.
+
+Result: live writer album subjects now compose `AlbumCard` through
+`EditorialAlbumTargetAdapter`; rating, BEST NEW MUSIC, reopen, and the writer glow/layout remain
+writer-owned. Empty and artist subjects stay on the bespoke path. `ReviewCard` remains on its
+published-document renderer and has a negative regression test proving that no canonical card is
+introduced there. OQ2 was resolved with a branded `unresolvedAlbumCardData()` construction path;
+the sole current Spotify-only `AlbumCardData` producer in `ForYouReleasesCard` now uses it, while
+`AlbumOverlay` and `AlbumDetailView` remain explicitly outside this stage.
+
+Verification: lint passed; Astro check reported 0 errors and 2 existing hints; Vitest passed 52 files /
+567 tests; the production build generated 21 pages plus the PWA. Desktop and 390px real-browser
+checks confirmed canonical writer rendering, BEST NEW MUSIC toggle, reopen-dialog focus restoration,
+keyboard rating input, zero horizontal overflow, and zero nested interactive elements. Deploy run
+`31136547054` passed S3 upload, CloudFront invalidation, and built-in health smoke; the independent
+production regression smoke passed 19/19.
 
 **Stage 9 — remove duplicated legacy cards**
 Scope: delete `NewReleasesCard.CardItem`/`ForYouReleasesCard.CardItem`/`TodayAlbumBuckit.Card`'s old
@@ -780,15 +807,17 @@ for it; tracked as its own CHORE item in `plan.md`.
 1. **Resolved 2026-08-06 — keep `TodaySongBuckit` bespoke.** Its single-pick, owner-only curation
    controls are unlike the shared card capability set; Stage 5 therefore migrated only the three
    album-oriented surfaces named in its scope.
-2. Should the Stage-1 `openAlbumUnresolved()` smart constructor eventually become the *only* way to
-   construct `AlbumCardData` with a `spotifyAlbumId` fallback, unifying the two identifier shapes? Left
-   open — Stage 8 (when `AlbumOverlay` is the last consumer of the old shape) is the natural point to
-   decide, not now.
+2. **Resolved 2026-08-07 — require a smart constructor for Spotify-only `AlbumCardData`.**
+   `unresolvedAlbumCardData()` is the only type-valid way to pair `catalogAlbumId: null` with a
+   Spotify fallback. Stage 8 migrated the sole current direct fallback producer in
+   `ForYouReleasesCard`; `AlbumOverlay`/`AlbumDetailView` were not migrated because their separate
+   detail-host boundary is outside the editorial target scope.
 
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-07 | Stage 8 shipped (front #383, `1788bf1`; deploy `31136547054`; prod smoke 19/19). `EditorialAlbumTargetAdapter` now renders live writer album subjects through the canonical card while rating, BEST NEW MUSIC, reopen, and writer layout remain surface-owned; empty/artist subjects stay bespoke and a negative test freezes published `ReviewCard` on its document renderer. OQ2 resolved to require `unresolvedAlbumCardData()` for Spotify-only fallbacks, with the sole current producer migrated. Desktop and 390px browser checks passed with keyboard rating, BNM, reopen/focus restoration, zero overflow, and zero nested interaction. Next is Stage 9 legacy removal, gated on the full parity suite. | 8 |
 | 2026-08-06 | Stage 7 shipped (front #382, `775f683`; deploy `31097251431`; prod smoke 19/19). `MemoAlbumCardAdapter` now renders the memo identity through the canonical card, and its typed track-action boundary requires `add` beside every `drag`, resolving BUG-24. The 390×844 real-browser pass found zero overflow/nested interaction and confirmed add opens only the bucket picker. A review-discovered nested-overlay gap was fixed at the shared `AddToBucketMenu`: focus, Tab, Escape order, and trigger restoration now work above the memo. Raw CDP touch dispatch was unavailable and is not claimed. Next is Stage 8, gated on Open Question 2's smart-constructor decision. | 7 |
 | 2026-08-06 | Stage 6 shipped (front #381, `5803776`; deploy `31089538369`; prod smoke 19/19). Live Bucket album memberships now use `BucketAlbumCardAdapter` over the canonical card; membership identity and operations remain bucket-owned, while non-album members remain on the legacy generalized renderer. Desktop and 390px real-browser layout/open/action-sheet checks passed; exact CDP touch emulation was unavailable because the in-app browser exposed no CDP and the active Chrome profile lacked the control extension, so that limitation is recorded rather than overstated. Next is Stage 7 (Memo adapter + BUG-24). | 6 |
 | 2026-08-06 | Stage 5 shipped (front #380, `cb3a734`; deploy `31084951887`; prod smoke 19/19). `ForYouReleasesCard`, `TodayAlbumBuckit`, and `ReviewCandidates` now use surface-owned adapters over the canonical card; optional-id For You items remain display-only, and the anniversary, rating, comment, and editor affordances retain their slots. Desktop and 390px real-browser checks passed. Per owner decision, `TodaySongBuckit` remains bespoke. Next is Stage 6 (Bucket adapter; BUG-21 prerequisite already shipped). | 5 |
