@@ -3,7 +3,7 @@
 - **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-08-06
-- **Plan row**: `plan.md` → ARCH-album-card-contract-and-composition
+- **Plan row**: removed after Stage 9 post-merge Definition of Done (2026-08-07)
 - **Sibling, does not reopen**: `docs/rfcs/ARCH-entity-interaction-v2.md` (**closed**, ws #843) — that RFC
   owns the canonical *entity* contract (identity, URL/open behavior, drag-payload shape, one
   `TrackRow` capability contract). This RFC does not relitigate any of its settled decisions
@@ -282,8 +282,10 @@ Each adapter maps its own domain state → `AlbumCardData` + `AlbumCardCapabilit
 everything `AlbumCard` must not:
 
 - **`HomeAlbumCardAdapter`** (`NewReleasesCard`, `ForYouReleasesCard`, `TodayAlbumBuckit`,
-  `ReviewCandidates`'s candidate row) — read-only, injects `open` (+`artistOpen` where an artist id
-  exists) only. Owns per-surface badge population (release-date pill, "N년 전", rating stars).
+  `ReviewCandidates`'s candidate row) — injects `open` (+`artistOpen` where an artist id exists),
+  and for catalog-backed albums pairs external copy `drag` with `AddToBucketMenu`. Spotify-only
+  data remains display-only with an explicit catalog-registration status. Owns per-surface badge
+  population (release-date pill, "N년 전", rating stars).
 - **`BucketAlbumCardAdapter`** (`BucketBoard.AlbumChip`'s presentational half) — the one adapter that
   owns `itemId`/`temp:*` lifecycle, injects `open`, `add` (kebab action sheet — already the shipped
   touch path here), and `drag` (paired, per Rule #14, already correctly paired today via the kebab
@@ -584,14 +586,48 @@ keyboard rating input, zero horizontal overflow, and zero nested interactive ele
 `31136547054` passed S3 upload, CloudFront invalidation, and built-in health smoke; the independent
 production regression smoke passed 19/19.
 
-**Stage 9 — remove duplicated legacy cards**
+**Stage 9 — remove duplicated legacy cards (SHIPPED 2026-08-07, front #384, `2799542`)**
 Scope: delete `NewReleasesCard.CardItem`/`ForYouReleasesCard.CardItem`/`TodayAlbumBuckit.Card`'s old
 bespoke markup, `SubjectHero`'s inline fallback glyph, and the
 now-unused paths through `Cover`/`AlbumArt` that only the legacy components used.
 Tests: full parity-test suite (from Stages 4-8) must be green with zero regressions before any
-deletion; this stage adds no new behavior, only removes dead code.
+deletion. The original no-new-behavior premise was superseded by the owner's Stage 9 parity gate:
+Home had lost desktop drag during migration, so closing the RFC required restoring it and its
+mandatory touch alternative before deleting the fixtures.
 Compat: none needed — by construction, nothing outside the deleted files references the old markup.
-Rollback: `git revert` the deletion commit; low-risk since it's a pure removal.
+Rollback: `git revert` front #384 as one unit; the removal and Home parity repair share a commit so
+the old fixtures and old Pocket handoff cannot be restored independently by accident.
+
+Result: `LegacyCardItem`, `LegacyForYouReleaseCard`, `LegacyTodayAlbumCard`,
+`LegacyReviewCandidateCard`, `LegacyAlbumChip`, `LegacyMemoAlbumHeader`, and `LegacySubjectHero`
+were deleted together with their private Home/Memo/writer styles, the Bucket `canonical` switch,
+and legacy-comparison tests. The surviving generalized Bucket tile is now explicitly non-album.
+`Cover` and `AlbumArt` were not deleted wholesale: a fresh import graph found legitimate non-card
+consumers, so only legacy-only paths and styles were removed. Source, runtime lazy-import, and built
+bundle scans found no remaining deleted symbol or selector reference.
+
+Functional parity fix: `HomeAlbumCardAdapter` now composes every applicable New Releases, For You,
+Today, and Review Candidate card. A non-null `catalogAlbumId` grants both an external
+`{kind:'external', copies:true}` copy drag and the existing `AddToBucketMenu` action. Home does not
+mount `BucketBoard`, so Pocket now completes this one external album copy directly: General routes
+to `addBucketItem`, Artist to `expandSourceArtists`, and Playback to `expandAlbumTracks`; the
+sync-owned Spotify library target remains rejected by the existing manual-add policy. Spotify-only
+For You releases stay display-only and show “catalog registration required”; `spotifyAlbumId`
+remains display/navigation fallback data and is never converted into a catalog write id. Album
+opening, artist anchors, unresolved handling, badges/secondary lines, ratings/comments, editor
+entry, Memo, Bucket, and writer presentation remain surface-owned and unchanged.
+
+Verification: lint passed; Astro check reported 0 errors and 2 existing hints; Vitest passed 53
+files / 565 tests; the production build generated 21 pages plus the PWA. Browser checks covered
+Home, Bucket, Memo, Review Candidate, writer, and published critique surfaces. At 390×844,
+`AddToBucketMenu` added the same catalog album to Pocket with
+`{album_id: 0912b807-be97-4227-ab55-c829347fa71a, item_type: album}`. The selected in-app browser
+could not emit a trusted HTML5 native drag gesture; this is not overstated. Instead, the live DOM
+confirmed `draggable=true`, adapter tests captured the exact copy payload/effect, and routing tests
+proved General/Artist/Playback writes plus Spotify-library rejection. After deploy, a cache-busted
+real prod Home loaded `EditorialHome.rhuzOFnH.js`; all 15 catalog cards exposed drag, add, and open,
+with zero console errors. Deploy run `31140363308` passed, including health smoke; the independent
+production regression smoke passed 19/19.
 
 ---
 
@@ -617,21 +653,18 @@ Rollback: `git revert` the deletion commit; low-risk since it's a pure removal.
 
 ## 17. Rollback strategy
 
-Every stage after Stage 3 touches exactly one surface's adapter and leaves that surface's pre-existing
-bespoke component in the file, unused but present, until Stage 9. Rolling back any single stage
-(4-8) is swapping one import back — no shared-primitive or cross-surface state is touched by a
-single-surface migration. Rolling back Stage 3 itself (the primitive) is a plain revert as long as
-Stage 9 has not run (no legacy component has been deleted yet, so nothing depends exclusively on the
-primitive). Stage 9 is the only stage whose rollback requires restoring deleted files from git history
-rather than a forward-only swap — which is exactly why Stage 9's gate (full parity-test green) exists
-before that stage runs.
+Stages 4-8 each left the pre-existing bespoke component unused but present so an individual stage
+could be rolled back by swapping one import. Stage 9 has now removed those fixtures; rolling back
+Stage 3 or any migrated surface past that boundary requires restoring the deleted paths from git
+history. Revert front #384 as a unit if Stage 9 itself must roll back, because the Home drag/add
+repair and Pocket completion path are part of its functional-parity gate.
 
 ## 18. Acceptance criteria
 
 - `AlbumCardData`/`AlbumCardCapabilities` types exist and typecheck; `AlbumCard` imports none of the
   forbidden domain types listed in §8.
-- All 3 migrated Home surfaces (Stage 4-5) render with zero visual/DOM diff against their
-  pre-migration output, and their `open` navigation is interaction-tested.
+- All four applicable Home/Home-adjacent adapters (New Releases, For You, Today, Review Candidate)
+  preserve presentation/open navigation and pair catalog-backed drag with `AddToBucketMenu`.
 - `BucketAlbumCardAdapter` (Stage 6) does not ship until BUG-21's fix + regression test are merged;
   the regression test still passes with the adapter layered on top.
 - `MemoAlbumCardAdapter` (Stage 7) ships with a working tap alternative for every drag-gated action,
@@ -644,6 +677,8 @@ before that stage runs.
   ownership).
 - Legacy per-surface card markup (Stage 9) is deleted only after every prior stage's parity tests are
   green.
+- Stage 9 leaves zero source, lazy-runtime, or built-bundle reference to a deleted legacy renderer;
+  Spotify-only data remains outside catalog writes and displays the existing unresolved policy.
 
 ---
 
@@ -776,7 +811,7 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 ---
 
-## 20. Affected files and components (based on `myblog_front` @ `bcb6544`)
+## 20. Affected files and components (final state based on `myblog_front` @ `2799542`)
 
 - `src/components/shared/AlbumCard.tsx` — **new**, the canonical primitive (Stage 3)
 - `src/components/shared/TrackRow.tsx` — unchanged, the direct precedent this RFC follows
@@ -784,6 +819,8 @@ for it; tracked as its own CHORE item in `plan.md`.
   (`OpenAlbumDetail`) is the target of the independent Stage-1 hardening chore only
 - `src/components/home/NewReleasesCard.tsx` (Stage 4), `ForYouReleasesCard.tsx`, `TodayAlbumBuckit.tsx`
   (Stage 5), `home/ui.tsx` (`Cover`, consolidation target for Stage 3)
+- `src/components/home/HomeAlbumCardAdapter.tsx` (Stage 9) — shared Home catalog add/drag pairing;
+  Spotify-only status boundary
 - `src/components/member/ReviewCandidates.tsx` (Stage 5)
 - `src/components/member/BucketBoard.tsx` (`AlbumChip` extraction, Stage 6; also BUG-21's fix site),
   `member/ui.tsx` (`AlbumArt`, consolidation base for Stage 3)
@@ -792,6 +829,9 @@ for it; tracked as its own CHORE item in `plan.md`.
 - `src/components/member/LikedBoard.tsx` (`LkCover`, Stage 3 comparative fixture only; unchanged
   because it renders saved-track rows/cards rather than an album-card surface)
 - `src/components/writer/SubjectHero.tsx` (Stage 8)
+- `src/components/member/pocket/PocketBuckitProvider.tsx`, `PocketTray.tsx`,
+  `src/lib/pocketBuckit/externalAlbumDrop.ts` (Stage 9) — direct external album-copy completion for
+  Home, which has no `BucketBoard` island
 - `src/components/album/AlbumOverlay.tsx`, `album/AlbumDetailView.tsx` — read only by this RFC;
   `AlbumOverlay`'s `play` capability and its `replaceQueueAndPlay()` dependency are BUG-23's context,
   not migrated by this RFC
@@ -817,6 +857,7 @@ for it; tracked as its own CHORE item in `plan.md`.
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-07 | Stage 9 shipped (front #384, `2799542`; deploy `31140363308`; prod smoke 19/19), closing all nine implementation stages. Deleted seven legacy Home/Bucket/Memo/writer card renderers, private styles, the Bucket compatibility switch, and comparison fixtures; source/lazy/bundle scans found zero runtime references. The Stage 9 parity gate also repaired Home: catalog-backed New Releases, For You, Today, and Review Candidate cards now pair external copy drag with `AddToBucketMenu`, and Pocket completes General/Artist/Playback drops without a `BucketBoard` island. Spotify-only releases remain explicit display-only fallbacks and no Spotify id is written as a catalog id. Local browser checks covered Home/Bucket/Memo/editor/critique and the 390px add POST; prod Home rendered 15/15 catalog cards with drag+add+open and zero console errors. The selected browser could not emit a trusted native HTML5 drag, so exact payload + route tests and live `draggable` DOM evidence are recorded instead of claiming the gesture. | 9 |
 | 2026-08-07 | Stage 8 shipped (front #383, `1788bf1`; deploy `31136547054`; prod smoke 19/19). `EditorialAlbumTargetAdapter` now renders live writer album subjects through the canonical card while rating, BEST NEW MUSIC, reopen, and writer layout remain surface-owned; empty/artist subjects stay bespoke and a negative test freezes published `ReviewCard` on its document renderer. OQ2 resolved to require `unresolvedAlbumCardData()` for Spotify-only fallbacks, with the sole current producer migrated. Desktop and 390px browser checks passed with keyboard rating, BNM, reopen/focus restoration, zero overflow, and zero nested interaction. Next is Stage 9 legacy removal, gated on the full parity suite. | 8 |
 | 2026-08-06 | Stage 7 shipped (front #382, `775f683`; deploy `31097251431`; prod smoke 19/19). `MemoAlbumCardAdapter` now renders the memo identity through the canonical card, and its typed track-action boundary requires `add` beside every `drag`, resolving BUG-24. The 390×844 real-browser pass found zero overflow/nested interaction and confirmed add opens only the bucket picker. A review-discovered nested-overlay gap was fixed at the shared `AddToBucketMenu`: focus, Tab, Escape order, and trigger restoration now work above the memo. Raw CDP touch dispatch was unavailable and is not claimed. Next is Stage 8, gated on Open Question 2's smart-constructor decision. | 7 |
 | 2026-08-06 | Stage 6 shipped (front #381, `5803776`; deploy `31089538369`; prod smoke 19/19). Live Bucket album memberships now use `BucketAlbumCardAdapter` over the canonical card; membership identity and operations remain bucket-owned, while non-album members remain on the legacy generalized renderer. Desktop and 390px real-browser layout/open/action-sheet checks passed; exact CDP touch emulation was unavailable because the in-app browser exposed no CDP and the active Chrome profile lacked the control extension, so that limitation is recorded rather than overstated. Next is Stage 7 (Memo adapter + BUG-24). | 6 |
