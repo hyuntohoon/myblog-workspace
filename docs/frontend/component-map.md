@@ -1,6 +1,6 @@
 # Frontend component map — developer / LLM reference
 
-> **Verified 2026-08-06** against `myblog_front` `origin/main` `5803776`
+> **Verified 2026-08-07** against `myblog_front` `origin/main` `2799542`
 > (`ARCH-entity-interaction-v2` Step 6 — the transcription the prior stamp deferred: E1's canonical
 > album/track/artist definitions are now recorded here (see "Entity navigation" below), not left
 > RFC-only. "Track-click behavior" is rewritten for the shipped state — Step 5's nine slices (front
@@ -45,6 +45,17 @@
 > `ReviewCard` remains a separate document renderer. `AlbumCardData` now requires
 > `unresolvedAlbumCardData()` for Spotify-only fallback construction; the sole current fallback in
 > `ForYouReleasesCard` uses it. `AlbumOverlay` and `AlbumDetailView` remain unchanged.
+>
+> **Album-card Stage 9 addendum 2026-08-07** (front #384): the migration is closed. The exported
+> legacy Home, Bucket, Memo, and writer parity renderers, their private styles, compatibility flag,
+> and legacy-comparison tests are deleted. `HomeAlbumCardAdapter` is now the common Home composition:
+> a catalog-backed album grants open/artist navigation plus an external copy drag and the paired
+> `AddToBucketMenu` touch/keyboard action. Pocket completes that external copy itself because Home
+> does not mount `BucketBoard`; General uses `addBucketItem`, Artist uses `expandSourceArtists`, and
+> Playback uses `expandAlbumTracks`. A Spotify-only release remains non-openable/non-writable and
+> visibly explains that catalog registration is required; its Spotify id is never projected into a
+> catalog write. `Cover` and `AlbumArt` remain because non-card surfaces still consume them, while
+> the generalized Bucket renderer remains only for non-album membership types.
 > Human-readable companion: [structure.md](structure.md).
 
 This is the artifact an LLM (or developer) reads to answer "who owns X" without re-grepping.
@@ -90,7 +101,7 @@ while modified clicks retain native browser behavior. A granted drag emits both 
 pairs (`PB_DND_*` and `PB_BOARD_DND_*`) and derives `effectAllowed` from `DragPayload.origin`.
 Adapters may override `--album-card-cover-size`; dimensions and slot contents remain surface-owned.
 
-**Live consumers as of Stage 8:** the Home adapters in `home/NewReleasesCard.tsx`,
+**Live consumers after Stage 9:** the Home adapters in `home/NewReleasesCard.tsx`,
 `home/ForYouReleasesCard.tsx`, `home/TodayAlbumBuckit.tsx`, and
 `member/ReviewCandidates.tsx`, plus `member/BucketBoard.tsx`'s
 `BucketAlbumCardAdapter`, `member/AlbumDetail.tsx`'s `MemoAlbumCardAdapter`, and
@@ -98,16 +109,16 @@ Adapters may override `--album-card-cover-size`; dimensions and slot contents re
 the paired action-sheet/drag capabilities while retaining every membership operation and state at the Bucket boundary. The first
 Home adapter, `NewReleaseAlbumCardAdapter`, maps feed data to `AlbumCardData`, grants album-open and
 artist-open, and owns the release label, reviewed badge, intent prefetch, and album-overlay display
-payload. The unrelated local `SearchPage.AlbumCard` is not this primitive. Bucket membership
+payload. `HomeAlbumCardAdapter` grants external copy drag only when `catalogAlbumId` exists and
+always pairs it with `AddToBucketMenu`; Spotify-only data is display-only with an explicit status.
+The unrelated local `SearchPage.AlbumCard` is not this primitive. Bucket membership
 (`itemId`, `temp:*`, bucket/move state), memo state, and editorial form state are forbidden in the
 shared component and stay in adapters. Empty/artist writer subjects and published `ReviewCard` remain
-bespoke by design. Legacy album-surface `Cover`, `AlbumArt`, and `SubjectHero`
-parity fixtures remain until Stage 9 deletion; Bucket's generalized
-legacy renderer remains live for non-album memberships and as a parity fixture. `LikedBoard.LkCover`
-is retained outside this RFC's
-migration because it presents saved-track rows/cards, not album cards. Stage 3 tests still freeze all
-four renderers' actual, different DOM/style signatures and separately pin the canonical two-letter fallback plus lazy/async
-image normalization; per-surface visual/interaction parity is the gate for Stages 4-8.
+bespoke by design. `Cover` and `AlbumArt` remain for legitimate non-card consumers, not as legacy
+album-card fixtures. Bucket's generalized renderer remains live only for non-album memberships.
+`LikedBoard.LkCover` is retained outside this RFC's migration because it presents saved-track
+rows/cards, not album cards. Tests now freeze the intended canonical presentation and interaction
+directly; no deleted renderer is imported as a comparison fixture.
 
 ## Track-click behavior — shared `TrackRow` for React member islands
 
