@@ -370,9 +370,24 @@ resource "aws_apigatewayv2_route" "todays_pick_queue_promote_post" {
 
 # FEAT-spotify-library-sync: manual "동기화" enqueues an async Spotify-Library sync
 # job; the worker does the Spotify reads/diffs/writes (rule #9 — never sync here).
-# The GET /api/buckets/spotify-library/state read rides the edge_guard catch-all
-# (api_get_proxy) — no route here. Declared before the {id} routes is unnecessary
-# for API Gateway (it matches the more-specific literal path), but kept grouped.
+# Declared before the {id} routes is unnecessary for API Gateway (it matches the
+# more-specific literal path), but kept grouped.
+#
+# BUG-25 (2026-08-09): GET /api/buckets/spotify-library/state used to ride the
+# edge_guard catch-all (api_get_proxy) with NO route here — meaning no Cognito
+# authorizer, so the backend route's own missing auth dependency was the only
+# thing standing between anonymous internet traffic and the owner's synced
+# Spotify library state. Both bugs are fixed together: the backend route now
+# requires provisioned_owner_id, and this dedicated route gives it the same
+# JWT authorizer as the sibling POST below.
+resource "aws_apigatewayv2_route" "buckets_spotify_library_state_get" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "GET /api/buckets/spotify-library/state"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "buckets_spotify_library_sync_post" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "POST /api/buckets/spotify-library/sync"
