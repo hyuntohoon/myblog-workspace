@@ -166,16 +166,28 @@ contract change. Revert the PR.
 
 ## Open questions
 
-1. **Exact in-modal layout for the three sections** (tabs / stacked / accordion / other) — blocks
-   Step 1's visual implementation. Resolve against the real 390px screen during Step 1 rather than
-   deciding in the abstract here.
-2. **Does a star click save immediately, or does the modal need an explicit save action?** — blocks
-   Step 1's UX detail. Immediate write plus an undo affordance would match
-   `FEAT-album-review-authoring`'s "가볍게" premise, but no owner decision on this specific point is
-   recorded yet — confirm at implementation time.
-3. **Does the tile-corner research dot stay clickable (routing into the modal) or become a
-   non-interactive status indicator only** (with the modal reachable via the tile's main open action)?
-   — doesn't block Step 1 either way; decide once real screen space is in front of you.
+1. **Resolved 2026-08-09 (Step 1)**: stacked single-column sections (평가 block → 메모 → collapsible
+   리서치 노트), reusing the existing `.memo-lg-grid` two-column desktop / single-column-under-740px
+   layout as-is — no tabs. Verified against the real 390×844 viewport (CDP): the album card, live star
+   input (sized to 38px for touch), memo textarea, and 오늘 밤 키우기 toggle all read cleanly stacked;
+   리서치 노트 collapses below the fold, reachable by scrolling. Tabs were considered and rejected — this
+   app has no existing tab paradigm for a modal this size, and stacking degrades gracefully to the
+   already-shipped mobile breakpoint instead of introducing a new one.
+2. **Resolved 2026-08-09 (Step 1)**: immediate write + undo, per the RFC's own lean. A star click PUTs
+   immediately (verified live: `PUT /api/reviews/albums/{id}` round-trips and the value survives a
+   reload); a "되돌리기" link appears for ~4s after each change, reverting to the prior rating via
+   another PUT (matching the existing toast/undo pattern in `StandardModal`'s play notice). The
+   one-liner comment is debounced (650ms, same cadence as the bucket memo) and disabled until a rating
+   exists (`Backend_MyAlbumStateResponse`'s own DB CHECK: a null rating cannot carry a comment).
+3. **Resolved 2026-08-09 (Step 1)**: the corner dot stays clickable, routed to the same unified modal
+   (focused to 리서치 노트) via `DetailTarget.focusResearch`. Live CDP hit-testing at the dot's own
+   center (`document.elementFromPoint`) found it **already** resolves to `.rsh-cover-badge`, not
+   `.bb-tile-mark` — the existing `.rsh-cover-badge { z-index: 2 }` already outranks `.bb-tile-mark`'s
+   implicit `z-index: auto` per normal CSS stacking rules, so the "swallows clicks" claim in Current
+   state does not reproduce as literally described. Fixed anyway, defensively: `.bb-tile-mark` now
+   carries an explicit `z-index: 1` (was implicit) and the dot grew from 12px to 16px for touch
+   precision — making the layering intentional rather than accidental, since accidental-and-correct is
+   exactly how the original `.bb-tile-mark` regression happened in the first place.
 4. **Resolved 2026-08-09**: shipping Step 1 restarts `FEAT-album-review-authoring`'s re-measurement
    gate clock. Owner decision: the gate's clock resets to Step 1's ship date, not 2026-08-12 as
    originally planned — before Step 1, the bucket-click path had no rating affordance at all, so any
@@ -188,3 +200,4 @@ contract change. Revert the PR.
 |------|----------|------|
 | 2026-08-09 | RFC opened. Two modal-restructure options were proposed in-session (3-tab merge of 평가/리서치노트/메모; click-shows-평가-by-default with 메모/리서치노트 behind a secondary action). An independent design opinion was separately solicited from Opus, which read the code and recommended a third path: leave the three features in their existing separate homes, and just wire a live rating control into `MemoWindow`'s existing dead `미평가` slot — reasoning that 메모 is the higher-frequency action and a tab/reorder would tax it to accommodate 평가's lower frequency. The owner reviewed all three framings and rejected all of them in favor of full unification — reasoning given in-session: 평가 is expected to be the single most frequent action (reversing Opus's frequency assumption), and 리서치 노트's entry point is not merely low-discoverability but **actively broken** in current use (confirmed by code read: `.bb-tile-mark`, introduced 2026-07-31, and `.rsh-cover-badge`, introduced 2026-06-11, occupy the identical tile corner with no z-index coordination — an unreviewed regression, not a documented design choice). Final direction: one modal, always the same shape on click, all three sections reachable inside it; the badge collision is resolved by routing the research entry into that same modal rather than by repositioning two competing corner controls. | 0 |
 | 2026-08-09 | Owner accepted the RFC as written (Status: draft → accepted), unblocking Step 1. Owner also resolved Open question 4: `FEAT-album-review-authoring`'s re-measurement gate clock restarts at Step 1's ship date rather than running against the pre-existing 2026-08-12 date. | — |
+| 2026-08-10 | Step 1 implemented and live-verified (desktop + 390×844 CDP, real backend round-trip against a fresh local uvicorn pointed at prod Neon per this repo's own local-dev convention, `ENV=local`). OQ1–3 resolved — see Open questions above. Current-state audit re-confirmed the RFC's code citations still hold (line numbers drifted a few lines, logic identical); the one claim that did **not** empirically reproduce was the tile-corner click collision (`.rsh-cover-badge`'s existing `z-index:2` already wins over `.bb-tile-mark`'s implicit stacking) — fixed defensively anyway (explicit z-index + larger touch target) rather than left as an untested assumption. | 1 |
