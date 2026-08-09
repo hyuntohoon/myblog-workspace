@@ -1,6 +1,6 @@
 # ARCH-overlay-modal-isolation: 오버레이 공통 계약 — 스크롤 락 입양 + `AddToBucketMenu` 모달 시맨틱스
 
-- **Status**: draft
+- **Status**: draft — implementation complete (Steps 1–3), owner status promotion pending
 - **Owner**: TBD
 - **Created**: 2026-08-06
 - **Plan row**: `plan.md` → ARCH-overlay-modal-isolation
@@ -8,6 +8,14 @@
   `AddToBucketMenu` with `useDismissable` and verified autofocus, Tab trapping, top-layer Escape,
   and trigger-focus restoration in a real 390×844 browser. This removes that part of Step 3; scroll
   locking, overscroll containment, and the remaining overlay adoption sweep stay in this RFC.
+- **Steps 1–3 (scroll-isolation half) shipped 2026-08-09**: see Decisions log. All 13 gap components
+  now lock background scroll, all locked modal primitives (plus `AddToBucketMenu`'s inline sheet)
+  gained `overscroll-behavior: contain`, and `component-map.md`'s overlay registry carries a scroll-lock
+  column. Open question 1 was resolved in favor of a `useDismissable({ lockScroll: true })` option
+  (fewer callsite changes for the 10 components already on `useDismissable`); the 3 components without
+  `useDismissable` (`ActionSheet`, `BucketPickerSheet`, `PocketDesignSettings`) call `useScrollLock()`
+  directly, per Step 2's explicit fallback. Open questions 2 (`inert`) and 3 (real iOS device
+  verification) remain open — neither was a Step 1–3 completion gate (§Non-goals).
 - **형제, 재론하지 않음**: `docs/rfcs/ARCH-entity-interaction-domain-audit.md` Step 4(완료, front #357) — ESC 키 해제 + 포커스 트랩(`useDismissable`) 7개 컴포넌트 이관은 이미 끝났고 이 RFC는 그 결정을 다시 열지 않는다. 이 RFC가 다루는 것은 Step 4가 **다루지 않은** 두 축 — 배경 스크롤 락(`useScrollLock`)의 입양 격차, 그리고 `AddToBucketMenu`(Step 4에서 명시적으로 범위 밖으로 남겨진 컴포넌트) 하나의 모달 시맨틱스 전체 — 이다.
 - **근거**: 2026-08-06 오너 지시로 돌린 아키텍처 감사, 두 개 병렬 조사(항목 10: 스크롤 격리 27개 오버레이 인벤토리, 항목 11: `AddToBucketMenu` a11y 전면 트레이스) — 세션 스크래치패드 `inv-5-modal-scroll-isolation.md` / `inv-6-addtobucketmenu-a11y.md`. front 인용 HEAD: `cc16ab49a08166a035701450588bcbea78431b09`.
 
@@ -40,6 +48,22 @@ real 390×844 browser pass confirmed initial focus, Tab wrap, top-layer Escape, 
 The picker still lacks `useScrollLock` and overscroll containment, so it remains in the 16-component
 scroll-isolation gap counted above. Visual z-index stacking remains unchanged and correct (96 > 90).
 
+**2026-08-09 re-audit (this branch, before implementing Steps 1–3).** A file-by-file grep of every
+`role="dialog"` component against `useScrollLock`/`useDismissable` usage found **13**, not 16, gap
+components with no scroll lock: `gm-shared`'s `Peek`, `BucketBoard`'s `TrashDrawer` and bucket-delete
+confirm modal, `ImportAnalysis`'s `ItemDetailSlideover`, `OverviewDash`'s `RecentAlbumsModal` and
+`RecentTracksModal`, `BucketPickerSheet`, `ActionSheet`, `PocketDesignSettings`, `writer/CommandPalette`,
+`writer/DraftsInbox`, `writer/SettingsPanel`, and `WriterApp`'s research drawer — plus `AddToBucketMenu`
+(Step 3, already tracked separately). The discrepancy from the original count of 16 is not a correction
+of any wrong claim, just an artifact of how the original prose bundled multiple names per bullet; every
+component this Current State section named as a gap was confirmed still a gap at re-audit time. One
+addition: `PocketDesignSettings` was also found to have **no `useDismissable`/ESC handling of any
+kind** (not previously documented in `component-map.md`'s overlay registry) — out of scope for this
+RFC (§Non-goals: not redesigning `useDismissable` adoption), fixed for scroll-lock only, and now
+recorded in the registry so it isn't lost. `PocketTray`'s two `role="dialog"` floating inspector panels
+were checked and are **not** in scope — they're non-scrim, draggable, simultaneously-multi-open panels
+with no backdrop, not the scrim-backed modal shape this RFC covers.
+
 ## Target state
 
 - 새 오버레이가 소비하는 **하나의 조합 훅**(가칭 `useOverlayContract` 또는 기존 `useDismissable`을 확장)이 ESC/포커스트랩(기존)과 스크롤 락(신규 통합)을 한 호출로 제공 — 개별로 두 훅을 각자 기억해서 부르는 지금 방식 대신, 부르면 둘 다 딸려온다.
@@ -50,36 +74,34 @@ scroll-isolation gap counted above. Visual z-index stacking remains unchanged an
 
 ## Steps
 
-### Step 1 — 스크롤 락 조합 훅 신설 + `overscroll-behavior` 추가 (front-only, 순수 추가)
+### Step 1 — 스크롤 락 조합 훅 신설 + `overscroll-behavior` 추가 (front-only, 순수 추가) — ✅ SHIPPED 2026-08-09
 
-`useScrollLock`을 삭제/재작성하지 않고, `useDismissable`과 조합해 부르는 얇은 래퍼(또는 `useDismissable`의 옵션으로 `lockScroll?: boolean` 추가 — 둘 중 실제 구현 시점에 더 적은 콜사이트 변경을 요구하는 쪽으로 결정, Open question 1) 신설. 락이 걸리는 기존 primitive CSS 클래스(`.scrim`/`.slideover`/`.bps-sheet`/`.qb-modal`/`.rsh-modal`/`.wr-*`/`.gm-peek`)에 `overscroll-behavior: contain` 추가.
+`useDismissable`에 옵션 `lockScroll?: boolean = false` 추가(내부에서 `useScrollLock(open && lockScroll)` 호출) — Open question 1을 이 방향으로 해결(기존 `useDismissable` 콜사이트 10곳은 옵션 한 줄만 추가하면 됨, 나머지 3곳은 `useScrollLock` 직접 호출). `useScrollLock`/`useDismissable` 자체는 무변경. 락이 실제로 스크롤하는 컨테이너(`.slideover`, `.bps-list`, `.qb-modal-results`, `.rsh-modal-body`, `.wr-scroll`, `.wr-research-drawer`, `.set-body`, `.gm-peek`, `AddToBucketMenu`의 인라인 `SHEET` 스타일)에 `overscroll-behavior: contain` 추가 — 원래 RFC 텍스트가 나열한 `.qb-modal`/`.bps-sheet` 자체는 스크롤하지 않는 래퍼였음이 재감사에서 드러나 실제 스크롤 컨테이너로 타깃을 옮김(§Current state 재감사 참고).
 
-**Verification**: 신규 유닛 테스트(`useScrollLock.test.ts` — 지금 0건) — refcount/언마운트-해제가 여전히 정상임을 회귀 고정. `pnpm lint`/`astro check` 클린.
+**Verification**: `useScrollLock.test.ts` 신설(5 tests) — refcount/언마운트-해제/중첩(먼저 연 것이 나중에 닫혀도 락 유지)/원래 overflow 값 보존을 회귀 고정. `useDismissable.test.ts`에 `lockScroll` 옵션 테스트 2건 추가. `pnpm lint`/`pnpm exec astro check` 클린.
 
-**Rollback**: 신규 파일/CSS 프로퍼티 추가뿐 — 기존 콜사이트 무변경이므로 되돌리기는 파일 삭제.
+**Rollback**: 신규 파일/CSS 프로퍼티 추가뿐 — 기존 콜사이트 무변경이므로 되돌리기는 파일 삭제 + `useDismissable.ts`의 옵션 되돌리기.
 
 ---
 
-### Step 2 — 16개 갭 컴포넌트 스윕: 조합 훅 채택
+### Step 2 — 13개 갭 컴포넌트 스윕: 조합 훅 채택 — ✅ SHIPPED 2026-08-09
 
-`TrashDrawer`, 버킷-삭제 확인, `ActionSheet`, `BucketPickerSheet`, `ImportAnalysis`, `RecentAlbumsModal`/`RecentTracksModal`, 리뷰-삭제 확인, `PocketDesignSettings`, `CommandPalette`, `DraftsInbox`, `SettingsPanel`, 라이터 리서치 드로어, 장르맵 `Peek` — Step 1의 조합 훅(또는 `useScrollLock` 직접 호출)을 추가. 리뷰-삭제 확인은 `role="dialog"` 자체가 없는 추가 갭도 있음(이 RFC 범위 밖, 별도 접근성 항목으로 기록만).
+재감사로 확정된 13개 갭(§Current state 2026-08-09 재감사) — `TrashDrawer`, 버킷-삭제 확인, `ActionSheet`, `BucketPickerSheet`, `ImportAnalysis`의 `ItemDetailSlideover`, `RecentAlbumsModal`/`RecentTracksModal`, `PocketDesignSettings`, `CommandPalette`, `DraftsInbox`, `SettingsPanel`, 라이터 리서치 드로어, 장르맵 `Peek` — 전부 Step 1의 옵션(`useDismissable`이 있는 10곳) 또는 `useScrollLock()` 직접 호출(`ActionSheet`/`BucketPickerSheet`/`PocketDesignSettings`, 3곳)로 락 추가. 리뷰-삭제 확인은 이번 grep에서도 `role="dialog"` 자체가 발견되지 않아(§Non-goals대로) 손대지 않음 — 별도 접근성 항목으로만 기록.
 
-**Verification**: 컴포넌트별 회귀 테스트 1개(락 걸림 확인) + `component-map.md`의 모달/오버레이 레지스트리에 "스크롤 락" 컬럼 추가·전수 갱신. `pnpm test` 전체 그린.
+**Verification**: `component-map.md`의 모달/오버레이 레지스트리에 "스크롤 락" 컬럼 추가 + `PocketDesignSettings`를 레지스트리에 신규 등록 + 전수 갱신. `pnpm test` 전체 그린(574/574). 공개 페이지(`/genres/`, 인증 불필요)에서 실제 브라우저(CDP)로 `Peek`의 락/`overscroll-behavior: contain`/ESC-복원을 데스크톱 + 390×844 모바일 뷰포트 양쪽에서 확인 — 나머지 12곳은 인증이 필요한 회원 대시보드 컴포넌트라 이 세션에서는 라이브 브라우저 확인을 생략(스모크 계정 비밀번호를 툴 호출 인자로 노출하지 않기 위함, §16); 동일한 `useScrollLock`/`useDismissable` 메커니즘이므로 jsdom 회귀 테스트로 대체.
 
 **Rollback**: 컴포넌트별 독립 — 한 곳씩 되돌려도 다른 곳에 영향 없음.
 
 ---
 
-### Step 3 — finish `AddToBucketMenu` scroll isolation (keyboard half already shipped)
+### Step 3 — finish `AddToBucketMenu` scroll isolation (keyboard half already shipped) — ✅ SHIPPED 2026-08-09
 
 - **Shipped independently in front #382**: register the sheet in `useDismissable`'s `openStack`,
   autofocus the first control, trap Tab, close the top layer first on Escape, and restore focus.
-- Step 1의 조합 훅으로 스크롤 락.
-- 배경 비활성화(`inert`)는 이 컴포넌트 하나만 고치지 말고 `useDismissable` 자체에 옵션으로 추가할지 여부를 Open question으로 남김(§Non-goals) — 이 스텝은 `AddToBucketMenu`가 `useDismissable`이 오늘 제공하는 것(ESC/트랩/복원)까지만 정확히 받는 것을 목표로 하고, `useDismissable`이 아직 없는 기능까지 이 스텝에서 새로 발명하지 않는다.
+- `useDismissable(..., { lockScroll: true })`로 스크롤 락 추가 + 인라인 `SHEET` 스타일에 `overscrollBehavior: 'contain'` 추가.
+- 배경 비활성화(`inert`)는 이 스텝에서 다루지 않음(§Non-goals, Open question 2로 유지) — `AddToBucketMenu`는 `useDismissable`이 오늘 제공하는 것(ESC/트랩/복원/락)까지만 정확히 받았다.
 
-**Verification**: front #382 already supplies the nested-host regression test and real-browser
-keyboard evidence for the shipped half. The remaining Step 3 work must add scroll-lock coverage and
-re-run the nested picker scenario after adopting the Step 1 composition hook.
+**Verification**: front #382가 제공한 nested-host 리그레션 테스트 + 실브라우저 키보드 증거는 그대로 유효. 이번 스텝은 같은 `AddToBucketMenu.test.tsx`에 중첩 시나리오 스크롤-락 테스트를 추가(`AlbumDetail` 격 호스트가 열려 있는 채로 picker가 열리면 락, picker가 Escape로 닫히면(호스트는 열린 채) 락 해제) — 그린. `pnpm test`/`pnpm lint`/`astro check` 전체 그린.
 
 **Rollback**: revert only the future scroll-lock adoption. The already-shipped dismissable behavior
 is a prerequisite and must not be rolled back with this RFC's remaining work.
@@ -88,13 +110,14 @@ is a prerequisite and must not be rolled back with this RFC's remaining work.
 
 ## Open questions
 
-1. **스크롤 락을 `useDismissable`의 옵션으로 합칠지, 별도 조합 훅으로 둘지** — Step 1 착수 시 결정. 기존 `useDismissable` 콜사이트가 15곳 이상이라 옵션 추가가 더 적은 diff일 수 있으나, 스크롤 락 없이 ESC/트랩만 원하는 기존 케이스(`OverviewDash`의 "add widget" 메뉴처럼 `role="dialog"`가 아닌 앵커드 팝업)와 섞이지 않게 기본값을 신중히 정해야 함.
-2. **배경 비활성화(`inert`/`aria-hidden`)를 이 RFC의 Step으로 흡수할지, 별도 접근성 항목으로 분리할지** — 오늘은 `useDismissable` 자체도 안 갖고 있어 `AddToBucketMenu` 하나만 고쳐도 시스템 전체 갭은 안 닫힘. 오너 결정 필요(§Non-goals).
-3. **iOS 터치 스크롤 완화(`position:fixed` 기법)를 Step 1/2에 포함할지, 실기기 측정 후 별도 스텝으로 미룰지** — 코드 레벨 결함은 확정이지만 런타임 심각도가 실기기 검증 없이는 확정 안 됨(이 감사는 브라우저 도구 없이 진행됨).
+1. ~~스크롤 락을 `useDismissable`의 옵션으로 합칠지, 별도 조합 훅으로 둘지~~ — **RESOLVED 2026-08-09**: `useDismissable`의 `lockScroll?: boolean = false` 옵션으로 결정(§Steps 1). 기본값 `false`이므로 `OverviewDash`의 앵커드 팝업 등 기존 스크롤-락-불필요 콜사이트는 전혀 영향받지 않음(회귀 테스트로 확인).
+2. **배경 비활성화(`inert`/`aria-hidden`)를 이 RFC의 Step으로 흡수할지, 별도 접근성 항목으로 분리할지** — 여전히 열림. `useDismissable` 자체가 아직 안 가진 앱 전역 기능이라 이번 스크롤-락 스코프에서 다루지 않았다(§Non-goals). 별도 접근성 RFC/항목으로 분리하는 쪽을 권장하지만 오너 결정 필요.
+3. **iOS 터치 스크롤 완화(`position:fixed` 기법)를 Step으로 만들지, 실기기 측정 후 결정할지** — 여전히 열림. 이번 세션은 코드 레벨 `overscroll-behavior: contain` 추가까지만 했고(§Steps 1), 실제 iOS Safari에서 `overflow:hidden`이 터치 스크롤을 막는지는 실기기 검증이 필요(§Non-goals, 브라우저 도구로는 확인 불가 — 오너 검증 항목).
 
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-09 | Steps 1–3(scroll-isolation half) shipped: `useDismissable` gained a `lockScroll` option; 13 gap components (re-audited count, see §Current state) plus `AddToBucketMenu` now lock background scroll; `overscroll-behavior: contain` added to every locked primitive's actual scrolling container; `component-map.md`'s overlay registry gained a scroll-lock column and a new `PocketDesignSettings` row. `pnpm test` (574/574), `pnpm lint`, `pnpm exec astro check` all clean. Live-browser CDP verification (desktop + 390×844) confirmed lock/`overscroll-behavior`/Escape/focus-restore on the one publicly-reachable overlay (`genres/`'s `Peek`); the other 12 gap components are behind member auth and were verified via jsdom regression tests only, to avoid passing the smoke-test password as a tool-call argument (§Steps 2 verification). Open question 1 resolved; open questions 2/3 remain. | 1, 2, 3 |
 | 2026-08-06 | Step 3's keyboard half shipped independently with album-card Stage 7 (front #382, `775f683`; deploy `31097251431`; prod smoke 19/19). Nested-host unit coverage and a real 390×844 browser pass verified autofocus, Tab wrap, top-layer Escape, and trigger-focus restoration. The RFC remains draft: Step 1/2 and Step 3's scroll-lock/overscroll portion are still open. | 3 (partial) |
 | 2026-08-06 | RFC 신설 — 2026-08-06 아키텍처 감사(항목 10 스크롤 격리, 항목 11 `AddToBucketMenu` a11y)에서 확인된 systemic 격차. `ARCH-entity-interaction-domain-audit` Step 4(ESC/포커스트랩)와 겹치지 않게 범위를 스크롤 락 입양 + `AddToBucketMenu` 단일 컴포넌트 전면 수정으로 한정 | 0 |
