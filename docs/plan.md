@@ -93,23 +93,13 @@ _Shipped implementation detail belongs in `git log`, RFCs and `docs/archive/done
 
 ---
 
-## 2026-07-26 감사 파생 작업 (남은 것 = P2 일부 + 결정 완료 항목)
+## 2026-07-26 감사 파생 작업 (남은 것 = D-2 owner 결정뿐)
 
 > Source: `docs/reviews/AUDIT-2026-07-26-system-audit.md` (ws #704, squash `9d4711c`). The report contains the evidence; these rows are pointers.
 >
-> **Read §9 before acting.** The re-review corrected 14 claims and added 5 findings. D-1/P0 and later P1/batch completions are archived.
->
-> **E-5 is intentionally not duplicated here** — it belongs to `FEAT-album-review-authoring` Step 4.
+> **E-2/E-4/E-6/DEP-2 fixed + deployed + prod-smoked 2026-08-09** (front #389, ws #871). E-2/E-6/DEP-2 shipped code, verified live against the deployed bundle (`_astro/CollectionView.*.js` calls `publicMemberLabel`, `_astro/AlbumDetailView.*.js` carries the scoped `.lf-artist-link` rule, `/rss.xml` parses under 4.0.19). E-4 needed no code — superseded by the front #379–#384 home-card migration (merged 2026-08-06), whose `AlbumCard` open-hit button has no visible text content, so the WCAG 2.5.3 failure it described no longer exists.
 
-### P2 — 남은 batch 항목
-
-> ~~**D-2**~~ **MEASURED 2026-08-09 — the harm surface was already closed; no code shipped for this row.** The report's claim (`cli_engine.py:131-146` retries only when a job carries an `output_schema`, so `LLMTransientError` on a schema-less job is terminal) still describes the engine, but was never re-checked against the *callers* — walked this session: **`buckit_nightly.py` — fixed 2026-07-31** (`run_claude_with_retry`, 3 attempts × 60s, `LLMSubscriptionCooldown` excluded from the retry budget so a shared cooldown can't burn the night's attempts). **`research_poller.py` / `lyrics_translate_poller.py` / `genius_translate_poller.py` — self-healing**: a transient marks the row `failed`/keeps `claimed_at`, and the next poll firing re-claims it. **`editor_buckit.py` — deliberately left alone**: manual single-fire, no plist/launchd entry, a failure reports directly to the operator who typed the command. **What remains genuinely untouched is the engine-level fix** (`attempts = 2 if job.output_schema is not None else 1`), now defence-in-depth since no caller depends on it — it needs a `myblog_shared_db` change + version bump + re-pin in backend/music/worker, i.e. cross-repo, not a P2 batch item. **Owner call needed before opening that**: keep it as its own row, or close it?
-
-> ~~**E-4**~~ **SUPERSEDED 2026-08-09.** The home-card migration (front #379–#384, merged 2026-08-06) replaced `NewReleasesCard`/`ForYouReleasesCard`'s markup with the shared `AlbumCard` component; its `album-card__open-hit` button is a separate absolutely-positioned hit-area with no children (`CoverArt` is a sibling, not nested), so the button's visible text is empty regardless of cover presence. The WCAG 2.5.3 failure no longer exists in the current structure — nothing to fix.
-
-- **E-2** — `/collection/` bylines a raw Cognito-sub fragment (`@user-0468fd3c`) as a display name on a public page. PR open: front #389.
-- **E-6** — `.lf-artist-link` is emitted site-wide by the `AlbumOverlay` island but styled only in `member/layout.css` (loads on `/collection/` + `/settings/` only), so there is no hover affordance anywhere else; **4th recurrence** of the documented `member.css` trap, live-verified. PR open: front #389.
-- **DEP-2** — `@astrojs/rss` 4.0.13 → 4.0.19; **hygiene only**. Applicability was overturned in re-review: the advisory's `source.title`/`enclosure.type` are never populated and the feed emits zero items. PR open: front #389.
+- **D-2** — `LLMTransientError` is never retried at the engine level (`cli_engine.py:131-146` retries only `LLMValidationError`). **Re-measured 2026-08-09**: every caller was walked and none is exposed — `buckit_nightly.py` has its own 3×60s retry wrapper (fixed 2026-07-31), `research_poller.py`/`lyrics_translate_poller.py`/`genius_translate_poller.py` are self-healing via their claim queries, and `editor_buckit.py` is manual single-fire by design. The engine fix itself is real but is now defence-in-depth, not a live bug — shipping it means a cross-repo `myblog_shared_db` change + re-pin in backend/music/worker. **Owner call needed**: open it as its own cross-repo item, or close D-2 with no further action?
 
 ### Decided, no action
 
