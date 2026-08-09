@@ -1,6 +1,6 @@
 # ARCH-bucket-album-modal-unification: one bucket album modal for 평가, 리서치 노트, and 메모 + fix the tile badge collision
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-08-09
 - **Plan row**: `plan.md` → ARCH-bucket-album-modal-unification
@@ -176,16 +176,15 @@ contract change. Revert the PR.
 3. **Does the tile-corner research dot stay clickable (routing into the modal) or become a
    non-interactive status indicator only** (with the modal reachable via the tile's main open action)?
    — doesn't block Step 1 either way; decide once real screen space is in front of you.
-4. **Does shipping this reset `FEAT-album-review-authoring`'s 2026-08-12 re-measurement gate?** —
-   that gate measures whether the rating entrance is open and still unused. Before this RFC, the
-   bucket-click path — arguably the primary path, since organizing happens through buckets — had no
-   rating affordance at all, so any measurement taken before Step 1 ships was against a known-incomplete
-   entrance, the same failure mode that RFC's own 2026-08-02 audit already caught once for the public
-   overlay's entrance. Recommend restarting that gate's clock once Step 1 ships; this is an owner call,
-   not something code can decide.
+4. **Resolved 2026-08-09**: shipping Step 1 restarts `FEAT-album-review-authoring`'s re-measurement
+   gate clock. Owner decision: the gate's clock resets to Step 1's ship date, not 2026-08-12 as
+   originally planned — before Step 1, the bucket-click path had no rating affordance at all, so any
+   measurement taken beforehand would be against a known-incomplete entrance. See that RFC's own gate
+   note for the resulting date.
 
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-08-09 | RFC opened. Two modal-restructure options were proposed in-session (3-tab merge of 평가/리서치노트/메모; click-shows-평가-by-default with 메모/리서치노트 behind a secondary action). An independent design opinion was separately solicited from Opus, which read the code and recommended a third path: leave the three features in their existing separate homes, and just wire a live rating control into `MemoWindow`'s existing dead `미평가` slot — reasoning that 메모 is the higher-frequency action and a tab/reorder would tax it to accommodate 평가's lower frequency. The owner reviewed all three framings and rejected all of them in favor of full unification — reasoning given in-session: 평가 is expected to be the single most frequent action (reversing Opus's frequency assumption), and 리서치 노트's entry point is not merely low-discoverability but **actively broken** in current use (confirmed by code read: `.bb-tile-mark`, introduced 2026-07-31, and `.rsh-cover-badge`, introduced 2026-06-11, occupy the identical tile corner with no z-index coordination — an unreviewed regression, not a documented design choice). Final direction: one modal, always the same shape on click, all three sections reachable inside it; the badge collision is resolved by routing the research entry into that same modal rather than by repositioning two competing corner controls. | 0 |
+| 2026-08-09 | Owner accepted the RFC as written (Status: draft → accepted), unblocking Step 1. Owner also resolved Open question 4: `FEAT-album-review-authoring`'s re-measurement gate clock restarts at Step 1's ship date rather than running against the pre-existing 2026-08-12 date. | — |
