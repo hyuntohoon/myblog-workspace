@@ -802,6 +802,60 @@ as its gate. → `docs/rfcs/ARCH-entity-interaction-v2.md`.
 
 ### Step 8 — front: drop sources beyond Buckit **[gated: `ARCH-entity-interaction-v2` Steps 1–3 merged]**
 
+> ✅ **SHIPPED 2026-08-09** — front #391 (`fb30f81`, deploy 31302493029 success, prod smoke 19/19, deployed
+> `PocketBuckit.UBAvSBPy.js` confirmed to carry the new strings). Current-state audit before writing any code (the RFC's own
+> `feedback-rfc-current-state-audit` rule) found this step was **almost entirely done already**, as a
+> side effect of two other RFCs that shipped after this Step was drafted and were never credited back
+> here:
+>
+> - `ARCH-entity-interaction-v2` Step 5 granted `drag` on `LikedBoard`, `AlbumDetailView`/`Tracklist`
+>   (member modal host), and `AlbumDetail`'s two modals (`StandardModal`, `MemoWindow`) — all dispatch
+>   the same `PB_DND_START_EVENT`/`PB_BOARD_DND_START_EVENT` bridge the board/tray always used, so
+>   `boardDnd.ts`'s existing Playback Bucket routing (transform album→tracks / direct-add track as a
+>   copy / reject artist) applied to them with **no further plumbing**. That RFC's own seventh and
+>   ninth slices already live-verified a track drag from `LikedBoard` and from an `AlbumDetail` modal
+>   landing on the "재생 대기열" tray chip with a real `201`.
+> - `ARCH-album-card-contract-and-composition` Stage 9 wired every catalog-backed Home album card (New
+>   Releases / For You / Today / Review Candidate) to an external copy `drag` **and** `AddToBucketMenu`,
+>   with a new `lib/pocketBuckit/externalAlbumDrop.ts` that already routed an album drop to
+>   `expandAlbumTracks` when the target is the Playback Bucket — but that stage's own session recorded
+>   "the selected browser could not emit a trusted HTML5 native drag gesture," so the Playback Bucket
+>   destination was proven only by unit test (`HomeAlbumCardAdapter.drag.test.tsx`,
+>   `PocketBuckitProvider.test.ts`), never live.
+>
+> **The one real, reachable gap**: `AddToBucketMenu` — the WCAG 2.5.7 tap-fallback picker, and the
+> *only* path that reaches the Playback Bucket for an album on mobile (no drag surface exists there) —
+> always POSTed `item_type: 'album'` regardless of the picked bucket's type. The backend's
+> `add_item`/`_assert_item_type_allowed` gate 400s exactly that combination by design (an album enters
+> the queue only through `expand_album_tracks`), so picking "재생 대기열" for any album from the tap
+> sheet silently failed with the generic "담기에 실패했어요" — reachable through shipped UI on both
+> desktop and mobile, on every account, for every album. Fixed: `FlatBucket` now carries the bucket's
+> `type`; `pick()` routes an album onto a `type==='playback'` target through `expandAlbumTracks`
+> (mirroring `BucketBoard.tsx`'s existing `expandAlbumTracks` op verbatim — refresh, then
+> `playbackSession.onDropped()`, no Undo, since there is no bulk-delete endpoint for an N-row expansion)
+> instead of the plain `addBucketItem` call that 400s.
+>
+> **Verified**: `pnpm lint` clean, `pnpm exec astro check` 0 errors, `pnpm test` 574/574 (+2 new: the
+> expansion-routing case and the "album has no synced tracks yet" state). Real-browser CDP against prod
+> data (smoke account, local dev + the CORS-proxy-with-real-JWT recipe), desktop **and** mobile
+> `emulate("390x844x3,mobile,touch")`: tapped 담기 on a real Home album card ("Blue Island") → picked
+> 재생 대기열 → `POST .../items {item_type:'playback', source_album_id}` → **201**, 14 tracks appended,
+> correct toast — on both viewports, restoring the account's real 13-row queue after each run (0
+> residue). **Separately**, a real trusted-CDP drag (`chrome-devtools` MCP's `drag()` tool, not
+> `dispatchEvent` — memory `reference-cdp-drag-needs-trusted-input`) of the same Home card onto the
+> Playback Bucket tray chip closed the live-verification gap `ARCH-album-card-contract-and-composition`
+> Stage 9 left open: **201**, 14 tracks, same cleanup — this is the first live proof that stage's
+> `externalAlbumDrop.ts` routing actually works end-to-end, not only in a unit test. An id-less
+> (Spotify-only) entity spot check on `/releases/`'s default view — `0` draggable, `0` 담기 buttons, 96
+> plain artist links — reconfirmed E1 Rule 0 (null id ⇒ inert, not a crashing drag) rather than
+> assuming it still held. Track-drag regression (LikedBoard/AlbumDetail modal → Playback Bucket) was
+> **not** re-run live this session — it is exercised repeatedly and recently in
+> `ARCH-entity-interaction-v2`'s own sessions and this change touches no code on that path.
+>
+> Everything above is genuinely new evidence or a genuine fix; nothing here reopens Steps 2–7 or
+> `ARCH-entity-interaction-v2`/`ARCH-album-card-contract-and-composition`, which stay SHIPPED as they
+> were.
+
 Wire the v2 drag payload so album/track representations across the product can be dropped into the
 Playback Bucket, and so the mobile non-drag path (v2's prototype outcome) reaches it too.
 
@@ -817,7 +871,7 @@ id-less (Spotify-only) entity is non-draggable rather than a crashing drag.
 FEAT-member-player  S5 · S5b · S6 · S7  ✅ SHIPPED 2026-08-02 (cold start owner-confirmed 08-03)
                           │ ladder · device picker · Media Session · persistence
                           v
-FEAT-playback-bucket-player  S1 ─> S2 ─> S3 ─> S4 ─> S5 ─> S6 ─> S7 ─> [S8]
+FEAT-playback-bucket-player  S1 ─> S2 ─> S3 ─> S4 ─> S5 ─> S6 ─> S7 ─> S8 ✅
                              docs   db    api   ctr  front player tabs  sources
                               ✅     ✅  (S1 08-03; S2 prod-applied 08-03, shared_db #72)
                                                                           ^
@@ -990,3 +1044,5 @@ pre-picked one — the option the owner took was not among the three this RFC li
 | 2026-08-03 | **The comparison was run against real products, measured rather than recalled** (Genius · Apple Music web · SoundCloud · Bandcamp; Spotify web and YouTube Music unmeasured behind login). Two findings changed the decision: **nobody floats a card over their own content** (which is why the plain floating form is the torn-off state and not the default), and **nobody solved queue + lyrics + transport in one phone overlay** — every measured service either drops the queue on mobile or never had one | 6 |
 | 2026-08-06 | **Erratum (external audit, not a step of this RFC): "transport works either way" (2026-08-03 row above) overclaimed.** ▶/⏸ genuinely work during `external` playback; ⏭/⏮ silently no-op (`rowIndex(null) === -1` short-circuits both `next()`/`previous()` before any Spotify-command fallback), with the buttons rendered enabled and zero test coverage either direction. Tracked as `BUG-27`, not reopening Step 6b. **RESOLVED 2026-08-06** (front #375 `69f7ac6`, deploy 31076299689, prod smoke 19/0) — added `externalAdvance()`, mirroring `togglePlay()`'s existing raw-`sendPlayerCommand` fallback for this state. "Transport works either way" is now true for all three controls | 6b |
 | 2026-08-06 | **Erratum (external audit, not a step of this RFC): the Step 8 preflight audit's completion-detection fix (defect #2, 2026-08-04) is confirmed but over-broad.** It deletes a queue row on any observed URI mismatch, not on a verified completion (no `progressMs`/`durationMs` check), so a phone/native-client skip or another surface's playback change deletes a not-yet-finished row silently and with no Undo. Compounds with a separate, previously-unaudited gap: the live-track→row matcher (`rowForSpotifyTrack`) is a first-match `.find()` with no tie-break, so a duplicated-track queue (D8, legal by design) can adopt the wrong physical occurrence when there is no prior `currentItemId` to anchor against. Tracked as `BUG-26`, not reopening the Step 8 audit. **RESOLVED 2026-08-06** (front #378 `0504637`, deploy 31079444240, prod smoke 19/0) | Step 8 preflight |
+| 2026-08-09 | **Step 8 current-state audit found the step was mostly already done, unreported, by two other RFCs.** `ARCH-entity-interaction-v2` Step 5's `drag` grants on `LikedBoard`/`AlbumDetailView`/`AlbumDetail` modals and `ARCH-album-card-contract-and-composition` Stage 9's Home-card external-copy drag both dispatch into the same `boardDnd.ts`/`externalAlbumDrop.ts` routing this RFC's Step 5 already built, with no Playback-Bucket-specific work needed. Neither RFC credited this step, so `plan.md` kept naming it as fully unstarted | 8 |
+| 2026-08-09 | **The one real gap: `AddToBucketMenu` (the mobile/non-drag tap picker, and the only path onto the Playback Bucket for an album on mobile) always POSTed `item_type:'album'`, which the backend 400s for `type='playback'` — reachable on every account.** Fixed by threading the bucket's `type` through the picker and routing an album pick to `expand_album_tracks` when the target is the Playback Bucket, mirroring `BucketBoard.tsx`'s existing op. Also closed, as a side effect: a real trusted-CDP drag of a Home album card onto the Playback Bucket tray chip, proving live for the first time that `ARCH-album-card-contract-and-composition` Stage 9's routing — which that stage's own session could only unit-test, never drive with a trusted gesture — genuinely works | 8 |
