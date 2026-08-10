@@ -308,13 +308,28 @@ untouched by this change.
 
 ### Step 3 — mobile selector/drawer
 
-Build the mobile-specific navigation shape (Step 1's shell reused, new mobile-only nav presentation),
-gated the same way `AlbumDetail.tsx`'s `MemoWindow` already branches on `useIsMobileHost`. Exact shape
-(drawer vs. dedicated view) measured against real 390×844 content, not assumed.
+> ✅ Done 2026-08-10, SHA: `7a597f7` (front #397). Owner resolved Unresolved owner decision 2 as
+> **drawer-over-content**, not a dedicated full-screen selector view.
 
-**Verification**: CDP `emulate("390x844x3,mobile,touch")` — selector lists all buckets, tap opens
-full-screen detail, back returns to selector, all mobile actions (`ActionSheet`) reachable from both
-surfaces; desktop layout at 1440px unaffected by this step's changes.
+Built the mobile (<=767px) navigation shape: a trigger bar (shows the selected bucket's name) opens a
+top-anchored drawer over the current screen, reusing Step 1's exact nav content (`BucketNavPanel`,
+extracted so desktop `<aside>` and the drawer render the same tree from one source) — gated the same
+way `AlbumDetail.tsx`'s `MemoWindow` already branches on `useIsMobileHost` (extracted to
+`src/lib/useIsMobileHost.ts` so both call sites share the one hook instead of a second copy). Selecting
+a bucket closes the drawer and the already-mounted detail pane underneath updates in place — there is
+no separate full-screen detail view and no "back" navigation between two screens; reopening the trigger
+bar returns to the picker. This differs from this section's original draft text (which assumed the
+full-screen-swap variant); the owner's actual decision was drawer-over-content, corrected here to match
+what shipped.
+
+**Verification** (CDP `emulate("390x844x3,mobile,touch")`, run against real prod bucket data via a
+smoke-test-account dev-server proxy): trigger bar renders and opens the drawer (scrim + focus trap +
+focus-restore on close); drawer lists Spotify-library section + full bucket tree, matching desktop
+`<aside>` content; tapping a bucket closes the drawer and the detail pane updates without a full-page
+transition; all mobile actions (`ActionSheet` — bucket 삭제/이동, reached via the detail pane's kebab)
+reachable from the post-selection state; desktop layout at 1440px unaffected (grid + `<aside>` unchanged,
+no drawer artifacts). Created and deleted a temp second bucket to exercise the multi-bucket switch;
+prod bucket/Pocket counts confirmed back at their pre-test baseline afterward.
 
 **Rollback**: revert the PR; mobile-only presentational change.
 
@@ -378,8 +393,8 @@ rewrites what a prior step shipped.
 1. **Does selecting a bucket always push a new history entry, or only some selections (e.g. top-level
    bucket switches) while sub-navigation (album inside a bucket) replaces?** Affects how "chatty" back
    navigation feels. Blocks: Step 2's exact `pushState`/`replaceState` split.
-2. **Mobile shape: drawer-over-content, or a dedicated full-screen selector view?** Blocks: Step 3.
-   Recommend measuring both against real bucket counts/content before deciding, per house precedent.
+2. ~~**Mobile shape: drawer-over-content, or a dedicated full-screen selector view?**~~ **Resolved
+   2026-08-10: drawer-over-content.** Shipped Step 3 (front #397, `7a597f7`).
 3. **Does the nav column show bucket-level status badges (the existing 담음→조사 중→작성 중→완료
    lifecycle tag from `FEAT-bucket-identity` Direction B) in collapsed form, or only in the expanded
    detail pane?** Blocks: Step 1's nav-row visual design, not its structure.

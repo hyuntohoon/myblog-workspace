@@ -20,18 +20,18 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `FIX-lyrics-primary-artist + FIX-isrc-backfill` dropped entirely — implementation complete, remaining
 > items were pure non-gating observation with no RFC to archive; detail → `docs/archive/done/2026-08.md`.
 
-- **ARCH-buckit-navigation-shell** (**in-progress; Step 1 SHIPPED + prod-verified 2026-08-10**, front #396 `7921a9f`) — collapsible My Buckit navigation (`BucketBoard.tsx`,
-  today fully expanded with no collapse state and no per-bucket URL — confirmed by code read: no
-  `expanded`/`selectedBucket` state anywhere in the file) + one selected bucket detail via a new shared
-  `BucketDetailShell` (today no bucket-level detail exists — only the per-album shell
-  `ARCH-bucket-album-modal-unification` shipped). URL-backed selection (extends the existing `?tab=`
-  idiom), desktop nav+detail split, mobile selector/drawer. Collapsed nodes stay mounted (visually
-  hidden, not unmounted) specifically because drag-and-drop here is native-HTML5/DOM-event-based, not
-  registry-based — an unmounted node silently stops receiving `dragover`/`drop`. Frontend-only, no
-  contract change. Prerequisite for `ARCH-global-playback-experience`'s Playback Bucket detail and
-  `FEAT-rating-smart-collections`' two smart entries (both consume its Step 1 empty-slot pattern; not
-  the other way around). **Next = Step 2** (URL-backed selection) or Step 3 (mobile selector/drawer),
-  either order — new session. → `docs/rfcs/ARCH-buckit-navigation-shell.md`.
+- **ARCH-buckit-navigation-shell** (**in-progress; Step 1 + Step 3 SHIPPED**, front #396 `7921a9f`
+  2026-08-10, front #397 `7a597f7` 2026-08-10) — collapsible My Buckit navigation (`BucketBoard.tsx`)
+  + one selected bucket detail via a new shared `BucketDetailShell` (Step 1); a mobile (<=767px)
+  drawer-over-content nav picker replacing the desktop 2-column grid at narrow widths (Step 3 —
+  owner resolved Unresolved owner decision 2 as drawer-over-content, not a dedicated full-screen
+  selector). URL-backed selection (extends the existing `?tab=` idiom) remains open — owner deferred
+  Step 2 this session pending Unresolved owner decision 1 (pushState/replaceState split); no URL
+  wiring exists yet, reload/share/back-forward do not restore a selection. Frontend-only, no contract
+  change. Prerequisite for `ARCH-global-playback-experience`'s Playback Bucket detail and
+  `FEAT-rating-smart-collections`' two smart entries (both consume Step 1's empty-slot pattern; not
+  the other way around). **Next = Step 2** (URL-backed selection) — blocked on Unresolved owner
+  decision 1, new session. → `docs/rfcs/ARCH-buckit-navigation-shell.md`.
 - **ARCH-global-playback-experience** (**draft**) — closes the gaps `FEAT-playback-bucket-player`
   (done) and `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather
   than assumed: `session.ts` still doesn't own capability tier/device-list/shuffle/repeat/volume/liked/
