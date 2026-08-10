@@ -100,7 +100,7 @@ When a step completes:
 
 In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcrumb to the archive, then gets dropped — `git log` and `docs/archive/done/rfcs/` are authoritative for history.
 
-- **ARCH-buckit-navigation-shell** (draft, 2026-08-10) — collapsible My Buckit nav + one selected
+- **ARCH-buckit-navigation-shell** (accepted, owner-approved 2026-08-10) — collapsible My Buckit nav + one selected
   bucket detail via a new shared `BucketDetailShell`; URL-backed selection, desktop nav+detail split,
   mobile drawer, collapsed nodes stay mounted (visually hidden) so native-DOM drag-and-drop keeps
   working. Prerequisite for `ARCH-global-playback-experience` and `FEAT-rating-smart-collections`'s

@@ -20,7 +20,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `FIX-lyrics-primary-artist + FIX-isrc-backfill` dropped entirely — implementation complete, remaining
 > items were pure non-gating observation with no RFC to archive; detail → `docs/archive/done/2026-08.md`.
 
-- **ARCH-buckit-navigation-shell** (**draft**) — collapsible My Buckit navigation (`BucketBoard.tsx`,
+- **ARCH-buckit-navigation-shell** (**accepted; owner-approved 2026-08-10, not yet started**) — collapsible My Buckit navigation (`BucketBoard.tsx`,
   today fully expanded with no collapse state and no per-bucket URL — confirmed by code read: no
   `expanded`/`selectedBucket` state anywhere in the file) + one selected bucket detail via a new shared
   `BucketDetailShell` (today no bucket-level detail exists — only the per-album shell

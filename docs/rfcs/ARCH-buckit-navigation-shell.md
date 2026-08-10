@@ -1,6 +1,6 @@
 # ARCH-buckit-navigation-shell: collapsible My Buckit navigation + one selected bucket detail
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: TBD
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-buckit-navigation-shell
@@ -401,3 +401,4 @@ rewrites what a prior step shipped.
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-08-10 | RFC drafted. Current-state verification (bucket board render structure, URL param usage, mobile branching, DnD mechanism, drop-rule/system-bucket-guard citations) run against `myblog_front` `origin/main` `01c6e35` and `myblog_backend`'s `bucket_service.py` before writing Target state, per house rule (`feedback-rfc-current-state-audit`) | — |
+| 2026-08-10 | **Accepted by owner.** Independent re-verification (separate session) re-confirmed this RFC's most load-bearing citations directly against `origin/main` code (`BucketBoard.tsx:1441`'s unconditional recursion, zero collapse/selection state; `boardDnd.ts`'s `canAcceptAlbumDrag`) — no discrepancies found. Status promoted draft → accepted; siblings `ARCH-global-playback-experience` and `FEAT-rating-smart-collections` remain draft | — |
