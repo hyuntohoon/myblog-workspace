@@ -20,7 +20,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `FIX-lyrics-primary-artist + FIX-isrc-backfill` dropped entirely — implementation complete, remaining
 > items were pure non-gating observation with no RFC to archive; detail → `docs/archive/done/2026-08.md`.
 
-- **ARCH-buckit-navigation-shell** (**accepted; owner-approved 2026-08-10, not yet started**) — collapsible My Buckit navigation (`BucketBoard.tsx`,
+- **ARCH-buckit-navigation-shell** (**in-progress; Step 1 SHIPPED + prod-verified 2026-08-10**, front #396 `7921a9f`) — collapsible My Buckit navigation (`BucketBoard.tsx`,
   today fully expanded with no collapse state and no per-bucket URL — confirmed by code read: no
   `expanded`/`selectedBucket` state anywhere in the file) + one selected bucket detail via a new shared
   `BucketDetailShell` (today no bucket-level detail exists — only the per-album shell
@@ -30,7 +30,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   registry-based — an unmounted node silently stops receiving `dragover`/`drop`. Frontend-only, no
   contract change. Prerequisite for `ARCH-global-playback-experience`'s Playback Bucket detail and
   `FEAT-rating-smart-collections`' two smart entries (both consume its Step 1 empty-slot pattern; not
-  the other way around). → `docs/rfcs/ARCH-buckit-navigation-shell.md`.
+  the other way around). **Next = Step 2** (URL-backed selection) or Step 3 (mobile selector/drawer),
+  either order — new session. → `docs/rfcs/ARCH-buckit-navigation-shell.md`.
 - **ARCH-global-playback-experience** (**draft**) — closes the gaps `FEAT-playback-bucket-player`
   (done) and `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather
   than assumed: `session.ts` still doesn't own capability tier/device-list/shuffle/repeat/volume/liked/

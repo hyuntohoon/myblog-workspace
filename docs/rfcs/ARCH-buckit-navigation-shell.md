@@ -1,6 +1,6 @@
 # ARCH-buckit-navigation-shell: collapsible My Buckit navigation + one selected bucket detail
 
-- **Status**: accepted
+- **Status**: in-progress (Step 2)
 - **Owner**: TBD
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-buckit-navigation-shell
@@ -267,6 +267,8 @@ One step per session (hard rule #4) unless the owner marks a step parallel-safe 
 
 ### Step 1 — collapsible nav + one selected-detail pane + the variant extension boundary (desktop)
 
+> ✅ Done 2026-08-10, SHA: `7921a9f` (front #396).
+
 The structural change: introduce per-node expand/collapse, single-bucket selection state, and the
 `BucketDetailShell` component with its `manual`/`system`/`smart` variant dispatch (system/smart render
 nothing new — typed pass-through only). Collapsed nodes stay mounted (visually hidden), preserving
@@ -402,3 +404,4 @@ rewrites what a prior step shipped.
 |------|----------|------|
 | 2026-08-10 | RFC drafted. Current-state verification (bucket board render structure, URL param usage, mobile branching, DnD mechanism, drop-rule/system-bucket-guard citations) run against `myblog_front` `origin/main` `01c6e35` and `myblog_backend`'s `bucket_service.py` before writing Target state, per house rule (`feedback-rfc-current-state-audit`) | — |
 | 2026-08-10 | **Accepted by owner.** Independent re-verification (separate session) re-confirmed this RFC's most load-bearing citations directly against `origin/main` code (`BucketBoard.tsx:1441`'s unconditional recursion, zero collapse/selection state; `boardDnd.ts`'s `canAcceptAlbumDrag`) — no discrepancies found. Status promoted draft → accepted; siblings `ARCH-global-playback-experience` and `FEAT-rating-smart-collections` remain draft | — |
+| 2026-08-10 | **Step 1 shipped** (front #396, squash `7921a9f`). Implementation delegated to Codex, reviewed and gate-run by Claude: `pnpm lint`/`astro check`/`pnpm test` (617 tests) green — one pre-existing test (`BucketBoard.test.tsx`'s optimistic-copy race test) needed updating for the new single-selection render model, no assertion weakened. Real-browser CDP against a local dev build proxied to real prod data (smoke account) verified every Step 1 requirement explicitly: collapsed nav rows stay mounted (`display:none` on the child group, confirmed via computed style, not unmounted), dragging an album onto a **collapsed** bucket's nav row previews accept and completes the drop, switching selection swaps the detail pane with no leaked prior-bucket DOM state, and create/rename/delete (cascade) all round-tripped against the real API. Deployed via front CI (build+upload+CloudFront-invalidate succeeded for `7921a9f`); post-deploy prod smoke 19/19 green, quoted on the PR. A fully-authenticated CDP pass against the literal deployed CloudFront bundle (not just a local build) was attempted for extra confidence but was blocked by the browser's mixed-content policy on the token-relay approach used to keep the bearer token out of the session transcript — not pursued further given the strength of the other evidence | 1 |
