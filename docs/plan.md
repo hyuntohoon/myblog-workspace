@@ -38,8 +38,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   registry), a single `MYBLOG_PLAYBACK_CHANGED` still fans out to 3 uncoordinated live reads, live
   lyrics' open event is app-wide but its only listener is dashboard-scoped (`SelfDashboard`, confirmed
   by grep), and the Playback Bucket's queue view has transport/play/remove/duration but no per-row
-  artwork/reorder/play-all/summary (artwork itself needs no contract change — `BoardAlbum.cover` is
-  already there). No new player, queue, or Home-specific playback state. →
+  artwork/reorder/play-all/summary — artwork needs one small, additive backend field
+  (`Backend_TrackBrief.cover_url`, does not exist today; corrected in-session after an earlier draft
+  cited an unrelated type). No new player, queue, or Home-specific playback state. →
   `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-rating-smart-collections** (**draft — Step 0 decision gate blocks all implementation**) —
   평가 완료 (derived view over existing `rating IS NOT NULL` rows, zero new storage, already-shipped
