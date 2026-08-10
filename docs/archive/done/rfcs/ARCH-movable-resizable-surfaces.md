@@ -1,7 +1,7 @@
 # ARCH-movable-resizable-surfaces: opt-in movable + resizable desktop surfaces for the memo modal and detached context panel
 
-- **Status**: in-progress — implemented, unit-tested, and real-browser-verified this session against prod data (front worktree branch `feat/movable-resizable-surfaces`); pending PR open/merge + prod smoke.
-- **Owner**: TBD
+- **Status**: done (Step 1 shipped + prod-verified 2026-08-10, front #395 `01c6e35`)
+- **Owner**: 박지훈
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-movable-resizable-surfaces
 - **Builds on**: `ARCH-bucket-album-modal-unification` (archived) — this RFC adds move/resize to the two
