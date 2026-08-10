@@ -1,6 +1,6 @@
 # ARCH-album-context-panel: Shared dockable Lyrics/Research context panel for the memo window
 
-- **Status**: accepted (single-PR merge — owner directed immediate implementation this session)
+- **Status**: done (Step 1 shipped + prod-verified 2026-08-10, front #394 `6cec3c6`)
 - **Owner**: 박지훈
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-album-context-panel
@@ -135,6 +135,15 @@ it near the dock column without leaving/re-entering (must NOT dock) → drag ful
 
 **Rollback**: revert the PR; `DockableLyricsSheet.tsx` + the inline research block are removed in the same
 PR so a straight revert restores both without a second step.
+
+> ✅ Done 2026-08-10, SHA: `6cec3c64a2c1f1e20c2390a976a39a39aab1b0eb` (front #394). `pnpm lint` / `pnpm exec
+> astro check` (0 errors, 0 warnings) / `pnpm test` (58 files, 588 tests, incl. new `dockTear.test.tsx` +
+> `ContextPanel.test.tsx`) all green. Real-browser verified twice: locally (dev server against prod data via
+> a temp bucket) and directly against prod post-deploy (`https://www.ratemymusic.blog`, authed as the smoke
+> account, same temp-bucket-then-delete pattern) — tab switching + DOM/scroll persistence across tabs, the
+> dock re-arm gate (pointer-event sequences: nudge-inside-without-leaving does not dock, leave-then-re-enter
+> does), the explicit dock/float button, and the mobile floating-tabs layout (no dock controls) at both
+> 1440px and 390px. PR comment has the full production-smoke writeup.
 
 ---
 
