@@ -4,7 +4,7 @@
 - **Owner**: TBD
 - **Created**: 2026-08-06
 - **Plan row**: removed after Stage 9 post-merge Definition of Done (2026-08-07)
-- **Sibling, does not reopen**: `docs/rfcs/ARCH-entity-interaction-v2.md` (**closed**, ws #843) — that RFC
+- **Sibling, does not reopen**: `docs/archive/done/rfcs/ARCH-entity-interaction-v2.md` (**closed**, ws #843; done+archived 2026-08-10) — that RFC
   owns the canonical *entity* contract (identity, URL/open behavior, drag-payload shape, one
   `TrackRow` capability contract). This RFC does not relitigate any of its settled decisions
   (two album-detail hosts, no `/album/[id]` route, `AddToBucketMenu` as the WCAG 2.5.7 touch

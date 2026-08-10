@@ -1,6 +1,6 @@
 # FEAT-member-player: rebuild '지금 듣는 음악' as a real player bar (capability-tiered controls)
 
-- **Status**: in-progress
+- **Status**: done (2026-08-10, archived — all 7 steps shipped + verified, cold-start confirmed on a real device 2026-08-03. Remaining 5 playback-surface/second-device/media-keys/`/write`-continuity checks are non-blocking owner observation. Promoted at archive time per explicit session-directed reconciliation, CLAUDE.md rule #7. Owner may reopen.)
 - **Owner**: 박지훈
 - **Created**: 2026-07-18
 - **Plan row**: `plan.md` → FEAT-member-player

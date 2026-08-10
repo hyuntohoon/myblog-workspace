@@ -413,7 +413,7 @@ Step 2 본문이 스스로 정해 둔 순서를 실행한 것이다: *"Step 2 �
 **문턱 10이 틀린 게 아니라 거기 붙은 기대 시간이 틀렸다.** 분모가 찰 확률이 반을 넘으려면 **약 열흘**이 필요하다. 그러므로:
 
 - **다음 재측정 시점 = 2026-08-12 이후.** 그 전에 재면 세 번째 null이 나올 뿐이다.
-- **2026-08-09 갱신, 오너 결정**: `ARCH-bucket-album-modal-unification`이 accepted로 승격됨. 그 RFC Step 1이 배포되면 버킷 클릭 경로에 평가 입구가 처음 생기므로(그 전까지는 미완성 입구를 재는 셈), 이 게이트의 시계는 **2026-08-12가 아니라 Step 1 배포일**로 재시작한다 — 자세한 논거는 `docs/rfcs/ARCH-bucket-album-modal-unification.md` Open question 4 참고. Step 1이 아직 배포 전이면 이 문단이 최신 기준이다.
+- **2026-08-09 갱신, 오너 결정**: `ARCH-bucket-album-modal-unification`이 accepted로 승격됨. 그 RFC Step 1이 배포되면 버킷 클릭 경로에 평가 입구가 처음 생기므로(그 전까지는 미완성 입구를 재는 셈), 이 게이트의 시계는 **2026-08-12가 아니라 Step 1 배포일**로 재시작한다 — 자세한 논거는 `docs/archive/done/rfcs/ARCH-bucket-album-modal-unification.md`(2026-08-10 done 처리, archived) Open question 4 참고. Step 1이 아직 배포 전이면 이 문단이 최신 기준이다.
 - 며칠 조용하다고 게이트가 고장났다고 읽지 말 것. 8일 공백은 이 이력에 세 번 있다.
 - 이 실측은 문턱을 바꾸지 않는다. 10은 여전히 방어 가능한 선이고, **바뀐 것은 기다릴 시간의 크기뿐**이다.
 

@@ -1,6 +1,6 @@
 # ARCH-overlay-modal-isolation: 오버레이 공통 계약 — 스크롤 락 입양 + `AddToBucketMenu` 모달 시맨틱스
 
-- **Status**: draft — implementation complete (Steps 1–3), owner status promotion pending
+- **Status**: done (2026-08-10, archived — all 3 steps shipped + verified 2026-08-09; this RFC's own scope (Non-goals) never included background `inert`/`aria-hidden` deactivation, so OQ2's "spin off separately?" is a new-idea question, not a gap in this RFC — recorded as a Frozen idea in `plan.md` instead. OQ3 (real iOS device touch-scroll) is non-blocking owner observation. Promoted at archive time per explicit session-directed reconciliation, CLAUDE.md rule #7. Owner may reopen.)
 - **Owner**: TBD
 - **Created**: 2026-08-06
 - **Plan row**: `plan.md` → ARCH-overlay-modal-isolation
