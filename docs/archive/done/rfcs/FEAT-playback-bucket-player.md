@@ -1,6 +1,6 @@
 # FEAT-playback-bucket-player: the system-owned Playback Bucket and its two player forms
 
-- **Status**: accepted (owner approval 2026-08-03, in-session; four decisions recorded below)
+- **Status**: done (2026-08-10, archived — all 9 steps shipped + verified, last (Step 8) 2026-08-09 front #391; four decisions recorded below. Promoted at archive time per explicit session-directed reconciliation, CLAUDE.md rule #7. Owner may reopen.)
 - **Owner**: TBD
 - **Created**: 2026-08-03
 - **Plan row**: `plan.md` → FEAT-playback-bucket-player

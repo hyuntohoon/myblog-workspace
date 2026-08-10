@@ -4,7 +4,7 @@
 - **Owner**: TBD
 - **Created**: 2026-08-05
 - **Plan row**: `plan.md` → ARCH-entity-interaction-domain-audit
-- **Sibling, does not replace**: `docs/rfcs/ARCH-entity-interaction-v2.md` (scopes to album/track/artist/
+- **Sibling, does not replace**: `docs/archive/done/rfcs/ARCH-entity-interaction-v2.md` (done, archived 2026-08-10; scopes to album/track/artist/
   drag only; this RFC covers the domains its own non-goals explicitly exclude — reviews/memos,
   playback, lyrics host, bucket-add flows, modal/overlay infra, global events)
 - **Origin**: an independent 5-agent architecture audit run 2026-08-05, at owner request, to check

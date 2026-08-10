@@ -1,6 +1,6 @@
 # FEAT-lyrics-sync-precision: remove the fixed sync lead and re-anchor on events
 
-- **Status**: in-progress (all three steps resolved — outstanding: the owner's real-device listen check, see below. Promotion to `done` is the owner's call.)
+- **Status**: done (2026-08-10, archived — all three steps resolved + shipped; the only outstanding item is the owner's real-device listen check on `flat`/`blur`, a subjective one-line-if-needed tuning check with no further code implication either way. Promoted at archive time per explicit session-directed reconciliation, CLAUDE.md rule #7 — owner may reopen, and the listen check remains genuinely the owner's call regardless of this Status field.)
 - **Owner**: 오너
 - **Created**: 2026-08-01
 - **Plan row**: `plan.md` → FEAT-lyrics-sync-precision

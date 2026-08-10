@@ -1,6 +1,6 @@
 # ARCH-bucket-album-modal-unification: one bucket album modal for 평가, 리서치 노트, and 메모 + fix the tile badge collision
 
-- **Status**: accepted
+- **Status**: done (2026-08-10, archived — its only step, Step 1, shipped + prod-verified 2026-08-09 front #392 `bd56910`; promoted at archive time per explicit session-directed reconciliation, CLAUDE.md rule #7. Owner may reopen.)
 - **Owner**: TBD
 - **Created**: 2026-08-09
 - **Plan row**: `plan.md` → ARCH-bucket-album-modal-unification

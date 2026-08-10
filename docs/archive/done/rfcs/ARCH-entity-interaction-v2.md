@@ -1,6 +1,6 @@
 # ARCH-entity-interaction-v2: one canonical definition per entity — identity, URL, open, data, actions, drag payload
 
-- **Status**: accepted (owner approval 2026-08-03, in-session)
+- **Status**: done (2026-08-10, archived — all 6 steps shipped + verified by 2026-08-06; promoted at archive time per explicit session-directed reconciliation, CLAUDE.md rule #7. Owner may reopen.)
 - **Owner**: TBD
 - **Created**: 2026-08-03
 - **Plan row**: `plan.md` → ARCH-entity-interaction-v2
