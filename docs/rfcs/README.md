@@ -100,6 +100,21 @@ When a step completes:
 
 In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcrumb to the archive, then gets dropped — `git log` and `docs/archive/done/rfcs/` are authoritative for history.
 
+- **ARCH-buckit-navigation-shell** (accepted, owner-approved 2026-08-10) — collapsible My Buckit nav + one selected
+  bucket detail via a new shared `BucketDetailShell`; URL-backed selection, desktop nav+detail split,
+  mobile drawer, collapsed nodes stay mounted (visually hidden) so native-DOM drag-and-drop keeps
+  working. Prerequisite for `ARCH-global-playback-experience` and `FEAT-rating-smart-collections`'s
+  detail placements (not the other direction). → `ARCH-buckit-navigation-shell.md`.
+- **ARCH-global-playback-experience** (draft, 2026-08-10) — finishes the `session.ts` state-unification
+  `ARCH-entity-interaction-domain-audit` Step 3 left open (capability/device/shuffle/repeat/volume/
+  liked/reconnect still local to `NowPlaying`, no single-flight live reads), moves the live-lyrics host
+  from dashboard-scoped to app-wide, and adds artwork/reorder/play-all/summary to the already-shipped
+  Playback Bucket queue view (`FEAT-playback-bucket-player`, done). No new player/queue. →
+  `ARCH-global-playback-experience.md`.
+- **FEAT-rating-smart-collections** (draft, 2026-08-10 — Step 0 decision gate open) — 평가 완료 (derived,
+  zero new storage) + 평가 예정 (new private rating-intent state, explicitly not `review_candidate`).
+  Storage shape (extend `album_reviews` vs. dedicated table) is an unresolved owner decision blocking
+  every step past Step 0. → `FEAT-rating-smart-collections.md`.
 - **ARCH-album-context-panel** (done 2026-08-10, **archived** — breadcrumb) — shared dockable Lyrics/Research-Notes tab panel for the bucket memo window, replacing the inline research-note expansion + track-only dockable lyrics sheet; fixed `useDockTear`'s accidental-redock bug with a leave-then-re-enter arm gate. **Step 1 shipped + prod-verified** (front #394 `6cec3c6`): `pnpm lint`/`astro check`/`pnpm test` (588 tests) green, real-browser verified locally and against prod (desktop docked + mobile floating-tabs layouts, dock re-arm gate via pointer-event sequences). 본문 → `docs/archive/done/rfcs/ARCH-album-context-panel.md`.
 - **OPS-delivery-safety-gates** (done 2026-07-24, **archived** — breadcrumb) — CI merge gates + deploy smoke + async failure boundaries. **Steps 1–5 all shipped**: PR-blocking pytest/check gates (backend #130 / worker #77 / front #306); post-deploy health-only smoke (Step 3: backend #132·music #59·worker #78+#79·front #313, worker IAM `lambda:InvokeFunction` v2 + `function-updated-v2` waiter); async cron boundary (Step 4: `worker-cron-dlq` + worker `event_invoke_config` on_failure + `FailedInvocations` 2→12, `terraform apply` 14 add/0/0 AWS-verified); rollback runbook (`docs/ops/rollback.md`). 본문 → `docs/archive/done/rfcs/OPS-delivery-safety-gates.md`.
 - **REFACTOR-frontend-member-surface** (done 2026-07-24, **archived** — breadcrumb) — test net + shared fetch client + boundary extraction for the member surface. **Steps 1–4 all shipped + prod-smoked 2026-07-24** (front #307/#308/#309 + Step 4 #310/#311/#312): vitest harness (33 tests) → apiFetch timeout/abort → `crMeta` → `@lib/bucketLifecycle` → (Step 4, owner opened the necessity gate) DnD logic → `@lib/boardDnd`, Spotify surface → `useSpotifyLibrary`, `ActionSheet` shell → own file. Final suite **66 tests**. 본문 → `docs/archive/done/rfcs/REFACTOR-frontend-member-surface.md`.

@@ -20,6 +20,37 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `FIX-lyrics-primary-artist + FIX-isrc-backfill` dropped entirely — implementation complete, remaining
 > items were pure non-gating observation with no RFC to archive; detail → `docs/archive/done/2026-08.md`.
 
+- **ARCH-buckit-navigation-shell** (**accepted; owner-approved 2026-08-10, not yet started**) — collapsible My Buckit navigation (`BucketBoard.tsx`,
+  today fully expanded with no collapse state and no per-bucket URL — confirmed by code read: no
+  `expanded`/`selectedBucket` state anywhere in the file) + one selected bucket detail via a new shared
+  `BucketDetailShell` (today no bucket-level detail exists — only the per-album shell
+  `ARCH-bucket-album-modal-unification` shipped). URL-backed selection (extends the existing `?tab=`
+  idiom), desktop nav+detail split, mobile selector/drawer. Collapsed nodes stay mounted (visually
+  hidden, not unmounted) specifically because drag-and-drop here is native-HTML5/DOM-event-based, not
+  registry-based — an unmounted node silently stops receiving `dragover`/`drop`. Frontend-only, no
+  contract change. Prerequisite for `ARCH-global-playback-experience`'s Playback Bucket detail and
+  `FEAT-rating-smart-collections`' two smart entries (both consume its Step 1 empty-slot pattern; not
+  the other way around). → `docs/rfcs/ARCH-buckit-navigation-shell.md`.
+- **ARCH-global-playback-experience** (**draft**) — closes the gaps `FEAT-playback-bucket-player`
+  (done) and `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather
+  than assumed: `session.ts` still doesn't own capability tier/device-list/shuffle/repeat/volume/liked/
+  reconnect (`NowPlaying` keeps them local "by design" per `component-map.md`'s own state-owner
+  registry), a single `MYBLOG_PLAYBACK_CHANGED` still fans out to 3 uncoordinated live reads, live
+  lyrics' open event is app-wide but its only listener is dashboard-scoped (`SelfDashboard`, confirmed
+  by grep), and the Playback Bucket's queue view has transport/play/remove/duration but no per-row
+  artwork/reorder/play-all/summary — artwork needs one small, additive backend field
+  (`Backend_TrackBrief.cover_url`, does not exist today; corrected in-session after an earlier draft
+  cited an unrelated type). No new player, queue, or Home-specific playback state. →
+  `docs/rfcs/ARCH-global-playback-experience.md`.
+- **FEAT-rating-smart-collections** (**draft — Step 0 decision gate blocks all implementation**) —
+  평가 완료 (derived view over existing `rating IS NOT NULL` rows, zero new storage, already-shipped
+  read endpoints + `lib/ratingStats.ts`) and 평가 예정 (new private per-user-album rating-intent state,
+  explicitly distinct from `review_candidate`/평론 쓸 것 per `FEAT-album-review-authoring`'s own
+  terminology prohibition). Storage shape (extend `album_reviews` vs. a dedicated table) is an open
+  owner decision — `album_reviews`'s `ck_album_reviews_state_not_empty` CHECK makes "extend the same
+  row" a real, non-free cost, not a trivial default. Nothing past Step 0 is startable yet. →
+  `docs/rfcs/FEAT-rating-smart-collections.md`.
+
 - **ARCH-movable-resizable-surfaces** (**in-progress; implemented + unit-tested + real-browser-verified this session, pending PR merge + prod smoke**) — opt-in movable + resizable desktop-surface capability (`src/lib/surfaceGeometry.ts`), applied to exactly two surfaces: the album memo modal (`MemoWindow`) and the detached state of the shared Lyrics/Research-Notes context panel (`ARCH-album-context-panel`'s `ContextPanel`/`useDockTear`). Fixes two layout bugs: the context panel opening at a fixed 720px float width regardless of its docked width, and the memo modal expanding to fill the space a detached panel leaves instead of shrinking. Session/tab/scroll/dock/re-arm-gate behavior from the prior context-panel work is unchanged. Frontend-only, single-PR. → `docs/rfcs/ARCH-movable-resizable-surfaces.md`.
 
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
