@@ -1,7 +1,7 @@
 # ARCH-global-playback-experience: unify remaining playback state, one app-wide lyrics host, playlist-style Playback Bucket detail
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: accepted (2026-08-11, owner approval this session)
+- **Owner**: 박지훈
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-global-playback-experience
 - **Depends on**: `docs/rfcs/ARCH-buckit-navigation-shell.md` Step 1 (`BucketDetailShell`'s
@@ -499,3 +499,4 @@ one additional check — bar visible on `/` when a test-account queue is seeded 
 |------|----------|------|
 | 2026-08-10 | RFC drafted. Current-state verification (site-wide mount of `PocketBuckit`/`PlaybackPanel`, `session.ts`'s actual state shape, `NowPlaying.tsx`'s confirmed-still-local state per `component-map.md`'s State-owner registry, the live-lyrics single-listener gap) run against `myblog_front` `origin/main` before writing Target state | — |
 | 2026-08-10 | **Corrected a factual error found during review, before this RFC was accepted or any code written.** An earlier pass of this document's *Current state* and *Data/API/contract impact* sections claimed `BoardAlbum.cover` already carries artwork for playback-queue rows, based on a citation (`lib/buckets.ts:264`/`:292`) that actually belongs to an unrelated type (`PublicCollection`'s cover projection, not any playback-queue row shape). Direct re-verification of `lib/buckets.ts:195-198`, `myblog_backend/app/api/routes/buckets.py:98-104,127,152-153`, and the generated `Backend_TrackBrief` type confirms the opposite: no `cover_url` field exists anywhere in the playback-row response today. Corrected: artwork requires a real, additive backend contract change (new Step 3), and Steps renumbered accordingly (old Step 3 → 4, old Step 4 → 5) | 3 |
+| 2026-08-11 | Owner accepted the RFC (Status: draft → accepted) and selected Step 1 to run this session | — |

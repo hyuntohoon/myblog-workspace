@@ -32,17 +32,19 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `FEAT-rating-smart-collections`' two smart entries (both consume Step 1's empty-slot pattern; not
   the other way around). **Next = Step 2** (URL-backed selection) — blocked on Unresolved owner
   decision 1, new session. → `docs/rfcs/ARCH-buckit-navigation-shell.md`.
-- **ARCH-global-playback-experience** (**draft**) — closes the gaps `FEAT-playback-bucket-player`
-  (done) and `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather
-  than assumed: `session.ts` still doesn't own capability tier/device-list/shuffle/repeat/volume/liked/
-  reconnect (`NowPlaying` keeps them local "by design" per `component-map.md`'s own state-owner
-  registry), a single `MYBLOG_PLAYBACK_CHANGED` still fans out to 3 uncoordinated live reads, live
-  lyrics' open event is app-wide but its only listener is dashboard-scoped (`SelfDashboard`, confirmed
-  by grep), and the Playback Bucket's queue view has transport/play/remove/duration but no per-row
-  artwork/reorder/play-all/summary — artwork needs one small, additive backend field
-  (`Backend_TrackBrief.cover_url`, does not exist today; corrected in-session after an earlier draft
-  cited an unrelated type). No new player, queue, or Home-specific playback state. →
-  `docs/rfcs/ARCH-global-playback-experience.md`.
+- **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 in-progress this session**) —
+  closes the gaps `FEAT-playback-bucket-player` (done) and `ARCH-entity-interaction-domain-audit`
+  Step 3 (3a/3b/3c done) left open, verified rather than assumed: `session.ts` still doesn't own
+  capability tier/device-list/shuffle/repeat/volume/liked/reconnect (`NowPlaying` keeps them local
+  "by design" per `component-map.md`'s own state-owner registry), a single `MYBLOG_PLAYBACK_CHANGED`
+  still fans out to 3 uncoordinated live reads, live lyrics' open event is app-wide but its only
+  listener is dashboard-scoped (`SelfDashboard`, confirmed by grep), and the Playback Bucket's queue
+  view has transport/play/remove/duration but no per-row artwork/reorder/play-all/summary — artwork
+  needs one small, additive backend field (`Backend_TrackBrief.cover_url`, does not exist today;
+  corrected in-session after an earlier draft cited an unrelated type). No new player, queue, or
+  Home-specific playback state. Step 1 (this session): `session.ts` absorbs the six remaining state
+  axes, `NowPlaying`'s local `useState` duplicates deleted, `readLivePlayback()` gains single-flight
+  dedupe. →  `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-rating-smart-collections** (**draft — Step 0 decision gate blocks all implementation**) —
   평가 완료 (derived view over existing `rating IS NOT NULL` rows, zero new storage, already-shipped
   read endpoints + `lib/ratingStats.ts`) and 평가 예정 (new private per-user-album rating-intent state,
