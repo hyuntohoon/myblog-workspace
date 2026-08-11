@@ -1,10 +1,10 @@
 # FEAT-bucket-object-collapse: make collapsed buckets tangible without restoring album-card sprawl
 
-- **Status**: draft
+- **Status**: accepted (2026-08-12; Step 0 authorized to start immediately)
 - **Owner**: 박지훈
 - **Created**: 2026-08-11
 - **Plan row**: `docs/plan.md` → FEAT-bucket-object-collapse
-- **Depends on**: `ARCH-buckit-navigation-shell` Step 2 reaching its post-merge Definition of Done
+- **Depends on**: Step 0 is parallel/additive and may run now; Step 1 requires `ARCH-buckit-navigation-shell` Step 2 to reach its post-merge Definition of Done
 - **Origin**: 2026-08-11 owner brainstorm + standalone visual prototype using the supplied canonical bucket image and paper-label references
 
 ---
@@ -69,8 +69,9 @@ Verified 2026-08-11 against `myblog_front` `origin/main` `0d4f525`.
   `api.renameBucket` and `api.setBucketColor`. The current palette is default ink, red, amber, green,
   blue, and violet. No backend or contract work is needed to name or tint the object.
 - `ARCH-buckit-navigation-shell` Step 2 remains open. It will add URL-backed selection in the same
-  state area, so this RFC must not start a competing `BucketBoard.tsx` implementation before that step
-  is merged, deployed, and production-smoked.
+  state area. This RFC's read-only Step 0 may run in parallel because it ships no production code;
+  Step 1 must not start a competing `BucketBoard.tsx` implementation before that predecessor is
+  merged, deployed, and production-smoked.
 
 ## Target experience
 
@@ -164,10 +165,14 @@ editable local input state from becoming a second source of truth for a persiste
 
 Single repository: `myblog_front`.
 
-Hard predecessor: `ARCH-buckit-navigation-shell` Step 2 must be squash-merged, deployed, production-
-smoked, and recorded in that RFC before this RFC's Step 0 begins. The reason is file/state ownership,
-not conceptual uncertainty: both touch the same `BucketBoard.tsx` selection surface, and this RFC must
-measure and extend the final URL-backed shape rather than stack on an unmerged step.
+Step 0 is explicitly **parallel/additive** with `ARCH-buckit-navigation-shell` Step 2: it is a
+read-only design measurement, creates no production branch in `myblog_front`, and does not change
+selection state. The owner authorized it to start immediately on 2026-08-12.
+
+Step 1 retains the hard predecessor: `ARCH-buckit-navigation-shell` Step 2 must be squash-merged,
+deployed, production-smoked, and recorded in that RFC before implementation begins. The reason is
+file/state ownership, not conceptual uncertainty: both production implementations touch the same
+`BucketBoard.tsx` selection surface.
 
 ## Step and PR boundaries
 
@@ -176,10 +181,13 @@ production code; Step 1 is one frontend implementation PR.
 
 ### Step 0 — real-board object-layout gate (no production code)
 
-After the predecessor concludes, render the approved bucket + below-label treatment against the real
+Start immediately from the owner-approved recommended baseline — a compact mixed layout, physical
+objects for top-level manual/artist buckets, selected lid held slightly open after a short cue, and
+`color=null` mapped to neutral ink — then render the bucket + below-label treatment against the real
 `BucketNavPanel` constraints: desktop 220px and 280px widths, mobile 390×844 drawer, current production
 bucket count, longest real name, at least one nested parent/child pair, one system bucket, and each
-palette color. Use the existing standalone prototype only as the visual seed.
+palette color. Use the existing standalone prototype only as the visual seed. These are test inputs,
+not permission to ignore a failed density or hierarchy gate.
 
 Decide and record:
 
@@ -273,16 +281,18 @@ remain valid because none of their shapes change.
   pointer and keyboard behavior. The prototype input was exploratory only.
 - **Ship all 16 label variants.** Rejected for v1 on scope, payload, and source-integrity grounds.
 
-## Unresolved owner decisions
+## Step 0 decisions to validate
 
-1. **Which production layout carries the object without losing density or hierarchy?** One-column,
-   compact grid, or a mixed layout for parent/child nodes. Blocks Step 1; Step 0 produces the evidence.
-2. **Which nodes receive the physical object?** All real bucket rows, manual/artist buckets only, or
-   top-level manual buckets only while Spotify/system/nested nodes retain compact rows. Blocks Step 1.
-3. **Selected-state lid behavior:** remain slightly open while selected (strong state signal) or play
-   one short open-close cue on selection (less visual motion). Blocks final animation behavior only.
-4. **Default color treatment:** map `color=null` to a neutral ink bucket or keep the canonical red as
-   the default independent of the existing accent palette. Blocks the final fallback mapping.
+The owner accepted the recommended baseline on 2026-08-12 so none of these blocks Step 0 from
+starting. Step 0 must still validate each choice against real geometry before Step 1 treats it as
+final:
+
+1. **Layout baseline:** compact mixed layout — top-level objects, hierarchy-preserving compact rows
+   below them. Compare against one-column and compact-grid failure modes at the real widths.
+2. **Object baseline:** top-level manual/artist buckets only; Spotify, system, and nested nodes retain
+   compact rows unless measurement demonstrates a clearer treatment.
+3. **Selected-state lid baseline:** short opening cue, then remain slightly open while selected.
+4. **Default color baseline:** map `color=null` to neutral ink; explicit red uses the canonical red.
 
 ## Relationship to existing RFCs
 
@@ -304,3 +314,5 @@ remain valid because none of their shapes change.
 | 2026-08-11 | Existing `ARCH-buckit-navigation-shell` confirmed as the structural owner. This RFC is a frontend-only visual follow-up and cannot start before that RFC's Step 2 post-merge DoD | — |
 | 2026-08-11 | Owner placed the paper name label below the bucket, not on its face. Production v1 treats it as display text backed by existing persisted rename, not a second inline editor | — |
 | 2026-08-11 | Supplied label ZIP confirmed truncated; v1 uses one standalone clean label and never commits the broken archive | — |
+| 2026-08-12 | **Accepted by owner.** Owner explicitly approved promotion and immediate Step 0 start. Step 0 is parallel/additive with the still-open navigation-shell Step 2 because it ships no production code; Step 1 remains hard-blocked on that predecessor's post-merge DoD | — |
+| 2026-08-12 | Owner accepted the recommended Step 0 baseline: mixed top-level object layout, manual/artist object scope, selected lid held slightly open after a short cue, and neutral-ink `color=null`. Step 0 remains a real-browser GO/NO-GO measurement, not a pre-approved production design | 0 |
