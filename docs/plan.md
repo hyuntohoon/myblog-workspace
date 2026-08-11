@@ -128,6 +128,8 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
 
+- **FEAT-bucket-object-collapse** (**draft; blocked on `ARCH-buckit-navigation-shell` Step 2 post-merge DoD + Step 0 layout gate**) — preserve the one-selected-detail density win while representing closed bucket navigation as the supplied bucket object with a real-text paper name label below, existing color identity, and a reduced-motion-safe lid cue. Frontend-only; reuses current name/color persistence and tree/DnD semantics; does not redesign the detail pane. The supplied 16-label ZIP is truncated, so v1 ships one optimized standalone clean label rather than the archive. → `docs/rfcs/FEAT-bucket-object-collapse.md`.
+
 - **CHORE-research-prompt-port-not-swap** (**legs 1–6 SHIPPED 2026-07-30; measurements remain**) — do **not** replace `album_research_v2` with v4 wholesale. Controlled RENAISSANCE comparison scored **v2 12/22, v4 12/22**, with complementary rather than strictly better coverage. v4 improved biography/primary-statement pressure but lost v2's explicit "do not import others' critical verdicts" protection and costs more tokens/wall time. The shipped approach ports the useful v4 pressure into v2, retains the no-verdict rule, adds liner-notes and sample-chain-depth requirements, injects catalog context, and intentionally keeps `PROMPT_VERSION=v2` so stored notes remain visible.
 
   Remaining measurements only:
