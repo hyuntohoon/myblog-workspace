@@ -32,19 +32,31 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `FEAT-rating-smart-collections`' two smart entries (both consume Step 1's empty-slot pattern; not
   the other way around). **Next = Step 2** (URL-backed selection) — blocked on Unresolved owner
   decision 1, new session. → `docs/rfcs/ARCH-buckit-navigation-shell.md`.
-- **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 in-progress this session**) —
-  closes the gaps `FEAT-playback-bucket-player` (done) and `ARCH-entity-interaction-domain-audit`
-  Step 3 (3a/3b/3c done) left open, verified rather than assumed: `session.ts` still doesn't own
-  capability tier/device-list/shuffle/repeat/volume/liked/reconnect (`NowPlaying` keeps them local
-  "by design" per `component-map.md`'s own state-owner registry), a single `MYBLOG_PLAYBACK_CHANGED`
-  still fans out to 3 uncoordinated live reads, live lyrics' open event is app-wide but its only
-  listener is dashboard-scoped (`SelfDashboard`, confirmed by grep), and the Playback Bucket's queue
-  view has transport/play/remove/duration but no per-row artwork/reorder/play-all/summary — artwork
-  needs one small, additive backend field (`Backend_TrackBrief.cover_url`, does not exist today;
-  corrected in-session after an earlier draft cited an unrelated type). No new player, queue, or
-  Home-specific playback state. Step 1 (this session): `session.ts` absorbs the six remaining state
-  axes, `NowPlaying`'s local `useState` duplicates deleted, `readLivePlayback()` gains single-flight
-  dedupe. →  `docs/rfcs/ARCH-global-playback-experience.md`.
+- **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 SHIPPED + prod-verified**, front
+  #398 `0d4f525` 2026-08-11) — closes the gaps `FEAT-playback-bucket-player` (done) and
+  `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
+  assumed: `session.ts` now owns capability tier/device-list/shuffle/repeat/volume/liked/reconnect
+  (previously `NowPlaying` kept them local "by design" per `component-map.md`'s own state-owner
+  registry — that registry now needs updating to reflect Step 1), `readLivePlayback()` is single-flight
+  (a single `MYBLOG_PLAYBACK_CHANGED` used to fan out to 3 uncoordinated live reads), live lyrics' open
+  event is still app-wide with its only listener dashboard-scoped (`SelfDashboard`, unchanged — Step 2's
+  scope), and the Playback Bucket's queue view still has no per-row artwork/reorder/play-all/summary —
+  artwork needs one small, additive backend field (`Backend_TrackBrief.cover_url`, does not exist today;
+  Step 3's scope). No new player, queue, or Home-specific playback state. Step 1 verification: `pnpm
+  test` 60/60 files (623 tests) green, `pnpm lint` clean, `pnpm exec astro check` 0 errors — all
+  independently re-run, not just self-reported by the implementing agent. A real regression was found
+  and fixed during review before merge: `resolveCapability()`'s first draft permanently locked
+  `capabilityTier` at `'fallback'` after any transient first-mint failure for the rest of the tab
+  session (this codebase's `ClientRouter` keeps `session.ts`'s module state alive across route
+  transitions while `NowPlaying` remounts per route) — fixed to dedupe-only semantics matching the
+  original per-mount re-resolve behavior. Real-browser CDP verification of the live-Spotify-specific
+  convergence behavior (shuffle/device across both surfaces, lock-screen Media Session) was not
+  performed — no `.env` access in the isolated worktree — merged on explicit owner instruction accepting
+  unit/lint/astro-check coverage as sufficient for this step; worth a live spot-check when convenient.
+  Production smoke 19/19 passed post-deploy (quoted on front #398). **Next = Step 2** (one app-wide live
+  lyrics host — relocate `ENT_OPEN_LIVE_LYRICS`'s listener from `SelfDashboard` to a layout-level mount),
+  no ordering dependency on Step 1, startable in a new session. →
+  `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-rating-smart-collections** (**draft — Step 0 decision gate blocks all implementation**) —
   평가 완료 (derived view over existing `rating IS NOT NULL` rows, zero new storage, already-shipped
   read endpoints + `lib/ratingStats.ts`) and 평가 예정 (new private per-user-album rating-intent state,
