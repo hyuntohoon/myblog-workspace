@@ -28,26 +28,24 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   blocker. Corrective removal is owned by the accepted `FEAT-inline-bucket-object-expand`, which restores
   independent inline expansion and keeps sibling Playback/smart content inside its owning inline
   bucket rather than a shared selection destination. **Its Step 0 concluded NO-GO on 2026-08-12:**
-  required motion/size evidence and non-destructive handle isolation remain unavailable, so no
-  implementation starts before the owner-authorized measured-specification recovery records exact
-  values and resolves the blank-label path. →
+  the owner-authorized measured-specification recovery has now fixed and browser-verified every
+  non-handle value and the blank-label path. Non-destructive handle isolation remains impossible with
+  the flattened canonical raster, so production waits on the owner-only no-handle-motion fallback
+  decision. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **FEAT-inline-bucket-object-expand** (**accepted; Step 0 NO-GO 2026-08-12 — MEASURED SPEC AUTHORIZED**) — supersedes the
+- **FEAT-inline-bucket-object-expand** (**accepted; Step 0 recovery NO-GO — HANDLE DECISION REQUIRED**) — supersedes the
   accepted-but-unimplemented `FEAT-bucket-object-collapse`. The final target is one inline object +
   below-paper-label per bucket, independently expandable with local non-persistent state and no
   desktop/mobile selector, shared detail destination, or URL/history effects. Preserve all existing
   content, controls, hierarchy, DnD, Pocket bridge, mobile actions, and system protection. Step 0
-  exhausted the prototype source/build/session, all reachable relevant workspace/front refs, and the
-  supplied assets without recovering the required handle, drag-start, invalid-shake, item-received,
-  disabled, or final production-size facts. The flattened raster cannot isolate the handle without
-  losing body pixels; full-palette recoloring is unproven, so canonical red + a DOM accent is the
-  recorded fallback; the ZIP label's fixed SVG text also differs from the blank prototype derivative.
-  On 2026-08-12 the owner chose recovery option 1: a separate measured-specification task may define
-  new motion/layout/disabled values and resolve a blank runtime label source or normalization path.
-  That authorization does not approve any particular value, handle fallback, label transformation, or
-  production change. **Next = complete that measured specification and record Step 0 GO or the remaining
-  exact blocker.** Production Step 1 remains blocked. No dependency on
-  navigation-shell Step 2. → `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
+  recovery measured exact desktop/mobile sizes, drag, invalid, received, disabled, reduced-motion,
+  focus, and immediate-content behavior in a real browser at `1440×900` and `390×844`; it also proved
+  a deterministic archive-to-blank label normalization whose output is byte-identical to the prototype
+  derivative. Canonical red + a DOM accent remains the palette decision. The flattened raster still
+  cannot isolate the handle without losing body pixels. **Next = owner decides whether to accept no
+  independent handle motion.** Accepting it makes Step 0 GO; rejecting it requires a new clean layered
+  canonical source. No fallback was selected by the recovery. Production Step 1 remains blocked. No
+  dependency on navigation-shell Step 2. → `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
 - **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 SHIPPED + prod-verified**, front
   #398 `0d4f525` 2026-08-11) — closes the gaps `FEAT-playback-bucket-player` (done) and
   `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
