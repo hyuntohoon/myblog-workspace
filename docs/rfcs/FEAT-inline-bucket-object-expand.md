@@ -1,6 +1,6 @@
 # FEAT-inline-bucket-object-expand: restore inline buckets with independent object expansion
 
-- **Status**: accepted (2026-08-12; Step 0 concluded NO-GO, production Step 1 blocked)
+- **Status**: accepted (2026-08-12; Step 0 recovery measured, NO-GO pending owner-only handle fallback decision)
 - **Owner**: 박지훈
 - **Created**: 2026-08-12
 - **Plan row**: `docs/plan.md` → FEAT-inline-bucket-object-expand
@@ -484,6 +484,139 @@ Until that conclusion is merged, the existing Step 0 NO-GO remains effective and
 stays blocked. The no-handle-motion fallback remains unapproved unless the recovery task presents it
 and the owner explicitly accepts it.
 
+#### Step 0 measured-specification recovery — NO-GO pending handle decision (2026-08-12)
+
+**Result: NO-GO with one exact remaining blocker.** The recovery defined and browser-verified every
+missing non-handle layout, motion, disabled, reduced-motion, and label-normalization fact below. It did
+not change production code or create a runtime asset. The canonical raster still cannot provide
+independent handle motion without fabricating pixels, so production Step 1 remains blocked on the
+owner-only decision at the end of this section.
+
+##### Method and production-intent layout
+
+Measurement used a disposable localhost surface outside every repository. It used the unmodified
+canonical PNG and the existing blank prototype label by read-only link, reproduced the verified
+lid/body clipped duplicates, and added only DOM/CSS state controls. The surface was discarded as a
+prototype input: it is not a source or runtime asset for Step 1.
+
+The surface copied the actual `myblog_front` `origin/main` `0d4f525` layout constraints: member content
+maximum `1080px`, desktop member padding up to `44px` per side, mobile breakpoint `767px`, and `22px`
+mobile member padding. Real-browser inspection ran at `1440×900` and exactly `390×844`. The selected
+production-intent sizes are:
+
+| Measurement | Desktop (`1440×900`) | Mobile (`390×844`) |
+| --- | --- | --- |
+| Object wrapper / native disclosure button | `240×160px` | `204×136px` |
+| Paper label CSS box | `184×54px` | `168×49px` |
+| Object-to-label gap | `8px` | `8px` |
+| Label transform | `rotate(-1deg)` | `rotate(-1deg)` |
+| Label text | `14px`, `font-weight: 800`, `line-height: 1.1`, `letter-spacing: .035em` | same except `13px` |
+| Label padding | `5px 15px 4px` | `5px 15px 4px` |
+
+The object wrapper preserves the canonical `1536×1024` canvas's `3:2` aspect ratio instead of
+stretching it into the old prototype's portrait wrapper. The object/label group width is
+`max(object, label)` and reserves feedback text below the label with `min-height: 18px` and
+`margin-top: 7px`; borders and halos are drawn inside/on the reserved object wrapper. At both
+viewports, the rotated label's painted bounds and every feedback transform stayed within the page and
+`scrollWidth == clientWidth`. The former `162×214px` / `142×190px` prototype wrappers are therefore
+not adopted.
+
+Content reveal remains immediate: toggle `hidden` / rendered state with no height, opacity, or
+transform interpolation. The object and paper-label document coordinates do not change when its
+content opens. The content region enters normal flow `16px` below the object group, so later buckets
+move by the new content's actual height; that is required inline reflow, not animation-induced layout
+shift. Drag, valid, invalid, received, focus, and disabled feedback never change the wrapper's measured
+width or height.
+
+##### Exact interaction values
+
+Every earlier verified value in *Verified exact prototype values* remains authoritative. The recovery
+adds these exact constants:
+
+| State | Exact production specification |
+| --- | --- |
+| Drag start / dragging source | On the whole flattened art: `translateY(-12px) rotate(2deg) scale(1.02)`, opacity `.72`, `drop-shadow(0 24px 18px rgba(20,18,15,.30))`; enter/exit `180ms cubic-bezier(.2,.8,.2,1)`. `.72` replaces the earlier optional `.45` for this object because the browser comparison kept the outline and label relationship legible. The reserved wrapper does not move. |
+| Valid drop target | Preserve the deployed `1px solid var(--color-accent)` border and `0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent)` halo. Show the already-verified open-lid endpoint as a preview; do not change `aria-expanded` or the expanded-id set. |
+| Rejected drop | Target border `1px solid #b42318`, halo `0 0 0 3px rgba(180,35,24,.14)`, art opacity `.4`, and the existing visible/live reject reason. Run once on a transform-only feedback frame: `320ms cubic-bezier(.36,.07,.19,.97)` with `translateX` keyframes `0% 0`, `20% -5px`, `40% 4px`, `60% -3px`, `80% 2px`, `100% 0`. It never previews the lid or changes layout. |
+| Item received | After the routed drop succeeds, clear valid-target state and announce success. Keep the acceptance lid preview at the verified open endpoint through `140ms`, then return it to the actual logical open/closed endpoint with the verified `.62s cubic-bezier(.22,1,.36,1)` lid transition. In parallel, run a `420ms` body-frame response: `0% translateY(0) scale(1)`, `42.857%` (`180ms`) `translateY(-4px) scale(1.03)`, `57.143%` (`240ms`) `translateY(1px) scale(.99)`, `100%` (`420ms`) `translateY(0) scale(1)`; segments use `cubic-bezier(.22,1,.36,1)`, then `cubic-bezier(.2,.8,.2,1)`, then `cubic-bezier(.2,.8,.2,1)`. A `1px solid #257158` border plus `0 0 0 4px rgba(37,113,88,.14)` halo holds through `620ms` and fades to transparent by `780ms ease-out`. Clear received state at `780ms`. Logical expansion never changes. |
+| Disabled | Use the native disabled semantic only when the complete disclosure/drop target is unavailable; action-specific system protection does not disable the object. Whole art opacity `.58`; `grayscale(.35) saturate(.55) drop-shadow(0 15px 10px rgba(20,18,15,.12))`; wrapper border `1px solid rgba(23,23,20,.22)` and background `rgba(243,240,232,.46)`; paper-label opacity `.68`; centered top lock badge with ink `#171714`, background `rgba(243,240,232,.92)`, and `1px solid rgba(23,23,20,.38)`. No hover, pressed, drag, drop-target, or transition response. |
+| Content reveal | Immediate, with no animation or transition. The lid may continue its visual response, but the content is usable as soon as `aria-expanded` changes. |
+
+There is no independent handle constant in this table because the only non-destructive value possible
+with the selected flattened art is **no independent handle transform**: the handle stays raster-bound
+and moves only as part of the whole-art drag transform. Adopting that fallback is not implied by these
+measurements and remains owner-only.
+
+##### Reduced-motion static equivalents
+
+Keep the verified global `.01ms !important` duration override. Under `reduce`:
+
+- logical open/closed and valid-target preview jump to the verified static lid endpoint;
+- dragging-source keeps opacity `.72` and the stronger static shadow but uses no lift, rotation, or
+  scale;
+- rejected-drop keeps the `#b42318` border, 3px/14% halo, `.4` art opacity, and live reason, with no
+  shake;
+- item-received uses the static `#257158` border and 4px/14% halo for exactly `600ms`, with no body or
+  lid travel, then clears without changing logical expansion;
+- disabled, focus-visible, accessible announcements, and all functionality are unchanged.
+
+##### Blank label normalization and integrity
+
+The blank source is now reproducible without committing an output in this task:
+
+1. Verify the supplied ZIP SHA-256 is
+   `8216d16769a0c5b1f8bd36c9e4c184a0cad70149b9aa472c81ee4732890448b3` and `unzip -t` reports all
+   16 entries `OK`.
+2. Read only `buckit-label-01-clean-straight.svg`; verify its SHA-256 is
+   `e2e99e24a9473c37202b422079c8486ebc2b3033126a9d93faf3ef6d9cd56eba`, root
+   `width="720" height="210" viewBox="0 0 720 210"`, paper image geometry
+   `x="20" y="13.00" width="680" height="184"`, and exactly one
+   `text#label-text` whose text is `MY BUCKIT`.
+3. Remove exactly that complete `<text id="label-text">…</text>` element and its preceding newline;
+   replace only the description text `Aged ivory paper tape based directly on the supplied reference
+   texture, labeled MY BUCKIT.` with `Blank aged ivory paper tape used as an editable bucket name
+   label.` Do not decode, recompress, optimize, or otherwise edit either embedded PNG data URL.
+4. Verify both embedded paper payloads still decode to SHA-256
+   `a145891d836bd725cf5fb69caf80fcb99eac0c1ed46e0f0a9476c389c71ab744`, no `<text>` remains, and
+   the normalized SVG SHA-256 is
+   `35ddf522d373f3c563c13af8f8b22fe539ff1a9fbd7a35cc2e99fea6222b0bc3`. This equals the located
+   prototype blank derivative byte for byte.
+5. Step 1 may generate that one normalized file directly at
+   `myblog_front/public/buckit/buckit-label-01-clean-straight.svg`, record input/output hashes in its
+   PR, and render the bucket name as real DOM text. It must not commit the ZIP, an intermediate
+   extraction, or a per-name derivative.
+
+##### Browser state matrix
+
+At both `1440×900` and `390×844`, real-browser inspection passed: closed/open and immediate content
+reveal; valid target; one-shot invalid response and reason; item-received ordering; disabled semantics
+and static treatment; reduced-motion static equivalents; `2px`/`8px` focus treatment; and no
+horizontal overflow. Long Korean (`다시 천천히 듣고 싶은 한국 음반들`), English
+(`Albums that reward another patient listen`), and mixed (`2026 다시 듣기 Revisit Notes 모음`) names
+all ellipsized only in the visual label (`text-overflow: ellipsis`); each native button retained the
+complete name plus open/close purpose and correct `aria-expanded` / `aria-controls`. The decorative
+art and paper remained outside the accessibility tree.
+
+Valid/invalid/received borders and halos occupied the reserved wrapper, and their transforms did not
+move the object, label, content, or neighbors. The immediate content insertion preserved the object's
+document coordinate at both viewports and introduced only the expected normal-flow displacement of
+following buckets.
+
+##### Exact remaining blocker and owner decision
+
+The recovered values and label path are complete, but the flattened canonical raster still contains
+the lowered handle composited over the body and lacks the body pixels behind it. Independent handle
+motion would require destructive masking, fabricated hidden pixels, a redraw, or a different layered
+source, all prohibited here. Therefore the recovery cannot record GO on its own.
+
+The proposed non-destructive fallback is: **ship no independent handle motion; keep the handle fixed
+inside the canonical raster in every state, while the complete raster uses the measured whole-art drag
+transform above.** If the owner explicitly accepts this fallback, Step 0 becomes GO with no further
+measurement. If the owner rejects it, the exact blocker is a new owner-supplied canonical layered
+source containing a clean independent handle and the untouched body pixels behind it; Step 1 remains
+blocked until that source is available and separately measured. No fallback is selected by this RFC
+update.
+
 ### Step 1 — single corrective inline implementation PR
 
 After Step 0 GO, remove the deployed selector/shared-detail structure, restore recursive inline
@@ -565,16 +698,14 @@ Confirmed: inline pre-shell ownership; current deployed single-selection structu
 wiring; full prototype lid/hover/pressed/focus/reduced-motion values; reference-board state intent;
 current valid halo and reject/source opacity values; canonical and label filenames.
 
-Step 0's expanded source/session/all-ref search is recorded in its conclusion above. Still unavailable:
-independent handle constants and a non-destructive layer; drag-start rotation/lift/shadow/handle
-constants; invalid-shake constants; item-received sequence/constants and reduced-motion highlight;
-exact disabled styling; final desktop/mobile production sizes; and a complete calibrated palette
-mapping. No content-region transition evidence exists beyond immediate visibility. The blank label
-runtime source also needs explicit resolution because the verified archive entry contains fixed text.
-These gaps produced the Step 0 NO-GO and continue to block production Step 1. The owner has authorized
-a separate measured-specification recovery task to resolve them, but no particular new value or asset
-operation is approved yet; the authorization does not justify guessed production numbers, destructive
-raster edits, or replacement artwork.
+Step 0's expanded source/session/all-ref search is recorded in its conclusion above. The authorized
+measured-specification recovery subsequently resolved exact drag-start, invalid-shake, item-received,
+disabled, reduced-motion, desktop/mobile size, immediate-content, and blank-label-normalization facts.
+Reliable full-palette recoloring remains intentionally closed by the canonical-red plus DOM-accent
+fallback already recorded above; it is not an implementation blocker. The only unresolved fact is no
+longer numeric: the canonical raster has no independent handle layer or hidden body pixels. Production
+Step 1 remains blocked until the owner explicitly accepts the proposed no-independent-handle-motion
+fallback or supplies a clean layered canonical source for separate measurement.
 
 ## Decisions log
 
@@ -588,3 +719,4 @@ raster edits, or replacement artwork.
 | 2026-08-12 | **Step 0 NO-GO.** Prototype source/build/session, all reachable relevant workspace/front refs, canonical/board inputs, and the verified 16-label archive yielded no handle, drag-start, shake, received, disabled, or final production-size constants. The flattened canonical raster cannot isolate and move the handle non-destructively | 0 |
 | 2026-08-12 | Reliable full-palette recoloring is not demonstrated, so the RFC's canonical-red raster plus separate DOM color-accent fallback applies. The selected ZIP label also contains fixed `MY BUCKIT` text while the prototype uses the same paper payload blank; production remains blocked pending explicit fallback/value and blank-label-source decisions | 0 |
 | 2026-08-12 | **Owner selected recovery option 1.** A separate measured-specification task may define the missing motion/layout/disabled/reduced-motion values and resolve a blank-label source or normalization path. No particular value, handle fallback, label transformation, runtime asset, or production implementation is approved by this decision; Step 1 remains blocked until the recovery task records GO | 0 recovery |
+| 2026-08-12 | **Measured-specification recovery concluded NO-GO on one owner-only decision.** Real-browser checks at `1440×900` and `390×844` fixed every non-handle size, drag, invalid, received, disabled, reduced-motion, and content-reveal value; the verified archive-to-blank label normalization reproduces the prototype byte for byte. The remaining blocker is whether to accept no independent handle motion for the flattened canonical raster. No fallback was selected and no production/runtime file changed | 0 recovery |
