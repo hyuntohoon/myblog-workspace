@@ -27,9 +27,18 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `origin/main` `0d4f525` and **dropped unimplemented**; no URL/history work remains and it is not a
   blocker. Corrective removal is owned by the draft `FEAT-inline-bucket-object-expand`, which restores
   independent inline expansion and keeps sibling Playback/smart content inside its owning inline
-  bucket rather than a shared selection destination. **Next = explicitly accept the superseding RFC,
-  then complete its motion/asset evidence gate; no implementation starts before both are green.** →
+  bucket rather than a shared selection destination. The superseding RFC is now accepted. **Next =
+  complete its motion/asset evidence gate; no implementation starts before that gate is green.** →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
+- **FEAT-inline-bucket-object-expand** (**accepted 2026-08-12; Step 0 NEXT**) — supersedes the
+  accepted-but-unimplemented `FEAT-bucket-object-collapse`. The final target is one inline object +
+  below-paper-label per bucket, independently expandable with local non-persistent state and no
+  desktop/mobile selector, shared detail destination, or URL/history effects. Preserve all existing
+  content, controls, hierarchy, DnD, Pocket bridge, mobile actions, and system protection. **Next =
+  Step 0 motion/asset evidence gate:** recover or explicitly mark unavailable handle, drag-start,
+  invalid-shake, item-received, disabled, content-reveal, and recolor facts without production code or
+  invented values. Production Step 1 remains blocked on Step 0 GO. No dependency on navigation-shell
+  Step 2. → `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
 - **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 SHIPPED + prod-verified**, front
   #398 `0d4f525` 2026-08-11) — closes the gaps `FEAT-playback-bucket-player` (done) and
   `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
@@ -125,18 +134,6 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 ## Backlog
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
-
-- **FEAT-inline-bucket-object-expand** (**draft corrective; owner direction fixed 2026-08-12**) —
-  supersedes the accepted-but-unimplemented `FEAT-bucket-object-collapse` without rewriting its
-  history. Remove the deployed desktop selector, mobile bucket drawer, single-selection state, and
-  shared detail destination; restore one inline object + below-paper-label per bucket, independently
-  expandable with local non-persistent state and no URL/history effects. Preserve all existing
-  content, controls, hierarchy, DnD, Pocket bridge, mobile actions, and system protection. The prior
-  prototype's exact lid/hover/pressed/focus/reduced-motion values are recorded; independent handle,
-  drag-start, invalid-shake, item-received, and recolor constants require Step 0 evidence and explicit
-  approval rather than invention. **Next = owner explicitly promotes draft → accepted; then Step 0 GO;
-  then the single corrective frontend PR may begin.** No dependency on navigation-shell Step 2. →
-  `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
 
 - **CHORE-research-prompt-port-not-swap** (**legs 1–6 SHIPPED 2026-07-30; measurements remain**) — do **not** replace `album_research_v2` with v4 wholesale. Controlled RENAISSANCE comparison scored **v2 12/22, v4 12/22**, with complementary rather than strictly better coverage. v4 improved biography/primary-statement pressure but lost v2's explicit "do not import others' critical verdicts" protection and costs more tokens/wall time. The shipped approach ports the useful v4 pressure into v2, retains the no-verdict rule, adds liner-notes and sample-chain-depth requirements, injects catalog context, and intentionally keeps `PROMPT_VERSION=v2` so stored notes remain visible.
 
