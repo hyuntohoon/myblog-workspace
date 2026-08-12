@@ -1,6 +1,6 @@
 # FEAT-inline-bucket-object-expand: restore inline buckets with independent object expansion
 
-- **Status**: draft (owner interaction direction recorded 2026-08-12; explicit Status promotion still required)
+- **Status**: accepted (2026-08-12; Step 0 authorized to start)
 - **Owner**: 박지훈
 - **Created**: 2026-08-12
 - **Plan row**: `docs/plan.md` → FEAT-inline-bucket-object-expand
@@ -483,3 +483,4 @@ invented numbers or replacement artwork.
 | 2026-08-12 | Accepted `FEAT-bucket-object-collapse` is preserved as a superseded historical record rather than materially rewritten; shipped navigation-shell Steps 1/3 remain recorded and become explicit corrective removal targets | — |
 | 2026-08-12 | Selected `buckit-label-01-clean-straight.svg` from the complete verified archive because it is the exact prior-prototype label; only it and the canonical bucket image may become runtime assets | — |
 | 2026-08-12 | Restored every confirmed prototype motion value and separated missing constants into a blocking evidence gate instead of inventing values | — |
+| 2026-08-12 | **Accepted by owner.** Step 0 motion/asset evidence work may start; production Step 1 remains blocked until Step 0 records GO and the remaining implementation-start conditions are rechecked | — |
