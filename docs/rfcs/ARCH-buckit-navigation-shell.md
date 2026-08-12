@@ -1,14 +1,15 @@
 # ARCH-buckit-navigation-shell: collapsible My Buckit navigation + one selected bucket detail
 
-- **Status**: in-progress (Step 2)
+- **Status**: correction required (Steps 1 and 3 shipped; Step 2 dropped unimplemented 2026-08-12)
 - **Owner**: TBD
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-buckit-navigation-shell
-- **Sibling RFCs (share this RFC's extension boundary, do not extend it themselves)**:
-  `ARCH-global-playback-experience.md` (Playback Bucket detail plugs into the variant shell this RFC
-  defines — Step 4 there is gated on this RFC's Step 1), `FEAT-rating-smart-collections.md` (평가 완료 /
-  평가 예정 smart collections plug into the same shell).
-- **Builds on, does not redo**: `docs/archive/done/rfcs/ARCH-bucket-album-modal-unification.md`
+- **Historical sibling dependency (corrected 2026-08-12)**: `ARCH-global-playback-experience.md` and
+  `FEAT-rating-smart-collections.md` originally targeted this RFC's shared detail variant. Future UI
+  work must render its bucket-owned content in the superseding inline boundary instead; the shared
+  selection destination is not a prerequisite.
+- **Historical scope statement — builds on, does not redo**:
+  `docs/archive/done/rfcs/ARCH-bucket-album-modal-unification.md`
   (shipped 2026-08-09/10) — that RFC unified the **per-album** detail modal (`AlbumDetail.tsx`'s
   `MemoWindow`/`StandardModal` branch, opened by clicking an album tile). This RFC is about a
   different, currently-nonexistent concept: a **per-bucket** selected-detail pane, opened by choosing
@@ -20,6 +21,26 @@
   redesigned here.
 
 ---
+
+## 2026-08-12 corrective direction (authoritative for future work)
+
+The goal and target sections below are retained as the historical design that produced front #396
+and #397. They are not the target for new implementation.
+
+- The owner rejected the desktop bucket-navigation column, mobile bucket-selection drawer, single
+  selected-bucket state, and single shared detail pane as the long-term My Buckit interaction.
+- The correct structure is the pre-shell inline document flow: each bucket is represented by its own
+  object and paper label; opening it expands that same bucket's existing content immediately below;
+  several buckets may remain open independently.
+- Bucket open state is local, non-persistent UI state. It does not use a path, query parameter,
+  `pushState`, `replaceState`, reload restoration, or back/forward navigation.
+- Step 2 below never shipped and is dropped. It is not a dependency or blocker for corrective work.
+- Steps 1 and 3 remain recorded exactly as shipped and production-smoked. Their desktop selector,
+  mobile drawer, auto-selection, and shared-detail rendering are explicit removal targets rather than
+  history to rewrite.
+- `FEAT-inline-bucket-object-expand` supersedes `FEAT-bucket-object-collapse` and owns the single
+  corrective frontend PR, complete motion contract, assets, tests, and production smoke. This RFC has
+  no further standalone implementation step.
 
 ## Goal
 
@@ -261,6 +282,10 @@ Downstream: `ARCH-global-playback-experience` Step 4 (Playback Bucket detail) an
 work until this RFC's Step 1 ships the shell — named explicitly in both sibling RFCs' dependency
 sections.
 
+**Correction 2026-08-12:** Step 1 did ship, but its shared selection destination is now a removal
+target. Downstream content must attach to the owning inline bucket region defined by
+`FEAT-inline-bucket-object-expand`; neither sibling waits for the dropped URL Step 2.
+
 ## Step and PR boundaries
 
 One step per session (hard rule #4) unless the owner marks a step parallel-safe at accept time.
@@ -291,7 +316,11 @@ drag still round-trips (`PB_BOARD_DROP_EVENT` still fires and routes).
 
 ---
 
-### Step 2 — URL-backed selection (reload + back/forward restoration)
+### Step 2 — URL-backed selection (reload + back/forward restoration) — DROPPED UNIMPLEMENTED
+
+> Dropped 2026-08-12 by owner direction. No bucket URL/query/history wiring was present in
+> `BucketBoard.tsx` at `origin/main` `0d4f525`, so there is no deployed code to revert. The text below
+> is preserved only as the never-shipped proposal.
 
 Wire Step 1's selection state to `?tab=bucket&bucket=<id>[&album=<id>]`, extending the `?tab=`/`?lyrics=`
 idiom. `pushState` on explicit selection, `replaceState` on load-restoration writes. Ancestor-chain
@@ -334,6 +363,21 @@ prod bucket/Pocket counts confirmed back at their pre-test baseline afterward.
 **Rollback**: revert the PR; mobile-only presentational change.
 
 ---
+
+### Corrective disposition — owned by `FEAT-inline-bucket-object-expand`
+
+No new PR is opened from this historical shell RFC. After the superseding RFC's evidence gate and
+explicit acceptance conditions are green, its single corrective frontend PR must:
+
+1. remove `selectedBucketId`, first-bucket auto-selection, `BucketNavPanel`, `BucketNavRow` /
+   `BucketNavList`, the desktop `minmax(220px, 280px)` selector grid, the mobile trigger and
+   `BucketNavDrawer`, and the one-at-a-time `BucketDetailShell` dispatch as board structure;
+2. retain the existing bucket content implementation and render it below its own bucket object;
+3. restore recursive inline parent/child flow with independent local expanded ids;
+4. replace selection/drawer tests with the inline, DnD, accessibility, no-history, motion, responsive,
+   and system-protection regression matrix in the superseding RFC.
+
+This correction starts from the deployed shell rather than pretending #396/#397 did not ship.
 
 ## Migration and rollout
 
@@ -390,14 +434,13 @@ rewrites what a prior step shipped.
 
 ## Unresolved owner decisions
 
-1. **Does selecting a bucket always push a new history entry, or only some selections (e.g. top-level
-   bucket switches) while sub-navigation (album inside a bucket) replaces?** Affects how "chatty" back
-   navigation feels. Blocks: Step 2's exact `pushState`/`replaceState` split.
+1. ~~**Does selecting a bucket always push a new history entry, or only some selections?**~~ **Closed
+   2026-08-12:** there is no bucket selection URL and no history write; Step 2 is dropped.
 2. ~~**Mobile shape: drawer-over-content, or a dedicated full-screen selector view?**~~ **Resolved
    2026-08-10: drawer-over-content.** Shipped Step 3 (front #397, `7a597f7`).
-3. **Does the nav column show bucket-level status badges (the existing 담음→조사 중→작성 중→완료
-   lifecycle tag from `FEAT-bucket-identity` Direction B) in collapsed form, or only in the expanded
-   detail pane?** Blocks: Step 1's nav-row visual design, not its structure.
+3. ~~**Does the nav column show bucket-level status badges?**~~ **Obsolete 2026-08-12:** the nav column
+   is a corrective removal target. Existing lifecycle status remains inside each inline bucket's
+   preserved content/header treatment.
 
 ## Relationship to existing RFCs and plan rows
 
@@ -405,13 +448,16 @@ rewrites what a prior step shipped.
   unchanged.
 - Reuses `ARCH-entity-interaction-v2` (done, archived) — drag payload contract, `boardDnd.ts` rules,
   unchanged.
-- Supplies the extension boundary `ARCH-global-playback-experience` (Step 4, Playback Bucket detail)
-  and `FEAT-rating-smart-collections` (both smart collections) depend on — named explicitly in both.
+- ~~Supplies the shared selected-detail extension boundary for `ARCH-global-playback-experience` and
+  `FEAT-rating-smart-collections`.~~ Corrected 2026-08-12: future sibling UI belongs in its owning
+  inline bucket region; the shared selection destination is removed by the superseding RFC.
 - Does not reopen or duplicate `FEAT-bucket-identity`'s Direction B (lifecycle status derivation) —
   that status continues to be computed the same way; this RFC only changes where/how it's displayed
   (nav row vs. detail pane), an Open question above, not a redesign.
 - No `docs/rfcs/README.md` index conflict — no other active RFC claims board navigation/selection
   scope today.
+- Future corrective behavior is owned by `FEAT-inline-bucket-object-expand`; this RFC preserves the
+  shipped record and contributes no URL-selection dependency.
 
 ## Decisions log
 
@@ -420,3 +466,4 @@ rewrites what a prior step shipped.
 | 2026-08-10 | RFC drafted. Current-state verification (bucket board render structure, URL param usage, mobile branching, DnD mechanism, drop-rule/system-bucket-guard citations) run against `myblog_front` `origin/main` `01c6e35` and `myblog_backend`'s `bucket_service.py` before writing Target state, per house rule (`feedback-rfc-current-state-audit`) | — |
 | 2026-08-10 | **Accepted by owner.** Independent re-verification (separate session) re-confirmed this RFC's most load-bearing citations directly against `origin/main` code (`BucketBoard.tsx:1441`'s unconditional recursion, zero collapse/selection state; `boardDnd.ts`'s `canAcceptAlbumDrag`) — no discrepancies found. Status promoted draft → accepted; siblings `ARCH-global-playback-experience` and `FEAT-rating-smart-collections` remain draft | — |
 | 2026-08-10 | **Step 1 shipped** (front #396, squash `7921a9f`). Implementation delegated to Codex, reviewed and gate-run by Claude: `pnpm lint`/`astro check`/`pnpm test` (617 tests) green — one pre-existing test (`BucketBoard.test.tsx`'s optimistic-copy race test) needed updating for the new single-selection render model, no assertion weakened. Real-browser CDP against a local dev build proxied to real prod data (smoke account) verified every Step 1 requirement explicitly: collapsed nav rows stay mounted (`display:none` on the child group, confirmed via computed style, not unmounted), dragging an album onto a **collapsed** bucket's nav row previews accept and completes the drop, switching selection swaps the detail pane with no leaked prior-bucket DOM state, and create/rename/delete (cascade) all round-tripped against the real API. Deployed via front CI (build+upload+CloudFront-invalidate succeeded for `7921a9f`); post-deploy prod smoke 19/19 green, quoted on the PR. A fully-authenticated CDP pass against the literal deployed CloudFront bundle (not just a local build) was attempted for extra confidence but was blocked by the browser's mixed-content policy on the token-relay approach used to keep the bearer token out of the session transcript — not pursued further given the strength of the other evidence | 1 |
+| 2026-08-12 | Owner corrected the interaction direction. Step 2 was confirmed absent from `BucketBoard.tsx` at front `origin/main` `0d4f525` and dropped unimplemented. Shipped Steps 1 and 3 remain historical facts; their desktop selector, mobile drawer, single-selection state, and shared-detail layout become explicit removal targets in the superseding `FEAT-inline-bucket-object-expand` draft | — |

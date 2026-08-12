@@ -1,13 +1,22 @@
 # FEAT-bucket-object-collapse: make collapsed buckets tangible without restoring album-card sprawl
 
-- **Status**: accepted (2026-08-12; Step 0 authorized to start immediately)
+- **Status**: superseded 2026-08-12 before production implementation; historical accepted record
 - **Owner**: 박지훈
 - **Created**: 2026-08-11
 - **Plan row**: `docs/plan.md` → FEAT-bucket-object-collapse
-- **Depends on**: Step 0 is parallel/additive and may run now; Step 1 requires `ARCH-buckit-navigation-shell` Step 2 to reach its post-merge Definition of Done
+- **Superseded by**: `docs/rfcs/FEAT-inline-bucket-object-expand.md`
+- **Depends on**: none; no remaining implementation step belongs to this superseded RFC
 - **Origin**: 2026-08-11 owner brainstorm + standalone visual prototype using the supplied canonical bucket image and paper-label references
 
 ---
+
+> **Correction notice (2026-08-12):** This accepted RFC assumed that the shipped desktop bucket
+> selector, mobile selector drawer, and single shared detail pane were the desired structure. The
+> owner corrected that assumption before this RFC shipped production code. This file remains intact
+> as the historical accepted proposal; do not implement its Step 0 or Step 1. The superseding draft
+> `FEAT-inline-bucket-object-expand` owns the inline, independently expandable model and the complete
+> state-based motion contract. `ARCH-buckit-navigation-shell` Step 2 (URL-backed selection) was never
+> implemented and has been dropped.
 
 ## Goal
 
