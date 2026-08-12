@@ -32,20 +32,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   non-handle value and the blank-label path, and the owner explicitly accepted no independent handle
   motion for the flattened canonical raster. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **FEAT-inline-bucket-object-expand** (**accepted; Step 0 GO — NEXT: STEP 1**) — supersedes the
-  accepted-but-unimplemented `FEAT-bucket-object-collapse`. The final target is one inline object +
-  below-paper-label per bucket, independently expandable with local non-persistent state and no
-  desktop/mobile selector, shared detail destination, or URL/history effects. Preserve all existing
-  content, controls, hierarchy, DnD, Pocket bridge, mobile actions, and system protection. Step 0
-  recovery measured exact desktop/mobile sizes, drag, invalid, received, disabled, reduced-motion,
-  focus, and immediate-content behavior in a real browser at `1440×900` and `390×844`; it also proved
-  a deterministic archive-to-blank label normalization whose output is byte-identical to the prototype
-  derivative. Canonical red + a DOM accent remains the palette decision. The flattened raster still
-  cannot isolate the handle without losing body pixels; on 2026-08-12 the owner explicitly approved
-  the non-destructive fallback of no independent handle motion, with the handle raster-bound while the
-  whole object uses the measured drag transform. **Next = Step 1 single corrective inline
-  implementation PR after the required current-main/conflicting-work recheck.** No dependency on
-  navigation-shell Step 2. → `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
 - **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 SHIPPED + prod-verified**, front
   #398 `0d4f525` 2026-08-11) — closes the gaps `FEAT-playback-bucket-player` (done) and
   `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
