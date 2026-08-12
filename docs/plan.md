@@ -25,20 +25,25 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   shared detail and mobile drawer are preserved as implementation/deployment history but rejected as
   the future My Buckit structure. Step 2 URL-backed selection was confirmed absent at front
   `origin/main` `0d4f525` and **dropped unimplemented**; no URL/history work remains and it is not a
-  blocker. Corrective removal is owned by the draft `FEAT-inline-bucket-object-expand`, which restores
+  blocker. Corrective removal is owned by the accepted `FEAT-inline-bucket-object-expand`, which restores
   independent inline expansion and keeps sibling Playback/smart content inside its owning inline
-  bucket rather than a shared selection destination. The superseding RFC is now accepted. **Next =
-  complete its motion/asset evidence gate; no implementation starts before that gate is green.** →
+  bucket rather than a shared selection destination. **Its Step 0 concluded NO-GO on 2026-08-12:**
+  required motion/size evidence and non-destructive handle isolation remain unavailable, so no
+  implementation starts before an explicit owner-approved fallback/value decision. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **FEAT-inline-bucket-object-expand** (**accepted 2026-08-12; Step 0 NEXT**) — supersedes the
+- **FEAT-inline-bucket-object-expand** (**accepted; Step 0 NO-GO 2026-08-12 — OWNER DECISION REQUIRED**) — supersedes the
   accepted-but-unimplemented `FEAT-bucket-object-collapse`. The final target is one inline object +
   below-paper-label per bucket, independently expandable with local non-persistent state and no
   desktop/mobile selector, shared detail destination, or URL/history effects. Preserve all existing
-  content, controls, hierarchy, DnD, Pocket bridge, mobile actions, and system protection. **Next =
-  Step 0 motion/asset evidence gate:** recover or explicitly mark unavailable handle, drag-start,
-  invalid-shake, item-received, disabled, content-reveal, and recolor facts without production code or
-  invented values. Production Step 1 remains blocked on Step 0 GO. No dependency on navigation-shell
-  Step 2. → `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
+  content, controls, hierarchy, DnD, Pocket bridge, mobile actions, and system protection. Step 0
+  exhausted the prototype source/build/session, all reachable relevant workspace/front refs, and the
+  supplied assets without recovering the required handle, drag-start, invalid-shake, item-received,
+  disabled, or final production-size facts. The flattened raster cannot isolate the handle without
+  losing body pixels; full-palette recoloring is unproven, so canonical red + a DOM accent is the
+  recorded fallback; the ZIP label's fixed SVG text also differs from the blank prototype derivative.
+  **Next = owner decision on explicitly defining new values and/or approving non-destructive fallbacks
+  plus the blank runtime label source.** Production Step 1 remains blocked. No dependency on
+  navigation-shell Step 2. → `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
 - **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 SHIPPED + prod-verified**, front
   #398 `0d4f525` 2026-08-11) — closes the gaps `FEAT-playback-bucket-player` (done) and
   `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
