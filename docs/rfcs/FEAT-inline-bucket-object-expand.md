@@ -1,6 +1,6 @@
 # FEAT-inline-bucket-object-expand: restore inline buckets with independent object expansion
 
-- **Status**: accepted (2026-08-12; Step 0 recovery measured, NO-GO pending owner-only handle fallback decision)
+- **Status**: accepted (2026-08-12; Step 0 GO, production Step 1 ready after current-main recheck)
 - **Owner**: 박지훈
 - **Created**: 2026-08-12
 - **Plan row**: `docs/plan.md` → FEAT-inline-bucket-object-expand
@@ -484,13 +484,13 @@ Until that conclusion is merged, the existing Step 0 NO-GO remains effective and
 stays blocked. The no-handle-motion fallback remains unapproved unless the recovery task presents it
 and the owner explicitly accepts it.
 
-#### Step 0 measured-specification recovery — NO-GO pending handle decision (2026-08-12)
+#### Step 0 measured-specification recovery — GO (2026-08-12)
 
-**Result: NO-GO with one exact remaining blocker.** The recovery defined and browser-verified every
+**Result: GO.** The recovery defined and browser-verified every
 missing non-handle layout, motion, disabled, reduced-motion, and label-normalization fact below. It did
 not change production code or create a runtime asset. The canonical raster still cannot provide
-independent handle motion without fabricating pixels, so production Step 1 remains blocked on the
-owner-only decision at the end of this section.
+independent handle motion without fabricating pixels; the owner explicitly accepted the
+no-independent-handle-motion fallback on 2026-08-12, as recorded at the end of this section.
 
 ##### Method and production-intent layout
 
@@ -542,10 +542,9 @@ adds these exact constants:
 | Disabled | Use the native disabled semantic only when the complete disclosure/drop target is unavailable; action-specific system protection does not disable the object. Whole art opacity `.58`; `grayscale(.35) saturate(.55) drop-shadow(0 15px 10px rgba(20,18,15,.12))`; wrapper border `1px solid rgba(23,23,20,.22)` and background `rgba(243,240,232,.46)`; paper-label opacity `.68`; centered top lock badge with ink `#171714`, background `rgba(243,240,232,.92)`, and `1px solid rgba(23,23,20,.38)`. No hover, pressed, drag, drop-target, or transition response. |
 | Content reveal | Immediate, with no animation or transition. The lid may continue its visual response, but the content is usable as soon as `aria-expanded` changes. |
 
-There is no independent handle constant in this table because the only non-destructive value possible
-with the selected flattened art is **no independent handle transform**: the handle stays raster-bound
-and moves only as part of the whole-art drag transform. Adopting that fallback is not implied by these
-measurements and remains owner-only.
+There is no independent handle constant in this table because the approved non-destructive fallback is
+**no independent handle transform**: the handle stays raster-bound and moves only as part of the
+whole-art drag transform. The owner's explicit approval is recorded below.
 
 ##### Reduced-motion static equivalents
 
@@ -602,20 +601,21 @@ move the object, label, content, or neighbors. The immediate content insertion p
 document coordinate at both viewports and introduced only the expected normal-flow displacement of
 following buckets.
 
-##### Exact remaining blocker and owner decision
+##### Owner handle decision and Step 0 conclusion
 
-The recovered values and label path are complete, but the flattened canonical raster still contains
+The recovered values and label path are complete. The flattened canonical raster still contains
 the lowered handle composited over the body and lacks the body pixels behind it. Independent handle
 motion would require destructive masking, fabricated hidden pixels, a redraw, or a different layered
-source, all prohibited here. Therefore the recovery cannot record GO on its own.
+source, all prohibited here.
 
-The proposed non-destructive fallback is: **ship no independent handle motion; keep the handle fixed
+On 2026-08-12 the owner explicitly selected option 1 and approved the non-destructive fallback:
+**ship no independent handle motion; keep the handle fixed
 inside the canonical raster in every state, while the complete raster uses the measured whole-art drag
-transform above.** If the owner explicitly accepts this fallback, Step 0 becomes GO with no further
-measurement. If the owner rejects it, the exact blocker is a new owner-supplied canonical layered
-source containing a clean independent handle and the untouched body pixels behind it; Step 1 remains
-blocked until that source is available and separately measured. No fallback is selected by this RFC
-update.
+transform above.** This is the exact fallback presented by the measured recovery; it does not approve
+redrawing, destructive extraction, fabricated hidden pixels, or a replacement asset. With that
+decision, every Step 0 fact is exact, the label path is resolved, and **Step 0 is GO**. Production
+Step 1 may begin after the remaining current-`origin/main` / conflicting-work check in *Exact
+implementation start condition* passes.
 
 ### Step 1 — single corrective inline implementation PR
 
@@ -720,3 +720,4 @@ fallback or supplies a clean layered canonical source for separate measurement.
 | 2026-08-12 | Reliable full-palette recoloring is not demonstrated, so the RFC's canonical-red raster plus separate DOM color-accent fallback applies. The selected ZIP label also contains fixed `MY BUCKIT` text while the prototype uses the same paper payload blank; production remains blocked pending explicit fallback/value and blank-label-source decisions | 0 |
 | 2026-08-12 | **Owner selected recovery option 1.** A separate measured-specification task may define the missing motion/layout/disabled/reduced-motion values and resolve a blank-label source or normalization path. No particular value, handle fallback, label transformation, runtime asset, or production implementation is approved by this decision; Step 1 remains blocked until the recovery task records GO | 0 recovery |
 | 2026-08-12 | **Measured-specification recovery concluded NO-GO on one owner-only decision.** Real-browser checks at `1440×900` and `390×844` fixed every non-handle size, drag, invalid, received, disabled, reduced-motion, and content-reveal value; the verified archive-to-blank label normalization reproduces the prototype byte for byte. The remaining blocker is whether to accept no independent handle motion for the flattened canonical raster. No fallback was selected and no production/runtime file changed | 0 recovery |
+| 2026-08-12 | **Owner explicitly accepted recovery option 1: no independent handle motion.** The handle remains fixed inside the canonical raster in every state, while the complete raster uses the measured whole-art drag transform. No redraw, destructive extraction, fabricated hidden pixels, or replacement asset is authorized. Every Step 0 value and the blank-label path are now exact, so **Step 0 is GO**; production Step 1 may start after its current-main/conflicting-work recheck | 0 recovery |
