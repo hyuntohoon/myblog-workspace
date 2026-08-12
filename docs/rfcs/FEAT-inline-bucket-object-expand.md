@@ -1,6 +1,6 @@
 # FEAT-inline-bucket-object-expand: restore inline buckets with independent object expansion
 
-- **Status**: accepted (2026-08-12; Step 0 authorized to start)
+- **Status**: accepted (2026-08-12; Step 0 concluded NO-GO, production Step 1 blocked)
 - **Owner**: 박지훈
 - **Created**: 2026-08-12
 - **Plan row**: `docs/plan.md` → FEAT-inline-bucket-object-expand
@@ -332,9 +332,17 @@ The canonical sources are currently untracked at the shared workspace root; none
 | `buckit-bucket-base-canonical.png` | `myblog_front/public/buckit/buckit-bucket-base-canonical.png` |
 | ZIP entry `buckit-label-01-clean-straight.svg` | `myblog_front/public/buckit/buckit-label-01-clean-straight.svg` |
 
-`buckit-label-01-clean-straight.svg` is selected because it is the exact label used by the prior
-prototype and is present in the now-complete verified 16-entry archive. Do not ship the ZIP, the other
-15 candidates, either motion-reference JPEG, or any per-bucket/name derivative.
+`buckit-label-01-clean-straight.svg` is selected because its paper substrate is the label used by the
+prior prototype and it is present in the now-complete verified 16-entry archive. Do not ship the ZIP,
+the other 15 candidates, either motion-reference JPEG, or any per-bucket/name derivative.
+
+**Step 0 correction:** the visual paper substrate is the same, but the two SVG files are not byte-
+identical. The ZIP entry contains a literal SVG `<text>` node with `MY BUCKIT`; the prototype's
+`public/bucket-label.svg` removes that node so the editable/DOM text is not doubled. Their embedded
+paper PNG payloads have the same SHA-256 (`a145891d836bd725cf5fb69caf80fcb99eac0c1ed46e0f0a9476c389c71ab744`).
+The ZIP entry therefore cannot be copied to the runtime destination unchanged while also satisfying
+the real-DOM-text rule. Step 1 stays blocked until the blank runtime source/normalization is explicitly
+resolved; Step 0 did not extract or modify either supplied file.
 
 - Use only the canonical bucket raster. Do not redraw it with CSS shapes or replace it with an SVG.
 - Layering clipped duplicates of the same canonical image is allowed only where the prototype proves
@@ -387,6 +395,73 @@ stops and records the gap; defining new measured values requires separate explic
 and is not pre-authorized by this RFC. They must not be guessed in the production PR. A NO-GO on
 independent handle layering selects a non-destructive no-handle-motion fallback only with explicit
 owner approval; it does not authorize redrawing the bucket.
+
+#### Step 0 conclusion — NO-GO (2026-08-12)
+
+**Result: NO-GO.** No production code or runtime asset was changed. Production Step 1 remains blocked;
+this evidence pass did not authorize new motion/layout values or the no-handle-motion fallback.
+
+Evidence searched:
+
+- the standalone prototype's source, compiled client/server chunks, public/dist assets, and build
+  metadata;
+- the complete original Codex session record
+  `rollout-2026-08-11T21-35-40-019ff0d2-46c2-7972-bb31-1a69269062d4.jsonl`, including the owner
+  discussion before and after the prototype and label work;
+- all reachable relevant workspace and `myblog_front` refs/history, including workspace `12c864b`,
+  `40b3266`, `36f8e88`, `44d35e1` and front `01c6e35`, `7921a9f`, `7a597f7`, `0d4f525`; searches
+  covered bucket-object/asset names, handle/hinge, drag transforms/shadows, shake/invalid,
+  received/drop, disabled/locked, reduced motion, sizing, and recolor/filter terms;
+- both 1536×1024 reference boards, the 1536×1024 RGBA canonical raster, and the verified label ZIP
+  (all 16 entries pass `unzip -t`).
+
+Confirmed asset facts:
+
+- the supplied canonical PNG and the prototype's `public/bucket-canonical.png` are byte-identical
+  (SHA-256 `9f60d9b474852a9c6fb8f628003047bb1f4f9a04886468295bbd75928306021f`);
+- the canonical PNG is one flattened raster. Its lowered handle is already composited over the body.
+  Moving a clipped duplicate would leave the original lowered handle visible; masking it would also
+  remove the hidden red body shading/texture, which the source does not contain. The boards show an
+  upright drag handle but provide neither a clean handle layer nor the pixels behind the lowered one.
+  **Non-destructive independent handle isolation is not proven and is NO-GO with the supplied art.**
+- the lid/body clipped-duplicate method remains proven only for the prototype's existing lid motion;
+  it does not extend to the handle.
+- the selected archive label's paper payload matches the prototype, but the archive entry includes
+  fixed SVG text while the prototype uses a blank derivative, as recorded above.
+
+Missing-value result:
+
+| Required Step 0 fact | Result after search |
+| --- | --- |
+| Handle pivot/endpoints/duration/easing | unavailable; no independent handle layer or constants found |
+| Drag-start rotation/lift/shadow/handle response | unavailable; only deployed source opacity `.45` and related `.12s` transitions remain verified |
+| Invalid shake | unavailable; deployed reject reason, opacity `.4`, and `.12s` transitions are verified, but no shake keyframes/distance/duration/easing exist |
+| Item received | unavailable; no sequence, transforms, duration, easing, or static reduced-motion highlight value found |
+| Disabled visual | unavailable; `LOCKED` is only a qualitative board frame with no opacity/color/transition constants |
+| Content reveal | no prior transition values found; retain the accepted RFC's immediate reveal default, with no invented interpolation |
+| Reduced motion | `.01ms !important`, static lid endpoint, valid halo, reject reason, and focus semantics remain verified; received highlight stays unavailable |
+
+Size evidence is prototype-only and non-normative: desktop CSS uses a `162×214px` object and
+`158×46px` label; at an actual 390×844 viewport its media rule renders a `142×190px` object and
+`146×43px` label. The original session explicitly left actual profile placement/size and mobile
+scaling for later production decisions, and the obsolete selector-layout RFC also calls the prototype
+size non-normative. **Final production object/label sizes for desktop and 390×844 are unavailable.**
+
+Color-by-color result against the deployed stored palette:
+
+| Stored value | Step 0 result |
+| --- | --- |
+| `null` (default ink) | no raster mapping; `filter: none` remains canonical red |
+| `#c8332b` (red) | canonical `filter: none` is the only proven non-destructive treatment |
+| `oklch(0.66 0.12 70)` (amber) | no prototype mapping |
+| `oklch(0.58 0.10 155)` (green) | prototype green filter keeps outline/shading visibly present at prototype sizes, but is not calibrated to this stored value |
+| `oklch(0.56 0.10 245)` (blue) | prototype blue filter keeps outline/shading visibly present at prototype sizes, but is not calibrated to this stored value |
+| `oklch(0.55 0.11 300)` (violet) | prototype violet filter keeps outline/shading visibly present at prototype sizes, but is not calibrated to this stored value |
+
+The prototype's orange filter has no matching stored palette value. Because two stored cases have no
+mapping and the other non-red mappings are uncalibrated experiments, reliable recoloring of every
+existing bucket color is not demonstrated. The already-specified fallback therefore applies: use the
+canonical red raster for every object and preserve color identity in a separate DOM swatch/accent.
 
 ### Step 1 — single corrective inline implementation PR
 
@@ -469,11 +544,14 @@ Confirmed: inline pre-shell ownership; current deployed single-selection structu
 wiring; full prototype lid/hover/pressed/focus/reduced-motion values; reference-board state intent;
 current valid halo and reject/source opacity values; canonical and label filenames.
 
-Still unavailable: independent handle-layer proof and handle constants; drag-start rotation/lift/
-shadow constants; invalid-shake constants; item-received sequence/constants; a verified non-damaging
-mapping for existing bucket colors; exact disabled styling; and any content-region reveal transition
-beyond immediate visibility. These facts block production Step 1 through Step 0; they do not justify
-invented numbers or replacement artwork.
+Step 0's expanded source/session/all-ref search is recorded in its conclusion above. Still unavailable:
+independent handle constants and a non-destructive layer; drag-start rotation/lift/shadow/handle
+constants; invalid-shake constants; item-received sequence/constants and reduced-motion highlight;
+exact disabled styling; final desktop/mobile production sizes; and a complete calibrated palette
+mapping. No content-region transition evidence exists beyond immediate visibility. The blank label
+runtime source also needs explicit resolution because the verified archive entry contains fixed text.
+These gaps produced the Step 0 NO-GO and continue to block production Step 1; they do not justify
+invented numbers, destructive raster edits, or replacement artwork.
 
 ## Decisions log
 
@@ -484,3 +562,5 @@ invented numbers or replacement artwork.
 | 2026-08-12 | Selected `buckit-label-01-clean-straight.svg` from the complete verified archive because it is the exact prior-prototype label; only it and the canonical bucket image may become runtime assets | — |
 | 2026-08-12 | Restored every confirmed prototype motion value and separated missing constants into a blocking evidence gate instead of inventing values | — |
 | 2026-08-12 | **Accepted by owner.** Step 0 motion/asset evidence work may start; production Step 1 remains blocked until Step 0 records GO and the remaining implementation-start conditions are rechecked | — |
+| 2026-08-12 | **Step 0 NO-GO.** Prototype source/build/session, all reachable relevant workspace/front refs, canonical/board inputs, and the verified 16-label archive yielded no handle, drag-start, shake, received, disabled, or final production-size constants. The flattened canonical raster cannot isolate and move the handle non-destructively | 0 |
+| 2026-08-12 | Reliable full-palette recoloring is not demonstrated, so the RFC's canonical-red raster plus separate DOM color-accent fallback applies. The selected ZIP label also contains fixed `MY BUCKIT` text while the prototype uses the same paper payload blank; production remains blocked pending explicit fallback/value and blank-label-source decisions | 0 |
