@@ -391,8 +391,10 @@ RFC:
 8. reduced-motion static states.
 
 Values must first be recovered from an earlier source not yet found. If recovery still fails, Step 0
-stops and records the gap; defining new measured values requires separate explicit owner authorization
-and is not pre-authorized by this RFC. They must not be guessed in the production PR. A NO-GO on
+stops and records the gap; defining new measured values requires separate explicit owner authorization.
+The owner granted that authorization on 2026-08-12 for a separate measured-specification recovery task,
+not for the production PR. Values must be measured and recorded there, never guessed during production
+implementation. A NO-GO on
 independent handle layering selects a non-destructive no-handle-motion fallback only with explicit
 owner approval; it does not authorize redrawing the bucket.
 
@@ -462,6 +464,25 @@ The prototype's orange filter has no matching stored palette value. Because two 
 mapping and the other non-red mappings are uncalibrated experiments, reliable recoloring of every
 existing bucket color is not demonstrated. The already-specified fallback therefore applies: use the
 canonical red raster for every object and preserve color identity in a separate DOM swatch/accent.
+
+#### Step 0 recovery decision — measured specification authorized (2026-08-12)
+
+The owner selected recovery option 1 after reviewing the NO-GO. A separate measured-specification task
+is authorized to define the missing motion, layout, disabled, and reduced-motion values and to resolve
+the blank runtime label source or a normalization path. This is authorization to perform and document
+the measurement/design work; it is not approval of any particular constant, independent-handle
+fallback, label transformation, replacement artwork, runtime asset, or production implementation.
+
+The recovery task must preserve every already-verified constant, use the canonical art without
+destructive layer extraction or redraw, compare proposed behavior at desktop and 390×844, and record
+the resulting exact values and label-source decision in this RFC. It must conclude with either:
+
+1. **GO** — every implementation-start fact is exact and the label path is explicitly resolved; or
+2. **NO-GO** — the remaining exact blocker is recorded without starting production Step 1.
+
+Until that conclusion is merged, the existing Step 0 NO-GO remains effective and production Step 1
+stays blocked. The no-handle-motion fallback remains unapproved unless the recovery task presents it
+and the owner explicitly accepts it.
 
 ### Step 1 — single corrective inline implementation PR
 
@@ -550,8 +571,10 @@ constants; invalid-shake constants; item-received sequence/constants and reduced
 exact disabled styling; final desktop/mobile production sizes; and a complete calibrated palette
 mapping. No content-region transition evidence exists beyond immediate visibility. The blank label
 runtime source also needs explicit resolution because the verified archive entry contains fixed text.
-These gaps produced the Step 0 NO-GO and continue to block production Step 1; they do not justify
-invented numbers, destructive raster edits, or replacement artwork.
+These gaps produced the Step 0 NO-GO and continue to block production Step 1. The owner has authorized
+a separate measured-specification recovery task to resolve them, but no particular new value or asset
+operation is approved yet; the authorization does not justify guessed production numbers, destructive
+raster edits, or replacement artwork.
 
 ## Decisions log
 
@@ -564,3 +587,4 @@ invented numbers, destructive raster edits, or replacement artwork.
 | 2026-08-12 | **Accepted by owner.** Step 0 motion/asset evidence work may start; production Step 1 remains blocked until Step 0 records GO and the remaining implementation-start conditions are rechecked | — |
 | 2026-08-12 | **Step 0 NO-GO.** Prototype source/build/session, all reachable relevant workspace/front refs, canonical/board inputs, and the verified 16-label archive yielded no handle, drag-start, shake, received, disabled, or final production-size constants. The flattened canonical raster cannot isolate and move the handle non-destructively | 0 |
 | 2026-08-12 | Reliable full-palette recoloring is not demonstrated, so the RFC's canonical-red raster plus separate DOM color-accent fallback applies. The selected ZIP label also contains fixed `MY BUCKIT` text while the prototype uses the same paper payload blank; production remains blocked pending explicit fallback/value and blank-label-source decisions | 0 |
+| 2026-08-12 | **Owner selected recovery option 1.** A separate measured-specification task may define the missing motion/layout/disabled/reduced-motion values and resolve a blank-label source or normalization path. No particular value, handle fallback, label transformation, runtime asset, or production implementation is approved by this decision; Step 1 remains blocked until the recovery task records GO | 0 recovery |

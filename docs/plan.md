@@ -29,9 +29,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   independent inline expansion and keeps sibling Playback/smart content inside its owning inline
   bucket rather than a shared selection destination. **Its Step 0 concluded NO-GO on 2026-08-12:**
   required motion/size evidence and non-destructive handle isolation remain unavailable, so no
-  implementation starts before an explicit owner-approved fallback/value decision. →
+  implementation starts before the owner-authorized measured-specification recovery records exact
+  values and resolves the blank-label path. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **FEAT-inline-bucket-object-expand** (**accepted; Step 0 NO-GO 2026-08-12 — OWNER DECISION REQUIRED**) — supersedes the
+- **FEAT-inline-bucket-object-expand** (**accepted; Step 0 NO-GO 2026-08-12 — MEASURED SPEC AUTHORIZED**) — supersedes the
   accepted-but-unimplemented `FEAT-bucket-object-collapse`. The final target is one inline object +
   below-paper-label per bucket, independently expandable with local non-persistent state and no
   desktop/mobile selector, shared detail destination, or URL/history effects. Preserve all existing
@@ -41,8 +42,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   disabled, or final production-size facts. The flattened raster cannot isolate the handle without
   losing body pixels; full-palette recoloring is unproven, so canonical red + a DOM accent is the
   recorded fallback; the ZIP label's fixed SVG text also differs from the blank prototype derivative.
-  **Next = owner decision on explicitly defining new values and/or approving non-destructive fallbacks
-  plus the blank runtime label source.** Production Step 1 remains blocked. No dependency on
+  On 2026-08-12 the owner chose recovery option 1: a separate measured-specification task may define
+  new motion/layout/disabled values and resolve a blank runtime label source or normalization path.
+  That authorization does not approve any particular value, handle fallback, label transformation, or
+  production change. **Next = complete that measured specification and record Step 0 GO or the remaining
+  exact blocker.** Production Step 1 remains blocked. No dependency on
   navigation-shell Step 2. → `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
 - **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 SHIPPED + prod-verified**, front
   #398 `0d4f525` 2026-08-11) — closes the gaps `FEAT-playback-bucket-player` (done) and
