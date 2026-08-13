@@ -968,6 +968,23 @@ CREATE INDEX IF NOT EXISTS idx_album_reviews_user_candidate
   WHERE review_candidate;
 
 -- =============================================================================
+-- Planned Ratings — 평가 예정 store (V52; FEAT-rating-smart-collections Step 2,
+-- Option B). Row existence = the "plan to rate" mark; DELETE = unmark. Strictly
+-- separate from album_reviews.review_candidate (editorial, unrelated) and from
+-- review_buckets (front end renders this as a bucket-shaped tile, but no bucket
+-- row is ever created for it).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS planned_ratings (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users (id)  ON DELETE CASCADE,
+  album_id   UUID        NOT NULL REFERENCES albums (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_planned_ratings_user_album UNIQUE (user_id, album_id)
+);
+CREATE INDEX IF NOT EXISTS idx_planned_ratings_user_created
+  ON planned_ratings (user_id, created_at);
+
+-- =============================================================================
 -- Daily Picks — owner-curated "song of the day" store (V39; FEAT-today-buckit Step 3)
 -- One pick per calendar day (upsert on pick_date); track-primary (a pick is always
 -- a TRACK; album_id carried for the album-window click target). Denormalized
