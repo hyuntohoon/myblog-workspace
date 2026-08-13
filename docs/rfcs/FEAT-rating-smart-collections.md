@@ -1,13 +1,14 @@
 # FEAT-rating-smart-collections: 평가 완료 / 평가 예정 — two derived rating-domain collections
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: accepted (Step 0 closed 2026-08-13; Steps 1–4 owner-approved in the same session,
+  overriding hard rule #5's one-step-per-session default per explicit owner instruction this session)
+- **Owner**: 오너 (Step 0 decision made 2026-08-13)
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → FEAT-rating-smart-collections
-- **Depends on**: `docs/rfcs/ARCH-buckit-navigation-shell.md` Step 1 (`BucketDetailShell`'s
-  smart-bucket-like empty slot) **only if** the owner decides these two collections surface as
-  nav-tree-adjacent entries rather than a standalone page (Unresolved owner decision 1). No other
-  dependency on either sibling RFC.
+- **Depends on**: nothing. Unresolved owner decision 1 (below) resolved 2026-08-13: 평가 완료/평가
+  예정 do **not** route through `ARCH-buckit-navigation-shell`'s `BucketDetailShell` — they surface as
+  two static system buckets inside the existing `BucketBoard` grid instead (see UX behavior, updated
+  below). The nav-shell dependency this line used to declare no longer applies.
 - **Sibling RFC of `FEAT-album-review-authoring`, not a continuation of it.** That RFC (accepted
   2026-07-31, Steps 1–2 shipped) defined and shipped `album_reviews`'s current shape — `rating`
   (nullable), `comment` (≤60 char), `review_candidate` (private "will write a 평론" mark) — and
@@ -17,6 +18,41 @@
   `review_candidate`'s meaning or column.
 
 ---
+
+## Decisions log
+
+- **2026-08-13 — Step 0 closed: Option B (dedicated `planned_ratings` table)** for 평가 예정 storage.
+  Owner picked the RFC's own recommended default over Option A, on the same "strictly separate"
+  grounds this document already argued — zero blast radius on `album_reviews`'s existing CHECK/upsert
+  logic, at the cost of two new mutating routes + one `terraform apply` (accepted).
+- **2026-08-13 — Unresolved owner decision 1 resolved**: 평가 완료 and 평가 예정 do not route through
+  `ARCH-buckit-navigation-shell`. They surface as two **static system buckets inside the existing
+  `BucketBoard`/마이버킷 grid** — a third placement this RFC's original draft did not enumerate. See
+  UX behavior below for the exact interaction model this implies (drag-and-drop onto the tile, not an
+  icon toggle).
+- **2026-08-13 — UX model changed from icon-toggle to drag-and-drop bucket tile.** The original draft
+  specified an always-visible icon toggle (mirroring 평론 후보's ✎ mark) as 평가 예정's mark/unmark
+  affordance. Owner instead wants both collections presented as bucket-shaped tiles a user drags albums
+  onto, consistent with how every other bucket in `BucketBoard` already works:
+  - Drop onto **평가완료** tile: opens the existing rating-entry UI (the same control `PUT
+    /api/reviews/albums/{album_id}` already powers) for that album. **No `ReviewBucketItem` row is ever
+    created by this drop** — 평가완료 stays a pure filtered view (`rating IS NOT NULL`), per this RFC's
+    original no-new-storage promise for that collection. The album appears in the tile afterward only
+    because it now satisfies the filter, not because anything was "added" to it.
+  - Drop onto **평가전** tile: calls `PUT /api/me/planned-ratings/{album_id}` (mark). Also a pure
+    state-flip, not a `ReviewBucketItem` insert — 평가전/평가예정 storage is `planned_ratings` (Option
+    B), never `review_buckets`, keeping the RFC's Option-C rejection (버킷 kind must not encode state)
+    intact even though the tile visually lives in the same grid as real buckets.
+  - Both tiles are **synthesized client-side only — no new `review_buckets.kind` value, no new row in
+    `review_buckets` at all.** `BucketBoard` prepends/appends two pseudo-bucket entries to its rendered
+    grid (visually matching the non-deletable/system treatment `spotify_library`/`to_listen`/
+    `playback_queue` already get), sourced from `album-states`/`planned-ratings` instead of `GET
+    /api/buckets`. This is the concrete mechanism that keeps Option C rejected in substance: the DB
+    schema gains zero new bucket-kind values, and no backend bucket route needs to know these tiles
+    exist.
+- **2026-08-13 — Steps 1–4 approved for the same session**, overriding hard rule #5 (one RFC step per
+  session) on explicit owner instruction this session. Recorded here per that rule's own requirement
+  that any override be session-scoped and explicit, not inferred.
 
 ## Goal
 
@@ -243,20 +279,37 @@ artist resolve, zero N+1 either way.
 
 ## UX behavior — desktop and mobile
 
-- **평가 완료**: reuses the existing 평가한 앨범 list rendering (`MemberProfile.tsx`) and/or
-  `lib/ratingStats.ts`'s distribution histogram (`FEAT-album-review-authoring` Step 2's already-shipped
-  desktop/390px-verified layout) — no new responsive design needed, only a decision on *where* this
-  list additionally surfaces (see Unresolved owner decisions).
-- **평가 예정**: the mark/unmark toggle reuses the existing 평론 후보 toggle's already-proven placement
-  pattern (`FEAT-album-review-authoring`'s Step 1 UX: always-visible-but-quiet on the bucket tile —
-  `opacity: 0.45` idle / `1` on hover-or-marked, `:focus-visible` — and a same-pattern control on the
-  album detail screen, reachable without entering edit mode and without a rating already present). A
-  new, visually distinct icon/label from the existing 평론 후보 ✎ mark is required — sharing an icon
-  between two conceptually different private marks on the same tile would defeat "strictly separate" at
-  the UI layer even if storage is cleanly separated.
-- **List/bulk view of 평가 예정**: a queue view mirroring `ReviewCandidates.tsx`'s existing shape
-  (album cover, title, artist, "평가하러 가기" entry point into the rating control — not into `/write`,
-  since this is a rating intent, not an editorial one).
+**Superseded 2026-08-13 — see Decisions log.** Both collections surface as static system bucket tiles
+inside `BucketBoard`, not as icon toggles. This section now specifies that model.
+
+- **Two static tiles in `BucketBoard`**: 평가완료, 평가전. Rendered alongside real buckets
+  (`spotify_library`/`to_listen`/`playback_queue`/user buckets), visually flagged non-deletable/system
+  (same treatment those three already get) so a user cannot rename, delete, or reorder-out either tile.
+- **평가완료 tile contents**: `album-states` filtered client-side to `rating != null` (self-scoped;
+  reuses the already-shipped `album-states` read, no new endpoint). Card rendering reuses the existing
+  `BucketAlbumBadges` score badge.
+- **평가전 tile contents**: `GET /api/me/planned-ratings` (new, Step 2). Card shows title/cover/artist
+  only (no rating, by definition — this is pre-rating intent).
+- **Drop-target behavior** (both tiles are valid DnD drop targets from anywhere an album card can be
+  dragged in `BucketBoard` today):
+  - Drop onto 평가전 → `PUT /api/me/planned-ratings/{album_id}`, optimistic add to the tile, idempotent
+    (dropping an already-planned album twice is a no-op, not an error).
+  - Drop onto 평가완료 → opens the existing rating-entry control for that album (same UI
+    `PUT /api/reviews/albums/{album_id}` already powers via the album detail/bucket-tile rating flow).
+    **No API call fires on drop itself** — only on the rating form's own submit. If the user cancels
+    the rating form, the album is not added anywhere (matches "평가완료 is a pure filter, not storage").
+  - Dropping an already-rated album onto 평가전, or an already-planned album onto 평가완료, are both
+    valid — planned-and-rated is not a contradiction; the UI does not remove an album from 평가전 the
+    moment it also becomes rated (평가전 = "I planned to," independent of whether it later happened;
+    the two lists can overlap). No auto-remove-on-rate logic exists or is planned.
+  - Removing an album from 평가전 (unmark) uses the same delete-affordance existing bucket tiles use
+    for removing an item, wired to `DELETE /api/me/planned-ratings/{album_id}` instead of a bucket-item
+    delete call. 평가완료 has no remove affordance from the tile — removing a rating is done via the
+    existing rating-delete flow (`DELETE /api/reviews/albums/{album_id}`), not from this tile, per the
+    original "no bucket-shaped affordance for a rating-shaped action" guardrail below.
+- **List/bulk view**: both tiles open into a full list the same way any other bucket tile does today
+  (existing bucket-detail navigation) — no new list component, no `ReviewCandidates.tsx`-shaped queue
+  view needed since the tile-grid entry point already provides one.
 
 ## Data / API / contract impact
 
@@ -286,12 +339,9 @@ One step per session (hard rule #4). **Step 0 is the decision gate and must clos
 scoped concretely** — this mirrors `FEAT-album-review-authoring`'s own precedent of a hard stop before
 committing implementation shape (that RFC's Step 3 AI-distillation re-observation gate).
 
-### Step 0 — decision gate: Option A vs. Option B for 평가 예정 (docs-only)
+### Step 0 — decision gate: Option A vs. Option B for 평가 예정 (docs-only) — CLOSED 2026-08-13
 
-Present the cost/risk table above to the owner; record the decision in this RFC's Decisions log. Blocks
-every subsequent step — there is no code to write until this closes, per the task's own instruction to
-include "a decision gate before implementation if a material schema or product choice remains
-unresolved."
+Option B (dedicated `planned_ratings` table) selected. See Decisions log above.
 
 **Verification**: doc review only; no code changes.
 
@@ -407,19 +457,19 @@ the PR body. If Option B: new route liveness probe (401 authed-vs-404-missing) b
 
 ## Unresolved owner decisions
 
-1. **Storage shape for 평가 예정 — Option A or Option B** (Step 0's actual gate). Recommended default:
-   **Option B** (dedicated table), on the grounds that "strictly separate" was stated as an explicit
-   requirement in the task instructions and Option B is the only one of the two that satisfies it
-   structurally rather than by convention/discipline alone — but this is a recommendation, not a
-   decision; the gate exists precisely because this could go either way.
-2. **Where do 평가 완료 and 평가 예정 surface** — inside `ARCH-buckit-navigation-shell`'s
-   `BucketDetailShell` as nav-adjacent smart entries (requiring that RFC's Step 2 first), or as
-   standalone profile-page sections (no dependency, ships independently)? Blocks whether Step 4 carries
-   the cross-RFC dependency edge at all.
-3. **Does 평가 예정 need a sort/ordering scheme of its own** (e.g. "표시한 순" via `planned_at`), or is
-   unordered-by-recency (matching `review-candidates`' own `updated_at.desc()` precedent) sufficient?
-   Low-stakes, does not block Step 2 either way — default to the existing precedent if undecided at
-   implementation time.
+1. ~~Storage shape for 평가 예정 — Option A or Option B~~ **Resolved 2026-08-13: Option B.** See
+   Decisions log.
+2. ~~Where do 평가 완료 and 평가 예정 surface~~ **Resolved 2026-08-13: neither — both surface as
+   static tiles inside `BucketBoard`, not the nav shell, not a standalone profile section.** See
+   Decisions log and UX behavior.
+3. **Does 평가 예정 need a sort/ordering scheme of its own** — still open, low-stakes. Default to
+   unordered-by-recency (`created_at.desc()` on `planned_ratings`) at implementation time unless the
+   owner specifies otherwise.
+4. **New, not previously listed — does dropping an already-planned album onto 평가완료 (i.e. rating it)
+   auto-remove it from 평가전?** This session's default (see UX behavior) is **no auto-remove** —
+   평가전 and 평가완료 are allowed to overlap, since "I planned to" and "I did" are independent facts.
+   Flagged here because the owner did not explicitly confirm this; revisit if it surprises anyone in
+   practice.
 
 ## Relationship to existing RFCs and plan rows
 
