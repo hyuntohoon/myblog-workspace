@@ -2569,6 +2569,77 @@
         "title": "OnThisDayItem",
         "type": "object"
       },
+      "Backend_PlannedRatingListResponse": {
+        "properties": {
+          "planned": {
+            "items": {
+              "$ref": "#/components/schemas/Backend_PlannedRatingResponse"
+            },
+            "title": "Planned",
+            "type": "array"
+          }
+        },
+        "title": "PlannedRatingListResponse",
+        "type": "object"
+      },
+      "Backend_PlannedRatingResponse": {
+        "description": "One row of the caller's \ud3c9\uac00 \uc608\uc815 (\"plan to rate\") list.\n\nStrictly separate from ReviewCandidateResponse (\ud3c9\ub860 \uc4f8 \uac83): a planned\nrating carries no rating/comment fields at all \u2014 its existence is the\nentire fact. Album context is carried the same way (a planned album may\nhave no bucket entry and no rating row), so the join shape matches.",
+        "properties": {
+          "album_cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Album Cover Url"
+          },
+          "album_id": {
+            "title": "Album Id",
+            "type": "string"
+          },
+          "album_title": {
+            "title": "Album Title",
+            "type": "string"
+          },
+          "artist_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist Id"
+          },
+          "artist_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "album_id",
+          "album_title",
+          "created_at"
+        ],
+        "title": "PlannedRatingResponse",
+        "type": "object"
+      },
       "Backend_PlaybackResolveResponse": {
         "properties": {
           "uri": {
@@ -9239,7 +9310,7 @@
     },
     "/api/lyrics/{spotify_track_id}": {
       "get": {
-        "description": "Normalized lyric segments for one catalog track (authenticated users only).\n\nUnknown spotify_track_id \u2192 404 (no catalog track). A known track without viewable\nlyrics is NOT a 404 \u2014 it returns availability \"no_lyrics\" / \"unavailable\" so the\nviewer can render the correct empty state.",
+        "description": "Normalized lyric segments for one catalog track (any signed-in member).\n\nUnknown spotify_track_id \u2192 404 (no catalog track). A known track without viewable\nlyrics is NOT a 404 \u2014 it returns availability \"no_lyrics\" / \"unavailable\" so the\nviewer can render the correct empty state.",
         "operationId": "get_lyrics_api_lyrics__spotify_track_id__get",
         "parameters": [
           {
@@ -9470,6 +9541,113 @@
           }
         ],
         "summary": "Get My Album States",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/planned-ratings": {
+      "get": {
+        "description": "The caller's \ud3c9\uac00 \uc608\uc815 (\"plan to rate\") queue (FEAT-rating-smart-collections\nStep 2, Option B). Strictly separate from /review-candidates \u2014 a planned\nrating carries no rating/comment, only the fact that it was planned.\n\nPrivate, JWT-only, scoped to the caller with no handle parameter \u2014 same\nposture as /review-candidates. Rides the edge_guard GET catch-all like\nevery other authed GET in this file \u2014 no API Gateway route needed.",
+        "operationId": "get_my_planned_ratings_api_me_planned_ratings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_PlannedRatingListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get My Planned Ratings",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/planned-ratings/{album_id}": {
+      "delete": {
+        "description": "Unmark. Idempotent: unmarking an album that was never planned (or\nalready unmarked) is also a no-op \u2014 204 either way, no 404.",
+        "operationId": "unmark_planned_rating_api_me_planned_ratings__album_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "album_id",
+            "required": true,
+            "schema": {
+              "title": "Album Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unmark Planned Rating",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "description": "Mark an album as \ud3c9\uac00 \uc608\uc815 \u2014 the drop target for the \ud3c9\uac00\uc804 tile in\nBucketBoard. Idempotent: marking twice is a no-op, not an error.",
+        "operationId": "mark_planned_rating_api_me_planned_ratings__album_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "album_id",
+            "required": true,
+            "schema": {
+              "title": "Album Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backend_HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Planned Rating",
         "tags": [
           "me"
         ]
