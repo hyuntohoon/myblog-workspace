@@ -56,13 +56,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   lyrics host — relocate `ENT_OPEN_LIVE_LYRICS`'s listener from `SelfDashboard` to a layout-level mount),
   no ordering dependency on Step 1, startable in a new session. →
   `docs/rfcs/ARCH-global-playback-experience.md`.
-- **FEAT-rating-smart-collections** (**draft — Step 0 decision gate blocks all implementation**) —
-  평가 완료 (derived view over existing `rating IS NOT NULL` rows, zero new storage, already-shipped
-  read endpoints + `lib/ratingStats.ts`) and 평가 예정 (new private per-user-album rating-intent state,
-  explicitly distinct from `review_candidate`/평론 쓸 것 per `FEAT-album-review-authoring`'s own
-  terminology prohibition). Storage shape (extend `album_reviews` vs. a dedicated table) is an open
-  owner decision — `album_reviews`'s `ck_album_reviews_state_not_empty` CHECK makes "extend the same
-  row" a real, non-free cost, not a trivial default. Nothing past Step 0 is startable yet. →
+- **FEAT-rating-smart-collections** (**accepted, in-progress — Step 0 closed 2026-08-13 (Option B:
+  dedicated `planned_ratings` table); Steps 1–4 in flight same session, owner override of hard rule
+  #5**) — 평가완료 (derived view, zero new storage) and 평가전/평가예정 (new `planned_ratings` table)
+  surface as two static, non-deletable system tiles inside `BucketBoard` — drop onto 평가완료 opens the
+  existing rating control, drop onto 평가전 marks intent via the new API. See this session's Decisions
+  log entry for the full UX-model change (icon-toggle → drag-drop tile). →
   `docs/rfcs/FEAT-rating-smart-collections.md`.
 
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
