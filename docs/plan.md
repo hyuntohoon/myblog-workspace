@@ -20,17 +20,16 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `FIX-lyrics-primary-artist + FIX-isrc-backfill` dropped entirely — implementation complete, remaining
 > items were pure non-gating observation with no RFC to archive; detail → `docs/archive/done/2026-08.md`.
 
-- **ARCH-buckit-navigation-shell** (**correction required; Step 1 + Step 3 remain SHIPPED**, front
-  #396 `7921a9f` 2026-08-10, front #397 `7a597f7` 2026-08-10) — the deployed desktop selector + one
-  shared detail and mobile drawer are preserved as implementation/deployment history but rejected as
-  the future My Buckit structure. Step 2 URL-backed selection was confirmed absent at front
-  `origin/main` `0d4f525` and **dropped unimplemented**; no URL/history work remains and it is not a
-  blocker. Corrective removal is owned by the accepted `FEAT-inline-bucket-object-expand`, which restores
-  independent inline expansion and keeps sibling Playback/smart content inside its owning inline
-  bucket rather than a shared selection destination. **Its Step 0 is GO as of 2026-08-12:**
-  the owner-authorized measured-specification recovery has now fixed and browser-verified every
-  non-handle value and the blank-label path, and the owner explicitly accepted no independent handle
-  motion for the flattened canonical raster. →
+- **ARCH-buckit-navigation-shell** (**live again 2026-08-13**, front #396 `7921a9f` / #397 `7a597f7`
+  2026-08-10, restored by front #401 `45b29b2` 2026-08-13) — the desktop selector + shared detail pane
+  and mobile drawer (Steps 1 + 3) are the deployed structure. The corrective `FEAT-inline-bucket-object-
+  expand` reached Step 0 GO 2026-08-12 and its Step 1 shipped 2026-08-12 (front #399 `ec23511`),
+  replacing this structure in production; the owner then reviewed the live deployed behavior and
+  rejected it rather than iterating on it live, and front #401 is a clean revert of #399, prod-smoked
+  19/19. `FEAT-inline-bucket-object-expand` has no active next step as a result (see its Status). Step 2
+  URL-backed selection remains dropped unimplemented; whether to revisit it now that this structure is
+  live again, pursue a different corrective direction, or keep the shipped structure as-is is an open
+  owner decision, not yet made. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
 - **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 SHIPPED + prod-verified**, front
   #398 `0d4f525` 2026-08-11) — closes the gaps `FEAT-playback-bucket-player` (done) and

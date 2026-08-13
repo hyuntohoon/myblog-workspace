@@ -1,6 +1,12 @@
 # FEAT-inline-bucket-object-expand: restore inline buckets with independent object expansion
 
-- **Status**: accepted (2026-08-12; Step 0 GO, production Step 1 ready after current-main recheck)
+- **Status**: **reverted from production (2026-08-13)** — Step 1 shipped 2026-08-12 (`myblog_front`
+  #399, `ec23511`), then the owner reviewed the live deployed behavior and rejected it rather than
+  iterating on it live: `myblog_front` #401 (`45b29b2`, 2026-08-13) is a clean `git revert` of #399,
+  restoring `ARCH-buckit-navigation-shell` Steps 1/3's selector + shared-detail structure, prod-smoked
+  19/19. This RFC's Step 0 evidence (motion/asset constants, label normalization) remains historically
+  accurate, but "production Step 1 ready" below is stale — Step 1 was completed and then explicitly
+  turned down, not merely paused. No further work on this RFC is active; see the Decisions log.
 - **Owner**: 박지훈
 - **Created**: 2026-08-12
 - **Plan row**: `docs/plan.md` → FEAT-inline-bucket-object-expand
@@ -721,3 +727,5 @@ fallback or supplies a clean layered canonical source for separate measurement.
 | 2026-08-12 | **Owner selected recovery option 1.** A separate measured-specification task may define the missing motion/layout/disabled/reduced-motion values and resolve a blank-label source or normalization path. No particular value, handle fallback, label transformation, runtime asset, or production implementation is approved by this decision; Step 1 remains blocked until the recovery task records GO | 0 recovery |
 | 2026-08-12 | **Measured-specification recovery concluded NO-GO on one owner-only decision.** Real-browser checks at `1440×900` and `390×844` fixed every non-handle size, drag, invalid, received, disabled, reduced-motion, and content-reveal value; the verified archive-to-blank label normalization reproduces the prototype byte for byte. The remaining blocker is whether to accept no independent handle motion for the flattened canonical raster. No fallback was selected and no production/runtime file changed | 0 recovery |
 | 2026-08-12 | **Owner explicitly accepted recovery option 1: no independent handle motion.** The handle remains fixed inside the canonical raster in every state, while the complete raster uses the measured whole-art drag transform. No redraw, destructive extraction, fabricated hidden pixels, or replacement asset is authorized. Every Step 0 value and the blank-label path are now exact, so **Step 0 is GO**; production Step 1 may start after its current-main/conflicting-work recheck | 0 recovery |
+| 2026-08-12 | **Step 1 shipped.** `myblog_front` #399 (`ec23511`) merged the single corrective inline implementation PR, deployed, prod smoke passed; workspace #898 removed the plan row as complete | 1 |
+| 2026-08-13 | **Owner rejected the shipped result and reverted it.** After reviewing the live deployed inline-expand behavior, the owner decided to hold/reject it from production rather than iterate on it — `myblog_front` #401 (`45b29b2`) is a clean revert of #399, restoring `ARCH-buckit-navigation-shell` Steps 1/3, prod-smoked 19/19. This RFC has no active next step; `docs/plan.md` corrected in the same pass (workspace docs-correction PR, this entry) | 1 (reverted) |
