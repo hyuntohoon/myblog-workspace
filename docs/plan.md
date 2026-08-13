@@ -56,14 +56,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   lyrics host — relocate `ENT_OPEN_LIVE_LYRICS`'s listener from `SelfDashboard` to a layout-level mount),
   no ordering dependency on Step 1, startable in a new session. →
   `docs/rfcs/ARCH-global-playback-experience.md`.
-- **FEAT-rating-smart-collections** (**accepted, in-progress — Step 0 closed 2026-08-13 (Option B:
-  dedicated `planned_ratings` table); Steps 1–4 in flight same session, owner override of hard rule
-  #5**) — 평가완료 (derived view, zero new storage) and 평가전/평가예정 (new `planned_ratings` table)
-  surface as two static, non-deletable system tiles inside `BucketBoard` — drop onto 평가완료 opens the
-  existing rating control, drop onto 평가전 marks intent via the new API. See this session's Decisions
-  log entry for the full UX-model change (icon-toggle → drag-drop tile). →
-  `docs/rfcs/FEAT-rating-smart-collections.md`.
-
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
   **Next gate: re-measure, baseline reset 2026-08-09.** Gate condition = since front `bd56910`(2026-08-09, `ARCH-bucket-album-modal-unification` Step 1 ship — the bucket-click path's first 평가 entry point at all), bucket additions ≥10 while owner ratings remain 0. If additions <10, **do not decide**. The prior baseline (`aebabe7`, 2026-08-02) was invalidated by owner decision 2026-08-09: before Step 1 shipped, the bucket-click path had no rating affordance, so any measurement against it would be against a known-incomplete entrance. No fixed re-check date — the earlier "two days" assumption was already disproved once by the full-history rolling-window measurement, so check the counter directly rather than waiting on a calendar guess.

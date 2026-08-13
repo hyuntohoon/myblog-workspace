@@ -1,8 +1,10 @@
 # FEAT-rating-smart-collections: 평가 완료 / 평가 예정 — two derived rating-domain collections
 
-- **Status**: accepted (Step 0 closed 2026-08-13; Steps 1–4 owner-approved in the same session,
-  overriding hard rule #5's one-step-per-session default per explicit owner instruction this session)
-- **Owner**: 오너 (Step 0 decision made 2026-08-13)
+- **Status**: done (Steps 0–4 shipped + prod-verified 2026-08-13, same session — real-browser CDP
+  clickthrough on live prod for both tiles' drag-drop and the profile inline-edit affordance, backend
+  pytest 811 passed/1 pre-existing skip, front pnpm test 635/635; one post-verify fix, front #404,
+  resolving a title-display gap the CDP pass itself caught)
+- **Owner**: 박지훈
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → FEAT-rating-smart-collections
 - **Depends on**: nothing. Unresolved owner decision 1 (below) resolved 2026-08-13: 평가 완료/평가
