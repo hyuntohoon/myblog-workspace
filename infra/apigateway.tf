@@ -274,6 +274,26 @@ resource "aws_apigatewayv2_route" "reviews_album_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Planned ratings / 평가 예정 (FEAT-rating-smart-collections Step 2, Option B) ---
+# GET /api/me/planned-ratings rides the edge_guard GET catch-all like every other
+# authed GET in app/api/routes/me.py — no route needed here. Only the two
+# mutations (mark/unmark) need a Cognito-JWT route, same shape as reviews_album_*.
+resource "aws_apigatewayv2_route" "planned_ratings_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/me/planned-ratings/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "planned_ratings_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/me/planned-ratings/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "reviews_owner_delete" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "DELETE /api/reviews/{review_id}"
