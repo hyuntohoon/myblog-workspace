@@ -20,20 +20,25 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `FIX-lyrics-primary-artist + FIX-isrc-backfill` dropped entirely — implementation complete, remaining
 > items were pure non-gating observation with no RFC to archive; detail → `docs/archive/done/2026-08.md`.
 
-- **ARCH-buckit-navigation-shell** (**live again 2026-08-13**, front #396 `7921a9f` / #397 `7a597f7`
-  2026-08-10, restored by front #401 `45b29b2` 2026-08-13) — the desktop selector + shared detail pane
-  and mobile drawer (Steps 1 + 3) are the deployed structure. The corrective `FEAT-inline-bucket-object-
-  expand` reached Step 0 GO 2026-08-12 and its Step 1 shipped 2026-08-12 (front #399 `ec23511`),
-  replacing this structure in production; the owner then reviewed the live deployed behavior and
-  rejected it rather than iterating on it live, and front #401 is a clean revert of #399, prod-smoked
-  19/19. `FEAT-inline-bucket-object-expand` has no active next step as a result (see its Status). Step 2
-  URL-backed selection remains dropped unimplemented; whether to revisit it now that this structure is
-  live again, pursue a different corrective direction, or keep the shipped structure as-is is an open
-  owner decision, not yet made. →
+- **ARCH-buckit-navigation-shell** (**superseded again 2026-08-13, corrected 2026-08-15**, front #396
+  `7921a9f` / #397 `7a597f7` 2026-08-10, restored by #401 `45b29b2` 2026-08-13, superseded again by #402
+  `7057a82` / #403 `388db15` / #404 `40061bd` 2026-08-13) — **this row previously said the desktop
+  selector + shared detail pane (`BucketDetailShell`) was the deployed structure. It is not.** #401
+  restored it the morning of 2026-08-13; #402, later the same day, reverted #401 again and replaced it
+  with the current "every bucket visible, inline disclosure" model (`BucketInlineNode`/`BucketInlineList`/
+  `BucketInlineContent` in `BucketBoard.tsx`) — the owner's own commit message states the reason: the
+  single-selection shell made "every other bucket a name in a sidebar, not a bucket you could see and
+  open in place." #403/#404 (inline 한줄평 edit, rated-album tile border, drop-target fix) built on top of
+  that structure. This row and both RFC files below went unupdated for two days; caught 2026-08-15 while
+  auditing `ARCH-global-playback-experience` Step 4's stated gate (see that row's Decisions-log-linked
+  correction). `BucketDetailShell` does not exist in `origin/main` today — no RFC currently owns the
+  inline-disclosure structure that actually is live. Whether to write one, revisit the single-selection
+  shell, or leave inline-disclosure as the settled shape is an open owner decision, not yet made. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2+3 SHIPPED + prod-verified**, front
-  #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15, backend #156 `dd627bd` + ws #907 `a18d940` + front
-  #407 `afe783c` 2026-08-15) — closes the gaps `FEAT-playback-bucket-player`
+- **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2+3 SHIPPED + prod-verified, Step 4
+  panel-half SHIPPED**, front #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15, backend #156 `dd627bd`
+  + ws #907 `a18d940` + front #407 `afe783c` + front #408 `43cb425` 2026-08-15) — closes the gaps
+  `FEAT-playback-bucket-player`
   (done) and `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
   assumed: `session.ts` now owns capability tier/device-list/shuffle/repeat/volume/liked/reconnect
   (previously `NowPlaying` kept them local "by design" per `component-map.md`'s own state-owner
@@ -78,10 +83,22 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   suite (Neon test branch) 83 passed, including two new query-count tests proving no N+1. `openapi.json`
   diff exactly one field, `api.gen.ts` regen exactly one field, no component changes (unused field until
   Step 4). Production smoke 19/19 passed, plus a targeted authenticated `GET /api/buckets` check showing
-  `cover_url` live on every track/playback row (quoted on backend #156). **Next = Step 4** (Playback
-  Bucket playlist detail: artwork/summary/play-all/reorder) — both prerequisites now met (this Step 3 +
-  `ARCH-buckit-navigation-shell` Step 1, already shipped). Step 5 (persistent bar) stays gated on Open
-  question 1, unresolved. →
+  `cover_url` live on every track/playback row (quoted on backend #156).
+  **Step 4 split 2026-08-15 — its stated second prerequisite does not hold.** Before starting, a direct
+  grep against `myblog_front` `origin/main` found `ARCH-buckit-navigation-shell` Step 1's
+  `BucketDetailShell`/`playback_queue` slot does not exist — superseded again by front #402/#403/#404
+  (see that RFC's row above). **Step 4 panel-enhancement half shipped 2026-08-15** (front #408,
+  `43cb425`): `PlaybackQueue` gains per-row artwork (fixed a real bug in the same pass — `lib/buckets.ts`'s
+  `mapItem()` never actually read the new `cover_url` field for track/playback rows, always falling
+  through to the null album relation), a summary header (`N곡 · MM:SS 총 재생 시간`, degrades to `—`
+  on any unknown-duration row), a 전체재생 action, and pointer-drag + keyboard reorder — scoped to the
+  full queue view only, persisted via the existing `PUT /api/buckets/reorder`. `pnpm test` 643/643 (4
+  new), `pnpm lint` clean, `pnpm exec astro check` 0 errors. Real-browser CDP via an `initScript`-stubbed
+  `fetch` (no local backend/DB in this environment, and the local dev server hitting prod directly is
+  CORS-blocked) confirmed artwork, the summary degrade, play-all, and both pointer-drag and keyboard
+  reorder on desktop, plus touch-drag on a 390×844×3 mobile emulation. **The second mount-point half
+  (into `BucketDetailShell`) is deferred, unstarted** — no such slot exists until the nav-shell structure
+  question above is resolved. Step 5 (persistent bar) stays gated on Open question 1, unresolved. →
   `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
