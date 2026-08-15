@@ -31,30 +31,44 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   live again, pursue a different corrective direction, or keep the shipped structure as-is is an open
   owner decision, not yet made. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **ARCH-global-playback-experience** (**accepted 2026-08-11; Step 1 SHIPPED + prod-verified**, front
-  #398 `0d4f525` 2026-08-11) — closes the gaps `FEAT-playback-bucket-player` (done) and
-  `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
+- **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2 SHIPPED + prod-verified**, front
+  #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15) — closes the gaps `FEAT-playback-bucket-player`
+  (done) and `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
   assumed: `session.ts` now owns capability tier/device-list/shuffle/repeat/volume/liked/reconnect
   (previously `NowPlaying` kept them local "by design" per `component-map.md`'s own state-owner
   registry — that registry now needs updating to reflect Step 1), `readLivePlayback()` is single-flight
-  (a single `MYBLOG_PLAYBACK_CHANGED` used to fan out to 3 uncoordinated live reads), live lyrics' open
-  event is still app-wide with its only listener dashboard-scoped (`SelfDashboard`, unchanged — Step 2's
-  scope), and the Playback Bucket's queue view still has no per-row artwork/reorder/play-all/summary —
-  artwork needs one small, additive backend field (`Backend_TrackBrief.cover_url`, does not exist today;
-  Step 3's scope). No new player, queue, or Home-specific playback state. Step 1 verification: `pnpm
-  test` 60/60 files (623 tests) green, `pnpm lint` clean, `pnpm exec astro check` 0 errors — all
-  independently re-run, not just self-reported by the implementing agent. A real regression was found
-  and fixed during review before merge: `resolveCapability()`'s first draft permanently locked
-  `capabilityTier` at `'fallback'` after any transient first-mint failure for the rest of the tab
-  session (this codebase's `ClientRouter` keeps `session.ts`'s module state alive across route
-  transitions while `NowPlaying` remounts per route) — fixed to dedupe-only semantics matching the
-  original per-mount re-resolve behavior. Real-browser CDP verification of the live-Spotify-specific
-  convergence behavior (shuffle/device across both surfaces, lock-screen Media Session) was not
-  performed — no `.env` access in the isolated worktree — merged on explicit owner instruction accepting
-  unit/lint/astro-check coverage as sufficient for this step; worth a live spot-check when convenient.
-  Production smoke 19/19 passed post-deploy (quoted on front #398). **Next = Step 2** (one app-wide live
-  lyrics host — relocate `ENT_OPEN_LIVE_LYRICS`'s listener from `SelfDashboard` to a layout-level mount),
-  no ordering dependency on Step 1, startable in a new session. →
+  (a single `MYBLOG_PLAYBACK_CHANGED` used to fan out to 3 uncoordinated live reads), live lyrics now
+  open from any route (Step 2 — see below), and the Playback Bucket's queue view still has no per-row
+  artwork/reorder/play-all/summary — artwork needs one small, additive backend field
+  (`Backend_TrackBrief.cover_url`, does not exist today; Step 3's scope). No new player, queue, or
+  Home-specific playback state. Step 1 verification: `pnpm test` 60/60 files (623 tests) green, `pnpm
+  lint` clean, `pnpm exec astro check` 0 errors — all independently re-run, not just self-reported by the
+  implementing agent. A real regression was found and fixed during review before merge:
+  `resolveCapability()`'s first draft permanently locked `capabilityTier` at `'fallback'` after any
+  transient first-mint failure for the rest of the tab session (this codebase's `ClientRouter` keeps
+  `session.ts`'s module state alive across route transitions while `NowPlaying` remounts per route) —
+  fixed to dedupe-only semantics matching the original per-mount re-resolve behavior. Real-browser CDP
+  verification of the live-Spotify-specific convergence behavior (shuffle/device across both surfaces,
+  lock-screen Media Session) was not performed — no `.env` access in the isolated worktree — merged on
+  explicit owner instruction accepting unit/lint/astro-check coverage as sufficient for this step; worth a
+  live spot-check when convenient. Production smoke 19/19 passed post-deploy (quoted on front #398).
+  **Step 2 shipped 2026-08-15** (front #405, `55ccd47`): `ENT_OPEN_LIVE_LYRICS`'s listener relocated from
+  `SelfDashboard` (dashboard-scoped) to `PocketBuckit.tsx` (already layout-mounted app-wide, already the
+  event's dispatch source via `PocketTray`) — 가사 now opens from Home/`/search/`/artist hubs, not just
+  the member dashboard. `SelfDashboard` keeps its own direct-call live-lyrics path (`NowPlaying`'s 가사
+  tap) untouched, so the two entries can't double-open on the dashboard route. Also fixed a real bug the
+  relocation surfaced: `LyricsViewer`'s `.lyv-*` CSS lived in `member/layout.css` (loads only via
+  `member.css`, dashboard + `/collection` only) — mounting from `PocketBuckit` would have shipped the
+  viewer with zero styles on every non-dashboard route, the same `member.css` trap already hit 4 times
+  (`.lf-artist-link`'s prior "MOVED OUT" fix in the same file). Extracted to `src/styles/lyricsViewer.css`,
+  self-imported by `LyricsViewer.tsx`, mirroring the existing `modal.css`/`pocket.css` precedent. `pnpm
+  test` 635/635, `pnpm lint` clean, `pnpm exec astro check` 0 errors; real-browser CDP against a local dev
+  server confirmed the overlay opens fully styled on Home and `/search/` and via the layout-level listener
+  on the dashboard route, exactly one instance each time, ✕ close works. A live authenticated prod
+  click-through was not additionally performed (pure frontend relocation, no backend/data dependency —
+  see front #405's PR comment). Production smoke 19/19 passed post-deploy (quoted on front #405). **Next =
+  Step 3** (cross-repo: backend `cover_url` contract on `Backend_TrackBrief` → workspace merge → front
+  regen), no ordering dependency on Step 2, startable in a new session. →
   `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
