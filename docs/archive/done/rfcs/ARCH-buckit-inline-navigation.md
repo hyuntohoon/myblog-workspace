@@ -1,7 +1,8 @@
 # ARCH-buckit-inline-navigation: canonicalize the inline-disclosure My Buckit structure
 
-- **Status**: accepted 2026-08-15 (owner decision, this session) — documents already-shipped code and
-  defines the one piece of it that is not yet built: the `system`/`smart` content extension point.
+- **Status**: done (Step 1 shipped + deployed 2026-08-16, front #409 `20669c34`) — this RFC's only step
+  is shipped; nothing further is planned (the `smart` variant is `FEAT-rating-smart-collections`'s own
+  future Step 1, not this RFC's).
 - **Owner**: 박지훈
 - **Created**: 2026-08-15
 - **Plan row**: `plan.md` → ARCH-buckit-inline-navigation
@@ -152,16 +153,33 @@ pattern the structure already relies on for DnD).
 
 **Rollback**: frontend-only, single PR, additive branch — revert the PR.
 
+**Shipped 2026-08-16** (front #409, squash `20669c34`, deploy run `31895251995` green): `BucketInlineContent`
+now destructures `variant` and branches exactly as specced. `pnpm lint` clean, `pnpm exec astro check` 0
+errors, `pnpm test` 643/643 (one `ContextPanel.test.tsx` timeout under full-suite resource contention
+confirmed a pre-existing environment flake via isolated + clean full-suite reruns, not a regression).
+Real-browser CDP against real prod data (LOCAL dev-server + auth-rewrite proxy to the smoke account) on
+the real Playback Bucket (13 tracks) confirmed the summary header (`13곡 · 58:33 총 재생 시간`),
+전체재생, keyboard reorder (moved a row, confirmed via the live-region announcement + DOM order, then
+reverted to leave no residue), and collapse/reopen queue-state preservation.
+
+**Bug found and fixed during this same pass, not in the original spec**: `PlaybackQueue`'s own CSS
+(`pocket.css`) is entirely scoped under `.pb-scope`, a class that previously only ever wrapped the
+Pocket tray's DOM (`PocketTray.tsx`). Mounting `PlaybackQueue` bare inside `BucketInlineContent` left
+every `.pbp-queue-*` rule unmatched — confirmed via CDP screenshot: the row grid collapsed and the cover
+rendered at its natural full image size instead of the intended 28×28px thumbnail. Fixed by wrapping the
+inline mount in its own `<div className="pb-scope">` — read `.pb-scope`'s own rules first to confirm it
+only defines CSS custom properties + a box-sizing reset (no `position:fixed` or other layout side
+effects) before reusing it outside the tray.
+
 ---
 
 ## Open questions
 
 1. **`PlaybackQueue`'s `removable` prop, and its exact size/limit inside the inline-bucket context** —
-   the Pocket tray's expanded `PlaybackPanel` passes `removable`; My Buckit's own bucket already has its
-   own remove-from-bucket affordance (`AlbumChip`'s standard actions) that would duplicate it if also
-   `removable`. Decide at Step 1 implementation time by checking whether `PlaybackQueue`'s `removable`
-   path and `AlbumChip`'s existing remove path would both be reachable and conflict, not decided here.
-   Blocks Step 1 only in the sense that it's an implementation-detail call, not a blocking unknown.
+   **resolved during Step 1 implementation**: kept `removable` (matching the Pocket tray's full-view
+   call) with no size/limit prop (full queue). No conflict exists in practice — the branch replaces the
+   manual tile grid entirely for the Playback Bucket, so `AlbumChip`'s remove action is never mounted
+   alongside `PlaybackQueue`'s own remove buttons for the same bucket.
 2. **`'smart'` variant and virtual-bucket typing** — deferred to `FEAT-rating-smart-collections` Step 1
    as noted in *Target state*. Not drafted here because that RFC's storage-shape decision (Step 0) is
    still open and would make any typing choice here speculative.
@@ -171,3 +189,4 @@ pattern the structure already relies on for DnD).
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-08-15 | RFC drafted and accepted same session. Owner chose "document inline-disclosure as canonical" over reviving `BucketDetailShell` or leaving the structure undocumented, given the shell had already been rejected twice in production (front #401 revert, then #402 the same day) — see `ARCH-buckit-navigation-shell.md`'s own Decisions log for the reverted history. Current-state verification (extension-point grep, `PlaybackQueue` mount-site audit) run against `myblog_front` `origin/main` `706d12c` before writing Target state, per house rule (`feedback-rfc-current-state-audit`). | — |
+| 2026-08-16 | Step 1 shipped (front #409). Open question 1 resolved during implementation (see above). Found and fixed a `.pb-scope` CSS-scoping gap not anticipated by the original spec — see Step 1 note. This RFC has no further steps; done. | 1 |

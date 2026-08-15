@@ -33,19 +33,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   see the new `ARCH-buckit-inline-navigation` row below, which now owns this structure and its
   extension boundary. This RFC has no further active steps. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **ARCH-buckit-inline-navigation** (**accepted 2026-08-15**) — canonicalizes the already-shipped
-  inline-disclosure My Buckit structure (`BucketInlineNode`/`BucketInlineList`/`BucketInlineContent`)
-  and defines the one piece of it not yet built: wiring `BucketInlineContent`'s already-typed-but-unread
-  `variant: 'manual' | 'system'` prop so `variant === 'system' && bucket.kind === 'playback_queue'`
-  renders the enhanced `PlaybackQueue` (artwork/summary/play-all/reorder, shipped
-  `ARCH-global-playback-experience` Step 4) inline instead of the plain manual tile grid. Replaces
-  `ARCH-buckit-navigation-shell`'s retired `BucketDetailShell` in that role for both
-  `ARCH-global-playback-experience` Step 4's deferred second half and `FEAT-rating-smart-collections`
-  (not yet drafted). Single step, `myblog_front`-only, no contract/schema impact. →
-  `docs/rfcs/ARCH-buckit-inline-navigation.md`.
-- **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2+3 SHIPPED + prod-verified, Step 4
-  panel-half SHIPPED**, front #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15, backend #156 `dd627bd`
-  + ws #907 `a18d940` + front #407 `afe783c` + front #408 `43cb425` 2026-08-15) — closes the gaps
+- **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2+3+4 SHIPPED + prod-verified**,
+  front #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15, backend #156 `dd627bd`
+  + ws #907 `a18d940` + front #407 `afe783c` + front #408 `43cb425` 2026-08-15 + front #409 `20669c34`
+  2026-08-16)
+  — closes the gaps
   `FEAT-playback-bucket-player`
   (done) and `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
   assumed: `session.ts` now owns capability tier/device-list/shuffle/repeat/volume/liked/reconnect
@@ -105,11 +97,16 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `fetch` (no local backend/DB in this environment, and the local dev server hitting prod directly is
   CORS-blocked) confirmed artwork, the summary degrade, play-all, and both pointer-drag and keyboard
   reorder on desktop, plus touch-drag on a 390×844×3 mobile emulation. **Owner decisions 2026-08-15,
-  same day both blockers resolved:** the second mount-point half now targets the new
-  `ARCH-buckit-inline-navigation` RFC's `variant` branch (unblocked, next up — was deferred against the
-  retired `BucketDetailShell` slot); **Open question 1 resolved** — owner picked the always-visible bar
-  after seeing Steps 1–4 shipped, so **Step 5 is unconditional and also unblocked**, queued after Step
-  4's second half. Neither step's code has been written yet. →
+  same day both blockers resolved:** the second mount-point half would target the new
+  `ARCH-buckit-inline-navigation` RFC's `variant` branch (was deferred against the retired
+  `BucketDetailShell` slot); **Open question 1 resolved** — owner picked the always-visible bar after
+  seeing Steps 1–4 shipped, so **Step 5 is unconditional and also unblocked**, queued after Step 4's
+  second half. **Step 4 fully shipped 2026-08-16**: the second mount-point half was delivered as
+  `ARCH-buckit-inline-navigation` Step 1 (front #409, `20669c34`, now archived — see
+  `docs/archive/done/rfcs/ARCH-buckit-inline-navigation.md`) — `BucketInlineContent` now renders
+  `PlaybackQueue` inline in My Buckit for the Playback Bucket instead of the manual tile grid; verified
+  via CDP against the real prod queue (13 tracks) plus one CSS-scoping bug (`.pb-scope`) found and fixed
+  in the same pass. Step 5 is next, unblocked. →
   `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
