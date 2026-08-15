@@ -1,6 +1,6 @@
 # ARCH-buckit-navigation-shell: collapsible My Buckit navigation + one selected bucket detail
 
-- **Status**: **superseded again (2026-08-13), correction found and recorded 2026-08-15** — this line
+- **Status**: **retired 2026-08-15 — owner decided against reviving this RFC's structure.** This line
   previously said Steps 1 and 3's selector + shared-detail structure (`BucketDetailShell`) was live
   again after `myblog_front` #401 (`45b29b2`, 2026-08-13) reverted the corrective #399. That was true for
   a few hours. **The same day**, front #402 (`7057a82`) reverted #401 again and replaced the structure
@@ -12,23 +12,24 @@
   (`feedback-rfc-current-state-audit`). **`BucketDetailShell` does not exist in `origin/main` today** —
   confirmed by a direct grep of `myblog_front`'s `BucketBoard.tsx` (zero hits for `BucketDetailShell`/
   `BucketNavRow`/`BucketNavList`; the file instead defines `BucketInlineContent`/`BucketInlineNode`/
-  `BucketInlineList`). No RFC currently owns the inline-disclosure structure that is actually live. Step
-  2 remains dropped unimplemented (below). Whether to write a new RFC for the inline-disclosure
-  structure, revisit this RFC's single-selection shell, or leave things as-is is an open owner decision,
-  not yet made.
-- **Owner**: TBD
+  `BucketInlineList`). That correction left an open owner decision: write a new RFC for the
+  inline-disclosure structure, revive this RFC's single-selection shell, or leave things as-is. **The
+  owner decided 2026-08-15 (same session) to document the inline-disclosure structure instead** — the
+  shell had already been rejected twice in production (#401's revert, then #402 the same day), so
+  reviving it a third time was not the recommended or chosen path. See `ARCH-buckit-inline-navigation.md`,
+  the new RFC that now owns this structure and its extension boundary for
+  `ARCH-global-playback-experience`/`FEAT-rating-smart-collections`. This RFC has no further active
+  steps — Step 2 remains dropped unimplemented (below), and Steps 1/3 remain historical fact (shipped,
+  then superseded) rather than a target to rebuild.
+- **Owner**: 박지훈
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-buckit-navigation-shell
-- **Sibling dependency (re-corrected 2026-08-15, and again wrong before this correction)**:
-  `ARCH-global-playback-experience.md` and `FEAT-rating-smart-collections.md` target this RFC's shared
-  `BucketDetailShell` variant. The 2026-08-13 correction pass (see Status above) declared that
-  dependency "valid again" after #401's revert — but #402, later the very same day, superseded the
-  structure a second time, and that second supersession went unrecorded until this 2026-08-15 pass.
-  **The dependency does not currently hold — `BucketDetailShell` does not exist.**
-  `ARCH-global-playback-experience` Step 4 split its own scope over this same date to ship independently
-  of the missing mount point; re-check both sibling RFCs' own files before building on this note if the
-  structure changes again — this note has now been wrong twice from staleness, not from being written
-  carelessly the first time.
+- **Sibling dependency — retired 2026-08-15.** `ARCH-global-playback-experience.md` and
+  `FEAT-rating-smart-collections.md` used to target this RFC's shared `BucketDetailShell` variant. That
+  dependency was already broken (`BucketDetailShell` does not exist — see Status above) before the owner
+  decided, this same session, to retire this RFC rather than revive the shell. Both sibling RFCs now
+  target `ARCH-buckit-inline-navigation.md`'s `variant` extension point instead. Do not re-point either
+  sibling back to this RFC without a new explicit owner decision.
 - **Historical scope statement — builds on, does not redo**:
   `docs/archive/done/rfcs/ARCH-bucket-album-modal-unification.md`
   (shipped 2026-08-09/10) — that RFC unified the **per-album** detail modal (`AlbumDetail.tsx`'s
@@ -473,10 +474,9 @@ rewrites what a prior step shipped.
   unchanged.
 - Reuses `ARCH-entity-interaction-v2` (done, archived) — drag payload contract, `boardDnd.ts` rules,
   unchanged.
-- Supplies the shared selected-detail extension boundary (`BucketDetailShell`) for
-  `ARCH-global-playback-experience` and `FEAT-rating-smart-collections`. Briefly considered removed
-  2026-08-12 when the superseding `FEAT-inline-bucket-object-expand` shipped; restored 2026-08-13 when
-  that Step 1 was reverted (see Status above) — the shared destination is live again.
+- **No longer supplies** the shared selected-detail extension boundary — that role transferred
+  2026-08-15 to `ARCH-buckit-inline-navigation.md`'s `variant` dispatch (see Status above).
+  `ARCH-global-playback-experience` and `FEAT-rating-smart-collections` build against the new RFC now.
 - Does not reopen or duplicate `FEAT-bucket-identity`'s Direction B (lifecycle status derivation) —
   that status continues to be computed the same way; this RFC only changes where/how it's displayed
   (nav row vs. detail pane), an Open question above, not a redesign.
@@ -496,3 +496,4 @@ rewrites what a prior step shipped.
 | 2026-08-13 | **Owner rejected the shipped corrective result and reverted it.** `FEAT-inline-bucket-object-expand` Step 1 (front #399) had replaced this structure in production 2026-08-12; after reviewing the live behavior the owner decided to hold/reject it rather than iterate, and `myblog_front` #401 (`45b29b2`) cleanly reverted #399, restoring this RFC's Steps 1/3 as the live structure, prod-smoked 19/19. This RFC is not reopened as active work by this entry — it records the reverted state so `docs/plan.md` and the sibling RFC stay accurate | — |
 | 2026-08-13 | **Superseded again, same day — not recorded until 2026-08-15 (see the entry below).** Front #402 (`7057a82`) reverted #401 above a second time and replaced `BucketDetailShell`'s single-selection structure with the current inline-disclosure model (`BucketInlineNode`/`BucketInlineList`/`BucketInlineContent`); #403 (`388db15`)/#404 (`40061bd`) built further UI on that structure. Backdated entry — this session found it two days late while auditing a sibling RFC's dependency on this one | — |
 | 2026-08-15 | **Staleness caught and corrected.** `ARCH-global-playback-experience` Step 4, auditing its own stated gate ("`ARCH-buckit-navigation-shell` Step 1, already shipped") before writing code, grepped `myblog_front` `origin/main`'s `BucketBoard.tsx` for `BucketDetailShell`/`BucketNavRow`/`BucketNavList` — zero hits. `git log` traced the cause to front #402 (above), which this RFC's Status line and the sibling-dependency note had not been updated to reflect since 2026-08-13. Both corrected in this same pass (see Status above); `docs/plan.md`'s row for this RFC corrected in the same session. No structural decision made here — this entry only records that the file is now honest about current code, not a decision about which structure to keep | — |
+| 2026-08-15 | **Owner decided the open structural question, same session.** Given a choice between writing a new RFC for the live inline-disclosure structure, reviving this RFC's `BucketDetailShell` shell, or leaving things undocumented, the owner picked the first — the shell had already been turned down twice in production. This RFC is retired; `ARCH-buckit-inline-navigation.md` now owns the structure and defines the `system`/`smart` content extension point `ARCH-global-playback-experience` and `FEAT-rating-smart-collections` build against, replacing this RFC's `BucketDetailShell` dispatch in that role | — |

@@ -1,12 +1,15 @@
 # ARCH-global-playback-experience: unify remaining playback state, one app-wide lyrics host, playlist-style Playback Bucket detail
 
-- **Status**: accepted (2026-08-11, owner approval this session)
+- **Status**: in-progress (Step 4's deferred mount-point half is next up; Step 5 is also unblocked and
+  queued after — both owner decisions made 2026-08-15, see Decisions log)
 - **Owner**: 박지훈
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-global-playback-experience
-- **Depends on**: `docs/rfcs/ARCH-buckit-navigation-shell.md` Step 1 (`BucketDetailShell`'s
-  `playback_queue` empty slot) for the Playback Bucket's playlist detail placement. This RFC's other
-  work (state unification, lyrics host) has no dependency on that RFC.
+- **Depends on**: `docs/rfcs/ARCH-buckit-inline-navigation.md` (2026-08-15 — retargeted from the retired
+  `ARCH-buckit-navigation-shell`) for the `variant === 'system' && bucket.kind === 'playback_queue'`
+  extension point in `BucketInlineContent`, needed for the Playback Bucket's inline playlist detail
+  placement. This RFC's other work (state unification, lyrics host, Step 5's persistent bar) has no
+  dependency on that RFC.
 - **Extends, does not redo**: `docs/archive/done/rfcs/FEAT-playback-bucket-player.md` (done
   2026-08-10, all 9 steps shipped — the Playback Bucket, its mini/expanded player forms, single-tab
   ownership, and the drop-source wiring already exist in production) and
@@ -58,9 +61,9 @@ Pocket entry) is an open owner decision, not pre-decided by this document.
   change is *where* the viewer mounts, not how it tracks sync.
 - **Move/resize on the playback panel.** Stays out of `ARCH-movable-resizable-surfaces`' scope per that
   RFC's own non-goal; this RFC does not reopen it.
-- **The Playback Bucket's own nav-tree placement, header chrome, rename/trash/color.** Owned by
-  `ARCH-buckit-navigation-shell`'s `BucketDetailShell` — this RFC only fills that shell's
-  `playback_queue` body slot with the enhanced playlist detail.
+- **The Playback Bucket's own inline-node chrome (disclosure toggle, header, rename/trash/color).**
+  Owned by `ARCH-buckit-inline-navigation`'s `BucketInlineNode`/`BucketInlineContent` — this RFC only
+  fills that structure's `system`/`playback_queue` content branch with the enhanced playlist detail.
 - **No backend/contract change beyond the one artwork field this RFC's own audit found necessary** (see
   *Current state* and *Data/API/contract impact*) — no unrelated schema or route additions ride along
   with it.
@@ -213,12 +216,10 @@ does not presuppose the answer.
   `Math.hypot < 6` + `touchAction:'none'` pattern `ARCH-entity-interaction-v2` E5 confirmed as the one
   shipped touch-pointer-drag implementation in this codebase, `PocketTray`'s own — not native HTML5
   `draggable`, which E5 measured as non-functional under touch on this product's surfaces).
-- **Persistent reachability** — scoped by Open question 1. If the owner picks the stronger form (a
-  thin always-visible bar), it renders a compact identity + transport strip site-wide when
+- **Persistent reachability — Open question 1 resolved 2026-08-15, owner picked the stronger form.** A
+  thin always-visible bar renders a compact identity + transport strip site-wide when
   `session.ts.currentItemId != null || external != null`, independent of Pocket's own open/closed
-  state, and clicking it opens the existing `PlaybackMini`/`PlaybackPanel`. If the owner keeps the
-  current one-tap-into-Pocket reachability, this RFC's Home-reachability requirement is already
-  satisfied by Pocket's existing layout-level mount and this step does not build a new surface.
+  state, and clicking it opens the existing `PlaybackMini`/`PlaybackPanel`. Step 5 builds this.
 
 ## UX behavior — desktop and mobile
 
@@ -234,10 +235,10 @@ does not presuppose the answer.
 - **Playlist detail (Step 4)**: desktop shows the artwork thumbnail + summary header above the existing
   row list; mobile (the 390px full-height sheet, "대기열" tab) gets the same header and thumbnails at
   reduced size, reorder via long-press-drag consistent with the tray's existing touch-drag threshold.
-- **Persistent surface (Step 5, gated on Open question 1)**: if built, a thin bar — matching the
-  external survey `FEAT-playback-bucket-player` Step 6 already ran (SoundCloud 48px / Apple Music 54px–
-  61px at 390 / Genius 80px–107px at 390, "no service puts the queue in that bar") — sits below the
-  header on every route, click-through opens the existing mini/expanded forms, no new player logic.
+- **Persistent surface (Step 5)**: a thin bar — matching the external survey `FEAT-playback-bucket-
+  player` Step 6 already ran (SoundCloud 48px / Apple Music 54px–61px at 390 / Genius 80px–107px at 390,
+  "no service puts the queue in that bar") — sits below the header on every route, click-through opens
+  the existing mini/expanded forms, no new player logic.
 
 ## Data / API / contract impact
 
@@ -259,10 +260,10 @@ single-flight read wrapper (Steps 1–2) are pure frontend — only Step 3 (artw
 Steps 1–2 are `myblog_front`-only, no cross-repo ordering. Step 3 (artwork contract) is cross-repo:
 `myblog_backend` (serializer + `openapi.json` export) → `myblog-workspace` (contract merge) →
 `myblog_front` (regen), per `reference-workspace-contract-merge-order`. Step 4 (playlist detail UI)
-depends on both Step 3's field existing *and* `ARCH-buckit-navigation-shell` Step 1 shipping (the
-`BucketDetailShell` `playback_queue` slot it renders into) — two independent prerequisites, either order
-upstream, both required before Step 4. Step 5 (persistent bar, conditional) is front-only, no cross-repo
-dependency.
+depends on both Step 3's field existing *and* `ARCH-buckit-inline-navigation` Step 1 shipping (the
+`variant === 'system'` branch it renders into) — two independent prerequisites, either order upstream,
+both required before Step 4's second half. Step 5 (persistent bar) is front-only, no cross-repo
+dependency, and is now unconditional (Open question 1 resolved).
 
 ```
 ARCH-global-playback-experience  Step 1 ─┬─ Step 2
@@ -273,19 +274,19 @@ ARCH-global-playback-experience  Step 1 ─┬─ Step 2
                                   artwork contract
                                           │
                                           v
-                                  Step 4 ── depends also on ARCH-buckit-navigation-shell Step 1
+                                  Step 4 ── depends also on ARCH-buckit-inline-navigation Step 1
                                   playlist detail UI
                                           │
                                           v
-                                  Step 5 (conditional on Open question 1)
+                                  Step 5 (unconditional — Open question 1 resolved)
                                   persistent bar
 ```
 
 ## Step and PR boundaries
 
 One step per session (hard rule #4); Steps 1 and 2 have no ordering constraint on each other and may be
-taken in either order. Step 3 is a rule-#4-sensitive cross-repo contract step. Step 4 depends on Step 3
-and on the sibling RFC. Step 5 is conditional.
+taken in either order. Step 3 is a rule-#4-sensitive cross-repo contract step. Step 4's second half
+depends on `ARCH-buckit-inline-navigation` Step 1. Step 5 is unconditional and independently runnable.
 
 ### Step 1 — `session.ts` absorbs the six remaining state axes; single-flight live reads
 
@@ -345,40 +346,44 @@ since it's purely additive and costs nothing unused).
 
 ---
 
-### Step 4 — Playback Bucket playlist detail: artwork, summary, play-all, reorder **[gated: Step 3 merged + `ARCH-buckit-navigation-shell` Step 1 merged]**
+### Step 4 — Playback Bucket playlist detail: artwork, summary, play-all, reorder **[gated: Step 3 merged + `ARCH-buckit-inline-navigation` Step 1 merged]**
 
-**Split 2026-08-15 — the second half's gate does not hold; see the Decisions log entry the same date.**
+**Split 2026-08-15 — the second half's gate did not hold at the time; retargeted 2026-08-15, unblocked.**
 `ARCH-buckit-navigation-shell` Step 1's `BucketDetailShell`/`playback_queue` slot was superseded again
 by front #402/#403/#404 (2026-08-13) and no longer exists in `myblog_front`'s `BucketBoard.tsx`. The
-panel-enhancement half below **shipped** (front #408, `43cb425`); the second-mount-point half stays
-unstarted until the nav-shell structure question is resolved.
+panel-enhancement half below **shipped** (front #408, `43cb425`). The owner then resolved the underlying
+nav-shell question by retiring `ARCH-buckit-navigation-shell` and accepting `ARCH-buckit-inline-
+navigation` in its place — this step's second half now targets that RFC's Step 1 (wiring
+`BucketInlineContent`'s already-typed-but-unread `variant` prop) instead of a `BucketDetailShell` slot.
+This step's second half is next up once `ARCH-buckit-inline-navigation` Step 1 merges.
 
 Add per-row artwork (the new `cover_url` field from Step 3, zero additional requests since it rides the
 existing bucket-items response), a summary header (track count + total duration, client-computed), a
-play-all action, and pointer-based reorder to `PlaybackPanel.tsx`'s `PlaybackQueue`. ~~Mount the enhanced
-panel as the `BucketDetailShell`'s `playback_queue` body (the sibling RFC's empty slot) in addition to
-its existing Pocket mini/expanded placement — same component, two mount points, no duplicated state
-(both read `usePlaybackViewModel()`/`session.ts` directly).~~ **Deferred — no such slot exists today.**
+play-all action, and pointer-based reorder to `PlaybackPanel.tsx`'s `PlaybackQueue`. Mount the same
+enhanced `PlaybackQueue` component inside `BucketInlineContent`'s `variant === 'system' && bucket.kind
+=== 'playback_queue'` branch (`ARCH-buckit-inline-navigation` Step 1's own implementation), in addition
+to its existing Pocket mini/expanded placement — same component, two mount points, no duplicated state
+(both read `usePlaybackViewModel()`/`session.ts` directly).
 
 **Verification**: `pnpm test && pnpm lint && pnpm exec astro check`; real-browser CDP — artwork renders
 with zero additional network requests (confirm via the browser's network panel: request count before/
 after opening a 13-row queue is unchanged from before Step 3 shipped); play-all from the summary header
-starts playback from position 0; reorder persists across a reload; ~~the same panel opens correctly from
-both the Pocket mini-player *and* the new bucket-detail-shell placement without divergent state~~ (N/A —
-second mount point deferred).
+starts playback from position 0; reorder persists across a reload; the same panel opens correctly from
+both the Pocket mini-player *and* the inline My Buckit Playback Bucket placement without divergent
+state.
 
 **Rollback**: revert the PR. Frontend-only, additive UI on an existing component; safe even if Step 3's
 backend field is later reverted (artwork just degrades back to the placeholder).
 
 ---
 
-### Step 5 — persistent compact playback surface (conditional on Open question 1)
+### Step 5 — persistent compact playback surface **[Open question 1 resolved 2026-08-15 — this step runs]**
 
-Only if the owner picks the always-visible-bar form. A thin site-wide strip (identity + transport,
-matching the survey's 48–107px reference range) mounted at layout level, visible whenever
-`session.ts` reports active/paused playback, independent of Pocket's open state. If the owner instead
-accepts Pocket's existing one-tap reachability as sufficient, this step does not run and the RFC closes
-at Step 4.
+The owner picked the always-visible-bar form (Open question 1's option (b)) after Steps 1–4 shipped and
+were available to use, per the RFC's own recommended re-evaluation-after-real-usage default. A thin
+site-wide strip (identity + transport, matching the survey's 48–107px reference range) mounted at
+layout level, visible whenever `session.ts` reports active/paused playback, independent of Pocket's
+open state.
 
 **Verification** (if run): real-browser CDP across every route including Home — bar appears on playback
 start, persists across a client-side navigation (no remount/audio interruption — the same
@@ -468,11 +473,11 @@ one additional check — bar visible on `/` when a test-account queue is seeded 
 
 ## Unresolved owner decisions
 
-1. **Does "persistent compact playback across routes, including Home" mean (a) reachable from every
+1. ~~**Does "persistent compact playback across routes, including Home" mean (a) reachable from every
    route with at most one interaction — already true today via the layout-mounted Pocket tray — or (b)
    visible with zero interaction whenever something is playing, requiring a new always-on bar (Step
-   5)?** Blocks whether Step 5 runs at all. Recommended default: ship Steps 1–4 first, re-evaluate (b)
-   against real usage once Home reachability is confirmed sufficient or insufficient in practice.
+   5)?**~~ **Resolved 2026-08-15: (b).** Steps 1–4 had shipped, matching the RFC's own recommended
+   re-evaluate-after-real-usage default; the owner picked the always-visible bar. Step 5 runs.
 2. **Exact host for the relocated live-lyrics listener (Step 2)** — a new dedicated always-mounted
    component vs. folding the listener into `PocketBuckit`'s existing always-mounted root. Implementation
    detail, does not change behavior either way; left to Step 2's own session.
@@ -496,8 +501,9 @@ one additional check — bar visible on `/` when a test-account queue is seeded 
 - Continues `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) exactly at the point that
   RFC's own State-owner registry entry says work stopped — the six-axis move and single-flight dedupe
   are that registry's own named "still open" items, not new scope invented here.
-- Depends on `ARCH-buckit-navigation-shell` Step 1 for the Playback Bucket's detail-shell placement
-  (Step 4 of this RFC only).
+- Depends on `ARCH-buckit-inline-navigation` Step 1 (2026-08-15 — retargeted from the retired
+  `ARCH-buckit-navigation-shell`) for the Playback Bucket's inline-detail placement (Step 4 of this RFC
+  only).
 - Does not touch `ARCH-movable-resizable-surfaces` (in-progress, unmerged as of this session) — the
   playback panel's docked/floating form keeps using `useDockTear` directly, unextended by
   `surfaceGeometry.ts`.
@@ -516,3 +522,4 @@ one additional check — bar visible on `/` when a test-account queue is seeded 
 | 2026-08-15 | **Step 3 shipped** (backend #156 `dd627bd`, ws #907 `a18d940`, front #407 `afe783c`). `_track_brief()` resolves `cover_url` off `track.album.cover_url`; `list_buckets()`'s eager-load extended with `ReviewBucketItem.track → Track.album` (`Track.album` is `lazy="select"` by default, confirmed via `myblog_shared_db`'s model) alongside the existing `Track.artists` chain — without it, a playback-row queue would N+1 one query per row the first time the serializer reads `.album`; a review pass caught this before merge (the RFC's own "zero additional queries" claim was true for HTTP round-trips but not for DB queries without this eager-load). Backend `pytest` 664 passed (non-DB) + real-DB integration suite (Neon test branch, `TEST_DB_URL`) 83 passed, including two new tests in `TestListBucketsTrackCoverEagerLoad` proving the eager-load closes the N+1 (query count does not scale with playback-row count). `openapi.json` diff exactly one field added; `api.gen.ts` regen exactly the same, no component changes (the field is unused until Step 4). Production smoke 19/19 passed post-deploy, plus a targeted authenticated `GET /api/buckets` call against prod confirming `cover_url` present on every live track/playback row (quoted on backend #156's PR). No dedicated `reviewer` subagent was registered in this session's environment (CLAUDE.md's mandatory-review table names one) — substituted a `general-purpose` agent with an equivalent review brief; flagged as a process gap in the backend PR body rather than silently skipped. | 3 |
 | 2026-08-15 | **Step 4's stated gate — `ARCH-buckit-navigation-shell` Step 1's `BucketDetailShell`, "already shipped" — does not survive a direct check against `origin/main`.** Before writing any Step 4 code this session, a grep for `BucketDetailShell`/`BucketNavRow`/`BucketNavList` in `myblog_front`'s `BucketBoard.tsx` returned zero hits; the file instead defines `BucketInlineContent`/`BucketInlineNode`/`BucketInlineList`. `git log` explains why: front #402 (`7057a82`, 2026-08-13) — same day as, but *after*, #401's revert of the corrective #399 — reverted #401 again and replaced the single-selection nav+detail-shell structure with the current "every bucket visible, inline disclosure" model, per the owner's own stated reason in that commit ("every other bucket was a name in a sidebar, not a bucket you could see and open in place"). Neither `ARCH-buckit-navigation-shell.md`'s Status line, `FEAT-inline-bucket-object-expand.md`'s Status line, nor `docs/plan.md`'s row for either RFC were updated to reflect #402 (and its two follow-ups, #403/#404) — all three still describe the reverted-then-superseded Steps 1/3 structure as the deployed one. Flagged and corrected in this same session's docs pass (see `ARCH-buckit-navigation-shell.md`'s own Decisions log and `plan.md`). **Owner decision this session**: ship Step 4's panel-enhancement half now (artwork/summary/play-all/reorder on `PlaybackQueue` itself, in its existing Pocket mini/expanded placement) and defer the second mount-point half (mounting into `BucketDetailShell`) until the nav-shell structure question is resolved — not a block on the whole step, a scope split | 4 |
 | 2026-08-15 | **Step 4 (panel-enhancement half) shipped** (front #408, `43cb425`). `PlaybackQueue` gains per-row artwork (`row.cover`, now correctly populated for track/playback rows — see the `lib/buckets.ts` fix below), a summary header (`N곡 · MM:SS 총 재생 시간`, degrades whole-sum to `—` if any row's duration is unknown rather than silently undercounting), a 전체재생 action reusing the existing `playbackSession.playAt(rows[0].itemId)` call, and pointer-drag + keyboard (Arrow Up/Down) reorder — scoped to the full queue view only (`limit == null`), so the 3-row `PlaybackMini` preview keeps its plain truncation hint and gains only the artwork thumbnail. Reorder persists via the existing `PUT /api/buckets/reorder`, with an optimistic local reflow (`lib/playback/queue.ts`'s new `withReorderedQueueItems`, mirroring the existing `withoutQueueItems`) and a forced refetch on failure. **Real bug found and fixed in the same pass, not scope creep**: `lib/buckets.ts`'s `mapItem()` still hardcoded a track/playback row's `cover` to fall through to the album relation (`it.album?.cover_url`), which is `null` by design on a playback row (the file's own comment predates Step 3 and says so) — Step 3's `cover_url` field was live in the contract but never actually read by the frontend until this fix. `pnpm test` 643/643 (4 new), `pnpm lint` clean, `pnpm exec astro check` 0 errors. A background code-review pass before the PR surfaced 3 findings; 2 fixed (a `pointercancel` gap that left the drag-highlight stuck, and `withReorderedQueueItems`'s doc comment tightened to state its full-member-set precondition), 1 left as-is (an unescaped `itemId` in a `querySelector` attribute selector — same unescaped pattern already exists in `PocketTray.tsx`'s own chip-reorder focus-restore code, ids are server-generated, no concrete harm). Real-browser CDP: this environment has no local backend/DB, and the local dev server hitting the prod CloudFront API directly from `localhost` is CORS-blocked — verified instead with an `initScript`-injected `window.fetch` stub returning realistic 5-track data (one null-duration row, one no-cover row), the same technique as this codebase's existing Spotify-stub CDP precedent. Confirmed on both desktop (pointer-drag, keyboard reorder with correct `PUT /reorder` payload and aria-live announcement, play-all's graceful "이 곡을 재생할 수 없어요" fallback with no real Spotify device) and mobile (390×844×3 touch-drag via CDP's trusted-input drag tool). Production smoke will be the first real-backend confirmation of this step, per Step 1/2's own precedent for accepting stub/local coverage when live-environment CDP access isn't available. | 4 |
+| 2026-08-15 | **Owner resolved both of this RFC's remaining owner-gated decisions in one session, after the nav-shell structure question (a prerequisite for Step 4's second half) was itself resolved.** (1) Given a choice between the nav-shell structure candidates, the owner chose `ARCH-buckit-inline-navigation` over reviving `BucketDetailShell` (see that RFC and `ARCH-buckit-navigation-shell.md`'s Decisions log) — this unblocks Step 4's deferred mount-point half, now retargeted at `BucketInlineContent`'s `variant` branch instead of a `BucketDetailShell` slot. (2) Open question 1 — with Steps 1–4 shipped, matching this RFC's own recommended re-evaluate-after-real-usage default — the owner picked option (b), the always-visible bar; Step 5 is no longer conditional and runs. Neither step's code was written this session; this entry records the decisions and retargets the RFC text (Status, Step 4, Step 5, dependency diagram, Open question 1) to match | 4, 5 |

@@ -100,17 +100,23 @@ When a step completes:
 
 In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcrumb to the archive, then gets dropped — `git log` and `docs/archive/done/rfcs/` are authoritative for history.
 
-- **ARCH-buckit-navigation-shell** (accepted, owner-approved 2026-08-10) — collapsible My Buckit nav + one selected
-  bucket detail via a new shared `BucketDetailShell`; URL-backed selection, desktop nav+detail split,
-  mobile drawer, collapsed nodes stay mounted (visually hidden) so native-DOM drag-and-drop keeps
-  working. Prerequisite for `ARCH-global-playback-experience` and `FEAT-rating-smart-collections`'s
-  detail placements (not the other direction). → `ARCH-buckit-navigation-shell.md`.
-- **ARCH-global-playback-experience** (draft, 2026-08-10) — finishes the `session.ts` state-unification
-  `ARCH-entity-interaction-domain-audit` Step 3 left open (capability/device/shuffle/repeat/volume/
-  liked/reconnect still local to `NowPlaying`, no single-flight live reads), moves the live-lyrics host
-  from dashboard-scoped to app-wide, and adds artwork/reorder/play-all/summary to the already-shipped
-  Playback Bucket queue view (`FEAT-playback-bucket-player`, done). No new player/queue. →
-  `ARCH-global-playback-experience.md`.
+- **ARCH-buckit-navigation-shell** (retired 2026-08-15) — its single-selection `BucketDetailShell`
+  structure was reverted from production twice (front #401, then #402 the same day) in favor of the
+  inline-disclosure model the owner kept. No further active steps; the structure and its extension
+  boundary are now owned by `ARCH-buckit-inline-navigation`. → `ARCH-buckit-navigation-shell.md`.
+- **ARCH-buckit-inline-navigation** (accepted 2026-08-15) — canonicalizes the shipped inline-disclosure
+  My Buckit structure (`BucketInlineNode`/`BucketInlineList`/`BucketInlineContent`) and wires its
+  already-typed-but-unread `variant: 'manual' | 'system'` prop so the Playback Bucket renders the
+  enhanced `PlaybackQueue` inline. Extension boundary for `ARCH-global-playback-experience` Step 4 and
+  `FEAT-rating-smart-collections`, replacing `BucketDetailShell`'s retired role. →
+  `ARCH-buckit-inline-navigation.md`.
+- **ARCH-global-playback-experience** (in-progress — Steps 1–3 + Step 4's panel half SHIPPED; Step 4's
+  mount-point half and Step 5 (persistent bar) both unblocked 2026-08-15, neither started) — finishes
+  the `session.ts` state-unification `ARCH-entity-interaction-domain-audit` Step 3 left open
+  (capability/device/shuffle/repeat/volume/liked/reconnect still local to `NowPlaying`, no single-flight
+  live reads), moves the live-lyrics host from dashboard-scoped to app-wide, and adds
+  artwork/reorder/play-all/summary to the already-shipped Playback Bucket queue view
+  (`FEAT-playback-bucket-player`, done). No new player/queue. → `ARCH-global-playback-experience.md`.
 - **FEAT-rating-smart-collections** (draft, 2026-08-10 — Step 0 decision gate open) — 평가 완료 (derived,
   zero new storage) + 평가 예정 (new private rating-intent state, explicitly not `review_candidate`).
   Storage shape (extend `album_reviews` vs. dedicated table) is an unresolved owner decision blocking
