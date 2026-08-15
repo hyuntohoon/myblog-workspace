@@ -20,21 +20,29 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `FIX-lyrics-primary-artist + FIX-isrc-backfill` dropped entirely — implementation complete, remaining
 > items were pure non-gating observation with no RFC to archive; detail → `docs/archive/done/2026-08.md`.
 
-- **ARCH-buckit-navigation-shell** (**superseded again 2026-08-13, corrected 2026-08-15**, front #396
-  `7921a9f` / #397 `7a597f7` 2026-08-10, restored by #401 `45b29b2` 2026-08-13, superseded again by #402
-  `7057a82` / #403 `388db15` / #404 `40061bd` 2026-08-13) — **this row previously said the desktop
-  selector + shared detail pane (`BucketDetailShell`) was the deployed structure. It is not.** #401
-  restored it the morning of 2026-08-13; #402, later the same day, reverted #401 again and replaced it
-  with the current "every bucket visible, inline disclosure" model (`BucketInlineNode`/`BucketInlineList`/
-  `BucketInlineContent` in `BucketBoard.tsx`) — the owner's own commit message states the reason: the
-  single-selection shell made "every other bucket a name in a sidebar, not a bucket you could see and
-  open in place." #403/#404 (inline 한줄평 edit, rated-album tile border, drop-target fix) built on top of
-  that structure. This row and both RFC files below went unupdated for two days; caught 2026-08-15 while
-  auditing `ARCH-global-playback-experience` Step 4's stated gate (see that row's Decisions-log-linked
-  correction). `BucketDetailShell` does not exist in `origin/main` today — no RFC currently owns the
-  inline-disclosure structure that actually is live. Whether to write one, revisit the single-selection
-  shell, or leave inline-disclosure as the settled shape is an open owner decision, not yet made. →
+- **ARCH-buckit-navigation-shell** (**retired 2026-08-15**, front #396 `7921a9f` / #397 `7a597f7`
+  2026-08-10, restored by #401 `45b29b2` 2026-08-13, superseded again by #402 `7057a82` / #403
+  `388db15` / #404 `40061bd` 2026-08-13) — its single-selection `BucketDetailShell` structure was
+  reverted from production twice (#401's revert, then #402 the same day) in favor of the current "every
+  bucket visible, inline disclosure" model (`BucketInlineNode`/`BucketInlineList`/`BucketInlineContent`
+  in `BucketBoard.tsx`) — the owner's own commit message states the reason: the single-selection shell
+  made "every other bucket a name in a sidebar, not a bucket you could see and open in place." This row
+  and both RFC files went unupdated for two days; caught 2026-08-15 while auditing
+  `ARCH-global-playback-experience` Step 4's stated gate. **Owner decision 2026-08-15 (same session):**
+  document the inline-disclosure structure as canonical rather than reviving the shell a third time —
+  see the new `ARCH-buckit-inline-navigation` row below, which now owns this structure and its
+  extension boundary. This RFC has no further active steps. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
+- **ARCH-buckit-inline-navigation** (**accepted 2026-08-15**) — canonicalizes the already-shipped
+  inline-disclosure My Buckit structure (`BucketInlineNode`/`BucketInlineList`/`BucketInlineContent`)
+  and defines the one piece of it not yet built: wiring `BucketInlineContent`'s already-typed-but-unread
+  `variant: 'manual' | 'system'` prop so `variant === 'system' && bucket.kind === 'playback_queue'`
+  renders the enhanced `PlaybackQueue` (artwork/summary/play-all/reorder, shipped
+  `ARCH-global-playback-experience` Step 4) inline instead of the plain manual tile grid. Replaces
+  `ARCH-buckit-navigation-shell`'s retired `BucketDetailShell` in that role for both
+  `ARCH-global-playback-experience` Step 4's deferred second half and `FEAT-rating-smart-collections`
+  (not yet drafted). Single step, `myblog_front`-only, no contract/schema impact. →
+  `docs/rfcs/ARCH-buckit-inline-navigation.md`.
 - **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2+3 SHIPPED + prod-verified, Step 4
   panel-half SHIPPED**, front #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15, backend #156 `dd627bd`
   + ws #907 `a18d940` + front #407 `afe783c` + front #408 `43cb425` 2026-08-15) — closes the gaps
@@ -96,9 +104,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   new), `pnpm lint` clean, `pnpm exec astro check` 0 errors. Real-browser CDP via an `initScript`-stubbed
   `fetch` (no local backend/DB in this environment, and the local dev server hitting prod directly is
   CORS-blocked) confirmed artwork, the summary degrade, play-all, and both pointer-drag and keyboard
-  reorder on desktop, plus touch-drag on a 390×844×3 mobile emulation. **The second mount-point half
-  (into `BucketDetailShell`) is deferred, unstarted** — no such slot exists until the nav-shell structure
-  question above is resolved. Step 5 (persistent bar) stays gated on Open question 1, unresolved. →
+  reorder on desktop, plus touch-drag on a 390×844×3 mobile emulation. **Owner decisions 2026-08-15,
+  same day both blockers resolved:** the second mount-point half now targets the new
+  `ARCH-buckit-inline-navigation` RFC's `variant` branch (unblocked, next up — was deferred against the
+  retired `BucketDetailShell` slot); **Open question 1 resolved** — owner picked the always-visible bar
+  after seeing Steps 1–4 shipped, so **Step 5 is unconditional and also unblocked**, queued after Step
+  4's second half. Neither step's code has been written yet. →
   `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
