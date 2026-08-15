@@ -1,6 +1,6 @@
 # DATA-multidisc-track-order: capture `disc_no` and stop colliding multi-disc tracklists
 
-- **Status**: draft
+- **Status**: **accepted** (owner-approved in-session 2026-08-16)
 - **Owner**: 오너
 - **Created**: 2026-08-09
 - **Plan row**: `plan.md` → DATA-multidisc-track-order
@@ -217,3 +217,13 @@ the new field.
   spot check. Current-state audit for this draft found the ordering-site count was 4, not the 1 the plan
   row cited (`feedback-rfc-current-state-audit`) — plan row's citation was accurate but partial, not wrong.
   Status remains **draft**; not owner-approved (rule 7 — no self-promotion).
+- 2026-08-16 — **owner approved; Status → accepted, promoted to plan.md Active.** Before asking, the
+  draft's two load-bearing claims were re-measured against prod rather than carried over
+  (`feedback-rfc-current-state-audit`): `information_schema` still reports **zero** `disc_no` /
+  `disc_number` columns on `tracks`, and the collision population is **78 of 3,440 albums (2.27%)**
+  against the draft's 77 of 3,313 — the same 2.3% rate, so the population tracks catalog growth rather
+  than being a one-off import artifact. Both claims hold; no scope change on promotion. Chosen over the
+  session's other startable candidates because it is the only open item whose completion depends on
+  nothing but implementation — every other Active row is waiting on owner authoring/curation behaviour —
+  and because `ARCH-global-playback-experience` Step 4 has just put a play-all / reorder queue on top of
+  exactly these `ORDER BY` sites.
