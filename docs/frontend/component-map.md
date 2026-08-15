@@ -56,6 +56,22 @@
 > visibly explains that catalog registration is required; its Spotify id is never projected into a
 > catalog write. `Cover` and `AlbumArt` remain because non-card surfaces still consume them, while
 > the generalized Bucket renderer remains only for non-album membership types.
+>
+> **/search addendum 2026-08-15** (front #406): the `ARCH-album-card-contract-and-composition`
+> inventory counted nine album representations and missed one — `search/SearchPage.tsx` declared its
+> own local `function AlbumCard`, the same name as the shared primitive but a different component.
+> This file previously recorded that only as a disclaimer ("not this primitive"), which is why it
+> survived the Stage 9 sweep: the RFC never names `search/` anywhere. It is now migrated. The
+> practical consequence of the omission was not cosmetic — /search was the only album-discovery
+> surface with open-only tiles (no 담기, no drag), so the most natural "find an album" path had no
+> way to act on a find. `HomeAlbumCardAdapter` became `shared/CatalogAlbumCardAdapter` in the same
+> change, because the rule it encodes is a catalog-surface invariant rather than a Home preference.
+> Still deliberately outside the canonical card, unchanged: `LikedBoard`'s saved-track rows,
+> `TodaySongBuckit`, the `AlbumOverlay`/`AlbumDetailView` detail hosts, and `ReviewCard`.
+> One known remaining duplicate, **not** migrated and tracked as backlog: `collection/CollectionView.tsx`
+> hand-rolls an album grid tile (`AlbumArt` → title → `artist · year` → `openAlbum()`). It is
+> read-only public presentation with no capability gap, so it carries no defect today — but it is a
+> genuine second copy of the canonical layout, not a decided exclusion.
 > Human-readable companion: [structure.md](structure.md).
 
 This is the artifact an LLM (or developer) reads to answer "who owns X" without re-grepping.
@@ -101,17 +117,18 @@ while modified clicks retain native browser behavior. A granted drag emits both 
 pairs (`PB_DND_*` and `PB_BOARD_DND_*`) and derives `effectAllowed` from `DragPayload.origin`.
 Adapters may override `--album-card-cover-size`; dimensions and slot contents remain surface-owned.
 
-**Live consumers after Stage 9:** the Home adapters in `home/NewReleasesCard.tsx`,
-`home/ForYouReleasesCard.tsx`, `home/TodayAlbumBuckit.tsx`, and
-`member/ReviewCandidates.tsx`, plus `member/BucketBoard.tsx`'s
+**Live consumers:** the catalog-browsing adapters in `home/NewReleasesCard.tsx`,
+`home/ForYouReleasesCard.tsx`, `home/TodayAlbumBuckit.tsx`,
+`member/ReviewCandidates.tsx`, and `search/SearchPage.tsx`, plus `member/BucketBoard.tsx`'s
 `BucketAlbumCardAdapter`, `member/AlbumDetail.tsx`'s `MemoAlbumCardAdapter`, and
 `writer/SubjectHero.tsx`'s `EditorialAlbumTargetAdapter`. The Bucket adapter grants album open and
 the paired action-sheet/drag capabilities while retaining every membership operation and state at the Bucket boundary. The first
 Home adapter, `NewReleaseAlbumCardAdapter`, maps feed data to `AlbumCardData`, grants album-open and
 artist-open, and owns the release label, reviewed badge, intent prefetch, and album-overlay display
-payload. `HomeAlbumCardAdapter` grants external copy drag only when `catalogAlbumId` exists and
-always pairs it with `AddToBucketMenu`; Spotify-only data is display-only with an explicit status.
-The unrelated local `SearchPage.AlbumCard` is not this primitive. Bucket membership
+payload. `shared/CatalogAlbumCardAdapter` (front #406, 2026-08-15 — was
+`home/HomeAlbumCardAdapter` until /search needed the same composition) grants external copy drag
+only when `catalogAlbumId` exists and always pairs it with `AddToBucketMenu`; Spotify-only data is
+display-only with an explicit status. Bucket membership
 (`itemId`, `temp:*`, bucket/move state), memo state, and editorial form state are forbidden in the
 shared component and stay in adapters. Empty/artist writer subjects and published `ReviewCard` remain
 bespoke by design. `Cover` and `AlbumArt` remain for legitimate non-card consumers, not as legacy
