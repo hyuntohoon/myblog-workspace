@@ -98,25 +98,22 @@ A verification result may be cited only if it came from the current HEAD.
 
 Local subagents hold project-specific context; skills hold reusable expertise.
 
-**Where the subagents actually live.** All six — `reviewer`, `explorer`, `planner`, `debugger`, `test-engineer`, `architect` — are `.codex/agents/*.toml`, invoked through Codex. They moved there from `.claude/agents/*.md` in ws #847, and `.gitignore` excludes `.claude/`, so **a Claude session's own Agent tool does not list them**. Naming one is not the same as being able to call it: check the roster before promising a session will use one.
+**Where they live.** `.claude/agents/*.md` — six of them, called natively with the Agent tool (`subagent_type: "reviewer"`). Each file pins its own `tools` and `model`, so the roster is the contract: `reviewer`/`debugger`/`architect` on opus, `planner`/`test-engineer` on sonnet, `explorer` on haiku (override per call when a cheap agent is doing expensive judgement). `.gitignore` tracks these six and nothing else under `.claude/`.
 
 **Mandatory** — no context-sufficiency exemption, because their value is an independent second pass:
 
-| Condition                           | Required                                |
-| ----------------------------------- | --------------------------------------- |
-| Any contract or infra touch         | `reviewer` — via a call path below       |
-| Auth guards, secrets, or user input | `security-review` skill (both harnesses) |
+| Condition                           | Required                |
+| ----------------------------------- | ----------------------- |
+| Any contract or infra touch         | `reviewer`              |
+| Auth guards, secrets, or user input | `security-review` skill |
 
-**`reviewer` call path**, in order. Take the first one available:
-
-1. Codex `reviewer` (`.codex/agents/reviewer.toml`).
-2. Codex unavailable → a general-purpose agent briefed with `reviewer.toml`'s checklist. Read the file and pass the checks; do not paraphrase from memory — the value is the myblog-specific list (sync-Spotify in user paths, SQS contract drift, `edge_guard` Bearer validation, mutation routes missing from `infra/apigateway.tf`, secret-read sharing a path with a network sink), not the word "review".
-
-**Say which path ran, in the PR body.** An unrecorded review is treated as no review — that is the whole point of a second pass being independent. If neither path is available, stop and ask; do not self-review and call the mandatory row satisfied.
+If the Agent roster does not list `reviewer`, the definitions are missing — **stop and say so**. Do not improvise a substitute and count the row satisfied; a second pass nobody can name is not independent. (This is not hypothetical: ws #847 moved all six to Codex-only and the gap went unnoticed until a contract change in 2026-08-15 tried to call one.)
 
 Otherwise use judgement: `explorer` (unfamiliar territory), `planner` (cross-repo sequencing), `debugger` (unresolved after 2 attempts), `test-engineer`, `architect`, `frontend-design` skill (UI). Skipping one because the files are already loaded is fine — say so out loud when you do. A silent skip is not a judgement call, it is an omission. A subagent that produces code must run the repo's verification and report the result.
 
-**This section has a twin.** `AGENTS.md` § _Subagent + skill triggers_ governs Codex sessions on the same repos. Change both in the same PR — they drifted once already (ws #847 updated `AGENTS.md` and left this file naming agents that no longer existed here), and the drift stayed invisible until a session tried to call one.
+**Subagents judge; Codex writes.** These six are read-only reviewers/planners (except `test-engineer`) and never replace `mcp__codex__codex`, which exists for the opposite job — delegating a large *implementation* leg while this session keeps branch, review, verification and push. Do not reach for Codex to satisfy a `reviewer` requirement: it takes a prompt, not an agent name, so it cannot be pointed at one of these definitions, and a read-only judgement does not want a `workspace-write` session. Codex MCP has its own operating rules (worktree cwd, explicit no-commit, hooks do not fire in MCP mode) — see `AGENTS.md` § _Implementation delegation_.
+
+**These files have a twin.** `.codex/agents/*.toml` are the same six for Codex sessions, and `AGENTS.md` § _Subagent + skill triggers_ is this section's counterpart. The two copies differ only where the harness differs (Claude's `Grep`/`Glob` and `security-review` skill vs Codex's `rg` and parent hand-off). **A change to one agent's checklist goes into both copies in the same PR** — they drifted once (ws #847) and the drift was invisible until someone tried to call an agent that was no longer there.
 
 ---
 
