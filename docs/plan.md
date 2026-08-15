@@ -31,8 +31,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   live again, pursue a different corrective direction, or keep the shipped structure as-is is an open
   owner decision, not yet made. →
   `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2 SHIPPED + prod-verified**, front
-  #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15) — closes the gaps `FEAT-playback-bucket-player`
+- **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2+3 SHIPPED + prod-verified**, front
+  #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15, backend #156 `dd627bd` + ws #907 `a18d940` + front
+  #407 `afe783c` 2026-08-15) — closes the gaps `FEAT-playback-bucket-player`
   (done) and `ARCH-entity-interaction-domain-audit` Step 3 (3a/3b/3c done) left open, verified rather than
   assumed: `session.ts` now owns capability tier/device-list/shuffle/repeat/volume/liked/reconnect
   (previously `NowPlaying` kept them local "by design" per `component-map.md`'s own state-owner
@@ -66,9 +67,21 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   server confirmed the overlay opens fully styled on Home and `/search/` and via the layout-level listener
   on the dashboard route, exactly one instance each time, ✕ close works. A live authenticated prod
   click-through was not additionally performed (pure frontend relocation, no backend/data dependency —
-  see front #405's PR comment). Production smoke 19/19 passed post-deploy (quoted on front #405). **Next =
-  Step 3** (cross-repo: backend `cover_url` contract on `Backend_TrackBrief` → workspace merge → front
-  regen), no ordering dependency on Step 2, startable in a new session. →
+  see front #405's PR comment). Production smoke 19/19 passed post-deploy (quoted on front #405).
+  **Step 3 shipped 2026-08-15** (backend #156 `dd627bd`, ws #907 `a18d940`, front #407 `afe783c`):
+  `Backend_TrackBrief` gains a nullable `cover_url`, resolved server-side in `_track_brief()` off the
+  track's own `album_id → albums.cover_url` (mirroring `_album_brief()`'s pattern) — Open question 4
+  resolved this session, owner picked the recommendation over exposing `tracks.spotify_id` for a
+  client-side Spotify resolve. `list_buckets()`'s eager-load gained `Track.album` (`lazy="select"` by
+  default) alongside its existing `Track.artists` chain to keep `GET /api/buckets` at zero added
+  queries — a real N+1 a review caught before merge. Backend `pytest` 664 passed + real-DB integration
+  suite (Neon test branch) 83 passed, including two new query-count tests proving no N+1. `openapi.json`
+  diff exactly one field, `api.gen.ts` regen exactly one field, no component changes (unused field until
+  Step 4). Production smoke 19/19 passed, plus a targeted authenticated `GET /api/buckets` check showing
+  `cover_url` live on every track/playback row (quoted on backend #156). **Next = Step 4** (Playback
+  Bucket playlist detail: artwork/summary/play-all/reorder) — both prerequisites now met (this Step 3 +
+  `ARCH-buckit-navigation-shell` Step 1, already shipped). Step 5 (persistent bar) stays gated on Open
+  question 1, unresolved. →
   `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
