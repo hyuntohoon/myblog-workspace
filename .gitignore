@@ -25,7 +25,20 @@ __pycache__/
 # IDE
 .idea/
 .vscode/
-.claude/
+
+# Claude project configuration: the shared subagent definitions are tracked, all
+# other Claude state (settings.local.json, plans/, worktrees/, hooks) stays local.
+# Mirrors the .codex block below — the two agent sets are twins and drift silently
+# when only one is version-controlled (ws #847 → #910).
+.claude/*
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/architect.md
+!.claude/agents/debugger.md
+!.claude/agents/explorer.md
+!.claude/agents/planner.md
+!.claude/agents/reviewer.md
+!.claude/agents/test-engineer.md
 
 # Codex project configuration is shared; runtime state remains local.
 .codex/*
