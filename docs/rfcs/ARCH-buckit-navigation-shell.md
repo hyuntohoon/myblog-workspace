@@ -1,23 +1,34 @@
 # ARCH-buckit-navigation-shell: collapsible My Buckit navigation + one selected bucket detail
 
-- **Status**: **live again (2026-08-13)** — Steps 1 and 3's selector + shared-detail structure is the
-  deployed structure. The corrective `FEAT-inline-bucket-object-expand` Step 1 shipped 2026-08-12
-  (`myblog_front` #399) and briefly replaced it in production, but the owner reviewed that live
-  behavior and rejected it: `myblog_front` #401 (`45b29b2`, 2026-08-13) reverted #399, restoring this
-  RFC's Steps 1/3 shipped design, prod-smoked 19/19. Step 2 remains dropped unimplemented (below). No
-  corrective RFC is currently active against this structure — the owner has not stated whether to
-  revisit `FEAT-inline-bucket-object-expand`, pursue a different corrective direction, or keep this
-  structure as-is.
+- **Status**: **superseded again (2026-08-13), correction found and recorded 2026-08-15** — this line
+  previously said Steps 1 and 3's selector + shared-detail structure (`BucketDetailShell`) was live
+  again after `myblog_front` #401 (`45b29b2`, 2026-08-13) reverted the corrective #399. That was true for
+  a few hours. **The same day**, front #402 (`7057a82`) reverted #401 again and replaced the structure
+  with the current "every bucket visible, inline disclosure" model — the owner's own commit message
+  states the reason: the single-selection shell made "every other bucket a name in a sidebar, not a
+  bucket you could see and open in place." Front #403 (`388db15`)/#404 (`40061bd`) built further UI on
+  top of that inline-disclosure structure. This Status line went uncorrected for two days; caught
+  2026-08-15 by `ARCH-global-playback-experience` Step 4 auditing its own stated gate before starting
+  (`feedback-rfc-current-state-audit`). **`BucketDetailShell` does not exist in `origin/main` today** —
+  confirmed by a direct grep of `myblog_front`'s `BucketBoard.tsx` (zero hits for `BucketDetailShell`/
+  `BucketNavRow`/`BucketNavList`; the file instead defines `BucketInlineContent`/`BucketInlineNode`/
+  `BucketInlineList`). No RFC currently owns the inline-disclosure structure that is actually live. Step
+  2 remains dropped unimplemented (below). Whether to write a new RFC for the inline-disclosure
+  structure, revisit this RFC's single-selection shell, or leave things as-is is an open owner decision,
+  not yet made.
 - **Owner**: TBD
 - **Created**: 2026-08-10
 - **Plan row**: `plan.md` → ARCH-buckit-navigation-shell
-- **Sibling dependency (re-corrected 2026-08-13)**: `ARCH-global-playback-experience.md` and
-  `FEAT-rating-smart-collections.md` target this RFC's shared `BucketDetailShell` variant. That
-  dependency was briefly considered obsolete on 2026-08-12 when the superseding
-  `FEAT-inline-bucket-object-expand` shipped, but its Step 1 was reverted 2026-08-13 (see Status
-  above) and `BucketDetailShell` is live again — the sibling RFCs' dependency on it is valid again.
-  Their own files were not edited by this correction pass; re-check them before building on this note
-  if the structure changes again.
+- **Sibling dependency (re-corrected 2026-08-15, and again wrong before this correction)**:
+  `ARCH-global-playback-experience.md` and `FEAT-rating-smart-collections.md` target this RFC's shared
+  `BucketDetailShell` variant. The 2026-08-13 correction pass (see Status above) declared that
+  dependency "valid again" after #401's revert — but #402, later the very same day, superseded the
+  structure a second time, and that second supersession went unrecorded until this 2026-08-15 pass.
+  **The dependency does not currently hold — `BucketDetailShell` does not exist.**
+  `ARCH-global-playback-experience` Step 4 split its own scope over this same date to ship independently
+  of the missing mount point; re-check both sibling RFCs' own files before building on this note if the
+  structure changes again — this note has now been wrong twice from staleness, not from being written
+  carelessly the first time.
 - **Historical scope statement — builds on, does not redo**:
   `docs/archive/done/rfcs/ARCH-bucket-album-modal-unification.md`
   (shipped 2026-08-09/10) — that RFC unified the **per-album** detail modal (`AlbumDetail.tsx`'s
@@ -483,3 +494,5 @@ rewrites what a prior step shipped.
 | 2026-08-10 | **Step 1 shipped** (front #396, squash `7921a9f`). Implementation delegated to Codex, reviewed and gate-run by Claude: `pnpm lint`/`astro check`/`pnpm test` (617 tests) green — one pre-existing test (`BucketBoard.test.tsx`'s optimistic-copy race test) needed updating for the new single-selection render model, no assertion weakened. Real-browser CDP against a local dev build proxied to real prod data (smoke account) verified every Step 1 requirement explicitly: collapsed nav rows stay mounted (`display:none` on the child group, confirmed via computed style, not unmounted), dragging an album onto a **collapsed** bucket's nav row previews accept and completes the drop, switching selection swaps the detail pane with no leaked prior-bucket DOM state, and create/rename/delete (cascade) all round-tripped against the real API. Deployed via front CI (build+upload+CloudFront-invalidate succeeded for `7921a9f`); post-deploy prod smoke 19/19 green, quoted on the PR. A fully-authenticated CDP pass against the literal deployed CloudFront bundle (not just a local build) was attempted for extra confidence but was blocked by the browser's mixed-content policy on the token-relay approach used to keep the bearer token out of the session transcript — not pursued further given the strength of the other evidence | 1 |
 | 2026-08-12 | Owner corrected the interaction direction. Step 2 was confirmed absent from `BucketBoard.tsx` at front `origin/main` `0d4f525` and dropped unimplemented. Shipped Steps 1 and 3 remain historical facts; their desktop selector, mobile drawer, single-selection state, and shared-detail layout become explicit removal targets in the superseding `FEAT-inline-bucket-object-expand` draft | — |
 | 2026-08-13 | **Owner rejected the shipped corrective result and reverted it.** `FEAT-inline-bucket-object-expand` Step 1 (front #399) had replaced this structure in production 2026-08-12; after reviewing the live behavior the owner decided to hold/reject it rather than iterate, and `myblog_front` #401 (`45b29b2`) cleanly reverted #399, restoring this RFC's Steps 1/3 as the live structure, prod-smoked 19/19. This RFC is not reopened as active work by this entry — it records the reverted state so `docs/plan.md` and the sibling RFC stay accurate | — |
+| 2026-08-13 | **Superseded again, same day — not recorded until 2026-08-15 (see the entry below).** Front #402 (`7057a82`) reverted #401 above a second time and replaced `BucketDetailShell`'s single-selection structure with the current inline-disclosure model (`BucketInlineNode`/`BucketInlineList`/`BucketInlineContent`); #403 (`388db15`)/#404 (`40061bd`) built further UI on that structure. Backdated entry — this session found it two days late while auditing a sibling RFC's dependency on this one | — |
+| 2026-08-15 | **Staleness caught and corrected.** `ARCH-global-playback-experience` Step 4, auditing its own stated gate ("`ARCH-buckit-navigation-shell` Step 1, already shipped") before writing code, grepped `myblog_front` `origin/main`'s `BucketBoard.tsx` for `BucketDetailShell`/`BucketNavRow`/`BucketNavList` — zero hits. `git log` traced the cause to front #402 (above), which this RFC's Status line and the sibling-dependency note had not been updated to reflect since 2026-08-13. Both corrected in this same pass (see Status above); `docs/plan.md`'s row for this RFC corrected in the same session. No structural decision made here — this entry only records that the file is now honest about current code, not a decision about which structure to keep | — |

@@ -1,12 +1,17 @@
 # FEAT-inline-bucket-object-expand: restore inline buckets with independent object expansion
 
-- **Status**: **reverted from production (2026-08-13)** — Step 1 shipped 2026-08-12 (`myblog_front`
-  #399, `ec23511`), then the owner reviewed the live deployed behavior and rejected it rather than
-  iterating on it live: `myblog_front` #401 (`45b29b2`, 2026-08-13) is a clean `git revert` of #399,
-  restoring `ARCH-buckit-navigation-shell` Steps 1/3's selector + shared-detail structure, prod-smoked
-  19/19. This RFC's Step 0 evidence (motion/asset constants, label normalization) remains historically
-  accurate, but "production Step 1 ready" below is stale — Step 1 was completed and then explicitly
-  turned down, not merely paused. No further work on this RFC is active; see the Decisions log.
+- **Status**: **reverted from production (2026-08-13), superseded by an un-RFC'd follow-up the same day**
+  — Step 1 shipped 2026-08-12 (`myblog_front` #399, `ec23511`), then the owner reviewed the live deployed
+  behavior and rejected it rather than iterating on it live: `myblog_front` #401 (`45b29b2`, 2026-08-13)
+  is a clean `git revert` of #399. That revert briefly restored `ARCH-buckit-navigation-shell` Steps
+  1/3's selector + shared-detail structure — but the same day, front #402 (`7057a82`) reverted #401
+  again and shipped a *different* inline model (plain title-row disclosure, not this RFC's pail-artwork
+  design) directly, without going through this or any RFC. Correction recorded 2026-08-15 in
+  `ARCH-buckit-navigation-shell.md` (this RFC's own "Corrects" target) and `docs/plan.md`; see those for
+  the current structure. This RFC's Step 0 evidence (motion/asset constants, label normalization) remains
+  historically accurate, but "production Step 1 ready" below is stale on two counts now, not one — Step 1
+  was completed and turned down, and the structure that eventually shipped afterward is not this RFC's
+  design either. No further work on this RFC is active; see the Decisions log.
 - **Owner**: 박지훈
 - **Created**: 2026-08-12
 - **Plan row**: `docs/plan.md` → FEAT-inline-bucket-object-expand
