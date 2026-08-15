@@ -17,6 +17,14 @@
 --                     promotion from an intake match; without it the intake collector's own
 --                     hits inflate drain by an order of magnitude.
 --   * excluded rows = parked by rule F, still present and reversible; NOT drained.
+--
+-- 2026-08-16 correction. Queries 2 and 6 were both written against the PRE-Step-3b world and
+-- silently went wrong when 3b shipped (worker #93, 2026-08-03). Both are fixed below; read
+-- their own comments for the mechanism. The headline symptom was that query 2 reported
+-- `net_per_day = -61.7` — a draining pool — on a day the pool had demonstrably GROWN, from
+-- 11,033 rows (recorded 2026-08-03 in `lyrics_reassessment_service._fetch_unresolved_tracks`'s
+-- docstring) to 11,928, i.e. **+68.8/day**. The sign was inverted, not merely the magnitude.
+-- Treat any net-pool figure quoted between 2026-08-03 and 2026-08-16 as unusable.
 
 \echo '== 1. pool composition (excluded rows are parked, not drained) =='
 SELECT match_status,
@@ -27,7 +35,21 @@ GROUP BY 1, 2
 ORDER BY 3 DESC;
 
 \echo ''
-\echo '== 2. net pool change per day (THE success metric: must reach <= 0) =='
+\echo '== 2. net pool change per day, split by intent (see 2026-08-16 correction above) =='
+-- The original `drained_per_day` counted EVERY matched/no_lyrics row whose `updated_at` moved
+-- inside the window. Before Step 3b only a genuine promotion moved it, so that was sound.
+-- Step 3b then added two writers that move `updated_at` on rows which were NEVER in the
+-- unresolved pool:
+--   * `TrackLyricsWriter.touch` bumps the rotation cursor on a best-of row the replacement
+--     guard KEPT — content untouched. Pure cursor motion, zero drain. 33.4/day on 2026-08-16.
+--   * a best-of SUPERSESSION rewrites `match_basis` best-of-* -> exact-title. Real work, but
+--     the row was already `matched`; it never occupied a pool slot, so it is not drain either.
+-- Both were being credited as pool drainage, which is how a growing pool reported net -61.7.
+-- `bestof_touch_kept` is separable in SQL (basis still best-of-*). Supersessions are NOT
+-- separable from current state alone — they now look identical to a genuine promotion — so
+-- `non_bestof_drain` remains an UPPER BOUND on real drain until the best-of arm goes quiet.
+-- The only trustworthy net figure while the sweep runs is query 3's `live_pool` differenced
+-- against a previous run. Record it every time you run this file.
 WITH win AS (SELECT INTERVAL '7 days' AS w)
 SELECT
   round(count(*) FILTER (WHERE tl.created_at >= NOW() - win.w
@@ -36,13 +58,17 @@ SELECT
   round(count(*) FILTER (WHERE tl.updated_at >= NOW() - win.w
                            AND tl.match_status IN ('matched','no_lyrics')
                            AND tl.updated_at > tl.created_at + INTERVAL '1 day')
-        / 7.0, 1)                                                    AS drained_per_day,
-  round((count(*) FILTER (WHERE tl.created_at >= NOW() - win.w
-                            AND tl.match_status IN ('not_found','ambiguous','review_required'))
-       - count(*) FILTER (WHERE tl.updated_at >= NOW() - win.w
-                            AND tl.match_status IN ('matched','no_lyrics')
-                            AND tl.updated_at > tl.created_at + INTERVAL '1 day'))
-        / 7.0, 1)                                                    AS net_per_day
+        / 7.0, 1)                                                    AS moved_per_day_RAW,
+  round(count(*) FILTER (WHERE tl.updated_at >= NOW() - win.w
+                           AND tl.match_status = 'matched'
+                           AND tl.evidence ->> 'match_basis' LIKE 'best-of-%'
+                           AND tl.updated_at > tl.created_at + INTERVAL '1 day')
+        / 7.0, 1)                                                    AS bestof_touch_kept,
+  round(count(*) FILTER (WHERE tl.updated_at >= NOW() - win.w
+                           AND tl.match_status IN ('matched','no_lyrics')
+                           AND coalesce(tl.evidence ->> 'match_basis','') NOT LIKE 'best-of-%'
+                           AND tl.updated_at > tl.created_at + INTERVAL '1 day')
+        / 7.0, 1)                                                    AS drain_upper_bound
 FROM track_lyrics tl, win;
 
 \echo ''
@@ -60,6 +86,13 @@ WHERE match_status IN ('not_found','ambiguous','review_required')
 -- (26.7% for <=60d non-classical vs 0.8% raw pool, 2026-07-25). Re-run this after any
 -- change to the pool: if the tiers are flat, recency carries no information and a
 -- recency-tiered ORDER BY buys nothing. Measured flat on 2026-08-03 (see RFC Step 3b).
+--
+-- 2026-08-16: these tiers are currently NOT comparable to that flat baseline. They read
+-- 13.66 / 30.55 / 58.31, and the gradient is an artifact of the same contamination query 2
+-- documents — best-of rows sit overwhelmingly on older albums (tier 2), and the Step 3b sweep
+-- is rewriting them right now, so tier 2's `promoted_30d` is counting supersessions rather
+-- than pool promotions. Re-run this only after query 6 reports `arm_gone_quiet = t`; any
+-- recency decision taken on these numbers before then is measuring the sweep, not recency.
 WITH tiered AS (
   SELECT tl.match_status, tl.created_at, tl.updated_at,
          CASE WHEN alb.release_date >= CURRENT_DATE - INTERVAL '60 days'  THEN '0: <=60d'
@@ -122,19 +155,35 @@ SELECT count(*) FILTER (WHERE excluded)                          AS excluded_row
 FROM scoped;
 
 \echo ''
-\echo '== 6. is the best-of supersession arm reachable? =='
--- `_fetch_unresolved_tracks` orders unresolved rows ahead of best-of-* matched rows, then
--- takes LIMIT 150. A best-of row is therefore selected only when unresolved < 150. If
--- unresolved_ahead exceeds the batch limit, the supersession path in `should_replace`
--- cannot execute at all — it is dead code in production, not merely rare.
+\echo '== 6. best-of supersession backlog: how much is left, and when does the arm go quiet? =='
+-- REWRITTEN 2026-08-16. The previous form computed `bestof_reachable := unresolved < 150`,
+-- which was the correct test only while unresolved rows were ordered AHEAD of best-of rows.
+-- Step 3b inverted that ordering — `_fetch_unresolved_tracks` now sorts
+-- `CASE WHEN tl.match_status = 'matched' THEN 0 ELSE 1 END` first, so best-of rows are at the
+-- HEAD of every batch. The old column therefore reported `f` (unreachable) while the arm was
+-- demonstrably draining the backlog 2,765 -> 1,141. It was answering a question that stopped
+-- existing, so it is replaced rather than patched.
+--
+-- What matters now is the opposite: the arm is reachable BY CONSTRUCTION, and the question is
+-- when it finishes and hands the budget back to unresolved recovery. `bestof_due` is the part
+-- actually selectable today (the 30-day rest interval, LYRICS_BESTOF_RECHECK_INTERVAL_DAYS,
+-- holds the rest back); once `bestof_due` sits below the batch limit the arm has gone quiet
+-- and unresolved rows start filling the remainder of each batch.
 SELECT (SELECT count(*) FROM track_lyrics
-          WHERE match_status IN ('not_found','ambiguous','review_required')
-            AND NOT (evidence ? 'excluded_by'))                   AS unresolved_ahead,
-       (SELECT count(*) FROM track_lyrics
           WHERE match_status = 'matched'
             AND evidence ->> 'match_basis' LIKE 'best-of-%'
             AND NOT (evidence ? 'excluded_by'))                   AS bestof_rows,
+       (SELECT count(*) FROM track_lyrics
+          WHERE match_status = 'matched'
+            AND evidence ->> 'match_basis' LIKE 'best-of-%'
+            AND NOT (evidence ? 'excluded_by')
+            AND updated_at < NOW() - INTERVAL '30 days')          AS bestof_due,
        150                                                        AS batch_limit,
        (SELECT count(*) FROM track_lyrics
+          WHERE match_status = 'matched'
+            AND evidence ->> 'match_basis' LIKE 'best-of-%'
+            AND NOT (evidence ? 'excluded_by')
+            AND updated_at < NOW() - INTERVAL '30 days') < 150    AS arm_gone_quiet,
+       (SELECT count(*) FROM track_lyrics
           WHERE match_status IN ('not_found','ambiguous','review_required')
-            AND NOT (evidence ? 'excluded_by')) < 150             AS bestof_reachable;
+            AND NOT (evidence ? 'excluded_by'))                   AS unresolved_behind;

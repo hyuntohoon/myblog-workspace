@@ -146,6 +146,55 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
   **Next = Step 5** (memo naming conflict; blocked behind the `FEAT-album-review-authoring` gate above) — new session. → `docs/rfcs/ARCH-entity-interaction-domain-audit.md`.
 
+- **DATA-multidisc-track-order** (**accepted 2026-08-16; no step started**) — promoted from Backlog this
+  session on owner approval. `tracks` has no `disc_no` column, so every tracklist read path orders by
+  `track_no` alone and multi-disc albums interleave; the tie-break falls through to arbitrary `id` order.
+  Both of the draft's load-bearing claims were re-measured against prod before promotion rather than
+  carried over: `information_schema` still reports **zero** `disc_no`/`disc_number` columns, and the
+  collision population is **78 of 3,440 albums (2.27%)** against the draft's 77 of 3,313 — same rate, so
+  it tracks catalog growth rather than being a one-off import artifact.
+
+  Promoted ahead of the other candidates because it is the only open item whose completion depends on
+  nothing but implementation — every other Active row waits on owner authoring/curation behaviour — and
+  because `ARCH-global-playback-experience` Step 4 has just put a play-all / reorder queue on top of
+  exactly these `ORDER BY` sites.
+
+  **Next = Step 1** (`myblog_shared_db` migration adding `tracks.disc_no INTEGER`, prod-applied **before**
+  merge). Cross-repo and multi-session by construction: migration + prod apply → service re-pin →
+  `myblog_music`/`myblog_worker` twin fix + ~78-album Spotify re-fetch backfill → 4 `ORDER BY` sites →
+  OpenAPI re-export → contract merge → frontend regen. → `docs/rfcs/DATA-multidisc-track-order.md`.
+
+- **A11Y-modal-background-inert** (**draft written 2026-08-16; needs owner RFC-accept before Step 1**) —
+  promoted from Frozen this session on owner approval, as `ARCH-overlay-modal-isolation` OQ2 recommended
+  (a separate RFC, not a reopening of that one). While a scrim modal is open, nothing removes the page
+  behind it from the accessibility tree: **zero occurrences of `inert` in `myblog_front/src`**.
+
+  The current-state audit narrowed the defect and corrected the origin line, which claimed "screen
+  readers/**tab order**": `useDismissable` already has a working, tested Tab focus trap with a nesting
+  stack, so tab order is not the problem. The real hole is **screen-reader browse mode** — a virtual
+  cursor does not move DOM focus, so a focus trap constrains nothing and `aria-modal` is advisory. It
+  also found a pre-existing gap the frozen idea never mentioned: `ActionSheet`, `BucketPickerSheet` and
+  `PocketDesignSettings` are scrim modals with `aria-modal="true"` that **never adopted `useDismissable`
+  at all**, so today they have no focus trap and no focus restore — now Step 2.
+
+  Scope is small because the modal population is enumerable from an existing signal rather than judged:
+  this codebase already encodes "is this modal?" as "does it lock background scroll?" (11
+  `lockScroll: true` call sites + 13 direct `useScrollLock` callers). `myblog_front` only, no contract,
+  no backend. **OQ1 (does the persistent playback bar stay operable behind a modal?) is open and blocks
+  Step 1.** → `docs/rfcs/A11Y-modal-background-inert.md`.
+
+- **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval, and
+  its blocking question resolved in the same pass: the `PERF-home-feed-latency` dependency note is
+  **stale and is now dropped**, exactly as the Backlog row suspected — that name has never existed as an
+  RFC or plan row and appears nowhere outside the line that cited it. Nothing sequences ahead of this.
+
+  Re-measured before promotion, and the number is smaller than the row implied: artist-scoped exact
+  duplicates (same normalized title **and** same artist set) are **56 groups / 57 redundant rows of
+  3,440 albums = 1.7%**. A title-only count reads 107 groups / 169 rows, but that conflates distinct
+  artists sharing an album title and is not the dedup population. **Lowest priority of the three
+  promoted this session** — kept Active so it stops being re-litigated, not because 1.7% is urgent.
+  No RFC file; scope is small enough to live in this row.
+
 _2026-08-06 playback/modal/security audit (8 parallel investigations over playback entry points, queue identity, modals and multi-user authorization). Everything it confirmed has since shipped; the only remaining deferral is its track-info no-op item, deliberately held for the canonical-track scope. Evidence and the full issue matrix live in the audit record and `git log`._
 
 _Shipped implementation detail belongs in `git log`, RFCs and `docs/archive/done/`; plan.md retains only open decisions, gates, observations and status transitions._
@@ -205,12 +254,36 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 - **DATA-catalog-noise-and-lyrics-coverage** (**accepted; implementation complete except observation gates**) — Steps **1a + 2 + 3a + 3b + 4 SHIPPED**; Step **1b DROPPED** by owner decision 2026-08-03. Search noise is handled by ranking rather than catalog filtering so classical material remains findable. Step 2 is the ingest choke point and absorbs `DATA-release-noise (a)`. Step 3a parks empirically low-yield lyrics rows; Step 3b drains the previously unreachable `best-of-*` supersession backlog first; Step 4 album-scoped reassessment is live.
 
-  Remaining observations:
-  1. trailing-7-day classical album share **37% → ≤8% around 2026-08-11**;
-  2. holdout misclassification rate after enough `classical_holdout` samples accumulate;
-  3. lyrics-pool query 6 should trend toward ~450 unsupersedable rows by ~2026-08-29, after which unresolved recovery should naturally return to the queue head.
+  **Observations measured 2026-08-16 — two closed, one on track, and the verification tool was found
+  to be lying.** Full record in the RFC's new "Observation gates" section; summary:
+  1. trailing-7-day classical album share — **MET**. 37% (72/195) baseline → **0.64% (1 of 156)**,
+     inside the ≤8% gate.
+  2. classical-holdout misclassification rate — **RETIRED as unmeasurable**, samples so far clean.
+     Exactly **one** album has passed the predicate since 08-01 (a Franco Fagioli / Il Pomo d'Oro Vinci
+     opera aria — correctly classified). At ~1 sample per two weeks no future date makes this
+     answerable. The Verification block's CloudWatch route is also dead: prod Lambda runs
+     `LOG_LEVEL=WARNING`, so the `classical_excluded`/`classical_holdout` `logger.info` counters never
+     reach CloudWatch; measured from DB state instead.
+  3. best-of backlog → ~450 — **ON TRACK, ahead of schedule**. 2,765 → **1,141**, of which **672** are
+     selectable today (rest held by the 30-day rest interval). ~4–5 more ticks, so the arm should go
+     quiet around **2026-08-21**, not the estimated 08-29. Watch query 6's new `arm_gone_quiet` boolean
+     rather than a calendar date.
 
-  Step 3b's first production tick already confirmed **102 `best-of-*` rows superseded** on 2026-08-03. → `docs/rfcs/DATA-catalog-noise-and-lyrics-coverage.md`.
+  **`docs/sql/lyrics_pool_health.sql` — the file this RFC's Verification block points at — reported the
+  lyrics pool draining while it was growing, and is fixed in this change.** Query 2 printed
+  `net_per_day = -61.7`; the pool actually went **11,033 → 11,928 between 08-03 and 08-16 = +68.8/day**
+  (both endpoints on the identical predicate; the 11,033 is recorded in `_fetch_unresolved_tracks`'s own
+  docstring). Sign inverted, not just magnitude. Cause: `drained_per_day` credited any `matched` row
+  whose `updated_at` moved, and Step 3b added two writers that move it on rows that were never in the
+  unresolved pool — `TrackLyricsWriter.touch` advancing the rotation cursor on guard-kept best-of rows
+  (**33.4/day**, content unchanged) and best-of supersessions. The sweep was being counted as pool
+  drainage. Query 6 had the mirror-image bug: it computed `unresolved < 150`, the right test only under
+  the *pre*-3b ordering that 3b inverted, so it read "arm unreachable" throughout the sweep it existed to
+  monitor. Query 4's recency tiers are contaminated the same way and are commented as
+  not-comparable-until-quiet. **No shipped code path or past decision changes** — the retired "net ≤ 0/day"
+  metric was retired on correct reasoning and its `+38/day` was nearer truth than anything the tool printed
+  after. Only figures quoted from this tool between 08-03 and 08-16 are unusable.
+  → `docs/rfcs/DATA-catalog-noise-and-lyrics-coverage.md`.
 
 - **FEAT-genre-recommendation** (**Frozen; gated on review volume**) — related-review recommendation on `/review/{slug}` based on shared sub-genres + linked genre edges. Substrate is live, but there is not enough published review volume to rank meaningfully. Re-open after sufficient review/tag volume exists. Owner edge-authoring API remains lowest priority. → `docs/rfcs/FEAT-genre-recommendation.md`.
 
@@ -219,12 +292,6 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 - **CHORE-neuralwatt-credit-burn** (**opt-in path SHIPPED; default switch rejected by parity gate**) — NeuralWatt glm-5.2 routing exists for genre-heal, but identical input produced unstable K-Pop/idol classifications on an axis that writes `confidence=high` DB state. Default therefore remains `claude -p`; burn is deferred. Open owner decision: retry with a hardened idol-axis rubric or leave NeuralWatt opt-in only. Key location remains the owner's prior decision and should not be re-raised.
 
 - **FEAT-bucket-identity** (**A DONE; B DONE; C subsumed; D audited + gated**) — Direction D's old "next concrete step" is stale because 4/5 proposed collection types already exist as dedicated non-bucket surfaces; only genre-review collections remain unbuilt. Review-based collections remain gated by published-review volume, and album-based public collections remain gated by owner curation/public-bucket evidence. Re-open only when the RFC's audit gates are met and re-measured. Existing proposals such as `/profile` landing tab, research-note deep link and in-place bucket-tab switch remain proposals, not active work. → `docs/rfcs/FEAT-bucket-identity.md`.
-
-- **DATA-multidisc-track-order** (**draft RFC written 2026-08-09; not yet owner-approved**) — the `tracks` table has **no `disc_no`/`disc_number` column at all** (ORM `myblog_shared_db/src/myblog_shared_db/models.py:273-321`, canonical schema `tests/canonical_schema.sql:265-279`, zero hits across all 50 migrations — it was never added, not dropped). `myblog_music`(`track_repo.py:163`) and `myblog_worker`(`sync_service.py:174`) both read only Spotify's `track_number` and never reference `disc_number`, so a schema fix needs a twin-drift sweep across both. **Live-data spot check done 2026-08-09**: `GROUP BY album_id, track_no HAVING count(*) > 1` finds **77 of 3313 albums (~2.3%)** with a repeated `track_no`, both classical multi-work compilations and clean 2-disc mainstream releases (Nirvana *In Utero (Deluxe Edition)*, *Hamilton* OBC, *SOS Deluxe: LANA*, *SWAG II*, Rolling Stones *Forty Licks*). Confirmed real interleaving on *In Utero*, not just adjacent duplicate `track_no` values: disc 1/disc 2 "Serve The Servants" both land at `track_no=1` with identical `created_at`, so the tie-break falls through to arbitrary `id` order.
-
-  Managed as a data-model migration, independent of the card/playback-state refactors: (1) `myblog_shared_db` migration adding `tracks.disc_no INTEGER` + prod apply **before merge**; (2) backfill the ~77 currently-colliding albums via a one-off Spotify re-fetch (not locally computable) plus the `myblog_music`/`myblog_worker` twin fix; (3) switch every `ORDER BY` to `(disc_no, track_no)` — **4 sites** (`bucket_service.py` + 3 in `myblog_music/track_repo.py`); (4) OpenAPI re-export → contract merge → frontend type regeneration. **Needs owner RFC-accept before promotion to Active.** → `docs/rfcs/DATA-multidisc-track-order.md`.
-
-- **DATA-release-noise (c) exact-dup dedup** (P1 remainder — from FEAT-release-calendar OQ4 + 2026-07-23 audit P-7) — Step (b) read-side compilation-noise filter SHIPPED + prod-smoked 2026-07-24 (homepage compilation noise 7/12→0/12; `/releases/` ~36→1); former Step (a) ingest-side work is **absorbed by `DATA-catalog-noise-and-lyrics-coverage` Step 2**. Only **(c) exact-dup dedup** remains, and its plan.md dependency note (`PERF-home-feed-latency`) has never been a real RFC/plan row — it appears nowhere outside this line since it was written 2026-07-23, so treat it as a stale/unconfirmed sequencing preference, not a hard blocker; **owner should confirm whether it's still intended before this is picked up.**
 
 ---
 
@@ -246,4 +313,3 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 - **Per-genre exemplar albums** — start inside `definition_md` markdown; introduce structured linking only when an actual consumer requires it.
 
-- **Background `inert`/`aria-hidden` on open modals** — `useDismissable` doesn't deactivate the background for screen readers/tab order while a modal is open; `ARCH-overlay-modal-isolation`'s own scope (Non-goals) deliberately excluded this, only fixing scroll isolation. Recommended as a separate accessibility RFC if pursued, not a reopening of that RFC. → `docs/archive/done/rfcs/ARCH-overlay-modal-isolation.md` OQ2.

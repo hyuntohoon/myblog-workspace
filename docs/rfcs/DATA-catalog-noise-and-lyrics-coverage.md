@@ -10,6 +10,70 @@
 
 ---
 
+## Observation gates — measured 2026-08-16
+
+All implementation shipped (1a, 2, 3a, 3b, 4; 1b dropped). Three observations were left open. Two
+now have answers, one is being retired as unmeasurable, and the pass found a defect in this RFC's
+own verification tool.
+
+**① trailing-7-day classical album share, 37% → target ≤8% — MET.**
+`156` albums created in the trailing 7 days, `1` classical-artist-linked = **0.64%**, against the
+37% (72/195) baseline. Well inside the ≤8% gate and close to the 1-in-20 holdout floor the design
+predicted. Query: the one in Step 2's Verification block, run unmodified.
+
+**② classical-holdout misclassification rate — RETIRED as unmeasurable, with the samples so far
+clean.** The gate said "after enough `classical_holdout` samples accumulate." They do not
+accumulate. Exactly **one** album has passed the classical predicate since 2026-08-01 — *Vinci:
+L'Ernelinda: "Sorge talora fosca l'aurora"* (Leonardo Vinci / Zefira Valova / Il Pomo d'Oro /
+Franco Fagioli) — and it is genuinely classical, i.e. the rule classified it correctly. At ~1
+sample per two weeks, a rate with any confidence interval worth quoting is years away, so no
+future date will make this gate answerable. The counters were also unreadable by the route the
+Verification block specifies: prod Lambda runs `LOG_LEVEL=WARNING`, so the `classical_excluded` /
+`classical_holdout` `logger.info` counters never reach CloudWatch — the measurement above is from
+DB state instead. **Recommended disposition: close this observation.** If the rule ever needs
+re-auditing, the honest instrument is owner engagement with excluded artists, not the holdout rate.
+
+**③ best-of backlog trending to ~450 unsupersedable rows — ON TRACK.** `2,765` at design time →
+**`1,141`** today, with **`672`** currently selectable (the rest held by the 30-day
+`LYRICS_BESTOF_RECHECK_INTERVAL_DAYS` rest). At the 150/run head slot that is ~4–5 more ticks, so
+the arm should go quiet around **2026-08-21**, ahead of the ~08-29 estimate. Query 6 in
+`docs/sql/lyrics_pool_health.sql` now reports `arm_gone_quiet` directly; watch that boolean rather
+than a calendar date.
+
+**Defect found in this RFC's own verification tool, fixed in the same pass.**
+`docs/sql/lyrics_pool_health.sql` is the file this RFC's Step 3 Verification block points at. Two
+of its queries were written against the pre-3b world and silently went wrong when 3b shipped:
+
+- **Query 2 reported the pool draining while it was growing.** It printed `net_per_day = -61.7`;
+  the live pool actually went **11,033 → 11,928 between 2026-08-03 and 2026-08-16 = +68.8/day**
+  (the 11,033 is the figure recorded in `_fetch_unresolved_tracks`'s own docstring on 08-03, so
+  both endpoints use the identical predicate). The sign was inverted. Cause: `drained_per_day`
+  credited every `matched`/`no_lyrics` row whose `updated_at` moved, and Step 3b introduced two
+  writers that move it on rows which were never in the unresolved pool — `TrackLyricsWriter.touch`
+  advancing the rotation cursor on a guard-kept best-of row (**33.4/day**, content unchanged), and
+  best-of supersessions rewriting `match_basis`. The sweep was being counted as pool drainage.
+  Query 2 is now split by intent; supersessions are not separable from current state alone, so the
+  remaining `drain_upper_bound` (116.3/day) is labelled as the upper bound it is. **Consequence for
+  this RFC: the retired "net ≤ 0/day" metric was retired on the correct reasoning — intake is
+  bounded by rotation, not ordering — and its quoted `+38/day` was nearer the truth than anything
+  the tool printed afterwards. Nothing in the Step 3 decision record needs revisiting; only figures
+  quoted from this tool between 2026-08-03 and 2026-08-16 are unusable.**
+- **Query 6 reported the best-of arm unreachable while it was draining the backlog.** It computed
+  `bestof_reachable := unresolved < 150`, the correct test only while unresolved rows were ordered
+  ahead of best-of rows. Step 3b inverted exactly that ordering, so the column read `f` throughout
+  the sweep it was supposed to be monitoring. Replaced with the backlog/`arm_gone_quiet` form
+  described in ③.
+- Query 4's recency tiers now read 13.66 / 30.55 / 58.31 against a flat 10.95 / 10.77 / 8.70
+  baseline. This is the same contamination, not a reversal of Step 3b's premise — best-of rows sit
+  on older albums, so the sweep inflates tier 2. Commented in the file; re-measure only after
+  `arm_gone_quiet = t`.
+
+Neither defect changes a shipped code path or a decision already taken; both changed what the
+project believed it had measured. Recorded here rather than in `git log` because the RFC's success
+metrics are the thing they corrupted.
+
+---
+
 ## Goal
 
 Four independently-mergeable changes that share one root cause: **the catalog ingests bulk classical
