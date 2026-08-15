@@ -106,7 +106,25 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `docs/archive/done/rfcs/ARCH-buckit-inline-navigation.md`) — `BucketInlineContent` now renders
   `PlaybackQueue` inline in My Buckit for the Playback Bucket instead of the manual tile grid; verified
   via CDP against the real prod queue (13 tracks) plus one CSS-scoping bug (`.pb-scope`) found and fixed
-  in the same pass. Step 5 is next, unblocked. →
+  in the same pass. **Step 5 shipped 2026-08-16** (front #410, `379b6f1`) — the persistent compact
+  playback bar (Open question 1's option b): a new `PlaybackPersistentBar` (56px, identity + transport)
+  mounted inside `PocketBuckit`'s existing layout-level root, visible whenever `session.ts` reports
+  `currentItemId != null || external != null`, independent of Pocket's own open/closed state; reuses
+  `PlaybackIdentity`/`PlaybackTransport` verbatim, click opens the Playback Bucket's existing mini drawer
+  via the same `usePocket().openDrawer` path the tray's own tile already uses — no new player logic, no
+  new queue. `.site-shell` reserves the bar's height via a `--pb-bar-h` custom property, the same
+  reservation-contract shape as the existing `--pbp-dock-w`. `pnpm test` 87/87 in the playback/pocket-scoped
+  suite (full-suite run hit unrelated system-load timeout flakes in `BucketBoard.test.tsx`/
+  `CatalogAlbumCardAdapter.drag.test.tsx` — both confirmed passing in isolation, not touched by this
+  diff), `pnpm lint` clean, `pnpm exec astro check` 0 errors. Real-browser CDP via an `initScript`-stubbed
+  `fetch` (no local backend in this environment) confirmed the bar's identity/transport render correctly,
+  content reserves space with no overlap on desktop and 390×844×3 mobile, and click opens the Pocket tray
+  (`setOpen(true)`, `openDrawer` no-ops gracefully when the account has no Playback Bucket yet). **Scope
+  decision made this step**: the RFC's Tests section left one detail open — a possible new
+  `scripts/smoke.sh` check ("bar visible on `/`"). `smoke.py` is a pure API-level (boto3/HTTP) harness
+  with no browser rendering, so no literal DOM check was added; deferred to a one-time authenticated CDP
+  click-through against prod. Production smoke 19/19 passed post-deploy (quoted on front #410). **This
+  was the RFC's last step — all 5 steps now shipped.** →
   `docs/rfcs/ARCH-global-playback-experience.md`.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
