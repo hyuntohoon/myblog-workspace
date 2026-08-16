@@ -1,6 +1,6 @@
 # A11Y-modal-background-inert: deactivate the background while a modal is open
 
-- **Status**: draft
+- **Status**: **accepted** (owner-approved in-session 2026-08-16, together with OQ1)
 - **Owner**: 오너
 - **Created**: 2026-08-16
 - **Plan row**: `plan.md` → A11Y-modal-background-inert
@@ -157,15 +157,15 @@ returns to the trigger on close.
 
 ## Open questions
 
-1. **Is the persistent playback bar meant to stay operable while a modal is open?** — blocks Step 1's
-   second bullet. `PlaybackPersistentBar` mounts inside `PocketBuckit`, a `<body>` child, so the
-   default treatment inerts it along with the rest of the background. Options: (a) inert it like
-   everything else — consistent, but a user cannot pause playback without closing the dialog;
-   (b) exempt the `PocketBuckit` island from inert — keeps transport reachable, but then AT can also
-   reach the whole tray behind the scrim, which is the defect this RFC exists to fix; (c) exempt only
-   the bar element. Recommendation is **(a)**: it matches what sighted users already get (the scrim
-   covers the bar), and the RFC's whole premise is that AT should not have reach that sighted
-   interaction does not.
+1. ~~**Is the persistent playback bar meant to stay operable while a modal is open?**~~ — **RESOLVED
+   2026-08-16 (owner): option (a), inert it like everything else.** `PlaybackPersistentBar` mounts
+   inside `PocketBuckit`, a `<body>` child, so it takes the default treatment with no exemption code.
+   The rejected alternatives, recorded so this is not relitigated: (b) exempting the whole `PocketBuckit`
+   island would leave AT able to reach the entire tray behind the scrim — the defect this RFC exists to
+   fix; (c) exempting only the bar element would preserve transport at the cost of a special case in the
+   controller. (a) matches what sighted users already get, since the scrim covers the bar. **Consequence
+   to verify in Step 1, not assume:** with a modal open, the bar must be unreachable by AT — assert it in
+   the live DOM, not merely that it is painted behind the scrim.
 2. **Does anything need `inert` without wanting scroll lock, or vice versa?** — blocks nothing;
    decide only if Step 1's default turns out to mis-handle a specific surface. Recorded so a future
    reader knows the coupling was deliberate, not accidental.
@@ -175,3 +175,4 @@ returns to the trigger on close.
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-08-16 | RFC drafted on owner's in-session approval to promote the frozen `ARCH-overlay-modal-isolation` OQ2 idea. Current-state audit corrected the origin line: the focus trap already exists, so the defect is screen-reader browse mode only, and the modal population is enumerable from the existing `useScrollLock` signal rather than needing judgement. Audit also found a pre-existing gap the idea did not mention — three scrim modals never adopted `useDismissable` at all — now Step 2. | — |
+| 2026-08-16 | **Owner approved; Status draft → accepted, and OQ1 answered (a) in the same decision** — the persistent playback bar is inerted with the rest of the background, no exemption. Step 1 is startable with nothing outstanding; OQ2 was left open by design since it blocks nothing. Promoted in a session that wrote no code for it: the session's own RFC (`DATA-multidisc-track-order` Step 2) was stopped at kickoff when its current-state audit overturned three of its claims, and this RFC was picked as the next startable item because it is single-repo, migration-free and contract-free — which also means it does not depend on the `reviewer` subagent, absent from this environment as of today. | — |
