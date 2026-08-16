@@ -159,7 +159,7 @@ Two implementation findings worth carrying forward:
 
 ---
 
-### Step 2 — migrate the three scrim modals that never got `useDismissable`
+### Step 2 — migrate the three scrim modals that never got `useDismissable` — **SHIPPED 2026-08-16 (front #412)**
 
 `ActionSheet`, `BucketPickerSheet` and `PocketDesignSettings` call `useScrollLock()` and declare
 `aria-modal="true"` but never adopted `useDismissable`, so they have no focus trap and no focus
@@ -170,12 +170,48 @@ the bespoke listener. They pick up background inert from Step 1 as a consequence
 Sequenced after Step 1 so the two changes are separable if the migration surfaces a regression in
 these three surfaces specifically.
 
+**Two claims in the paragraph above were wrong, checked against `origin/main` before implementing:**
+
+- `BucketPickerSheet` hand-rolled the **same** `window` ESC listener; the paragraph named only
+  `ActionSheet`. Both are deleted.
+- `PocketDesignSettings` carried `role="dialog"` **without** `aria-modal`, and had **no keyboard exit
+  at all** — only a scrim tap and the 닫기 button closed it. `aria-modal="true"` was added with the
+  migration. Its a11y gap was therefore larger than "no trap, no restore".
+
 **Verification**:
 ```
 cd myblog_front && pnpm lint && pnpm exec astro check && pnpm test
 ```
 Plus CDP: on each of the three, ESC closes exactly one layer, Tab cycles inside the sheet, focus
 returns to the trigger on close.
+
+**Result (2026-08-16, front #412).** `pnpm lint` clean · `astro check` 0 errors/0 warnings
+(301 files) · `pnpm test` 663 passed, 0 skipped (654 → +9). None of the 9 new tests is tautological:
+each was run against the `origin/main` implementation restored in place and all 9 fail there. The
+pre-existing `ActionSheet` ESC assertion moved from `window` to `document` — the shared hook listens
+on `document` in the capture phase, and an event dispatched at `window` never reaches it.
+
+CDP on the **real** authenticated member board (local dev → local auth proxy → prod API, since
+`isLocalEnv()` forces the literal `local-dev` token on `localhost`; coarse-pointer emulation for the
+⋯ triggers; every trigger `focus()`-ed before `click()` so restore is actually testable):
+
+| | `PocketDesignSettings` | `ActionSheet` | `BucketPickerSheet` |
+|---|---|---|---|
+| DOM shape | rendered in place | portalled to `<body>` | portalled to `<body>` |
+| `<body>` children inert / total | 5 / 6 | 6 / 7 | 6 / 7 |
+| background a11y nodes, marks applied | **2** | **0** | **0** |
+| background a11y nodes, control (marks stripped) | **63** | **218** | — |
+| autofocus inside · Tab wrap both ways · ESC · restore to trigger | ✅ | ✅ | ✅ |
+
+The control column is the before/after measurement: same open dialog, marks removed, everything else
+identical. `PocketDesignSettings` keeps **2** background nodes because it renders inside the
+`PocketBuckit` island and Step 1's controller deliberately keeps the dialog's own `<body>`-child
+ancestor live — so the two tray controls behind the scrim stay in the tree. That is Step 1's
+documented shape, not a Step 2 regression; before this PR that surface had no `inert` at all.
+
+Step 1 only exercised an in-place island, so the `ClientRouter` case was re-checked for the portalled
+shape: navigating with a portalled sheet open leaves 6 inert → 0, no stranded scrim, scroll lock
+released.
 
 **Rollback**: revert the three call sites; Step 1 stands alone.
 
@@ -198,7 +234,9 @@ returns to the trigger on close.
    all four transport buttons. The consequence the owner accepted is what ships.
 2. **Does anything need `inert` without wanting scroll lock, or vice versa?** — blocks nothing;
    decide only if Step 1's default turns out to mis-handle a specific surface. Recorded so a future
-   reader knows the coupling was deliberate, not accidental.
+   reader knows the coupling was deliberate, not accidental. **Step 2 surfaced no such case** — all
+   three migrated surfaces wanted both — so this stays open and undecided rather than closed by
+   absence of evidence.
 
 ## Decisions log
 
@@ -206,4 +244,5 @@ returns to the trigger on close.
 |------|----------|------|
 | 2026-08-16 | RFC drafted on owner's in-session approval to promote the frozen `ARCH-overlay-modal-isolation` OQ2 idea. Current-state audit corrected the origin line: the focus trap already exists, so the defect is screen-reader browse mode only, and the modal population is enumerable from the existing `useScrollLock` signal rather than needing judgement. Audit also found a pre-existing gap the idea did not mention — three scrim modals never adopted `useDismissable` at all — now Step 2. | — |
 | 2026-08-16 | **Owner approved; Status draft → accepted, and OQ1 answered (a) in the same decision** — the persistent playback bar is inerted with the rest of the background, no exemption. Step 1 is startable with nothing outstanding; OQ2 was left open by design since it blocks nothing. Promoted in a session that wrote no code for it: the session's own RFC (`DATA-multidisc-track-order` Step 2) was stopped at kickoff when its current-state audit overturned three of its claims, and this RFC was picked as the next startable item because it is single-repo, migration-free and contract-free — which also means it does not depend on the `reviewer` subagent, absent from this environment as of today. | — |
+| 2026-08-16 | **Step 2 shipped (front #412) — no steps remain.** The migration's own current-state audit overturned two more RFC claims (`BucketPickerSheet` had the identical hand-rolled `window` ESC listener; `PocketDesignSettings` had `role="dialog"` without `aria-modal` and no keyboard exit at all), making this the **fourth** RFC in a row where the written current state did not survive contact with `origin/main`. Measured against a control on the real authenticated member board: background a11y nodes go 218 → 0 for the portalled sheets and 63 → 2 for the in-place panel. The residual 2 are the tray controls sharing `PocketDesignSettings`'s kept island — Step 1's documented trade-off, not a regression. OQ2 stays open: no surface wanted `inert` without scroll lock. **Status is still `accepted` and the RFC is still in `docs/rfcs/`** — promoting it and archiving it is an owner decision (hard rule 7), not something this session may do. | 2 |
 | 2026-08-16 | **Step 1 shipped (front #411).** OQ1's consequence verified rather than assumed — the persistent playback bar is genuinely absent from the accessibility tree with a modal open, measured against a control. The before/after on the home page is 176 background nodes → 0. Two RFC current-state figures were corrected on implementation (call-site count; Step 1's self-contradicting "No component file changes"), the third such RFC in a row to need a current-state correction — `feedback-rfc-current-state-audit` keeps paying for itself. Implementation surfaced one thing the RFC did not anticipate: applying `inert` blurs the background's focused element, so effect declaration order decides whether focus restore survives at all. | 1 |
