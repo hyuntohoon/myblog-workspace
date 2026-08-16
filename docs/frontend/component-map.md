@@ -358,10 +358,17 @@ surface and is untouched (Step 2 audit).
   `pocket/PocketTray.tsx` (site-wide tray drawer); `pocket/PocketBuckit.tsx` (root island,
   `null` when `!isLoggedIn()`); `pocket/PocketBuckitProvider.tsx` (the one React context);
   `pocket/AddToBucketMenu.tsx` (portable add, public+authed); `BucketPickerSheet.tsx` (member-only picker).
-- **playback** — `lib/spotifyPlayback.ts` (the **only** SDK/token owner: `ensureSdk` `:140`,
-  `getStreamingToken` `:70`, `resolveProviderUri` `:210`, `requestPlayback` `:242`);
-  `components/member/NowPlaying.tsx` (read-only now-playing snapshot — **not a player**, no ▶ button);
-  `components/member/spotify.api.ts` (worker-fed cache reads: now-playing/recent-tracks/library/sync).
+- **playback** — `lib/spotifyPlayback.ts` owns the SDK, token, and provider command boundary;
+  `components/member/lyrics/playback.api.ts` owns the one-shot live provider read; and
+  `lib/playback/session.ts` is the one live client-session owner for queue identity,
+  transport, seek/progress anchor, Like, shuffle/repeat/volume, devices/transfer, capability,
+  reconnect, tab ownership, and the cross-tab state projection (including external artwork).
+  `components/member/playback/PlaybackControls.tsx` supplies reusable control semantics and the
+  current Profile-styled primitives without owning playback state. The site-wide
+  `PlaybackPersistentBar` and expanded `PlaybackPanel` read the same session; Profile Overview's
+  `NowPlaying.tsx` keeps its own rich snapshot presentation while delegating reusable controls to
+  that shared layer. `components/member/spotify.api.ts` remains the worker-fed cache read boundary
+  for now-playing/recent-track presentation data.
 - **search** — `components/search/HeaderSearch.tsx` (⌘K header dropdown); `SearchPage.tsx` (`/search`);
   `search/atoms.tsx` (`ResultRow`/`GCover`/`GStars` shared); `writer/CommandPalette.tsx` (⌘K palette,
   reuses `ResultRow`); `lib/useMusicSearch.ts` (headless core). (`search-bar.astro` +
@@ -416,12 +423,14 @@ surface and is untouched (Step 2 audit).
 2. **Cross-island `pb:*` events** — tray↔board open mirror (`pb:toggle`/`pb:closed`/`pb:open-state`)
    and DnD handoff (`pb:dnd-start`/`pb:dnd-end` tray→board; `pb:board-dnd-*`/`pb:board-drop` board→tray).
    Reverse DnD populates the board's module-level `dnd` synchronously.
-3. **Playback flow** — a ▶ click → `requestPlayback(target)` → `getStreamingToken` (cached, JWT) →
-   `ensureConnectedDevice` (lazy SDK, `:171`) → `resolveProviderUri` (DB-id→spotify URI via
-   `GET /api/playback/resolve`, edge_guard-only) → `PUT /v1/me/player/play` (direct client-side
-   `fetch('https://api.spotify.com/...')`, `:276`). Token+SDK load fire **only** on a real play
-   action (rule #9). `NowPlaying` is a separate read path off the worker snapshot
-   (`GET /api/library/now-playing`).
+3. **Playback flow** — queue-aware ▶ surfaces call `playbackSession.replaceQueueAndPlay()` or
+   `playFrom()`; the session delegates the provider write to `play()` → `getStreamingToken`
+   (cached, JWT) → active Connect target or lazy `ensureConnectedDevice` →
+   `resolveProviderUri` (DB id→Spotify URI via `GET /api/playback/resolve`, edge_guard-only) →
+   direct client-side Spotify command. Token+SDK load still fire **only** on a real play action
+   (rule #9). One-shot `readLivePlayback()` results are adopted into the session and mirrored across
+   tabs; Profile `NowPlaying` separately enriches that session identity/anchor with its worker
+   snapshot presentation, without owning seek/mode/Like/device writes.
 
 ## Duplicate / overlapping responsibilities (load-bearing)
 
@@ -466,7 +475,7 @@ before adding a new event.
 | `pb:toggle`, `pb:closed`, `pb:open-state`, `pb:dnd-start`/`end`, `pb:board-dnd-start`/`end`, `pb:board-drop` | `lib/pocketBuckit/events.ts` (8 constants) | `BucketBoard.tsx`, `TrackRow.tsx`, `PocketTray.tsx`, `PocketBuckit.tsx`; Stage 6's live `BucketAlbumCardAdapter` grants `AlbumCard.tsx` drag, so it now produces both DnD bridge pairs | `BucketBoard.tsx`, `PocketBuckit.tsx`, `pocketBuckit/boardDnd.ts` | yes |
 | `pb:add-track` (`PB_ADD_TRACK_EVENT`) | `lib/pocketBuckit/events.ts` | vanilla `scripts/albumDetail.client.ts` (imported constant) | `member/pocket/ReviewTrackAdder.tsx` (imported constant) | yes — centralized by `ARCH-entity-interaction-domain-audit` Step 2 |
 | `album:detail` | raw string, `scripts/albumDetail.fetch.client.ts` | 〃 | raw string, `scripts/albumDetail.client.ts` (module-scope, bound once by design — vanilla script, not a React effect) | intentional exception, not a gap — permanent module-scope listener by design, documented inline |
-| `myblog:playback-changed` (`MYBLOG_PLAYBACK_CHANGED`) | `lib/spotifyPlayback.ts` | `spotifyPlayback.ts` internals | `NowPlaying.tsx`, `LyricsViewer.tsx`, `lib/playback/session.ts` | yes (the *name* is single-owned; **the state it signals is not** — see the state-owner registry below) |
+| `myblog:playback-changed` (`MYBLOG_PLAYBACK_CHANGED`) | `lib/spotifyPlayback.ts` | `spotifyPlayback.ts` internals | `NowPlaying.tsx`, `LyricsViewer.tsx`, `lib/playback/session.ts` | yes — the event name and authoritative live-session adoption are single-owned; `NowPlaying`/`LyricsViewer` still perform presentation-specific one-shot reads from the same signal |
 | `astro:page-load`, `astro:after-swap`, `astro:before-swap`, `astro:before-preparation` | framework (Astro `ClientRouter`) | Astro | `AlbumOverlay.tsx`, `HeaderSearch.tsx`, several vanilla scripts | n/a — framework lifecycle hooks, not an app contract |
 
 Naming is colon+kebab at the wire level (`ent:*`/`pb:*`/`myblog:*`) but the **identifier**
@@ -481,7 +490,7 @@ What real-world state, which module is (or should be) canonical, who else touche
 | State | Canonical owner | Other current touchers (not yet consolidated) | Status |
 |---|---|---|---|
 | Bucket tree | `lib/pocketBuckit/bucketStore.ts` (singleton, `useSyncExternalStore`) | — | single-owned, correct |
-| "What's currently playing" (track/queue/playing/device) | **should be** `lib/playback/session.ts` | **Updated 2026-08-06**: `NowPlaying.tsx`'s `useNowPlaying()` subscribes to `playbackSession` via `useSyncExternalStore` for track-identity+anchor (Step 3b, front #361); tier/mode/like/device/reconnect stay independently local by design. `LyricsViewer.tsx` sources its sync anchor from `playbackSession.currentSpotifyTrackId()` when the track matches (Step 3c, front #374, shipped 2026-08-06). `NowPlaying`'s mount-time double-read race (`BUG-28`) and its track-id-namespace mixing (`CHORE-nowplaying-trackid-namespace`) both fixed 2026-08-06 (front #376). Still open: `readLivePlayback()` itself is not single-flight/cached — a single `MYBLOG_PLAYBACK_CHANGED` still fans out to 3 uncoordinated HTTP reads (`session.ts`/`NowPlaying`/`LyricsViewer`), recorded but not attempted by any of the above fixes | **Fully consolidated for identity/anchor.** Step 3a (front #360) + Step 3b (front #361) + Step 3c (front #374) all shipped. `BUG-28` (follow-up inside 3b's own code) and the track-id fix also shipped (front #376). Only the single-flight/caching half of the target architecture remains unbuilt — not a correctness bug, an efficiency gap |
+| "What's currently playing" (track/queue/playing/device) | `lib/playback/session.ts` (observable singleton + cross-tab projection) | `NowPlaying.tsx` subscribes for identity, anchor, capability, Like, mode, device, reconnect, and transport state, while retaining its richer worker/live snapshot presentation; reusable control semantics live in `playback/PlaybackControls.tsx` and delegate writes back to the session. `LyricsViewer.tsx` reads the matching session anchor. `NowPlaying` and `LyricsViewer` still issue presentation-specific one-shot `readLivePlayback()` reads on the shared change signal | **Single-owned for live session state and writes.** Seek, including optimistic re-anchor and playing-only confirmation, moved into the session in `FEAT-desktop-playback-bar` Step 1; external artwork now crosses the tab boundary with the rest of `ExternalNowPlaying`. Remaining duplicate live reads are an efficiency gap, not a competing state owner |
 | "One tab owns playback" (write lease) | `lib/playback/ownership.ts` (localStorage lease + `BroadcastChannel`, challenge/response reclaim) | only gates `session.ts`'s writes — `NowPlaying`/`LyricsViewer` act locally regardless of lease state | correctly single-owned for what it covers; does not (and structurally can't yet) cover the other two trackers above |
 | "My relationship to this album" (rating / candidate-mark / bucket memo / draft-review) | **no single owner — four independent silos, by design, not drift**: `AlbumRatingBlock` (rating/comment/candidate, `PUT /api/reviews/albums/{id}`, `album_reviews` row) / `ReviewCandidates` (a **third, separate** read of the same `review_candidate` flag via `GET /api/me/review-candidates`) / `MemoWindow`+`useBucketMemo` (`PATCH /api/buckets/{bucketId}/items/{itemId}`, `review_bucket_items.note`, bucket-scoped not album-scoped) / `WriterApp` (`POST/PUT /api/posts`, `posts` row + git commit) | — | three genuinely distinct commands over three DB rows (correct, keep separate — see reviews/memos audit); `ReviewCandidates`' redundant fetch of a flag `AlbumRatingBlock` already has is unassigned to any Step — noted here, not yet fixed |
 | Manual-add-target eligibility (is bucket X a valid drop for a user-initiated add) | `lib/buckets.ts` `isManualAddTarget()` (added BUG-20, 2026-08-05) + `bucket_service.py` `_assert_manual_add_allowed()` (added 2026-08-05, external review item 5 follow-up) | — | single-owned per layer since 2026-08-05; frontend was 3 independent hardcodes + 1 omission before BUG-20, backend had **no** kind-based check at all (`_assert_item_type_allowed` keys on `type`, never `kind`) until this follow-up closed `add_item`/`expand_artist_source`/`expand_album_tracks`/`reorder` — a direct API call previously bypassed the frontend guard entirely |
@@ -496,7 +505,7 @@ table; see that RFC before adding a new overlay.
 | Component | Primitive | Scroll lock | Notes |
 |---|---|---|---|
 | `AlbumOverlay`, `AlbumDetail`'s `StandardModal` + `MemoWindow`, `LyricsSheet`, `DockableLyricsSheet`, `LyricsViewer`, `PlaybackPanel`, `AddArtistModal`, `AddAlbumModal`, `TodayPickHistory`, `TodaySongPicker` | `useDismissable` | ✅ direct `useScrollLock` call alongside `useDismissable` | already locked before `ARCH-overlay-modal-isolation`; unchanged by that RFC |
-| `NowPlaying` | `useDismissable` | n/a | read-only now-playing snapshot, not a scrollable scrim dialog — no lock target |
+| `NowPlaying` | `useDismissable` | n/a | Profile Overview player/snapshot surface with shared session-backed transport, seek, Like, mode, and device controls; not a scrollable scrim dialog — no lock target |
 | `SettingsPanel`, `WriterApp`'s research drawer, `BucketBoard`'s **`TrashDrawer`** / delete-confirm modal, `OverviewDash`'s **`RecentAlbumsModal`** / **`RecentTracksModal`**, `ImportAnalysis`'s **`ItemDetailSlideover`**, `writer/CommandPalette`, `writer/DraftsInbox`, `genres/gm-shared`'s `Peek`, `AddToBucketMenu` | `useDismissable` | ✅ `useDismissable(..., { lockScroll: true })` | locked by `ARCH-overlay-modal-isolation` Steps 2–3, 2026-08-09 (front — this branch). `useDismissable` grew a `lockScroll?: boolean` option (default `false`, composes `useScrollLock` internally) so these sites needed a one-line opt-in each rather than a second hook import; `BucketBoard`'s create-bucket menu is an anchored non-scrim popup and intentionally left at the option's `false` default. `AddToBucketMenu`'s prior nested-Escape defect (closing `AlbumDetail` instead of itself) was already fixed by front #382; this pass only adds the missing scroll lock + `overscroll-behavior: contain` on its inline sheet style |
 | `ActionSheet` | own `useEffect` + `keydown` (ESC/scrim/✕), no focus trap | ✅ direct `useScrollLock()` call added, `ARCH-overlay-modal-isolation` Step 2 | **named exception** (ESC/focus-trap) — used solely inside `BucketBoard.tsx`; has its own test (`ActionSheet.test.tsx`) covering ESC/scrim/✕. Deliberately not migrated to `useDismissable` by Step 4; scroll lock added independently since it doesn't require that migration |
 | `BucketPickerSheet` | own `useEffect` + `keydown` (ESC only, no focus trap) | ✅ direct `useScrollLock()` call added, `ARCH-overlay-modal-isolation` Step 2 | ungapped exception (ESC/focus-trap) — portaled, has real ESC handling, just not `useDismissable`'s trap/restore; still open. Scroll lock added independently |

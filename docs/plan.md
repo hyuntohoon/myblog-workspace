@@ -126,13 +126,15 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   click-through against prod. Production smoke 19/19 passed post-deploy (quoted on front #410). **This
   was the RFC's last step — all 5 steps now shipped.** →
   `docs/rfcs/ARCH-global-playback-experience.md`.
-- **FEAT-desktop-playback-bar** (**accepted 2026-08-16 — next = Step 1**) — replace the
+- **FEAT-desktop-playback-bar** (**accepted 2026-08-16; Step 1 SHIPPED + prod-verified — next = Step 2**) — replace the
   current 56px top-fixed identity/transport strip with a new Spotify-desktop-shaped bottom playback
   deck: identity + Like, shuffle/previous/play/next/repeat + seek, and queue/device/volume. Reuse the
   Playback Bucket's one expanded right panel and Profile Overview's proven control behavior through
   shared session-driven primitives, not either surface's current visual design; front-only, no API or
-  backend change. Owner resolved the design gate A/A/B: outer panel chrome only, active/paused
-  visibility, and the full control set in a two-row mobile deck. →
+  backend change. Step 1 moved seek and reusable control semantics into the shared session/control
+  layer, added external artwork to the cross-tab projection, and preserved the Profile presentation
+  (front #414; production deploy + 19/19 smoke green). Owner resolved the Step 2 design gate A/A/B:
+  outer panel chrome only, active/paused visibility, and the full control set in a two-row mobile deck. →
   `docs/rfcs/FEAT-desktop-playback-bar.md`.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
