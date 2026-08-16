@@ -119,6 +119,21 @@ radius.
 
 ### Step 2 — backfill known collisions + ingest fix (`myblog_worker`, optionally `myblog_music`)
 
+> **2a shipped 2026-08-16** (`myblog_worker` #94, `1254c1e`). `AlbumSyncService._collect`/`_write_catalog`
+> now reads Spotify's `disc_number` and writes `tracks.disc_no` on every upsert; no shared_db pin bump
+> (confirmed at kickoff — raw SQL, worker only imports `genre_mapping`). `pytest` 532 passed / 3 skipped
+> (musicbrainz live, network-gated) — up from 525 passed pre-change. Deployed to prod, Lambda
+> `blogWorkerLambda` `LastUpdateStatus=Successful` confirmed post-deploy.
+>
+> **2b's write path is also shipped but NOT yet run against prod.** `DiscNoBackfillService`
+> (`worker/service/disc_no_backfill_service.py`) plus a new paginated `SpotifyClient.get_album_tracks()`
+> (needed because the batch `GET /albums` nested-tracks response truncates at 50, which 4 of the 78
+> flagged albums hit locally) are deployed as a manual-invoke-only Lambda job
+> (`{"job": "disc_no_backfill"}`, no EventBridge rule — this population doesn't recur). Re-measured
+> against prod before merging: **78 colliding albums**, unchanged from the kickoff-audit number.
+> Held for an explicit owner go-ahead before invoking (prod write across ~78 albums / ~2,241 tracks /
+> ~100 Spotify API calls) — not run this session.
+>
 > **Corrected 2026-08-16 by a kickoff current-state audit** (`feedback-rfc-current-state-audit`). The
 > draft's 2a described a symmetric two-repo "twin fix" with a pin bump in both repos and a third change in
 > the SQS contract. Read against `origin/main`, all three of those claims are wrong; the corrected shape is
