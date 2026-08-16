@@ -146,7 +146,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
   **Next = Step 5** (memo naming conflict; blocked behind the `FEAT-album-review-authoring` gate above) — new session. → `docs/rfcs/ARCH-entity-interaction-domain-audit.md`.
 
-- **DATA-multidisc-track-order** (**accepted 2026-08-16; Step 1 shipped**) — promoted from Backlog this
+- **DATA-multidisc-track-order** (**accepted 2026-08-16; Step 1 shipped, Step 2a shipped**) — promoted from Backlog this
   session on owner approval. `tracks` had no `disc_no` column, so every tracklist read path orders by
   `track_no` alone and multi-disc albums interleave; the tie-break falls through to arbitrary `id` order.
   Both of the draft's load-bearing claims were re-measured against prod before promotion rather than
@@ -173,7 +173,15 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `TrackItem`/`TrackOut` are hand-written Pydantic — making Step 4 a consumer-less contract widening, now
   gated on an explicit owner yes and expected to be dropped.
 
-  Remaining shape: **Step 2** worker ingest fix + 78-album Spotify re-fetch backfill → **Step 3** 4
+  **Step 2a shipped 2026-08-16** (`myblog_worker` #94, `1254c1e`): the ingest fix (worker now writes
+  `tracks.disc_no` from Spotify's `disc_number` on every sync) is deployed to prod, `pytest` 532
+  passed / 3 skipped. **Step 2b's write path (`DiscNoBackfillService`) is also deployed** — a
+  manual-invoke-only Lambda job (`{"job": "disc_no_backfill"}`, no EventBridge rule) — but **the actual
+  backfill run against prod has not happened yet**, held for an explicit owner go-ahead (~78 albums,
+  ~2,241 tracks, ~100 Spotify API calls, UPDATE-only). Re-measured before merge: still 78 colliding
+  albums.
+
+  Remaining shape: **owner approval to invoke `disc_no_backfill`** → **Step 3** 4
   `ORDER BY` sites, which is where the shared_db pin bump gets paid (`myblog_music` is **20 releases
   stale** on tag `v0.26.0`/`dd016c4`, backend on `029f8db`; both → `8319a56`) → **Step 4** only if the
   owner wants it. → `docs/rfcs/DATA-multidisc-track-order.md`.
