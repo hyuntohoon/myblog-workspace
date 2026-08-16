@@ -125,14 +125,31 @@ radius.
 > (musicbrainz live, network-gated) — up from 525 passed pre-change. Deployed to prod, Lambda
 > `blogWorkerLambda` `LastUpdateStatus=Successful` confirmed post-deploy.
 >
-> **2b's write path is also shipped but NOT yet run against prod.** `DiscNoBackfillService`
-> (`worker/service/disc_no_backfill_service.py`) plus a new paginated `SpotifyClient.get_album_tracks()`
+> **2b shipped and run against prod 2026-08-16** (`myblog_worker` #94 `1254c1e` + #95 `ad93b2f`,
+> owner-approved invoke). `DiscNoBackfillService` plus a new paginated `SpotifyClient.get_album_tracks()`
 > (needed because the batch `GET /albums` nested-tracks response truncates at 50, which 4 of the 78
-> flagged albums hit locally) are deployed as a manual-invoke-only Lambda job
-> (`{"job": "disc_no_backfill"}`, no EventBridge rule — this population doesn't recur). Re-measured
-> against prod before merging: **78 colliding albums**, unchanged from the kickoff-audit number.
-> Held for an explicit owner go-ahead before invoking (prod write across ~78 albums / ~2,241 tracks /
-> ~100 Spotify API calls) — not run this session.
+> flagged albums hit locally) shipped as a manual-invoke-only Lambda job (`{"job": "disc_no_backfill"}`,
+> no EventBridge rule — this population doesn't recur).
+>
+> First invoke (78 albums): `tracks_matched=2208, tracks_skipped_no_local_row=388, errors=0`, 42s. A
+> post-hoc DB check found 2 albums (10 track_no ties) still unresolved — Spotify's market=KR response
+> returns a relinked `id` different from what's stored locally, with the ORIGINAL id reachable only via
+> the item's `linked_from.id` (the exact pitfall `IsrcBackfillService` already guards against; missed in
+> the first cut). Fixed in #95 (resolve each item via `id` OR `linked_from.id` before
+> matched/skipped classification) and re-invoked (idempotent — the fetch query only re-selects albums
+> still missing `disc_no`): `albums_total=2, tracks_matched=0, tracks_skipped_no_local_row=33`.
+>
+> **Residual: 2 of 78 albums (Queen's "Sheer Heart Attack (Deluxe Remastered Version)" and "The Game
+> (Deluxe Remastered Version)") remain unresolved even after the relinking fix** — direct inspection
+> confirmed neither the current `id` nor `linked_from.id` in Spotify's live catalog matches what's stored
+> locally for these tracks. This isn't market relinking; the local `spotify_id`s themselves appear
+> stale/orphaned (Spotify likely re-issued the album's track objects since our last ingest of these two).
+> Fixing it would mean a full re-sync of these 2 albums (touches title/duration/etc, not just `disc_no`)
+> or an ISRC-based match — out of scope for this bounded backfill (`necessity-gate-reviews`). **76/78
+> albums (97.4%) fully resolved.** These 2 keep their pre-RFC arbitrary tie-break; no regression, same as
+> before this RFC. Verified via `In Utero (Deluxe Edition)`: disc 1 "Serve The Servants" (`disc_no=1`)
+> now sorts before disc 2's "Serve The Servants - 2013 Mix" (`disc_no=2`) once Step 3's `ORDER BY` change
+> lands.
 >
 > **Corrected 2026-08-16 by a kickoff current-state audit** (`feedback-rfc-current-state-audit`). The
 > draft's 2a described a symmetric two-repo "twin fix" with a pin bump in both repos and a third change in
