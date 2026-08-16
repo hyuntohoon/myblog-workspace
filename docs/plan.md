@@ -146,7 +146,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
   **Next = Step 5** (memo naming conflict; blocked behind the `FEAT-album-review-authoring` gate above) — new session. → `docs/rfcs/ARCH-entity-interaction-domain-audit.md`.
 
-- **DATA-multidisc-track-order** (**accepted 2026-08-16; Step 1 shipped, Step 2a shipped**) — promoted from Backlog this
+- **DATA-multidisc-track-order** (**accepted 2026-08-16; Step 1+2 shipped**) — promoted from Backlog this
   session on owner approval. `tracks` had no `disc_no` column, so every tracklist read path orders by
   `track_no` alone and multi-disc albums interleave; the tie-break falls through to arbitrary `id` order.
   Both of the draft's load-bearing claims were re-measured against prod before promotion rather than
@@ -173,18 +173,19 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `TrackItem`/`TrackOut` are hand-written Pydantic — making Step 4 a consumer-less contract widening, now
   gated on an explicit owner yes and expected to be dropped.
 
-  **Step 2a shipped 2026-08-16** (`myblog_worker` #94, `1254c1e`): the ingest fix (worker now writes
-  `tracks.disc_no` from Spotify's `disc_number` on every sync) is deployed to prod, `pytest` 532
-  passed / 3 skipped. **Step 2b's write path (`DiscNoBackfillService`) is also deployed** — a
-  manual-invoke-only Lambda job (`{"job": "disc_no_backfill"}`, no EventBridge rule) — but **the actual
-  backfill run against prod has not happened yet**, held for an explicit owner go-ahead (~78 albums,
-  ~2,241 tracks, ~100 Spotify API calls, UPDATE-only). Re-measured before merge: still 78 colliding
-  albums.
+  **Step 2 shipped and run 2026-08-16** (`myblog_worker` #94 `1254c1e` + #95 `ad93b2f`, owner-approved
+  invoke): the ingest fix is deployed to prod, and the one-off backfill ran against all 78 colliding
+  albums. First pass matched 2,208/2,241 tracks; a post-run DB check found 2 albums (10 track_no ties)
+  still unresolved due to Spotify market Track Relinking, fixed in #95 and re-invoked. **76/78 albums
+  (97.4%) fully resolved.** The remaining 2 (Queen's "Sheer Heart Attack (Deluxe Remastered Version)" and
+  "The Game (Deluxe Remastered Version)") have local `spotify_id`s that no longer resolve in Spotify's
+  live catalog at all (not relinking — the ids appear orphaned/re-issued) and would need a full album
+  re-sync to fix; out of scope for this bounded backfill, no regression (same arbitrary tie-break as
+  before this RFC). `pytest` 533 passed / 3 skipped, both PRs deployed and Lambda-confirmed.
 
-  Remaining shape: **owner approval to invoke `disc_no_backfill`** → **Step 3** 4
-  `ORDER BY` sites, which is where the shared_db pin bump gets paid (`myblog_music` is **20 releases
-  stale** on tag `v0.26.0`/`dd016c4`, backend on `029f8db`; both → `8319a56`) → **Step 4** only if the
-  owner wants it. → `docs/rfcs/DATA-multidisc-track-order.md`.
+  Remaining shape: **Step 3** the 4 `ORDER BY` sites, which is where the shared_db pin bump gets paid
+  (`myblog_music` is **20 releases stale** on tag `v0.26.0`/`dd016c4`, backend on `029f8db`; both →
+  `8319a56`) → **Step 4** only if the owner wants it. → `docs/rfcs/DATA-multidisc-track-order.md`.
 
 - **A11Y-modal-background-inert** (**accepted 2026-08-16; Step 1 shipped 2026-08-16 — front #411**) —
   promoted from Frozen this session on owner approval, as `ARCH-overlay-modal-isolation` OQ2 recommended
