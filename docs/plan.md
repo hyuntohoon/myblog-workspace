@@ -162,11 +162,23 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **Step 1** (`myblog_shared_db` migration `V53__add_tracks_disc_no.sql` adding `tracks.disc_no INTEGER`,
   nullable/no default) applied to prod and the Neon test branch this session, before merge.
 
-  **Next = Step 2**. Cross-repo and multi-session by construction: service re-pin →
-  `myblog_music`/`myblog_worker` twin fix + ~78-album Spotify re-fetch backfill → 4 `ORDER BY` sites →
-  OpenAPI re-export → contract merge → frontend regen. → `docs/rfcs/DATA-multidisc-track-order.md`.
+  **Next = Step 2, and it is smaller than the draft said.** A kickoff current-state audit on 2026-08-16
+  (no code written) re-measured the population — **78 / 3,445 albums, 2,241 tracks, zero missing
+  `spotify_id`**, so the backfill is unchanged and 100% re-fetchable — but overturned three of the draft's
+  Step 2 claims and one of Step 4's. There is **one** live track-ingest site, not a symmetric twin pair:
+  `myblog_worker/worker/service/sync_service.py:174`, which needs **no shared_db pin bump** (raw SQL;
+  worker imports only `genre_mapping`). `myblog_music`'s `Track(...)` writer has **zero callers** — dead
+  code, optional hygiene. `CandidateTrackItem` is **not** on the SQS contract (`enqueue_album_sync` sends
+  album IDs only), so it is dropped. And Step 4's regen will **not** pick the field up on its own —
+  `TrackItem`/`TrackOut` are hand-written Pydantic — making Step 4 a consumer-less contract widening, now
+  gated on an explicit owner yes and expected to be dropped.
 
-- **A11Y-modal-background-inert** (**draft written 2026-08-16; needs owner RFC-accept before Step 1**) —
+  Remaining shape: **Step 2** worker ingest fix + 78-album Spotify re-fetch backfill → **Step 3** 4
+  `ORDER BY` sites, which is where the shared_db pin bump gets paid (`myblog_music` is **20 releases
+  stale** on tag `v0.26.0`/`dd016c4`, backend on `029f8db`; both → `8319a56`) → **Step 4** only if the
+  owner wants it. → `docs/rfcs/DATA-multidisc-track-order.md`.
+
+- **A11Y-modal-background-inert** (**accepted 2026-08-16; OQ1 resolved — Step 1 is startable**) —
   promoted from Frozen this session on owner approval, as `ARCH-overlay-modal-isolation` OQ2 recommended
   (a separate RFC, not a reopening of that one). While a scrim modal is open, nothing removes the page
   behind it from the accessibility tree: **zero occurrences of `inert` in `myblog_front/src`**.
@@ -182,8 +194,18 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   Scope is small because the modal population is enumerable from an existing signal rather than judged:
   this codebase already encodes "is this modal?" as "does it lock background scroll?" (11
   `lockScroll: true` call sites + 13 direct `useScrollLock` callers). `myblog_front` only, no contract,
-  no backend. **OQ1 (does the persistent playback bar stay operable behind a modal?) is open and blocks
-  Step 1.** → `docs/rfcs/A11Y-modal-background-inert.md`.
+  no backend. **OQ1 resolved 2026-08-16 (owner): option (a) — the persistent playback bar is inerted
+  along with the rest of the background.** Nothing blocks Step 1 now. Owner's reasoning matched the
+  RFC's: a screen-reader user should not retain reach that the scrim already takes away from a sighted
+  user; pausing requires closing the dialog, same as clicking does today.
+  → `docs/rfcs/A11Y-modal-background-inert.md`.
+
+  **Next = Step 1** (central `inertBackground` in `src/lib/useDismissable.ts`, defaulting to the
+  resolved `lockScroll`, with a refcounted controller recomputed off `openStack`). Step 2 (migrate the
+  three scrim modals that never adopted `useDismissable`) is sequenced after it so a regression in those
+  three surfaces stays separable. Verification must include a real-browser CDP pass, not just
+  `pnpm test` — `feedback-verify-front-live-dom-not-harness`, and specifically assert nothing strands an
+  `inert` attribute across a `ClientRouter` navigation with a modal open.
 
 - **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval, and
   its blocking question resolved in the same pass: the `PERF-home-feed-latency` dependency note is
@@ -219,15 +241,15 @@ _Shipped implementation detail belongs in `git log`, RFCs and `docs/archive/done
 
 ---
 
-## 2026-07-26 감사 파생 작업 (남은 것 = D-2 owner 결정뿐)
+## 2026-07-26 감사 파생 작업 (전부 종료 — 열린 항목 없음)
 
 > Source: `docs/reviews/AUDIT-2026-07-26-system-audit.md` (ws #704, squash `9d4711c`). The report contains the evidence; these rows are pointers.
 >
 > **E-2/E-4/E-6/DEP-2 fixed + deployed + prod-smoked 2026-08-09** (front #389, ws #871). E-2/E-6/DEP-2 shipped code, verified live against the deployed bundle (`_astro/CollectionView.*.js` calls `publicMemberLabel`, `_astro/AlbumDetailView.*.js` carries the scoped `.lf-artist-link` rule, `/rss.xml` parses under 4.0.19). E-4 needed no code — superseded by the front #379–#384 home-card migration (merged 2026-08-06), whose `AlbumCard` open-hit button has no visible text content, so the WCAG 2.5.3 failure it described no longer exists.
 
-- **D-2** — `LLMTransientError` is never retried at the engine level (`cli_engine.py:131-146` retries only `LLMValidationError`). **Re-measured 2026-08-09**: every caller was walked and none is exposed — `buckit_nightly.py` has its own 3×60s retry wrapper (fixed 2026-07-31), `research_poller.py`/`lyrics_translate_poller.py`/`genius_translate_poller.py` are self-healing via their claim queries, and `editor_buckit.py` is manual single-fire by design. The engine fix itself is real but is now defence-in-depth, not a live bug — shipping it means a cross-repo `myblog_shared_db` change + re-pin in backend/music/worker. **Owner call needed**: open it as its own cross-repo item, or close D-2 with no further action?
-
 ### Decided, no action
+
+- **D-2** — closed 2026-08-16 with no action (owner decision). `LLMTransientError` engine-level retry; every caller was found to have its own defence, so the fix was defence-in-depth and did not justify a cross-repo `myblog_shared_db` change + three re-pins. Evidence and reasoning → `docs/archive/done/2026-08.md`.
 
 - **PUB-1** — workspace and four service repos are public; owner chose to merge the audit as-is on 2026-07-26. The report overstated dependency-version disclosure because manifests were already public. A-3 is fixed; the remaining E-5 surfaces are tracked under `FEAT-album-review-authoring` Step 4.
 

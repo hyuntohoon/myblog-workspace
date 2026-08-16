@@ -1,6 +1,21 @@
 # FEAT-ai-editorial-critique: AI editorial critic — Phase 0 thin slice
 
-- **Status**: draft
+> ⚠️ **STALE — do not cite this RFC's Current state as evidence (flagged 2026-08-16).** The section
+> below asserts "**Zero AI/LLM code in any of the 5 repos**", verified by grep on 2026-06-06. That has
+> been false for months. Verified against `origin/main` on 2026-08-16: `myblog_shared_db` ships a whole
+> `src/myblog_shared_db/llm/` package — `cli_engine.py` **and `api_engine.py`**, with
+> `LLMTransientError`/`LLMValidationError` and a retry policy — plus an `LlmUsage` model in `models.py`
+> for cost accounting, and the workspace runs `scripts/buckit_nightly.py`, `editor_buckit.py` and the
+> `research_poller` / `lyrics_translate_poller` / `genius_translate_poller` trio (all launchd-scheduled)
+> against it. `api_engine.py` in particular is the direct-to-API path this RFC's Goal describes as not
+> yet existing. The "first runtime path from code to an LLM" this RFC was
+> written to build **already exists by another route**, so its Goal, Current state, and step sequencing
+> all need re-deriving against `origin/main` before anyone acts on them
+> (`feedback-rfc-current-state-audit`). Considered for promotion on 2026-08-16 and **rejected on exactly
+> this ground** — it is a rewrite candidate, not an accept candidate. Nothing below has been edited;
+> the body is left intact as the historical record of the 2026-06-06 intent.
+
+- **Status**: draft — **body stale, see the warning above**
 - **Owner**: 박지훈
 - **Created**: 2026-06-06
 - **Plan row**: `plan.md` → FEAT-ai-editorial-critique

@@ -1,7 +1,11 @@
 # ARCH-entity-interaction-domain-audit: cross-domain registry + guardrails for entity-interaction fragmentation
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: **in-progress** — Steps 0–4 (incl. 3a/3b/3c) all shipped 2026-08-05/06. **Only Step 5
+  remains**, and it is gated, not merely unstarted: it coordinates with `FEAT-album-review-authoring`,
+  whose own 담기 gate has missed twice. Status corrected 2026-08-16 on owner approval — the field still
+  read `draft` long after six of seven steps had shipped, which made the RFC look unstarted in every
+  listing.
+- **Owner**: 오너
 - **Created**: 2026-08-05
 - **Plan row**: `plan.md` → ARCH-entity-interaction-domain-audit
 - **Sibling, does not replace**: `docs/archive/done/rfcs/ARCH-entity-interaction-v2.md` (done, archived 2026-08-10; scopes to album/track/artist/

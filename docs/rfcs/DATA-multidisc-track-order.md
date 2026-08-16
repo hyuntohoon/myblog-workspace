@@ -82,13 +82,14 @@ compilations and clean 2-disc mainstream releases (Nirvana *In Utero (Deluxe Edi
 ## Target state
 
 - `tracks.disc_no INTEGER NULL` exists, populated from Spotify's `disc_number` on every future sync.
-- The 77 (as of 2026-08-09; re-measured at Step 2 kickoff, see below) currently-colliding albums are
-  backfilled via a one-off Spotify re-fetch keyed on `spotify_id`.
+- The **78** (re-measured against prod 2026-08-16 at Step 2 kickoff; 77 in the 08-09 draft) currently-
+  colliding albums are backfilled via a one-off Spotify re-fetch keyed on `spotify_id`.
 - All four sites in Current State §3 order by `(disc_no ASC NULLS LAST, track_no ASC NULLS LAST, ...)`.
 - `In Utero (Deluxe Edition)` disc 1 "Serve The Servants" sorts before disc 2's "Serve The Servants - 2013
   Mix".
-- OpenAPI/contract/frontend types reflect the new field; no frontend behavior changes since ordering is
-  entirely server-side.
+- ~~OpenAPI/contract/frontend types reflect the new field~~ — **struck 2026-08-16**: no consumer exists and
+  the field is not auto-derived, so this is a Step 4 owner decision, not a target-state requirement. The
+  Goal above is met by Steps 2–3 alone.
 
 ## Steps
 
@@ -116,29 +117,61 @@ AND column_name='disc_no'` returns `integer / YES` on both prod and the test bra
 **Rollback**: `ALTER TABLE tracks DROP COLUMN disc_no;` — nothing reads or writes it yet, zero blast
 radius.
 
-### Step 2 — backfill known collisions + twin ingest fix (`myblog_music` + `myblog_worker`)
+### Step 2 — backfill known collisions + ingest fix (`myblog_worker`, optionally `myblog_music`)
 
-Two parts, same step (the backfill target set depends on the twin fix's field name/shape being settled
-first, and both need the Step 1 column live):
+> **Corrected 2026-08-16 by a kickoff current-state audit** (`feedback-rfc-current-state-audit`). The
+> draft's 2a described a symmetric two-repo "twin fix" with a pin bump in both repos and a third change in
+> the SQS contract. Read against `origin/main`, all three of those claims are wrong; the corrected shape is
+> below and the superseded text is recorded in the Decisions log. The audit did **not** change 2b's shape,
+> only its numbers.
 
-**2a — twin ingest fix.** Both mapping sites start reading `disc_number` alongside `track_number` and
-populate `Track.disc_no`:
-- `myblog_music/app/repositories/track_repo.py:163` area — `disc_no = t.get("disc_number")` alongside the
-  existing `track_no` line, threaded into the same `Track(...)` construction at `:173`/`:181`.
-- `myblog_worker/worker/service/sync_service.py:174` area — `disc=t.get("disc_number")` alongside `no=`,
-  threaded into the `INSERT INTO tracks (..., disc_no, ...)` upsert at `:287-296`.
-- `myblog_music/app/domain/schemas.py:214-222` — `CandidateTrackItem` gains `disc_number: Optional[int] =
-  None` so the candidates → SQS → worker contract (`docs/contracts/sqs-album-sync.md`) carries the field
-  end to end instead of dropping it at the music side before it ever reaches the worker.
-- Requires shared_db pin bump (git-SHA pin, not a tag — `reference-shared-db-cross-repo-rollout`'s tag
-  convention is broken) to the Step 1 merge SHA in both `myblog_music` and `myblog_worker`.
-- Sweep check (per `feedback-cross-repo-twin-drift-sweep`): confirmed no third mapping site exists —
-  `spotify_client.py` in `myblog_worker` has no track model, so there is no additional typed layer to miss.
+Two parts, same step (both need the Step 1 column live):
+
+**2a — ingest fix.** There is exactly **one live track-ingest site** in the system, and it is in the worker:
+
+- **`myblog_worker/worker/service/sync_service.py:174`** — `_collect` reads the Spotify `GET /albums`
+  response's nested `tracks.items` into `track_data` as `no=t.get("track_number")`. Add
+  `disc=t.get("disc_number")` alongside it, and thread `disc_no` into the raw-SQL upsert at `:287-296`
+  (`INSERT INTO tracks (spotify_id, album_id, title, track_no, duration_sec, disc_no)` + the matching
+  `ON CONFLICT (spotify_id) DO UPDATE SET ... disc_no = EXCLUDED.disc_no`). Keep the existing
+  `track_data.sort(key=lambda t: t["sid"])` conflict-key sort untouched.
+- **No shared_db pin bump for the worker.** The worker's only shared_db import is
+  `myblog_shared_db.genre_mapping.attachable_slugs` (verified by grep across `worker/` and `tests/`); it
+  writes tracks through raw SQL against the live schema, where `disc_no` already exists from Step 1. Its
+  `requirements.txt` pin can stay where it is for this step.
+- **`myblog_music/app/repositories/track_repo.py:178`'s `Track(...)` construction is dead code.**
+  `upsert_tracks_with_artists_db_only` — the only site in `myblog_music` that constructs or writes a
+  `Track` — has **zero callers** in `app/` or `tests/`. Bringing it along is a twin-drift hygiene call, not
+  a correctness one, and it is the *only* thing in Step 2 that would require music's pin bump. See the
+  pin-gap note under Step 3: music's pin is 20 releases stale, so the bump is a change worth making where
+  live read paths actually exercise it (Step 3), not for a dead writer here. **Decide at kickoff; either
+  way, say which in the PR body so Step 3 does not inherit an unstated assumption.**
+- **`CandidateTrackItem` is out of scope — the draft's premise was false.** `CandidateTrackItem`
+  (`myblog_music/app/domain/schemas.py:214-222`) appears in exactly one place, `CandidateSearchResult.tracks`
+  — it is a *music HTTP response* schema, not an SQS payload. The album-sync message is
+  `SqsClient.enqueue_album_sync(album_ids, market)`: **album IDs only**. Track data never travels through
+  SQS; the worker fetches it from Spotify itself, which is why 2a's single worker site is sufficient. Adding
+  `disc_number` here would be a consumer-less contract change (forcing an `openapi.json` regen and the full
+  `docs/contracts/README.md` procedure) that buys nothing.
+- Sweep check (per `feedback-cross-repo-twin-drift-sweep`): no third mapping site exists —
+  `spotify_client.py` in `myblog_worker` has no track model, so there is no additional typed layer to miss,
+  and `grep -rn "track_number"` across `myblog_worker/worker/` returns `sync_service.py:174` alone.
 
 **2b — one-off backfill for existing collisions.** Re-run the Current State §1 collision query
-(`GROUP BY album_id, track_no HAVING count(*) > 1`) at kickoff — the 77/3,313 count is from 2026-08-09 and
-will have drifted with continued ingest; do not reuse the stale number as the backfill's actual work list.
-For each flagged album:
+(`GROUP BY album_id, track_no HAVING count(*) > 1`) at kickoff — every count below is a **2026-08-16
+snapshot** and will drift with continued ingest; do not reuse it as the backfill's actual work list.
+Measured 2026-08-16 against prod:
+
+| measure | value |
+|---|---|
+| colliding albums | **78 / 3,445** (2.26%) |
+| tracks in those albums | **2,241** |
+| flagged albums missing `spotify_id` | **0** |
+| flagged tracks missing `spotify_id` | **0** |
+| `tracks.disc_no` non-NULL | **0** |
+| collision depth | 2-way ×66 · 3-way ×8 · 4-way ×4 |
+
+Re-fetch coverage is therefore 100% — no album falls back to a manual fix. For each flagged album:
 - Fetch the album's tracks fresh from Spotify (`GET /albums/{id}/tracks`, paginated) — the value is not
   locally computable, `disc_number` was never stored.
 - Match returned tracks to existing rows by `spotify_id`; build an in-memory `{spotify_id: disc_number}`
@@ -147,24 +180,51 @@ For each flagged album:
   caused Neon `ProtocolViolation`," lyrics-pipeline precedent). Shape: read the flagged album/track ids →
   close that session → do the Spotify fetches → open a fresh short write session per album to apply the
   `UPDATE`.
-- Scope is 77 albums as of today; Spotify request volume is negligible against `reference-spotify-extended-quota-irreplaceable`'s
-  irreplaceable-quota concern — no rate-limit design needed at this size.
-- Per `necessity-gate-reviews`: do **not** extend this to the full 3,313-album catalog. Only the actually-
+- Request volume is ~100 calls (78 albums × 1–2 pages at `limit=50`) — negligible against
+  `reference-spotify-extended-quota-irreplaceable`'s irreplaceable-quota concern, so no rate-limit design
+  is needed at this size.
+- Per `necessity-gate-reviews`: do **not** extend this to the full 3,445-album catalog. Only the actually-
   colliding set gets a backfill row; every future sync gets `disc_no` for free from 2a.
+- **UPDATE only, never INSERT.** 4 of the 78 flagged albums sit at exactly `tracks=50`, the Spotify
+  album-nested page limit — they are probably truncated locally. The backfill matches on `spotify_id` and
+  updates matched rows only; a returned track with no local row is skipped and counted, not inserted.
+  Repairing truncated tracklists is a separate concern and out of scope here (note the count in the PR
+  body so it is not silently lost).
 
 **Verification**: re-run the collision query restricted to the backfilled album ids — each now has a
-non-`NULL` `disc_no` that actually differentiates the tie (spot check *In Utero (Deluxe Edition)*: disc 1
-"Serve The Servants" → `disc_no=1`, disc 2 "Serve The Servants - 2013 Mix" → `disc_no=2`). A track synced
-after the 2a deploy has non-`NULL` `disc_no` without needing a backfill row. `pytest` green in both repos.
+non-`NULL` `disc_no` that actually differentiates the tie (spot check *In Utero (Deluxe Edition)*, 43
+tracks / 2-way collisions: disc 1 "Serve The Servants" → `disc_no=1`, disc 2 "Serve The Servants - 2013
+Mix" → `disc_no=2`). A track synced after the 2a deploy has non-`NULL` `disc_no` without needing a
+backfill row. `pytest` green in `myblog_worker` (and `myblog_music` if its half is taken).
 
-**Rollback**: 2a — revert the pin bump and mapping-site changes; the column stays nullable and unused,
-harmless. 2b — the backfill only sets a nullable column on existing rows; `UPDATE tracks SET disc_no =
-NULL WHERE id = ANY(:backfilled_ids)` fully reverses it if ever needed.
+**Rollback**: 2a — revert the mapping-site change; the column stays nullable and unwritten, harmless. 2b —
+the backfill only sets a nullable column on existing rows; `UPDATE tracks SET disc_no = NULL WHERE id =
+ANY(:backfilled_ids)` fully reverses it if ever needed.
 
 ### Step 3 — switch every `ORDER BY` to `(disc_no, track_no)`
 
-All four sites from Current State §3, in the same PR since they're mechanical and share one shared_db pin
-bump (the ORM's `Track.disc_no` attribute needs to exist, which Step 1 already shipped):
+All four sites from Current State §3, in the same PR since they're mechanical and share the same
+precondition — the ORM's `Track.disc_no` attribute has to exist in the *installed* shared_db, which means
+this is the step that actually pays the pin bump:
+
+> **Pin-gap warning (measured 2026-08-16).** The three repos are not on the same shared_db, and one of them
+> is far behind:
+>
+> | repo | pinned shared_db | equals |
+> |---|---|---|
+> | `myblog_backend` | `029f8dbcb3ff…` (SHA) | V52, one commit before Step 1 |
+> | `myblog_music` | **tag `v0.26.0` → `dd016c4`** | **V32-era — 20 releases stale** |
+> | `myblog_worker` | tag `v0.26.0` → `dd016c4` | same, but irrelevant (raw SQL, `genre_mapping` only) |
+>
+> Both `myblog_backend` and `myblog_music` must move to the Step 1 merge SHA **`8319a56`** (git-SHA pin, not
+> a tag — `reference-shared-db-cross-repo-rollout`'s tag convention is broken; note that music/worker are
+> still *on* a tag, which is how they drifted). Music's jump spans +785 lines / 17 new model classes in
+> `models.py`; the diff is additive (deletions are comment and constraint-line moves, no column or class
+> removals) and music only imports `Album`, `Artist`, `Genre`, `AlbumGenre`, `Track`, `album_artists_table`,
+> `track_artists_table`, so the blast radius looks small — but **treat the bump as its own reviewable change
+> within the PR** and run music's `pytest` before and after it, not just after the `order_by` edits. Per
+> `feedback-shared-db-pin-vs-venv-drift`, grep the pin rather than trusting the local venv.
+
 
 - `myblog_backend/app/services/bucket_service.py:1044-1050`
 - `myblog_music/app/repositories/track_repo.py:23` (`get_by_album`)
@@ -186,7 +246,21 @@ bug; no data loss, since `disc_no` values already backfilled/captured are untouc
 
 ### Step 4 — OpenAPI re-export → contract merge → frontend type regen
 
-- Backend/music `openapi.json` regen picks up `disc_no` on any `Track`-shaped response schema.
+> **Step 4 is now gated on an explicit owner "yes" and may well be dropped** (corrected 2026-08-16, same
+> kickoff audit). The draft assumed the regen would pick the field up on its own; it will not. Music's
+> track-shaped response schemas — `TrackItem` (`schemas.py:44`) and `TrackOut` (`schemas.py:93`) — are
+> hand-written Pydantic models listing `track_no` explicitly, not ORM-derived, so `disc_no` appears in
+> `openapi.json` **only if someone adds the field by hand**. That turns Step 4 from a mechanical re-export
+> into a deliberate, consumer-less contract widening: Steps 2–3 deliver this RFC's entire stated Goal
+> (correct server-side ordering) without it, the Non-goals already forbid a disc-number UI, and Step 4's own
+> text says "No frontend logic change." Under `feedback-necessity-gate-reviews` the default answer is
+> **don't ship it** — revisit only alongside the Open Question 1 feature that would actually display discs.
+> If the owner does want it, note that this step is a contract touch and therefore requires the `reviewer`
+> subagent per CLAUDE.md — which was **not registered in this environment as of 2026-08-16**; resolve that
+> gap before starting, not during.
+
+- Adding `disc_no: Optional[int] = None` to `TrackItem` and `TrackOut` is the actual first task, before any
+  `openapi.json` regen — the regen reflects the schemas, it does not discover the column.
 - Workspace `merge-contract.yml` fires per merged service PR — per `reference-workspace-contract-merge-order`,
   merge one resulting `chore:` PR and close the duplicate if both service PRs land close together.
 - `myblog_front`: `pnpm generate:types` → `api.gen.ts` exposes `disc_no`. **No frontend logic change** —
@@ -227,3 +301,28 @@ the new field.
   nothing but implementation — every other Active row is waiting on owner authoring/curation behaviour —
   and because `ARCH-global-playback-experience` Step 4 has just put a play-all / reorder queue on top of
   exactly these `ORDER BY` sites.
+- 2026-08-16 — **Step 2 kickoff current-state audit; Steps 2–4 corrected, no code written**
+  (`feedback-rfc-current-state-audit`). The two Step 1 abort gates were clean (`disc_number|disc_no` absent
+  from both twins on `origin/main`), and 2b's population re-measured to **78 / 3,445 albums, 2,241 tracks,
+  zero missing `spotify_id` on either side** — the backfill number held, so 2b's shape is unchanged. Three
+  claims in the *draft's* Step 2/4 did not survive the audit and have been rewritten above; recording the
+  superseded text here so a later reader can see what changed and why:
+  1. **"Both mapping sites" / "twin fix" was wrong about the worker's pin.** The draft required a shared_db
+     pin bump in `myblog_music` *and* `myblog_worker`. The worker imports only
+     `myblog_shared_db.genre_mapping.attachable_slugs` and writes tracks by raw SQL, so it needs no bump at
+     all — the Step 1 column already exists in the schema it writes against.
+  2. **The music half is a dead code path.** `upsert_tracks_with_artists_db_only` (`track_repo.py:136`) is
+     the only `Track(...)` writer in `myblog_music` and has zero callers. The single live ingest site is
+     `myblog_worker/worker/service/sync_service.py:174`. "Twin fix" overstated the work: it is one real
+     site plus one optional hygiene edit.
+  3. **`CandidateTrackItem` is not on the SQS contract.** The draft justified adding `disc_number` to it as
+     making the "candidates → SQS → worker contract carry the field end to end." It is only referenced by
+     `CandidateSearchResult.tracks` (a music HTTP response), and `SqsClient.enqueue_album_sync` sends
+     **album IDs only** — the worker gets track data from Spotify directly. Dropped from Step 2 as a
+     consumer-less contract change.
+  A fourth correction fell out of the same read: **Step 4 will not happen by regen.** `TrackItem` /
+  `TrackOut` are hand-written Pydantic schemas, so `disc_no` reaches `openapi.json` only if added by hand —
+  making Step 4 a deliberate contract widening with no consumer, now gated on an explicit owner yes and
+  expected to be dropped. Also recorded under Step 3: the three repos' shared_db pins have diverged, and
+  `myblog_music` is **20 releases stale** (tag `v0.26.0` → `dd016c4`, V32-era) against backend's
+  `029f8db` — so Step 3, not Step 2, is where that bump gets paid and verified.
