@@ -96,16 +96,16 @@ Each step is independently mergeable; per rule 5, each is its own session unless
 Steps 2–4 depend on Step 1 having reached prod first (nullable column, no default — nothing reads or
 writes it until Step 2 ships, so Step 1 alone is a no-op in behavior).
 
-### Step 1 — `myblog_shared_db`: add `tracks.disc_no`, apply to prod before merge
+### Step 1 — `myblog_shared_db`: add `tracks.disc_no`, apply to prod before merge — SHIPPED 2026-08-16
 
 Per `reference-shared-db-cross-repo-rollout` and `docs/contracts/README.md`'s schema-change procedure:
 
-- `migrations/V52__add_tracks_disc_no.sql` (confirm `V52` is still the next free number at implementation
+- `migrations/V53__add_tracks_disc_no.sql` (V52 was already taken by `planned_ratings` by implementation
   time — check for parallel-session collisions): `ALTER TABLE tracks ADD COLUMN disc_no INTEGER;`
-- `models.py`: `Track.disc_no = Column(Integer, nullable=True)`.
+- `models.py`: `Track.disc_no: Mapped[Optional[int]] = mapped_column(Integer)`.
 - Regenerate `_generated_schema.sql`; mirror `tests/canonical_schema.sql` (diff both before commit —
   `reference-schema-mirror-drift-unenforced` — the two have drifted before).
-- `pyproject.toml` version bump (currently `0.38.0` → `0.39.0`).
+- `pyproject.toml` version bump (was already `0.39.0` by implementation time → `0.40.0`).
 - Apply the migration to Neon prod **and** the test branch before merging the shared_db PR (`reference-database-url-psql`,
   `reference-neon-test-branch-migration-drift`) — a nullable column with no default is safe to add live.
 

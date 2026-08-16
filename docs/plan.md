@@ -146,8 +146,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
   **Next = Step 5** (memo naming conflict; blocked behind the `FEAT-album-review-authoring` gate above) — new session. → `docs/rfcs/ARCH-entity-interaction-domain-audit.md`.
 
-- **DATA-multidisc-track-order** (**accepted 2026-08-16; no step started**) — promoted from Backlog this
-  session on owner approval. `tracks` has no `disc_no` column, so every tracklist read path orders by
+- **DATA-multidisc-track-order** (**accepted 2026-08-16; Step 1 shipped**) — promoted from Backlog this
+  session on owner approval. `tracks` had no `disc_no` column, so every tracklist read path orders by
   `track_no` alone and multi-disc albums interleave; the tie-break falls through to arbitrary `id` order.
   Both of the draft's load-bearing claims were re-measured against prod before promotion rather than
   carried over: `information_schema` still reports **zero** `disc_no`/`disc_number` columns, and the
@@ -159,8 +159,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   because `ARCH-global-playback-experience` Step 4 has just put a play-all / reorder queue on top of
   exactly these `ORDER BY` sites.
 
-  **Next = Step 1** (`myblog_shared_db` migration adding `tracks.disc_no INTEGER`, prod-applied **before**
-  merge). Cross-repo and multi-session by construction: migration + prod apply → service re-pin →
+  **Step 1** (`myblog_shared_db` migration `V53__add_tracks_disc_no.sql` adding `tracks.disc_no INTEGER`,
+  nullable/no default) applied to prod and the Neon test branch this session, before merge.
+
+  **Next = Step 2**. Cross-repo and multi-session by construction: service re-pin →
   `myblog_music`/`myblog_worker` twin fix + ~78-album Spotify re-fetch backfill → 4 `ORDER BY` sites →
   OpenAPI re-export → contract merge → frontend regen. → `docs/rfcs/DATA-multidisc-track-order.md`.
 
