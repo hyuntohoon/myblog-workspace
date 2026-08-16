@@ -117,12 +117,14 @@ In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcr
   live reads), moves the live-lyrics host from dashboard-scoped to app-wide, and adds
   artwork/reorder/play-all/summary to the already-shipped Playback Bucket queue view
   (`FEAT-playback-bucket-player`, done). No new player/queue. → `ARCH-global-playback-experience.md`.
-- **FEAT-desktop-playback-bar** (accepted 2026-08-16 — next = Step 1) —
-  replaces the current top-fixed 56px strip with a new Spotify-desktop-shaped bottom playback deck,
-  reusing the Playback Bucket's single expanded panel and Profile Overview's control behavior without
-  reusing either current player design. Front-only; owner resolved the three design questions A/A/B,
-  including full controls in a two-row mobile deck. →
-  `FEAT-desktop-playback-bar.md`.
+- **FEAT-desktop-playback-bar** (done 2026-08-16, **archived** — breadcrumb) — replaced the top-fixed
+  56px strip with a new Spotify-desktop-shaped bottom playback deck, reusing the Playback Bucket's
+  single expanded panel and Profile Overview's control behavior without reusing either current player
+  design. **Steps 1–2 both shipped + prod-verified** (front #414 `4c664d4`, front #415 `58aca1d`):
+  seek/control primitives extracted to a shared layer (Step 1), then `GlobalPlaybackBar` + lifted
+  panel-host ownership + `--global-player-h` bottom-inset layout replaced the old top strip (Step 2),
+  verified at 1440×900/1024×768/390×844 against real prod auth with a stubbed Spotify playback read.
+  본문 → `docs/archive/done/rfcs/FEAT-desktop-playback-bar.md`.
 - **FEAT-rating-smart-collections** (draft, 2026-08-10 — Step 0 decision gate open) — 평가 완료 (derived,
   zero new storage) + 평가 예정 (new private rating-intent state, explicitly not `review_candidate`).
   Storage shape (extend `album_reviews` vs. dedicated table) is an unresolved owner decision blocking
