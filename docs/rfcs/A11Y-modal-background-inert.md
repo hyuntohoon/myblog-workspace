@@ -32,7 +32,7 @@ the scrim. Achieved by marking every `<body>` child that does not contain the to
 
 ## Current state
 
-`src/lib/useDismissable.ts` (28 call sites across 20 files) already provides, per open overlay:
+`src/lib/useDismissable.ts` (31 call sites across 21 files — the RFC first said 28 across 20; corrected against `origin/main` on implementation, 2026-08-16) already provides, per open overlay:
 
 - ESC-to-close, one layer at a time, via a module-level `openStack` that lets only the top entry act;
 - a Tab focus trap (`visibleFocusables` + wrap-around at both ends), also top-of-stack only;
@@ -100,12 +100,13 @@ Nothing else changes: same ESC, same trap, same scroll lock, same markup.
 
 ## Steps
 
-### Step 1 — central `inertBackground` mechanism, applied to existing modals
+### Step 1 — central `inertBackground` mechanism, applied to existing modals — **SHIPPED 2026-08-16 (front #411)**
 
 Add the controller and the option to `src/lib/useDismissable.ts`, defaulting `inertBackground` to the
-resolved `lockScroll`. No component file changes: the 11 `lockScroll: true` call sites inherit it,
-and the overlays that pair `useDismissable` with a direct `useScrollLock()` opt in by passing
-`inertBackground: true` at their existing `useDismissable` call.
+resolved `lockScroll`. The 11 `lockScroll: true` call sites inherit it with no edit; the overlays that
+pair `useDismissable` with a direct `useScrollLock()` opt in by passing `inertBackground: true` at their
+existing `useDismissable` call — 11 sites across 10 component files. (This paragraph originally opened
+"No component file changes", which contradicted its own next clause; corrected on implementation.)
 
 The controller must be resilient to the two things this codebase has already been bitten by:
 
@@ -128,6 +129,31 @@ pnpm lint && pnpm exec astro check && pnpm test
 Plus a real-browser CDP pass (`feedback-verify-front-live-dom-not-harness`): open a modal, assert
 `document.body.children` inert flags in the live DOM, navigate via `ClientRouter` with the modal
 open, assert nothing is stranded.
+
+**Result (2026-08-16, front #411).** `pnpm lint` clean · `astro check` 0 errors/0 warnings (300 files) ·
+`pnpm test` 654 passed, 0 skipped, including 8 new `inertBackground` tests. Each new test was checked
+against a deliberately broken build so none of them is tautological: a no-op `syncInert()` fails 6 of
+the 8, removing the `astro:after-swap` sweep fails exactly the strand test, and declaring the
+registration effect after the focus effect fails both the ordering test and the pre-existing
+focus-restore test.
+
+CDP on local dev, home page, `AlbumOverlay`: with the modal open every `<body>` child carries `inert`
+except the island holding the dialog, a background link is not focusable, hit-testing at its
+coordinates returns `div.scrim`, and the accessibility tree contains **only the dialog** (13 nodes).
+Same page with the marks stripped: **176 background nodes** — the primary nav, every album card, the
+footer, the Pocket tray. That pair is the before/after measurement of the defect. `ClientRouter`
+navigation with the modal open: 5 inert before, 0 after, nothing stranded. ESC: dialog closes, inert 0,
+scroll lock released, focus restored to the background trigger.
+
+Two implementation findings worth carrying forward:
+
+- **Effect order is load-bearing.** Applying `inert` blurs whatever the background had focused, and
+  focusing back into an inert subtree is a no-op — so the registration effect both captures the
+  restore target and is declared *before* the focus effect, whose cleanup therefore runs second, after
+  the background is live again. The naive order silently drops focus restore for every modal.
+- **Separating stack registration from the key-handling effect** means a `trapFocus` change
+  (`ContextPanel`'s `trapFocus: dock.docked`, `PlaybackPanel`) no longer shuffles that overlay to the
+  top of `openStack`. That was a latent bug in the pre-existing code, fixed as a side effect.
 
 **Rollback**: `inertBackground` defaults to `false`. One-line revert, no data, no contract.
 
@@ -166,6 +192,10 @@ returns to the trigger on close.
    controller. (a) matches what sighted users already get, since the scrim covers the bar. **Consequence
    to verify in Step 1, not assume:** with a modal open, the bar must be unreachable by AT — assert it in
    the live DOM, not merely that it is painted behind the scrim.
+   **Verified 2026-08-16 (front #411), with the bar actually rendered rather than reasoned about:** with
+   a modal open the accessibility tree carries no `region "재생 중"` and the bar's `재생 패널 열기` button
+   is not focusable; the control run, with `inert` removed from that island only, lists the region and
+   all four transport buttons. The consequence the owner accepted is what ships.
 2. **Does anything need `inert` without wanting scroll lock, or vice versa?** — blocks nothing;
    decide only if Step 1's default turns out to mis-handle a specific surface. Recorded so a future
    reader knows the coupling was deliberate, not accidental.
@@ -176,3 +206,4 @@ returns to the trigger on close.
 |------|----------|------|
 | 2026-08-16 | RFC drafted on owner's in-session approval to promote the frozen `ARCH-overlay-modal-isolation` OQ2 idea. Current-state audit corrected the origin line: the focus trap already exists, so the defect is screen-reader browse mode only, and the modal population is enumerable from the existing `useScrollLock` signal rather than needing judgement. Audit also found a pre-existing gap the idea did not mention — three scrim modals never adopted `useDismissable` at all — now Step 2. | — |
 | 2026-08-16 | **Owner approved; Status draft → accepted, and OQ1 answered (a) in the same decision** — the persistent playback bar is inerted with the rest of the background, no exemption. Step 1 is startable with nothing outstanding; OQ2 was left open by design since it blocks nothing. Promoted in a session that wrote no code for it: the session's own RFC (`DATA-multidisc-track-order` Step 2) was stopped at kickoff when its current-state audit overturned three of its claims, and this RFC was picked as the next startable item because it is single-repo, migration-free and contract-free — which also means it does not depend on the `reviewer` subagent, absent from this environment as of today. | — |
+| 2026-08-16 | **Step 1 shipped (front #411).** OQ1's consequence verified rather than assumed — the persistent playback bar is genuinely absent from the accessibility tree with a modal open, measured against a control. The before/after on the home page is 176 background nodes → 0. Two RFC current-state figures were corrected on implementation (call-site count; Step 1's self-contradicting "No component file changes"), the third such RFC in a row to need a current-state correction — `feedback-rfc-current-state-audit` keeps paying for itself. Implementation surfaced one thing the RFC did not anticipate: applying `inert` blurs the background's focused element, so effect declaration order decides whether focus restore survives at all. | 1 |

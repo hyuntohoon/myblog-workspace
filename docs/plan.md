@@ -178,7 +178,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   stale** on tag `v0.26.0`/`dd016c4`, backend on `029f8db`; both → `8319a56`) → **Step 4** only if the
   owner wants it. → `docs/rfcs/DATA-multidisc-track-order.md`.
 
-- **A11Y-modal-background-inert** (**accepted 2026-08-16; OQ1 resolved — Step 1 is startable**) —
+- **A11Y-modal-background-inert** (**accepted 2026-08-16; Step 1 shipped 2026-08-16 — front #411**) —
   promoted from Frozen this session on owner approval, as `ARCH-overlay-modal-isolation` OQ2 recommended
   (a separate RFC, not a reopening of that one). While a scrim modal is open, nothing removes the page
   behind it from the accessibility tree: **zero occurrences of `inert` in `myblog_front/src`**.
@@ -200,12 +200,23 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   user; pausing requires closing the dialog, same as clicking does today.
   → `docs/rfcs/A11Y-modal-background-inert.md`.
 
-  **Next = Step 1** (central `inertBackground` in `src/lib/useDismissable.ts`, defaulting to the
-  resolved `lockScroll`, with a refcounted controller recomputed off `openStack`). Step 2 (migrate the
-  three scrim modals that never adopted `useDismissable`) is sequenced after it so a regression in those
-  three surfaces stays separable. Verification must include a real-browser CDP pass, not just
-  `pnpm test` — `feedback-verify-front-live-dom-not-harness`, and specifically assert nothing strands an
-  `inert` attribute across a `ClientRouter` navigation with a modal open.
+  **Step 1 shipped 2026-08-16 (front #411).** `inertBackground` lives in `src/lib/useDismissable.ts`,
+  defaulting to the resolved `lockScroll`; a module-level refcounted controller recomputes off
+  `openStack`. Measured before/after on the home page with the album overlay open: the accessibility
+  tree went from **176 background nodes** (primary nav, every album card, the footer, the Pocket tray)
+  alongside the dialog, to **the dialog alone**. OQ1's consequence was verified with the persistent
+  playback bar actually rendered, against a control — not assumed. `ClientRouter` navigation with the
+  modal open strands nothing (5 inert before, 0 after). Gate: lint clean, `astro check` 0 errors,
+  `pnpm test` 654 passed / 0 skipped incl. 8 new tests, each checked against a deliberately broken
+  build so none is tautological.
+
+  **Next = Step 2** — migrate `ActionSheet`, `BucketPickerSheet` and `PocketDesignSettings` onto
+  `useDismissable`. They are scrim modals with `aria-modal="true"` that never adopted it, so they still
+  have no focus trap and no focus restore, and `ActionSheet` still hand-rolls a `window` ESC listener
+  outside the nesting stack. Sequenced after Step 1 so a regression on those three surfaces stays
+  separable. Same verification bar: `pnpm lint` / `astro check` / `pnpm test` plus a real-browser CDP
+  pass on each of the three (ESC closes exactly one layer, Tab cycles inside the sheet, focus returns
+  to the trigger).
 
 - **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval, and
   its blocking question resolved in the same pass: the `PERF-home-feed-latency` dependency note is
