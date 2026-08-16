@@ -1,6 +1,6 @@
 # FEAT-desktop-playback-bar: Spotify-shaped bottom playback deck
 
-- **Status**: **accepted** (owner-approved in-session 2026-08-16; design decisions A/A/B resolved)
+- **Status**: **done** (2026-08-16 — both steps shipped + prod-verified; archived)
 - **Owner**: 박지훈
 - **Created**: 2026-08-16
 - **Plan row**: `plan.md` → FEAT-desktop-playback-bar
@@ -282,6 +282,8 @@ without an additional live read.
 
 ### Step 2 — replace the top strip with the bottom deck and one panel host
 
+> ✅ Done 2026-08-16, SHA: `58aca1d` (front #415).
+
 - Replace `PlaybackPersistentBar`'s presentation with `GlobalPlaybackBar`; delete the old top-fixed DOM
   and bar styles rather than layering the new design on them.
 - Lift expanded-panel ownership out of `PocketTray` into the persisted playback surface host. Wire both
@@ -390,3 +392,4 @@ The owner resolved all three design questions as A/A/B and explicitly approved S
 | 2026-08-16 | Initial draft from owner direction: bottom persistent deck, Spotify desktop control grammar, behavior reused from Playback Bucket expansion + Profile Overview player, current visual design rejected. | RFC |
 | 2026-08-16 | Owner selected A/A/B: reskin only the expanded panel's outer chrome; show the deck only while playing/paused; keep the full desktop control set in a two-row mobile bottom deck. | RFC |
 | 2026-08-16 | Owner explicitly approved promotion to `accepted` and requested `$wrap` to start Step 1 in a fresh task. | RFC |
+| 2026-08-16 | **Step 2 shipped** (front #415, squash `58aca1d`). Implementation delegated to Codex, reviewed line-by-line and independently verified by Claude: `pnpm lint`/`pnpm test` (695/695)/`astro check` (0 errors/0 warnings) all re-run and green against the actual diff before commit. Real-browser CDP against a local dev build proxied to real prod data (genuine Cognito JWT for the smoke account via a CORS+auth-rewrite proxy, `PUBLIC_BACKEND_API_URL=http://127.0.0.1:8000`) with a stubbed Spotify `/v1/me/player` response (no live Premium device available in this environment) verified all three required breakpoints: 1440×900 full three-zone layout with signal-rail + center-progress driving one seek handler and `--global-player-h`/`.site-shell padding-bottom` confirmed 88px via computed style; 1024×768 compact-utilities collapse (volume → icon popover, device label → icon); 390×844 two-row 112px mobile deck with every desktop control still reachable and the queue button opening the existing full-screen mobile panel. Single-panel ownership confirmed directly (`document.querySelectorAll('.pbp-panel')` = 1) after lifting `playbackPanelOpen` out of `PocketTray` into `PocketBuckit`. No Pocket-bar collision at any breakpoint (checked via computed `bottom` on `.pkt-ctrl`/tray). Deployed via front CI (build+upload+CloudFront-invalidate + CI's own post-deploy health check all green for `58aca1d`); post-deploy `scripts/smoke.sh prod` 19/19 green, quoted on the PR. Verifying the literal deployed CloudFront bundle via CDP remains blocked by the browser's mixed-content policy for a token relay (unsolved gap, noted 2026-08-10) — fell back to the documented equivalent (pre-merge same-source-tree CDP pass + CI build success + post-deploy API smoke) rather than attempting a workaround that would put a raw token in the transcript. Both of this RFC's steps are now shipped; RFC archived | 2 |
