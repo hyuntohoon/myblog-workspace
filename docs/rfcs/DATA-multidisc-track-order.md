@@ -233,7 +233,22 @@ backfill row. `pytest` green in `myblog_worker` (and `myblog_music` if its half 
 the backfill only sets a nullable column on existing rows; `UPDATE tracks SET disc_no = NULL WHERE id =
 ANY(:backfilled_ids)` fully reverses it if ever needed.
 
-### Step 3 — switch every `ORDER BY` to `(disc_no, track_no)`
+### Step 3 — switch every `ORDER BY` to `(disc_no, track_no)` — SHIPPED 2026-08-17
+
+> `myblog_backend` #157 (`11013e7`) + `myblog_music` #68 (`0ca8444`). All 4 `ORDER BY` sites switched to
+> `Track.disc_no.asc().nullslast(), Track.track_no.asc().nullslast()` (leading keys / trailing tiebreaks
+> otherwise unchanged). Both repos' shared_db pin bumped to the Step 1 merge SHA `8319a56` (`myblog_music`
+> `v0.26.0`/`dd016c4` → `8319a56`; `myblog_backend` `029f8db` → `8319a56`), treated as its own reviewable
+> change in each PR: `pytest` run before and after the bump alone in both repos, pass counts identical
+> (`myblog_music` 132 passed/8 deselected; `myblog_backend` 664 passed/152 deselected). `pyright` 0 errors
+> and `openapi.json` regen produced no diff in either repo (Step 4 not started). PR-CI green in both
+> (unit + contract + real-DB integration suites). Verified against prod: direct SQL confirmed *In Utero
+> (Deluxe Edition)* sorts disc 1 in full before disc 2; post-deploy, the live `GET /api/music/albums/{id}`
+> response for the same album confirmed it end-to-end (disc 1 tracks 1–20, then disc 2 restarts at
+> track_no=1). Frontend renders track arrays as returned (`AlbumDetailView.tsx`/`AlbumDetail.tsx` `.map`,
+> no client-side sort found), so the API-level check covers the user-visible surface — no frontend PR
+> needed. Production smoke 19/19 quoted on both PRs. The 2 unresolved-from-Step-2 Queen albums keep their
+> pre-RFC arbitrary tie-break, as documented — not a regression.
 
 All four sites from Current State §3, in the same PR since they're mechanical and share the same
 precondition — the ORM's `Track.disc_no` attribute has to exist in the *installed* shared_db, which means

@@ -146,7 +146,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
   **Next = Step 5** (memo naming conflict; blocked behind the `FEAT-album-review-authoring` gate above) — new session. → `docs/rfcs/ARCH-entity-interaction-domain-audit.md`.
 
-- **DATA-multidisc-track-order** (**accepted 2026-08-16; Step 1+2 shipped**) — promoted from Backlog this
+- **DATA-multidisc-track-order** (**accepted 2026-08-16; Step 1+2+3 shipped**) — promoted from Backlog this
   session on owner approval. `tracks` had no `disc_no` column, so every tracklist read path orders by
   `track_no` alone and multi-disc albums interleave; the tie-break falls through to arbitrary `id` order.
   Both of the draft's load-bearing claims were re-measured against prod before promotion rather than
@@ -183,9 +183,18 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   re-sync to fix; out of scope for this bounded backfill, no regression (same arbitrary tie-break as
   before this RFC). `pytest` 533 passed / 3 skipped, both PRs deployed and Lambda-confirmed.
 
-  Remaining shape: **Step 3** the 4 `ORDER BY` sites, which is where the shared_db pin bump gets paid
-  (`myblog_music` is **20 releases stale** on tag `v0.26.0`/`dd016c4`, backend on `029f8db`; both →
-  `8319a56`) → **Step 4** only if the owner wants it. → `docs/rfcs/DATA-multidisc-track-order.md`.
+  **Step 3 shipped 2026-08-17** (`myblog_backend` #157 `11013e7`, `myblog_music` #68 `0ca8444`). All 4
+  `ORDER BY` sites now lead with `disc_no` before `track_no`. Paid the shared_db pin bump this required —
+  `myblog_music` `v0.26.0`(`dd016c4`) → `8319a56`, `myblog_backend` `029f8db` → `8319a56`, both treated as
+  their own reviewable change (pytest green before/after the bump alone in both repos, unchanged pass
+  counts). `pyright` 0 errors, `openapi.json` regen no diff in either repo. Live-verified against prod:
+  `GET /api/music/albums/{In Utero (Deluxe Edition) id}` returns disc 1 in full (tracks 1–20) before disc
+  2 restarts at track_no=1. Production smoke 19/19 quoted on both PRs. The 2 unresolved Queen albums from
+  Step 2 keep their pre-RFC arbitrary tie-break, as expected — no regression.
+
+  Remaining: **Step 4** (OpenAPI/contract/frontend surfacing of `disc_no`) only if the owner wants it —
+  gated on an explicit yes, expected to be dropped per the RFC's own text (no consumer, Non-goals already
+  forbid a disc-number UI). → `docs/rfcs/DATA-multidisc-track-order.md`.
 
 - **A11Y-modal-background-inert** (**accepted 2026-08-16; Step 1 shipped 2026-08-16 — front #411**) —
   promoted from Frozen this session on owner approval, as `ARCH-overlay-modal-isolation` OQ2 recommended
