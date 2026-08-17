@@ -179,6 +179,28 @@ returns to the trigger on close.
 
 **Rollback**: revert the three call sites; Step 1 stands alone.
 
+**Result (2026-08-16, front #412).** All three now call
+`useDismissable(true, onClose, ref, { lockScroll: true })`. Two RFC current-state claims were wrong,
+corrected on implementation: `BucketPickerSheet` had the same hand-rolled `window` ESC listener this
+RFC attributed only to `ActionSheet` (both deleted); `PocketDesignSettings` had `role="dialog"` with
+**no** `aria-modal` and no keyboard exit at all (`aria-modal="true"` added). `pnpm lint` clean,
+`astro check` 0 errors/0 warnings (301 files), `pnpm test` 663/663 (+9) — each new test confirmed to
+fail against the pre-PR code, none tautological; the pre-existing `ActionSheet` ESC assertion moved
+from a `window` to a `document` dispatch target to match where the shared hook actually listens.
+
+CDP against real prod data (local dev + auth proxy, authenticated smoke user), all three, each
+`focus()`-ed before `click()` so restore is actually testable: background a11y nodes with marks applied
+were **2** (`PocketDesignSettings`), **0** (`ActionSheet`), **0** (`BucketPickerSheet`), against control
+counts of 63 / 218 / — with marks stripped. `PocketDesignSettings`'s 2 are Step 1's documented shape —
+its own `PocketBuckit` island keeps its own `<body>`-child ancestor live, so the tray's other controls
+behind the scrim stay reachable; not a Step 2 regression. Autofocus, Tab/Shift+Tab wrap (real key
+input), ESC-closes-and-restores-focus, and `ClientRouter` navigation with a portalled sheet open
+(6 inert before, 0 after) all confirmed. **Production smoke 19/19 passed** — run 2026-08-17 (a day
+after merge; no smoke result had been posted since #412 shipped), quoted on the PR.
+
+**This was the RFC's last step — both Step 1 and Step 2 are now shipped.** Status left at `accepted`;
+promoting to `done`/archiving is an explicit owner call, not made here (rule 7).
+
 ---
 
 ## Open questions
@@ -207,3 +229,5 @@ returns to the trigger on close.
 | 2026-08-16 | RFC drafted on owner's in-session approval to promote the frozen `ARCH-overlay-modal-isolation` OQ2 idea. Current-state audit corrected the origin line: the focus trap already exists, so the defect is screen-reader browse mode only, and the modal population is enumerable from the existing `useScrollLock` signal rather than needing judgement. Audit also found a pre-existing gap the idea did not mention — three scrim modals never adopted `useDismissable` at all — now Step 2. | — |
 | 2026-08-16 | **Owner approved; Status draft → accepted, and OQ1 answered (a) in the same decision** — the persistent playback bar is inerted with the rest of the background, no exemption. Step 1 is startable with nothing outstanding; OQ2 was left open by design since it blocks nothing. Promoted in a session that wrote no code for it: the session's own RFC (`DATA-multidisc-track-order` Step 2) was stopped at kickoff when its current-state audit overturned three of its claims, and this RFC was picked as the next startable item because it is single-repo, migration-free and contract-free — which also means it does not depend on the `reviewer` subagent, absent from this environment as of today. | — |
 | 2026-08-16 | **Step 1 shipped (front #411).** OQ1's consequence verified rather than assumed — the persistent playback bar is genuinely absent from the accessibility tree with a modal open, measured against a control. The before/after on the home page is 176 background nodes → 0. Two RFC current-state figures were corrected on implementation (call-site count; Step 1's self-contradicting "No component file changes"), the third such RFC in a row to need a current-state correction — `feedback-rfc-current-state-audit` keeps paying for itself. Implementation surfaced one thing the RFC did not anticipate: applying `inert` blurs the background's focused element, so effect declaration order decides whether focus restore survives at all. | 1 |
+| 2026-08-16 | **Step 2 shipped (front #412).** Two more RFC current-state claims were wrong and corrected on implementation: `BucketPickerSheet` shared `ActionSheet`'s hand-rolled `window` ESC listener (RFC named only `ActionSheet`), and `PocketDesignSettings` had `role="dialog"` with no `aria-modal` and no keyboard exit at all. CDP-verified against real prod data on all three (focus trap, restore, ESC, `ClientRouter` survival). Merged same day as Step 1 in a separate session; that session did not post a production-smoke result or update this RFC/plan.md. | 2 |
+| 2026-08-17 | **Docs sync, not new work.** A later session (this one) was asked to start Step 2, found it already merged (front #412, 2026-08-16) with no docs update and no smoke result posted since. Ran `scripts/smoke.sh prod` (19/19 passed) and quoted it on the PR to close that DoD gap, then updated this RFC and `plan.md` to match shipped reality. Both Step 1 and Step 2 are now shipped; Status intentionally left at `accepted` — promoting to `done` needs an explicit owner call (rule 7), not made here. | — |
