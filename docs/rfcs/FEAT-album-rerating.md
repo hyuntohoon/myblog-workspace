@@ -142,94 +142,103 @@ being enforced in exactly one place.
 
 ## Steps
 
-### Step 1 — `pending_reratings` table (shared_db)
+Consolidated 5 → 3 on owner instruction 2026-08-17 ("스텝 줄일 수 있는거 줄여"). What merged and
+why: the old Step 3 (contract propagation) was never independently mergeable — the backend's
+`openapi.json` is committed in the backend PR, the workspace contract merge is that PR's tail, and
+`api.gen.ts` regeneration belongs to the front work that consumes it. The old Steps 4 and 5 are the
+same repo behind the same gate (`pnpm test` / `lint` / `astro check` + one CDP pass), so they are one
+PR. Step 1 cannot fold into Step 2: the backend pins `shared_db` by main SHA, so the table must be
+merged and applied first.
 
-`migrations/V54__pending_reratings.sql` + `PendingRerating` model + the two schema mirrors
-(`schema.sql`, `canonical_schema.sql` — diff BOTH, their equality is convention-only and has
-drifted before). Applied to prod and to the Neon test branch (`/myblog/test-db`) in the same
-session, before the backend pin lands.
+All three approved for the SAME session on explicit owner instruction 2026-08-17, overriding hard
+rule #5 (one RFC step per session). Recorded here per that rule's own requirement that an override be
+session-scoped and explicit, not inferred.
 
-**Verification**:
+### Step 1 — `pending_reratings` table (shared_db) — SHIPPED 2026-08-17 (`90a6fca`, PR #76)
+
+`migrations/V54__pending_reratings.sql` + `PendingRerating` model + both schema mirrors
+(`_generated_schema.sql`, `tests/canonical_schema.sql` — diffed BOTH; their equality is
+convention-only and has drifted before). `previous_rating` landed NOT NULL rather than the nullable
+column this RFC first sketched: a 재평가 can only start from an existing 평가, so a row that cannot
+be restored is not a state this feature has, and the DB says so instead of trusting the service to.
+
+**Verification** (run):
 ```
-cd myblog_shared_db && PYTHONPATH=src pytest
-psql "$DATABASE_URL" -c "\d pending_reratings"   # prod, after apply
+PYTHONPATH=src pytest → 104 passed, 0 skipped
+psql prod / test-branch → information_schema columns identical on both
 ```
 
-**Rollback**: `DROP TABLE pending_reratings;` — no other table references it.
+**Rollback**: `DROP TABLE IF EXISTS pending_reratings;` — nothing references it.
 
 ---
 
-### Step 2 — backend state + routes
+### Step 2 — backend state + routes (+ contract) — SHIPPED 2026-08-17 (PR #158)
 
-- `ReratingService` (`app/services/rerating_service.py`): `start` / `cancel` / `list_pending` /
-  `list_pending_for_users`, all committing once, mirroring `PlannedRatingService`'s shape.
-- `RatingService.upsert`: delete the caller's pending row when the applied change leaves a
-  non-null `rating`. Same transaction, before the single commit.
-- Routes on `app/api/routes/me.py`: `GET /api/me/reratings`, `POST /api/me/reratings/{album_id}`,
-  `DELETE /api/me/reratings/{album_id}` (204s, idempotent).
-- `GET /api/members/{handle}`: `reratings` array (public fields only).
-- `infra/apigateway.tf`: the two new authenticated mutations get their routes — a protected route
-  missing here 404s in prod while passing every local test.
-- `shared_db` pin bumped to the Step 1 main SHA (tags are broken; pin by SHA).
-- `openapi.json` regenerated and committed.
+`ReratingService` (`start` / `cancel` / `list_pending`), the completion hook in
+`RatingService.upsert`, three routes, the public `reratings` field, both API Gateway routes, the
+`shared_db` pin, `openapi.json`, and the workspace contract merge.
 
-**Verification**:
+Two shape changes against this RFC's draft, both toward the neighbouring 평가 예정 code:
+
+- **PUT, not POST**, for `/api/me/reratings/{album_id}` — same "make this state exist" idempotent
+  shape as `PUT /api/me/planned-ratings/{album_id}` sitting directly above it in `me.py`.
+- `RatingService._strip_rating` became public `strip_rating(db, state, *, commit=False)` instead of
+  the withdrawal reimplementing it. The `review_candidate` branch — row survives with a NULL star vs
+  row deleted outright — must have exactly one definition, and `commit=False` is what lets the
+  snapshot insert and the strip land in ONE transaction. Split across two commits, a crash loses the
+  star with nothing left to restore it from.
+
+**Verification** (run):
 ```
-cd myblog_backend && pytest                       # incl. new DB tests for all four transitions
-terraform -chdir=infra plan                       # apigateway routes only, no drift
-```
-
----
-
-### Step 3 — contract propagation (workspace → front types)
-
-`docs/contracts` merge first (workspace before front, per the standing order), then
-`api.gen.ts` regenerated and committed in the front repo.
-
-**Verification**:
-```
-cd myblog_front && pnpm exec astro check && pnpm lint
+pytest → 838 passed, 1 skipped   (pre-existing data-dependent skip, unrelated)
+terraform plan → 2 to add, 0 to change, 0 to destroy
 ```
 
 ---
 
-### Step 4 — profile surfaces (front)
+### Step 3 — front: types, profile surfaces, 마이버킷 tile
 
-재평가 중 section, per-row 수정 button + inline editor, 재평가 / 재평가 취소 actions,
-`AlbumRatingBlock`'s 재평가 button. New `src/components/album/reratings.api.ts` mirroring
+`api.gen.ts` regeneration, then the 재평가 중 section on the profile 평가 tab, the new per-row 수정
+button + inline editor, `AlbumRatingBlock`'s 재평가 button, and the third `RatingSmartTile`
+(다시 들어볼 앨범) in `BucketBoard`. New `src/components/album/reratings.api.ts` mirroring
 `plannedRatings.api.ts`.
 
-**Verification**:
-```
-cd myblog_front && pnpm test && pnpm lint && pnpm exec astro check
-```
-plus a real-browser CDP clickthrough on prod: rate → 수정 → 재평가 → the row leaves 평가한 앨범
-and appears under 재평가 중 → rate again → it leaves 재평가 중.
-
----
-
-### Step 5 — 다시 들어볼 앨범 static tile (front)
-
-Third `RatingSmartTile` in `BucketBoard`, drop-to-start, unrated-album drop refused.
+Re-rating an album from the 재평가 중 list opens the album overlay (owner decision) rather than
+offering half-stars inline — the point of a 재평가 is that you went and listened again, so the
+surface that re-rates is the one with the tracklist on it.
 
 **Verification**:
 ```
 cd myblog_front && pnpm test && pnpm lint && pnpm exec astro check
 ```
-plus a CDP drag-drop pass (synthetic `DragEvent` does not work on this app's React handlers —
-the CDP Input drag tool is the only thing that does).
+plus a real-browser CDP clickthrough on prod: rate → 수정 → 재평가 → the row leaves 평가한 앨범 and
+appears under 재평가 중 and in the 다시 들어볼 앨범 tile → rate again → it leaves both. Drag-drop
+onto the tile needs the CDP Input drag tool; synthetic `DragEvent` does not work on this app's React
+handlers.
 
 ---
 
 ## Open questions
 
-1. **Daily-cap interaction (blocks Step 2, decidable inside it).** Completing a 재평가 recreates
-   a deleted `album_reviews` row, so it counts as a CREATE against the per-member daily rating
-   cap, while editing an existing rating does not. Proposed: accept it (the cap exists to bound
-   volume, and a 재평가 round-trip is a real new rating) and add no rerating-specific cap, since
-   starting a 재평가 requires an existing rating and is therefore self-limiting.
-2. **Ordering of the 재평가 중 section (Step 4).** Proposed: newest-first by `created_at`,
-   independent of the 평가한 앨범 sort control below it.
+1. **Daily-cap interaction — RESOLVED inside Step 2 as proposed.** Completing a 재평가 recreates a
+   deleted `album_reviews` row, so it counts as a CREATE against the per-member daily rating cap
+   while editing an existing rating does not. Accepted: a 재평가 round-trip IS a real new rating,
+   and starting one requires an existing rating, so the flow is self-limiting. No rerating-specific
+   cap was added.
+2. **Ordering of the 재평가 중 section (Step 3).** Newest-first by `created_at`, independent of the
+   평가한 앨범 sort control below it.
+
+## Known behaviours (accepted, not defects)
+
+- **A restored 평가 carries today's `created_at`** when the original row had been deleted (the usual
+  case — only a `review_candidate` mark keeps it alive through the withdrawal). Snapshotting the
+  original timestamp would need another column; the member is re-affirming the score today, and the
+  feed's newest-first order reflecting that is defensible.
+- **`review_count` and the community average drop while a 재평가 is open**, and come back when it
+  completes. This follows necessarily from clearing the star for real — there is no version of "the
+  star is gone" that leaves the aggregates untouched.
+- **평가 예정 and 재평가 may coexist for the same album** (owner decision): neither state clears the
+  other, so an album can sit in both the 평가전 tile and the 다시 들어볼 앨범 tile.
 
 ## Decisions log
 
@@ -237,5 +246,9 @@ the CDP Input drag tool is the only thing that does).
 |------|----------|------|
 | 2026-08-17 | 재평가 clears the star for real (no "hold" flag on a still-visible rating); the withdrawn star + one-liner are kept privately so 재평가 취소 can restore them. | 1 |
 | 2026-08-17 | The 재평가 중 list is public on the profile; the withdrawn score behind it is author-only. | 2 |
-| 2026-08-17 | `재평가` is reachable from BOTH the album overlay's 수정 panel and a NEW per-row 수정 button on the profile 평가 list. | 4 |
-| 2026-08-17 | 다시 들어볼 앨범 is a client-synthesized static tile, not a `review_buckets` row — so 평가 완료 removes it from every surface in one write. | 5 |
+| 2026-08-17 | `재평가` is reachable from BOTH the album overlay's 수정 panel and a NEW per-row 수정 button on the profile 평가 list. | 3 |
+| 2026-08-17 | 다시 들어볼 앨범 is a client-synthesized static tile, not a `review_buckets` row — so 평가 완료 removes it from every surface in one write. | 3 |
+| 2026-08-17 | Re-rating from the 재평가 중 list opens the album overlay rather than an inline star input. | 3 |
+| 2026-08-17 | 평가 예정 and 재평가 coexist; neither clears the other. | 3 |
+| 2026-08-17 | Steps consolidated 5 → 3, all approved for the same session (hard rule #5 override, owner instruction). | — |
+| 2026-08-17 | `previous_rating` is NOT NULL (RFC draft had it nullable) — an unrestorable snapshot is not a state this feature has. | 1 |

@@ -126,14 +126,16 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   click-through against prod. Production smoke 19/19 passed post-deploy (quoted on front #410). **This
   was the RFC's last step — all 5 steps now shipped.** →
   `docs/rfcs/ARCH-global-playback-experience.md`.
-- **FEAT-album-rerating** (**draft 2026-08-17; needs owner accept before Step 1**) — 재평가: withdraw a
-  finished 평가 on purpose, re-listen, rate again. The star and one-liner are cleared for real (kept
-  privately in a new `pending_reratings` table so 재평가 취소 can restore them), the album shows under a
-  public 재평가 중 section on the profile 평가 tab and under a static 다시 들어볼 앨범 tile in 마이버킷,
-  and saving a new star ends the 재평가 from both surfaces in one write. No new `review_buckets.kind` —
-  the tile is client-synthesized like 평가완료/평가전, which is what makes the removal automatic rather
-  than a delete call that can be forgotten. 5 steps: shared_db V54 → backend service/routes/apigateway →
-  contract → profile surfaces → 마이버킷 tile. →
+- **FEAT-album-rerating** (**draft 2026-08-17; Steps 1+2 SHIPPED same day** — shared_db #76 `90a6fca`,
+  backend #158, ws #929) — 재평가: withdraw a finished 평가, re-listen, rate again. The star and
+  one-liner are cleared for real (snapshotted in `pending_reratings`, V54, so 재평가 취소 restores
+  them); the album shows under a public 재평가 중 section on the profile 평가 tab and under a static
+  다시 들어볼 앨범 tile in 마이버킷; saving a new star ends the 재평가 from both surfaces in one
+  write, because both are views of that table rather than separate storage. No new
+  `review_buckets.kind` — the tile is client-synthesized like 평가완료/평가전. Steps consolidated
+  5 → 3 on owner instruction; **Step 3 (front: types, profile surfaces, 마이버킷 tile) is the only
+  one left**, and it is what makes the feature reachable — nothing is user-visible until it lands.
+  V54 was applied to prod + the Neon test branch before the backend pin merged. →
   `docs/rfcs/FEAT-album-rerating.md`.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 

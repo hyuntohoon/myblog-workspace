@@ -253,6 +253,27 @@ resource "aws_apigatewayv2_route" "tracked_artists_spotify_import_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Reratings (FEAT-album-rerating) ---
+# 재평가: withdraw a finished 평가 so the album can be re-listened and rated
+# again. PUT starts one (409 when there is no 평가 to withdraw), DELETE cancels
+# and restores the withdrawn score. GET /api/me/reratings rides the edge_guard
+# GET catch-all — only these two mutations need a JWT route here.
+resource "aws_apigatewayv2_route" "reratings_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/me/reratings/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "reratings_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/me/reratings/{album_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Album reviews (FEAT-multi-user-accounts Phase 1) ---
 # The public reads — GET /api/reviews/albums/{id}, GET /api/members[/{handle}] —
 # ride the edge_guard GET catch-all (api_get_proxy). Only the member/owner
