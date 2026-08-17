@@ -196,7 +196,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   gated on an explicit yes, expected to be dropped per the RFC's own text (no consumer, Non-goals already
   forbid a disc-number UI). → `docs/rfcs/DATA-multidisc-track-order.md`.
 
-- **A11Y-modal-background-inert** (**accepted 2026-08-16; Step 1 shipped 2026-08-16 — front #411**) —
+- **A11Y-modal-background-inert** (**accepted 2026-08-16; Steps 1+2 SHIPPED — front #411, #412**) —
   promoted from Frozen this session on owner approval, as `ARCH-overlay-modal-isolation` OQ2 recommended
   (a separate RFC, not a reopening of that one). While a scrim modal is open, nothing removes the page
   behind it from the accessibility tree: **zero occurrences of `inert` in `myblog_front/src`**.
@@ -228,13 +228,22 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `pnpm test` 654 passed / 0 skipped incl. 8 new tests, each checked against a deliberately broken
   build so none is tautological.
 
-  **Next = Step 2** — migrate `ActionSheet`, `BucketPickerSheet` and `PocketDesignSettings` onto
-  `useDismissable`. They are scrim modals with `aria-modal="true"` that never adopted it, so they still
-  have no focus trap and no focus restore, and `ActionSheet` still hand-rolls a `window` ESC listener
-  outside the nesting stack. Sequenced after Step 1 so a regression on those three surfaces stays
-  separable. Same verification bar: `pnpm lint` / `astro check` / `pnpm test` plus a real-browser CDP
-  pass on each of the three (ESC closes exactly one layer, Tab cycles inside the sheet, focus returns
-  to the trigger).
+  **Step 2 shipped 2026-08-16 (front #412), found already-merged and docs-synced 2026-08-17.**
+  `ActionSheet`, `BucketPickerSheet` and `PocketDesignSettings` now call
+  `useDismissable(true, onClose, ref, { lockScroll: true })` and inherit background `inert` from Step 1.
+  Two RFC current-state claims were wrong and corrected on implementation: `BucketPickerSheet` had the
+  same hand-rolled `window` ESC listener the RFC attributed only to `ActionSheet` (both deleted, moved to
+  the shared `document`-level listener), and `PocketDesignSettings` had `role="dialog"` with **no**
+  `aria-modal` and no keyboard exit at all (`aria-modal="true"` added). `pnpm lint` clean, `astro check` 0
+  errors (301 files), `pnpm test` 663/663 (+9, each checked against the pre-PR code to confirm it
+  actually fails there — none tautological). CDP against real prod data, all three: background a11y
+  nodes went from 63/218/(portal, not separately counted) down to 2/0/0 with marks applied (the
+  `PocketDesignSettings` 2 are Step 1's documented shape — its own island's other tray controls, not a
+  regression), autofocus/Tab-wrap/ESC/focus-restore all confirmed with real key input.
+  **Production smoke 19/19 passed** (run 2026-08-17 against the deployed HEAD, quoted on front #412 — no
+  smoke result had been posted since the 2026-08-16 merge, closing that gap). **This was the RFC's last
+  step — both steps now shipped.** Status remains `accepted`; promoting to `done`/archiving needs explicit
+  owner sign-off, not done here. → `docs/rfcs/A11Y-modal-background-inert.md`.
 
 - **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval, and
   its blocking question resolved in the same pass: the `PERF-home-feed-latency` dependency note is
