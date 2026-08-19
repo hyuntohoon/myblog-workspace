@@ -240,10 +240,22 @@ handlers.
 - **평가 예정 and 재평가 may coexist for the same album** (owner decision): neither state clears the
   other, so an album can sit in both the 평가전 tile and the 다시 들어볼 앨범 tile.
 
+## Post-archive follow-on (non-RFC, 2026-08-19)
+
+Opening a 재평가 also adds the album into the owner's `spotify_library` bucket (the same B-set
+`library_sync_service.py` reads) and enqueues a sync — a 다시 들어볼 앨범 is ready to stream. Owner-only
+(`is_owner` gate, matching every other Spotify-lane route until Phase 3b); add-only, cancelling or
+completing a 재평가 never removes it. No schema change — reused `get_or_create_spotify_library_bucket`
++ `_add_album_item` (bypassing `add_item()`'s manual-add guard on purpose, the same way the worker's own
+PULL step does). `myblog_backend` #159 `4e935ad` + #160 `a503899` (openapi.json regen follow-up). No new
+RFC — no schema/contract-shape change, single repo, single session.
+
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-08-19 | Rerating→Spotify-library trigger scoped owner-only, not all members — building real per-member Spotify-library write capability (worker client methods, `spotify_library_albums` unique-constraint migration, per-user reconcile) was ruled out of scope for this follow-on. | post-archive |
+| 2026-08-19 | Add-only: cancelling or completing a 재평가 never removes the album from the Spotify library. | post-archive |
 | 2026-08-17 | 재평가 clears the star for real (no "hold" flag on a still-visible rating); the withdrawn star + one-liner are kept privately so 재평가 취소 can restore them. | 1 |
 | 2026-08-17 | The 재평가 중 list is public on the profile; the withdrawn score behind it is author-only. | 2 |
 | 2026-08-17 | `재평가` is reachable from BOTH the album overlay's 수정 panel and a NEW per-row 수정 button on the profile 평가 list. | 3 |

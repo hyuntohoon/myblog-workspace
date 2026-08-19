@@ -126,21 +126,19 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   click-through against prod. Production smoke 19/19 passed post-deploy (quoted on front #410). **This
   was the RFC's last step — all 5 steps now shipped.** →
   `docs/rfcs/ARCH-global-playback-experience.md`.
-- **FEAT-album-rerating** (**all 3 steps SHIPPED + prod-verified 2026-08-17/18** — shared_db #76
-  `90a6fca`, backend #158 `4b0471a`, ws #929 `a5a9af9`, front #421 `60c88f9`; **RFC Status still
-  `draft` — needs an owner status promotion, rule #7**) — 재평가: withdraw a finished 평가,
-  re-listen, rate again. The star and one-liner are cleared for real and snapshotted in
-  `pending_reratings` (V54) so 재평가 취소 restores them; the album appears under a public 재평가 중
-  section on the profile 평가 tab and under the static 다시 들어볼 앨범 tile in 마이버킷; saving a new
-  star ends the 재평가 from both surfaces in one write, because both are views of that table rather
-  than separate storage. No new `review_buckets.kind`. The two API Gateway routes were applied to prod
-  by hand (owner approved) and verified live with JWT authorization. Prod verification: standard smoke
-  19/19, plus a 20-assertion live lifecycle check (withdraw → public feed drop → author-only score →
-  idempotent restart → cancel-restores → completion-ends-it → 409 with no 평가) quoted on front #421.
-  **Not exercised:** drag-and-drop onto the 다시 들어볼 앨범 tile in a browser (its handler is the
-  same verified `startRerating()`; the tile is a third instantiation of the unchanged
-  `RatingSmartTile`). →
-  `docs/rfcs/FEAT-album-rerating.md`.
+- **FEAT-album-rerating** — RFC archived `done` (`docs/archive/done/rfcs/FEAT-album-rerating.md`).
+  **Follow-on shipped 2026-08-19** (non-RFC, single session — no schema change, reused the existing
+  `spotify_library` pipeline): opening a 재평가 now also adds the album into the owner's
+  `spotify_library` bucket and enqueues a sync, gated `is_owner` (the Spotify lane stays owner-only
+  until Phase 3b). `myblog_backend` #159 `4e935ad` + contract-regen follow-up #160 `a503899`. Prod
+  smoke: non-owner round-trip (PUT/GET/DELETE `/api/me/reratings`) verified against the deployed
+  Lambda, no 5xx; the owner-only Spotify-library side effect itself needs the owner's own live
+  verification (no owner Cognito credentials available to this session) — see #159's PR comment.
+  **Process gap hit this session**: this is a contract-touching change (openapi.json diff) and
+  current `CLAUDE.md` requires a `reviewer` subagent pass for that — but `reviewer` is not in this
+  session's Agent roster (same gap `~/.claude/myblog-rfc-chain.json`'s A11Y-chain observation already
+  flagged 2026-08-16). Merged without that independent pass; flagging per CLAUDE.md's own instruction
+  to stop and say so rather than silently count it satisfied.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
   **Next gate: re-measure, baseline reset 2026-08-15.** Gate condition = since front `2dcabd0`(2026-08-15, front #406 merge — `/search` album grid moved onto the canonical `AlbumCard` with a 담기 entrance, the most direct "find an album" path gaining one for the first time), bucket additions (`review_bucket_items` where `item_type='album'`) ≥10 while owner ratings (`album_reviews.rating IS NOT NULL` for `user_id = OWNER_SUB`) remain 0. If additions <10, **do not decide**.
