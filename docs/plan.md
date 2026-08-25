@@ -139,6 +139,28 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   session's Agent roster (same gap `~/.claude/myblog-rfc-chain.json`'s A11Y-chain observation already
   flagged 2026-08-16). Merged without that independent pass; flagging per CLAUDE.md's own instruction
   to stop and say so rather than silently count it satisfied.
+- **BEST NEW ALBUM toggle from the rating surface** — shipped 2026-08-25 (non-RFC, single session,
+  owner explicitly chose to skip an RFC for this — no schema change). Owner-only mark/unmark of the
+  existing `albums.best_new` column (introduced by the archived `FEAT-writer-lowfreq-redesign`) directly
+  from `AlbumRatingBlock`, without opening the post editor — a second entry point onto the same column
+  the post editor's `subject_best_new` already writes. Traced `content_sync.py` / `publish_service.py` /
+  `post_service.py` first to confirm publish/sync never unconditionally overwrites the column (only an
+  explicit `subject_best_new` value from the owner-only `/api/posts` write does), so the two paths don't
+  fight — last-writer-wins between them is the same as it was before this change. New
+  `PUT /api/reviews/albums/{album_id}/best-new` (`require_owner`); `best_new` added to the public rating
+  aggregate; new API Gateway route, `terraform apply` run this session (1 add / 0 change / 0 destroy).
+  `myblog_backend` #161 `a75b943`, `myblog_front` #424 `9e34228`, ws #933 `2784f97`. Backend `pytest` 683
+  passed / 170 skipped (all skips are the standing `TEST_DB_URL not set` Neon-test-branch fallback, not
+  introduced here); front `pnpm lint` / `astro check` / `pnpm test` all green (710/710).
+  **Process gap hit again**: contract+infra-touching change, and `reviewer` is still missing from the
+  Agent roster (same gap as the `FEAT-album-rerating` follow-on above and `~/.claude/myblog-rfc-chain.json`'s
+  A11Y-chain observation, 2026-08-16/19) — this time flagged to the owner mid-session rather than merged
+  silently; owner chose to substitute an independent `general-purpose` review following the `reviewer.md`
+  brief verbatim (✅ Pass, two cosmetic nits fixed) plus the `security-review` skill (no findings). Prod
+  smoke: baseline `scripts/smoke.sh prod` 19/19, plus a targeted check confirming `best_new` on the public
+  aggregate and a 403 for a non-owner token on the new route (quoted on all three PRs). **Not verified**:
+  the actual owner-success toggle path, since that needs the live owner Cognito session rather than the
+  smoke test member account — recommend one live click-test as the owner.
 - **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
 
   **Next gate: re-measure, baseline reset 2026-08-15.** Gate condition = since front `2dcabd0`(2026-08-15, front #406 merge — `/search` album grid moved onto the canonical `AlbumCard` with a 담기 entrance, the most direct "find an album" path gaining one for the first time), bucket additions (`review_bucket_items` where `item_type='album'`) ≥10 while owner ratings (`album_reviews.rating IS NOT NULL` for `user_id = OWNER_SUB`) remain 0. If additions <10, **do not decide**.
