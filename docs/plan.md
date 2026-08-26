@@ -6,6 +6,15 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+- **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, draft) — main governance, keyless
+  deploys, one JWT verifier. Steps 1–2 (rulesets on all six repos) and Step 4 (both Cognito guards
+  hardened + real signed-token vectors) shipped 2026-08-26; Step 3b (front OIDC pilot) in flight.
+  **Carries a P0 the owner must close personally**: the AWS *root account* access key is the
+  credential in `myblog_front`'s Actions secrets, and `myblog_front` is a public repository — root
+  keys can only be deleted by signing in as root with MFA, so Step 3d-5 is not Claude's to perform.
+  Steps 3c (backend/music/worker lanes), 5 (polyrepo assessment) and 6 (verifier consolidation) not
+  started.
+
 > 2026-08-10 reconciliation pass: checked every row below against code/tests/deployment/RFC acceptance
 > criteria (not just prior labels). Six RFCs whose every step was shipped+verified, with nothing left but
 > a ceremonial status promotion, were promoted to `done` and archived — `docs/archive/done/rfcs/`

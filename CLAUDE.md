@@ -66,7 +66,20 @@ Violating these is an outage, not a style problem.
 
 ## Verification
 
-**Merge gate.** No branch protection exists on any repo (verified 2026-08-09), so nothing external blocks a merge. The gate is Claude running all applicable items below and reporting honestly. A missing or skipped item blocks merge exactly as a red one does.
+**Merge gate.** Since 2026-08-26 every repo carries two rulesets on its default branch (`SEC-system-hardening` Step 1): `main-protection` — direct push, force push and branch deletion rejected, changes must arrive as a PR — and, on the five repos that have PR CI, `main-required-checks`. `bypass_actors` is empty everywhere, so this applies to the owner too; `gh pr merge --admin` no longer overrides it. **Required approvals are 0 by design**: a sole maintainer cannot approve their own PR, so 1 would be a permanent deadlock, not a stricter gate. The externally enforced part is therefore *"every change is a reviewable PR"* plus the required checks below; **everything else in this list is still Claude self-attesting**, and a missing or skipped item blocks merge exactly as a red one does.
+
+Required status checks, per repo (these are check names GitHub actually produces — none is path-filtered, and `deploy` is deliberately excluded because it reports `skipped` on PR runs):
+
+| Repo | Required checks |
+|---|---|
+| `myblog_front` | `check` |
+| `myblog_backend` | `check`, `test`, `contract`, `integration` |
+| `myblog_music` | `test`, `contract`, `integration` |
+| `myblog_worker` | `test` |
+| `myblog_shared_db` | `test` |
+| `myblog-workspace` | **none** — it has no `pull_request`-triggered workflow, so a required check would block every PR forever |
+
+Emergency access is *disable the ruleset in repo settings* (an audited event), not a standing bypass actor. An urgent fix is still a PR the owner can merge immediately with zero approvals, and that path does not depend on CI.
 
 - backend / music / worker: `pytest`
 - frontend: `pnpm lint`, `pnpm exec astro check`, `pnpm test`
@@ -78,7 +91,7 @@ Violating these is an outage, not a style problem.
 - API contract change followed `docs/contracts/README.md` (service `openapi.json` regenerated and committed, workspace contract merged, frontend types verified)
 - auth-touching change → both guard copies read and checked
 
-If required status checks are ever added to `main`, they become authoritative and Claude stops re-attesting the items they cover.
+The required checks above are authoritative for what they cover — Claude does not re-attest `pytest` on a repo whose `test` check is required and green. Everything they do **not** cover still needs running and reporting: `terraform plan`, the real-browser clickthrough, local smoke, the `infra/apigateway.tf` route match, the contract procedure, and reading both auth guard copies. The workspace repo has no required check at all, so nothing there is covered.
 
 A verification result may be cited only if it came from the current HEAD.
 

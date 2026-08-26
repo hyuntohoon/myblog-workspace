@@ -16,7 +16,9 @@ Source of truth: Terraform state in **S3** (`myblog-terraform-state-338183196042
 | Cognito | `MyBlogAdminPool` (Pool ID: `ap-northeast-2_54vEJKEU5`, SPA Client ID: `68ccmcanfbvla9qbovnb9b18bt`) |
 | Cognito hosted UI domain | `ap-northeast-254vejkeu5.auth.ap-northeast-2.amazoncognito.com` |
 | SQS | `blogSQS` + DLQ via redrive policy; consumer uses `ReportBatchItemFailures` |
-| S3 bucket | `myblog-prod-web` |
+| S3 bucket | `myblog-prod-web` (**versioning disabled** — a partially-completed front deploy has no object-level rollback; recovery is redeploying the previous commit) |
+| GitHub OIDC provider | `arn:aws:iam::338183196042:oidc-provider/token.actions.githubusercontent.com` — created by hand 2025-10-14, **referenced** by `infra/github_oidc.tf` via a data source, deliberately not Terraform-managed (account-wide trust anchor; a `destroy` of this stack must not be able to remove it) |
+| GitHub deploy role (front) | `myblog-github-front-deploy` (`infra/github_oidc.tf`) — assumed via OIDC by `myblog_front`'s deploy job. Trust pins `sub`, `job_workflow_ref`, `repository_owner` and `aud` with `StringEquals`. Grants only `s3:ListBucket` on `myblog-prod-web`, `s3:PutObject`/`s3:DeleteObject` under it, and `cloudfront:CreateInvalidation` on `E2Q2JH5EAYVU1O`. |
 | CloudFront | `d2y4n52sgjlrz6.cloudfront.net` → `www.ratemymusic.blog` |
 | Neon DB | Serverless Postgres; pooler URL stored in each service's SSM Parameter Store SecureString param |
 | Secrets (SSM) | `/myblog/backend`, `/myblog/music`, `/myblog/worker` (one per service; SSM SecureString, leading slash; `SECRETS_PARAM` env var; fetched once per cold start via `@lru_cache`). Plus `/myblog/spotify` — Spotify user OAuth client_id/secret + refresh_token (`SPOTIFY_SECRETS_PARAM`; read by worker for `/me/player/*`, by backend for connection status), `/myblog/smoke` — the smoke user's Cognito credentials, and `/myblog/nightly-agent` — the nightly draft agent's Cognito credentials (see "Nightly draft agent" below). Secrets Manager emptied per CHORE-secrets-ssm-migration. |

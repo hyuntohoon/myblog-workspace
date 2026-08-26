@@ -31,6 +31,14 @@ resource "aws_lambda_function" "backend" {
       # because this was never set. With auth.py now fail-closed, APPLY THIS
       # (and verify JWKS reachable) BEFORE deploying the fail-closed backend.
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
+      # SEC-system-hardening: the app clients whose tokens this service accepts.
+      # Comma-separated; UNSET FAILS CLOSED (503) in app/core/auth.py, so this must
+      # be applied BEFORE the code that reads it is deployed. Only the SPA client is
+      # ever used — by the browser app, scripts/smoke.py and scripts/buckit_nightly.py
+      # — and it is the same client the API Gateway authorizer pins
+      # (infra/apigateway.tf), so the two layers now agree. MyBlogAdminClient is
+      # deliberately NOT listed: nothing in any repo authenticates with it.
+      COGNITO_ALLOWED_CLIENT_IDS = aws_cognito_user_pool_client.spa_client.id
       # FEAT-multi-user-accounts 0d: DELETE /api/me refuses this sub (403) so the
       # blog-admin identity can't self-delete via the member flow. Value = the
       # owner account's Cognito sub. Points at zlxlgus123@gmail.com (CONFIRMED),
@@ -101,6 +109,14 @@ resource "aws_lambda_function" "music" {
       QUEUE_NAME           = "blogSQS"
       SECRETS_PARAM        = "/myblog/music" # CHORE-secrets-ssm-migration: SSM Parameter Store
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.myblog_admin.id
+      # SEC-system-hardening: the app clients whose tokens this service accepts.
+      # Comma-separated; UNSET FAILS CLOSED (503) in app/core/auth.py, so this must
+      # be applied BEFORE the code that reads it is deployed. Only the SPA client is
+      # ever used — by the browser app, scripts/smoke.py and scripts/buckit_nightly.py
+      # — and it is the same client the API Gateway authorizer pins
+      # (infra/apigateway.tf), so the two layers now agree. MyBlogAdminClient is
+      # deliberately NOT listed: nothing in any repo authenticates with it.
+      COGNITO_ALLOWED_CLIENT_IDS = aws_cognito_user_pool_client.spa_client.id
       # FEAT-music-search-recall Step 4 (A1): activate the pg_trgm fuzzy/typo
       # search path. Safe only after V12 (pg_trgm extension + GIN indexes) is
       # applied to prod Neon — done 2026-06-05. A/B via the recall gate:
