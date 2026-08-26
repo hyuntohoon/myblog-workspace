@@ -37,6 +37,16 @@ locals {
   # `workflow_run`, `schedule`, and every other event that runs on the default branch.
   # `job_workflow_ref` closes that: only this one workflow file, on this one ref,
   # can assume the role, whatever event started it.
+  #
+  # A `repository_owner = "hyuntohoon"` condition was tried alongside these and is
+  # deliberately NOT here: with it present, every assume-role attempt failed with
+  # `Not authorized to perform sts:AssumeRoleWithWebIdentity`. Established by bisect —
+  # aud+sub alone deployed green (run 32998312450), and adding job_workflow_ref stayed
+  # green (run 32998882925), so `repository_owner` was the only condition that broke it.
+  # Why it does not match was not determined, and is not worth determining: the claim is
+  # redundant, since both `sub` and `job_workflow_ref` already begin with the owner.
+  # The failure is itself the negative test this role otherwise lacks — a condition that
+  # does not match produces a hard deny, not a silent pass.
   github_front_workflow_ref = "${local.github_owner}/myblog_front/.github/workflows/main.yml@refs/heads/main"
 }
 
@@ -62,7 +72,6 @@ resource "aws_iam_role" "github_front_deploy" {
           "token.actions.githubusercontent.com:aud"              = "sts.amazonaws.com"
           "token.actions.githubusercontent.com:sub"              = local.github_front_sub
           "token.actions.githubusercontent.com:job_workflow_ref" = local.github_front_workflow_ref
-          "token.actions.githubusercontent.com:repository_owner" = local.github_owner
         }
       }
     }]
