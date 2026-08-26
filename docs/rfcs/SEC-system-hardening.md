@@ -250,7 +250,7 @@ repo has a `paths:` filter, so no PR can be permanently blocked by a check that 
 
 **3a — remove the orphan roles.** Done 2026-08-26; see ADR 0009 for definitions and reasoning.
 
-**3b — front pilot.** Done 2026-08-26. `infra/github_oidc.tf` defines
+**3b — front pilot.** Done and **production-verified** 2026-08-27 (run `32998882925`: both S3 syncs, CloudFront invalidation and the post-deploy health smoke all green; `https://www.ratemymusic.blog/` 200). `infra/github_oidc.tf` defines
 `myblog-github-front-deploy` with `s3:ListBucket` on `myblog-prod-web`, `s3:PutObject` +
 `s3:DeleteObject` under it, and `cloudfront:CreateInvalidation` on the one distribution — the exact
 set an empirical `aws s3 sync --dryrun --debug` shows the job issuing, and nothing more. Trust
@@ -302,7 +302,7 @@ harmless. This is why the key deletions come *after* the green deploy, not with 
 
 ---
 
-### Step 4 — harden both Cognito guards, with real token vectors
+### Step 4 — harden both Cognito guards, with real token vectors — **DONE 2026-08-27, production-verified**
 
 Behaviour changes, applied to **both** copies in one change per repo:
 
@@ -359,6 +359,18 @@ lives at `tests/`, is never collected). **It runs in no CI job at all.** It also
 `/api/search/candidates` while the router is mounted at `/api/music/search` (`app/main.py:31`), so
 it would 404 even with a database. Recorded as Open question 5; not fixed here, because it is
 unrelated to auth and deserves its own change.
+
+**Shipped**: `myblog_music#69` (deploy run `33003554504`), then `myblog_backend#166` (run
+`33004045319`). Production verified after each: `./scripts/smoke.sh prod` → **19 passed, 0 failed**,
+and direct probes of every path this touched — valid SPA-client token 200, no token 401, garbage
+token 401, member-on-owner-route 403, public reads 200, on both services. **No request returned
+503**, which is the specific thing to check here: the allowlist fails closed when unset, so one 503
+would have meant the Terraform variable had not reached the function.
+
+Observed during the backend deploy and recorded rather than left implicit: `deploy` completed while
+`integration (neon)` was still running, because `deploy.needs` is `[check, test, contract]`. The
+merge itself was gated — all five required checks were green on the PR — but the post-merge push run
+does not wait. See Step 5's findings.
 
 **Rollback**: revert the two service PRs. The Terraform env var can stay — the reverted code ignores
 it, exactly as the pre-change code does now. Both deploy workflows call only
