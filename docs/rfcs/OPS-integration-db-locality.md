@@ -28,8 +28,9 @@ The suite has to get fast **before** it is allowed to gate.
   whatever catalog the gate DB holds"; a small branch "will report most cases as data-misses rather than
   recall results"). Pointing it at a synthetic fixture would not make it faster, it would make it
   meaningless. It stays on a real catalog DB.
-- **No removal of Neon from CI.** A small Neon-targeted job remains for behavior only Neon has — see
-  Step 4. Deleting it would trade 12 minutes for a blind spot.
+- ~~**No removal of Neon from CI.**~~ **Superseded 2026-08-27 by the owner:** the completed mapping
+  found no backend assertion about Neon itself, so the 170-test backend suite becomes local-only.
+  A future production-data or Neon-platform contract needs its own specified assertions and thresholds.
 - **No test rewrites.** Assertions and test bodies stay as they are; the only thing that changes is
   where the rows they read come from. If a test cannot pass on a seeded fixture without changing its
   assertion, that is a finding to report, not a licence to edit the assertion (OQ2).
@@ -175,10 +176,9 @@ bans Secrets Manager outright. The comment is dead instructions.
   install, not query time.
 - Loading the canonical DDL every CI run turns the mirror-identity convention into something CI
   executes, so a file that no longer loads becomes a red job instead of a silent divergence.
-- A separate, small `integration-neon` job keeps the handful of assertions that are about Neon rather
-  than about Postgres — pooler semantics, the `default_transaction_read_only` leak
-  ([[reference-neon-pooler-readonly-leak]]), connection lifetime. It runs on `main` and on demand, not
-  on every PR.
+- No backend Neon job remains: the mapping found no Neon-only assertion to preserve. Historical
+  pooler/read-only failures belong to workspace scripts, not this backend suite; a future targeted
+  contract must specify its own behavior and thresholds before adding a remote-DB job.
 - `deploy: needs: [check, test, contract, integration]`. A commit whose DB tests fail cannot reach
   production.
 - The skip guard fails on **any** skip in the integration suite, not on a grep of known reasons.
@@ -314,18 +314,17 @@ guard ([[feedback-verify-by-running-not-reading]]).
 
 ---
 
-### Step 4 — split off `integration-neon`, then gate `deploy`
+### Step 4 — remove the Neon control, then gate `deploy`
 
-Move the Neon-specific assertions into `tests/integration_neon/` with its own job (`main` +
-`workflow_dispatch`, `TEST_DB_URL` from SSM, not a PR gate). Then add `integration` to
-`deploy.needs`.
+Remove the temporary Neon matrix leg, keep the exact required local `integration` context, then add
+`integration` to `deploy.needs`.
 
 **Implementation mapping — 2026-08-27:** there are currently no Neon-only assertions to move. Step 1
 proved that all 170 tests exercise engine-independent Postgres behavior against both targets, and the
 pooler/read-only examples above are historical workspace-script failures rather than backend tests.
-Do not invent a new contract or create an empty false-green suite in this step. Split the existing
-170-test Neon compatibility control into its own advisory `integration_neon` job on `main` and
-`workflow_dispatch`; a future targeted data-shape contract can replace that broad control when its
+Do not invent a new contract or create an empty false-green suite in this step. The owner clarified
+that the goal is to stop running this backend suite on Neon, not to retain its 17-minute duplicate as
+an advisory job. A future targeted data-shape or Neon-platform contract can be added when its
 assertions and thresholds are specified.
 
 **Verification**:
@@ -389,7 +388,7 @@ this wrong stops deploys rather than merely reporting late.
    merge?**~~ **RESOLVED 2026-08-27 (owner): yes; keep it required on every merge.** The measured
    53-second job adds roughly 17 seconds beyond the other required checks and protects real Postgres
    transaction, constraint, `ON CONFLICT`, and cascade behavior. Production-scale data-shape behavior
-   remains the responsibility of the separate advisory Neon job.
+   is not claimed by this suite and needs a separately specified future contract.
 
 ## Decisions log
 
@@ -401,4 +400,5 @@ this wrong stops deploys rather than merely reporting late.
 | 2026-08-26 | OQ1/OQ2/OQ3 closed by the Step 1 run; Step 2's CI target tightened from a guessed 90s to 60s against the measured 12.04s baseline | 1, 2 |
 | 2026-08-26 | Step 2 shipped (backend #164). Final PR parity: 170/170, 0 skips on both legs; local job 49s vs Neon 14m31s. Main local job 46s; deploy 27s + health smoke green. Local retained the exact required check context `integration` after the first matrix name made an otherwise-green PR unmergeable | 2 |
 | 2026-08-26 | Step 3 shipped (backend #165). Intentional red proof: required `integration` failed after 169 passed / 1 skipped. Clean PR parity: 170/170, 0 skips on both legs; local job 53s vs Neon 17m3s. Squash `4ebc5be` deployed in 36s with production database health smoke green | 3 |
-| 2026-08-27 | Owner resolved OQ5: keep the 170-test local Postgres suite required on every merge; its measured 53-second job adds roughly 17 seconds beyond the other gates, while production-scale data-shape behavior stays in the advisory Neon job | 4 |
+| 2026-08-27 | Owner resolved OQ5: keep the 170-test local Postgres suite required on every merge; its measured 53-second job adds roughly 17 seconds beyond the other gates | 4 |
+| 2026-08-27 | Mapping found zero Neon-only backend assertions; owner clarified that the suite should stop running on Neon. Remove the temporary Neon matrix leg rather than create an empty or duplicate advisory job | 4 |
