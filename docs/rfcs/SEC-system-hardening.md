@@ -254,8 +254,18 @@ conditions, all `StringEquals`:
 aud               = sts.amazonaws.com
 sub               = repo:hyuntohoon/myblog_front:ref:refs/heads/main
 job_workflow_ref  = hyuntohoon/myblog_front/.github/workflows/main.yml@refs/heads/main
-repository_owner  = hyuntohoon
 ```
+
+A fourth condition, `repository_owner = hyuntohoon`, was applied first and **broke the deploy**:
+every assume-role attempt returned `Not authorized to perform sts:AssumeRoleWithWebIdentity`. It was
+removed after a bisect — `aud`+`sub` alone deployed green (run `32998312450`), then adding
+`job_workflow_ref` stayed green (run `32998882925`), leaving `repository_owner` as the only
+condition that could have caused it. Why it fails to match was not determined and is not worth
+determining: the claim is redundant, because `sub` and `job_workflow_ref` both already begin with
+the owner. The episode is worth recording for two reasons — it is the negative test this role would
+otherwise lack (a non-matching condition produces a hard deny, not a silent pass), and it is a
+reminder that an OIDC condition key is only useful if you have watched a real run succeed *and*
+fail with it.
 
 `job_workflow_ref` is not decoration. `sub` pins the ref, not the workflow, and a
 `pull_request_target` run reports `GITHUB_REF` as the *base* branch — so its `sub` is also
