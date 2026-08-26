@@ -292,8 +292,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   promoted this session** — kept Active so it stops being re-litigated, not because 1.7% is urgent.
   No RFC file; scope is small enough to live in this row.
 
-- **OPS-integration-db-locality** (**accepted 2026-08-26; Step 1 SHIPPED**, backend #163; Steps 2–5
-  not started) — `myblog_backend`'s `integration`
+- **OPS-integration-db-locality** (**accepted 2026-08-26; Steps 1–2 SHIPPED**, backend #163, #164;
+  Steps 3–5 not started) — `myblog_backend`'s `integration`
   job takes **13m6s**, of which 765s is the `pytest` call alone; the cost is per-test network latency
   (169 tests × ~4.5s each, uniform across files) to a Neon branch in **ap-southeast-1** read from US
   runners, not test count — the same suite runs in 321s from this laptop. Proposes a Postgres service
@@ -307,8 +307,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **Step 1 closed that**: the catalog is seeded into each test's own rolled-back transaction, and parity
   was proved on both engines in the same pass — **170/170, 0 skips, local `postgres:16` 12.04s vs Neon
   367.19s** (was 169 + 1 skip; the skip became an assertion). Neon pollution asserted at 0 leftover
-  rows. **Interim**: seeding costs round trips, so the still-Neon CI job goes ~13min → ~14min until
-  Step 2 moves it onto a container. Owner-answered along the way: `.sql` fixture, canonical DDL as the
+  rows. **Step 2 moved the suite onto a CI `postgres:16` service container**: final PR parity stayed
+  **170/170, 0 skips** on both legs, but the whole local job finished in **49s** versus Neon
+  **14m31s**; main repeated local in **46s**, then deployed in 27s with health smoke green. The local
+  matrix leg deliberately retains the exact required check name `integration` — the first green run
+  renamed it `integration (local)` and was correctly blocked from merge because the ruleset could no
+  longer find its required context. Owner-answered along the way: `.sql` fixture, canonical DDL as the
   schema source (loads into stock `postgres:16` unmodified — 56 tables, 0 errors), and no assertion
   turned out to need real catalog data. → `docs/rfcs/OPS-integration-db-locality.md`.
 
