@@ -292,8 +292,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   promoted this session** — kept Active so it stops being re-litigated, not because 1.7% is urgent.
   No RFC file; scope is small enough to live in this row.
 
-- **OPS-integration-db-locality** (**accepted 2026-08-26; Steps 1–2 SHIPPED; Step 3 IN PROGRESS**,
-  backend #163, #164; Steps 4–5 not started) — `myblog_backend`'s `integration`
+- **OPS-integration-db-locality** (**accepted 2026-08-26; Steps 1–3 SHIPPED**,
+  backend #163, #164, #165; Steps 4–5 not started) — `myblog_backend`'s `integration`
   job takes **13m6s**, of which 765s is the `pytest` call alone; the cost is per-test network latency
   (169 tests × ~4.5s each, uniform across files) to a Neon branch in **ap-southeast-1** read from US
   runners, not test count — the same suite runs in 321s from this laptop. Proposes a Postgres service
@@ -312,7 +312,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **14m31s**; main repeated local in **46s**, then deployed in 27s with health smoke green. The local
   matrix leg deliberately retains the exact required check name `integration` — the first green run
   renamed it `integration (local)` and was correctly blocked from merge because the ruleset could no
-  longer find its required context. Owner-answered along the way: `.sql` fixture, canonical DDL as the
+  longer find its required context. **Step 3 replaced the reason-matching skip grep with a deterministic
+  JUnit zero-skip invariant**: the required local job was deliberately made red at **169 passed / 1
+  skipped**, then the clean PR run passed **170/170 with zero skips** on both local (53s job, 3.68s
+  pytest) and Neon (17m3s job). Squash `4ebc5be` deployed in 36s with the production database health
+  smoke green. Owner-answered along the way: `.sql` fixture, canonical DDL as the
   schema source (loads into stock `postgres:16` unmodified — 56 tables, 0 errors), and no assertion
   turned out to need real catalog data. → `docs/rfcs/OPS-integration-db-locality.md`.
 

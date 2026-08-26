@@ -3,7 +3,7 @@
 - **Status**: **accepted 2026-08-26** (explicit owner approval in-session — CLAUDE.md rule #7 —
   answering the recommendations verbatim: `.sql` catalog fixture, canonical DDL as the schema source,
   and any assertion that cannot survive a seeded catalog moves to `integration_neon` rather than being
-  relaxed). **Steps 1–2 shipped** (backend #163, #164); Steps 3–5 not started.
+  relaxed). **Steps 1–3 shipped** (backend #163, #164, #165); Steps 4–5 not started.
 - **Owner**: 오너
 - **Created**: 2026-08-26
 - **Plan row**: `plan.md` → OPS-integration-db-locality
@@ -281,7 +281,28 @@ the 765s was latency, and Step 1 has already demonstrated it on this machine.
 
 ---
 
-### Step 3 — the skip guard stops being a grep
+### Step 3 — the skip guard stops being a grep — **SHIPPED 2026-08-26** (backend #165)
+
+**Outcome — the invariant fired on command, then passed cleanly on both engines.** The workflow now
+runs pytest with `-p no:randomly --strict-markers`, writes a JUnit XML report, and fails whenever that
+report contains any skipped testcase. It no longer depends on skip reason text or terminal-summary
+formatting. The local matrix leg retained the exact required context `integration`; the Neon control
+remained in place for Step 4.
+
+The deliberate-red run
+[32980509452](https://github.com/hyuntohoon/myblog_backend/actions/runs/32980509452) added one temporary
+`pytest.skip`: pytest reported **169 passed / 1 skipped in 4.26s**, then the required `integration` job
+failed in `Enforce zero integration skips` with `1 integration test(s) skipped; expected zero`. The
+temporary skip was removed before merge; the existing PR concurrency policy superseded that run
+without waiting for its obsolete Neon leg.
+
+The clean PR run
+[32981057436](https://github.com/hyuntohoon/myblog_backend/actions/runs/32981057436) passed with
+**170/170 and zero skips on both legs**: local `integration` completed in **53s** (pytest **3.68s**),
+and `integration (neon)` completed in **17m3s** (pytest **980.57s**). Squash merge `4ebc5be` deployed
+in main run [32982946555](https://github.com/hyuntohoon/myblog_backend/actions/runs/32982946555);
+the deploy job finished in **36s** and the production database health smoke reported
+`Backend health OK.`. The smoke and parity results are quoted on backend #165.
 
 Replace the reason-matching `grep` with `pytest ... -p no:randomly --strict-markers` plus a hard check
 that the run reports **zero** skips in `tests/integration`. A skip in this suite now always means
@@ -371,3 +392,4 @@ this wrong stops deploys rather than merely reporting late.
 | 2026-08-26 | Step 1 shipped (backend #163). Parity met on both engines at 170/170, 0 skips: local 12.04s vs Neon 367.19s | 1 |
 | 2026-08-26 | OQ1/OQ2/OQ3 closed by the Step 1 run; Step 2's CI target tightened from a guessed 90s to 60s against the measured 12.04s baseline | 1, 2 |
 | 2026-08-26 | Step 2 shipped (backend #164). Final PR parity: 170/170, 0 skips on both legs; local job 49s vs Neon 14m31s. Main local job 46s; deploy 27s + health smoke green. Local retained the exact required check context `integration` after the first matrix name made an otherwise-green PR unmergeable | 2 |
+| 2026-08-26 | Step 3 shipped (backend #165). Intentional red proof: required `integration` failed after 169 passed / 1 skipped. Clean PR parity: 170/170, 0 skips on both legs; local job 53s vs Neon 17m3s. Squash `4ebc5be` deployed in 36s with production database health smoke green | 3 |
