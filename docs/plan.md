@@ -292,8 +292,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   promoted this session** — kept Active so it stops being re-litigated, not because 1.7% is urgent.
   No RFC file; scope is small enough to live in this row.
 
-- **OPS-integration-db-locality** (**accepted 2026-08-26; Steps 1–2 SHIPPED**, backend #163, #164;
-  Steps 3–5 not started) — `myblog_backend`'s `integration`
+- **OPS-integration-db-locality** (**accepted 2026-08-26; Steps 1–2 SHIPPED; Step 3 IN PROGRESS**,
+  backend #163, #164; Steps 4–5 not started) — `myblog_backend`'s `integration`
   job takes **13m6s**, of which 765s is the `pytest` call alone; the cost is per-test network latency
   (169 tests × ~4.5s each, uniform across files) to a Neon branch in **ap-southeast-1** read from US
   runners, not test count — the same suite runs in 321s from this laptop. Proposes a Postgres service
