@@ -130,8 +130,14 @@ Defects found, ranked by the harm each actually enables:
    requests produced N outbound fetches to Cognito, and on the backend `edge_guard` runs this for
    every `/api/*` path on the raw invoke domain, not just guarded routes.
 3. **`edge_guard` flattened 401 into 403** (`myblog_backend/app/main.py`), so an expired token was
-   indistinguishable from no token. The SPA refreshes only on 401
-   (`myblog_front/src/lib/auth.ts`), so an aged-out session died silently instead of refreshing.
+   indistinguishable from no token on the raw invoke domain. **A first draft of this entry claimed
+   the flattening broke the SPA's session refresh; that was wrong.** `PUBLIC_API_URL` and
+   `PUBLIC_BACKEND_API_URL` both point at CloudFront, so every SPA request carries
+   `x-origin-verify` and returns from the edge branch before reaching this code — verified by
+   replaying an expired token with the edge header against both the old and new middleware, which
+   answered 401 either way. The actual affected callers are `scripts/smoke.py` and
+   `scripts/buckit_nightly.py`, and the actual cost is diagnostic: losing the one signal that
+   separates "your token aged out" from "you sent nothing".
 4. **`EDGE_SECRET` compared with `==`.** Not a practical timing attack through CloudFront and
    Lambda variance, and not claimed as one — a one-line change that removes the question.
 5. **`ENV=local|dev` is a single-flip total-auth-off switch**, held only by two Terraform literals
@@ -321,21 +327,106 @@ repos, because the guard exists in both.
 
 **Verification**:
 ```
-myblog_backend: pytest -> 710 passed, 170 skipped (all skips TEST_DB_URL integration; no auth test skipped)
-myblog_music:   pytest -> 158 passed, 7 skipped, 1 pre-existing failure
-                (test_candidates_localstack, fails identically on origin/main — local env, needs a DB URL)
+myblog_backend: pytest -> 712 passed, 170 skipped (all skips TEST_DB_URL integration; no auth test skipped)
+myblog_music:   pytest -> 160 passed, 7 skipped, 1 pre-existing failure
 npx pyright app/ (backend `check` gate) -> 0 errors
 openapi.json regenerated in both -> unchanged, so no contract procedure applies
 ```
 
+The vectors were also **mutation-tested**, after an adversarial review found that three of them
+proved less than they claimed. Each of these now fails the suite, and did not before:
+
+| Mutation | Before | After |
+|---|---|---|
+| delete `_get_jwks.cache_clear()`, leave the counter | 26/26 green | 1 failed |
+| replace the `token_use` check with `pass` | 26/26 green | 2 failed |
+| delete the no-token fail-closed branch | 710-test suite green | 1 failed |
+
+The first was the sharpest: the throttle test asserted `_jwks_refresh_count()`, a counter the guard
+increments *next to* the `cache_clear()` rather than because of it. It now counts real fetches
+through an `lru_cache`-wrapped stub, and a second vector proves a rotated key is actually picked up
+— which is the half that fails if the cache is never cleared at all. The `token_use` vectors now
+assert the rejection *detail*, because several distinct checks all answer 401 and status alone
+cannot see one of them disappear.
+
+**Correction to a verification claim.** An earlier revision recorded the one `myblog_music` local
+failure (`tests/test_candidates_localstack.py`) as "local env, needs a DB URL". The proximate cause
+is indeed a DB URL — `sqlalchemy.exc.ArgumentError` at `tests/test_candidates_localstack.py:65`,
+identical on unmodified `origin/main`. But the review that questioned it surfaced something worse:
+the test is `@pytest.mark.integration`, music's `test` job runs `pytest -m "not integration"` (so it
+is deselected) and its `integration` job runs `pytest tests/integration -m ...` (so this file, which
+lives at `tests/`, is never collected). **It runs in no CI job at all.** It also calls
+`/api/search/candidates` while the router is mounted at `/api/music/search` (`app/main.py:31`), so
+it would 404 even with a database. Recorded as Open question 5; not fixed here, because it is
+unrelated to auth and deserves its own change.
+
 **Rollback**: revert the two service PRs. The Terraform env var can stay — the reverted code ignores
-it, exactly as the pre-change code does now.
+it, exactly as the pre-change code does now. Both deploy workflows call only
+`aws lambda update-function-code`, so a code revert cannot drop the variable.
+
+**The rollback hazard runs the other way, and nothing guards it.** `infra/lambda.tf` lives in the
+workspace repo, whose infra is applied by hand from a local checkout and which has **no required CI
+check at all**. The `aws_lambda_function` blocks ignore `filename`, `source_code_hash` and `layers`
+— but **not** `environment`. So a `terraform apply` from any checkout predating workspace #940
+silently removes `COGNITO_ALLOWED_CLIENT_IDS` from both Lambdas, and once this code is deployed that
+turns every authenticated route on backend *and* music into 503 at the same instant. Nothing in
+either service repo can revert it, and `terraform plan` would show it as an ordinary in-place
+update. The existing mitigation is only the habit of pulling before applying. Open question 6.
 
 ---
 
-### Step 5 — polyrepo assessment (analysis only)
+### Step 5 — polyrepo assessment (analysis only) — **DONE 2026-08-27**
 
-Ships no code. Ends in `KEEP POLYREPO` or `PLAN MONOREPO MIGRATION` with evidence.
+**Verdict: KEEP POLYREPO.** Ships no code. Three measurements drove it:
+
+1. **The coordination cost a monorepo removes is not being paid here.** Contract propagation lag,
+   measured service-commit → consuming front-commit across five real changes: 0 s, +42 s, −2 s,
+   −28 s, +20 s. Two of the five merged front-before-workspace, i.e. *against* the documented order,
+   with no consequence. The classic polyrepo tax is latency between teams; there is one operator.
+2. **Every defect found is fixable inside the current topology**, and the largest one is a single
+   file. None requires moving a byte of history.
+3. **Migration would reopen what Steps 1–2 just closed.** The required-checks design is correct
+   *because* no workflow has a `paths:` filter; a monorepo mandates them, and the "required check
+   that never runs" deadlock is not hypothetical — it was hit live on 2026-08-26 when a check was
+   renamed to `integration (local)` and the ruleset could no longer find its context. The OIDC trust
+   policy also pins repo and workflow path with `StringEquals` (`infra/github_oidc.tf`), both
+   invalidated by a repo rename or a workflow move.
+
+**The strongest argument against this verdict**, recorded because it is the trigger to watch:
+`docs/plan.md` audit item D-2 was closed **with no action** because the fix "did not justify a
+cross-repo `myblog_shared_db` change + three re-pins". That is the repo boundary deciding what does
+not get built, not merely how long it takes. Pin hygiene reduces that friction but never removes it.
+**If a second or third correctness fix is declined on re-pin cost, the verdict should flip.** It is
+countable; count it.
+
+What the assessment found that is worth acting on, in order — none of it a migration:
+
+- **`myblog_backend` has two independent `shared_db` pins**: `requirements.txt:10` and a hardcoded
+  `ref:` at `.github/workflows/deploy.yml:144`. They are equal today and nothing enforces that.
+  Verified directly. This is the top item: one pin source plus a CI assertion that the two agree.
+- **`myblog_worker`'s pin is a tag** (`v0.26.0`), 28 commits and two months behind, on the mechanism
+  the workspace otherwise abandoned. Latent, not live — its whole surface is one pure function.
+- **A declared twin has drifted where an ADR said it would not.** ADR-0004 accepted Spotify client
+  duplication on the reasoning that "auth logic is stable … unlikely to change".
+  `myblog_worker/worker/clients/spotify_client.py:41` now mints its token through
+  `_request_with_retry` (429 + 5xx backoff); `myblog_music/app/clients/spotify_client.py:24` still
+  does a bare `httpx.post`. Verified directly. **The user-facing service is the one without 429
+  handling**, and both files still carry the "must stay in sync" banner.
+- **`deploy` does not depend on `integration`** in either backend or music (`needs:` is
+  `[check, test, contract]` and `[test, contract]`). Verified directly. Steps 1–2 close this at the
+  PR gate — the merge cannot happen until `integration` is green — but the post-merge `push: main`
+  run still ships the Lambda while its DB suite is still going. Adding `integration` to
+  `deploy.needs` is a one-line change and belongs to whoever owns the deploy gate.
+- **The `openapi-updated` sender no longer exists.** `merge-contract.yml:7-8` triggers on a
+  `repository_dispatch` that no workflow in any of the six repos fires; the contract merge is manual
+  in practice. Either restore the sender or delete the dead trigger and write the manual step down.
+- **`docs/contracts/README.md:20` is stale** — it still says to tag a shared-db version, and tags
+  were abandoned for `main` SHAs. The procedure doc for the sharpest edge in the system is wrong.
+
+Caveat on provenance: the agent that produced this had no shell, so its history figures come from
+reflogs and committed docs, and it said so. The four claims above marked "verified directly" were
+re-checked here with the actual files. The 180-day coupling statistics in *Current state* are mine,
+not its.
 
 ---
 
@@ -362,7 +453,19 @@ ships in the same PR as a package-pin rollout.
    ("local","dev")` *and* an AWS-provided Lambda marker is present would make it structurally
    impossible rather than conventionally forbidden, and would not be a second bypass switch because
    it can only ever make the guard stricter. Worth a step of its own? Blocks nothing.
-4. **`myblog-prod-web` has S3 versioning disabled**, so a partially-completed front deploy has no
+4. **A `myblog_music` test runs in no CI job.** `tests/test_candidates_localstack.py` is
+   `@pytest.mark.integration`, which the `test` job deselects, and it lives outside `tests/integration/`,
+   which the `integration` job is scoped to. It also targets a route path that does not exist. Fix
+   the path and move it under `tests/integration/`, or delete it — but a marked test that no
+   selection reaches is the "green CI can be false green" shape and should not just sit there.
+   Blocks nothing.
+5. **Nothing prevents a stale `terraform apply` from stripping `COGNITO_ALLOWED_CLIENT_IDS`** from
+   both Lambdas, which would 503 every authenticated route on two services at once (see Step 4's
+   rollback note). Options: `lifecycle { ignore_changes = [environment] }` (blunt — it would also
+   stop Terraform managing every other variable), a `precondition` asserting the variable is
+   non-empty, or moving the value into the SSM parameter each service already reads. Worth deciding
+   before the next infra apply.
+6. **`myblog-prod-web` has S3 versioning disabled**, so a partially-completed front deploy has no
    object-level rollback — recovery is redeploying the previous commit. Enable versioning with a
    lifecycle expiry? Blocks nothing.
 
@@ -377,4 +480,5 @@ ships in the same PR as a package-pin rollout.
 | 2026-08-26 | Owner: migrate front to OIDC first, retire the root key only after that lane is green in production. | 3b, 3d |
 | 2026-08-26 | Trust conditions pin `job_workflow_ref`, not `sub` alone — `sub` does not distinguish `pull_request_target` from `push` on a public repo. Added after review. | 3b |
 | 2026-08-26 | Owner: fix the auth defects in both duplicated copies first; consolidation is a later, separate step. | 4, 6 |
+| 2026-08-27 | Vectors mutation-tested after review: three of them passed against a guard with the check they named deleted. Fixed by asserting real fetch counts and rejection details. | 4 |
 | 2026-08-26 | The app-client allowlist excludes `MyBlogAdminClient` — nothing in any repo authenticates with it, and the API Gateway authorizer already rejects it. | 4 |
