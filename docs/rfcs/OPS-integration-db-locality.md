@@ -1,6 +1,9 @@
 # OPS-integration-db-locality: run the integration suite against a local Postgres, then let it gate deploy
 
-- **Status**: draft
+- **Status**: **accepted 2026-08-26** (explicit owner approval in-session — CLAUDE.md rule #7 —
+  answering the recommendations verbatim: `.sql` catalog fixture, canonical DDL as the schema source,
+  and any assertion that cannot survive a seeded catalog moves to `integration_neon` rather than being
+  relaxed). **Step 1 shipped** (backend #163); Steps 2–5 not started.
 - **Owner**: 오너
 - **Created**: 2026-08-26
 - **Plan row**: `plan.md` → OPS-integration-db-locality
@@ -166,8 +169,10 @@ bans Secrets Manager outright. The comment is dead instructions.
 
 - `myblog_backend`'s `integration` job runs a `postgres:16` service container. Schema is loaded from
   `myblog_shared_db/tests/canonical_schema.sql`; catalog rows come from a committed fixture. No
-  `TEST_DB_URL` secret, no cross-ocean round trip. Target: **under 90 seconds** for the same 170 tests
-  (170/170 collected, ≥169 passing — the same count as today, with skips forbidden).
+  `TEST_DB_URL` secret, no cross-ocean round trip. Target: **under 60 seconds** for the same 170 tests,
+  all passing, zero skips. The target is no longer a guess — Step 1 measured the identical suite at
+  **12.04s** against a local `postgres:16`, so anything near a minute in CI is container startup and
+  install, not query time.
 - Loading the canonical DDL every CI run turns the mirror-identity convention into something CI
   executes, so a file that no longer loads becomes a red job instead of a silent divergence.
 - A separate, small `integration-neon` job keeps the handful of assertions that are about Neon rather
@@ -182,7 +187,34 @@ bans Secrets Manager outright. The comment is dead instructions.
 
 Steps 1–2 are the work; 3–4 are small and depend on it. Step 5 is cross-repo and deliberately last.
 
-### Step 1 — catalog fixture, provable on both engines
+### Step 1 — catalog fixture, provable on both engines — **SHIPPED 2026-08-26** (backend #163)
+
+**Outcome — parity met, and it moved two open questions.**
+
+| target | result | wall clock |
+| --- | --- | --- |
+| local `postgres:16` | **170 passed, 0 skipped** | **12.04s** |
+| Neon test branch | **170 passed, 0 skipped** | 367.19s |
+| full suite (local PG) | 854 passed, 0 skipped | 11.59s |
+| unit-only | 684 passed (unchanged) | 3.21s |
+
+Was 169 passed + 1 skipped; the count rose because the bucket-preview test's
+album-credit `skip` became a passing assertion. Neon pollution asserted, not assumed: 0 leftover
+`fixture-%` rows in `albums`/`artists`/`tracks`/`genres` after the run.
+
+**Interim regression, stated because this step alone makes one number worse:** seeding costs round
+trips, so while CI still points at Neon the job goes from ~13min to ~14min. Step 2 reverses it
+entirely — the same work is 12 seconds against a local engine.
+
+Implementation note worth keeping: the first version of `catalog.py` split the `.sql` on `;` and asked
+the SQL file to keep semicolons out of its comments. The SQL file broke that rule in its own header on
+the first run and all 85 seeded tests errored. The splitter is now comment-aware. A rule a sibling file
+has to remember is not a contract, it is a trap.
+
+---
+
+<details>
+<summary>Original Step 1 plan (kept for the record)</summary>
 
 Add a seed fixture (`tests/integration/fixtures/catalog.sql` or a conftest fixture — OQ1) that creates
 the minimum catalog the ten guards ask for: ≥3 `albums` with ≥2 `artists`, ≥2 `tracks` joined to an
@@ -213,6 +245,8 @@ the number Step 2's CI target is checked against.
 
 **Rollback**: revert; nothing else reads the fixture.
 
+</details>
+
 ---
 
 ### Step 2 — CI runs the suite against a service container
@@ -226,8 +260,9 @@ parity from Step 1 is demonstrated in CI, not just locally.
 gh run view <run-id> --repo hyuntohoon/myblog_backend --json jobs \
   -q '.jobs[] | select(.name|startswith("integration")) | "\(.name) \(.conclusion) \(.startedAt) \(.completedAt)"'
 ```
-Both legs green, same test count. Local leg under 90s; if it lands materially above that, stop and
-report rather than accepting it — the whole premise of this RFC is that the 765s was latency.
+Both legs green, same test count. Local leg under 60s against Step 1's 12.04s baseline; if it lands
+materially above that, stop and report rather than accepting it — the whole premise of this RFC is that
+the 765s was latency, and Step 1 has already demonstrated it on this machine.
 
 **Rollback**: revert the workflow; the Neon leg is still present and passing.
 
@@ -280,16 +315,25 @@ this wrong stops deploys rather than merely reporting late.
 
 ## Open questions
 
-1. **Fixture form — SQL file or conftest factory?** (blocks Step 1) A `.sql` file is one artifact and
+1. ~~**Fixture form — SQL file or conftest factory?**~~ **RESOLVED 2026-08-26 (owner): `.sql`.**
+   Shipped as `tests/integration/fixtures/catalog.sql` + `catalog.py`, with the ids owned by the SQL
+   and read back by the helper so the two cannot drift. Original reasoning: A `.sql` file is one artifact and
    reviewable at a glance; a conftest factory composes with the existing session/transaction fixtures and
    cannot drift from the ORM. Leaning `.sql` for the catalog (it mirrors DDL, is read-only to the tests,
    and never needs to change when a service changes) with the per-test rows staying in conftest where
    they already are.
-2. **Do any assertions depend on properties of real catalog rows** — genre coverage, release dates,
+2. ~~**Do any assertions depend on properties of real catalog rows?**~~ **RESOLVED 2026-08-26 by
+   running it: no.** All 170 pass on a synthetic catalog with nothing relaxed, so no test moved to
+   `integration_neon` on this ground. One got *stronger* by accident: `test_empty_album_is_zero`
+   previously relied on whichever ambient album it happened to pick having no reviews. Original
+   question: do any depend on properties of real catalog rows — genre coverage, release dates,
    popularity ordering — rather than on ids alone? (blocks Step 1) Unknown until the fixture runs. If
    one does, the honest outcome is to seed a row with that property, not to relax the assertion. Any
    test that cannot be satisfied this way is a candidate for `integration_neon` in Step 4 instead.
-3. **Canonical DDL or migration replay as the schema source?** (blocks Step 2) Leaning
+3. ~~**Canonical DDL or migration replay as the schema source?**~~ **RESOLVED 2026-08-26 (owner):
+   canonical DDL**, and verified — `myblog_shared_db/tests/canonical_schema.sql` loads into stock
+   `postgres:16` unmodified, 56 tables, zero errors, extensions self-declared. Migration replay stays a
+   separate additive job. Original reasoning: Leaning
    `canonical_schema.sql` — one declarative file, already committed, and executing it makes the
    unenforced mirror convention enforced. Replaying all 53 `V{N}__` files would additionally prove
    migrations apply from scratch (nothing checks this today), but it is 53 files of unknown
@@ -310,3 +354,6 @@ this wrong stops deploys rather than merely reporting late.
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-08-26 | RFC opened after measuring the 13m CI job; owner asked whether a local DB should replace the Neon test branch | — |
+| 2026-08-26 | Owner accepted the RFC and all three recommendations verbatim (`.sql` fixture · canonical DDL · move, never relax, an assertion that cannot survive a seeded catalog) | — |
+| 2026-08-26 | Step 1 shipped (backend #163). Parity met on both engines at 170/170, 0 skips: local 12.04s vs Neon 367.19s | 1 |
+| 2026-08-26 | OQ1/OQ2/OQ3 closed by the Step 1 run; Step 2's CI target tightened from a guessed 90s to 60s against the measured 12.04s baseline | 1, 2 |

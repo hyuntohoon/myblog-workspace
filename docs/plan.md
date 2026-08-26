@@ -292,7 +292,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   promoted this session** — kept Active so it stops being re-litigated, not because 1.7% is urgent.
   No RFC file; scope is small enough to live in this row.
 
-- **OPS-integration-db-locality** (**draft, needs owner accept**) — `myblog_backend`'s `integration`
+- **OPS-integration-db-locality** (**accepted 2026-08-26; Step 1 SHIPPED**, backend #163; Steps 2–5
+  not started) — `myblog_backend`'s `integration`
   job takes **13m6s**, of which 765s is the `pytest` call alone; the cost is per-test network latency
   (169 tests × ~4.5s each, uniform across files) to a Neon branch in **ap-southeast-1** read from US
   runners, not test count — the same suite runs in 321s from this laptop. Proposes a Postgres service
@@ -303,7 +304,13 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   have stopped it. Blocking risk is not the container but the **catalog fixture**: six of nine files
   read ambient `albums`/`artists` rows they never seed, and all ten of their guards `skip` with reasons
   the existing skip-guard grep does not match — a naive switch goes green with most of the suite gone.
-  → `docs/rfcs/OPS-integration-db-locality.md`.
+  **Step 1 closed that**: the catalog is seeded into each test's own rolled-back transaction, and parity
+  was proved on both engines in the same pass — **170/170, 0 skips, local `postgres:16` 12.04s vs Neon
+  367.19s** (was 169 + 1 skip; the skip became an assertion). Neon pollution asserted at 0 leftover
+  rows. **Interim**: seeding costs round trips, so the still-Neon CI job goes ~13min → ~14min until
+  Step 2 moves it onto a container. Owner-answered along the way: `.sql` fixture, canonical DDL as the
+  schema source (loads into stock `postgres:16` unmodified — 56 tables, 0 errors), and no assertion
+  turned out to need real catalog data. → `docs/rfcs/OPS-integration-db-locality.md`.
 
 _2026-08-06 playback/modal/security audit (8 parallel investigations over playback entry points, queue identity, modals and multi-user authorization). Everything it confirmed has since shipped; the only remaining deferral is its track-info no-op item, deliberately held for the canonical-track scope. Evidence and the full issue matrix live in the audit record and `git log`._
 
