@@ -3,7 +3,7 @@
 - **Status**: **accepted 2026-08-26** (explicit owner approval in-session — CLAUDE.md rule #7 —
   answering the recommendations verbatim: `.sql` catalog fixture, canonical DDL as the schema source,
   and any assertion that cannot survive a seeded catalog moves to `integration_neon` rather than being
-  relaxed). **Step 1 shipped** (backend #163); Steps 2–5 not started.
+  relaxed). **Steps 1–2 shipped** (backend #163, #164); Steps 3–5 not started.
 - **Owner**: 오너
 - **Created**: 2026-08-26
 - **Plan row**: `plan.md` → OPS-integration-db-locality
@@ -249,7 +249,20 @@ the number Step 2's CI target is checked against.
 
 ---
 
-### Step 2 — CI runs the suite against a service container
+### Step 2 — CI runs the suite against a service container — **SHIPPED 2026-08-26** (backend #164)
+
+**Outcome — parity held and the local job met the target.** Final PR run
+[32976208413](https://github.com/hyuntohoon/myblog_backend/actions/runs/32976208413) ran the same
+170-test suite on both matrix legs with **170 passed / 0 skipped**: local `postgres:16` completed the
+whole job in **49s** (pytest **4.19s**) while the Neon control took **14m31s** (pytest **13m44s**).
+The main run repeated the local leg in **46s**, then deployed in **27s** with the post-deploy database
+health smoke green. This is the intended intermediate topology: deploy gating remains Step 4.
+
+One false-green-adjacent workflow trap was found by the merge policy rather than the test suite. The
+first matrix name changed the required check context from `integration` to `integration (local)`; every
+job was green, but main correctly refused the merge because its ruleset still required the now-missing
+exact context. The final matrix preserves local as `integration` and names only the control
+`integration (neon)`. A CI refactor must preserve required-check identity, not only job behavior.
 
 `integration` gains a `services: postgres:16` block, a schema-load step, and drops `TEST_DB_URL` and its
 two secret-shape guards. Keep the Neon run alongside as a second matrix leg for one merge cycle so the
@@ -357,3 +370,4 @@ this wrong stops deploys rather than merely reporting late.
 | 2026-08-26 | Owner accepted the RFC and all three recommendations verbatim (`.sql` fixture · canonical DDL · move, never relax, an assertion that cannot survive a seeded catalog) | — |
 | 2026-08-26 | Step 1 shipped (backend #163). Parity met on both engines at 170/170, 0 skips: local 12.04s vs Neon 367.19s | 1 |
 | 2026-08-26 | OQ1/OQ2/OQ3 closed by the Step 1 run; Step 2's CI target tightened from a guessed 90s to 60s against the measured 12.04s baseline | 1, 2 |
+| 2026-08-26 | Step 2 shipped (backend #164). Final PR parity: 170/170, 0 skips on both legs; local job 49s vs Neon 14m31s. Main local job 46s; deploy 27s + health smoke green. Local retained the exact required check context `integration` after the first matrix name made an otherwise-green PR unmergeable | 2 |
