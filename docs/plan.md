@@ -292,6 +292,19 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   promoted this session** — kept Active so it stops being re-litigated, not because 1.7% is urgent.
   No RFC file; scope is small enough to live in this row.
 
+- **OPS-integration-db-locality** (**draft, needs owner accept**) — `myblog_backend`'s `integration`
+  job takes **13m6s**, of which 765s is the `pytest` call alone; the cost is per-test network latency
+  (169 tests × ~4.5s each, uniform across files) to a Neon branch in **ap-southeast-1** read from US
+  runners, not test count — the same suite runs in 321s from this laptop. Proposes a Postgres service
+  container seeded from `canonical_schema.sql` + a committed catalog fixture, then makes `deploy`
+  depend on the job. Found while measuring, and independent of the speed work: **`deploy` does not
+  depend on `integration` in either `myblog_backend` or `myblog_music`** — on 2026-08-26 the backend
+  Lambda shipped 72s after merge while its DB tests ran for another 13 minutes, and a failure would not
+  have stopped it. Blocking risk is not the container but the **catalog fixture**: six of nine files
+  read ambient `albums`/`artists` rows they never seed, and all ten of their guards `skip` with reasons
+  the existing skip-guard grep does not match — a naive switch goes green with most of the suite gone.
+  → `docs/rfcs/OPS-integration-db-locality.md`.
+
 _2026-08-06 playback/modal/security audit (8 parallel investigations over playback entry points, queue identity, modals and multi-user authorization). Everything it confirmed has since shipped; the only remaining deferral is its track-info no-op item, deliberately held for the canonical-track scope. Evidence and the full issue matrix live in the audit record and `git log`._
 
 _Shipped implementation detail belongs in `git log`, RFCs and `docs/archive/done/`; plan.md retains only open decisions, gates, observations and status transitions._
