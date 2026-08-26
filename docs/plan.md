@@ -330,7 +330,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   pytest) and Neon (17m3s job). Squash `4ebc5be` deployed in 36s with the production database health
   smoke green. Owner-answered along the way: `.sql` fixture, canonical DDL as the
   schema source (loads into stock `postgres:16` unmodified — 56 tables, 0 errors), and no assertion
-  turned out to need real catalog data. → `docs/rfcs/OPS-integration-db-locality.md`.
+  turned out to need real catalog data. **OQ5 resolved 2026-08-27:** keep the 170-test local suite as a
+  required merge check; its 53-second job adds roughly 17 seconds beyond the other gates and protects
+  real Postgres transaction, constraint, `ON CONFLICT`, and cascade behavior. Production-scale
+  data-shape behavior remains advisory on Neon. → `docs/rfcs/OPS-integration-db-locality.md`.
 
 _2026-08-06 playback/modal/security audit (8 parallel investigations over playback entry points, queue identity, modals and multi-user authorization). Everything it confirmed has since shipped; the only remaining deferral is its track-info no-op item, deliberately held for the canonical-track scope. Evidence and the full issue matrix live in the audit record and `git log`._
 

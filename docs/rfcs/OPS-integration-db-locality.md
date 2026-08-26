@@ -320,6 +320,14 @@ Move the Neon-specific assertions into `tests/integration_neon/` with its own jo
 `workflow_dispatch`, `TEST_DB_URL` from SSM, not a PR gate). Then add `integration` to
 `deploy.needs`.
 
+**Implementation mapping — 2026-08-27:** there are currently no Neon-only assertions to move. Step 1
+proved that all 170 tests exercise engine-independent Postgres behavior against both targets, and the
+pooler/read-only examples above are historical workspace-script failures rather than backend tests.
+Do not invent a new contract or create an empty false-green suite in this step. Split the existing
+170-test Neon compatibility control into its own advisory `integration_neon` job on `main` and
+`workflow_dispatch`; a future targeted data-shape contract can replace that broad control when its
+assertions and thresholds are specified.
+
 **Verification**:
 ```
 # the gate actually gates: push a branch whose integration suite fails, dispatch, confirm deploy is skipped
@@ -377,11 +385,11 @@ this wrong stops deploys rather than merely reporting late.
    migrations behind today (V53, V54). It is not on this RFC's path — the bootstrap reads the
    `myblog_shared_db` copy — but it is a live drift found while writing this, and leaving it unfixed
    means the next person reads a stale contract.
-5. **Is a 170-test suite that never touches production-shaped data still worth 90 seconds of every
-   merge?** (blocks Step 4) Stated plainly so it is answered rather than assumed: these tests exercise
-   service-layer SQL against real Postgres semantics — transactions, constraints, `ON CONFLICT`,
-   cascade behavior — none of which a fixture weakens. What a synthetic catalog does weaken is anything
-   depending on data *shape at scale*. If OQ2 finds such tests, they belong in `integration_neon`.
+5. ~~**Is a 170-test suite that never touches production-shaped data still worth 90 seconds of every
+   merge?**~~ **RESOLVED 2026-08-27 (owner): yes; keep it required on every merge.** The measured
+   53-second job adds roughly 17 seconds beyond the other required checks and protects real Postgres
+   transaction, constraint, `ON CONFLICT`, and cascade behavior. Production-scale data-shape behavior
+   remains the responsibility of the separate advisory Neon job.
 
 ## Decisions log
 
@@ -393,3 +401,4 @@ this wrong stops deploys rather than merely reporting late.
 | 2026-08-26 | OQ1/OQ2/OQ3 closed by the Step 1 run; Step 2's CI target tightened from a guessed 90s to 60s against the measured 12.04s baseline | 1, 2 |
 | 2026-08-26 | Step 2 shipped (backend #164). Final PR parity: 170/170, 0 skips on both legs; local job 49s vs Neon 14m31s. Main local job 46s; deploy 27s + health smoke green. Local retained the exact required check context `integration` after the first matrix name made an otherwise-green PR unmergeable | 2 |
 | 2026-08-26 | Step 3 shipped (backend #165). Intentional red proof: required `integration` failed after 169 passed / 1 skipped. Clean PR parity: 170/170, 0 skips on both legs; local job 53s vs Neon 17m3s. Squash `4ebc5be` deployed in 36s with production database health smoke green | 3 |
+| 2026-08-27 | Owner resolved OQ5: keep the 170-test local Postgres suite required on every merge; its measured 53-second job adds roughly 17 seconds beyond the other gates, while production-scale data-shape behavior stays in the advisory Neon job | 4 |
