@@ -64,15 +64,15 @@ All AWS resources are managed by Terraform in `infra/` (IAC-1, 2026-05-25). The 
   │ myblog_music   │ ← GET /search/*, /api/music/*
   │ (Lambda)       │
   └───────┬────────┘
-    ┌─────┴──────┐
-    ▼            ▼
-DB search    SQS enqueue
-(unified)    (candidates)
-    │            │
-    ▼            ▼
- Spotify      SQS Queue
- Web API          │
-                  ▼
+    ┌─────┼──────────────┐
+    ▼     ▼              ▼
+DB search Spotify read  SQS enqueue
+(unified) (candidates)  (sync POST)
+    │     │              │
+    ▼     ▼              ▼
+  Neon  Spotify API   SQS Queue
+                           │
+                           ▼
          ┌───────────────┐       EventBridge
          │ myblog_worker │ ◄──── rate(15 min)
          │ (Lambda)      │       (alias generation)
@@ -151,10 +151,11 @@ Handles music search and Spotify sync triggers. The core design principle is **"
 
 [Sync button]   GET /search/candidates
   → Cognito JWT required
-  → Spotify API search
-  → ① return CandidateSearchResult immediately (response_model_exclude_none=True
-       — only requested types appear in the response)
-  → ② batch-enqueue album IDs to SQS (up to 20 per message)
+  → Spotify API search → return CandidateSearchResult (pure read; no DB/SQS)
+                POST /sync-requests {album_ids, market}
+  → Cognito JWT required
+  → filter catalogued IDs → batch-enqueue to SQS (up to 20 per message)
+  → 202 only when every message is accepted; safe 503 on partial/total failure
 ```
 
 **Endpoints**
@@ -162,7 +163,8 @@ Handles music search and Spotify sync triggers. The core design principle is **"
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/api/music/search/unified` | None | DB-first unified search (`UnifiedSearchResult`) |
-| `GET` | `/api/music/search/candidates` | Cognito JWT | Spotify candidates + SQS enqueue (`CandidateSearchResult`, PR-12) |
+| `GET` | `/api/music/search/candidates` | Cognito JWT | Read-only Spotify candidates (`CandidateSearchResult`, no DB/SQS) |
+| `POST` | `/api/music/sync-requests` | Cognito JWT | Explicit Format-A enqueue; `202 accepted`, `503 failed` |
 | `GET` | `/api/music/albums/:id` | None | Album detail by DB UUID (`AlbumDetail`, DB-only) |
 | `GET` | `/api/music/albums/by-spotify/:spotify_id` | None | Album lookup by Spotify ID (`AlbumDetail`, DB-only — returns 404 until worker syncs) |
 | `GET` | `/api/music/artists/:artist_id` | None | Artist hero detail (followers, genres, popularity) |
