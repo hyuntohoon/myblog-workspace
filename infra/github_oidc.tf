@@ -118,3 +118,90 @@ output "github_front_deploy_role_arn" {
   description = "Set as the myblog_front repo variable AWS_DEPLOY_ROLE_ARN."
   value       = aws_iam_role.github_front_deploy.arn
 }
+
+# --- myblog_backend / myblog_music / myblog_worker: Lambda code deploys ---
+#
+# SEC-system-hardening Step 3c. Same trust recipe as the front lane above, arrived at
+# the hard way: `repository_owner` is deliberately ABSENT. It was tried on the front
+# role and every assume-role attempt failed with "Not authorized to perform
+# sts:AssumeRoleWithWebIdentity" until it was removed (bisected across runs
+# 32997705046 / 32998312450 / 32998882925). It is also redundant — `sub` and
+# `job_workflow_ref` both already begin with the owner.
+#
+# These three replace the shared `github-actions-deploy` IAM user, whose single key
+# all three lanes have used since 2026-03-17. That user's policy allows
+# UpdateFunctionCode on FOUR functions to whichever lane holds the key, so a
+# compromise of any one repo's secret could overwrite any of the others' code. Per-lane
+# roles remove that: each can write exactly one function.
+
+locals {
+  github_lambda_lanes = {
+    backend = {
+      repo          = "myblog_backend"
+      function_name = "ratemymusic-api"
+      # update-function-code is the only call this lane makes.
+      extra_actions = []
+    }
+    music = {
+      repo          = "myblog_music"
+      function_name = "musicApi"
+      extra_actions = []
+    }
+    worker = {
+      repo          = "myblog_worker"
+      function_name = "blogWorkerLambda"
+      # `aws lambda wait function-updated-v2` polls GetFunction (NOT
+      # GetFunctionConfiguration — the v1 waiter uses that one and the old
+      # least-privilege policy did not allow it, which is why the workflow pins the
+      # v2 waiter). The post-deploy health check then invokes with an empty event.
+      extra_actions = ["lambda:GetFunction", "lambda:InvokeFunction"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_lambda_deploy" {
+  for_each = local.github_lambda_lanes
+
+  name                 = "myblog-github-${each.key}-deploy"
+  path                 = "/"
+  max_session_duration = 3600
+  description          = "GitHub Actions OIDC deploy role for ${each.value.repo} (main only). SEC-system-hardening Step 3c."
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Federated = data.aws_iam_openid_connect_provider.github.arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "token.actions.githubusercontent.com:aud"              = "sts.amazonaws.com"
+          "token.actions.githubusercontent.com:sub"              = "repo:${local.github_owner}/${each.value.repo}:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:job_workflow_ref" = "${local.github_owner}/${each.value.repo}/.github/workflows/deploy.yml@refs/heads/main"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "github_lambda_deploy" {
+  for_each = local.github_lambda_lanes
+
+  name = "${each.key}-lambda-deploy"
+  role = aws_iam_role.github_lambda_deploy[each.key].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "DeployOwnFunctionOnly"
+      Effect   = "Allow"
+      Action   = concat(["lambda:UpdateFunctionCode"], each.value.extra_actions)
+      Resource = "arn:aws:lambda:${var.aws_region}:${var.account_id}:function:${each.value.function_name}"
+    }]
+  })
+}
+
+output "github_lambda_deploy_role_arns" {
+  description = "Set each as its repo's AWS_DEPLOY_ROLE_ARN variable."
+  value       = { for k, r in aws_iam_role.github_lambda_deploy : k => r.arn }
+}
