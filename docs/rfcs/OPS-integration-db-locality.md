@@ -3,11 +3,11 @@
 - **Status**: **accepted 2026-08-26** (explicit owner approval in-session — CLAUDE.md rule #7 —
   answering the recommendations verbatim: `.sql` catalog fixture, canonical DDL as the schema source,
   and any assertion that cannot survive a seeded catalog moves to `integration_neon` rather than being
-  relaxed; Step 4 later mapped that set to zero and the owner clarified local-only). **Steps 1–4
-  shipped** (backend #163, #164, #165, #167); Step 5 not started.
+  relaxed; Step 4 later mapped that set to zero and the owner clarified local-only). **All five steps
+  shipped** (backend #163, #164, #165, #167; worker #99).
 - **Owner**: 오너
 - **Created**: 2026-08-26
-- **Plan row**: `plan.md` → OPS-integration-db-locality
+- **Plan row**: removed after Step 5 production verification on 2026-08-28
 
 ---
 
@@ -359,18 +359,35 @@ something.
 
 ---
 
-### Step 5 — cross-repo (`myblog_worker`), last
+### Step 5 — cross-repo (`myblog_worker`), last — **SHIPPED 2026-08-28** (worker #99)
 
-`myblog_worker`'s 12 DB-bound test files already gate deploy and already cost 4m39s. Apply the same
-container + fixture pattern, and fix the dead Secrets Manager instruction in
-`tests/conftest.py:13-16` to point at SSM `/myblog/test-db` in the same change
-([[feedback-cross-repo-twin-drift-sweep]]).
+**Outcome — the existing worker deploy gate now runs entirely on disposable Postgres 16.** The
+current-main inventory corrected the RFC's stale "12 DB-bound files" shorthand: the broad 12-file set
+contains eight remote-Postgres files with **41 tests**, one self-contained SQLite file with four tests,
+and three fake/unit-only files with 74 tests. Seven Postgres files were already self-seeded. The only
+ambient inputs were one album in `test_library_sync_db.py` plus the `hip-hop` and `rock` vocabulary
+rows used by `test_sync_service.py`; the committed SQL fixture supplies exactly those rows.
 
-Deliberately last: the backend proves the pattern first, and the worker is the one repo where getting
-this wrong stops deploys rather than merely reporting late.
+Latest pre-change main run
+[33160764527](https://github.com/hyuntohoon/myblog_worker/actions/runs/33160764527) collected **539**
+tests and reported **536 passed / 3 intentional MusicBrainz live skips in 212.06s**; the required
+`test` job took **3m54s**. PR run
+[33164957302](https://github.com/hyuntohoon/myblog_worker/actions/runs/33164957302) preserved the same
+539 / 536+3 result, completed pytest in **3.98s**, reported `db_bound_skips=0`, and finished the whole
+job in **52s**. No assertion, test body, skip condition, dependency, or database semantic was relaxed.
 
-**Verification**: `pytest` green in CI with the same test count as the last Neon-targeted run; job under
-90s; `deploy` still `needs: test`.
+Squash `324cd22` repeated the proof on main run
+[33165063868](https://github.com/hyuntohoon/myblog_worker/actions/runs/33165063868): required `test`
+finished in **1m9s** (pytest **3.95s**, 539 / 536+3, zero DB-bound skips), then the still-dependent
+`deploy` job ran in **33s** and the production Lambda health invoke returned
+`{"batchItemFailures": []}` plus `Worker health OK (empty-event invoke, no FunctionError).` The exact
+ruleset context remains `test`, and `deploy.needs: test` is unchanged. The post-merge evidence is quoted
+on worker #99.
+
+The same change replaced the dead Secrets Manager test instructions in `tests/conftest.py` and the
+worker README with SSM SecureString `/myblog/test-db` guidance. CI no longer reads a remote
+`TEST_DB_URL` secret; it loads canonical DDL from shared-db `90a6fca` and the committed deterministic
+fixture on every run.
 
 ---
 
