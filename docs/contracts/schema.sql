@@ -6,11 +6,9 @@
 --   schema-sync); edit both in the same change.
 --
 -- Coordinated mirror policy:
---   1. Author this canonical file and the shared-db mirror as byte-identical
---      paired PRs.
---   2. Merge the shared-db mirror first solely so workspace PR CI can compare
---      main-to-PR bytes, then merge the workspace PR immediately. Merge order
---      does not transfer canonical ownership away from this file.
+--   1. Author and merge this canonical file in the workspace first.
+--   2. Update the shared-db mirror in an immediate follow-up PR. Its required CI
+--      checks out public workspace main and compares the two files byte-for-byte.
 --   3. Write a migration script for the running DB (never DROP/TRUNCATE in prod).
 --   4. Update affected ORM models/local schemas and deploy consumers before or
 --      simultaneously with producers.

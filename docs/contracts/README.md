@@ -15,13 +15,12 @@ Cross-service contracts that bind the 4 services together.
 
 ## Schema change procedure
 
-1. Author `docs/contracts/schema.sql` and
-   `myblog_shared_db/tests/canonical_schema.sql` as byte-identical paired PRs.
-2. In the shared-db PR, update the models, regenerate `_generated_schema.sql`, and add
-   `migrations/V{N}__<desc>.sql` (plain SQL; the canonical version-ordered location).
-3. Merge the shared-db PR first so workspace PR CI can compare its canonical file to the mirror on
-   shared-db `main`, then merge the workspace PR immediately. This merge order is a CI constraint;
-   `docs/contracts/schema.sql` remains the canonical specification.
+1. Author and merge `docs/contracts/schema.sql` in the workspace canonical PR.
+2. In an immediate shared-db follow-up PR, copy it byte-for-byte to
+   `tests/canonical_schema.sql`, update the models, regenerate `_generated_schema.sql`, and add
+   `migrations/V{N}__<desc>.sql` (plain SQL; the canonical version-ordered location). The shared-db
+   required CI checks out public workspace `main` and rejects mirror drift.
+3. Merge the shared-db PR after its canonical-schema comparison passes.
 4. Track the intended shared-db commit SHA in each affected consumer and update only compatible
    services. Apply the migration to Neon only through the separately approved migration procedure.
 

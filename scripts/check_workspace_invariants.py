@@ -261,7 +261,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--root", type=Path, default=Path(__file__).resolve().parents[1], help="workspace root"
     )
-    parser.add_argument("--shared-schema", type=Path, required=True)
+    parser.add_argument(
+        "--shared-schema",
+        type=Path,
+        help="optional local mirror; shared_db required CI enforces cross-repo parity",
+    )
     parser.add_argument("--backend-openapi", type=Path, required=True)
     parser.add_argument("--music-openapi", type=Path, required=True)
     return parser
@@ -271,13 +275,14 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = args.root.resolve()
     errors = validate_plan(root)
-    errors.extend(
-        compare_bytes(
-            root / "docs" / "contracts" / "schema.sql",
-            args.shared_schema,
-            "canonical SQL schema",
+    if args.shared_schema:
+        errors.extend(
+            compare_bytes(
+                root / "docs" / "contracts" / "schema.sql",
+                args.shared_schema,
+                "canonical SQL schema",
+            )
         )
-    )
     errors.extend(
         validate_openapi(
             root,
@@ -293,7 +298,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"- {error}", file=sys.stderr)
         return 1
 
-    print("workspace invariants passed: plan/RFC pointers, schema mirror, merged OpenAPI")
+    checked = "plan/RFC pointers and merged OpenAPI"
+    if args.shared_schema:
+        checked += ", plus schema mirror"
+    print(f"workspace invariants passed: {checked}")
     return 0
 
 

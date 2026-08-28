@@ -479,10 +479,10 @@ These are separate, ordered PRs. Each item must be rechecked against current `ma
 an item already fixed elsewhere is recorded and skipped rather than rebuilt.
 
 1. **Workspace PR CI + deterministic invariants** — add a real `pull_request` check for Terraform
-   formatting/validation, byte-identical canonical schema mirrors, deterministic Active-plan RFC
-   path/status rules, and merged OpenAPI consistency. Repair the V53 `tracks.disc_no` and V54
-   `pending_reratings` mirror drift first. Do not require the check until a real PR run produces its
-   context.
+   formatting/validation, deterministic Active-plan RFC path/status rules, and merged OpenAPI
+   consistency. Repair the V53 `tracks.disc_no` and V54 `pending_reratings` mirror drift, then enforce
+   byte identity in shared-db's required CI by checking out the public workspace canonical. Do not
+   require the workspace check until a real PR run produces its context.
 2. **Music candidates side-effect split** — make candidate GET pure and move enqueue to an explicit
    202-returning POST, with contract, frontend, and LocalStack regression coverage.
 3. **Python dependency reproducibility** — freeze production resolution without opportunistic
