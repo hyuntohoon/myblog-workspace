@@ -478,11 +478,15 @@ not its.
 These are separate, ordered PRs. Each item must be rechecked against current `main` before it starts;
 an item already fixed elsewhere is recorded and skipped rather than rebuilt.
 
-1. **Workspace PR CI + deterministic invariants** — add a real `pull_request` check for Terraform
-   formatting/validation, deterministic Active-plan RFC path/status rules, and merged OpenAPI
-   consistency. Repair the V53 `tracks.disc_no` and V54 `pending_reratings` mirror drift, then enforce
-   byte identity in shared-db's required CI by checking out the public workspace canonical. Do not
-   require the workspace check until a real PR run produces its context.
+1. **Workspace PR CI + deterministic invariants — DONE 2026-08-28** (workspace #948 `1f12694`,
+   shared_db #78 `76c7d9c`) — the real `workspace-check` context passed Terraform format/validate,
+   deterministic Active-plan RFC ownership/status tests, and merged OpenAPI consistency. V53
+   `tracks.disc_no` and V54 `pending_reratings` were restored to the workspace canonical; shared-db's
+   existing required `test` job now checks out public workspace `main` and enforces byte identity.
+   The workspace check remains non-required: its context is proven, but mutable backend/music `main`
+   inputs still need a defined immediate pre-merge refresh policy before promotion. Production smoke
+   was N/A because neither PR applied Terraform, ran a migration, deployed code, or changed runtime
+   behavior; post-merge evidence is quoted on both PRs.
 2. **Music candidates side-effect split** — make candidate GET pure and move enqueue to an explicit
    202-returning POST, with contract, frontend, and LocalStack regression coverage.
 3. **Python dependency reproducibility** — freeze production resolution without opportunistic
