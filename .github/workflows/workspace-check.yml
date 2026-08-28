@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: hyuntohoon/myblog_shared_db
+          token: ${{ secrets.WORKSPACE_GITHUB_TOKEN }}
           ref: main
           sparse-checkout: tests/canonical_schema.sql
           sparse-checkout-cone-mode: false
@@ -30,6 +31,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: hyuntohoon/myblog_backend
+          token: ${{ secrets.WORKSPACE_GITHUB_TOKEN }}
           ref: main
           sparse-checkout: openapi.json
           sparse-checkout-cone-mode: false
@@ -40,6 +42,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: hyuntohoon/myblog_music
+          token: ${{ secrets.WORKSPACE_GITHUB_TOKEN }}
           ref: main
           sparse-checkout: openapi.json
           sparse-checkout-cone-mode: false
