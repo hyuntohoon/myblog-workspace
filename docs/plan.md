@@ -22,8 +22,14 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   not Claude's to perform — and deleting the repo secrets does **not** retire them. Everything else
   in Step 3d is done. Remaining: **the two root keys (owner)** and Step 6 (verifier consolidation).
   Owner-directed delivery hardening follow-ups are sequenced as independent PRs: **workspace PR
-  CI/invariants DONE 2026-08-28** (workspace #948 + shared_db #78) → candidates GET/POST side-effect
-  split → Python dependency reproducibility → per-service shared_db pin invariants → a small
+  CI/invariants DONE 2026-08-28** (workspace #948 + shared_db #78) → **candidates GET/POST
+  side-effect split IN PROGRESS** (additive rollout: music POST first while legacy GET enqueue remains
+  → workspace merged contract → frontend GET+POST caller/status → music pure-GET removal → final workspace
+  contract/docs; verify music unit + LocalStack integration + OpenAPI, workspace contract invariant,
+  frontend lint/typecheck/tests + real-browser clickthrough, then each repo's CI and production smoke;
+  rollback in reverse by restoring legacy GET enqueue before reverting frontend, accepting only a brief
+  idempotent duplicate-enqueue window and never a sync outage) → Python dependency
+  reproducibility → per-service shared_db pin invariants → a small
   non-required Playwright golden suite.
 
 > 2026-08-10 reconciliation pass: checked every row below against code/tests/deployment/RFC acceptance
