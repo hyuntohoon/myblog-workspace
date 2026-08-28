@@ -3,7 +3,8 @@
 - **Status**: **accepted 2026-08-26** (explicit owner approval in-session — CLAUDE.md rule #7 —
   answering the recommendations verbatim: `.sql` catalog fixture, canonical DDL as the schema source,
   and any assertion that cannot survive a seeded catalog moves to `integration_neon` rather than being
-  relaxed). **Steps 1–3 shipped** (backend #163, #164, #165); Steps 4–5 not started.
+  relaxed; Step 4 later mapped that set to zero and the owner clarified local-only). **Steps 1–4
+  shipped** (backend #163, #164, #165, #167); Step 5 not started.
 - **Owner**: 오너
 - **Created**: 2026-08-26
 - **Plan row**: `plan.md` → OPS-integration-db-locality
@@ -28,8 +29,9 @@ The suite has to get fast **before** it is allowed to gate.
   whatever catalog the gate DB holds"; a small branch "will report most cases as data-misses rather than
   recall results"). Pointing it at a synthetic fixture would not make it faster, it would make it
   meaningless. It stays on a real catalog DB.
-- **No removal of Neon from CI.** A small Neon-targeted job remains for behavior only Neon has — see
-  Step 4. Deleting it would trade 12 minutes for a blind spot.
+- ~~**No removal of Neon from CI.**~~ **Superseded 2026-08-27 by the owner:** the completed mapping
+  found no backend assertion about Neon itself, so the 170-test backend suite becomes local-only.
+  A future production-data or Neon-platform contract needs its own specified assertions and thresholds.
 - **No test rewrites.** Assertions and test bodies stay as they are; the only thing that changes is
   where the rows they read come from. If a test cannot pass on a seeded fixture without changing its
   assertion, that is a finding to report, not a licence to edit the assertion (OQ2).
@@ -175,10 +177,9 @@ bans Secrets Manager outright. The comment is dead instructions.
   install, not query time.
 - Loading the canonical DDL every CI run turns the mirror-identity convention into something CI
   executes, so a file that no longer loads becomes a red job instead of a silent divergence.
-- A separate, small `integration-neon` job keeps the handful of assertions that are about Neon rather
-  than about Postgres — pooler semantics, the `default_transaction_read_only` leak
-  ([[reference-neon-pooler-readonly-leak]]), connection lifetime. It runs on `main` and on demand, not
-  on every PR.
+- No backend Neon job remains: the mapping found no Neon-only assertion to preserve. Historical
+  pooler/read-only failures belong to workspace scripts, not this backend suite; a future targeted
+  contract must specify its own behavior and thresholds before adding a remote-DB job.
 - `deploy: needs: [check, test, contract, integration]`. A commit whose DB tests fail cannot reach
   production.
 - The skip guard fails on **any** skip in the integration suite, not on a grep of known reasons.
@@ -314,11 +315,37 @@ guard ([[feedback-verify-by-running-not-reading]]).
 
 ---
 
-### Step 4 — split off `integration-neon`, then gate `deploy`
+### Step 4 — remove the Neon control, then gate `deploy` — **SHIPPED 2026-08-28** (backend #167)
 
-Move the Neon-specific assertions into `tests/integration_neon/` with its own job (`main` +
-`workflow_dispatch`, `TEST_DB_URL` from SSM, not a PR gate). Then add `integration` to
-`deploy.needs`.
+**Outcome — the fast local suite now gates production deploy.** Backend #167 removed the temporary
+Neon matrix leg, preserved the exact required context `integration`, and added it to `deploy.needs`.
+The deliberate-red dispatch
+[33024138313](https://github.com/hyuntohoon/myblog_backend/actions/runs/33024138313) proved the edge:
+`check`/`test`/`contract` passed, `integration` reported **170 passed + 1 intentional failure**, and
+`deploy` was **skipped**. The temporary failure was removed before the clean PR run
+[33024497728](https://github.com/hyuntohoon/myblog_backend/actions/runs/33024497728), where all four
+required checks passed and local `integration` completed in **55s** with **170/170, zero skips**.
+
+One live-governance mismatch surfaced after the concurrent security ruleset rollout: ruleset
+`21564102` required the obsolete `integration (neon)` context even though its RFC record listed only
+the four intended checks. The owner authorized completing the local-only direction; the stale context
+was removed while preserving `check`, `test`, `contract`, and `integration`.
+
+Squash `aefa1a8` deployed in main run
+[33159253480](https://github.com/hyuntohoon/myblog_backend/actions/runs/33159253480). The required local
+job finished first in **46s** (**170/170, zero skips; pytest 3.19s**), then deploy ran in **27s** and
+the production `/api/db/ping` smoke reported **`Backend health OK.`**. The result is quoted on #167.
+
+Remove the temporary Neon matrix leg, keep the exact required local `integration` context, then add
+`integration` to `deploy.needs`.
+
+**Implementation mapping — 2026-08-27:** there are currently no Neon-only assertions to move. Step 1
+proved that all 170 tests exercise engine-independent Postgres behavior against both targets, and the
+pooler/read-only examples above are historical workspace-script failures rather than backend tests.
+Do not invent a new contract or create an empty false-green suite in this step. The owner clarified
+that the goal is to stop running this backend suite on Neon, not to retain its 17-minute duplicate as
+an advisory job. A future targeted data-shape or Neon-platform contract can be added when its
+assertions and thresholds are specified.
 
 **Verification**:
 ```
@@ -377,11 +404,11 @@ this wrong stops deploys rather than merely reporting late.
    migrations behind today (V53, V54). It is not on this RFC's path — the bootstrap reads the
    `myblog_shared_db` copy — but it is a live drift found while writing this, and leaving it unfixed
    means the next person reads a stale contract.
-5. **Is a 170-test suite that never touches production-shaped data still worth 90 seconds of every
-   merge?** (blocks Step 4) Stated plainly so it is answered rather than assumed: these tests exercise
-   service-layer SQL against real Postgres semantics — transactions, constraints, `ON CONFLICT`,
-   cascade behavior — none of which a fixture weakens. What a synthetic catalog does weaken is anything
-   depending on data *shape at scale*. If OQ2 finds such tests, they belong in `integration_neon`.
+5. ~~**Is a 170-test suite that never touches production-shaped data still worth 90 seconds of every
+   merge?**~~ **RESOLVED 2026-08-27 (owner): yes; keep it required on every merge.** The measured
+   53-second job adds roughly 17 seconds beyond the other required checks and protects real Postgres
+   transaction, constraint, `ON CONFLICT`, and cascade behavior. Production-scale data-shape behavior
+   is not claimed by this suite and needs a separately specified future contract.
 
 ## Decisions log
 
@@ -393,3 +420,6 @@ this wrong stops deploys rather than merely reporting late.
 | 2026-08-26 | OQ1/OQ2/OQ3 closed by the Step 1 run; Step 2's CI target tightened from a guessed 90s to 60s against the measured 12.04s baseline | 1, 2 |
 | 2026-08-26 | Step 2 shipped (backend #164). Final PR parity: 170/170, 0 skips on both legs; local job 49s vs Neon 14m31s. Main local job 46s; deploy 27s + health smoke green. Local retained the exact required check context `integration` after the first matrix name made an otherwise-green PR unmergeable | 2 |
 | 2026-08-26 | Step 3 shipped (backend #165). Intentional red proof: required `integration` failed after 169 passed / 1 skipped. Clean PR parity: 170/170, 0 skips on both legs; local job 53s vs Neon 17m3s. Squash `4ebc5be` deployed in 36s with production database health smoke green | 3 |
+| 2026-08-27 | Owner resolved OQ5: keep the 170-test local Postgres suite required on every merge; its measured 53-second job adds roughly 17 seconds beyond the other gates | 4 |
+| 2026-08-27 | Mapping found zero Neon-only backend assertions; owner clarified that the suite should stop running on Neon. Remove the temporary Neon matrix leg rather than create an empty or duplicate advisory job | 4 |
+| 2026-08-28 | Step 4 shipped (backend #167). Negative proof: 170 passed + 1 intentional failure made `integration` fail and `deploy` skip. Clean PR: required local `integration` 170/170, zero skips, 55s. Removed stale `integration (neon)` from ruleset 21564102; squash `aefa1a8` main run gated deploy on local integration, then deployed in 27s with production health smoke green | 4 |
