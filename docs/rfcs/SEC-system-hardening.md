@@ -279,18 +279,44 @@ fail with it.
 with `id-token: write` would hand a fork PR author production S3 write. `job_workflow_ref` restricts
 assumption to this one file whatever event started it.
 
-**3c — remaining lanes.** backend, music, worker onto per-lane roles, each pinned the same way,
-each holding only its own `lambda:UpdateFunctionCode`/`GetFunction` (worker additionally
-`InvokeFunction` on itself). Not started.
+**3c — remaining lanes.** **DONE and production-verified 2026-08-28.** Three per-lane roles
+(`myblog-github-{backend,music,worker}-deploy`), each trusting only its own repo's `main` through
+its own `deploy.yml`, each granting only `lambda:UpdateFunctionCode` on **one** function — worker
+additionally `GetFunction` (for the `function-updated-v2` waiter; the v1 waiter polls
+`GetFunctionConfiguration`, which no role grants) and `InvokeFunction` (post-deploy health check).
+
+Why per-lane rather than one shared role: `github-actions-deploy`'s policy granted
+`UpdateFunctionCode` on four functions to whoever held its key, and all three repos held the *same*
+key — a compromise of any one repo's secret could overwrite any of the others' Lambda code.
+
+Merged worker → music → backend, each verified by its own real deploy before the next started. All
+three Lambdas show new `CodeSha256` values, the worker's post-deploy health invoke passed (which is
+what proves `GetFunction`/`InvokeFunction` were granted correctly), and `scripts/smoke.sh prod`
+returned 19 passed / 0 failed afterwards.
+
+Review caught one thing worth recording: `myblog_music`'s deploy job was the only one of the four
+lanes **without** the `&& github.ref == 'refs/heads/main'` guard its twins carry. Safe today only
+because `on.push.branches` is `[main]` — but music is also the only lane with no
+`workflow_dispatch`, so adding one is the obvious next change, and this PR is what gave that job
+`id-token: write`. Fixed in the same change, per CLAUDE.md's sweep rule.
 
 **3d — retire the keys.** In order, and the order is the rollback path:
 
-1. front OIDC deploy green in production
-2. delete `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from `myblog_front`
-3. same for the other three lanes after 3c
-4. delete the `github-actions-deploy` IAM user's access key
-5. **delete both AWS root account access keys** — `access_key_2` (the exposed one) and
-   `access_key_1` (unused since 2025-12-10)
+1. ✅ front OIDC deploy green in production
+2. ✅ deleted `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from `myblog_front` (2026-08-28), then
+   proved the lane still deploys with no static key present at all (dispatch run `33158785878`)
+3. ✅ same for backend, music and worker (2026-08-28)
+4. ✅ `github-actions-deploy`'s access key: **deactivated first**, a worker deploy run green while
+   it was `Inactive` (run `33161432250`) as proof nothing still used it, **then deleted**. The user
+   now has zero keys. Its `lambda-deploy-only` policy is retained but unused, and still lists a
+   dead `publisher-github` ARN — clean up with the user itself.
+5. ⛔ **delete both AWS root account access keys** — `access_key_2` (the exposed one; last used
+   `2026-08-26T06:09`, the final static-key front deploy, and nothing since) and `access_key_1`
+   (unused since `2025-12-10`). **Still open. Owner action.**
+
+**No AWS credential secret exists in any of the six repositories as of 2026-08-28**, and every
+deploy runs on a short-lived OIDC session scoped to one repo, one ref, one workflow file and one
+resource.
 
 Step 5 is **not** Claude's to perform: root keys can only be removed by signing in as root with MFA.
 Deleting the GitHub secrets alone leaves both root keys active in AWS, so "secrets deleted" must
@@ -368,9 +394,14 @@ token 401, member-on-owner-route 403, public reads 200, on both services. **No r
 would have meant the Terraform variable had not reached the function.
 
 Observed during the backend deploy and recorded rather than left implicit: `deploy` completed while
-`integration (neon)` was still running, because `deploy.needs` is `[check, test, contract]`. The
-merge itself was gated — all five required checks were green on the PR — but the post-merge push run
-does not wait. See Step 5's findings.
+`integration (neon)` was still running, because `deploy.needs` was `[check, test, contract]`.
+
+**Both halves of that have since changed, by a parallel session rather than this one.** `myblog_backend#167`
+("ci: gate deploy on local integration") added `integration` to `deploy.needs` — closing the gap for
+that repo — and removed the `integration`/`integration (neon)` matrix, so `integration (neon)` is no
+longer a check GitHub produces. The `main-required-checks` ruleset was updated the same day to drop
+it, which is the correct maintenance: a required check whose workflow no longer emits it blocks every
+PR forever. **`myblog_music` still has the original gap** — its `deploy.needs` is `[test, contract]`.
 
 **Rollback**: revert the two service PRs. The Terraform env var can stay — the reverted code ignores
 it, exactly as the pre-change code does now. Both deploy workflows call only

@@ -9,14 +9,17 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, draft) — main governance, keyless
   deploys, one JWT verifier. Steps 1–2 (rulesets on all six repos) and Step 4 (both Cognito guards
   hardened + real signed-token vectors) shipped 2026-08-26; Step 3b (front OIDC pilot) in flight.
-  Step 3b (front OIDC) and Step 5 (polyrepo assessment — verdict **KEEP POLYREPO**) also done.
+  Step 3b (front OIDC), **Step 3c (backend/music/worker OIDC — all three production-verified
+  2026-08-28)** and Step 5 (polyrepo assessment — verdict **KEEP POLYREPO**) also done. **No AWS
+  credential secret exists in any of the six repositories**, and `github-actions-deploy` has zero
+  access keys.
   **Carries a P0 the owner must close personally**: the AWS *root account* access key is the
   credential in `myblog_front`'s Actions secrets, and `myblog_front` is a public repository. Root
   `access_key_2` was rotated 11 s before that secret was last set and was last used against
   CloudFront during a front deploy; a second root key, `access_key_1`, is also active and unused
   since 2025-12-10. Root keys can only be deleted by signing in as root with MFA, so Step 3d-5 is
-  not Claude's to perform — and deleting the repo secrets does **not** retire them. Steps 3c
-  (backend/music/worker OIDC lanes), 3d (key retirement) and 6 (verifier consolidation) not started.
+  not Claude's to perform — and deleting the repo secrets does **not** retire them. Everything else
+  in Step 3d is done. Remaining: **the two root keys (owner)** and Step 6 (verifier consolidation).
 
 > 2026-08-10 reconciliation pass: checked every row below against code/tests/deployment/RFC acceptance
 > criteria (not just prior labels). Six RFCs whose every step was shipped+verified, with nothing left but
