@@ -16,7 +16,9 @@ Three formats are accepted. The consumer handles all in the same handler — alb
 
 ### Format A — Batch (preferred)
 
-Sent when `myblog_music` dispatches one or more albums from the `/candidates` flow.
+Sent only after an authenticated caller explicitly posts candidate album IDs to
+`POST /api/music/sync-requests`. `GET /api/music/search/candidates` is a pure Spotify read and
+never emits this message.
 Up to **20 album IDs per message** (Spotify `/albums?ids=` limit).
 
 ```json
@@ -79,7 +81,10 @@ File: `app/clients/sqs_client.py::SqsClient.enqueue_album_sync`
 2. Groups IDs into chunks of **20** (Spotify batch limit).
 3. Sends chunks to SQS using `send_message_batch` with up to **10 entries per API call**.
 4. The producer has a FIFO branch (`MessageGroupId = "album-sync"`, `MessageDeduplicationId` from `uuid5(NAMESPACE_URL, body + ":" + market)`) gated on `queue_name.endswith('.fifo')` — **dead in prod** (`blogSQS` is Standard). Prod relies on at-least-once delivery + an idempotent consumer (`ON CONFLICT`), NOT FIFO exactly-once/dedup.
-5. Partial `send_message_batch` failures are **logged as warnings** — no retry, no exception raised.
+5. A full batch returns `202 {"status":"accepted", ...}`. Any partial or total
+   `send_message_batch` failure is raised to the route and returned as a safe
+   `503 {"status":"failed","message":"Album sync request could not be accepted"}`; provider
+   details and queue identifiers are never exposed in the HTTP response.
 
 ---
 
@@ -137,7 +142,7 @@ The worker receives the standard AWS Lambda SQS event. Each record follows this 
 | Unrecognized format (no `job`/`album_ids`/`spotify_album_id`) | N/A | Logs warning, record treated as success (no retry) — recognized `job` keys (Format C) excluded |
 | Spotify API error | N/A | Record fails → added to `batchItemFailures` → SQS retries |
 | DB write error | N/A | Record fails → added to `batchItemFailures` → SQS retries |
-| `send_message_batch` partial failure | Logs warning | N/A |
+| `send_message_batch` partial failure | Raises; HTTP producer returns safe `503 failed` (some earlier messages may already be queued) | N/A |
 
 ---
 
