@@ -1,6 +1,6 @@
 # SEC-system-hardening: main governance, keyless deploys, and one JWT verifier
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 오너
 - **Created**: 2026-08-26
 - **Plan row**: `plan.md` → SEC-system-hardening
@@ -551,3 +551,4 @@ ships in the same PR as a package-pin rollout.
 | 2026-08-26 | Owner: fix the auth defects in both duplicated copies first; consolidation is a later, separate step. | 4, 6 |
 | 2026-08-27 | Vectors mutation-tested after review: three of them passed against a guard with the check they named deleted. Fixed by asserting real fetch counts and rejection details. | 4 |
 | 2026-08-26 | The app-client allowlist excludes `MyBlogAdminClient` — nothing in any repo authenticates with it, and the API Gateway authorizer already rejects it. | 4 |
+| 2026-08-28 | Owner explicitly accepted the RFC so the ordered delivery-hardening follow-ups may continue one step per session. | 5 follow-ups |

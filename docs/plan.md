@@ -6,8 +6,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, draft) — main governance, keyless
-  <!-- rfc: docs/rfcs/SEC-system-hardening.md | status: draft -->
+- **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, accepted) — main governance, keyless
+  <!-- rfc: docs/rfcs/SEC-system-hardening.md | status: accepted -->
   deploys, one JWT verifier. Steps 1–2 (rulesets on all six repos) and Step 4 (both Cognito guards
   hardened + real signed-token vectors) shipped 2026-08-26; Step 3b (front OIDC pilot) in flight.
   Step 3b (front OIDC), **Step 3c (backend/music/worker OIDC — all three production-verified
