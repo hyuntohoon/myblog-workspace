@@ -21,9 +21,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   since 2025-12-10. Root keys can only be deleted by signing in as root with MFA, so Step 3d-5 is
   not Claude's to perform — and deleting the repo secrets does **not** retire them. Everything else
   in Step 3d is done. Remaining: **the two root keys (owner)** and Step 6 (verifier consolidation).
-  Owner-directed delivery hardening follow-ups are now sequenced as independent PRs: workspace PR
-  CI/invariants → candidates GET/POST side-effect split → Python dependency reproducibility →
-  per-service shared_db pin invariants → a small non-required Playwright golden suite.
+  Owner-directed delivery hardening follow-ups are sequenced as independent PRs: **workspace PR
+  CI/invariants DONE 2026-08-28** (workspace #948 + shared_db #78) → candidates GET/POST side-effect
+  split → Python dependency reproducibility → per-service shared_db pin invariants → a small
+  non-required Playwright golden suite.
 
 > 2026-08-10 reconciliation pass: checked every row below against code/tests/deployment/RFC acceptance
 > criteria (not just prior labels). Six RFCs whose every step was shipped+verified, with nothing left but
