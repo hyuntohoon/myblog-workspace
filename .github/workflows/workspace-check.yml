@@ -1,0 +1,63 @@
+name: workspace-check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  workspace-check:
+    name: workspace-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout workspace
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout current backend main
+        uses: actions/checkout@v4
+        with:
+          repository: hyuntohoon/myblog_backend
+          ref: main
+          sparse-checkout: openapi.json
+          sparse-checkout-cone-mode: false
+          path: _upstream/backend
+          persist-credentials: false
+
+      - name: Checkout current music main
+        uses: actions/checkout@v4
+        with:
+          repository: hyuntohoon/myblog_music
+          ref: main
+          sparse-checkout: openapi.json
+          sparse-checkout-cone-mode: false
+          path: _upstream/music
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra
+
+      - name: Initialize Terraform without backend
+        run: terraform -chdir=infra init -backend=false -input=false -lockfile=readonly
+
+      - name: Validate Terraform
+        run: terraform -chdir=infra validate
+
+      - name: Test invariant parser
+        run: python -m unittest discover -s scripts/tests -p 'test_workspace_invariants.py' -v
+
+      - name: Check workspace invariants
+        run: >-
+          python scripts/check_workspace_invariants.py
+          --backend-openapi _upstream/backend/openapi.json
+          --music-openapi _upstream/music/openapi.json

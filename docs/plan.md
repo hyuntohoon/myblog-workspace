@@ -7,6 +7,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 ## Active
 
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, draft) — main governance, keyless
+  <!-- rfc: docs/rfcs/SEC-system-hardening.md | status: draft -->
   deploys, one JWT verifier. Steps 1–2 (rulesets on all six repos) and Step 4 (both Cognito guards
   hardened + real signed-token vectors) shipped 2026-08-26; Step 3b (front OIDC pilot) in flight.
   Step 3b (front OIDC), **Step 3c (backend/music/worker OIDC — all three production-verified
@@ -20,6 +21,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   since 2025-12-10. Root keys can only be deleted by signing in as root with MFA, so Step 3d-5 is
   not Claude's to perform — and deleting the repo secrets does **not** retire them. Everything else
   in Step 3d is done. Remaining: **the two root keys (owner)** and Step 6 (verifier consolidation).
+  Owner-directed delivery hardening follow-ups are now sequenced as independent PRs: workspace PR
+  CI/invariants → candidates GET/POST side-effect split → Python dependency reproducibility →
+  per-service shared_db pin invariants → a small non-required Playwright golden suite.
 
 > 2026-08-10 reconciliation pass: checked every row below against code/tests/deployment/RFC acceptance
 > criteria (not just prior labels). Six RFCs whose every step was shipped+verified, with nothing left but
@@ -35,20 +39,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `FIX-lyrics-primary-artist + FIX-isrc-backfill` dropped entirely — implementation complete, remaining
 > items were pure non-gating observation with no RFC to archive; detail → `docs/archive/done/2026-08.md`.
 
-- **ARCH-buckit-navigation-shell** (**retired 2026-08-15**, front #396 `7921a9f` / #397 `7a597f7`
-  2026-08-10, restored by #401 `45b29b2` 2026-08-13, superseded again by #402 `7057a82` / #403
-  `388db15` / #404 `40061bd` 2026-08-13) — its single-selection `BucketDetailShell` structure was
-  reverted from production twice (#401's revert, then #402 the same day) in favor of the current "every
-  bucket visible, inline disclosure" model (`BucketInlineNode`/`BucketInlineList`/`BucketInlineContent`
-  in `BucketBoard.tsx`) — the owner's own commit message states the reason: the single-selection shell
-  made "every other bucket a name in a sidebar, not a bucket you could see and open in place." This row
-  and both RFC files went unupdated for two days; caught 2026-08-15 while auditing
-  `ARCH-global-playback-experience` Step 4's stated gate. **Owner decision 2026-08-15 (same session):**
-  document the inline-disclosure structure as canonical rather than reviving the shell a third time —
-  see the new `ARCH-buckit-inline-navigation` row below, which now owns this structure and its
-  extension boundary. This RFC has no further active steps. →
-  `docs/rfcs/ARCH-buckit-navigation-shell.md`, `docs/rfcs/FEAT-inline-bucket-object-expand.md`.
-- **ARCH-global-playback-experience** (**accepted 2026-08-11; Steps 1+2+3+4 SHIPPED + prod-verified**,
+- **ARCH-global-playback-experience** (**in-progress; accepted 2026-08-11; Steps 1+2+3+4 SHIPPED + prod-verified**,
+  <!-- rfc: docs/rfcs/ARCH-global-playback-experience.md | status: in-progress -->
   front #398 `0d4f525` 2026-08-11, #405 `55ccd47` 2026-08-15, backend #156 `dd627bd`
   + ws #907 `a18d940` + front #407 `afe783c` + front #408 `43cb425` 2026-08-15 + front #409 `20669c34`
   2026-08-16)
@@ -117,8 +109,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `BucketDetailShell` slot); **Open question 1 resolved** — owner picked the always-visible bar after
   seeing Steps 1–4 shipped, so **Step 5 is unconditional and also unblocked**, queued after Step 4's
   second half. **Step 4 fully shipped 2026-08-16**: the second mount-point half was delivered as
-  `ARCH-buckit-inline-navigation` Step 1 (front #409, `20669c34`, now archived — see
-  `docs/archive/done/rfcs/ARCH-buckit-inline-navigation.md`) — `BucketInlineContent` now renders
+  `ARCH-buckit-inline-navigation` Step 1 (front #409, `20669c34`, now archived) —
+  `BucketInlineContent` now renders
   `PlaybackQueue` inline in My Buckit for the Playback Bucket instead of the manual tile grid; verified
   via CDP against the real prod queue (13 tracks) plus one CSS-scoping bug (`.pb-scope`) found and fixed
   in the same pass. **Step 5 shipped 2026-08-16** (front #410, `379b6f1`) — the persistent compact
@@ -141,20 +133,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   click-through against prod. Production smoke 19/19 passed post-deploy (quoted on front #410). **This
   was the RFC's last step — all 5 steps now shipped.** →
   `docs/rfcs/ARCH-global-playback-experience.md`.
-- **FEAT-album-rerating** — RFC archived `done` (`docs/archive/done/rfcs/FEAT-album-rerating.md`).
-  **Follow-on shipped 2026-08-19** (non-RFC, single session — no schema change, reused the existing
-  `spotify_library` pipeline): opening a 재평가 now also adds the album into the owner's
-  `spotify_library` bucket and enqueues a sync, gated `is_owner` (the Spotify lane stays owner-only
-  until Phase 3b). `myblog_backend` #159 `4e935ad` + contract-regen follow-up #160 `a503899`. Prod
-  smoke: non-owner round-trip (PUT/GET/DELETE `/api/me/reratings`) verified against the deployed
-  Lambda, no 5xx; the owner-only Spotify-library side effect itself needs the owner's own live
-  verification (no owner Cognito credentials available to this session) — see #159's PR comment.
-  **Process gap hit this session**: this is a contract-touching change (openapi.json diff) and
-  current `CLAUDE.md` requires a `reviewer` subagent pass for that — but `reviewer` is not in this
-  session's Agent roster (same gap `~/.claude/myblog-rfc-chain.json`'s A11Y-chain observation already
-  flagged 2026-08-16). Merged without that independent pass; flagging per CLAUDE.md's own instruction
-  to stop and say so rather than silently count it satisfied.
 - **BEST NEW ALBUM toggle from the rating surface** — shipped 2026-08-25 (non-RFC, single session,
+  <!-- rfc: none -->
   owner explicitly chose to skip an RFC for this — no schema change). Owner-only mark/unmark of the
   existing `albums.best_new` column (introduced by the archived `FEAT-writer-lowfreq-redesign`) directly
   from `AlbumRatingBlock`, without opening the post editor — a second entry point onto the same column
@@ -176,7 +156,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   aggregate and a 403 for a non-owner token on the new route (quoted on all three PRs). **Not verified**:
   the actual owner-success toggle path, since that needs the live owner Cognito session rather than the
   smoke test member account — recommend one live click-test as the owner.
-- **FEAT-album-review-authoring** (**in-progress; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
+- **FEAT-album-review-authoring** (**accepted; Steps 1+2 SHIPPED + prod-verified**) — album **평가 = rating**(public star rating + one-line comment), **평론 = review**(editor long-form review). Korean UI must not use "리뷰" for either concept. Step 1 shipped ≤60-char one-line rating comments + private `review_candidate`, extending the existing `album_reviews` state without a new table. Step 2 shipped rating count/average/distribution, sort by newest/rating/name, rating history, and editorial-candidate list. Entrance-link/visibility defects found after Step 2 were fixed and prod-verified.
+  <!-- rfc: docs/rfcs/FEAT-album-review-authoring.md | status: accepted -->
 
   **Next gate: re-measure, baseline reset 2026-08-15.** Gate condition = since front `2dcabd0`(2026-08-15, front #406 merge — `/search` album grid moved onto the canonical `AlbumCard` with a 담기 entrance, the most direct "find an album" path gaining one for the first time), bucket additions (`review_bucket_items` where `item_type='album'`) ≥10 while owner ratings (`album_reviews.rating IS NOT NULL` for `user_id = OWNER_SUB`) remain 0. If additions <10, **do not decide**.
 
@@ -189,7 +170,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
   AI behavior remains distillation only: use only material supplied by the author, never add outside facts/evaluations/metaphors, result remains editable, and publishing is always an explicit user action. The user-facing AI request will be the product's first actual API-engine caller. → `docs/rfcs/FEAT-album-review-authoring.md`.
 
-- **ARCH-entity-interaction-domain-audit** (**draft; owner approved audit conclusions, but explicit status promotion has not occurred**) — independent audit of review/memo commands, playback-state ownership, lyrics hosting, bucket-add flow, modal infrastructure, and global events. Steps **1, 2, 3 (3a/3b/3c) and 4** are complete and prod-verified.
+- **ARCH-entity-interaction-domain-audit** (**in-progress**) — independent audit of review/memo commands, playback-state ownership, lyrics hosting, bucket-add flow, modal infrastructure, and global events. Steps **1, 2, 3 (3a/3b/3c) and 4** are complete and prod-verified.
+  <!-- rfc: docs/rfcs/ARCH-entity-interaction-domain-audit.md | status: in-progress -->
   - **Step 3a** fixed `NowPlaying`'s `controlBusyRef` race for external playback events using `localWriteSeq`.
   - **Step 3b** made `NowPlaying` subscribe to `playbackSession` for track identity + anchor convergence while keeping tier/mode/like/device/reconnect local.
   - **Step 3c** SHIPPED 2026-08-06 (front #374), closing Step 3 — it moved `LyricsViewer` synchronization-anchor ownership, the highest-risk part because it touches the sub-100ms synchronization path tuned by the (now-archived) `FEAT-lyrics-sync-precision`.
@@ -197,6 +179,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **Next = Step 5** (memo naming conflict; blocked behind the `FEAT-album-review-authoring` gate above) — new session. → `docs/rfcs/ARCH-entity-interaction-domain-audit.md`.
 
 - **DATA-multidisc-track-order** (**accepted 2026-08-16; Step 1+2+3 shipped**) — promoted from Backlog this
+  <!-- rfc: docs/rfcs/DATA-multidisc-track-order.md | status: accepted -->
   session on owner approval. `tracks` had no `disc_no` column, so every tracklist read path orders by
   `track_no` alone and multi-disc albums interleave; the tie-break falls through to arbitrary `id` order.
   Both of the draft's load-bearing claims were re-measured against prod before promotion rather than
@@ -247,6 +230,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   forbid a disc-number UI). → `docs/rfcs/DATA-multidisc-track-order.md`.
 
 - **A11Y-modal-background-inert** (**accepted 2026-08-16; Steps 1+2 SHIPPED — front #411, #412**) —
+  <!-- rfc: docs/rfcs/A11Y-modal-background-inert.md | status: accepted -->
   promoted from Frozen this session on owner approval, as `ARCH-overlay-modal-isolation` OQ2 recommended
   (a separate RFC, not a reopening of that one). While a scrim modal is open, nothing removes the page
   behind it from the accessibility tree: **zero occurrences of `inert` in `myblog_front/src`**.
@@ -296,6 +280,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   owner sign-off, not done here. → `docs/rfcs/A11Y-modal-background-inert.md`.
 
 - **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval, and
+  <!-- rfc: none -->
   its blocking question resolved in the same pass: the `PERF-home-feed-latency` dependency note is
   **stale and is now dropped**, exactly as the Backlog row suspected — that name has never existed as an
   RFC or plan row and appears nowhere outside the line that cited it. Nothing sequences ahead of this.

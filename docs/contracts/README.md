@@ -15,7 +15,14 @@ Cross-service contracts that bind the 4 services together.
 
 ## Schema change procedure
 
-1. Update `docs/contracts/schema.sql`.
-2. Update `myblog_shared_db/models.py`; regenerate `_generated_schema.sql`.
-3. Tag a new shared-db version; update pin in each consumer's `requirements.txt`.
-4. Add the migration as `myblog_shared_db/migrations/V{N}__<desc>.sql` (plain SQL; the canonical, version-ordered location) and apply it to Neon prod. (Service-local `db/migrations/` — e.g. `myblog_music` — only for that service.)
+1. Author and merge `docs/contracts/schema.sql` in the workspace canonical PR.
+2. In an immediate shared-db follow-up PR, copy it byte-for-byte to
+   `tests/canonical_schema.sql`, update the models, regenerate `_generated_schema.sql`, and add
+   `migrations/V{N}__<desc>.sql` (plain SQL; the canonical version-ordered location). The shared-db
+   required CI checks out public workspace `main` and rejects mirror drift.
+3. Merge the shared-db PR after its canonical-schema comparison passes.
+4. Track the intended shared-db commit SHA in each affected consumer and update only compatible
+   services. Apply the migration to Neon only through the separately approved migration procedure.
+
+Service-local `db/migrations/` directories (for example, `myblog_music`) are only for changes owned
+by that service.

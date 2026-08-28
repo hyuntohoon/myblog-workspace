@@ -473,6 +473,28 @@ not its.
 
 ---
 
+### Step 5 follow-ups — delivery-path hardening (owner-directed 2026-08-28)
+
+These are separate, ordered PRs. Each item must be rechecked against current `main` before it starts;
+an item already fixed elsewhere is recorded and skipped rather than rebuilt.
+
+1. **Workspace PR CI + deterministic invariants** — add a real `pull_request` check for Terraform
+   formatting/validation, deterministic Active-plan RFC path/status rules, and merged OpenAPI
+   consistency. Repair the V53 `tracks.disc_no` and V54 `pending_reratings` mirror drift, then enforce
+   byte identity in shared-db's required CI by checking out the public workspace canonical. Do not
+   require the workspace check until a real PR run produces its context.
+2. **Music candidates side-effect split** — make candidate GET pure and move enqueue to an explicit
+   202-returning POST, with contract, frontend, and LocalStack regression coverage.
+3. **Python dependency reproducibility** — freeze production resolution without opportunistic
+   upgrades; verify clean installs and Lambda artifacts.
+4. **Per-service shared_db pin invariants** — intentional cross-service skew remains allowed, but
+   duplicated pins inside one service must fail CI when they drift.
+5. **Frontend Playwright golden E2E** — only after items 1–4; start with 3–5 stable, mocked-boundary
+   journeys and keep the check non-required until repeated PR evidence shows it is stable.
+
+Rollback is per PR: revert the individual workflow/contract/build/E2E PR. No item authorizes a
+production migration, Terraform apply, dependency upgrade, or required-check promotion by itself.
+
 ### Step 6 — consolidate the JWT verifier (not started)
 
 Deliberately after Step 4, and deliberately not in the same change. The owner's decision on

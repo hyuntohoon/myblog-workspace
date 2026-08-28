@@ -5,16 +5,19 @@
 --   the workspace copy since the 2026-07-11 reconciliation (CHORE-canonical-
 --   schema-sync); edit both in the same change.
 --
--- Change policy:
---   1. Update THIS file first (both copies).
---   2. Write a migration script for the running DB (never DROP/TRUNCATE in prod).
---   3. Update the affected service's ORM models and local schema file.
---   4. Deploy consumer services before or simultaneously with producer services.
+-- Coordinated mirror policy:
+--   1. Author and merge this canonical file in the workspace first.
+--   2. Update the shared-db mirror in an immediate follow-up PR. Its required CI
+--      checks out public workspace main and compares the two files byte-for-byte.
+--   3. Write a migration script for the running DB (never DROP/TRUNCATE in prod).
+--   4. Update affected ORM models/local schemas and deploy consumers before or
+--      simultaneously with producers.
 --
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V51 (V51 authored 2026-08-03 —
+-- This file shows clean canonical DDL through V54 (V54 pending_reratings; V53
+--   tracks.disc_no; V52 planned_ratings). V51 was authored 2026-08-03 —
 --   FEAT-playback-bucket-player Step 2, the 'playback' bucket type +
 --   idx_review_buckets_single_playback). NB: V49 and V50 DDL was already present
 --   in the body while BOTH version-claim blocks still read V47/V48 — the same
@@ -267,6 +270,7 @@ CREATE TABLE IF NOT EXISTS tracks (
   album_id     UUID        NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
   title        TEXT        NOT NULL,
   track_no     INTEGER,
+  disc_no      INTEGER,  -- V53: DATA-multidisc-track-order Step 1
   duration_sec INTEGER,
   spotify_id   TEXT        NOT NULL UNIQUE,
   views        INTEGER     NOT NULL DEFAULT 0,
@@ -985,6 +989,29 @@ CREATE INDEX IF NOT EXISTS idx_planned_ratings_user_created
   ON planned_ratings (user_id, created_at);
 
 -- =============================================================================
+-- Pending Reratings — 재평가 store (V54; FEAT-album-rerating Step 1). Row
+-- existence = "this 평가 was withdrawn and will be redone"; DELETE = the 재평가
+-- ended (either cancelled, or completed by a new rating landing on
+-- album_reviews). Its own table because the withdrawal itself deletes the
+-- album_reviews row whenever review_candidate is false — there is no row left
+-- to flag. previous_rating/previous_comment are the withdrawn 평가, AUTHOR-ONLY:
+-- the 재평가 중 list is public, the score behind it never is.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS pending_reratings (
+  id               UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID          NOT NULL REFERENCES users (id)  ON DELETE CASCADE,
+  album_id         UUID          NOT NULL REFERENCES albums (id) ON DELETE CASCADE,
+  previous_rating  NUMERIC(2, 1) NOT NULL,
+  previous_comment TEXT,
+  created_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  CONSTRAINT uq_pending_reratings_user_album UNIQUE (user_id, album_id),
+  CONSTRAINT ck_pending_reratings_previous_rating_halfstep
+    CHECK (previous_rating >= 0.5 AND previous_rating <= 5.0 AND mod(previous_rating, 0.5) = 0)
+);
+CREATE INDEX IF NOT EXISTS idx_pending_reratings_user_created
+  ON pending_reratings (user_id, created_at);
+
+-- =============================================================================
 -- Daily Picks — owner-curated "song of the day" store (V39; FEAT-today-buckit Step 3)
 -- One pick per calendar day (upsert on pick_date); track-primary (a pick is always
 -- a TRACK; album_id carried for the album-window click target). Denormalized
@@ -1217,9 +1244,11 @@ CREATE TABLE IF NOT EXISTS spotify_member_now_playing (
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
--- This file is current through V51 ('playback' bucket type +
--- idx_review_buckets_single_playback, FEAT-playback-bucket-player Step 2 —
--- authored 2026-08-03), after V50 (album_reviews rating→NULLABLE +
+-- This file is current through V54 (pending_reratings, FEAT-album-rerating Step
+-- 1), after V53 (tracks.disc_no, DATA-multidisc-track-order Step 1), V52
+-- (planned_ratings, FEAT-rating-smart-collections Step 2), V51 ('playback'
+-- bucket type + idx_review_buckets_single_playback,
+-- FEAT-playback-bucket-player Step 2 — authored 2026-08-03), after V50 (album_reviews rating→NULLABLE +
 -- review_candidate + ck_album_reviews_comment_needs_rating +
 -- ck_album_reviews_state_not_empty + idx_album_reviews_user_candidate,
 -- FEAT-album-review-authoring Step 1 — authored + prod-applied 2026-07-31),
