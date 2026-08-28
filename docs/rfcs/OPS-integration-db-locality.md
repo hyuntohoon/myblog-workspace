@@ -3,7 +3,8 @@
 - **Status**: **accepted 2026-08-26** (explicit owner approval in-session — CLAUDE.md rule #7 —
   answering the recommendations verbatim: `.sql` catalog fixture, canonical DDL as the schema source,
   and any assertion that cannot survive a seeded catalog moves to `integration_neon` rather than being
-  relaxed). **Steps 1–3 shipped** (backend #163, #164, #165); Steps 4–5 not started.
+  relaxed; Step 4 later mapped that set to zero and the owner clarified local-only). **Steps 1–4
+  shipped** (backend #163, #164, #165, #167); Step 5 not started.
 - **Owner**: 오너
 - **Created**: 2026-08-26
 - **Plan row**: `plan.md` → OPS-integration-db-locality
@@ -314,7 +315,26 @@ guard ([[feedback-verify-by-running-not-reading]]).
 
 ---
 
-### Step 4 — remove the Neon control, then gate `deploy`
+### Step 4 — remove the Neon control, then gate `deploy` — **SHIPPED 2026-08-28** (backend #167)
+
+**Outcome — the fast local suite now gates production deploy.** Backend #167 removed the temporary
+Neon matrix leg, preserved the exact required context `integration`, and added it to `deploy.needs`.
+The deliberate-red dispatch
+[33024138313](https://github.com/hyuntohoon/myblog_backend/actions/runs/33024138313) proved the edge:
+`check`/`test`/`contract` passed, `integration` reported **170 passed + 1 intentional failure**, and
+`deploy` was **skipped**. The temporary failure was removed before the clean PR run
+[33024497728](https://github.com/hyuntohoon/myblog_backend/actions/runs/33024497728), where all four
+required checks passed and local `integration` completed in **55s** with **170/170, zero skips**.
+
+One live-governance mismatch surfaced after the concurrent security ruleset rollout: ruleset
+`21564102` required the obsolete `integration (neon)` context even though its RFC record listed only
+the four intended checks. The owner authorized completing the local-only direction; the stale context
+was removed while preserving `check`, `test`, `contract`, and `integration`.
+
+Squash `aefa1a8` deployed in main run
+[33159253480](https://github.com/hyuntohoon/myblog_backend/actions/runs/33159253480). The required local
+job finished first in **46s** (**170/170, zero skips; pytest 3.19s**), then deploy ran in **27s** and
+the production `/api/db/ping` smoke reported **`Backend health OK.`**. The result is quoted on #167.
 
 Remove the temporary Neon matrix leg, keep the exact required local `integration` context, then add
 `integration` to `deploy.needs`.
@@ -402,3 +422,4 @@ this wrong stops deploys rather than merely reporting late.
 | 2026-08-26 | Step 3 shipped (backend #165). Intentional red proof: required `integration` failed after 169 passed / 1 skipped. Clean PR parity: 170/170, 0 skips on both legs; local job 53s vs Neon 17m3s. Squash `4ebc5be` deployed in 36s with production database health smoke green | 3 |
 | 2026-08-27 | Owner resolved OQ5: keep the 170-test local Postgres suite required on every merge; its measured 53-second job adds roughly 17 seconds beyond the other gates | 4 |
 | 2026-08-27 | Mapping found zero Neon-only backend assertions; owner clarified that the suite should stop running on Neon. Remove the temporary Neon matrix leg rather than create an empty or duplicate advisory job | 4 |
+| 2026-08-28 | Step 4 shipped (backend #167). Negative proof: 170 passed + 1 intentional failure made `integration` fail and `deploy` skip. Clean PR: required local `integration` 170/170, zero skips, 55s. Removed stale `integration (neon)` from ruleset 21564102; squash `aefa1a8` main run gated deploy on local integration, then deployed in 27s with production health smoke green | 4 |
