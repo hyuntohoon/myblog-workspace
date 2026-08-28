@@ -487,8 +487,14 @@ an item already fixed elsewhere is recorded and skipped rather than rebuilt.
    inputs still need a defined immediate pre-merge refresh policy before promotion. Production smoke
    was N/A because neither PR applied Terraform, ran a migration, deployed code, or changed runtime
    behavior; post-merge evidence is quoted on both PRs.
-2. **Music candidates side-effect split** — make candidate GET pure and move enqueue to an explicit
-   202-returning POST, with contract, frontend, and LocalStack regression coverage.
+2. **Music candidates side-effect split — DONE 2026-08-28** (music #73 additive POST + #74 pure
+   GET, workspace #951 additive contract + #952 final contract/docs, front #427 caller/types/status)
+   — the rollout kept legacy GET enqueue until the new GET-then-POST frontend was deployed, then
+   removed DB/SQS construction and enqueue from GET. Music passed 166 unit tests, contract CI, and
+   LocalStack zero-message GET / exact Format-A POST coverage; frontend passed 718 tests and a real
+   browser clickthrough; authenticated production smoke returned GET 200 then POST 202 `accepted`.
+   Reverse rollback restores legacy GET enqueue before reverting frontend, allowing only a brief
+   idempotent duplicate-enqueue window and no sync outage.
 3. **Python dependency reproducibility** — freeze production resolution without opportunistic
    upgrades; verify clean installs and Lambda artifacts.
 4. **Per-service shared_db pin invariants** — intentional cross-service skew remains allowed, but
