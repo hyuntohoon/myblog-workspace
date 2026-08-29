@@ -119,7 +119,7 @@ def _output_dir() -> str:
 
 # --- secrets / db ---------------------------------------------------------
 def database_url() -> str:
-    """Read prod DATABASE_URL from Secrets Manager and normalize for psycopg."""
+    """Read prod DATABASE_URL from SSM Parameter Store and normalize for psycopg."""
     import boto3
 
     ssm = boto3.client("ssm", region_name=REGION)

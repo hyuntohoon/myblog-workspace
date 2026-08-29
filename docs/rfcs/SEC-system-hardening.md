@@ -499,11 +499,95 @@ an item already fixed elsewhere is recorded and skipped rather than rebuilt.
 Rollback is per PR: revert the individual workflow/contract/build/E2E PR. No item authorizes a
 production migration, Terraform apply, dependency upgrade, or required-check promotion by itself.
 
-### Step 6 — consolidate the JWT verifier (not started)
+### Step 6 — consolidate the JWT verifier (SHIPPED 2026-08-28)
 
 Deliberately after Step 4, and deliberately not in the same change. The owner's decision on
 2026-08-26 was: fix the defects in both copies first, then consolidate, so that a security fix never
-ships in the same PR as a package-pin rollout.
+ships in the same PR as a package-pin rollout. That constraint is honoured literally — this step
+introduces no package and bumps no pin.
+
+**Measured before designing.** The two verifiers' *code* was already token-for-token identical.
+Tokenising both files with comments and docstrings dropped, and diffing per function:
+`_get_jwks`, `_refresh_jwks_if_due`, `_jwks_refresh_count`, `_reset_jwks_refresh_throttle` and
+`_allowed_client_ids` were IDENTICAL. The entire divergence was comments plus one structural split —
+`myblog_backend` had factored `verify_token` out so `edge_guard` could reuse it, `myblog_music` had
+the same body inlined in `require_cognito_token`. There was no behavioural drift to reconcile, only a
+right to drift to remove.
+
+**Shape.** `app/core/auth.py` is now one canonical text, byte-identical in both repositories
+(`cmp` clean). Both name their package `app` and define the same four settings fields (`ENV`,
+`COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_ALLOWED_CLIENT_IDS`), so the shared file needs no
+injection seam. The backend-only authorization tiers — `SINGLE_OWNER`, `resolve_owner`,
+`require_owner`, `require_owner_or_draft_agent`, `is_owner` — moved verbatim to
+`myblog_backend/app/core/authz.py`.
+
+The split direction matters and was chosen for testability, not tidiness. Every existing test seam
+patches `app.core.auth.settings` or `app.core.auth._get_jwks`; had the verifier moved to a new module,
+those patches would have silently stopped governing the code under test and the vectors would have
+gone on passing for the wrong reason. Keeping the verifier at its existing path put the churn on the
+authorization side instead, where a mistake fails loudly (an unset `OWNER_SUB` is 503, never "allow").
+For the same reason `authz.py` reads `auth.settings.*` rather than taking its own `settings` binding.
+
+**Placement — why not a shared package.** `myblog_shared_db` was the obvious host and is the wrong
+one. The three services pin it at three different revisions today — backend `90a6fca`, music
+`8319a56`, worker the abandoned tag `v0.26.0`. A packaged verifier would therefore have shipped two
+different versions of this code to the two services it exists to unify, and an auth hotfix would have
+become a package release plus two pin bumps plus two deploys, on a pin mechanism already known to
+drift. It would also have put `httpx` and `python-jose` inside a DB-models package. Owner decision,
+2026-08-28: vendor the canonical text and enforce it, rather than package it.
+
+**Enforcement.** `.github/workflows/verifier-drift.yml` in the workspace repository fetches both
+`main` copies daily and fails on any difference. It is scheduled rather than a required PR check on
+each repo *by design*: a coordinated change must land in two repositories and one merges first, so a
+PR-time comparison against the twin's `main` would go red on the first merge and stay red until the
+second — a deadlock during exactly the change it is meant to protect. A daily diff catches drift
+within a day and never blocks the fix. The job refuses an empty or non-verifier-looking fetch, so a
+rename or a 404 fails rather than passing vacuously.
+
+Two costs of that choice, accepted rather than discovered later:
+
+1. **The tolerated drift window is up to ~17 hours, and it is *auth* drift.** If a verifier hotfix
+   merges in one repo at 10:00 KST and the twin PR stalls, production runs two different verifiers
+   until the 03:20 job. The only signal is a red job in the workspace Actions tab — there is no
+   paging path. The mitigation is procedural and cheap: after landing a coordinated verifier change,
+   run `gh workflow run verifier-drift.yml` and read the result, rather than waiting for the cron.
+2. **A single-repo revert turns the gate red as a side effect.** Each commit is self-contained, so
+   an incident revert of either repo alone is behaviourally safe — but it *is* drift, and the job
+   will say so until the twin is reverted too. That is the correct report, not a false alarm; it
+   should not be mistaken for a second incident.
+
+The enforcement also lives in the one repository with no required checks, which means **merging the
+workspace PR is not optional**: both `app/core/auth.py` copies carry a docstring asserting the daily
+check exists. Ship them together or the shared file documents a control that does not run.
+
+**A hole this step surfaced, and closed.** The vector suites prove *authentication*; what the step
+physically edits is eleven files of *authorization* imports. Adversarial review mutation-tested that
+surface and found that rebinding `require_owner` to `require_cognito_token` inside `publish.py`,
+`genres.py`, `research.py`, `library.py` or `posts.py` silently downgrades those routes to "any valid
+pool token" while the **entire backend unit suite stays green** — `tests/api/test_publish.py`'s JWT
+test asserts 401 for a *missing* token only, which the member guard also produces. With
+`FEAT-multi-user-accounts` 0c self-signup enabled that is any pool member able to `POST /api/publish`
+or `DELETE /api/posts/{id}`. The gap predates Step 6, but Step 6 is what makes those import lines
+load-bearing, so it closes it: `myblog_backend/tests/test_route_guard_map.py` builds the route→guard
+map from the live FastAPI dependency graph and pins the 24 owner-only and 2 draft-agent routes by
+(method, path). The same mutation now fails 2–6 assertions in each of the five previously-silent
+modules.
+
+**Evidence that behaviour is unchanged.** The golden contract is the Step 4 vector suites, and they
+are UNCHANGED — byte-identical in `myblog_backend` (`tests/test_cognito_token_vectors.py`,
+`tests/test_edge_guard.py`, `tests/cognito_tokens.py`), and code-identical in `myblog_music` (two
+prose lines updated; executable tokens verified equal to `origin/main`). 29 signed-JWT vectors per
+repo cover invalid signature, `alg=none`, HS256-with-the-RSA-modulus, unknown and missing `kid`,
+wrong and missing issuer, expired, not-yet-valid, no clock skew, refresh and missing `token_use`,
+ID-token rejection, unlisted app client, missing `client_id`, multi-client allowlists, unset
+allowlist fail-closed in prod, malformed tokens, JWKS outage → 503, the explicit fetch timeout, the
+kid-miss refetch throttle, and rotated-key pickup after the window. All green in both repos with no
+edit to an assertion.
+
+**Open item this surfaced.** `CLAUDE.md`'s merge-gate table said the workspace repository has no
+`pull_request`-triggered workflow. It gained one in ws #948 (`workspace-check`), so that reasoning is
+stale; the ruleset still carries only `main-protection`. Making `workspace-check` a required check is
+now possible and is *not* decided here.
 
 ## Open questions
 

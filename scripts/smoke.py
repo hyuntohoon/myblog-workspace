@@ -10,7 +10,7 @@ Usage:
     python3 scripts/smoke.py local   # backends on :8000 (backend) + :8001 (music)
 
 Required env vars:
-    AWS credentials with cognito-idp + secretsmanager:GetSecretValue (for prod)
+    AWS credentials with cognito-idp + ssm:GetParameter (for prod)
     MYBLOG_SMOKE_PASSWORD     — Cognito test user password (prod only)
     MYBLOG_SMOKE_EMAIL        — Cognito test user email (default: test@ratemymusic.blog)
 

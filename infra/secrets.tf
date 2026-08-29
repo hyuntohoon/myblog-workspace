@@ -1,18 +1,26 @@
 # CHORE-secrets-ssm-migration (2026-06-22): ALL secrets migrated to SSM Parameter
 # Store SecureString (see the SSM section below); every Secrets Manager secret + its
 # read/write IAM removed, including the empty myblog/anthropic container. AWS Secrets
-# Manager is no longer used by this stack. When FEAT-ai-editorial-critique ships,
-# provision myblog/anthropic as an SSM SecureString (RFC Step 6) + an ANTHROPIC_PARAM
-# dual-source read — do NOT reintroduce a Secrets Manager secret.
+# Manager is no longer used by this stack, and `secretsmanager:ListSecrets` in
+# ap-northeast-2 returns an empty list (re-verified 2026-08-28).
+#
+# The migration's final leg landed 2026-08-28: backend, music and worker no longer
+# carry a Secrets Manager fallback in their runtime secret loaders, and each repo
+# lints its own runtime tree against a reintroduction. When FEAT-ai-editorial-critique
+# ships, provision myblog/anthropic as an SSM SecureString (RFC Step 6) and read it
+# with a plain SSM read — an earlier revision of this comment asked for an
+# "ANTHROPIC_PARAM dual-source read", which is now exactly the shape that was
+# removed. Do NOT reintroduce a Secrets Manager secret or a fallback to one.
 
 # Research worker IAM (consume researchSQS + own log group): REMOVED
 # (FIX-bug-audit-2026-07 WS-G) — torn down with researchWorkerLambda + the queue.
 
 # ============================================================================
 # CHORE-secrets-ssm-migration — SSM Parameter Store (SecureString) access.
-# ADDITIVE: granted alongside the secretsmanager:GetSecretValue policies above.
-# The dual-source loaders prefer SSM (SECRETS_PARAM) and fall back to Secrets
-# Manager until the final cleanup step removes the SM grants + secrets.
+# This is the ONLY secret-read grant any Lambda role holds. It was originally
+# additive alongside secretsmanager:GetSecretValue policies; those were removed
+# with the secrets themselves in 2026-06, and the runtime fallback that named
+# them was removed in 2026-08. Nothing above grants a secretsmanager action.
 #
 # ORDER: the owner must provision the SSM SecureString params (RFC Step 0) BEFORE
 # `terraform plan/apply` — `data.aws_kms_alias.ssm` resolves the AWS-managed key

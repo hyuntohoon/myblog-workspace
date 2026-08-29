@@ -1,0 +1,65 @@
+# SEC-system-hardening Step 6 — the Cognito JWT verifier lives in exactly one
+# text, physically present in two repositories.
+#
+# `myblog_backend/app/core/auth.py` and `myblog_music/app/core/auth.py` are
+# byte-identical by contract. Nothing in either repository's own CI can enforce
+# that, because neither can see the other; this job is the enforcement.
+#
+# Why a scheduled cross-repo diff and not a shared package: the three services
+# pin `myblog_shared_db` at three different revisions (one an abandoned tag), so
+# a packaged verifier would have shipped two different versions of this code to
+# the two services it exists to unify, and an auth hotfix would have become a
+# package release plus two pin bumps plus two deploys. See
+# `docs/rfcs/SEC-system-hardening.md` Step 6.
+#
+# Why scheduled and not a required PR check on each repo: a coordinated change
+# must land in two repositories, and one of them merges first. A PR-time check
+# comparing against the twin's `main` would go red on the first merge and stay
+# red until the second — a deadlock during exactly the change this is meant to
+# protect. A daily diff catches drift within a day and never blocks the fix.
+name: Cognito verifier drift
+
+on:
+  schedule:
+    # 03:20 KST — after the nightly agents, before the owner's morning.
+    - cron: "20 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch both copies from main
+        run: |
+          set -euo pipefail
+          for repo in myblog_backend myblog_music; do
+            # Public repos; raw.githubusercontent needs no token. --fail turns a
+            # 404 (file renamed or deleted) into a failure instead of writing an
+            # HTML error page that would then "differ" for the wrong reason.
+            curl --fail --silent --show-error --location \
+              "https://raw.githubusercontent.com/hyuntohoon/$repo/main/app/core/auth.py" \
+              -o "$repo.auth.py"
+            echo "$repo: $(wc -c < "$repo.auth.py") bytes"
+          done
+
+      - name: Refuse an empty or truncated fetch
+        run: |
+          set -euo pipefail
+          # A 0-byte or stub file would make `diff` pass for the wrong reason.
+          for f in myblog_backend.auth.py myblog_music.auth.py; do
+            test -s "$f"
+            grep -q "def verify_token" "$f" \
+              || { echo "::error::$f does not look like the verifier"; exit 1; }
+          done
+
+      - name: The two copies must be byte-identical
+        run: |
+          if ! diff -u myblog_backend.auth.py myblog_music.auth.py; then
+            echo "::error::The Cognito verifier has drifted between myblog_backend and myblog_music."
+            echo "::error::A change to one copy must land in both (SEC-system-hardening Step 6)."
+            exit 1
+          fi
+          echo "Identical — $(wc -c < myblog_backend.auth.py) bytes."

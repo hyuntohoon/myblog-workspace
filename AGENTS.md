@@ -74,7 +74,7 @@ Use `settings.*` (pydantic-settings), not `os.getenv()`. Use `logging.getLogger(
 
 Hardened after FIX-bug-audit-2026-07 (all are recurring bug classes — the audit found each already-fixed once and re-broken elsewhere):
 
-- **Auth guards fail closed.** Missing config (e.g. `COGNITO_USER_POOL_ID`, `EDGE_SECRET`) ⇒ 503/reject, never a silent bypass. The auth guard is duplicated in **both** backend and music (`app/core/auth.py`) — a guard fix must land in both in the same PR.
+- **Auth guards fail closed.** Missing config (e.g. `COGNITO_USER_POOL_ID`, `EDGE_SECRET`) ⇒ 503/reject, never a silent bypass. The Cognito verifier is one text in two places — `app/core/auth.py` is byte-identical in backend and music (SEC-system-hardening Step 6), so a verifier fix must land in both in the same PR; the workspace `Cognito verifier drift` workflow diffs the two `main` copies daily. Authorization tiers are backend-only, in `myblog_backend/app/core/authz.py`.
 - **Never hold an open DB session/transaction across an external-API loop** (Neon drops idle-in-txn conns → ProtocolViolation) — fetch → materialize → close, then loop, then a fresh short write session. The lyrics pipeline is the reference.
 - **Bulk `ON CONFLICT` upserts sort rows by conflict key** (row-lock deadlock avoidance under SQS concurrency).
 - **Outbound HTTP always sets an explicit `timeout`.**

@@ -46,7 +46,7 @@ Violating these is an outage, not a style problem.
 
 - Auth guards fail closed. Missing `COGNITO_USER_POOL_ID` / `EDGE_SECRET` → reject, never silent bypass.
 - `ENV=local|dev` disables both the edge check and JWT. **No deployed environment may ever run with it.** Never add a second bypass switch.
-- Guards are duplicated in `myblog_backend/app/core/auth.py` and `myblog_music/app/core/auth.py` — read both, fix both in the same change. Tiers (`require_owner` / member / draft agent) are defined there; do not restate them elsewhere.
+- The Cognito verifier is **one text in two places**: `myblog_backend/app/core/auth.py` and `myblog_music/app/core/auth.py` are byte-identical by contract (SEC-system-hardening Step 6). A change to one must land in both, in the same change — the workspace `Cognito verifier drift` workflow diffs the two `main` copies daily and fails on any difference. Authorization tiers (`require_owner` / member / draft agent) are **backend-only** and live in `myblog_backend/app/core/authz.py`, deliberately outside the shared file because music has no owner concept; do not restate them elsewhere.
 - Every new authenticated mutation needs a matching route in `infra/apigateway.tf`. A new protected route returning `404` usually means it is missing there; `401` on an existing one means it was reached without valid authorization.
 
 **Recurring bug classes** — each of these was fixed once and reintroduced elsewhere.
@@ -77,7 +77,7 @@ Required status checks, per repo (these are check names GitHub actually produces
 | `myblog_music` | `test`, `contract`, `integration` |
 | `myblog_worker` | `test` |
 | `myblog_shared_db` | `test` |
-| `myblog-workspace` | **none** — it has no `pull_request`-triggered workflow, so a required check would block every PR forever |
+| `myblog-workspace` | **none required.** It gained a `pull_request` workflow in ws #948 (`workspace-check`), so the original reason for this row — no PR-triggered workflow at all — no longer holds; the ruleset still carries only `main-protection`, and making `workspace-check` required is an open item, not a decision already taken. |
 
 Emergency access is *disable the ruleset in repo settings* (an audited event), not a standing bypass actor. An urgent fix is still a PR the owner can merge immediately with zero approvals, and that path does not depend on CI.
 
@@ -134,7 +134,8 @@ Otherwise use judgement: `explorer` (unfamiliar territory), `planner` (cross-rep
 
 | Topic                                                                     | Location                                |
 | ------------------------------------------------------------------------- | --------------------------------------- |
-| Auth guards and authorization tiers                                       | `app/core/auth.py` in backend and music |
+| Cognito verification (shared, byte-identical)                             | `app/core/auth.py` in backend and music |
+| Authorization tiers (owner / draft agent / member)                        | `myblog_backend/app/core/authz.py`      |
 | Protected route inventory                                                 | `infra/apigateway.tf`                   |
 | AWS identifiers (pool IDs, authorizer IDs, ARNs, domains)                 | `infra/README.md`                       |
 | Local dev: ports, env vars, setup                                         | each repo's `README.md`                 |
