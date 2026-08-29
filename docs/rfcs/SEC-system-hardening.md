@@ -495,8 +495,55 @@ an item already fixed elsewhere is recorded and skipped rather than rebuilt.
    browser clickthrough; authenticated production smoke returned GET 200 then POST 202 `accepted`.
    Reverse rollback restores legacy GET enqueue before reverting frontend, allowing only a brief
    idempotent duplicate-enqueue window and no sync outage.
-3. **Python dependency reproducibility** — freeze production resolution without opportunistic
-   upgrades; verify clean installs and Lambda artifacts.
+3. **Python dependency reproducibility — DONE 2026-08-29** (backend #171 `7d230083`, music #77
+   `d0f8aeeb`, worker #101 `766fd1f6`, merged and deployed in that order). `requirements.lock` is
+   now the sole listed input to each production bundle and is resolved for the Lambda target rather
+   than for the machine that runs the script: `uv pip compile --python-version 3.12
+   --python-platform aarch64-manylinux2014 --only-binary :all: --exclude-newer <frozen>`, with those
+   flags mirroring the `pip install` flags in `deploy.yml` and `build.sh` one-for-one.
+
+   The item was justified as "freeze the current resolution", but the audit found a live defect
+   rather than a formality. Because markers are evaluated against the resolving host, the locks
+   compiled on a macOS arm64 laptop reported `platform_machine == "arm64"` and **omitted `greenlet`
+   from backend and worker**, which SQLAlchemy declares required on `aarch64`. The bundle installs
+   with `--no-deps`, so that package would simply not have been in the deployed zip. The red CI
+   check was reporting a real bundle defect, not an architecture quirk.
+
+   Two rounds of review changed the design after the first draft:
+
+   - **The drift gate could not detect a hand-edited pin.** Both scripts seeded the resolver with the
+     existing lock, so uv kept any seeded pin still resolvable — a pin downgraded by two years passed
+     green, and `compile_requirements.sh` could never move a pin forward, so there was no supported
+     way to upgrade anything. Seeding is gone; resolution runs from empty against a recorded index
+     freeze. Re-resolving all three locks that way reproduced them exactly, so no pin moved.
+   - **The qemu pin did not pin what executes.** `docker/setup-qemu-action`'s real work is
+     `docker run --privileged <image>`, defaulting to the mutable tag `tonistiigi/binfmt:latest`,
+     one step before `SHARED_DB_PAT` is written to `~/.gitconfig`. The image is now digest-pinned.
+   - **The repeat-build check was blind to the only runner-built distribution.** Without
+     `--no-cache-dir` the second install was handed the wheel the first built, so `myblog-shared-db`
+     — the one package produced on the runner — was the one the check could not see. Both installs
+     now run cache-free; CI shows two separate clones building an identical wheel digest.
+
+   Verified per repo: lock byte-identical when compiled on macOS arm64, linux/amd64 and linux/arm64;
+   two clean production-target installs identical including a sha256 over every installed file; lock
+   pins == installed distributions with none missing or extra; the bundle imports its handler inside
+   `public.ecr.aws/lambda/python:3.12` on `linux/arm64`; and an eight-case tamper matrix (downgraded
+   pin ×2, deleted pin, injected package, edited git SHA, injected marker, forged source digest,
+   edited `requirements.txt`) all red. Post-deploy: each Lambda's `CodeSha256` changed, all three
+   `Active`/`Successful`, production smoke 19/19 after each merge, and worker — which has no HTTP
+   surface — returns `{"batchItemFailures": []}` with no `FunctionError` on a direct invoke.
+
+   **Known limit, recorded in all three READMEs.** `--require-hashes` requires a hash on every
+   requirement and a `git+` URL cannot carry one; `--only-binary` likewise does not apply to a direct
+   URL. So `myblog-shared-db` is built on the runner at deploy time from a build backend fetched
+   unpinned from PyPI. The lock is therefore not literally the sole input to the bundle. Closing this
+   needs shared_db published as a hashed wheel, which is not in this item's scope.
+
+   No package was upgraded, and no `shared_db` version changed. Worker's `requirements.txt` moved off
+   the lightweight tag `v0.26.0` onto the commit it already pointed at (`dd016c4b`, verified with
+   `rev-parse`) because uv re-resolves a git ref on every run, so a repointed tag would silently
+   rewrite the lock while the recorded source digest stayed byte-identical. That is a mutability fix,
+   not the pin-invariant work in item 4.
 4. **Per-service shared_db pin invariants** — intentional cross-service skew remains allowed, but
    duplicated pins inside one service must fail CI when they drift.
 5. **Frontend Playwright golden E2E** — only after items 1–4; start with 3–5 stable, mocked-boundary
