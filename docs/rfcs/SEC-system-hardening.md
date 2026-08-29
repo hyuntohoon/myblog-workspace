@@ -505,7 +505,7 @@ an item already fixed elsewhere is recorded and skipped rather than rebuilt.
 Rollback is per PR: revert the individual workflow/contract/build/E2E PR. No item authorizes a
 production migration, Terraform apply, dependency upgrade, or required-check promotion by itself.
 
-### Step 6 — consolidate the JWT verifier (SHIPPED 2026-08-28)
+### Step 6 — consolidate the JWT verifier (SHIPPED 2026-08-29)
 
 Deliberately after Step 4, and deliberately not in the same change. The owner's decision on
 2026-08-26 was: fix the defects in both copies first, then consolidate, so that a security fix never
@@ -540,7 +540,7 @@ one. The three services pin it at three different revisions today — backend `9
 different versions of this code to the two services it exists to unify, and an auth hotfix would have
 become a package release plus two pin bumps plus two deploys, on a pin mechanism already known to
 drift. It would also have put `httpx` and `python-jose` inside a DB-models package. Owner decision,
-2026-08-28: vendor the canonical text and enforce it, rather than package it.
+2026-08-29: vendor the canonical text and enforce it, rather than package it.
 
 **Enforcement.** `.github/workflows/verifier-drift.yml` in the workspace repository fetches both
 `main` copies daily and fails on any difference. It is scheduled rather than a required PR check on

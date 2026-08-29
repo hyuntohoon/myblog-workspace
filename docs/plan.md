@@ -14,7 +14,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   2026-08-28)** and Step 5 (polyrepo assessment — verdict **KEEP POLYREPO**) also done. **No AWS
   credential secret exists in any of the six repositories**, and `github-actions-deploy` has zero
   access keys.
-  **Step 6 (verifier consolidation) shipped 2026-08-28** — `app/core/auth.py` is now one canonical
+  **Step 6 (verifier consolidation) shipped 2026-08-29** — `app/core/auth.py` is now one canonical
   byte-identical text in backend and music, backend's authorization tiers moved to
   `app/core/authz.py`, and a daily workspace workflow diffs the two `main` copies. No package, no
   pin bump; the Step 4 signed-JWT vector suites are unchanged and green, which is the proof that
