@@ -41,8 +41,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   contract + final closeout, front #427 caller/types/status; music 166-unit + LocalStack GET-zero-message /
   POST-Format-A coverage, frontend 718 tests + real-browser clickthrough, all PR CI/deploy health smokes,
   and authenticated prod GET 200 → POST 202 accepted; rollback remains reverse-order by restoring legacy
-  GET enqueue before reverting frontend, allowing only a brief idempotent duplicate window) → Python dependency
-  reproducibility → per-service shared_db pin invariants → a small
+  GET enqueue before reverting frontend, allowing only a brief idempotent duplicate window) → **Python
+  production dependency reproducibility IN PROGRESS 2026-08-29** (backend → music → worker,
+  current-resolution compiled locks only; no package upgrades or shared_db pin-policy changes;
+  verify source/lock drift, clean install, Lambda bundle + import smoke, repeat-build manifest,
+  and each repo's CI; rollback by reverting each independent service PR) → per-service shared_db pin
+  invariants → a small
   non-required Playwright golden suite.
 
 > 2026-08-10 reconciliation pass: checked every row below against code/tests/deployment/RFC acceptance
