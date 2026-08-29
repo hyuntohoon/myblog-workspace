@@ -14,13 +14,27 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   2026-08-28)** and Step 5 (polyrepo assessment — verdict **KEEP POLYREPO**) also done. **No AWS
   credential secret exists in any of the six repositories**, and `github-actions-deploy` has zero
   access keys.
-  **Carries a P0 the owner must close personally**: the AWS *root account* access key is the
-  credential in `myblog_front`'s Actions secrets, and `myblog_front` is a public repository. Root
-  `access_key_2` was rotated 11 s before that secret was last set and was last used against
-  CloudFront during a front deploy; a second root key, `access_key_1`, is also active and unused
-  since 2025-12-10. Root keys can only be deleted by signing in as root with MFA, so Step 3d-5 is
-  not Claude's to perform — and deleting the repo secrets does **not** retire them. Everything else
-  in Step 3d is done. Remaining: **the two root keys (owner)** and Step 6 (verifier consolidation).
+  **Step 6 (verifier consolidation) shipped 2026-08-28** — `app/core/auth.py` is now one canonical
+  byte-identical text in backend and music, backend's authorization tiers moved to
+  `app/core/authz.py`, and a daily workspace workflow diffs the two `main` copies. No package, no
+  pin bump; the Step 4 signed-JWT vector suites are unchanged and green, which is the proof that
+  behaviour did not move. Adversarial review of it found a *pre-existing* hole the vectors could not
+  cover — an owner→member guard downgrade in five route modules passed the whole suite — so the step
+  also adds `myblog_backend/tests/test_route_guard_map.py`, which pins the 24 owner-only and 2
+  draft-agent routes against the live dependency graph. Alongside it, `CHORE-secrets-ssm-migration`'s final leg landed: the dead
+  Secrets Manager fallback is gone from all three service runtimes (Secrets Manager holds zero
+  secrets and no Lambda role can call it), an SSM load failure now raises instead of silently
+  returning `{}`, and each repo lints its own runtime tree against a reintroduction.
+  **Carries a P0 the owner must close personally**: the AWS *root account* access keys.
+  `myblog_front` no longer holds any AWS credential secret, but **deleting the repo secret did not
+  retire the key** — re-verified against IAM on 2026-08-28, `AccountAccessKeysPresent = 1` and BOTH
+  root keys are still `Active`: `access_key_1` (rotated 2025-11-13, last used 2025-12-10,
+  ap-northeast-2/cloudformation) and `access_key_2` (rotated 2025-10-22, last used **2026-08-26**,
+  us-east-1/cloudfront — the last front deploy before the OIDC cutover). Root keys can only be
+  deleted by signing in as root with MFA, so this is not Claude's to perform. Everything else in
+  Step 3d is done. Remaining: **the two root keys (owner)**, and one open question Step 6 surfaced —
+  whether `workspace-check` (added ws #948) should become a required check now that the workspace
+  repo does have PR CI.
   Owner-directed delivery hardening follow-ups are sequenced as independent PRs: **workspace PR
   CI/invariants DONE 2026-08-28** (workspace #948 + shared_db #78) → **candidates GET/POST
   side-effect split DONE 2026-08-28** (music #73 additive POST + #74 pure GET, workspace #951 merged

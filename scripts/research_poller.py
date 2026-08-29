@@ -20,7 +20,7 @@ to the Max subscription. The repo's backend venv already has the Python deps:
 
 Auth/secret model (no Anthropic key needed — $0 path):
   * `claude -p` uses the subscription login already on this machine.
-  * prod `DATABASE_URL` is read from Secrets Manager `myblog/backend` with the
+  * prod `DATABASE_URL` is read from the SSM SecureString `/myblog/backend` with the
     owner's AWS creds (`postgresql+psycopg://` → `postgresql://`; Neon cold-start
     ⇒ connect_timeout=30).
 
