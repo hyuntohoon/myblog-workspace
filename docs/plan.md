@@ -7,6 +7,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 ## Active
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
+  <!-- rfc: none -->
   tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
   `myblog_backend` #172 made its SSM loader fail closed on a missing required key and, in doing so,
   fixed the *formulation* as well as adding the check: it inspects the SSM **payload**, and rejects

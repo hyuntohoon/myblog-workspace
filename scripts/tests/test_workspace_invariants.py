@@ -218,7 +218,13 @@ class PlanInvariantTests(unittest.TestCase):
     def test_current_plan_shape_is_parseable_and_satisfies_plan_invariants(self) -> None:
         rows = extract_active_rows((ROOT / "docs" / "plan.md").read_text(encoding="utf-8"))
         self.assertGreater(len(rows), 1)
-        self.assertEqual(rows[0].name, "SEC-system-hardening")
+        # Membership, not position. This assertion exists to prove the parser read
+        # the real plan.md rather than an empty or malformed one, and nothing in
+        # plan.md defines an order for Active rows -- so pinning index 0 made every
+        # PR that adds a row at the top red for no correctness reason. It did:
+        # ws #958 added a row above this one and left main failing. The invariant
+        # with teeth is validate_plan below, which is unchanged.
+        self.assertIn("SEC-system-hardening", {row.name for row in rows})
         self.assertEqual(validate_plan(ROOT), [])
 
 
