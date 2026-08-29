@@ -7,6 +7,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 ## Active
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
+  <!-- rfc: none -->
   tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
   `myblog_backend` #172 made its SSM loader fail closed on a missing required key and, in doing so,
   fixed the *formulation* as well as adding the check: it inspects the SSM **payload**, and rejects
@@ -47,7 +48,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   returning `{}`, and each repo lints its own runtime tree against a reintroduction.
   **Carries a P0 the owner must close personally**: the AWS *root account* access keys.
   `myblog_front` no longer holds any AWS credential secret, but **deleting the repo secret did not
-  retire the key** — re-verified against IAM on 2026-08-28, `AccountAccessKeysPresent = 1` and BOTH
+  retire the key** — re-verified against IAM again on 2026-08-29 (credential report unchanged from
+  the 2026-08-28 reading), `AccountAccessKeysPresent = 1` and BOTH
   root keys are still `Active`: `access_key_1` (rotated 2025-11-13, last used 2025-12-10,
   ap-northeast-2/cloudformation) and `access_key_2` (rotated 2025-10-22, last used **2026-08-26**,
   us-east-1/cloudfront — the last front deploy before the OIDC cutover). Root keys can only be
@@ -62,10 +64,30 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   POST-Format-A coverage, frontend 718 tests + real-browser clickthrough, all PR CI/deploy health smokes,
   and authenticated prod GET 200 → POST 202 accepted; rollback remains reverse-order by restoring legacy
   GET enqueue before reverting frontend, allowing only a brief idempotent duplicate window) → **Python
-  production dependency reproducibility IN PROGRESS 2026-08-29** (backend → music → worker,
-  current-resolution compiled locks only; no package upgrades or shared_db pin-policy changes;
-  verify source/lock drift, clean install, Lambda bundle + import smoke, repeat-build manifest,
-  and each repo's CI; rollback by reverting each independent service PR) → per-service shared_db pin
+  production dependency reproducibility DONE 2026-08-29** (backend #171 `7d230083`, music #77
+  `d0f8aeeb`, worker #101 `766fd1f6`, merged and deployed in that order; production smoke 19/19
+  after each). The first draft's locks were resolved by running `pip-compile` on whichever machine
+  ran the script, and environment markers are evaluated against that machine — so the committed
+  locks came from a macOS arm64 laptop (`platform_machine == "arm64"`) and **backend's and
+  worker's were missing `greenlet`**, which SQLAlchemy requires on `aarch64`. Since the bundle is
+  installed with `--no-deps`, that was a package absent from the deployed zip, not a CI
+  formality; the red check was correct. Resolution moved to `uv` against an explicit target
+  (`CPython 3.12 / aarch64-manylinux2014 / wheels only`, index frozen via `--exclude-newer`), with
+  the resolver flags mirroring the install flags one-for-one — `--only-binary` turned out to matter
+  as much as the platform tag, since without it the resolver ignores the glibc floor pip enforces.
+  No package was upgraded. Adversarial review then found the drift gate could not detect a
+  hand-edited pin (both scripts seeded the resolver with the existing lock, so a pin downgraded two
+  years passed green, and there was no supported way to upgrade anything) and that the repeat-build
+  manifest compared `name==version` only; seeding is gone and the manifest now carries a sha256 over
+  every installed file. Security review found the qemu pin did not pin what executes — the action
+  runs `docker run --privileged tonistiigi/binfmt:latest` one step before `SHARED_DB_PAT` is written
+  to `~/.gitconfig` — now digest-pinned, and the repeat-build check was blind to the only
+  runner-built distribution until both installs got `--no-cache-dir` (`myblog-shared-db` now builds
+  twice from separate clones to an identical wheel digest). **Known limit recorded in all three
+  READMEs**: `--require-hashes` needs a hash on every requirement and a `git+` URL cannot carry one,
+  so shared_db is built on the runner from an unpinned build backend — the lock is not literally the
+  sole input to the bundle, and closing that needs shared_db published as a hashed wheel.
+  Rollback is per service PR. → per-service shared_db pin
   invariants → a small
   non-required Playwright golden suite.
 
