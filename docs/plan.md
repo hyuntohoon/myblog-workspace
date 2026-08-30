@@ -8,8 +8,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **SEC-member-listening-data-boundary** (`docs/rfcs/SEC-member-listening-data-boundary.md`, accepted) —
   <!-- rfc: docs/rfcs/SEC-member-listening-data-boundary.md | status: accepted -->
-  **read-boundary defect, found 2026-08-30 and reproduced against `origin/main`.** Six
-  `GET /api/library/*` handlers (`now-playing`, `recently-listened`, `recent-tracks`,
+  **read-boundary defect, found 2026-08-30, reproduced against `origin/main` and then against
+  PRODUCTION with a real non-owner token — all nine routes answered `200` with the owner's rows.**
+  Nine `GET /api/library/*` handlers (`now-playing`, `recently-listened`, `recent-tracks`,
   `listened-albums`, `saved-tracks`, `saved-tracks/*-distribution`, `play-events/*-distribution`)
   take no scope dependency at all — no `provisioned_member_id`, no `require_owner`, only the
   CloudFront edge check — while `SelfDashboard` renders their widgets for **every** signed-in
@@ -26,8 +27,14 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   already-implemented Step 1, `myblog_front#428`, which waits behind it (owner, 2026-08-30).
   *Verification*: backend `pytest` + front gates + a **non-owner** real-browser clickthrough.
   *Rollback*: revert per step; Steps 1–2 touch no data. *Status*: **accepted 2026-08-30**, all
-  three steps; OQ1 answered — class-(a) widgets are omitted silently for a non-owner, no
-  "소유자 전용" note. Step 1 not started.
+  three steps; OQ1 answered — the widgets are omitted silently for a non-owner, no "소유자 전용"
+  note. **Step 1 implemented 2026-08-30 with owner-amended scope: all nine routes gated, class (b)
+  included, so the leak is zero on deploy and Step 2 becomes purely additive.** PRs open —
+  `myblog_backend#173` → this repo's `#961` → `myblog_front#429`, in that order (the reverse of the
+  usual contract order: `workspace-check` re-merges from both services' `main`, so an additive
+  service contract change cannot be led by the workspace). Review found a ninth surface the RFC's
+  table missed — `useSpotifyLibrary` fetched `listened-albums` on every `BucketBoard` mount — now
+  gated. Remaining gate: the **non-owner** real-browser clickthrough.
 
 - **ARCH-playback-authority-convergence** (`docs/rfcs/ARCH-playback-authority-convergence.md`, accepted) —
   <!-- rfc: docs/rfcs/ARCH-playback-authority-convergence.md | status: accepted -->

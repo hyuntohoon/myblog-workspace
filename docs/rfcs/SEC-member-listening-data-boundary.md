@@ -110,6 +110,10 @@ Three classes, closed in three steps, each independently shippable:
 - **(b) member-scoped replacement already possible** — `now-playing` and `recent-tracks`. The data
   is already in `spotify_member_now_playing` / `spotify_member_recent_tracks`; only a self-scoped
   read route is missing. Step 2.
+  **Amended 2026-08-30 (owner):** these two are *also gated in Step 1*. As drafted, Step 1 would
+  have shipped with a third of the leak still live — a P0 privacy step that closes five of nine
+  routes is not closed. Gating them now costs two widgets and makes Step 2 purely additive: it
+  gives members back their OWN data rather than merely swapping a source.
 - **(c) needs durable per-member history** — album-level recently-played and cumulative listen
   counts, and the 좋아요 library. These need new per-member tables and a per-member worker job
   before the widget can come back for a non-owner. Step 3, and it is the only step that needs a
@@ -119,16 +123,39 @@ Three classes, closed in three steps, each independently shippable:
 
 ### Step 1 — stop rendering owner-global listening data to non-owners (P0)
 
-Front-only. `SelfDashboard` already computes `isOwner`; thread it (or a small
-`useIsDashboardOwner()`) to the widgets in class (a) and render them only for the owner. A non-owner
-gets the panel omitted, not a spinner over an empty read — an empty state that reads "아직 기록이
-없어요" would be a lie about someone else's data. The Home `TodaySongPicker` 좋아요 source is
-owner-gated the same way.
+**Shipped scope differs from the draft above — read this, not the class table, for what Step 1 did.**
+The owner amended it in-session on 2026-08-30: **all nine** routes are gated, class (b) included,
+so the leak is zero on this deploy rather than two-thirds closed.
 
-Backend, same PR: add `require_owner` to the class-(a) routes so the boundary does not depend on the
-front remembering. `/api/library/{recently-listened,listened-albums,saved-tracks,
-saved-tracks/*-distribution,play-events/*-distribution}` become owner-only; per CLAUDE.md, every
-newly protected route is checked against `infra/apigateway.tf` in the same change.
+`SelfDashboard` already computes `isOwner`; it is threaded to the widgets and they render only for
+the owner. A non-owner gets the panel **omitted**, not a spinner over an empty read — an empty state
+reading "아직 기록이 없어요" would be a lie about someone else's data (OQ1).
+
+Backend, same step: `require_owner` on `/api/library/{now-playing,recently-listened,recent-tracks,
+listened-albums,saved-tracks,saved-tracks/*-distribution,play-events/*-distribution}`, so the
+boundary does not depend on the front remembering.
+
+**Three things the draft above got wrong, found while implementing:**
+
+1. **`infra/apigateway.tf` needs no route change.** These are GETs on the `GET /api/{proxy+}`
+   catch-all, which carries no authorizer — the JWT is verified in the Lambda. The already
+   member-scoped `stream-history/*` GETs and the owner-gated `GET /api/posts` prove it by working
+   today. CLAUDE.md's route-match rule is about *mutations*. Only the file's comments changed, and
+   `terraform plan` reports No changes.
+2. **The Home `TodaySongPicker` needed nothing.** Its only entry is `TodaySongBuckit`, which already
+   renders the trigger behind `isOwnerUser()`.
+3. **`useSpotifyLibrary` was a ninth surface this RFC's table never listed** (review found it). It
+   calls `listListenedAlbums()` on every `BucketBoard` mount, so a member opening My Buckit fetched
+   the owner's listened archive and stamped their own bucket covers "이미 들음" from it. Its comment
+   claimed the board "only ever mounts on the self-dashboard, so this is inherently own-view-only" —
+   the exact assumption this RFC disproves. **Lesson for Steps 2–3: the widget inventory was
+   assembled from components, and a shared hook was invisible to it. Grep the api client's callers,
+   not the dashboard's components.**
+
+Also discovered: gating the fetch is not sufficient where a widget caches. `BucketBoard`'s
+최근 들은 앨범 strip seeds from `localStorage['lf_crate_recent']`, so a member who had already
+loaded the board would have kept painting the owner's albums from their own browser indefinitely
+after the server closed. The seed is refused and the stale cache evicted.
 
 **Verification**:
 ```
@@ -155,6 +182,14 @@ and the two new authenticated routes go into `infra/apigateway.tf`.
 Front: `NowPlaying` and the 최근 재생 트랙 card read the self-scoped routes for a non-owner and keep
 the legacy owner-global reads for the owner, so the owner's richer catalog-resolved payload is not
 regressed. The owner's own poller row exists too, so the split is a source choice, not a feature gap.
+
+**Stale as written — Step 1's amended scope changed the starting point.** Step 1 removed
+`nowplaying` and `recent-tracks` from `OverviewDash`'s widget registry entirely for a non-owner, so
+Step 2 does not adjust an existing render path: it **re-admits** the two widget ids for members and
+points them at the self-scoped routes. Note also that a member's saved layout (`lf_ov_rows`) was
+rewritten without those ids when they first loaded Step 1, so re-admitting the widget is not enough
+to bring it back onto their board — Step 2 must re-add it to their layout or say plainly that they
+re-add it via ＋ 컴포넌트 추가.
 
 **Verification**:
 ```
@@ -198,3 +233,4 @@ paying for three tables is the point of putting this step last.
 | 2026-08-30 | Owner accepted the RFC in-session, all three steps as drafted | — |
 | 2026-08-30 | Owner (OQ1): class-(a) widgets are omitted silently for a non-owner — no "소유자 전용" note | 1 |
 | 2026-08-30 | Owner: Step 1 merges **before** `ARCH-playback-authority-convergence` Step 1 (`myblog_front#428`), which is implemented and waiting | 1 |
+| 2026-08-30 | Owner **expanded Step 1's scope**: class (b) (`now-playing`, `recent-tracks`) is gated now too, not deferred to Step 2 — all nine routes. Rationale: a P0 privacy step that leaves a third of the leak live is not a closure, and Step 2 becomes purely additive | 1, 2 |
