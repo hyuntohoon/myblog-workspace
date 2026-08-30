@@ -220,6 +220,14 @@ crawl stops at 19 files and reports the marker missing.
 
 Closes **D1, C2**, and the rest of **C1**.
 
+**SHIPPED 2026-08-30** — `myblog_front#430`, squash `dd1fe82`, deploy run `33312780594`.
+The invariant is asserted directly in the suite (issued URI list === visible order from the
+current row onward) and confirmed in a real browser against a control on `origin/main`.
+Detection hangs off `bucketStore.subscribe` rather than the six mutation call sites, so a
+seventh path added later cannot land outside it. What review caught after the first commit,
+and the three residual risks that were recorded instead of fixed, are in the decisions log and
+open questions below.
+
 The invariant, stated first and asserted in tests: *the order visible in the Playback Bucket is the
 order that plays next.*
 
@@ -287,18 +295,38 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
 
 ## Open questions
 
-1. **Step 2's reissue glitch** — a future-tail mutation mid-playback restarts the current track and
-   seeks back (~200–400ms audible). Alternatives are (a) accept the glitch, (b) accept that
-   reorder/delete only take effect from the next track, (c) apply only *appends* live and defer
-   reorder/delete. Blocks Step 2's final shape, not its start. Recommendation: (a) — the invariant
-   the owner asked for is "visible order is the next order", and (b) silently breaks it.
+1. ~~**Step 2's reissue glitch** — a future-tail mutation mid-playback restarts the current track
+   and seeks back (~200–400ms audible).~~
+   **Answered 2026-08-30 — (a), accept the glitch.** Every mutation applies live: append, reorder
+   and delete alike. (b) and (c) were declined because the invariant the owner asked for is
+   "visible order is the next order", and deferring reorder/delete to the next track breaks it
+   silently — the failure mode this step exists to end. Two mitigations keep the glitch off the
+   common path, and neither is a compromise on the invariant: only rows AFTER the current one are
+   in the signature (reordering already-played rows costs nothing), and a reissue while paused is
+   deferred to the next resume rather than performed, since starting audio nobody asked for is
+   worse than the wait.
 2. ~~**Does the mirror tab's lyrics transport disable, or offer takeover inline?**~~
    **Answered 2026-08-30 — both, from one component.** The mirror renders the transport disabled
    *and* an inline takeover, and `PlaybackOwnerBanner` moved out of `PlaybackPanel.tsx` into its own
    module so the lyrics viewer imports the component rather than the hand-copied markup Step 1
    first shipped. `className` re-lays it out for the lyrics transport grid; the copy, the action and
    the predicate are single-sourced.
-3. **Is `BOUNDARY_BUFFER_MS = 1500` still right as a burst gap?** It is flagged in
+3. **Residual risks Step 2 accepted rather than closed.** Recorded here because
+   review raised them, they were investigated, and none is fixed:
+   (a) `adoptLive`'s completion gate deletes the previous row when the live URI
+   differs and the playhead is within `BOUNDARY_BUFFER_MS` of the end — and a reissue
+   restores the playhead to exactly that region. A guard was written for it and then
+   **removed**: the scenario could not be reproduced in the harness (the adoption that
+   actually runs during a reissue sees a position near zero, not near the end), and an
+   untested guard claiming a fix is worse than a recorded risk. (b) A bucket reorder
+   repaints the whole server tree (`PocketBuckitProvider`), so one landing while a
+   queue `PUT /reorder` is still in flight can paint the pre-reorder order and cost one
+   spurious reissue, then a second when the truth arrives. (c) A tab promoted to owner
+   inherits an executing list it cannot know; Step 2 drops its baseline rather than
+   reissuing, so a promoted tab that is never edited again plays out the list the
+   previous owner left. All three are audible-glitch or stale-order-until-next-edit
+   shaped, none is a data risk.
+4. **Is `BOUNDARY_BUFFER_MS = 1500` still right as a burst gap?** It is flagged in
    `FEAT-playback-bucket-player` as an unmeasured estimate. Blocks nothing; Step 1 should measure
    it against the residual series the viewer already logs rather than inherit it.
 
@@ -312,3 +340,8 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
 | 2026-08-30 | Owner resolved the sequencing the two decisions above left open: Step 1 is implemented in `myblog_front#428` but **merges after** `SEC-member-listening-data-boundary` Step 1 | 1 |
 | 2026-08-30 | Owner (OQ2): the mirror keeps a disabled transport **and** an inline takeover, and the two surfaces stop duplicating it — `PlaybackOwnerBanner` extracted to its own module and imported by `LyricsViewer` | 1 |
 | 2026-08-30 | Step 1's browser clickthrough found A3 half-open on the jump path: `JumpOutcome` dropped `rung`/`degraded`, so a cold-start jump left `rung: null` — no 음질 제한 notice and every mirror read `ownerRung: null` and kept a live transport. Fixed in the same PR | 1 |
+| 2026-08-30 | Owner (OQ1): **(a)** — accept the ~200–400ms reissue glitch and apply every queue mutation live, rather than let reorder/delete take effect only from the next track | 2 |
+| 2026-08-30 | Owner: `takeOver()` on `external` playback transfers the audio into this tab **only when `ownerRung === 'in-page'`** — that sound lives in the other tab's SDK device and dies with its lease. On a Connect device only the lease moves: raising a quality-limited browser device, or re-issuing the live track as a one-URI list (which discards the album context), would each take something away to gain nothing | 2 |
+| 2026-08-30 | Step 2's queue-change detection hangs off `bucketStore.subscribe`, not the six mutation call sites — the queue is a projection over that store, so a seventh path added later cannot land outside the invariant | 2 |
+| 2026-08-30 | Review blocked Step 2's first commit with three reproducible defects, all on the **takeover** path with two tabs — which the Step 2 verification list does not name and the clickthrough therefore never exercised. `takeOver()` moved the lease but not the audio in the only state its button renders in; the position restore was forwarded to the tab being deposed and dropped; and a failed reissue's debt was written off by the next track change. Fixed in the same PR | 2 |
+| 2026-08-30 | `takeOver()` branches on **where the sound is** (`ownerRung`), not on whether the queue is driving it: the banner renders only while the owner holds the in-page device, so "inside the other tab" is the common case, not the exotic one | 2 |

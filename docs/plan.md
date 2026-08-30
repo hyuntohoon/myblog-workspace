@@ -70,9 +70,31 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   markup. **The clickthrough that gate required found a defect Step 1 had left** — `JumpOutcome`
   dropped `rung`/`degraded`, so a cold-start queue jump left `rung: null`: no 음질 제한 notice, and
   every mirror tab read `ownerRung: null` and kept a live transport over audio in another tab. A3
-  was half-open; fixed in the same PR with three mutation-checked tests. **Steps 2–4 not started**;
-  this row stays until they are. OQ1 (the reissue's ~200–400ms restart) still open and blocks Step
-  2's final shape, not its start; OQ3 (`BOUNDARY_BUFFER_MS`) blocks nothing.
+  was half-open; fixed in the same PR with three mutation-checked tests.
+  **Step 2 SHIPPED and production-verified 2026-08-30** — `myblog_front#430`
+  (`dd1fe82`), deploy run `33312780594`, prod smoke **30 passed / 0 failed**. OQ1 answered by the
+  owner: **(a)**, accept the ~200–400ms reissue glitch and apply every mutation live; deferring
+  reorder/delete to the next track would break the invariant silently. The visible queue order is
+  now the order that plays — a future-tail mutation reissues `play({uris:[current, …newTail]})`
+  debounced past the gesture and seeks the playhead back, while a mutation made *paused* is
+  deferred to the next resume. Detection hangs off `bucketStore.subscribe` rather than the six
+  mutation call sites, so a seventh path added later cannot land outside the invariant.
+  `takeOver()` now takes the lease only **after** a move that produced sound, and on `external`
+  playback moves the audio only when `ownerRung === 'in-page'` (owner decision). **The
+  real-browser clickthrough ran with a control**: on `origin/main` the same keyboard reorder left
+  the screen saying `A B D C` while Spotify executed `A B C D` with zero further player calls; on
+  the shipped code both read `A B D C`, with the playhead restored rather than restarted.
+  **Review blocked the first commit** with three reproducible defects the gates and that
+  clickthrough all missed, because every one of them lives on the **takeover** path with two tabs,
+  which the Step 2 verification list does not name: `takeOver()` moved the lease but not the audio
+  in the only state its button renders in, the position restore was forwarded to the tab being
+  deposed and then dropped, and a failed reissue's debt was written off by the next track change.
+  Fixed in the same PR, each with a mutation-checked test. Adding this step's tests also tipped a
+  latent race in `AddToBucketMenu`'s focus assertion into failing CI twice — hardened, and measured
+  against `origin/main` (5/5 green there, 2-in-6 red here) rather than assumed pre-existing.
+  Three residual risks are recorded in the RFC's open questions rather than papered over.
+  **Steps 3–4 not started**; this row stays until they are. OQ3 (`BOUNDARY_BUFFER_MS`) blocks
+  nothing.
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->
