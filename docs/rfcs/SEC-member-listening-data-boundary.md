@@ -233,4 +233,6 @@ paying for three tables is the point of putting this step last.
 | 2026-08-30 | Owner accepted the RFC in-session, all three steps as drafted | — |
 | 2026-08-30 | Owner (OQ1): class-(a) widgets are omitted silently for a non-owner — no "소유자 전용" note | 1 |
 | 2026-08-30 | Owner: Step 1 merges **before** `ARCH-playback-authority-convergence` Step 1 (`myblog_front#428`), which is implemented and waiting | 1 |
+| 2026-08-30 | **Step 1 shipped and production-verified.** `myblog_backend@5675d00` → `myblog-workspace@11ce8f4` → `myblog_front@673bf08`. Nine routes `403` for a non-owner in prod, controls still `200`, prod smoke 30/30, non-owner clickthrough passed with an `origin/main` control (4/4 widgets and 5 calls there, 0 and 0 on the shipped code) | 1 |
+| 2026-08-30 | Merge order is **service → workspace → front** for an additive contract change, not workspace-first: `workspace-check` re-merges the contract from both services' `main`, so the workspace PR is red until the service spec lands. Recorded because the usual rule says the opposite | — |
 | 2026-08-30 | Owner **expanded Step 1's scope**: class (b) (`now-playing`, `recent-tracks`) is gated now too, not deferred to Step 2 — all nine routes. Rationale: a P0 privacy step that leaves a third of the leak live is not a closure, and Step 2 becomes purely additive | 1, 2 |
