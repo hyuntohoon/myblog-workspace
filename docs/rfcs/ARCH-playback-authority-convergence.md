@@ -262,9 +262,10 @@ the reordered one; the current track's position is preserved across the reissue.
 
 ---
 
-### Step 3 — UX state correctness
+### Step 3 — UX state correctness — **SHIPPED 2026-08-31**
 
-Closes **E1–E5, G1**.
+Closes **E1–E5, G1**. Shipped as `myblog_front#434`; see the Decisions log
+for what review and the clickthrough changed, and the correction to E5 below.
 
 Capability splits along the axis `lib/playerCapabilityMatrix.ts` and the session's device axis
 already model: `unsupported`/`forbidden` (durable, disable), `no-active-device` (recoverable
@@ -290,6 +291,35 @@ browse, resume-after-paused-browse, recoverable 404, episode row, initial-paused
 last-write-wins, and a mutation-sensitive mirror line-tap regression that returns from the tapped
 line to the unchanged live anchor after the existing browse timeout; real-browser clickthrough for
 the volume drag, the device-appears recovery, and the mirror browse-return path.
+
+**What that list missed, recorded because it missed it again.** As in Step 2, the defects review
+found were on paths this list does not name — this time because splitting `busy` into `busy` +
+`transportBusy` silently disarmed every *other* predicate that had relied on transport setting
+`busy`. The list names the controls the step adds; it does not name the controls the step *stops
+protecting*. A future step's list should enumerate the readers of any flag whose meaning it narrows.
+
+**E5, corrected against a real browser.** "Opening 가사 from a paused Global Player shows ⏸" is
+narrower than written: the `useState(true)` seed is overwritten by the session-adoption effect
+before first paint whenever `currentSpotifyTrackId()` can name the track, and a control run on
+`origin/main` rendered ▶ from frame 0. The seed only lies in the A4 condition — a cold URI cache,
+where the session cannot name what is sounding. The fix stands (a seed must not assert something
+false, and the session is this RFC's single writer of playback truth), but it is a narrow fix, not
+the broad one the wording implied.
+
+The mirror browse-return path shipped ahead of this step as `myblog_front#431` with its own
+regression, and that regression still passes here — paused browse removes the idle timer only while
+the music is stopped, and that test browses against a playing mirror.
+
+**Deliberately not fixed, recorded instead** (same standard as Step 2's residual risks — an
+untested guard claiming a fix is worse than a recorded risk):
+- a throw inside a coalesced run drops the remembered press. No reachable thrower today:
+  `sendPlayerCommand`, `play` and `resolveTail` all swallow.
+- `transportBusy` is not broadcast, so a mirror's `aria-busy` is dead for a forwarded press.
+- depth 1 inside the `'transport'` family drops a *different* command, not just a repeat:
+  ⏭ → ⏯ → ⏭ loses the ⏯. Giving them separate keys would let two writers reach one playhead, which
+  is worse; "every press lands" needs an ordered queue with one in-flight slot, not a bigger slot.
+- the episode backstop in `queueJump` returns `nothing-to-send`, which renders no sentence — a
+  silent no-op for a jump forwarded from a mirror running an older bundle.
 
 ---
 
@@ -356,3 +386,7 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
 | 2026-08-30 | Review blocked Step 2's first commit with three reproducible defects, all on the **takeover** path with two tabs — which the Step 2 verification list does not name and the clickthrough therefore never exercised. `takeOver()` moved the lease but not the audio in the only state its button renders in; the position restore was forwarded to the tab being deposed and dropped; and a failed reissue's debt was written off by the next track change. Fixed in the same PR | 2 |
 | 2026-08-30 | `takeOver()` branches on **where the sound is** (`ownerRung`), not on whether the queue is driving it: the banner renders only while the owner holds the in-page device, so "inside the other tab" is the common case, not the exotic one | 2 |
 | 2026-08-30 | A newly reported Step 1 residual split static navigation from live-mirror browsing: the combined `!canRefresh || !canControl` branch re-anchored a mirror's clock to a position Spotify never sought. Mirror line taps now preserve playback truth and use the existing temporary browse path; the regression advances the browse timeout and therefore fails if the fake `setAnchor(tappedPosition)` write returns | 3 |
+| 2026-08-31 | Capability splits three ways, not two: `unsupported`/`forbidden` durable (disable), `no-active-device` recoverable (clears when a device appears), `transient`/`token` retry. The recoverable one must never write `rememberSpotifyTransportProbe` or degrade `capabilityTier` — both are durable claims about the account, and a sleeping phone is not one | 3 |
+| 2026-08-31 | `busy` splits into `busy` (a play that cannot coalesce — surfaces disable) and `transportBusy` (a coalescing command in flight — surfaces stay pressable). Review found the trap: every predicate reading `busy` to mean "some player command is running" silently stopped protecting anything, so a lyrics queue-row jump / 전체재생 / row ▶ / 다시 시도 could each issue a second `play({uris})` across an in-flight ⏭. One shared predicate, `nonCoalescingBlocked`, now states the asymmetry in a single place | 3 |
+| 2026-08-31 | Follow resumes on ↩ or on playback resuming, and a re-anchor is neither — but only while the member is actually browsing. Gating `applyAnchor` on `!isPlaying` alone also skipped `setFocus`, which made a manual ↻ on a paused track a visual no-op | 3 |
+| 2026-08-31 | E5's reach corrected downward against a real browser (see Step 3). Recorded rather than quietly dropped, because the RFC's own Current-state wording was the thing that was wrong | 3 |
