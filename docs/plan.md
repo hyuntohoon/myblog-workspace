@@ -6,6 +6,51 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+- **SEC-member-listening-data-boundary** (`docs/rfcs/SEC-member-listening-data-boundary.md`, accepted) —
+  <!-- rfc: docs/rfcs/SEC-member-listening-data-boundary.md | status: accepted -->
+  **read-boundary defect, found 2026-08-30 and reproduced against `origin/main`.** Six
+  `GET /api/library/*` handlers (`now-playing`, `recently-listened`, `recent-tracks`,
+  `listened-albums`, `saved-tracks`, `saved-tracks/*-distribution`, `play-events/*-distribution`)
+  take no scope dependency at all — no `provisioned_member_id`, no `require_owner`, only the
+  CloudFront edge check — while `SelfDashboard` renders their widgets for **every** signed-in
+  member. A non-owner's Overview/좋아요 tabs therefore show the owner's listening history. The
+  tables cannot simply gain a `WHERE user_id`: `spotify_now_playing` is a CHECK-enforced singleton
+  and `spotify_recent_albums` / `spotify_play_events` / `spotify_recent_tracks` /
+  `spotify_saved_tracks` have no user column (V45's header records that as a deliberate decision).
+  `stream-history/*` and `to-listen` are already correctly member-scoped. Classified in the RFC as
+  (a) owner-only legacy → gate the widget + `require_owner` the route (Step 1, front + backend, no
+  migration), (b) member-scoped replacement already possible over the V45
+  `spotify_member_now_playing` / `spotify_member_recent_tracks` tables the worker already writes but
+  nothing reads (Step 2, contract change), (c) needs durable per-member history (Step 3, migration).
+  *Order*: Step 1 before anything in `ARCH-playback-authority-convergence` — including that RFC's
+  already-implemented Step 1, `myblog_front#428`, which waits behind it (owner, 2026-08-30).
+  *Verification*: backend `pytest` + front gates + a **non-owner** real-browser clickthrough.
+  *Rollback*: revert per step; Steps 1–2 touch no data. *Status*: **accepted 2026-08-30**, all
+  three steps; OQ1 answered — class-(a) widgets are omitted silently for a non-owner, no
+  "소유자 전용" note. Step 1 not started.
+
+- **ARCH-playback-authority-convergence** (`docs/rfcs/ARCH-playback-authority-convergence.md`, accepted) —
+  <!-- rfc: docs/rfcs/ARCH-playback-authority-convergence.md | status: accepted -->
+  23 playback-correctness defects audited against `myblog_front@94d82f1` on 2026-08-30; **none had
+  been fixed since they were reported.** The through-line is that `LyricsViewer` runs a second
+  playback state machine (`awaitingTrack`/`awaitingChangeFrom`/`awaitingPlayState`/`confirmSkip`/
+  `confirmJump`/`transportDead`/`commandBusy` + direct `sendPlayerCommand`), which is why a lyric
+  line tap never seeks, why a mirror tab can bypass the ownership gate the Global Player enforces,
+  and why an A→B→C skip inside `EVENT_RESYNC_FLOOR_MS` strands the viewer on B. Alongside it:
+  `resolveTail` returns a filtered bare `string[]` so a failed head makes session identity and audio
+  disagree; `uris.ts` memoises transient 5xx as a permanent miss; `player_state_changed` cannot see
+  repeat-one; natural completion is a single read where every explicit transport already gets a
+  bounded burst; `setMode`/`transferTo` carry no ownership gate; `takeOver()` takes the lease
+  without moving playback; and the Playback Bucket's reorder/delete/append never reach Spotify after
+  the opening `play({uris})`. Four steps: **Step 1 correctness foundation** (this session), Step 2
+  queue execution invariant, Step 3 UX state, Step 4 cleanup. *Order*: after
+  `SEC-member-listening-data-boundary` Step 1. *Verification*: `pnpm lint && pnpm exec astro check
+  && pnpm test` + named regressions per step + real-browser clickthrough. *Rollback*: revert per
+  step; front-only, no contract, no migration. *Status*: **accepted 2026-08-30**, Steps 1–4 as
+  drafted. **Step 1 implemented in `myblog_front#428`, held open**: its real-browser clickthrough
+  is the one outstanding gate, and it merges only after SEC Step 1. OQ1 (the reissue's ~200–400ms
+  restart) still open and blocks Step 2's final shape, not its start.
+
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->
   tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
