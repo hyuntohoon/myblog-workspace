@@ -1,7 +1,7 @@
 # SEC-member-listening-data-boundary: the owner's listening history is visible to every signed-in member
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: **accepted** (owner-approved in-session 2026-08-30, all three steps, together with OQ1)
+- **Owner**: 오너
 - **Created**: 2026-08-30
 - **Plan row**: `plan.md` → SEC-member-listening-data-boundary
 
@@ -182,9 +182,10 @@ paying for three tables is the point of putting this step last.
 
 ## Open questions
 
-1. **Does the owner want class-(a) widgets to disappear for non-owners, or render an explicit
-   "소유자 전용" note?** Blocks Step 1's UX only, not its security. Recommendation: omit silently —
-   a non-owner has no reason to be told what they are not seeing.
+1. ~~**Does the owner want class-(a) widgets to disappear for non-owners, or render an explicit
+   "소유자 전용" note?**~~ **Answered 2026-08-30 — omit silently.** A non-owner has no reason to be
+   told what they are not seeing. Step 1 renders the class-(a) panels only for the owner; for a
+   non-owner the panel is absent from the layout, not an empty card and not a "소유자 전용" note.
 2. **Should `/api/library/now-playing` keep existing after Step 2?** Blocks nothing; it stays as the
    owner's own richer read unless Step 3 subsumes it.
 3. **Is Step 3 worth building at all?** See Step 3. Blocks Step 3.
@@ -194,3 +195,6 @@ paying for three tables is the point of putting this step last.
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-08-30 | Owner: handle this as a separate RFC/PR ahead of the playback work, classifying widgets into (a)/(b)/(c) before implementing | — |
+| 2026-08-30 | Owner accepted the RFC in-session, all three steps as drafted | — |
+| 2026-08-30 | Owner (OQ1): class-(a) widgets are omitted silently for a non-owner — no "소유자 전용" note | 1 |
+| 2026-08-30 | Owner: Step 1 merges **before** `ARCH-playback-authority-convergence` Step 1 (`myblog_front#428`), which is implemented and waiting | 1 |

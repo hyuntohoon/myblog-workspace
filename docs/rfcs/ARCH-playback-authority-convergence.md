@@ -1,7 +1,7 @@
 # ARCH-playback-authority-convergence: one playback truth, consumed by every surface
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: **accepted** (owner-approved in-session 2026-08-30, Steps 1–4 as drafted)
+- **Owner**: 오너
 - **Created**: 2026-08-30
 - **Plan row**: `plan.md` → ARCH-playback-authority-convergence
 
@@ -157,6 +157,10 @@ One step per session. Steps run in order; Step 2 depends on Step 1's gate work.
 
 ### Step 1 — correctness foundation
 
+**Merge order**: implemented in `myblog_front#428` and held there. It merges *after*
+`SEC-member-listening-data-boundary` Step 1 (owner, 2026-08-30) — the live read-boundary defect is
+not left open while a playback refactor lands ahead of it.
+
 Closes **F1, F2, A1, A3, A4, A5, A6, B1, B2**, and the C1 half that Step 2 needs.
 
 1. `uris.ts` — split durable from transient. `fetchUri` returns a discriminated result
@@ -287,3 +291,5 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
 |------|----------|------|
 | 2026-08-30 | Current-state audit against `origin/main` confirmed all 23 items still present; none had been fixed since the reports | — |
 | 2026-08-30 | Owner: write the RFC and run Step 1 (Phase 1) this session; `SEC-member-listening-data-boundary` sequenced ahead | 1 |
+| 2026-08-30 | Owner accepted the RFC in-session, Steps 1–4 as drafted | — |
+| 2026-08-30 | Owner resolved the sequencing the two decisions above left open: Step 1 is implemented in `myblog_front#428` but **merges after** `SEC-member-listening-data-boundary` Step 1 | 1 |
