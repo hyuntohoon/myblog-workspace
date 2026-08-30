@@ -5,7 +5,7 @@
 - **Created**: 2026-06-14 (stub, carved from FEAT-member-dashboard Step 6)
 - **Rescoped**: 2026-07-06 — brainstorm + external research; same-day cold review (phase
   re-sequencing, per-phase gates, Last.fm promoted, BYOA demoted, ops items added)
-- **Plan row**: `plan.md` → FEAT-multi-user-accounts (Active)
+- **Plan row**: `plan.md` → FEAT-multi-user-accounts (Later; all remaining gates are owner-only)
 - **Absorbs**: Scope B sketch of `FEAT-public-bucket-multiuser.md` (B1–B5; its Scope A — the
   public `/collection` viewer + `is_public` + API hardening — shipped 2026-06-15 and is prior art
   for the "public by default" read model here)
