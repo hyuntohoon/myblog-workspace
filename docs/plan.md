@@ -93,6 +93,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   latent race in `AddToBucketMenu`'s focus assertion into failing CI twice — hardened, and measured
   against `origin/main` (5/5 green there, 2-in-6 red here) rather than assumed pre-existing.
   Three residual risks are recorded in the RFC's open questions rather than papered over.
+  **A newly reported Step 1 residual is being closed as a narrow Step 3 addendum:** a mirror lyric
+  line tap was correctly blocked from seeking Spotify but still rewrote `LyricsViewer`'s local
+  playback anchor to the tapped position. The fix separates static/debug local navigation from a
+  live mirror, whose tap now uses the existing temporary browse path and preserves the real anchor;
+  a browse-timeout regression is required to fail if that fake anchor write returns. No other Step
+  3 or Step 4 item is included.
   **Steps 3–4 not started**; this row stays until they are. OQ3 (`BOUNDARY_BUFFER_MS`) blocks
   nothing.
 

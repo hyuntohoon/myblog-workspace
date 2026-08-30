@@ -277,9 +277,17 @@ snapshot rather than growing `OpenLiveLyricsDetail`. `openPlaybackLyrics` awaits
 cache miss and surfaces a failure instead of returning. Paused browse stops auto-returning: follow
 resumes on ↩ or on playback resume, never on a 3s idle timer while the music is stopped.
 
+One Step 1 residual discovered after Step 2 is handled here without pulling the rest of Step 3
+forward: a live mirror may move lyric `focus` for visual browsing, but because it cannot seek real
+playback it must not re-anchor the playback-relative clock to the tapped line. Mirror line taps use
+the existing browse/suspend path and preserve the live anchor; the static/debug entry keeps its
+purely local navigation semantics. Only an accepted real seek may move the live anchor.
+
 **Verification**: `pnpm lint && pnpm exec astro check && pnpm test` with regressions for paused
 browse, resume-after-paused-browse, recoverable 404, episode row, initial-paused, volume
-last-write-wins; real-browser clickthrough for the volume drag and the device-appears recovery.
+last-write-wins, and a mutation-sensitive mirror line-tap regression that returns from the tapped
+line to the unchanged live anchor after the existing browse timeout; real-browser clickthrough for
+the volume drag, the device-appears recovery, and the mirror browse-return path.
 
 ---
 
@@ -345,3 +353,4 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
 | 2026-08-30 | Step 2's queue-change detection hangs off `bucketStore.subscribe`, not the six mutation call sites — the queue is a projection over that store, so a seventh path added later cannot land outside the invariant | 2 |
 | 2026-08-30 | Review blocked Step 2's first commit with three reproducible defects, all on the **takeover** path with two tabs — which the Step 2 verification list does not name and the clickthrough therefore never exercised. `takeOver()` moved the lease but not the audio in the only state its button renders in; the position restore was forwarded to the tab being deposed and dropped; and a failed reissue's debt was written off by the next track change. Fixed in the same PR | 2 |
 | 2026-08-30 | `takeOver()` branches on **where the sound is** (`ownerRung`), not on whether the queue is driving it: the banner renders only while the owner holds the in-page device, so "inside the other tab" is the common case, not the exotic one | 2 |
+| 2026-08-30 | A newly reported Step 1 residual split static navigation from live-mirror browsing: the combined `!canRefresh || !canControl` branch re-anchored a mirror's clock to a position Spotify never sought. Mirror line taps now preserve playback truth and use the existing temporary browse path; the regression advances the browse timeout and therefore fails if the fake `setAnchor(tappedPosition)` write returns | 3 |
