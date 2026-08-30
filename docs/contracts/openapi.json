@@ -8325,6 +8325,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "List Listened Albums",
         "tags": [
           "library"
@@ -8346,6 +8351,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Now Playing",
         "tags": [
           "library"
@@ -8367,6 +8377,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Play Events Artist Distribution",
         "tags": [
           "library"
@@ -8388,6 +8403,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Play Events Genre Distribution",
         "tags": [
           "library"
@@ -8409,6 +8429,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "List Recent Tracks",
         "tags": [
           "library"
@@ -8430,6 +8455,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "List Recently Listened",
         "tags": [
           "library"
@@ -8552,6 +8582,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "List Saved Tracks",
         "tags": [
           "library"
@@ -8573,6 +8608,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Saved Tracks Artist Distribution",
         "tags": [
           "library"
@@ -8646,6 +8686,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Saved Tracks Genre Distribution",
         "tags": [
           "library"
