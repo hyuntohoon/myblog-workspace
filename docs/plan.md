@@ -6,6 +6,38 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+- **FIX-auth-identity-lifecycle** (`docs/rfcs/FIX-auth-identity-lifecycle.md`, draft) — a 2026-08-30
+  re-audit against current `origin/main` confirmed that URL
+  continuation is not action continuation; a delayed Cognito refresh can restore tokens after
+  logout and is not bounded by `apiFetch`'s timeout; persistent Pocket and playback singletons are
+  not account-scoped. Delivery is split into the RFC's three serial steps: auth generation/private
+  state reset, general post-login intent, then browser validation/residual cleanup. The active
+  playback RFC continues to own transport/queue correctness; this RFC owns only account-boundary
+  reset and message isolation. *Verification*: front gates + named reversed-async tests + two-tab
+  browser clickthrough. *Rollback*: revert per step; no server contract, migration or Cognito
+  configuration change. *Status*: **draft**, awaiting owner acceptance.
+  <!-- rfc: docs/rfcs/FIX-auth-identity-lifecycle.md | status: draft -->
+
+- **FIX-user-flow-state-consistency** — the same current-main audit confirmed that rating writes
+  conflate a valid `204` with failure; several public surfaces
+  render transport/server errors as empty or not-found; Pocket structural mutations can apply
+  responses out of order; and several completed features have stale integration seams. Delivery is
+  split into independently reversible PRs: **(1)** rating mutation result + cross-root event FIX
+  (front); **(2)** Pocket mutation ordering + `+N` regression (front); **(3)** explicit remote error
+  states + search pagination/query/a11y + `reviewIndex` reconnect (front); **(4)** small integrations
+  (Artist→Radar tracking, Collection→Profile,
+  Spotify-sync completion/refresh where the existing contract permits). Radar import completion
+  needs a separate durable job-status design across backend/worker/front and is not smuggled into
+  the UI batch. AlbumOverlay action parity remains under the existing album-card decision; dynamic
+  artist 404/noindex remains the previously accepted hosting trade-off; overlay Back behavior needs
+  a real-browser product check before change. *Order*: the bounded frontend regressions are
+  additive but ship as separate PRs. *Verification*:
+  `pnpm lint && pnpm exec astro check && pnpm test`, named regression tests per PR, and real-browser
+  clickthrough for every UI leg. No API contract or Terraform change is planned except the later,
+  separately accepted Radar job-status design. *Rollback*: revert per PR. *Status*: audit complete;
+  rating FIX in progress.
+  <!-- rfc: none -->
+
 - **SEC-member-listening-data-boundary** (`docs/rfcs/SEC-member-listening-data-boundary.md`, accepted) —
   <!-- rfc: docs/rfcs/SEC-member-listening-data-boundary.md | status: accepted -->
   **read-boundary defect, found 2026-08-30, reproduced against `origin/main` and then against
