@@ -61,9 +61,18 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `SEC-member-listening-data-boundary` Step 1. *Verification*: `pnpm lint && pnpm exec astro check
   && pnpm test` + named regressions per step + real-browser clickthrough. *Rollback*: revert per
   step; front-only, no contract, no migration. *Status*: **accepted 2026-08-30**, Steps 1–4 as
-  drafted. **Step 1 implemented in `myblog_front#428`, held open**: its real-browser clickthrough
-  is the one outstanding gate, and it merges only after SEC Step 1. OQ1 (the reissue's ~200–400ms
-  restart) still open and blocks Step 2's final shape, not its start.
+  drafted. **Step 1 SHIPPED and production-verified 2026-08-30** — `myblog_front#428` (`e075f73`),
+  merged after SEC Step 1 as sequenced; deploy run `33299620786` green, prod smoke **30 passed / 0
+  failed**, and the new bundle proved live by a *counting* marker (the takeover copy occurs once
+  across 49 crawled JS chunks where the pre-fix tree carried it twice). OQ2 answered by the owner:
+  the mirror keeps a disabled transport **and** an inline takeover, and `PlaybackOwnerBanner` was
+  extracted to its own module so the lyrics viewer imports the component instead of hand-copied
+  markup. **The clickthrough that gate required found a defect Step 1 had left** — `JumpOutcome`
+  dropped `rung`/`degraded`, so a cold-start queue jump left `rung: null`: no 음질 제한 notice, and
+  every mirror tab read `ownerRung: null` and kept a live transport over audio in another tab. A3
+  was half-open; fixed in the same PR with three mutation-checked tests. **Steps 2–4 not started**;
+  this row stays until they are. OQ1 (the reissue's ~200–400ms restart) still open and blocks Step
+  2's final shape, not its start; OQ3 (`BOUNDARY_BUFFER_MS`) blocks nothing.
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->

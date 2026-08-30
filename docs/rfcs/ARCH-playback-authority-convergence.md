@@ -157,9 +157,10 @@ One step per session. Steps run in order; Step 2 depends on Step 1's gate work.
 
 ### Step 1 — correctness foundation
 
-**Merge order**: implemented in `myblog_front#428` and held there. It merges *after*
-`SEC-member-listening-data-boundary` Step 1 (owner, 2026-08-30) — the live read-boundary defect is
-not left open while a playback refactor lands ahead of it.
+**SHIPPED 2026-08-30** — `myblog_front#428`, squash `e075f73`, deploy run `33299620786` green,
+production smoke **30 passed / 0 failed**. It merged *after* `SEC-member-listening-data-boundary`
+Step 1 (owner, 2026-08-30), as sequenced: the live read-boundary defect was not left open while a
+playback refactor landed ahead of it.
 
 Closes **F1, F2, A1, A3, A4, A5, A6, B1, B2**, and the C1 half that Step 2 needs.
 
@@ -197,6 +198,19 @@ plus the regression suite named under "Tests" below (line tap, line-tap failure,
 natural remote transition, repeat-one, rapid external skip, jump-confirmation failure, mirror-tab
 transport, transient-500 resolver, identity-aligned tail), and a real-browser clickthrough of the
 viewer against live playback.
+
+**Result**: `pnpm lint` clean, `astro check` 0 errors, `pnpm test` 70 files / 757 tests, **0
+skipped**. The clickthrough ran against a dev server with a stub backend and an in-page stub of
+`api.spotify.com` + the Web Playback SDK, the Spotify stub modelling the ack→apply lag so a
+"one read after the command" bug cannot pass. Two tabs shared one browser context, so the ownership
+lease and the `BroadcastChannel` were real. It **found a defect Step 1 had left** — see the
+decisions log — and the fix shipped in the same PR.
+
+The authed *deployed* bundle still cannot be driven directly (mixed content blocks the http token
+relay), so liveness used a **counting** marker: the takeover copy occurs exactly once across 49
+crawled JS chunks, where the pre-fix tree carried it twice. Note for whoever repeats this: the
+member islands are `astro-island component-url` references, not `<script src>` — a `src=`-only
+crawl stops at 19 files and reports the marker missing.
 
 **Rollback**: revert the PR. Front-only, no contract, no persisted state.
 
@@ -278,9 +292,12 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
    reorder/delete only take effect from the next track, (c) apply only *appends* live and defer
    reorder/delete. Blocks Step 2's final shape, not its start. Recommendation: (a) — the invariant
    the owner asked for is "visible order is the next order", and (b) silently breaks it.
-2. **Does the mirror tab's lyrics transport disable, or offer takeover inline?** Blocks Step 1's
-   mirror UX only. Recommendation: reuse `PlaybackOwnerBanner`'s existing takeover, so the two
-   surfaces answer identically.
+2. ~~**Does the mirror tab's lyrics transport disable, or offer takeover inline?**~~
+   **Answered 2026-08-30 — both, from one component.** The mirror renders the transport disabled
+   *and* an inline takeover, and `PlaybackOwnerBanner` moved out of `PlaybackPanel.tsx` into its own
+   module so the lyrics viewer imports the component rather than the hand-copied markup Step 1
+   first shipped. `className` re-lays it out for the lyrics transport grid; the copy, the action and
+   the predicate are single-sourced.
 3. **Is `BOUNDARY_BUFFER_MS = 1500` still right as a burst gap?** It is flagged in
    `FEAT-playback-bucket-player` as an unmeasured estimate. Blocks nothing; Step 1 should measure
    it against the residual series the viewer already logs rather than inherit it.
@@ -293,3 +310,5 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
 | 2026-08-30 | Owner: write the RFC and run Step 1 (Phase 1) this session; `SEC-member-listening-data-boundary` sequenced ahead | 1 |
 | 2026-08-30 | Owner accepted the RFC in-session, Steps 1–4 as drafted | — |
 | 2026-08-30 | Owner resolved the sequencing the two decisions above left open: Step 1 is implemented in `myblog_front#428` but **merges after** `SEC-member-listening-data-boundary` Step 1 | 1 |
+| 2026-08-30 | Owner (OQ2): the mirror keeps a disabled transport **and** an inline takeover, and the two surfaces stop duplicating it — `PlaybackOwnerBanner` extracted to its own module and imported by `LyricsViewer` | 1 |
+| 2026-08-30 | Step 1's browser clickthrough found A3 half-open on the jump path: `JumpOutcome` dropped `rung`/`degraded`, so a cold-start jump left `rung: null` — no 음질 제한 notice and every mirror read `ownerRung: null` and kept a live transport. Fixed in the same PR | 1 |
