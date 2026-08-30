@@ -134,8 +134,30 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   mirror, whose tap uses the existing temporary browse path and preserves the real anchor; the
   browse-timeout regression fails if that fake anchor write returns. No other Step 3 or Step 4 item
   was included.
-  **Steps 3–4 not started**; this row stays until they are. OQ3 (`BOUNDARY_BUFFER_MS`) blocks
-  nothing.
+  **Step 3 SHIPPED 2026-08-31** — `myblog_front#434`. Capability stops being one boolean that can
+  only latch off: the provider splits 403 (`no-capability`, durable) from 404 (`no-active-device`,
+  recoverable), and the session answers the second WITHOUT degrading `capabilityTier` or writing the
+  transport probe the settings matrix reads as "보통 Premium이 아닐 때" — it clears the moment a
+  device appears. Busy stops being a silent return: transport, seek and the three modes go through a
+  latest-intent coalescer, and `busy` splits into `busy` (cannot coalesce — render disabled) and
+  `transportBusy` (in the air — stay pressable). Plus `QueueEntry.mediaType` (episodes listed but
+  inert), the viewer's play state seeded from the session snapshot, `openPlaybackLyrics` awaiting
+  `resolveUri` and surfacing failures, and paused browse no longer snapping back on a 3s timer.
+  **Review blocked the first commit again, and again it was the guard nobody re-counted**: splitting
+  `busy` silently disarmed every OTHER predicate that had relied on transport setting it — a lyrics
+  queue-row jump, 전체재생, a row ▶ and 다시 시도 could all now issue a second `play({uris})` across
+  an in-flight ⏭. Six more followed, including `applyAnchor`'s new early return skipping `setFocus`
+  (a manual ↻ on a paused track became a visual no-op) and a mode 404 rolling back a sibling that
+  had succeeded meanwhile. All fixed in the same PR with a regression each. **The mutation sweep
+  earned its place twice**: two of this step's own new tests survived their mutants — one asserted
+  before React had re-rendered, one ran two commands back to back so the interleaving it claimed to
+  test never happened — and fixing the first exposed a real half-open fix (`applyAnchor` was still
+  ending the browse on every reconcile). **Clickthrough ran against a control on `origin/main`** and
+  discriminated on six of seven checks; the seventh is recorded as a correction rather than a win:
+  **E5 does not reproduce in a browser** — the `useState(true)` seed is overwritten by the session
+  adoption effect before first paint whenever the session can name the track, so the defect's reach
+  is narrower than the RFC's wording, and only the cold-URI-cache case ever showed ⏸ over silence.
+  **Step 4 not started**; this row stays until it is. OQ3 (`BOUNDARY_BUFFER_MS`) blocks nothing.
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->
