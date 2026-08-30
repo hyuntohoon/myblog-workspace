@@ -23,7 +23,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   render transport/server errors as empty or not-found; Pocket structural mutations can apply
   responses out of order; and several completed features have stale integration seams. Delivery is
   split into independently reversible PRs: **(1)** rating mutation result + cross-root event FIX
-  (front); **(2)** Pocket mutation ordering + `+N` regression (front); **(3)** explicit remote error
+  (front #432 — shipped and prod-verified 2026-08-31); **(2)** Pocket mutation ordering + `+N`
+  regression (front); **(3)** explicit remote error
   states + search pagination/query/a11y + `reviewIndex` reconnect (front); **(4)** small integrations
   (Artist→Radar tracking, Collection→Profile,
   Spotify-sync completion/refresh where the existing contract permits). Radar import completion
@@ -35,7 +36,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `pnpm lint && pnpm exec astro check && pnpm test`, named regression tests per PR, and real-browser
   clickthrough for every UI leg. No API contract or Terraform change is planned except the later,
   separately accepted Radar job-status design. *Rollback*: revert per PR. *Status*: audit complete;
-  rating FIX in progress.
+  rating FIX shipped (prod smoke 30/0); legs 2–4 pending.
   <!-- rfc: none -->
 
 - **SEC-member-listening-data-boundary** (`docs/rfcs/SEC-member-listening-data-boundary.md`, accepted) —
