@@ -28,13 +28,20 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   *Verification*: backend `pytest` + front gates + a **non-owner** real-browser clickthrough.
   *Rollback*: revert per step; Steps 1–2 touch no data. *Status*: **accepted 2026-08-30**, all
   three steps; OQ1 answered — the widgets are omitted silently for a non-owner, no "소유자 전용"
-  note. **Step 1 implemented 2026-08-30 with owner-amended scope: all nine routes gated, class (b)
-  included, so the leak is zero on deploy and Step 2 becomes purely additive.** PRs open —
-  `myblog_backend#173` → this repo's `#961` → `myblog_front#429`, in that order (the reverse of the
-  usual contract order: `workspace-check` re-merges from both services' `main`, so an additive
-  service contract change cannot be led by the workspace). Review found a ninth surface the RFC's
-  table missed — `useSpotifyLibrary` fetched `listened-albums` on every `BucketBoard` mount — now
-  gated. Remaining gate: the **non-owner** real-browser clickthrough.
+  note. **Step 1 SHIPPED and production-verified 2026-08-30 with owner-amended scope: all nine
+  routes gated, class (b) included, so the leak is zero and Step 2 is purely additive.** Merged
+  `myblog_backend#173` (`5675d00`) → this repo's `#961` (`11ce8f4`) → `myblog_front#429`
+  (`673bf08`), in that order — the reverse of the usual contract order, because `workspace-check`
+  re-merges the contract from both services' `main`, so an additive service contract change cannot
+  be led by the workspace. *Production verification*: the same non-owner token that returned nine
+  `200`s with the owner's rows before the change now gets **403 on all nine**, while `to-listen`,
+  `stream-history/*` and `/api/me` stay `200` (the gate is not too wide) and unauthenticated
+  callers still get `403` at the edge. Prod smoke **30 passed / 0 failed**, including eleven new
+  permanent assertions. Non-owner real-browser clickthrough passed **with a control**: on
+  `origin/main` the same account rendered 4/4 owner widget titles and made 5 owner-global calls; on
+  the shipped code, 0 and 0. Review found a ninth surface the RFC's table missed —
+  `useSpotifyLibrary` fetched `listened-albums` on every `BucketBoard` mount — now gated.
+  **Steps 2–3 not started**; this row stays until they are resolved.
 
 - **ARCH-playback-authority-convergence** (`docs/rfcs/ARCH-playback-authority-convergence.md`, accepted) —
   <!-- rfc: docs/rfcs/ARCH-playback-authority-convergence.md | status: accepted -->
