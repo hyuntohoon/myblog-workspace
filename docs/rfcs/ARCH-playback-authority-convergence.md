@@ -277,9 +277,11 @@ snapshot rather than growing `OpenLiveLyricsDetail`. `openPlaybackLyrics` awaits
 cache miss and surfaces a failure instead of returning. Paused browse stops auto-returning: follow
 resumes on ↩ or on playback resume, never on a 3s idle timer while the music is stopped.
 
-One Step 1 residual discovered after Step 2 is handled here without pulling the rest of Step 3
-forward: a live mirror may move lyric `focus` for visual browsing, but because it cannot seek real
-playback it must not re-anchor the playback-relative clock to the tapped line. Mirror line taps use
+**Narrow residual SHIPPED 2026-08-30** — `myblog_front#431`, squash `087dc047`, deploy run
+`33316040634` green, production smoke **30 passed / 0 failed**. One Step 1 residual discovered after
+Step 2 was handled without pulling the rest of Step 3 forward: a live mirror may move lyric `focus`
+for visual browsing, but because it cannot seek real playback it must not re-anchor the
+playback-relative clock to the tapped line. Mirror line taps use
 the existing browse/suspend path and preserve the live anchor; the static/debug entry keeps its
 purely local navigation semantics. Only an accepted real seek may move the live anchor.
 
