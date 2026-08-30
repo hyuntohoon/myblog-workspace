@@ -541,9 +541,22 @@ resource "aws_apigatewayv2_route" "library_to_listen_delete" {
 }
 
 # --- Member listening: manual "지금 새로고침" (FEAT-member-dashboard Step 3, D5) ---
-# GET /api/library/recently-listened, /now-playing, /spotify-connection are served
-# by the catch-all `api_get_proxy` (edge_guard). Only this POST trigger is Cognito-
-# JWT gated. The handler just enqueues an SQS job (rule #9 — no sync Spotify call).
+# GET /api/library/recently-listened, /recent-tracks, /listened-albums, /now-playing
+# and /spotify-connection are served by the catch-all `api_get_proxy`. No route
+# resource is needed for any of them.
+#
+# SEC-member-listening-data-boundary Step 1 (2026-08-30) gave the first four
+# `require_owner` IN THE LAMBDA — they read owner-global tables with no user column,
+# so any signed-in member's dashboard was rendering the owner's listening history.
+# That is deliberately NOT an authorizer here: the catch-all carries the edge_guard
+# and the Lambda verifies the JWT itself, exactly as the member-scoped
+# /api/library/stream-history/* reads and the owner-gated GET /api/posts already do.
+# `/spotify-connection` is unchanged. The authoritative inventory of which endpoints
+# are owner-gated is myblog_backend `tests/test_route_guard_map.py`, which fails if
+# one of them loses its guard.
+#
+# Only this POST trigger is Cognito-JWT gated at the gateway. The handler just
+# enqueues an SQS job (rule #9 — no sync Spotify call).
 resource "aws_apigatewayv2_route" "library_refresh_recent_post" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "POST /api/library/refresh-recent"
@@ -554,8 +567,11 @@ resource "aws_apigatewayv2_route" "library_refresh_recent_post" {
 
 # --- 분석 버킷: 분류하기 (FEAT-genre-artist-distribution Step 5) ---
 # The GET /api/library/saved-tracks* + /play-events/* distributions ride the catch-all
-# api_get_proxy (edge_guard at the Lambda). Only this POST is Cognito-JWT gated; the
-# handler just enqueues an SQS catalog-sync job (rule #9 — no sync Spotify call).
+# api_get_proxy. Since SEC-member-listening-data-boundary Step 1 they are
+# `require_owner` in the Lambda (owner-global tables, no per-member scope) — see the
+# note on the 지금 새로고침 block above for why that needs no route resource here.
+# Only this POST is Cognito-JWT gated at the gateway; the handler just enqueues an
+# SQS catalog-sync job (rule #9 — no sync Spotify call).
 resource "aws_apigatewayv2_route" "library_saved_tracks_classify_post" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "POST /api/library/saved-tracks/classify"

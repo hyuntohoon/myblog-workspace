@@ -258,6 +258,33 @@ def _run_member_gate(host: dict[str, str], token: str) -> None:
     s, _ = request_json(host["backend_authed"] + "/api/publish", method="POST", body={}, token=token)
     check("POST /api/publish as member → 403 (owner-gate)", s == 403, f"status={s}")
 
+    # SEC-member-listening-data-boundary Step 1. These nine reads were
+    # edge_guard-only and returned the OWNER's listening history to any signed-in
+    # member — verified live before the fix: nine for nine, 200, with the owner's
+    # rows. They are `require_owner` now. Asserted here rather than left to a
+    # one-off manual probe: the tables have no user column, so a future attempt to
+    # "scope" one of these instead of gating it would silently reopen the boundary.
+    print("\n[listening boundary — member blocked from the owner-global reads]")
+    for path in (
+        "/api/library/now-playing",
+        "/api/library/recently-listened",
+        "/api/library/recent-tracks",
+        "/api/library/listened-albums",
+        "/api/library/saved-tracks",
+        "/api/library/saved-tracks/genre-distribution",
+        "/api/library/saved-tracks/artist-distribution",
+        "/api/library/play-events/genre-distribution",
+        "/api/library/play-events/artist-distribution",
+    ):
+        s, _ = request_json(host["backend_authed"] + path, token=token)
+        check(f"GET {path} as member → 403 (owner-gate)", s == 403, f"status={s}")
+
+    # The already-correct member-scoped reads must NOT have been caught by that
+    # sweep — a 403 here would mean the gate went too wide.
+    for path in ("/api/library/to-listen", "/api/library/stream-history/top-tracks?metric=count"):
+        s, _ = request_json(host["backend_authed"] + path, token=token)
+        check(f"GET {path} as member → 200 (member-scoped, still open)", s == 200, f"status={s}")
+
     print("\n[member routes — signed-in member is allowed]")
     s, b = request_json(host["backend_authed"] + "/api/me", token=token)
     check("GET /api/me as member → 200", s == 200, f"status={s}, body={str(b)[:120]}")
