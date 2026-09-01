@@ -18,28 +18,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   configuration change. *Status*: **draft**, awaiting owner acceptance.
   <!-- rfc: docs/rfcs/FIX-auth-identity-lifecycle.md | status: draft -->
 
-- **FIX-user-flow-state-consistency** — the same current-main audit confirmed that rating writes
-  conflate a valid `204` with failure; several public surfaces
-  render transport/server errors as empty or not-found; Pocket structural mutations can apply
-  responses out of order; and several completed features have stale integration seams. Delivery is
-  split into independently reversible PRs: **(1)** rating mutation result + cross-root event FIX
-  (front #432 — shipped and prod-verified 2026-08-31); **(2)** Pocket mutation ordering + `+N`
-  regression (front #433 — shipped and prod-verified 2026-08-31, deploy `33322704126`, prod smoke
-  19/0); **(3)** explicit remote error
-  states + search pagination/query/a11y + `reviewIndex` reconnect (front); **(4)** small integrations
-  (Artist→Radar tracking, Collection→Profile,
-  Spotify-sync completion/refresh where the existing contract permits). Radar import completion
-  needs a separate durable job-status design across backend/worker/front and is not smuggled into
-  the UI batch. AlbumOverlay action parity remains under the existing album-card decision; dynamic
-  artist 404/noindex remains the previously accepted hosting trade-off; overlay Back behavior needs
-  a real-browser product check before change. *Order*: the bounded frontend regressions are
-  additive but ship as separate PRs. *Verification*:
-  `pnpm lint && pnpm exec astro check && pnpm test`, named regression tests per PR, and real-browser
-  clickthrough for every UI leg. No API contract or Terraform change is planned except the later,
-  separately accepted Radar job-status design. *Rollback*: revert per PR. *Status*: audit complete;
-  rating FIX and Pocket ordering FIX shipped; legs 3–4 pending.
-  <!-- rfc: none -->
-
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->
   tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
@@ -435,6 +413,29 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 ## Backlog
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
+
+- **FEAT-durable-job-status** (**backlogged 2026-09-02; needs owner go + an RFC**) — a durable,
+  readable status for the async jobs a user can start from the UI: the Spotify album sync
+  (`POST /api/music/sync-requests`) and the Release Radar's Spotify follow import
+  (`POST /api/me/tracked-artists/spotify-import`). Today both answer *accepted* and go silent; the
+  worker finishes minutes later and nothing tells the surface.
+  <!-- rfc: none -->
+  **Why it is here rather than in the leg that met it.** `FIX-user-flow-state-consistency` leg 4
+  shipped the honest half — `syncRequested` lets a surface offer a catalog re-read after an accepted
+  request — and deliberately did **not** invent a status contract to hang a spinner on. That row
+  named this as "a separate durable job-status design across backend/worker/front" and was dropped
+  when its four legs finished, so this is that pointer surviving its parent.
+  *Scope*: `myblog_backend` (or `myblog_music`) + `myblog_worker` + `myblog_front` — a job record the
+  worker writes terminal state to, and a read the surface can poll or subscribe to. *Order*: schema →
+  worker write → service read → contract → front. *Verification*: each repo's gate, plus a real
+  clickthrough that watches a request go from accepted to done without a manual refresh.
+  *Rollback*: revert per repo PR; the front degrades to leg 4's manual re-read.
+  **Do not size this off the UI.** The interesting half is the worker: what counts as terminal for a
+  bulk album sync where some ids succeed and some fail, and how long a completed job stays readable.
+  *On promotion to Active*: drop the pointer below — `scripts/check_workspace_invariants.py` rejects
+  an Active row referencing `docs/archive/done/`.
+  Background → `docs/archive/done/2026-09.md` (FIX-user-flow-state-consistency, *Deliberately not
+  done*).
 
 - **FEAT-member-own-listening-widgets** (**deferred 2026-09-01 by owner decision; trigger-gated**) —
   give a non-owner member their OWN now-playing and 최근 재생 트랙 cards, over the V45
