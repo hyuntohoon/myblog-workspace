@@ -1,6 +1,15 @@
 # SEC-member-listening-data-boundary: the owner's listening history is visible to every signed-in member
 
-- **Status**: **accepted** (owner-approved in-session 2026-08-30, all three steps, together with OQ1)
+- **Status**: **done — scope reduced to Step 1** (2026-09-01; archived). Accepted in-session
+  2026-08-30 for all three steps together with OQ1. **Step 1 shipped and production-verified
+  2026-08-30 and closed the leak completely**: with the owner's amended scope all nine routes are
+  `require_owner`-gated, class (b) included, so the boundary this RFC exists to fix measures **zero**
+  today. **Steps 2 and 3 were never built, and on 2026-09-01 the owner deferred them to `plan.md` →
+  Backlog behind a trigger rather than leaving this RFC open.** The deciding evidence was a
+  current-state audit run before starting Step 2 — see *Closeout audit* below: the population Step 2
+  serves is **0 of 3** non-owner accounts, and the step's own verification is not executable today.
+  Status promoted in-session by the owner under CLAUDE.md rule #7's explicit-approval exception.
+  Reopen with a fresh `plan.md` row, not by editing this file.
 - **Owner**: 오너
 - **Created**: 2026-08-30
 - **Plan row**: `plan.md` → SEC-member-listening-data-boundary
@@ -15,6 +24,11 @@ are rendered by `SelfDashboard` for any signed-in member — so a second member'
 window onto the owner's now-playing, recently-played albums, cumulative listen counts and 좋아요
 library. This RFC closes that read boundary, and it separates the three cases so the closure is not
 blocked on the one that needs a schema.
+
+> **Corrected at closeout (2026-09-01).** "Six" is this RFC's own headline number and it is wrong:
+> the route table below lists **nine**, Step 1 shipped against nine, and the production verification
+> was nine 403s. Left in place rather than silently edited, because the miscount is part of why
+> Step 1's scope had to be amended by the owner mid-flight.
 
 This is a privacy boundary, not playback polish. It is sequenced ahead of
 `ARCH-playback-authority-convergence` for that reason (owner decision, 2026-08-30).
@@ -215,6 +229,98 @@ paying for three tables is the point of putting this step last.
 
 ---
 
+---
+
+## Closeout audit — 2026-09-01
+
+Run against `origin/main` before starting Step 2, per `feedback-rfc-current-state-audit`. Three of
+this RFC's own statements did not survive it, and one measurement decided the outcome.
+
+### The "nothing reads them" premise was half wrong
+
+Step 2 is introduced as reading V45 tables "the worker already writes but nothing reads". That holds
+for **`spotify_member_recent_tracks` — zero readers** anywhere in the backend. It does **not** hold
+for `spotify_member_now_playing`, which has been read since before this RFC was written:
+`IntegrationService.public_now_playing()` (`app/services/integration_service.py:269`) merges it with
+the Last.fm now-playing cache and serves `GET /api/members/{handle}/now-playing`
+(`app/api/routes/members.py:112`). That route is *public and handle-scoped*, deliberately flattening
+"not connected" and "nothing playing" to keep integration status private — so it does not do Step 2's
+job, and Step 2 was not redundant. But the premise as written would have sent an implementer looking
+for a table nobody touches, and that is not what they would have found.
+
+### Members already have half of what Step 2 promises
+
+Not recorded anywhere in this RFC: `lastfm-nowplaying` ("Last.fm 지금 듣기") is **not** in
+`OWNER_ONLY_WIDGETS` (`myblog_front/src/components/member/OverviewDash.tsx:246`), so a non-owner
+already has a now-playing card. The gap Step 2 closes is the **Spotify half only**, not "지금 재생
+중" as a whole.
+
+### What actually decided it: nobody is on the other side of the boundary
+
+Read-only count against production:
+
+| | |
+|---|---|
+| `users` | **4** |
+| users with a `spotify` integration | **1** |
+| `spotify_member_now_playing` rows | **1** (`is_playing` = 0) |
+| `spotify_member_recent_tracks` rows | **1,953**, across **1** distinct `user_id` |
+
+That one user is the owner (`user-0468fd3c`, matching `OWNER_SUB`). The other three accounts have no
+Spotify and no Last.fm integration and zero rows in either table.
+
+Step 2 exists to give **non-owners** their own listening data. Its addressable population is
+**0 of 3**. Shipping it would add two routes, a contract change and a front re-admit that render an
+empty card for every member who is not the owner — and its own verification line, *"non-owner
+clickthrough: their OWN Spotify play appears in 지금 재생 중"*, **cannot be performed**, because no
+second connected account exists to perform it with.
+
+Step 3 already carried the right instinct — *"whether members want these panels at all … Deciding
+that before paying for three tables is the point of putting this step last."* The audit's finding is
+that the same reasoning applies one step earlier.
+
+### Why closing is safe
+
+Step 1 did not partially close the leak, it closed it: nine of nine routes `require_owner`, verified
+in production with a real non-owner token (403 on all nine, while `to-listen`, `stream-history/*` and
+`/api/me` stay 200). **None of the nine owner-global listening reads is exposed by stopping here**,
+and the gate is regression-pinned in two places rather than self-attested —
+`myblog_backend/tests/test_route_guard_map.py` and `scripts/smoke.py` (nine 403s plus two 200
+controls). What remains is a feature gap for members, not a boundary defect — which is why it belongs
+in Backlog behind a usage trigger rather than in an open security RFC.
+
+**Scoped deliberately: "the nine listening reads", not "nothing at all".** Closeout review found the
+absolute phrasing this section first used was broader than what was verified.
+`GET /api/library/spotify-connection` (`app/api/routes/library.py:253`) takes **no dependency at
+all**, and `edge_guard` (`app/main.py:52-75`) passes any `/api/*` request carrying the
+CloudFront-injected `x-origin-verify` **without a JWT** — the same posture the repo documents as
+*public* elsewhere. Since every front request reaches the backend through CloudFront, that route is
+reachable rather than merely dormant, and it returns the owner's `connected` / `needs_reauth` /
+`last_successful_refresh_at` — the integration status `public_now_playing` deliberately flattens to
+keep private. Its front helper `getSpotifyConnection` (`spotify.api.ts:114`) is defined and never
+called, so the "zero callers" half is true. **It is out of this RFC's scope by owner decision and is
+not fixed here**, but it is recorded because "nothing is exposed" was the wrong sentence to close a
+security RFC with.
+
+**One structural note for whoever owns the boundary next.** `test_route_guard_map.py` is an
+*allowlist* of owner-only endpoints: it pins the nine, but it cannot fail when a *new* ungated read is
+added to `library.py`. With this RFC closed, that is the only standing structural guard on the
+boundary.
+
+### Decisions banked for whoever picks this up
+
+- **Source for `/api/me/now-playing`, if it is ever built: Spotify-only**, reading
+  `spotify_member_now_playing` directly as Step 2 drafts it — *not* a self-scoped reuse of
+  `public_now_playing`'s Last.fm+Spotify merge (owner, 2026-09-01). This keeps `nowplaying` as the
+  Spotify card and `lastfm-nowplaying` as the Last.fm card, mirroring what the owner already sees,
+  and avoids two overlapping merged cards on one dashboard. Recorded so the fork is not re-derived.
+- Step 2's "**stale as written**" note stands and is still the correct starting point: Step 1 removed
+  the widget ids from a non-owner's registry entirely, so Step 2 **re-admits** them rather than
+  repointing an existing render path — and a member's saved `lf_ov_rows` layout was rewritten without
+  those ids, so re-admitting the widget does not by itself put it back on their board.
+- OQ2 (does `/api/library/now-playing` keep existing?) closes as **yes, unchanged** — it is the
+  owner's own richer read and Step 3, which might have subsumed it, is not being built.
+
 ## Open questions
 
 1. ~~**Does the owner want class-(a) widgets to disappear for non-owners, or render an explicit
@@ -236,3 +342,8 @@ paying for three tables is the point of putting this step last.
 | 2026-08-30 | **Step 1 shipped and production-verified.** `myblog_backend@5675d00` → `myblog-workspace@11ce8f4` → `myblog_front@673bf08`. Nine routes `403` for a non-owner in prod, controls still `200`, prod smoke 30/30, non-owner clickthrough passed with an `origin/main` control (4/4 widgets and 5 calls there, 0 and 0 on the shipped code) | 1 |
 | 2026-08-30 | Merge order is **service → workspace → front** for an additive contract change, not workspace-first: `workspace-check` re-merges the contract from both services' `main`, so the workspace PR is red until the service spec lands. Recorded because the usual rule says the opposite | — |
 | 2026-08-30 | Owner **expanded Step 1's scope**: class (b) (`now-playing`, `recent-tracks`) is gated now too, not deferred to Step 2 — all nine routes. Rationale: a P0 privacy step that leaves a third of the leak live is not a closure, and Step 2 becomes purely additive | 1, 2 |
+| 2026-09-01 | Closeout audit before starting Step 2 found the addressable population is **0 of 3** non-owner accounts — the only user with member listening data is the owner — and that Step 2's own non-owner verification is therefore not executable | 2 |
+| 2026-09-01 | Owner: **defer Steps 2–3 to Backlog behind a usage trigger and close this RFC at Step 1.** Step 1 already measures the leak at zero, so what remains is a member feature gap, not a boundary defect | — |
+| 2026-09-01 | Owner: if `/api/me/now-playing` is ever built it reads `spotify_member_now_playing` **directly (Spotify-only)**, not a self-scoped reuse of `public_now_playing`'s Last.fm+Spotify merge — banked so the fork is not re-derived | 2 |
+| 2026-09-01 | Audit correction: the "nothing reads the V45 tables" premise held only for `spotify_member_recent_tracks`; `spotify_member_now_playing` has been read by the public profile route since before this RFC | 2 |
+| 2026-09-01 | Audit correction: `lastfm-nowplaying` is not owner-only, so members already had a now-playing card — Step 2's real gap was the Spotify half only. Never recorded in the RFC body | 2 |

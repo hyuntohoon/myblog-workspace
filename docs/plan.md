@@ -40,43 +40,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   rating FIX and Pocket ordering FIX shipped; legs 3–4 pending.
   <!-- rfc: none -->
 
-- **SEC-member-listening-data-boundary** (`docs/rfcs/SEC-member-listening-data-boundary.md`, accepted) —
-  <!-- rfc: docs/rfcs/SEC-member-listening-data-boundary.md | status: accepted -->
-  **read-boundary defect, found 2026-08-30, reproduced against `origin/main` and then against
-  PRODUCTION with a real non-owner token — all nine routes answered `200` with the owner's rows.**
-  Nine `GET /api/library/*` handlers (`now-playing`, `recently-listened`, `recent-tracks`,
-  `listened-albums`, `saved-tracks`, `saved-tracks/*-distribution`, `play-events/*-distribution`)
-  take no scope dependency at all — no `provisioned_member_id`, no `require_owner`, only the
-  CloudFront edge check — while `SelfDashboard` renders their widgets for **every** signed-in
-  member. A non-owner's Overview/좋아요 tabs therefore show the owner's listening history. The
-  tables cannot simply gain a `WHERE user_id`: `spotify_now_playing` is a CHECK-enforced singleton
-  and `spotify_recent_albums` / `spotify_play_events` / `spotify_recent_tracks` /
-  `spotify_saved_tracks` have no user column (V45's header records that as a deliberate decision).
-  `stream-history/*` and `to-listen` are already correctly member-scoped. Classified in the RFC as
-  (a) owner-only legacy → gate the widget + `require_owner` the route (Step 1, front + backend, no
-  migration), (b) member-scoped replacement already possible over the V45
-  `spotify_member_now_playing` / `spotify_member_recent_tracks` tables the worker already writes but
-  nothing reads (Step 2, contract change), (c) needs durable per-member history (Step 3, migration).
-  *Order*: Step 1 before anything in `ARCH-playback-authority-convergence` — including that RFC's
-  already-implemented Step 1, `myblog_front#428`, which waits behind it (owner, 2026-08-30).
-  *Verification*: backend `pytest` + front gates + a **non-owner** real-browser clickthrough.
-  *Rollback*: revert per step; Steps 1–2 touch no data. *Status*: **accepted 2026-08-30**, all
-  three steps; OQ1 answered — the widgets are omitted silently for a non-owner, no "소유자 전용"
-  note. **Step 1 SHIPPED and production-verified 2026-08-30 with owner-amended scope: all nine
-  routes gated, class (b) included, so the leak is zero and Step 2 is purely additive.** Merged
-  `myblog_backend#173` (`5675d00`) → this repo's `#961` (`11ce8f4`) → `myblog_front#429`
-  (`673bf08`), in that order — the reverse of the usual contract order, because `workspace-check`
-  re-merges the contract from both services' `main`, so an additive service contract change cannot
-  be led by the workspace. *Production verification*: the same non-owner token that returned nine
-  `200`s with the owner's rows before the change now gets **403 on all nine**, while `to-listen`,
-  `stream-history/*` and `/api/me` stay `200` (the gate is not too wide) and unauthenticated
-  callers still get `403` at the edge. Prod smoke **30 passed / 0 failed**, including eleven new
-  permanent assertions. Non-owner real-browser clickthrough passed **with a control**: on
-  `origin/main` the same account rendered 4/4 owner widget titles and made 5 owner-global calls; on
-  the shipped code, 0 and 0. Review found a ninth surface the RFC's table missed —
-  `useSpotifyLibrary` fetched `listened-albums` on every `BucketBoard` mount — now gated.
-  **Steps 2–3 not started**; this row stays until they are resolved.
-
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->
   tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
@@ -472,6 +435,40 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 ## Backlog
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
+
+- **FEAT-member-own-listening-widgets** (**deferred 2026-09-01 by owner decision; trigger-gated**) —
+  give a non-owner member their OWN now-playing and 최근 재생 트랙 cards, over the V45
+  `spotify_member_now_playing` / `spotify_member_recent_tracks` tables the worker's per-member poll
+  already writes. These are Steps 2 and 3 of the closed `SEC-member-listening-data-boundary`, moved
+  here rather than left in an open security RFC.
+  <!-- rfc: none -->
+  **This is a feature gap, not a boundary defect.** That RFC's Step 1 shipped and was
+  production-verified 2026-08-30 with all nine owner-global `GET /api/library/*` routes
+  `require_owner`-gated — the leak measures **zero**. Nothing is exposed by this sitting here.
+  **Why it is deferred rather than built.** A current-state audit on 2026-09-01, run before starting
+  Step 2, counted the addressable population in production: 4 users, **1** with a Spotify
+  integration, and that one is the owner. `spotify_member_recent_tracks` holds 1,953 rows across
+  exactly **1** distinct `user_id`. The other three accounts have no Spotify and no Last.fm
+  integration and zero rows. Step 2 serves **0 of 3** non-owner accounts, would render an empty card
+  for each of them, and its own verification line — *"non-owner clickthrough: their OWN Spotify play
+  appears in 지금 재생 중"* — cannot be performed, because no second connected account exists.
+  **Trigger**: a second account connects **Spotify**. Not Last.fm — a Last.fm connect writes
+  `lastfm_recent_tracks`, never the V45 `spotify_member_*` tables this row is scoped to, so firing on
+  it would promote work whose named source is still empty. Re-count before promoting — the numbers
+  above are the denominator, and they are what makes this worth doing or not.
+  **Banked so it is not re-derived** (both from the closed RFC): `/api/me/now-playing` reads
+  `spotify_member_now_playing` **directly, Spotify-only** — not a self-scoped reuse of
+  `public_now_playing`'s Last.fm+Spotify merge (owner, 2026-09-01), keeping `nowplaying` as the
+  Spotify card and the existing `lastfm-nowplaying` as the Last.fm one. And members already have
+  `lastfm-nowplaying` (it is not in `OWNER_ONLY_WIDGETS`), so the *code* gap is the **Spotify half
+  only** — but do not size the work off that: none of the three non-owner accounts has a Last.fm
+  integration either, so every real member's Last.fm card is empty too. Registry-true, user-false.
+  Step 1 removed the widget ids from a non-owner's registry entirely and rewrote their saved
+  `lf_ov_rows`, so this work **re-admits** the widgets and must also put them back on the board or
+  say plainly that the member re-adds them via ＋ 컴포넌트 추가.
+  *On promotion to Active*: drop the pointer below — `scripts/check_workspace_invariants.py` rejects
+  an Active row referencing `docs/archive/done/`.
+  Background → `docs/archive/done/rfcs/SEC-member-listening-data-boundary.md` (Closeout audit).
 
 - **MEASURE-playback-boundary-buffer** (**backlogged 2026-09-01 by owner decision**) — the 1500 ms
   end-of-track boundary tolerance is a first-pass estimate, never measured. It was OQ4 of
