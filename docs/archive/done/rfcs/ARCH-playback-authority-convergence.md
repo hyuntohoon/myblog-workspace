@@ -1,6 +1,15 @@
 # ARCH-playback-authority-convergence: one playback truth, consumed by every surface
 
-- **Status**: **accepted** (owner-approved in-session 2026-08-30, Steps 1–4 as drafted)
+- **Status**: **done** (2026-09-01 — Steps 1–4 all shipped and production-verified; archived).
+  Owner promoted the Status in-session on 2026-09-01 under CLAUDE.md rule #7's explicit-approval
+  exception; accepted in-session 2026-08-30, Steps 1–4 as drafted, and executed as drafted with no
+  step dropped or added (item-level scope *was* corrected inside Steps 1 and 4, and
+  `myblog_front#431` shipped as an out-of-list Step 3 addendum — both recorded below). Last
+  shipment: Step 4, `myblog_front#436` (`13373a1`), deploy run
+  `33456804663` green, prod smoke **30 passed / 0 failed**. OQ4 (`BOUNDARY_BUFFER_MS`) closed **not
+  by answering it** but by moving it to `plan.md` → Backlog as work in its own right (owner,
+  2026-09-01); the three residual risks in OQ3 stay recorded and unfixed, by the same decision that
+  recorded them. Reopen with a fresh `plan.md` row rather than editing this file.
 - **Owner**: 오너
 - **Created**: 2026-08-30
 - **Plan row**: `plan.md` → ARCH-playback-authority-convergence
@@ -445,8 +454,13 @@ Repetition after each: **25/25** and **20/20** full-suite runs green.
 ---
 
 **All four steps are shipped.** The RFC's `Status` stays `accepted`: promoting it is the owner's
-call, not Claude's. What remains before it can be archived is that decision plus OQ3, which has been
-open for four steps and still blocks nothing.
+call, not Claude's. What remains before it can be archived is that decision plus OQ4
+(`BOUNDARY_BUFFER_MS`), which has been open for four steps and still blocks nothing.
+
+> **Superseded 2026-09-01.** Both were resolved at closeout: the owner promoted the Status to `done`
+> and moved OQ4 to `plan.md` → Backlog as `MEASURE-playback-boundary-buffer`. The paragraph above is
+> kept as written at the time. Note that the removed `plan.md` row called `BOUNDARY_BUFFER_MS`
+> "OQ3"; **this file numbers it OQ4**, and OQ3 is the three residual risks.
 
 ## Open questions
 
@@ -484,9 +498,45 @@ open for four steps and still blocks nothing.
 4. **Is `BOUNDARY_BUFFER_MS = 1500` still right as a burst gap?** It is flagged in
    `FEAT-playback-bucket-player` as an unmeasured estimate. Blocks nothing; Step 1 should measure
    it against the residual series the viewer already logs rather than inherit it.
+   *(Two things in that sentence are wrong, and the closeout below is what disproves them: it is not
+   a burst gap — the burst gap is `COMPLETION_CONFIRM_GAP_MS = 500` — and the residual series cannot
+   measure it. Left standing because it is what the question asked at the time.)*
    **Still open after all four steps, and deliberately so** — it was kept out of every one of them
    rather than folded into whichever happened to touch that code. It needs an owner decision on
    whether the measurement is worth a session of its own.
+   **Resolved procedurally, not substantively, on 2026-09-01: the owner moved it to `plan.md` →
+   Backlog as work in its own right.** The value is still unmeasured. What the closeout added is the
+   thing that decides whether measuring is worth it — *where a wrong value actually lands*, read off
+   the code rather than assumed.
+
+   **The two uses are not independent; one calls the other.** `scheduleBoundaryCheck()`
+   (`session.ts:2194-2211`) arms only while `isOwner && rung === 'remote' && playing`, and fires at
+   `Math.max(500, remaining + BOUNDARY_BUFFER_MS)`. What it fires is `confirmCompletion()`, which
+   calls `adoptLive()` — and `adoptLive()` is where the deleting gate lives
+   (`session.ts:1081`, `positionNow() >= previousDurationMs - BOUNDARY_BUFFER_MS` → `deleteBucketItem`).
+   So the constant sets **both** the instant the check happens and the tolerance it is judged by, and
+   `positionNow()` keeps extrapolating from the anchor by wall clock while `playing`
+   (`session.ts:2164-2168`). Raising it defers the read *and* loosens the gate: by the time the read
+   lands, `positionNow()` is well past `duration` and the `completed` test is close to free, leaving
+   "the URI changed" plus `!anchorAmbiguous` as the real protection. A mid-track skip performed on
+   another device — which raises no `MYBLOG_PLAYBACK_CHANGED` in this tab — is first observed by
+   exactly this scheduled read.
+
+   **An earlier draft of this paragraph said the scheduler "costs one redundant read, never a false
+   removal", citing the comment above the constant. Both halves were wrong, and review caught it.**
+   That sentence is not the comment above the constant (`session.ts:1006-1010`, which only says the
+   value is a first-pass estimate); it is the rung-1 block comment at `session.ts:2180-2182` — and
+   `session.ts:2184` records that `BOUNDARY_BUFFER_MS` was *later* reused inside `adoptLive()` by
+   BUG-26. The comment was written before a destructive delete was put on that path, so it cannot be
+   cited to rule one out. The honest statement is narrower: **the removal decision is
+   `adoptLive()`'s, and the scheduler chooses the instant it is evaluated at.** (The cost of a wrong
+   guess is also not one read — `confirmCompletion` runs up to `COMPLETION_CONFIRM_TRIES = 4` reads
+   spaced `COMPLETION_CONFIRM_GAP_MS = 500`.)
+
+   That is the same window as OQ3(a), where a reissue restores the playhead into exactly this
+   region — so the two open questions are one question, and measuring the constant is the only way to
+   size the risk that was recorded rather than fixed. This is why it went to Backlog rather than
+   being closed outright. The measurement route and the full sweep set live in the `plan.md` row.
 
 ## Decisions log
 
@@ -514,3 +564,6 @@ open for four steps and still blocks nothing.
 | 2026-09-01 | Review blocked the first commit for the third step running. The finding that mattered most was again a reader nobody re-counted: `requestTr` was the one async write without the epoch guard, and Step 4's new `pending` machinery is what turned that pre-existing stale write into three wasted reads against a wrong-track state | 4 |
 | 2026-09-01 | A render property is not verified by reading the render. The review fix for the silent translation arrival put `aria-live` on each branch rather than on a wrapper; React reuses the node but not the attribute, so the region stopped being one exactly when it mattered. Only the browser saw it | 4 |
 | 2026-09-01 | Three test flakes were diagnosed rather than re-run — one pre-existing (measured at 1/10 on `origin/main` AND on the branch before anything was changed), two of this step's own, both found by repetition rather than by a green run. All three are the same class: interacting with a component before its passive effects have flushed | 4 |
+| 2026-09-01 | Owner promoted the RFC to **done** and archived it: all four steps shipped and production-verified, and the RFC's own step list was executed as drafted — nothing dropped, nothing added | — |
+| 2026-09-01 | Owner (OQ4): move `BOUNDARY_BUFFER_MS` to `plan.md` → Backlog rather than close it. Closing outright was declined because the closeout read the constant's consumers and found `adoptLive()`'s completion gate deletes a queue row on it, sharing its window with OQ3(a) — an unmeasured constant is what makes that recorded risk unsizeable | — |
+| 2026-09-01 | OQ3's three residual risks are archived unfixed, exactly as Step 2 recorded them. They are not promoted to Backlog: each is audible-glitch or stale-order shaped, none is a data risk, and (a) could not be reproduced in the harness. Whichever future work touches that code owns them | — |

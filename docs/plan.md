@@ -77,109 +77,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `useSpotifyLibrary` fetched `listened-albums` on every `BucketBoard` mount — now gated.
   **Steps 2–3 not started**; this row stays until they are resolved.
 
-- **ARCH-playback-authority-convergence** (`docs/rfcs/ARCH-playback-authority-convergence.md`, accepted) —
-  <!-- rfc: docs/rfcs/ARCH-playback-authority-convergence.md | status: accepted -->
-  23 playback-correctness defects audited against `myblog_front@94d82f1` on 2026-08-30; **none had
-  been fixed since they were reported.** The through-line is that `LyricsViewer` runs a second
-  playback state machine (`awaitingTrack`/`awaitingChangeFrom`/`awaitingPlayState`/`confirmSkip`/
-  `confirmJump`/`transportDead`/`commandBusy` + direct `sendPlayerCommand`), which is why a lyric
-  line tap never seeks, why a mirror tab can bypass the ownership gate the Global Player enforces,
-  and why an A→B→C skip inside `EVENT_RESYNC_FLOOR_MS` strands the viewer on B. Alongside it:
-  `resolveTail` returns a filtered bare `string[]` so a failed head makes session identity and audio
-  disagree; `uris.ts` memoises transient 5xx as a permanent miss; `player_state_changed` cannot see
-  repeat-one; natural completion is a single read where every explicit transport already gets a
-  bounded burst; `setMode`/`transferTo` carry no ownership gate; `takeOver()` takes the lease
-  without moving playback; and the Playback Bucket's reorder/delete/append never reach Spotify after
-  the opening `play({uris})`. Four steps: **Step 1 correctness foundation** (this session), Step 2
-  queue execution invariant, Step 3 UX state, Step 4 cleanup. *Order*: after
-  `SEC-member-listening-data-boundary` Step 1. *Verification*: `pnpm lint && pnpm exec astro check
-  && pnpm test` + named regressions per step + real-browser clickthrough. *Rollback*: revert per
-  step; front-only, no contract, no migration. *Status*: **accepted 2026-08-30**, Steps 1–4 as
-  drafted. **Step 1 SHIPPED and production-verified 2026-08-30** — `myblog_front#428` (`e075f73`),
-  merged after SEC Step 1 as sequenced; deploy run `33299620786` green, prod smoke **30 passed / 0
-  failed**, and the new bundle proved live by a *counting* marker (the takeover copy occurs once
-  across 49 crawled JS chunks where the pre-fix tree carried it twice). OQ2 answered by the owner:
-  the mirror keeps a disabled transport **and** an inline takeover, and `PlaybackOwnerBanner` was
-  extracted to its own module so the lyrics viewer imports the component instead of hand-copied
-  markup. **The clickthrough that gate required found a defect Step 1 had left** — `JumpOutcome`
-  dropped `rung`/`degraded`, so a cold-start queue jump left `rung: null`: no 음질 제한 notice, and
-  every mirror tab read `ownerRung: null` and kept a live transport over audio in another tab. A3
-  was half-open; fixed in the same PR with three mutation-checked tests.
-  **Step 2 SHIPPED and production-verified 2026-08-30** — `myblog_front#430`
-  (`dd1fe82`), deploy run `33312780594`, prod smoke **30 passed / 0 failed**. OQ1 answered by the
-  owner: **(a)**, accept the ~200–400ms reissue glitch and apply every mutation live; deferring
-  reorder/delete to the next track would break the invariant silently. The visible queue order is
-  now the order that plays — a future-tail mutation reissues `play({uris:[current, …newTail]})`
-  debounced past the gesture and seeks the playhead back, while a mutation made *paused* is
-  deferred to the next resume. Detection hangs off `bucketStore.subscribe` rather than the six
-  mutation call sites, so a seventh path added later cannot land outside the invariant.
-  `takeOver()` now takes the lease only **after** a move that produced sound, and on `external`
-  playback moves the audio only when `ownerRung === 'in-page'` (owner decision). **The
-  real-browser clickthrough ran with a control**: on `origin/main` the same keyboard reorder left
-  the screen saying `A B D C` while Spotify executed `A B C D` with zero further player calls; on
-  the shipped code both read `A B D C`, with the playhead restored rather than restarted.
-  **Review blocked the first commit** with three reproducible defects the gates and that
-  clickthrough all missed, because every one of them lives on the **takeover** path with two tabs,
-  which the Step 2 verification list does not name: `takeOver()` moved the lease but not the audio
-  in the only state its button renders in, the position restore was forwarded to the tab being
-  deposed and then dropped, and a failed reissue's debt was written off by the next track change.
-  Fixed in the same PR, each with a mutation-checked test. Adding this step's tests also tipped a
-  latent race in `AddToBucketMenu`'s focus assertion into failing CI twice — hardened, and measured
-  against `origin/main` (5/5 green there, 2-in-6 red here) rather than assumed pre-existing.
-  Three residual risks are recorded in the RFC's open questions rather than papered over.
-  **A newly reported Step 1 residual was closed 2026-08-30 as a narrow Step 3 addendum**
-  (`myblog_front#431`, `087dc047`; deploy `33316040634` green; prod smoke **30/30**): a mirror lyric
-  line tap was correctly blocked from seeking Spotify but still rewrote `LyricsViewer`'s local
-  playback anchor to the tapped position. Static/debug local navigation is now separate from a live
-  mirror, whose tap uses the existing temporary browse path and preserves the real anchor; the
-  browse-timeout regression fails if that fake anchor write returns. No other Step 3 or Step 4 item
-  was included.
-  **Step 3 SHIPPED 2026-08-31** — `myblog_front#434`. Capability stops being one boolean that can
-  only latch off: the provider splits 403 (`no-capability`, durable) from 404 (`no-active-device`,
-  recoverable), and the session answers the second WITHOUT degrading `capabilityTier` or writing the
-  transport probe the settings matrix reads as "보통 Premium이 아닐 때" — it clears the moment a
-  device appears. Busy stops being a silent return: transport, seek and the three modes go through a
-  latest-intent coalescer, and `busy` splits into `busy` (cannot coalesce — render disabled) and
-  `transportBusy` (in the air — stay pressable). Plus `QueueEntry.mediaType` (episodes listed but
-  inert), the viewer's play state seeded from the session snapshot, `openPlaybackLyrics` awaiting
-  `resolveUri` and surfacing failures, and paused browse no longer snapping back on a 3s timer.
-  **Review blocked the first commit again, and again it was the guard nobody re-counted**: splitting
-  `busy` silently disarmed every OTHER predicate that had relied on transport setting it — a lyrics
-  queue-row jump, 전체재생, a row ▶ and 다시 시도 could all now issue a second `play({uris})` across
-  an in-flight ⏭. Six more followed, including `applyAnchor`'s new early return skipping `setFocus`
-  (a manual ↻ on a paused track became a visual no-op) and a mode 404 rolling back a sibling that
-  had succeeded meanwhile. All fixed in the same PR with a regression each. **The mutation sweep
-  earned its place twice**: two of this step's own new tests survived their mutants — one asserted
-  before React had re-rendered, one ran two commands back to back so the interleaving it claimed to
-  test never happened — and fixing the first exposed a real half-open fix (`applyAnchor` was still
-  ending the browse on every reconcile). **Clickthrough ran against a control on `origin/main`** and
-  discriminated on six of seven checks; the seventh is recorded as a correction rather than a win:
-  **E5 does not reproduce in a browser** — the `useState(true)` seed is overwritten by the session
-  adoption effect before first paint whenever the session can name the track, so the defect's reach
-  is narrower than the RFC's wording, and only the cold-URI-cache case ever showed ⏸ over silence.
-  **Step 4 SHIPPED 2026-09-01** — `myblog_front#436`. `useLyricsDocument(trackId)` is now the one
-  lyrics document lifecycle behind both screens; a finished translation reaches an already-open
-  screen (visibility return, an explicit 확인, and a bounded three-attempt burst — no interval);
-  `트랙 정보`, wired to a no-op handler at both call sites since it was built, renders only where a
-  destination exists; and `전체 가사` hands the live viewer off to the static reading sheet. That
-  handoff forced the **fifth** fix of the member.css trap — every `.lys-*`/`.ctx-*` rule lived in
-  dashboard-only `member/layout.css`, so a sheet opened from the site-wide island would have
-  rendered unstyled. **Two of the RFC's own Current-state claims were wrong** and are corrected in
-  it: G6 was already closed by Step 1, and G2 is two render sites rather than three.
-  **The clickthrough ran against a control on `origin/main`** and discriminated on all four checks —
-  including the defect itself, where the control still showed `요청됨` and zero Korean nine seconds
-  after the poller answered `done`, a tab return and a manual ↻. **Review blocked the first commit
-  for the third step running**, on the reader nobody re-counted again: `requestTr` was the one async
-  write without the hook's epoch guard, and this step's own `pending` machinery is what turned that
-  pre-existing stale write into three wasted reads against a wrong-track state. **And the review fix
-  was itself wrong in a way only the browser caught** — `aria-live` per branch instead of one
-  wrapper, so React kept the node and dropped the attribute exactly when the region had something to
-  announce. Three test flakes were diagnosed rather than re-run: one pre-existing (measured 1/10 on
-  `origin/main` and 1/10 here before anything changed) and two of this step's own, all the same
-  class — interacting before passive effects flush. **All four steps are now shipped**; this row
-  stays for the owner's Status decision and archival, plus OQ3 (`BOUNDARY_BUFFER_MS`), which has
-  been open for four steps, blocks nothing, and was deliberately kept out of every one of them.
-
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->
   tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
@@ -575,6 +472,47 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 ## Backlog
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
+
+- **MEASURE-playback-boundary-buffer** (**backlogged 2026-09-01 by owner decision**) — the 1500 ms
+  end-of-track boundary tolerance is a first-pass estimate, never measured. It was OQ4 of
+  `ARCH-playback-authority-convergence`, stayed open through all four of that RFC's steps because each
+  deliberately kept it out, and was moved here on that RFC's archival rather than closed.
+  <!-- rfc: none -->
+  **Why it is not simply closed.** `scheduleBoundaryCheck()` (`myblog_front/src/lib/playback/session.ts:2194`, guard at `:2196`)
+  arms only while `isOwner && rung === 'remote' && playing` and fires at
+  `Math.max(500, remaining + BOUNDARY_BUFFER_MS)`. What it fires is `confirmCompletion()` → `adoptLive()`,
+  and `adoptLive()` is where the deleting gate lives (`session.ts:1081` —
+  `positionNow() >= previousDurationMs - BOUNDARY_BUFFER_MS` → `deleteBucketItem`). **These are not two
+  independent consumers; one calls the other.** The constant sets both the instant the check happens and
+  the tolerance it is judged by, and `positionNow()` keeps extrapolating by wall clock while `playing`,
+  so raising it defers the read *and* loosens the gate — leaving "the URI changed" plus `!anchorAmbiguous`
+  as the real protection on a path that deletes a queue row. A mid-track skip on another device raises no
+  `MYBLOG_PLAYBACK_CHANGED` here and is first seen by exactly this scheduled read. That is the same window
+  as the archived RFC's residual risk OQ3(a). Smaller, conversely, leaves finished tracks in the queue
+  until the next event. Measuring the constant is the only way to size a risk that was recorded rather
+  than fixed. *Caveat carried from the RFC*: OQ3(a) could not be reproduced in the harness — the adoption
+  that runs during a reissue sees a position near zero, not near the end — so this is an unsized risk, not
+  a known-live one.
+  **Sweep set — the quantity is declared twice.** A retune must not stop at `session.ts`:
+  `BOUNDARY_BUFFER_MS = 1_500` (`session.ts:1011`, used at `:1081` and `:2204`) and
+  `END_GRACE_MS = 1500` (`src/components/member/lyrics/LyricsViewer.tsx:151`, used at `:594` and `:1171`)
+  are the same boundary tolerance at the same value under two names, and `:594` is the same
+  `duration - GRACE` predicate shape. `src/lib/playback/session.test.ts:1458` hardcodes `180_000 + 1_500 + 100`.
+  Editing only `session.ts` leaves the viewer's end-of-track auto re-sync on the old estimate — the
+  duplicated-constant class CLAUDE.md names.
+  **What a session would do — and what will NOT work.** The obvious route is a dead end and is written
+  down here so it is not rediscovered: the `[lyrics-sync] residual` series
+  (`LyricsViewer.tsx:505`) **cannot measure this**. Its own comment says only same-track reads reach it,
+  because "a residual is predicted-minus-actual position, and a track change destroys the prediction" —
+  and this constant governs precisely the track-change transition. It is also `console.debug` only
+  (nothing collects it, and only while the viewer is open), and `predicted` includes `leadMs` (20–80 ms),
+  so its samples are not raw ack→apply lag either. A real measurement needs a purpose-built sample of
+  ack→apply lag at a track boundary on the `remote` rung, then a value chosen against that distribution
+  and OQ3(a) re-checked at the chosen width.
+  *Trigger*: owner go, or a reproduced instance of OQ3(a) in the wild. Blocks nothing today.
+  *On promotion to Active*: drop the archive pointer below — `scripts/check_workspace_invariants.py`
+  rejects an Active row that references `docs/archive/done/`.
+  Background → `docs/archive/done/rfcs/ARCH-playback-authority-convergence.md` (OQ3, OQ4).
 
 - **CHORE-research-prompt-port-not-swap** (**legs 1–6 SHIPPED 2026-07-30; measurements remain**) — do **not** replace `album_research_v2` with v4 wholesale. Controlled RENAISSANCE comparison scored **v2 12/22, v4 12/22**, with complementary rather than strictly better coverage. v4 improved biography/primary-statement pressure but lost v2's explicit "do not import others' critical verdicts" protection and costs more tokens/wall time. The shipped approach ports the useful v4 pressure into v2, retains the no-verdict rule, adds liner-notes and sample-chain-depth requirements, injects catalog context, and intentionally keeps `PROMPT_VERSION=v2` so stored notes remain visible.
 
