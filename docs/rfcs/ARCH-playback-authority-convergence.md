@@ -323,15 +323,130 @@ untested guard claiming a fix is worse than a recorded risk):
 
 ---
 
-### Step 4 — cleanup
+### Step 4 — cleanup — **SHIPPED 2026-09-01**
 
-Closes **G2–G6**. Translation status refreshes on visibility restore / explicit refresh / a bounded
-slow retry while `pending`, never on a timer. `useLyricsDocument(trackId)` extracts the shared data
-lifecycle from `LyricsViewer` and `LyricsSheet` (data only — no UI state). A 전체 가사 보기 handoff
-from live lyrics to the sheet. `트랙 정보` hidden until it has a destination. Stale comments,
-`entityEvents.ts:131` included, corrected against the code.
+Closes **G2–G6**. Shipped as `myblog_front#436`; the corrections this step made to the RFC's own
+Current-state claims are below, and the residual it recorded rather than fixed is at the end.
+
+`useLyricsDocument(trackId)` is the one lyrics document lifecycle: the read, the loading/error
+phase, the translation row, the local 요청됨 override, the 번역 default, and `isKoreanDominant`.
+`LyricsViewer` and `LyricsSheet` each keep only what is theirs — the sheet keeps its two typography
+modes, the annotation treatment, which annotations are open and 전문 복사; the viewer keeps focus,
+the clock anchor, browse/suspend, display style and the queue view. Translation status refreshes on
+a visibility return, on an explicit 확인 press, and on a bounded three-attempt burst while the row
+is `requested`; there is no interval, and the burst is armed once per pending episode. `트랙 정보`
+renders only where a destination is passed. `전체 가사` hands off from the live viewer to the
+static sheet, wired in both hosts.
+
+**Two Current-state claims were wrong, and the audit that found them is why this step's list is
+shorter than the RFC's.**
+- **G6 was already closed.** The RFC said `lib/entityEvents.ts:131` states the
+  `ENT_OPEN_LIVE_LYRICS` listener only exists in `SelfDashboard`. It does not — Step 1 corrected
+  that comment, and `origin/main` says the opposite in as many words. The stale comment this step
+  actually found is in `playbackEntryActions.ts`, which told the next reader that `uris.ts`'s
+  memoised `null` was Step 4's work; F1 shipped in **Step 1** and a transient failure is no longer
+  remembered at all.
+- **G2 is two render sites, not three.** Both are in `PlaybackPanel.tsx` (the desktop entry row and
+  the mobile entry strip), and both call sites — `PocketTray` and `PocketBuckit` — passed
+  `NOOP_PLAYBACK_ENTRY`.
+
+**G5 required fixing the member.css trap for the fifth time.** Every `.lys-*` and `.ctx-*` rule
+lived in `member/layout.css`, which only `SelfDashboard` and `MemberProfile` import. The live
+viewer's app-wide host is `PocketBuckit` (mounted from `layout.astro` on every page), so a sheet
+opened by 전체 가사 anywhere but the dashboard would have rendered with zero of its rules. They
+move verbatim to `styles/lyricsSheet.css`, imported by `LyricsSheet.tsx` itself. Order-safe by
+construction: those two prefixes appear in no other stylesheet, so nothing outside the new file
+targets these elements, and relative order is preserved byte-for-byte — `.lys-note` and `.lys-line`
+are each declared twice and the later declaration is load-bearing. The memo-window dock HOST rules
+stay in `layout.css`; they are genuinely dashboard-scoped and target neither prefix.
+
+**What this step stops protecting** — the enumeration Step 3's own retrospective asked the next step
+to write before its verification list, not after:
+
+| Removed / narrowed | Readers | Disposition |
+|---|---|---|
+| `NOOP_PLAYBACK_ENTRY` (deleted) | `PocketTray`, `PocketBuckit` | both updated; grep is 0 |
+| `onOpenTrackInfo` now optional | `PlaybackEntries`, the mobile strip, `PlaybackMini` (forwards `PlaybackEntryProps`) | both render sites guarded; `PlaybackMini` renders no entry row of its own |
+| the viewer's local `phase`/`trOverride`/`showKo`/`requesting`/`loadSeq` | the whole component | typed — `astro check` is the guard |
+| `useLyricsSheetState`'s return shape | `LyricsSheetContent`, `ContextPanel`'s lyrics pane | every existing key kept; `checkingTr`/`recheckTr` added |
+| `.lyv-tr-state` / `.lys-tr-state` | none once the 요청됨 chip became a button | rules deleted |
+| `role="status"` on the 요청됨 chip | nothing asserted it | the state is now the button's own label |
+| `.lys-*` / `.ctx-*` leaving `layout.css` | `LyricsSheet`, `ContextPanel`, `AlbumDetail`, `annotations.ts` | all reach the new file through `LyricsSheet.tsx`'s import |
+
+**Verification**: `pnpm lint` clean, `pnpm exec astro check` 0 errors, `pnpm test`
+**875 tests / 0 skipped** (855 before). Real-browser clickthrough **against a control on
+`origin/main`**, both driven by the same stub backend, and it discriminated on every check:
+
+| Check | control (`origin/main`) | shipped |
+|---|---|---|
+| `트랙 정보` in the playback panel | present, and pressing it left DOM shape, dialog count and URL identical — the dead button | absent |
+| `전체 가사` in the live viewer | absent | present; opens the sheet and closes the viewer |
+| the sheet's styling on a NON-dashboard route (`/`) | — | fully styled, in a document where `.memo-modal.has-dock` (the `layout.css` remainder) is not defined at all |
+| a translation finishing while the viewer is open | after the poller answered `done`, a tab return AND a manual ↻, still `요청됨` and zero Korean 9s later | `요청됨 · 확인` became `번역` and all three lines showed Korean on the tab return |
+
+**The mutation sweep earned its place again**: 20 mutants, 19 killed. The survivor was shown to be
+an *equivalent* mutant rather than a gap — adding `translation` to the burst effect's deps changes
+nothing, because `recheck` only replaces state when the status actually changed, and two mutants
+that make the burst a REAL poll (a `setInterval`, and a last attempt that re-arms itself) were both
+killed. Four more survived a first pass and the tests were strengthened until they did not: a
+dropped press reported as success, `aria-live` moved off the wrapper, `전체 가사` re-gated on
+`settingsReady`, and that gate removed entirely.
+
+**Review blocked the first commit for the third step running, and again on paths this step's list
+does not name.** Six findings, each fixed with a regression that kills its own mutant: `requestTr`
+was the one async write in the hook without the epoch guard the rest of the file uses twice (an
+answer for track A could land on B, and Step 4's own `pending` machinery would then arm a burst and
+a visibility listener against it); a dropped double-press was reported as success, so the caller
+wiped an unrelated notice; the bounded burst set `checkingTr`, so the control greyed itself out
+three times unbidden — the burst being invisible is the whole justification for it not being a
+poll; the arrival was silent, on the surface whose entire purpose is that the translation arrives;
+`전체 가사` was gated on "synced lyrics exist" and so hid on the tracks whose sheet is most worth
+opening; and the order-safety premise stated here was overstated (`.ctx-` does still appear in
+`layout.css`) in a way a future move would have leaned on.
+
+**And the fix for the silent arrival was itself wrong, which only the browser caught.** Putting
+`aria-live` on each branch's own `div.lyv-tr-cluster` looks right — React reuses the node — but the
+ATTRIBUTE goes with the branch, so the region stopped being a region at the exact moment it had
+something to announce. Verified live: same node, `getAttribute('aria-live')` → `null`. One wrapper
+per surface now, with a regression on both. The lesson is the Step 1 one restated: a render
+property is not verified by reading the render.
+
+**A defect this step introduced and an existing test caught.** Moving the read into the hook makes
+"seed the clock from an effect on `phase`" the obvious shape, and it is wrong: it puts the anchor
+one commit behind the lyrics, so the list paints focused on line 1 with no anchor and anything the
+member does in that window is overwritten by the seed landing behind it. The hook takes an
+`onLoaded` callback that runs in the load's own batch instead.
+
+**A pre-existing flake, measured before it was touched.** `LyricsViewer.transport.test.tsx` failed
+about 1 full-suite run in 10 with "the browse step did nothing" — which reads exactly like a browse
+regression. Measured on `origin/main` as well: **1/10 there, 1/10 here**, so it was not this step's.
+Instrumenting `origin/main` until it reproduced gave the mechanism: `findByText` resolves off a DOM
+mutation, which React fires at commit, before that commit's passive effects run; the follow
+scheduler's effect then runs *after* the test's interaction carrying the pre-interaction
+`suspended`, and pulls the focus back to the anchor's line. The four tests that interacted in that
+window now settle the mount first, as `open()` already did. **Recorded because it costs something**:
+those un-settled interactions were, by accident, the only guard on the narrower invariant above —
+that the seed lands in the load's batch rather than one commit later. A test written to replace it
+by watching the DOM failed to kill its own mutant and was deleted rather than kept as decoration.
+**Review then supplied the version that works**: the invariant is the HOOK's contract, not the
+viewer's, and asking what the last RENDERED phase was when `onLoaded` ran discriminates
+deterministically — `loading` in the load's own batch, `ready` from an effect. So the trade did not
+have to be accepted after all.
+
+**Two more flakes, both in this step's own new tests, both found by repetition rather than by any
+green run** — the 20-run measurement taken to confirm the fix above, and the 12-run one taken to
+confirm the review fixes. One dispatched `visibilitychange` before the effect registering the
+listener had flushed; one asserted an ORDER before the passive effect recording the second event had
+run. Same class as the pre-existing one, same fix, mutation re-checked so neither lost its teeth.
+Repetition after each: **25/25** and **20/20** full-suite runs green.
+
+**Rollback**: revert the PR. Front-only, no contract, no persisted state.
 
 ---
+
+**All four steps are shipped.** The RFC's `Status` stays `accepted`: promoting it is the owner's
+call, not Claude's. What remains before it can be archived is that decision plus OQ3, which has been
+open for four steps and still blocks nothing.
 
 ## Open questions
 
@@ -369,6 +484,9 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
 4. **Is `BOUNDARY_BUFFER_MS = 1500` still right as a burst gap?** It is flagged in
    `FEAT-playback-bucket-player` as an unmeasured estimate. Blocks nothing; Step 1 should measure
    it against the residual series the viewer already logs rather than inherit it.
+   **Still open after all four steps, and deliberately so** — it was kept out of every one of them
+   rather than folded into whichever happened to touch that code. It needs an owner decision on
+   whether the measurement is worth a session of its own.
 
 ## Decisions log
 
@@ -390,3 +508,9 @@ from live lyrics to the sheet. `트랙 정보` hidden until it has a destination
 | 2026-08-31 | `busy` splits into `busy` (a play that cannot coalesce — surfaces disable) and `transportBusy` (a coalescing command in flight — surfaces stay pressable). Review found the trap: every predicate reading `busy` to mean "some player command is running" silently stopped protecting anything, so a lyrics queue-row jump / 전체재생 / row ▶ / 다시 시도 could each issue a second `play({uris})` across an in-flight ⏭. One shared predicate, `nonCoalescingBlocked`, now states the asymmetry in a single place | 3 |
 | 2026-08-31 | Follow resumes on ↩ or on playback resuming, and a re-anchor is neither — but only while the member is actually browsing. Gating `applyAnchor` on `!isPlaying` alone also skipped `setFocus`, which made a manual ↻ on a paused track a visual no-op | 3 |
 | 2026-08-31 | E5's reach corrected downward against a real browser (see Step 3). Recorded rather than quietly dropped, because the RFC's own Current-state wording was the thing that was wrong | 3 |
+| 2026-09-01 | Two of Step 4's own Current-state claims were wrong: **G6 was already closed by Step 1** (the RFC's description of `entityEvents.ts:131` was the stale thing, not the comment), and G2 is **two** render sites, not three. The stale comment Step 4 actually found was `playbackEntryActions.ts` calling F1 "Step 4's" when F1 shipped in Step 1 | 4 |
+| 2026-09-01 | G5 forced the **fifth** fix of the member.css trap: `.lys-*`/`.ctx-*` lived in dashboard-only `member/layout.css`, so a sheet mounted from the site-wide `PocketBuckit` would have rendered unstyled. Moved verbatim to `styles/lyricsSheet.css`, imported by the component that emits the classes | 4 |
+| 2026-09-01 | `showKo` lives in `useLyricsDocument` despite the "data only" boundary: its value is *derived from the document*, the derivation was duplicated verbatim in both screens, and G3 needs the refresher and that derivation together for a completed translation to reveal itself | 4 |
+| 2026-09-01 | Review blocked the first commit for the third step running. The finding that mattered most was again a reader nobody re-counted: `requestTr` was the one async write without the epoch guard, and Step 4's new `pending` machinery is what turned that pre-existing stale write into three wasted reads against a wrong-track state | 4 |
+| 2026-09-01 | A render property is not verified by reading the render. The review fix for the silent translation arrival put `aria-live` on each branch rather than on a wrapper; React reuses the node but not the attribute, so the region stopped being one exactly when it mattered. Only the browser saw it | 4 |
+| 2026-09-01 | Three test flakes were diagnosed rather than re-run — one pre-existing (measured at 1/10 on `origin/main` AND on the branch before anything was changed), two of this step's own, both found by repetition rather than by a green run. All three are the same class: interacting with a component before its passive effects have flushed | 4 |

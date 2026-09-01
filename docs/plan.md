@@ -157,7 +157,28 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **E5 does not reproduce in a browser** — the `useState(true)` seed is overwritten by the session
   adoption effect before first paint whenever the session can name the track, so the defect's reach
   is narrower than the RFC's wording, and only the cold-URI-cache case ever showed ⏸ over silence.
-  **Step 4 not started**; this row stays until it is. OQ3 (`BOUNDARY_BUFFER_MS`) blocks nothing.
+  **Step 4 SHIPPED 2026-09-01** — `myblog_front#436`. `useLyricsDocument(trackId)` is now the one
+  lyrics document lifecycle behind both screens; a finished translation reaches an already-open
+  screen (visibility return, an explicit 확인, and a bounded three-attempt burst — no interval);
+  `트랙 정보`, wired to a no-op handler at both call sites since it was built, renders only where a
+  destination exists; and `전체 가사` hands the live viewer off to the static reading sheet. That
+  handoff forced the **fifth** fix of the member.css trap — every `.lys-*`/`.ctx-*` rule lived in
+  dashboard-only `member/layout.css`, so a sheet opened from the site-wide island would have
+  rendered unstyled. **Two of the RFC's own Current-state claims were wrong** and are corrected in
+  it: G6 was already closed by Step 1, and G2 is two render sites rather than three.
+  **The clickthrough ran against a control on `origin/main`** and discriminated on all four checks —
+  including the defect itself, where the control still showed `요청됨` and zero Korean nine seconds
+  after the poller answered `done`, a tab return and a manual ↻. **Review blocked the first commit
+  for the third step running**, on the reader nobody re-counted again: `requestTr` was the one async
+  write without the hook's epoch guard, and this step's own `pending` machinery is what turned that
+  pre-existing stale write into three wasted reads against a wrong-track state. **And the review fix
+  was itself wrong in a way only the browser caught** — `aria-live` per branch instead of one
+  wrapper, so React kept the node and dropped the attribute exactly when the region had something to
+  announce. Three test flakes were diagnosed rather than re-run: one pre-existing (measured 1/10 on
+  `origin/main` and 1/10 here before anything changed) and two of this step's own, all the same
+  class — interacting before passive effects flush. **All four steps are now shipped**; this row
+  stays for the owner's Status decision and archival, plus OQ3 (`BOUNDARY_BUFFER_MS`), which has
+  been open for four steps, blocks nothing, and was deliberately kept out of every one of them.
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->
