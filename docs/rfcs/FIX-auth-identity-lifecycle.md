@@ -1,9 +1,10 @@
 # FIX-auth-identity-lifecycle: one account boundary for async auth and private client state
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: 박지훈
 - **Created**: 2026-08-30
-- **Plan row**: `plan.md` → FIX-auth-identity-lifecycle (Active, draft)
+- **Accepted**: 2026-09-02 (owner, with both open questions taking their stated defaults)
+- **Plan row**: `plan.md` → FIX-auth-identity-lifecycle (Active, accepted)
 - **Related**: `FEAT-multi-user-accounts`, `ARCH-playback-authority-convergence`, archived
   `FEAT-pocket-buckit`
 
@@ -31,6 +32,34 @@ than only its URL.
    the source route. Rating stores no intent at all, so the album overlay/edit entry is lost.
 
 These are client-state isolation defects, not server authorization bypasses.
+
+### Acceptance re-audit (2026-09-02, against `origin/main` front `03f19ae`)
+
+All four claims above were re-checked against the code before acceptance and all four hold:
+`auth.ts:214-260` single-flights but captures nothing and its refresh `fetch` (241) carries no
+signal, while `logout()` (262-275) never touches `inflightRefresh`; `bucketStore.ts:57-58` freezes
+`scope`/`cacheKey` as module constants with no recomputation anywhere, and the only `storage`
+listeners in the app are `ownership.ts:183` and `header.client.ts:81`; `ownership.ts:5-7` keys the
+lease, bus and channel off fixed strings with no `sub`.
+
+Two refinements the audit added, both of which shape Step 1 rather than contradict it:
+
+1. **The same-tab logout race is narrow; the exposure is cross-tab.** `logout()` calls
+   `location.assign` to the Cognito logout URL (274), a full-document navigation that kills the JS
+   context — so a delayed refresh can only write back during the few hundred ms before unload. The
+   durable defects are (a) another tab's in-flight refresh writing tokens back into `localStorage`
+   after this tab logged out, and (b) `api.ts:106` awaiting an unsignalled `refreshAccessToken()`,
+   which the 15s timer at 96-99 cannot cut. **Step 1's regression tests must be shaped as cross-tab
+   scenarios**, not same-tab ones; a same-tab-only test would pass against the current code.
+2. **Claim 4 is not merely "fragmented" — the handoff is broken in production today.**
+   `writePocketIntent` has three callers (`AddToBucketMenu.tsx:117-121`); `drainPocketIntent` has
+   exactly one (`PocketResume.tsx`), and that island is mounted only on `src/pages/index.astro:97`.
+   Since `callback.client.ts:39` returns to `consumeReturnTo()` rather than home, a logged-out 담기
+   on `/review/[slug]` or an album page writes an intent that no consumer ever drains: the add is
+   silently lost, or fires unprompted if the user happens to reach home inside the 30-minute TTL.
+   Two comments (`intent.ts:5-6`, `PocketResume.tsx:2`) still assert the old
+   `location.replace('/')` behaviour, which is why earlier passes read over it. Step 2 owns the fix;
+   the stale comments are corrected with it.
 
 ## Invariants
 
@@ -90,7 +119,10 @@ successful identity initialization prunes.
 
 ## Open questions
 
-1. Should drawer layout preferences be account-private or device preferences? Default for Step 1:
-   account-private, because bucket ids and open positions reveal private tree structure.
-2. Should logout stop remote Spotify playback or only release/reset this site's controller? Default:
-   release/reset the site controller; do not issue a remote pause as a side effect of logout.
+Both were resolved to their stated defaults at acceptance (owner, 2026-09-02).
+
+1. ~~Should drawer layout preferences be account-private or device preferences?~~ **Resolved:
+   account-private**, because bucket ids and open positions reveal private tree structure.
+2. ~~Should logout stop remote Spotify playback or only release/reset this site's controller?~~
+   **Resolved: release/reset the site controller only**; logout does not issue a remote pause as a
+   side effect.

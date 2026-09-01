@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FIX-auth-identity-lifecycle** (`docs/rfcs/FIX-auth-identity-lifecycle.md`, draft) — a 2026-08-30
+- **FIX-auth-identity-lifecycle** (`docs/rfcs/FIX-auth-identity-lifecycle.md`, accepted) — a 2026-08-30
   re-audit against current `origin/main` confirmed that URL
   continuation is not action continuation; a delayed Cognito refresh can restore tokens after
   logout and is not bounded by `apiFetch`'s timeout; persistent Pocket and playback singletons are
@@ -15,8 +15,16 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   playback RFC continues to own transport/queue correctness; this RFC owns only account-boundary
   reset and message isolation. *Verification*: front gates + named reversed-async tests + two-tab
   browser clickthrough. *Rollback*: revert per step; no server contract, migration or Cognito
-  configuration change. *Status*: **draft**, awaiting owner acceptance.
-  <!-- rfc: docs/rfcs/FIX-auth-identity-lifecycle.md | status: draft -->
+  configuration change.
+  **Accepted 2026-09-02** with both open questions taking their stated defaults (drawer layout is
+  account-private; logout releases this site's playback controller and issues no remote pause). A
+  pre-acceptance re-audit confirmed all four *Current state* claims and added two refinements now
+  recorded in the RFC: the same-tab logout race is narrow because `logout()` navigates the document
+  away, so **Step 1's regression tests must be cross-tab** (a same-tab test passes against today's
+  code); and claim 4 is a live production defect, not just fragmentation — `drainPocketIntent`'s only
+  consumer is home-mounted while the callback returns to the source route, so a logged-out 담기 on a
+  review or album page is silently lost. *Status*: **accepted**, Step 1 in progress.
+  <!-- rfc: docs/rfcs/FIX-auth-identity-lifecycle.md | status: accepted -->
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
   <!-- rfc: none -->
