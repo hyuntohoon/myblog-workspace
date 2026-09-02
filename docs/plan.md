@@ -33,8 +33,19 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   comment rather than a test. A two-tab browser clickthrough caught a defect the whole suite
   missed — the tray stayed empty for the new account because the provider's fetch effect had
   already run — which is now fixed and covered.
-  *Status*: **accepted**, Steps 2 (general post-login intent, which owns the live `pb:resume`
-  defect) and 3 (browser validation + residual cleanup) remain.
+  **Step 2 shipped 2026-09-02** — front #440 (`3685350`, deploy 33577690006, prod smoke 19/0). The
+  live `pb:resume` defect is closed: `src/lib/postLoginIntent.ts` is one tagged store and
+  `components/auth/PostLoginResume`, mounted in `layout.astro`, is its single consumer, so an action
+  started while logged out resumes wherever the callback lands rather than only on home. Rating now
+  parks an intent at all — its CTA used to send the visitor to Cognito with nothing saved. TTL, tag
+  and account-boundary gates drop rather than replay, the last reusing Step 1's `getAuthIdentity()`.
+  1022 tests, 0 skipped; 20 mutants all killed, five after strengthening the tests and one after
+  correcting a comment instead. `security-review` found no HIGH/MEDIUM and surfaced a `bucketId` the
+  predecessor carried that nothing ever read, now removed. Production verification is partial by
+  design: the capture half was checked on prod in a real browser, the resume half against the same
+  build on a LAN-bound dev server (a placeholder token trips a 401 redirect on prod, and a real login
+  would have put the smoke password through the transcript) — **Step 3 owns that clickthrough**.
+  *Status*: **accepted**, Step 3 (browser validation + residual cleanup) remains.
   <!-- rfc: docs/rfcs/FIX-auth-identity-lifecycle.md | status: accepted -->
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
