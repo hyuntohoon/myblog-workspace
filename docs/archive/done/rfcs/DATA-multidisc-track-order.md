@@ -1,9 +1,12 @@
 # DATA-multidisc-track-order: capture `disc_no` and stop colliding multi-disc tracklists
 
-- **Status**: **accepted** (owner-approved in-session 2026-08-16)
+- **Status**: **done 2026-09-03** (owner-approved in-session — CLAUDE.md rule #7). Steps 1–3 shipped and
+  production-verified 2026-08-16/17, which delivers this RFC's entire stated Goal — every tracklist read
+  path now orders by `(disc_no, track_no)`. **Step 4 was dropped in the same decision**, on this RFC's own
+  recommendation; see Step 4 and the Decisions log.
 - **Owner**: 오너
 - **Created**: 2026-08-09
-- **Plan row**: `plan.md` → DATA-multidisc-track-order
+- **Plan row**: dropped on completion (2026-09-03)
 
 ---
 
@@ -291,8 +294,13 @@ involved).
 **Rollback**: revert the `order_by` change in the four sites. Reintroduces the known-documented ordering
 bug; no data loss, since `disc_no` values already backfilled/captured are untouched.
 
-### Step 4 — OpenAPI re-export → contract merge → frontend type regen
+### Step 4 — OpenAPI re-export → contract merge → frontend type regen — **DROPPED 2026-09-03**
 
+> **DROPPED 2026-09-03 by explicit owner decision** — the owner answered the gate below with "drop it".
+> Nothing was implemented for this step; the text is kept because it records *why* the field stops at the
+> database. Revisit only alongside the Open Question 1 feature that would actually display disc numbers,
+> and treat that as a new decision rather than resuming this step.
+>
 > **Step 4 is now gated on an explicit owner "yes" and may well be dropped** (corrected 2026-08-16, same
 > kickoff audit). The draft assumed the regen would pick the field up on its own; it will not. Music's
 > track-shaped response schemas — `TrackItem` (`schemas.py:44`) and `TrackOut` (`schemas.py:93`) — are
@@ -373,3 +381,10 @@ the new field.
   expected to be dropped. Also recorded under Step 3: the three repos' shared_db pins have diverged, and
   `myblog_music` is **20 releases stale** (tag `v0.26.0` → `dd016c4`, V32-era) against backend's
   `029f8db` — so Step 3, not Step 2, is where that bump gets paid and verified.
+
+- 2026-09-03 — **Step 4 dropped and the RFC closed (owner decision, in-session).** The gate the 2026-08-16
+  kickoff audit put on Step 4 was answered "drop it", which matches this RFC's own stated default under
+  `feedback-necessity-gate-reviews`: the field has no consumer, the Non-goals already forbid a disc-number
+  UI, and Steps 2–3 deliver the whole Goal without it. Dropping it also retires the blocker recorded
+  alongside it — Step 4 is a contract touch and therefore requires the `reviewer` subagent. Status
+  accepted → done; RFC archived to `docs/archive/done/rfcs/` and the plan.md row dropped.

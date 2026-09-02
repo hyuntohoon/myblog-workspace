@@ -19,6 +19,7 @@
 - **Corrects**: the deployed structure from `ARCH-buckit-navigation-shell` Steps 1 and 3
 - **Depends on**: no URL-selection step and no other RFC; production work begins only after the gate in *Exact implementation start condition*
 - **Repository**: `myblog_front` only
+- **Archived**: 2026-09-03 — moved to `docs/archive/done/rfcs/`. Step 1 shipped 2026-08-12 and was reverted from production 2026-08-13 (front #401); the structure that eventually shipped is not this RFC's design.
 
 ---
 

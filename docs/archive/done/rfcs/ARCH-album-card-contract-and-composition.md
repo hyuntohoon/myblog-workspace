@@ -1,6 +1,8 @@
 # ARCH-album-card-contract-and-composition: one canonical album-card display model, composed by capability, not inherited
 
-- **Status**: accepted
+- **Status**: **done 2026-09-03** (owner-approved in-session — CLAUDE.md rule #7). Stages 1–9 all shipped
+  2026-08-06/07 and the plan row was removed after Stage 9's post-merge Definition of Done; only the
+  Status promotion remained.
 - **Owner**: TBD
 - **Created**: 2026-08-06
 - **Plan row**: removed after Stage 9 post-merge Definition of Done (2026-08-07)

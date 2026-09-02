@@ -1,6 +1,8 @@
 # A11Y-modal-background-inert: deactivate the background while a modal is open
 
-- **Status**: **accepted** (owner-approved in-session 2026-08-16, together with OQ1)
+- **Status**: **done 2026-09-03** (owner-approved in-session — CLAUDE.md rule #7). Both steps shipped
+  2026-08-16 (front #411 `db7d9c8`, #412 `3032af6`, both confirmed on `myblog_front` `origin/main`), and
+  Step 2's production smoke 19/19 was run and quoted 2026-08-17. Nothing was left but this promotion.
 - **Owner**: 오너
 - **Created**: 2026-08-16
 - **Plan row**: `plan.md` → A11Y-modal-background-inert
@@ -159,7 +161,7 @@ Two implementation findings worth carrying forward:
 
 ---
 
-### Step 2 — migrate the three scrim modals that never got `useDismissable`
+### Step 2 — migrate the three scrim modals that never got `useDismissable` — **SHIPPED 2026-08-16 (front #412)**
 
 `ActionSheet`, `BucketPickerSheet` and `PocketDesignSettings` call `useScrollLock()` and declare
 `aria-modal="true"` but never adopted `useDismissable`, so they have no focus trap and no focus
