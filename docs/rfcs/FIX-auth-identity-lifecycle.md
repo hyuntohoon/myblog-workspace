@@ -109,6 +109,31 @@ Ship `bucket-add` and `rate-album` first. `rate-album` reopens the same album's 
 `bucket-add` reopens the existing picker. Corrupt, expired, duplicate and unsupported intents drop
 without replay. Spotify candidate/sync may join only when its explicit public UI is implemented.
 
+**Shipped 2026-09-02** — front #440 (`3685350`, deploy 33577690006, prod smoke 19/0).
+`src/lib/postLoginIntent.ts` is the tagged store and `components/auth/PostLoginResume`, mounted in
+`layout.astro`, is its single consumer, so the resume happens wherever the callback lands instead of
+only on home. `bucket-add` reopens the picker; `rate-album` reopens the album overlay with its rating
+editor, and the CTA parks an intent at all for the first time. Three gates drop rather than replay:
+TTL, tag, and the account boundary — an intent records `getAuthIdentity()` at capture, and a capture
+naming a real account resumes only for that account, which matters because `isLoggedIn()` goes false
+the moment the access token expires while A's `id_token` is still in storage.
+
+Four things are worth carrying into Step 3. A latch (`openAlbumLatched`) was needed because the
+overlay and the resume are sibling `client:only` islands whose mount effects are unordered, so a
+plain dispatch could land before the overlay had a listener and take the drained intent with it. The
+rating auto-open waits for the member's current 평가 to load, or it would seed the 4-star default
+over a rating they already have. The new store deliberately has **no** `bucketId`: the predecessor
+carried one that nothing ever read, and `security-review` is what surfaced it. And a mutation
+corrected a claim rather than a test — the module-scope drain cache does not protect against
+StrictMode (React discards the second render pass), it protects against a remount; the comment said
+StrictMode only because the predecessor's did.
+
+The prod clickthrough is deliberately partial and Step 3 owns the rest: the capture half was
+verified on production (the real CTA parks the intent, and a logged-out load leaves it parked), but
+the resume completing under a genuine session was verified against the same build on a LAN-bound dev
+server, because any placeholder token trips a 401 redirect first and a real login would have put the
+smoke password through the session transcript.
+
 ### Step 3 — browser validation and residual cleanup
 
 Real-browser test cross-tab logout/account switch, delayed refresh, both login-resume actions and
