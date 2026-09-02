@@ -77,9 +77,16 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   member Cognito session: `/write/` and `/drafts/` both bounce, prod smoke 30/0.
   *Still unverifiable*: the published-평론 편집 link — prod has **zero** `/review/` pages.
 
-  · **Step 3 (owner-only AI distillation, C3+C4) — DEFERRED.** Its premise is that the owner writes
-  unstructured 자유 감상 for the AI to distill; the owner writes essentially no text at all. Do not
-  start it, and do not tune OQ3's default prompt, until the owner sets a new resumption condition.
+  · **Step 3 (owner-only AI distillation, C3+C4) — DEFERRED, and its deferral evidence has an erratum
+  the owner has not yet seen (2026-09-03).** Its premise is that the owner writes unstructured 자유 감상
+  for the AI to distill. **Do not start it, and do not tune OQ3's default prompt, until the owner sets a
+  new resumption condition** — that has not changed, and an erratum is not a start signal.
+  **What the erratum says**: the "owner writes essentially no text" measurement was taken on
+  `album_reviews.comment`, a field capped at `RATING_COMMENT_MAX = 60` — a number this RFC's own Step 1
+  picked so that *"문단 쓰기는 물리적으로 막는다."* The owner's long-form album text exists in the bucket
+  memo (7 albums, mean 436 chars, max 1,429; 6 of the 7 also carry a rating row), **dormant since
+  2026-08-03**. This does not choose among OQ13's three candidates — it changes the case for each, and
+  the RFC's OQ13 carries that per-candidate breakdown. **The decision is the owner's and is still open.**
   · **Step 5 (conditional general AI opening) — DEFERRED**, dependent on Step 3.
   AI behaviour, if Step 3 ever resumes, remains distillation only: use only material the author
   supplied, never add outside facts/evaluations/metaphors, the result stays editable, and publishing
@@ -88,14 +95,22 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 - **ARCH-entity-interaction-domain-audit** (`docs/rfcs/ARCH-entity-interaction-domain-audit.md`,
   <!-- rfc: docs/rfcs/ARCH-entity-interaction-domain-audit.md | status: in-progress -->
   in-progress) — independent audit of review/memo commands, playback-state ownership, lyrics hosting,
-  bucket-add flow, modal infrastructure and global events. **Steps 1, 2, 3 (3a/3b/3c) and 4 are complete
-  and prod-verified.**
+  bucket-add flow, modal infrastructure and global events. **Every step is now shipped** — Steps 1, 2,
+  3 (3a/3b/3c) and 4 prod-verified 2026-08-05/06, and **Step 5 shipped 2026-09-03** (docs-only).
 
-  **Next = Step 5** (the "memo" naming conflict) — **UNBLOCKED 2026-09-03.** It waited on the naming
-  that `FEAT-album-review-authoring`'s authoring surface introduces; that surface shipped as Step 4
-  (front #442). The names it now has to reconcile against are live: the header entry is **쓰기**, the
-  sheet's two kinds are **평가** / **평론**, and the private mark reads **"나중에 평론으로 쓴다"**
-  inside the rating editor. Nothing else in this RFC is open.
+  **The only thing left is an owner Status promotion** (`in-progress` → `done`; 하드 룰 7 — Claude never
+  self-promotes). Once promoted, drop this row.
+
+  **Step 5 refuted its own charter, which is why it is worth a line here rather than just in the RFC.**
+  It was written as *"rename the memo, and correct the one-user-album-state premise against the bucket
+  memo."* Neither half survived contact: there was **no name to rename** (that RFC calls the concept
+  자유 감상 원문, never 메모 — the collision is functional, with the already-shipped 버킷 메모), and the
+  premise is false in **five** state stores rather than the one the audit named — including
+  `planned_ratings`, which **the owner deliberately chose on 2026-08-13 knowing it broke the invariant**.
+  A third finding fell out of the same sweep and is the one with a live consequence → see the
+  `FEAT-album-review-authoring` row below. Full evidence, tables and the branch that was *not* taken:
+  the RFC's Step 5 and its Decisions log — **not restated here**, so no outcome branch can be lost in
+  the copy.
 
 - **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval.
   <!-- rfc: none -->
