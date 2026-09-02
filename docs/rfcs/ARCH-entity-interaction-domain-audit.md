@@ -1,13 +1,15 @@
 # ARCH-entity-interaction-domain-audit: cross-domain registry + guardrails for entity-interaction fragmentation
 
-- **Status**: **in-progress** — Steps 0–4 (incl. 3a/3b/3c) all shipped 2026-08-05/06. **Only Step 5
-  remains**, and it is blocked, not merely unstarted: it coordinates with `FEAT-album-review-authoring`,
+- **Status**: **in-progress — every step is now shipped; the field awaits an owner promotion to `done`
+  (하드 룰 7: Claude never self-promotes).** Steps 0–4 (incl. 3a/3b/3c) shipped 2026-08-05/06;
+  **Step 5 shipped 2026-09-03** (docs-only) once its trigger — `FEAT-album-review-authoring` Step 4's
+  authoring surface — went live the same day. Nothing in this RFC is open. Historical note, kept because
+  it explains the two-month gap: it coordinated with `FEAT-album-review-authoring`,
   ~~whose own 담기 gate has missed twice~~ → **updated 2026-09-03: that 담기 gate was RETIRED, not passed**
   (its fail branch had actually been true since 2026-08-10 — owner ratings left 0 and reached 37 — and was
-  acted on 24 days late). Step 5 is **still blocked, but
-  now on a design decision instead of a counter**: the naming it would settle is introduced by that RFC's
-  authoring surface, which is its **Step 4** (unified authoring entry, now that RFC's next step, OQ9 entry
-  placement still open). Step 5 unblocks when Step 4 fixes the entry. Status corrected 2026-08-16 on owner
+  acted on 24 days late). Step 5 was blocked on that RFC's **Step 4** (unified authoring entry), which
+  shipped 2026-09-03 — and Step 5 ran the same day. What Step 5 actually found is that its own charter was
+  wrong on both halves (no name to rename; five state stores, not two) — see Step 5. Status corrected 2026-08-16 on owner
   approval — the field still read `draft` long after six of seven steps had shipped, which made the RFC
   look unstarted in every listing.
 - **Owner**: 오너
@@ -64,16 +66,16 @@ discipline, stated as such rather than oversold as automatable.
 - `useDismissable` is the default for any `role="dialog"` component; today's 8 ad hoc ESC/focus-trap
   reimplementations (some in the same file as correct adopters — `OverviewDash.tsx`, `BucketBoard.tsx`)
   migrate or get a named, registry-recorded exception.
-- The unshipped `FEAT-album-review-authoring` Step 3 "memo" (free-text → AI distillation) gets a
-  different name before it ships — it would otherwise collide with the already-shipped bucket-item
-  memo (`review_bucket_items.note`, FEAT-editor-buckit). That RFC's "one user-album state" premise is
-  also false today (the bucket memo is a second, bucket-scoped state) and should be re-audited before
-  Step 3 resumes. ~~(already gated to 2026-08-12+ for unrelated reasons)~~ → **updated 2026-09-03: that
-  RFC's Step 3 is now DEFERRED on a falsified premise, not on a date or a counter** — prod measurement
-  found the owner writes essentially no free text to distill (33 of 37 ratings are star-only), so the
-  "memo" may never ship in this shape. Its resumption condition is that RFC's OQ13 and is undecided.
-  **This does not remove the naming work**: if a free-text field ships under any name, the collision is
-  still real, and Step 5 below is the place it gets settled.
+- ~~The unshipped `FEAT-album-review-authoring` Step 3 "memo" (free-text → AI distillation) gets a
+  different name before it ships~~ → **settled by Step 5, 2026-09-03, and this bullet was wrong twice.**
+  (a) There was no name to change: that RFC never calls its C3/C4 concept a memo — its word is
+  **자유 감상 (원문)**, and the three "memo" strings in it all describe the *shipped* memo window. The real
+  collision is functional — the shipped **버킷 · 앨범 메모** (`review_bucket_items.note`,
+  FEAT-editor-buckit, labelled *"떠오른 대로 던져두는 곳"*) already **is** an album-attached free-text box,
+  and that RFC does not mention it anywhere. Landed as a 충돌 row there, resolved by G1's rule (say which
+  shipped command a new field extends, or justify a fourth). (b) "One user-album state" is false in
+  **five** stores, not the one bucket memo named here — and the decisive one is `planned_ratings` (V52),
+  which the owner chose **on 2026-08-13** knowing it broke the invariant. Full table and evidence: Step 5.
 
 ---
 
@@ -372,26 +374,75 @@ via a `fetch` stub, since prod CORS blocks direct localhost calls) before merge,
 close button, Shift+Tab wrapping to the last focusable, and Escape closing + restoring focus to the
 trigger chip.
 
-### Step 5 — memo naming resolution (docs-only, coordinates with `FEAT-album-review-authoring`)
+### Step 5 — memo naming resolution (docs-only, coordinates with `FEAT-album-review-authoring`) — ✅ **DONE 2026-09-03**
 
 Rename the planned Step 3 "memo" concept in `FEAT-album-review-authoring`, and correct its "one
 user-album state" premise against the shipped bucket memo.
 
-**Trigger updated 2026-09-03.** The original trigger — *"before that RFC's gate reopens (2026-08-12+)"* —
-is void: that gate was **retired**, not reopened (it could no longer pass). The step is still blocked,
-but the blocker changed shape. The naming this step settles belongs to that RFC's authoring surface, and
-that surface is its **Step 4** (unified authoring entry), which is now that RFC's next step but has not
-been designed — OQ9 (entry placement) is open. Meanwhile its Step 3, the step that would introduce the
-"memo" itself, is **deferred on a falsified premise** (the owner writes no free text to distill). So:
+**Trigger met 2026-09-03.** The step waited on the naming that RFC's authoring surface introduces; that
+surface shipped the same day as its **Step 4** (front #442 `a8d9eef`). The live names it had to reconcile
+against are: the header entry **쓰기**, the sheet's two kinds **평가** / **평론**, and the private mark
+**"나중에 평론으로 쓴다"** inside the rating editor.
 
-- **Do this step when `FEAT-album-review-authoring` Step 4's entry design exists**, which is when a
-  concrete name is actually on the table.
-- **Do not wait for that RFC's Step 3.** It may never ship in its current shape; the collision correction
-  and the "one user-album state" erratum are worth landing regardless, because the false premise is in the
-  document today.
-- Naming work here still has no code in it.
+#### What this step found — three corrections, only one of which this RFC had predicted
 
-**Verification**: doc review only; no code changes in this step.
+**1. The naming collision this step was chartered to fix does not exist as stated — and the real one is
+functional, not lexical.** `FEAT-album-review-authoring` contains the string "memo"/"메모" exactly three
+times, all of them in Step 4's post-hoc sweep notes describing the *shipped* memo window. Its own C3/C4
+concept is never called a memo: the document's word for it is **자유 감상 (원문)** throughout. So there is
+no name to rename. What is real is that the shipped **버킷 · 앨범 메모** (`review_bucket_items.note`,
+`AlbumDetail.tsx`'s `MemoWindow`, labelled *"떠오른 대로 던져두는 곳"*) is already the album-attached
+free-form text box C3 proposed to invent, and that RFC does not mention it anywhere — not in its
+Current state, not in its 11-row 충돌 table, not in its Dependencies. **The correction is therefore an
+added conflict row in that RFC, not a rename.** Its resolution is G1's existing question: any future
+free-text field must say which of the shipped commands it extends, or justify a fourth.
+
+**2. The "one user-album state" premise is false in more places than this RFC named, and one of them is a
+later owner decision.** This RFC named one rival (the bucket memo). Measured against the live schema
+(2026-09-03), the per-(user, album) state is spread across **five** stores:
+
+| Store | (user, album) unique? | What it holds | prod rows |
+|---|---|---|---|
+| `album_reviews` | yes | 별점 · 한줄평(60자 상한) · `review_candidate` | 39 |
+| `planned_ratings` | yes | 평가 예정 mark (V52) | 1 |
+| `pending_reratings` | yes | 재평가 snapshot (previous rating/comment) | 9 |
+| `album_to_listen_items` | yes | 청취 예정 queue + its own `note` | 0 (live routes, no data) |
+| `review_bucket_items` (via `review_buckets.user_id`) | **no — per bucket item** | 버킷 메모 (`note`) | 181 items, 7 with a memo |
+
+`planned_ratings` is the one that matters most: `models.py` records it as *"Deliberately its own table
+(Option B, owner-decided 2026-08-13), NOT a facet on `album_reviews`"*, and the RFC that created it
+(`FEAT-rating-smart-collections`, now archived) quoted the "사용자-앨범 상태는 하나" invariant, laid A
+against B, said in as many words that B *"breaks from it"*, and the owner picked B. **The invariant was
+consciously overridden three weeks ago, and the only live document still stating it as a hard rule is
+the one this step corrects.** That is what makes this a correction rather than a nitpick — a reader of
+`FEAT-album-review-authoring` hard rule 3-1 today is reading a rule the owner has already retired in
+practice.
+
+**3. Unpredicted: the premise behind that RFC's Step 3 deferral was measured in a field that cannot hold
+what it measured.** Not in this step's original charter, but found by the same schema sweep and recorded
+because it is the same class of defect. That RFC deferred Step 3 on 2026-09-03 because *"증류할 자유 감상
+텍스트가 오너에게 존재하지 않는다"*, evidenced by `album_reviews.comment` — 4 texts averaging 17
+characters. `RATING_COMMENT_MAX = 60` (`schemas.py:1269`, enforced in the front input too), and that
+RFC's own Step 1 chose 60 explicitly so that **"문단 쓰기는 물리적으로 막는다."** The owner's actual
+free-form album text is in the bucket memo: **7 albums, 3–1,429 characters, mean 436**, all seven the
+owner's, and **6 of the 7 (user, album) pairs also carry an `album_reviews` row**. Whether that changes
+the deferral is the owner's call (that RFC's OQ13) — this step only records that the measurement did not
+measure the thing. Honest qualifier, stated in both documents: those memos run 2026-06-05 → 2026-08-03
+and none has been written since, so the material exists but the writing is dormant, and none of the
+seven has `prep_tonight` set.
+
+#### What landed
+
+- `FEAT-album-review-authoring`: 충돌 rows **#12** (버킷 메모 vs C3/C4) and **#13** (3-1 overridden by
+  `planned_ratings`); 관통하는 개념 and hard rule 3-1 restated as a goal with its live exceptions named;
+  a Step 3 erratum; OQ13 gains the measurement finding as evidence, its three candidates untouched.
+- This RFC: the target-architecture bullet and OQ2 updated to the measured shape.
+- **Not done, deliberately**: no rename (there is no name to rename), no code, no change to any owner
+  decision. Step 3 stays deferred; `planned_ratings` stays where the owner put it.
+
+**Verification**: doc review only; no code changes in this step. Live-schema claims measured read-only
+against prod (`BEGIN; SET LOCAL default_transaction_read_only = on; … ROLLBACK`), label claims read out of
+`myblog_front` at `a8d9eef`. Workspace gate: `scripts/check_workspace_invariants.py` + `workspace-check`.
 
 ---
 
@@ -407,6 +458,12 @@ been designed — OQ9 (entry placement) is open. Meanwhile its Step 3, the step 
    and left its resumption condition open (its OQ13). Whether the memo design still makes sense next to
    the shipped bucket memo remains a product-intent question this audit can't answer from code, and it is
    now **less likely to be answered by shipping it** than it was when this question was written.
+   → **Closed by Step 5, 2026-09-03, by dissolving the question.** There is no "memo" design in that RFC
+   to compare — its concept is 자유 감상 원문, and the memo it would sit beside is already shipped and
+   already carries the owner's long-form album text (7 albums, mean 436 chars) while the field that
+   RFC measured is capped at 60. The product-intent question that remains is not this audit's ("does the
+   memo design still make sense?") but that RFC's OQ13 ("what resumes Step 3?"), which now has the
+   measurement finding attached to it as evidence. This audit adds nothing further.
 3. ~~**Is `TrashDrawer`'s non-portal mount intentional** or simply missed?~~ **Resolved 2026-08-05**:
    unintentional — migrated to `useDismissable` in Step 4 on the same footing as its siblings; the
    non-portal mount itself is untouched (out of Step 4's scope) and is now the component's only
@@ -436,3 +493,4 @@ been designed — OQ9 (entry placement) is open. Meanwhile its Step 3, the step 
 | 2026-08-06 | **Erratum — a second, independently-discovered mount-time race in Step 3b's own code, plus confirmation that the "single-flight/centrally cached" target state is not yet realized anywhere.** BUG-22's fix (both rows above) is confirmed present against current HEAD (`cc16ab49`, front #370). A 2026-08-06 re-audit found `NowPlaying.tsx`'s mount effect (`:619-627`) fires `sync()` (direct `readLivePlayback()`) and `playbackSession.syncFromLive()` (→ `adoptLive()` → also `readLivePlayback()`) concurrently, unguarded against each other; the "playing" branch of `applyLive()` (`:345-372`) has no sequence/session check, unlike the "idle" branch Step 3b's own real-browser pass already hardened for a structurally identical race. Near a track boundary, response order is not guaranteed to match send order, so the card can revert one frame to an already-stopped track. Not covered by Step 3a (different listener), Step 3b (different branch), or Step 3c (unrelated — `LyricsViewer`'s anchor source). Tracked as `BUG-28` (`plan.md`), independent of this RFC's step sequence. Separately confirmed: a single `MYBLOG_PLAYBACK_CHANGED` event still fans out to 3 uncoordinated `readLivePlayback()` calls (`session.ts`/`NowPlaying`/`LyricsViewer`) with no request coalescing anywhere, including at the canonical `session.ts` layer — this RFC's own target-architecture text ("Spotify live reads = single-flight/centrally cached") remains aspirational after Step 3a/3b, not a regression, just not yet built | 3 |
 | 2026-08-06 | **BUG-28 resolved** (front #376 `061edfb`, deploy 31077498900, prod smoke 19/0). `applyLive()`'s "playing" branch now skips applying a read whose track disagrees with `playbackSession.currentSpotifyTrackId()`'s already-converged answer, mirroring the idle branch's existing guard. Regression test confirmed to fail without the fix. The single-flight fan-out noted in the row above is unchanged — not attempted by this fix, still open | 3 |
 | 2026-08-06 | **Step 3c shipped** (front #374), closing the RFC's original Step 3 (3a/3b/3c). Owner picked the conservative of two in-session designs: `LyricsViewer` adopts `playbackSession`'s anchor/playing/durationMs additively (new `playbackSession.currentSpotifyTrackId()` confirms the same track first), never replacing the viewer's own `readLivePlayback()`-driven `refresh()`, which stays the fallback whenever session cannot confirm the match — identity/jump/skip/translation logic in `refresh()` untouched. Reused `refresh()`'s own `awaitingTrack`/`awaitingChangeFrom`/`awaitingPlayState` guard refs, since this viewer's own transport bypasses `playbackSession` and would otherwise race the same ack→apply lag those guards exist to survive (this is the same 3-way fan-out the erratum above named). CDP verification (stubbed backend + in-page Spotify fetch stub) proved both the adoption and the guard live, not just unit-tested. vitest 47/47 files·510/510. Prod smoke 19/19 | 3 |
+| 2026-09-03 | **Step 5 shipped (docs-only), and it refuted its own charter on both halves.** (a) *No rename was possible*: `FEAT-album-review-authoring` never named its C3/C4 concept a "memo" — its word is 자유 감상 (원문), and all three "memo" strings in it describe the already-shipped memo window. The real collision is functional: the shipped 버킷 · 앨범 메모 (`review_bucket_items.note`, *"떠오른 대로 던져두는 곳"*) already is the album-attached free-text box C3 proposed to invent, and that RFC mentions it nowhere. Landed as 충돌 #12 there, resolved under G1 rather than by renaming anything. (b) *"One user-album state" is false in five stores, not the two this RFC named* — `album_reviews`, `planned_ratings`, `pending_reratings`, `album_to_listen_items` and the per-bucket-item memo. The decisive one is `planned_ratings` (V52): `FEAT-rating-smart-collections` quoted the invariant, laid Option A against Option B, wrote that B breaks it, and **the owner picked B on 2026-08-13** — so the invariant was consciously retired three weeks before this step read it as a live rule. Landed as 충돌 #13 + a restatement of hard rule 3-1 as a goal with named exceptions. (c) *Unpredicted third finding, outside the charter but the same defect class*: that RFC's Step 3 deferral (2026-09-03, *"증류할 자유 감상 텍스트가 없다"*) was measured on `album_reviews.comment`, a field capped at `RATING_COMMENT_MAX = 60` **precisely so that 문단 쓰기는 물리적으로 막는다**. The owner's long-form album text exists in the bucket memo — 7 albums, 3–1,429 chars, mean 436, six of the seven also carrying an `album_reviews` row — though dormant since 2026-08-03. Recorded as evidence on that RFC's OQ13; **the deferral itself was not touched** (owner's decision, 하드 룰 7 and the standing 보류). **Method lesson, third time in this RFC**: the count a document gives you is a lower bound — this one said one rival state store and there were four | 5, OQ2, `plan.md` |
