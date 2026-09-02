@@ -81,7 +81,7 @@ File references are `path:line` anchors relative to `myblog_front/src/`.
 
 | Route | Page | Primary island(s) | Authed? |
 |---|---|---|---|
-| `/` | `pages/index.astro` | `EditorialHome` (`client:load`), `PocketResume` (`client:only`) | Public |
+| `/` | `pages/index.astro` | `EditorialHome` (`client:load`) | Public |
 | `/reviews` | `pages/reviews/index.astro` | `ReviewsIndex` (`client:load`) | Public |
 | `/review/[slug]` | `pages/review/[slug].astro` | `AddToBucketMenu` (hero, `client:only`), `ReviewTrackAdder` (`client:only`) + **vanilla** `scripts/albumDetail.client.ts` | Public |
 | `/artist/[id]` | `pages/artist/[id].astro` | `ArtistHub` (`client:only`) | Public |
@@ -98,8 +98,18 @@ File references are `path:line` anchors relative to `myblog_front/src/`.
 | `/drafts` | `pages/drafts.astro` | none (vanilla table) | Authed (inline `isLoggedIn()` → `goLogin`) |
 | `/write` | `pages/write.astro` | `WriterApp` (`client:load`) | **Authed** (`scripts/write.guard.ts`) |
 
-Shared chrome (`Header`/`Footer`/`PocketBuckit`) is mounted once in `layouts/layout.astro:35-38`.
-`write-layout.astro` is standalone (no Header/Footer/Pocket).
+Shared chrome is mounted once in `layouts/layout.astro`: `Header` (74), `Footer` (76),
+`PocketBuckit` (82), `AlbumOverlay` (88) and `PostLoginResume` (98) — the last three
+`client:only` + `transition:persist`. `write-layout.astro` is standalone (no
+Header/Footer/Pocket).
+
+`PostLoginResume` replaced the home-mounted `PocketResume` in
+`FIX-auth-identity-lifecycle` Step 2 (front #440): the Cognito callback returns to the
+page the visitor left rather than forcing home, so a resume that only existed on `/` had
+no reader anywhere else. Being in the layout means it runs in **every open tab**, which
+is why the intent record it drains names the tab that parked it (Step 3, front #441) —
+without that, a sibling tab consumed the intent and the picker opened on a page nobody
+was looking at.
 
 ## Album-card behavior — shared `AlbumCard`
 

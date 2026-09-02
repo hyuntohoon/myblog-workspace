@@ -45,7 +45,23 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   design: the capture half was checked on prod in a real browser, the resume half against the same
   build on a LAN-bound dev server (a placeholder token trips a 401 redirect on prod, and a real login
   would have put the smoke password through the transcript) — **Step 3 owns that clickthrough**.
-  *Status*: **accepted**, Step 3 (browser validation + residual cleanup) remains.
+  **Step 3 shipped 2026-09-02** — front #441 (`4280155`, deploy 33614309445, prod smoke 30/0). The
+  blocker Step 2 handed forward turned out not to be one: driving Chrome over CDP from a local Node
+  script keeps the smoke password and the minted tokens on disk instead of in a transcript, so a
+  real Cognito sign-in against the deployed bundle is observable end to end. Both resume actions,
+  cross-tab logout, an account switch, a held-and-released delayed refresh and the playback bus
+  account filter all passed, each with a control showing the assertion could have failed.
+  The clickthrough also **found a defect in what Step 2 shipped** — the second session running where
+  a fully green suite missed one. `PostLoginResume` is layout-mounted, so every open tab re-attempts
+  the drain on an account change while the intent sits in shared `localStorage`; a sibling tab
+  consumed it and the picker opened on a page the visitor was not looking at. A record now names the
+  tab that parked it. Fixed, deployed, and the failing two-tab experiment re-run against the
+  deployed bundle with the result inverted. One thing is **not** verifiable in production: the
+  playback *lease* release, because `GET /api/playback/spotify-token` is a designed 404 for an
+  account with no Spotify connection, so the transport never starts — it becomes observable the
+  first time a test account connects Spotify.
+  *Status*: **accepted** — all three steps have shipped. Promotion to `done` is the owner's call
+  (CLAUDE.md rule 7); this row stays until then.
   <!-- rfc: docs/rfcs/FIX-auth-identity-lifecycle.md | status: accepted -->
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and
