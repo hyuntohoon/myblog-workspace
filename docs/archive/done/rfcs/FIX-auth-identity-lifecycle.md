@@ -1,10 +1,20 @@
 # FIX-auth-identity-lifecycle: one account boundary for async auth and private client state
 
-- **Status**: accepted
+- **Status**: **done** (2026-09-02 — all three steps shipped and production-verified; archived).
+  Owner promoted the Status in-session on 2026-09-02 under CLAUDE.md rule #7's explicit-approval
+  exception. Accepted the same day with both open questions taking their stated defaults, and
+  executed as drafted with no step dropped or added. Shipments: Step 1 `myblog_front#439`
+  (`e8eb156`, deploy `33574285362`, prod smoke 19/0), Step 2 `myblog_front#440` (`3685350`, deploy
+  `33577690006`, prod smoke 19/0), Step 3 `myblog_front#441` (`4280155`, deploy `33614309445`,
+  prod smoke **30 passed / 0 failed**). One invariant is verified by tests rather than in
+  production — the playback *lease* release, because `GET /api/playback/spotify-token` answers a
+  designed 404 for an account with no Spotify connection, so the transport never initialises and
+  `ensureOwner()` is never reached; it becomes observable the first time a test account connects
+  Spotify. Reopen with a fresh `plan.md` row rather than editing this file.
 - **Owner**: 박지훈
 - **Created**: 2026-08-30
 - **Accepted**: 2026-09-02 (owner, with both open questions taking their stated defaults)
-- **Plan row**: `plan.md` → FIX-auth-identity-lifecycle (Active, accepted)
+- **Plan row**: `plan.md` → FIX-auth-identity-lifecycle (dropped on completion)
 - **Related**: `FEAT-multi-user-accounts`, `ARCH-playback-authority-convergence`, archived
   `FEAT-pocket-buckit`
 
