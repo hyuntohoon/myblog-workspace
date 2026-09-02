@@ -62,10 +62,21 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **C6 평론 후보 표시 has exactly 1 mark ever** (2026-08-10, on a row with no rating; none of the 38
   rated rows is marked). Published reviews remain **0** (5 drafts, last touched 07-27).
 
-  **Order re-set (owner 2026-09-03): Step 4 first; Steps 3 and 5 are deferred, not scheduled.**
-  · **Step 4 — next, and startable today**: unified authoring entry + permission cleanup (C1 + audit
-  **E-5**, `/write` checking only login — a real open hole that has been parked behind the gate; OQ9
-  entry placement open). It is the one step this measurement does not touch.
+  **Step 4 is SHIPPED and production-verified (2026-09-03, front #442 `a8d9eef`).** OQ9 and OQ14 are
+  closed. One 쓰기 entry in the header for every signed-in account, offering only what the viewer may
+  write; 평가 hands off to the EXISTING album-overlay rating editor rather than a second form, which is
+  also what makes C1's "entered from a card, the album is already chosen" true with no card changes.
+  The 평론 후보 mark moved into that write as an owner-only checkbox saved in the same PUT.
+
+  **Audit E-5 is closed — and it was SIX places, not the one this row and the RFC named.** `/write`
+  and `/drafts` each carried their own `isLoggedIn()` check (never a data hole — every `/api/posts*`
+  mutation is `require_owner` and fails closed — but the client surface was open); the same proxy
+  then turned up in the dashboard 평론 tab, the bucket tile mark, the album rating mark, and, found by
+  `security-review`, the 편집 link on every published 평론 page plus the memo window's editor link.
+  **Do not size a sweep off the count a document gives you.** Verified on production with a real
+  member Cognito session: `/write/` and `/drafts/` both bounce, prod smoke 30/0.
+  *Still unverifiable*: the published-평론 편집 link — prod has **zero** `/review/` pages.
+
   · **Step 3 (owner-only AI distillation, C3+C4) — DEFERRED.** Its premise is that the owner writes
   unstructured 자유 감상 for the AI to distill; the owner writes essentially no text at all. Do not
   start it, and do not tune OQ3's default prompt, until the owner sets a new resumption condition.
@@ -80,11 +91,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   bucket-add flow, modal infrastructure and global events. **Steps 1, 2, 3 (3a/3b/3c) and 4 are complete
   and prod-verified.**
 
-  **Next = Step 5** (the "memo" naming conflict). The `FEAT-album-review-authoring` gate that used to
-  block it was retired on 2026-09-03, but Step 5 is **still blocked — now on a design decision rather
-  than a counter**: the naming it would settle is the naming that RFC's authoring surface introduces,
-  and that surface is Step 4, which has not been designed yet (OQ9 entry placement is open). Unblocks
-  when Step 4 fixes the entry. Nothing else in this RFC is open.
+  **Next = Step 5** (the "memo" naming conflict) — **UNBLOCKED 2026-09-03.** It waited on the naming
+  that `FEAT-album-review-authoring`'s authoring surface introduces; that surface shipped as Step 4
+  (front #442). The names it now has to reconcile against are live: the header entry is **쓰기**, the
+  sheet's two kinds are **평가** / **평론**, and the private mark reads **"나중에 평론으로 쓴다"**
+  inside the rating editor. Nothing else in this RFC is open.
 
 - **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval.
   <!-- rfc: none -->
