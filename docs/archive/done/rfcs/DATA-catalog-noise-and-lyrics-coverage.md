@@ -1,16 +1,42 @@
 # DATA-catalog-noise-and-lyrics-coverage: stop ingesting noise, make lyrics coverage converge
 
-- **Status**: accepted (owner-approved in-session 2026-07-28)
+- **Status**: **done 2026-09-03** (owner-approved in-session — CLAUDE.md rule #7). All implementation
+  shipped (1a, 2, 3a, 3b, 4; 1b dropped 2026-08-03), and the three observation gates that kept this RFC
+  open are now closed — ① and ③ **re-measured against production on 2026-09-03** (below), ② retired as
+  unmeasurable by the same owner decision.
 - **Owner**: 박지훈
 - **Created**: 2026-07-25
-- **Plan row**: `plan.md` → DATA-catalog-noise-and-lyrics-coverage
+- **Plan row**: dropped on completion (2026-09-03)
 - **Absorbs**: `DATA-release-noise` item **(a) ingest-side filter** (Step 2 here is that item, with
   measurements). `DATA-release-noise` (c) exact-dup dedup stays where it is.
 - **Sibling**: `FEAT-lyrics-annotations` (Genius / "가사 이야기") — Thread 1 there is **not** in this RFC.
 
 ---
 
-## Observation gates — measured 2026-08-16
+## Observation gates — CLOSED 2026-09-03 (re-measured against production)
+
+**All three are now answered; this section is the record, not a watch list.**
+
+| gate | 2026-08-16 | **2026-09-03 (prod)** | verdict |
+|---|---|---|---|
+| ① trailing-7d classical share (target ≤8%, baseline 37%) | 0.64% (1/156) | **0.00% — 0 of 199 albums** | **MET**, and still falling |
+| ② classical-holdout misclassification rate | unmeasurable | 1 sample since 08-01, correctly classified | **RETIRED** (owner, 2026-09-03) |
+| ③ best-of supersession arm goes quiet | 1,141 rows, ~08-21 predicted | **`bestof_due` = 37 < 150 batch → `arm_gone_quiet = t`** | **MET** |
+
+Both live figures come from running the RFC's own verification queries unmodified against the production
+DSN (Step 2's Verification block for ①, `docs/sql/lyrics_pool_health.sql` query 6 for ③) — measured, not
+carried forward from the 08-16 reading. ③ landed within the window its own instrument predicted, which is
+the point of having replaced the calendar guess with the `arm_gone_quiet` boolean.
+
+**② is retired rather than left open.** The gate said "after enough `classical_holdout` samples
+accumulate." At ~1 sample per two weeks a confidence interval worth quoting is years away, so no future
+date makes it answerable, and an observation with no possible observer is not a gate — it is a line that
+outlives the RFC. If the classical predicate ever needs re-auditing, the honest instrument is owner
+engagement with excluded artists, not the holdout rate.
+
+---
+
+## Observation gates — original text, measured 2026-08-16
 
 All implementation shipped (1a, 2, 3a, 3b, 4; 1b dropped). Three observations were left open. Two
 now have answers, one is being retired as unmeasurable, and the pass found a defect in this RFC's
@@ -596,3 +622,4 @@ recorded in Step 2 and Step 3b, which are calendar items, not decisions.
 | 2026-07-25 | Every exclusion is reversible **and** carries a holdout that measures its own error rate | 2, 3 |
 | 2026-07-25 | MFF's 8 tracks get filled **by the feature**, not by a manual prod write | 4 |
 | 2026-08-03 | **Step 1b dropped** — the residue 1b targets is concentrated on queries where classical *is* the right answer, and the specced `WHERE` form would empty them (OQ1) | 1 |
+| 2026-09-03 | **Observation gates closed and the RFC completed (owner).** ① and ③ re-measured against prod (0.00% and `arm_gone_quiet = t`); ② retired as unmeasurable on the RFC's own recommendation. Status accepted → done, RFC archived, plan.md row dropped | — |

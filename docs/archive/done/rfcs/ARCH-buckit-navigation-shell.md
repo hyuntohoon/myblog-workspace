@@ -42,6 +42,8 @@
   payload contract (`lib/entityDrag.ts`) — all confirmed live and correct in *Current state*; none are
   redesigned here.
 
+- **Archived**: 2026-09-03 — moved to `docs/archive/done/rfcs/`. Retired since 2026-08-15; the file stayed in `docs/rfcs/` for 19 days after its own Status said it was dead.
+
 ---
 
 ## 2026-08-12 corrective direction (authoritative for future work)

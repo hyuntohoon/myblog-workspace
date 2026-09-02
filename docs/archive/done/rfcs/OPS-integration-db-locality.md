@@ -1,6 +1,7 @@
 # OPS-integration-db-locality: run the integration suite against a local Postgres, then let it gate deploy
 
-- **Status**: **accepted 2026-08-26** (explicit owner approval in-session — CLAUDE.md rule #7 —
+- **Status**: **done 2026-09-03** (promotion owner-approved in-session — CLAUDE.md rule #7). Originally
+  accepted 2026-08-26 (explicit owner approval in-session —
   answering the recommendations verbatim: `.sql` catalog fixture, canonical DDL as the schema source,
   and any assertion that cannot survive a seeded catalog moves to `integration_neon` rather than being
   relaxed; Step 4 later mapped that set to zero and the owner clarified local-only). **All five steps

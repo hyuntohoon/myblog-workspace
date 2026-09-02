@@ -1,11 +1,15 @@
 # ARCH-global-playback-experience: unify remaining playback state, one app-wide lyrics host, playlist-style Playback Bucket detail
 
-- **Status**: in-progress (Step 4's deferred mount-point half is next up; Step 5 is also unblocked and
-  queued after — both owner decisions made 2026-08-15, see Decisions log)
+- **Status**: **done 2026-09-03** (owner-approved in-session — CLAUDE.md rule #7). All five steps are
+  shipped and production-verified; the last two landed 2026-08-16 and this Status line was simply never
+  advanced past the 2026-08-15 decisions entry below. Step 4's deferred mount-point half shipped as
+  `ARCH-buckit-inline-navigation` Step 1 (front #409, `20669c3`) and Step 5 shipped as front #410
+  (`379b6f1`) — both verified present on `myblog_front` `origin/main` during the 2026-09-03
+  reconciliation rather than read off this file.
 - **Owner**: 박지훈
 - **Created**: 2026-08-10
-- **Plan row**: `plan.md` → ARCH-global-playback-experience
-- **Depends on**: `docs/rfcs/ARCH-buckit-inline-navigation.md` (2026-08-15 — retargeted from the retired
+- **Plan row**: dropped on completion (2026-09-03)
+- **Depends on**: `docs/archive/done/rfcs/ARCH-buckit-inline-navigation.md` (2026-08-15 — retargeted from the retired
   `ARCH-buckit-navigation-shell`) for the `variant === 'system' && bucket.kind === 'playback_queue'`
   extension point in `BucketInlineContent`, needed for the Playback Bucket's inline playlist detail
   placement. This RFC's other work (state unification, lyrics host, Step 5's persistent bar) has no
@@ -346,7 +350,7 @@ since it's purely additive and costs nothing unused).
 
 ---
 
-### Step 4 — Playback Bucket playlist detail: artwork, summary, play-all, reorder **[gated: Step 3 merged + `ARCH-buckit-inline-navigation` Step 1 merged]**
+### Step 4 — Playback Bucket playlist detail: artwork, summary, play-all, reorder — **SHIPPED 2026-08-15 (panel half, front #408 `43cb425`) + 2026-08-16 (mount-point half, front #409 `20669c3`)**
 
 **Split 2026-08-15 — the second half's gate did not hold at the time; retargeted 2026-08-15, unblocked.**
 `ARCH-buckit-navigation-shell` Step 1's `BucketDetailShell`/`playback_queue` slot was superseded again
@@ -377,7 +381,7 @@ backend field is later reverted (artwork just degrades back to the placeholder).
 
 ---
 
-### Step 5 — persistent compact playback surface **[Open question 1 resolved 2026-08-15 — this step runs]**
+### Step 5 — persistent compact playback surface — **SHIPPED 2026-08-16 (front #410, `379b6f1`)**
 
 The owner picked the always-visible-bar form (Open question 1's option (b)) after Steps 1–4 shipped and
 were available to use, per the RFC's own recommended re-evaluation-after-real-usage default. A thin

@@ -3,10 +3,11 @@
 - **Status**: superseded 2026-08-12 before production implementation; historical accepted record
 - **Owner**: 박지훈
 - **Created**: 2026-08-11
-- **Plan row**: `docs/plan.md` → FEAT-bucket-object-collapse
-- **Superseded by**: `docs/rfcs/FEAT-inline-bucket-object-expand.md`
+- **Plan row**: none — dropped when the RFC was superseded (2026-08-12)
+- **Superseded by**: `docs/archive/done/rfcs/FEAT-inline-bucket-object-expand.md` (archived alongside this one, 2026-09-03)
 - **Depends on**: none; no remaining implementation step belongs to this superseded RFC
 - **Origin**: 2026-08-11 owner brainstorm + standalone visual prototype using the supplied canonical bucket image and paper-label references
+- **Archived**: 2026-09-03 — moved to `docs/archive/done/rfcs/`. Superseded since 2026-08-12; never implemented in production.
 
 ---
 
