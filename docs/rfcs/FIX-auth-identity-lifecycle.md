@@ -140,6 +140,70 @@ Real-browser test cross-tab logout/account switch, delayed refresh, both login-r
 playback ownership reset. Remove the archived Pocket-only assumptions/comments after production
 verification; keep `FEAT-multi-user-accounts`' owner-only launch gates in Later.
 
+**Shipped 2026-09-02** — front #441 (`4280155`, deploy 33614309445, prod smoke 30/0), plus this
+record. The blocker Step 2 handed forward is gone: a full authenticated client flow **is** observable on production. Driving Chrome
+over CDP from a local Node script rather than through a tool call means the smoke password and the
+minted tokens are read from disk by the driver and typed into the hosted UI directly, so neither
+ever passes through a transcript — which is what made "a real Cognito login leaks the password" a
+false constraint rather than a real one. Every scenario below ran against the deployed bundle as
+`test@ratemymusic.blog`, and nothing was written to production (no rating saved, no bucket add
+completed).
+
+**The clickthrough found a defect, which is the second session running where a fully green suite
+did.** `PostLoginResume` is layout-mounted, so it runs in every open tab and re-attempts its drain
+on every account change, while the intent lives in `localStorage`, which all tabs share. Signing in
+was a race the visitor's own tab lost. With the tab count as the only variable, on
+`/search?q=radiohead`:
+
+| other tabs open | the tab that signed in | the other tab |
+|---|---|---|
+| 0 | «Radiohead» 담기 picker | — |
+| 1 (sitting on `/canon/`) | nothing at all | «Radiohead» 담기 picker |
+
+A probe injected before any page script showed the intent key already gone at the landing
+document's start — consumed ~250 ms earlier, while `/admin/callback` was still running. Front #441
+gives a record an owning tab (`sessionStorage`, which is per-tab and survives the hosted-UI round
+trip — re-checked on the deployed bundle rather than assumed). The tab id is a delivery address,
+not a permission: the account gate still runs after it, and must stay the thing that keeps A's
+parked add out of B's bucket. Re-running the same experiment against the deployed fix, in a fresh
+browser profile, inverts the second row — the picker lands in the tab that signed in and the other
+tab shows nothing — while the first row is unchanged.
+
+What passed, with the control that shows each assertion could have failed:
+
+- **`bucket-add` resume**, real sign-in, non-home route: picker reopens on the page the visitor
+  left. **`rate-album` resume**: the album overlay reopens with its rating editor seeded from the
+  intent — so Step 2's `openAlbumLatched` is confirmed to work in real island hydration order,
+  which was the open question it left.
+- **Cross-tab logout**: tab 2, on another route with the tray open and a drawer expanded over
+  account A's 13-item queue, went fully empty — tray cleared, the open drawer closed,
+  `pb:drawers:<A>` removed, `pb:cache:buckets:<A>` pruned. No A state survived.
+- **Account switch A→B**, driven from a genuine second tab so the `storage` event is real: drawers
+  closed, cache rescoped `<A>`→`<B>`, and the tray **refetched and repainted** — the Step 1 defect
+  (tray empty for the life of the tab) stays fixed. B's `id_token` is fabricated, so the server
+  still answered with A's rows; what is under test is the rescope/refetch mechanism, not the data.
+- **Delayed refresh**: the real Cognito 200 was held at the response stage and released after
+  another tab logged out. Held-and-released with no logout, the token **is** written back (control);
+  with the logout, it is not, and the tab correctly reports the session gone. A signed-out session
+  cannot be resurrected by an in-flight refresh.
+- **Playback bus account filter**: the same `state` message, sent from another tab, stamped with
+  the current account repaints now-playing (`— — —` → `Come Back to Earth`); stamped with a
+  different account it is dropped. Step 1 flagged this check as possibly only a type-level guard —
+  it is a real one.
+
+**Not verifiable on production, and why.** The playback *lease* release could not be exercised:
+`GET /api/playback/spotify-token` answers 404 for this account because it has no connected Spotify
+integration, which is the route's designed dormant response, so the transport never initialises and
+`ensureOwner()` is never reached. The lease half of the account boundary therefore rests on Step 1's
+tests and the bus result above. It becomes observable the first time a test account connects Spotify.
+
+**Residual cleanup was smaller than this RFC's own text implied**, because Step 2 already did the
+source half. The one live doc left was `docs/frontend/component-map.md`, which still listed
+`PocketResume` as a home island; it now describes the layout-mounted `PostLoginResume` and why the
+mounting point is what forced the owning-tab rule. The four `pb:resume` mentions still in `src` are
+deliberate — a one-deploy legacy migration key and the comments explaining the change — and the
+archived RFCs under `docs/archive/` are historical records, not stale claims.
+
 ## Verification
 
 - Front: `pnpm lint`, `pnpm exec astro check`, `pnpm test`.
