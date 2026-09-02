@@ -23,7 +23,18 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   away, so **Step 1's regression tests must be cross-tab** (a same-tab test passes against today's
   code); and claim 4 is a live production defect, not just fragmentation — `drainPocketIntent`'s only
   consumer is home-mounted while the callback returns to the source route, so a logged-out 담기 on a
-  review or album page is silently lost. *Status*: **accepted**, Step 1 in progress.
+  review or album page is silently lost.
+  **Step 1 shipped 2026-09-02** — front #439 (`e8eb156`, deploy 33574285362, prod smoke 19/0). New
+  `src/lib/authIdentity.ts` publishes identity + a monotonic generation and an `AuthEpoch` that
+  gates every token commit; `apiFetch`'s deadline now covers the 401 refresh, so a slow network can
+  no longer sign a user out; Pocket and playback ownership/session rescope and reset at the
+  boundary, and playback bus envelopes carry and check the sending account. 60 named cross-tab
+  regression tests (982 total, 0 skipped); 16 mutants applied, 15 killed and the 16th corrected a
+  comment rather than a test. A two-tab browser clickthrough caught a defect the whole suite
+  missed — the tray stayed empty for the new account because the provider's fetch effect had
+  already run — which is now fixed and covered.
+  *Status*: **accepted**, Steps 2 (general post-login intent, which owns the live `pb:resume`
+  defect) and 3 (browser validation + residual cleanup) remain.
   <!-- rfc: docs/rfcs/FIX-auth-identity-lifecycle.md | status: accepted -->
 
 - **Settings-loader required-key sweep (music + worker)** — DEFERRED by the owner 2026-08-29, and

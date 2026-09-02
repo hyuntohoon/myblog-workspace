@@ -90,6 +90,18 @@ Playback integration in this step is limited to the account boundary: release/re
 session state and reject old-account messages. Do not absorb transport/queue work from the active
 playback RFC.
 
+**Shipped 2026-09-02** — front #439 (`e8eb156`, deploy 33574285362, prod smoke 19/0).
+`src/lib/authIdentity.ts` is the lifecycle source; `auth.ts` gates the callback and refresh
+commits on the captured epoch and `logout()` invalidates before it clears; `apiFetch` awaits the
+401 refresh under its own deadline and no longer treats a missed deadline as a dead session;
+`bucketStore` rescopes and drops account A's in-flight read; the Pocket provider closes private UI,
+account-scopes `pb:drawers:<sub>` and loads the new account's tree; playback ownership stamps and
+filters bus envelopes by account and releases the lease at the boundary; the playback session
+resets and clears the reconnect hint. Two things are worth carrying forward: a real two-tab
+clickthrough found the tray sitting empty for the new account — every unit test asserted the
+clearing half and was happy — and a mutation proved the `typeof message.acct` check in
+`isOwnershipMessage` is a type-level guard, not the second filter its comment claimed.
+
 ### Step 2 — general post-login intent
 
 Replace the Pocket-only blob with a tagged `PostLoginIntent` store and a layout-mounted consumer.
