@@ -1,10 +1,15 @@
 # ARCH-entity-interaction-domain-audit: cross-domain registry + guardrails for entity-interaction fragmentation
 
 - **Status**: **in-progress** — Steps 0–4 (incl. 3a/3b/3c) all shipped 2026-08-05/06. **Only Step 5
-  remains**, and it is gated, not merely unstarted: it coordinates with `FEAT-album-review-authoring`,
-  whose own 담기 gate has missed twice. Status corrected 2026-08-16 on owner approval — the field still
-  read `draft` long after six of seven steps had shipped, which made the RFC look unstarted in every
-  listing.
+  remains**, and it is blocked, not merely unstarted: it coordinates with `FEAT-album-review-authoring`,
+  ~~whose own 담기 gate has missed twice~~ → **updated 2026-09-03: that 담기 gate was RETIRED, not passed**
+  (its fail branch had actually been true since 2026-08-10 — owner ratings left 0 and reached 37 — and was
+  acted on 24 days late). Step 5 is **still blocked, but
+  now on a design decision instead of a counter**: the naming it would settle is introduced by that RFC's
+  authoring surface, which is its **Step 4** (unified authoring entry, now that RFC's next step, OQ9 entry
+  placement still open). Step 5 unblocks when Step 4 fixes the entry. Status corrected 2026-08-16 on owner
+  approval — the field still read `draft` long after six of seven steps had shipped, which made the RFC
+  look unstarted in every listing.
 - **Owner**: 오너
 - **Created**: 2026-08-05
 - **Plan row**: `plan.md` → ARCH-entity-interaction-domain-audit
@@ -63,7 +68,12 @@ discipline, stated as such rather than oversold as automatable.
   different name before it ships — it would otherwise collide with the already-shipped bucket-item
   memo (`review_bucket_items.note`, FEAT-editor-buckit). That RFC's "one user-album state" premise is
   also false today (the bucket memo is a second, bucket-scoped state) and should be re-audited before
-  Step 3 resumes (already gated to 2026-08-12+ for unrelated reasons).
+  Step 3 resumes. ~~(already gated to 2026-08-12+ for unrelated reasons)~~ → **updated 2026-09-03: that
+  RFC's Step 3 is now DEFERRED on a falsified premise, not on a date or a counter** — prod measurement
+  found the owner writes essentially no free text to distill (33 of 37 ratings are star-only), so the
+  "memo" may never ship in this shape. Its resumption condition is that RFC's OQ13 and is undecided.
+  **This does not remove the naming work**: if a free-text field ships under any name, the collision is
+  still real, and Step 5 below is the place it gets settled.
 
 ---
 
@@ -364,8 +374,22 @@ trigger chip.
 
 ### Step 5 — memo naming resolution (docs-only, coordinates with `FEAT-album-review-authoring`)
 
-Rename the planned Step 3 "memo" concept in `FEAT-album-review-authoring` before that RFC's gate
-reopens (2026-08-12+), and correct its "one user-album state" premise against the shipped bucket memo.
+Rename the planned Step 3 "memo" concept in `FEAT-album-review-authoring`, and correct its "one
+user-album state" premise against the shipped bucket memo.
+
+**Trigger updated 2026-09-03.** The original trigger — *"before that RFC's gate reopens (2026-08-12+)"* —
+is void: that gate was **retired**, not reopened (it could no longer pass). The step is still blocked,
+but the blocker changed shape. The naming this step settles belongs to that RFC's authoring surface, and
+that surface is its **Step 4** (unified authoring entry), which is now that RFC's next step but has not
+been designed — OQ9 (entry placement) is open. Meanwhile its Step 3, the step that would introduce the
+"memo" itself, is **deferred on a falsified premise** (the owner writes no free text to distill). So:
+
+- **Do this step when `FEAT-album-review-authoring` Step 4's entry design exists**, which is when a
+  concrete name is actually on the table.
+- **Do not wait for that RFC's Step 3.** It may never ship in its current shape; the collision correction
+  and the "one user-album state" erratum are worth landing regardless, because the false premise is in the
+  document today.
+- Naming work here still has no code in it.
 
 **Verification**: doc review only; no code changes in this step.
 
@@ -376,9 +400,13 @@ reopens (2026-08-12+), and correct its "one user-album state" premise against th
 1. ~~**Who owns Step 3 (playback consolidation)** — a step here, or a step in `FEAT-member-player` /
    `FEAT-playback-bucket-player`?~~ **Resolved 2026-08-05**: stays this RFC's Step 3 — see Step 3 body
    for reasoning.
-2. **What is the actual planned design of `FEAT-album-review-authoring` Step 3's memo?** The gate gap
-   means it hasn't been re-measured since 2026-08-03; whether its design still makes sense next to the
-   shipped bucket memo is a product-intent question this audit can't answer from code.
+2. **What is the actual planned design of `FEAT-album-review-authoring` Step 3's memo?** ~~The gate gap
+   means it hasn't been re-measured since 2026-08-03~~ → **answered in part, 2026-09-03**: it *was*
+   re-measured, and the measurement went against the design — the owner writes essentially no free text
+   (33 of the owner's 37 ratings are star-only, 4 carry text averaging 17 characters), so that RFC deferred Step 3
+   and left its resumption condition open (its OQ13). Whether the memo design still makes sense next to
+   the shipped bucket memo remains a product-intent question this audit can't answer from code, and it is
+   now **less likely to be answered by shipping it** than it was when this question was written.
 3. ~~**Is `TrashDrawer`'s non-portal mount intentional** or simply missed?~~ **Resolved 2026-08-05**:
    unintentional — migrated to `useDismissable` in Step 4 on the same footing as its siblings; the
    non-portal mount itself is untouched (out of Step 4's scope) and is now the component's only

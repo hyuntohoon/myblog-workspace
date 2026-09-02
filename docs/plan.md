@@ -34,21 +34,45 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   Korean UI must not use "리뷰" for either concept. Steps 1 and 2 are shipped and prod-verified, along
   with the entrance-link/visibility defects found after Step 2.
 
-  **Blocked on a usage gate, not on implementation — do not decide while the counter is at 0.**
-  Gate condition: since front `2dcabd0` (2026-08-15, #406 — the `/search` album grid moved onto the
-  canonical `AlbumCard` with a 담기 entrance, the most direct "find an album" path gaining one for the
-  first time), bucket additions (`review_bucket_items` where `item_type='album'`) **≥10** while owner
-  ratings (`album_reviews.rating IS NOT NULL` for `user_id = OWNER_SUB`) remain 0. If additions <10,
-  do not decide. There is no re-check date — read the counter, do not guess a calendar.
-  The 2026-08-09 baseline was reset on 2026-08-15 for the same reason the 2026-08-02 one was: #406
-  changes the very funnel this gate measures. This gate has now missed twice.
+  **The usage gate is RETIRED (owner 2026-09-03). No longer blocked on a counter.** Prod on
+  2026-09-03: **37 owner ratings** (first 08-10, last 08-19, plus 1 non-owner) against **9** additions
+  since front `2dcabd0` (2026-08-15).
 
-  Remaining steps, all behind that gate: **Step 3** owner-only AI distillation pilot (C3+C4; OQ3
-  default-prompt wording deferred until the gate) · **Step 4** unified authoring entry + permission
-  cleanup (C1 + audit E-5; OQ9 entry placement open) · **Step 5** conditional general AI opening
-  (OQ4 usage limit/wait-state open). AI behaviour remains distillation only: use only material the
-  author supplied, never add outside facts/evaluations/metaphors, the result stays editable, and
-  publishing is always an explicit user action. This will be the product's first API-engine caller.
+  **This row is where the gate failed, and the failure is worth keeping.** The RFC's gate had *three*
+  branches — pass · **fail** · under-threshold — and the fail branch said exactly what to do here:
+  *"if the rating count leaves 0, this step's premise collapses; re-open what to build with the owner."*
+  **It became true on 2026-08-10 and nobody acted on it for 24 days**, because this row had flattened
+  the three branches into one AND — *"additions ≥10 **while owner ratings stay 0**"* — which drops the
+  fail branch entirely. What survived the summary was only "if additions <10, do not decide", so the
+  single action a reader could take was to wait. Three sessions read the counter and stepped back.
+  **When copying a gate into this file, carry every outcome branch or link to the RFC instead** — the
+  "re-open the decision if this breaks" branch is the first one a summary loses and the one that keeps
+  a gate alive.
+
+  **The measurement it was meant to produce came out anyway, and it inverts the gate's assumption.**
+  The gate read "owner ratings > 0" as evidence the owner rates instead of stockpiling for reviews.
+  In fact **36 of the 37 rated albums were albums already sitting in a bucket** (1 was not; 73
+  bucketed albums remain unrated): the 담기 → 평가 funnel worked. On 08-17 the owner drained 35 of
+  them in one sitting, and additions stopped that same day — the counter stalled at 9 because the
+  backlog was spent, not because the funnel died. Weekly additions: 07-20:3 · 07-27:23 · 08-03:4 ·
+  08-10:4 · 08-17:5 · then 0 for 17 days.
+
+  **Two premises behind the remaining steps were falsified by the same measurement**, and both are
+  recorded in the RFC: **33 of 37 ratings are star-only** (4 carry text, averaging 17 characters), and
+  **C6 평론 후보 표시 has exactly 1 mark ever** (2026-08-10, on a row with no rating; none of the 38
+  rated rows is marked). Published reviews remain **0** (5 drafts, last touched 07-27).
+
+  **Order re-set (owner 2026-09-03): Step 4 first; Steps 3 and 5 are deferred, not scheduled.**
+  · **Step 4 — next, and startable today**: unified authoring entry + permission cleanup (C1 + audit
+  **E-5**, `/write` checking only login — a real open hole that has been parked behind the gate; OQ9
+  entry placement open). It is the one step this measurement does not touch.
+  · **Step 3 (owner-only AI distillation, C3+C4) — DEFERRED.** Its premise is that the owner writes
+  unstructured 자유 감상 for the AI to distill; the owner writes essentially no text at all. Do not
+  start it, and do not tune OQ3's default prompt, until the owner sets a new resumption condition.
+  · **Step 5 (conditional general AI opening) — DEFERRED**, dependent on Step 3.
+  AI behaviour, if Step 3 ever resumes, remains distillation only: use only material the author
+  supplied, never add outside facts/evaluations/metaphors, the result stays editable, and publishing
+  is always an explicit user action.
 
 - **ARCH-entity-interaction-domain-audit** (`docs/rfcs/ARCH-entity-interaction-domain-audit.md`,
   <!-- rfc: docs/rfcs/ARCH-entity-interaction-domain-audit.md | status: in-progress -->
@@ -56,9 +80,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   bucket-add flow, modal infrastructure and global events. **Steps 1, 2, 3 (3a/3b/3c) and 4 are complete
   and prod-verified.**
 
-  **Next = Step 5** (the "memo" naming conflict) — **blocked behind `FEAT-album-review-authoring`'s gate
-  above**, because the naming it would settle is the naming that RFC's authoring surface introduces.
-  Nothing else in this RFC is open.
+  **Next = Step 5** (the "memo" naming conflict). The `FEAT-album-review-authoring` gate that used to
+  block it was retired on 2026-09-03, but Step 5 is **still blocked — now on a design decision rather
+  than a counter**: the naming it would settle is the naming that RFC's authoring surface introduces,
+  and that surface is Step 4, which has not been designed yet (OQ9 entry placement is open). Unblocks
+  when Step 4 fixes the entry. Nothing else in this RFC is open.
 
 - **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval.
   <!-- rfc: none -->
