@@ -1,6 +1,8 @@
 # FEAT-youtube-playback-provider: YouTube as a second playback provider
 
-- **Status**: draft
+- **Status**: in-progress — promoted from `draft` on **2026-09-05 with explicit owner
+  approval in-session** (CLAUDE.md hard rule 7; Claude never self-promotes). The owner
+  answered Open question 1 — Milestone A starts — and Step A1 shipped the same day.
 - **Owner**: TBD
 - **Created**: 2026-09-05
 - **Plan row**: `plan.md` → FEAT-youtube-playback-provider
@@ -314,6 +316,22 @@ Migration applied to production and the Neon test branch in the same session;
 
 **Rollback**: revert the code PR. The table is unread by anything else.
 
+**SHIPPED 2026-09-05.** `V55__track_provider_refs.sql` applied to **prod and the
+Neon test branch in the same session**, structure then read back column-by-column
+from both and found identical. The four CHECKs, the UNIQUE and the FK CASCADE were
+exercised as *behaviour* on the test branch inside a rolled-back transaction, not
+merely confirmed present: `provider='spotify'` rejected, `source='search_auto'`
+rejected, a valid row accepted with `verify_state='live'` and the III.E.4 clock set,
+a second video for the same track rejected, and deleting the track cascading the
+mapping to zero. `resolve_uri` gained the `provider` argument with the control test
+the step demanded. The two false `FEAT-pocket-buckit` claims and the
+`spotifyPlayback.ts` comment were corrected in the same change.
+
+One number in _Current state_ is already a snapshot rather than a constant:
+`tracks` read **31,096** rows on 2026-09-05, against the 30,875 measured 2026-09-04.
+The backfill arithmetic is unaffected — it is still hundreds of days of saturated
+`search.list` quota — but do not quote 30,875 as a fixed catalog size.
+
 ---
 
 ### Step A2 — Candidate search in music
@@ -438,8 +456,10 @@ source says no, and none of them is Google.
 
 ## Open questions
 
-1. **Does the owner want Milestone A started at all?** — Phase 0-A returned GO,
-   which removes the *technical* objection, not the *priority* one. Blocks A1.
+1. ~~**Does the owner want Milestone A started at all?**~~ — **ANSWERED 2026-09-05:
+   yes.** The owner approved starting Milestone A and promoting this RFC in the same
+   instruction. A1 shipped that day; A2 remains blocked on the Console quota read
+   (Open question 2), not on this.
 2. **Phase 0-A step 3 (IFrame error codes) was not run.** — Blocks A4, not A1.
    It is the only evidence for the `100`/`101/150` → `'unavailable'` mapping the
    adapter depends on.
@@ -464,3 +484,6 @@ source says no, and none of them is Google.
 | 2026-09-05 | Phase 0-A run. Correct-version **20/20**, embeddable **20/20**, controls pass → **GO**. The "~34% wrong-version" figure carried through three RFCs does not hold on this catalog. | A0 |
 | 2026-09-05 | CSP hosts merged (ws #984) without waiting for the numbers, because a closed CSP makes a player spike produce a wrong result rather than a weak one. Not applied — owner applies workspace infra locally. | A0 |
 | 2026-09-05 | Google Cloud project + YouTube Data API v3 key created by the owner; stored SSM SecureString `/myblog/youtube`. Console quota figures not read — the documented defaults are assumed and must be confirmed before A2. | A0 |
+| 2026-09-05 | **Owner approved starting Milestone A and promoted this RFC `draft` → `in-progress`** (hard rule 7 — the approval was given in-session; Claude does not self-promote). Open question 1 closes. `in-progress` rather than `accepted` because A1 shipped the same day, so `accepted` would understate the state. | A1 |
+| 2026-09-05 | **Step A1 shipped.** V55 applied to prod + the Neon test branch in one session; constraints verified as behaviour on the test branch (spotify rejected, search_auto rejected, one-video-per-track enforced, FK CASCADE confirmed), not merely listed from `pg_constraint`. `resolve_uri(provider=…)` added with the control test that omitting the argument still returns the Spotify URI. | A1 |
+| 2026-09-05 | **`FEAT-pocket-buckit` corrected in place** (two errata in `docs/archive/done/rfcs/`): the provider-neutral-membership claim never shipped, "~34% wrong-version" is unsourced and false on this catalog, and the `search.list` quota shape has changed. The archived text is left standing with the correction attached rather than rewritten — the record of what was believed is itself the finding. | A1 |

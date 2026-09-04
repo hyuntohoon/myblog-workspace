@@ -16,8 +16,10 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V54 (V54 pending_reratings; V53
---   tracks.disc_no; V52 planned_ratings). V51 was authored 2026-08-03 —
+-- This file shows clean canonical DDL through V55 (V55 track_provider_refs,
+--   FEAT-youtube-playback-provider Step A1 — authored + prod-applied
+--   2026-09-05, and applied to the Neon test branch in the same session; V54
+--   pending_reratings; V53 tracks.disc_no; V52 planned_ratings). V51 was authored 2026-08-03 —
 --   FEAT-playback-bucket-player Step 2, the 'playback' bucket type +
 --   idx_review_buckets_single_playback). NB: V49 and V50 DDL was already present
 --   in the body while BOTH version-claim blocks still read V47/V48 — the same
@@ -1241,10 +1243,61 @@ CREATE TABLE IF NOT EXISTS spotify_member_now_playing (
 );
 
 -- =============================================================================
+-- Playback provider refs (V55; FEAT-youtube-playback-provider Step A1). The
+-- track-level sibling of artist_source_ids above: one external id per
+-- (track, provider). Spotify is NOT stored here — tracks.spotify_id stays
+-- in-row, NOT NULL and UNIQUE, and `ck_tpr_provider` excludes 'spotify' so this
+-- table cannot quietly become a second home for it.
+--
+-- last_verified_at is a COMPLIANCE field, not a cache hint. YouTube Developer
+-- Policy III.E.4.c requires stored API data to be deleted or refreshed within
+-- 30 calendar days, and III.E.4.d extends the same ceiling to a videoId taken
+-- from a plain public search.list. A row past 30 days is DELETED by the refresh
+-- job, not merely re-fetched on demand. idx_tpr_stale is that job's scan index.
+--
+-- UNIQUE (track_id, provider) = one video per track in v1. Official Audio vs
+-- Music Video vs Live is a real ambiguity; the v1 answer is that the member
+-- picks one and can re-pick. `source` has deliberately NO 'search_auto' value:
+-- there is no unconfirmed mapping in v1, and the CHECK says so rather than
+-- prose. Measured 2026-09-05: 3 of 20 top search results were unofficial
+-- uploads, which is why verify_state exists at all.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS track_provider_refs (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  track_id         UUID        NOT NULL REFERENCES tracks (id) ON DELETE CASCADE,
+  provider         TEXT        NOT NULL,
+  external_id      TEXT        NOT NULL,        -- YouTube videoId
+  external_kind    TEXT        NOT NULL,        -- 'video'
+  source           TEXT        NOT NULL,        -- how the mapping was established
+  embeddable       BOOLEAN,                     -- videos.list status.embeddable
+  privacy_status   TEXT,                        -- videos.list status.privacyStatus
+  made_for_kids    BOOLEAN,                     -- videos.list status.madeForKids
+  duration_sec     INTEGER,                     -- contentDetails.duration, parsed
+  verify_state     TEXT        NOT NULL DEFAULT 'live',
+  last_verified_at TIMESTAMPTZ NOT NULL DEFAULT now(),   -- the III.E.4 clock
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_tpr_provider     CHECK (provider IN ('youtube')),
+  CONSTRAINT ck_tpr_kind         CHECK (external_kind IN ('video')),
+  CONSTRAINT ck_tpr_source       CHECK (source IN ('user_confirmed', 'playlist_import')),
+  CONSTRAINT ck_tpr_verify_state CHECK (verify_state IN ('live', 'gone', 'not_embeddable')),
+  CONSTRAINT uq_tpr_track_provider UNIQUE (track_id, provider)
+);
+-- The refresh job's scan: oldest live rows first (III.E.4 retention sweep).
+CREATE INDEX IF NOT EXISTS idx_tpr_stale
+  ON track_provider_refs (last_verified_at)
+  WHERE verify_state = 'live';
+
+-- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
--- This file is current through V54 (pending_reratings, FEAT-album-rerating Step
+-- This file is current through V55 (track_provider_refs,
+-- FEAT-youtube-playback-provider Step A1 — authored + prod-applied 2026-09-05;
+-- structure verified column-by-column against BOTH prod and the Neon test
+-- branch after apply, and its four CHECKs / UNIQUE / FK CASCADE exercised as
+-- behaviour, not merely listed), after V54 (pending_reratings,
+-- FEAT-album-rerating Step
 -- 1), after V53 (tracks.disc_no, DATA-multidisc-track-order Step 1), V52
 -- (planned_ratings, FEAT-rating-smart-collections Step 2), V51 ('playback'
 -- bucket type + idx_review_buckets_single_playback,
