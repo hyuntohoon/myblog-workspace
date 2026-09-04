@@ -127,6 +127,37 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   delete step; keep it reversible. *Status*: not started. **Re-measure before starting** — the figure
   above is from 2026-08-16 and the catalog has grown since.
 
+- **FEAT-youtube-playback-provider** (`docs/rfcs/FEAT-youtube-playback-provider.md`, draft) — a second
+  <!-- rfc: docs/rfcs/FEAT-youtube-playback-provider.md | status: draft -->
+  playback provider so a member without a Spotify account can play the tracks in their Buckit. Spotify
+  stays the catalog, the ingest path and the default player; nothing in `spotifyPlayback.ts`, the queue
+  or membership changes.
+
+  **Phase 0-A ran 2026-09-05 and returned GO.** It existed because the two numbers governing this
+  decision were borrowed rather than measured. On a 20-track reproducible sample of our own catalog
+  plus 2 controls: top result is the **correct studio version 20/20** (16/20 if every uncertain call is
+  counted against us), **wrong-version 0**, **no-result 0**, **`status.embeddable` 20/20**. Gate was
+  ≥12/20 and ≥16/20. Both controls passed, so the score is not a lenient-harness artefact. **The
+  "~34% wrong-version" figure carried through three RFCs is not true of this catalog** — it was the
+  load-bearing justification for the deferral and it does not hold. Cohort split, the three findings
+  the counts do not show, and the sample composition → the RFC's *Current state*.
+
+  **Shipped already**: the CSP allowlist (ws #984) and the Cloud project + API key in SSM
+  `/myblog/youtube`. **Merging #984 did not deploy it** — workspace infra is applied by the owner
+  locally, so the IFrame API is still blocked in production until that apply lands.
+
+  **What is open — all of it the owner's:**
+  - **Does Milestone A start?** Phase 0-A removed the technical objection, not the priority one.
+    Steps A1–A5 are specified and independently revertible; nothing is under way.
+  - **The owner applies the workspace infra** (`terraform apply`), then a real-browser check that the
+    Spotify SDK still loads — a CSP edit affects every page.
+  - **The API key was pasted into a session transcript 2026-09-05 and is an exposed credential.** The
+    owner chose to keep using it. Rotate before A2 puts it on a live user-facing path.
+  - Phase 0-A step 3 (IFrame `onError` codes `100` / `101/150`) was **not run**. It gates A4, not A1.
+  - Milestone B stays closed behind Phase 0-B, which needs a real account with real YouTube Music use.
+    No table is designed until it returns — that is the specific failure mode `FEAT-pocket-buckit`
+    demonstrated over fifteen months.
+
 - **Settings-loader required-key sweep (music + worker)** — **DEFERRED by the owner 2026-08-29.**
   <!-- rfc: none -->
   Tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
