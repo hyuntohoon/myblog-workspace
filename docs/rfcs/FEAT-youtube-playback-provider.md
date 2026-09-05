@@ -332,16 +332,60 @@ not a broken endpoint.
 
 **Rollback**: revert the code PR. The table is unread by anything else.
 
-**SHIPPED 2026-09-05.** `V55__track_provider_refs.sql` applied to **prod and the
-Neon test branch in the same session**, structure then read back column-by-column
-from both and found identical. The four CHECKs, the UNIQUE and the FK CASCADE were
-exercised as *behaviour* on the test branch inside a rolled-back transaction, not
-merely confirmed present: `provider='spotify'` rejected, `source='search_auto'`
-rejected, a valid row accepted with `verify_state='live'` and the III.E.4 clock set,
-a second video for the same track rejected, and deleting the track cascading the
-mapping to zero. `resolve_uri` gained the `provider` argument with the control test
-the step demanded. The two false `FEAT-pocket-buckit` claims and the
-`spotifyPlayback.ts` comment were corrected in the same change.
+**SHIPPED AND DEPLOYED 2026-09-05**, across five PRs in the corrected order:
+workspace #986 (canonical DDL, this RFC's promotion, the `FEAT-pocket-buckit`
+errata) → workspace #987 (the review fixes below) → shared_db #80 (`65a13f9`) →
+backend #174 (`9629e0b`, deploy run `33936566712` green) → workspace #988
+(contract) → front #443 (`0f1598e`).
+
+`V55__track_provider_refs.sql` was applied to **prod and the Neon test branch in
+the same session**, structure read back column-by-column from both and found
+identical. Constraints were exercised as *behaviour* rather than confirmed
+present: `provider='spotify'` rejected, a non-`user_confirmed` source rejected, a
+valid row accepted with `verify_state='live'` and the III.E.4 clock set, a second
+video for the same track rejected, deleting the track cascading the mapping to
+zero. Those checks now live as **committed** tests in the backend integration
+suite, because a manual session is not a regression test.
+
+**Verified against production after the deploy**, not only in CI: the control
+(no `provider`) still returns the Spotify URI; `provider=spotify` is identical;
+`provider=youtube` on an unmapped track is 404; `provider=soundcloud` is 422 at
+the edge and never falls through to Spotify. With one temporary mapping row,
+`provider=youtube` returned `youtube:video:…` **while the default still returned
+the Spotify URI**, and the same row aged to 31 days was correctly refused by the
+retention filter. Row deleted afterwards; the table is back to 0. `smoke.sh prod`
+30/30, 0 failures.
+
+**Corrected mid-step after an independent review, before the remaining merges.**
+Three of the findings were defects this step would otherwise have shipped:
+
+- `idx_tpr_stale` was partial on `verify_state='live'` while its comment claimed
+  it served the III.E.4 sweep. It **excluded exactly the rows the sweep exists
+  for** — a `'gone'` row still stores a videoId, `privacy_status` and
+  `made_for_kids`, so the 30-day clock applies to it in full. Now unconditional.
+- `ck_tpr_source` permitted `'playlist_import'`, advertising a capability the
+  table's shape cannot deliver (see open question 7). Narrowed to
+  `'user_confirmed'`.
+- The backend integration file opened with `CREATE TABLE IF NOT EXISTS <the whole
+  DDL>`, which would have made those tests green **whether or not V55 was applied
+  or correct**. It now asserts the table and all five constraints exist and fails
+  loudly if the pin was not bumped.
+
+Both DDL corrections were applied to prod and the test branch as an explicit
+delta under a row-count guard that refuses to run on a non-empty table.
+
+Also from the review, and now written into this step: the shared-db pin has
+**three** sites in backend, and the merge order stated here was wrong in a way
+that would have redded a required check.
+
+Resolve additionally filters on `last_verified_at` inside 30 days — the review's
+observation that the compliance argument had no enforcement at all until the
+Step-A5 job exists, and that a sweep which is down is not a sweep.
+
+The two false `FEAT-pocket-buckit` claims and the `spotifyPlayback.ts` comment
+were corrected in the same step. The "29 production playback rows carry
+`track_id`" figure was re-measured directly rather than quoted: `item_type =
+'playback'` → 29 rows, 29 with `track_id`, 0 without.
 
 One number in _Current state_ is already a snapshot rather than a constant:
 `tracks` read **31,096** rows on 2026-09-05, against the 30,875 measured 2026-09-04.
@@ -531,4 +575,6 @@ source says no, and none of them is Google.
 | 2026-09-05 | Google Cloud project + YouTube Data API v3 key created by the owner; stored SSM SecureString `/myblog/youtube`. Console quota figures not read — the documented defaults are assumed and must be confirmed before A2. | A0 |
 | 2026-09-05 | **Owner approved starting Milestone A and promoted this RFC `draft` → `in-progress`** (hard rule 7 — the approval was given in-session; Claude does not self-promote). Open question 1 closes. `in-progress` rather than `accepted` because A1 shipped the same day, so `accepted` would understate the state. | A1 |
 | 2026-09-05 | **Step A1 shipped.** V55 applied to prod + the Neon test branch in one session; constraints verified as behaviour on the test branch (spotify rejected, search_auto rejected, one-video-per-track enforced, FK CASCADE confirmed), not merely listed from `pg_constraint`. `resolve_uri(provider=…)` added with the control test that omitting the argument still returns the Spotify URI. | A1 |
+| 2026-09-05 | **Step A1 review found three shipping defects**, all fixed before the remaining merges: a partial `idx_tpr_stale` that excluded the rows the III.E.4 sweep exists for; `ck_tpr_source` advertising `'playlist_import'` against a table shape that cannot support it; and an integration suite that created its own copy of the table and so could not fail if V55 were wrong. Also caught: a third pin site in `deploy.yml`, and a stated merge order that would have redded shared_db's required check. Open questions 7-9 opened rather than silently decided. | A1 |
+| 2026-09-05 | **A1 deployed and verified in production** — backend run `33936566712`, `smoke.sh prod` 30/30. The endpoint was exercised live on six paths including the no-parameter control and a temporary mapping row (deleted afterwards). **A2 is NOT unblocked**: it still needs the real `search.list` quota read from the Console. | A1 |
 | 2026-09-05 | **`FEAT-pocket-buckit` corrected in place** (two errata in `docs/archive/done/rfcs/`): the provider-neutral-membership claim never shipped, "~34% wrong-version" is unsourced and false on this catalog, and the `search.list` quota shape has changed. The archived text is left standing with the correction attached rather than rewritten — the record of what was believed is itself the finding. | A1 |

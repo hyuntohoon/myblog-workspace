@@ -147,15 +147,33 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   locally, so the IFrame API is still blocked in production until that apply lands.
 
   **Milestone A started 2026-09-05** on explicit owner approval, which also promoted the RFC
-  `draft` → `in-progress` (hard rule 7). **Step A1 is shipped**: `V55__track_provider_refs.sql`
-  applied to prod *and* the Neon test branch in the same session, its four CHECKs / UNIQUE / FK
-  CASCADE exercised as behaviour on the test branch rather than read out of `pg_constraint`, and
-  `resolve_uri` given its `provider` argument with the control test that omitting it still returns
-  the Spotify URI. The same change corrected the two false `FEAT-pocket-buckit` claims and the
-  `spotifyPlayback.ts` comment that repeated one of them.
+  `draft` → `in-progress` (hard rule 7). **Step A1 is shipped, deployed and prod-verified** across
+  five PRs (ws #986 → ws #987 → shared_db #80 → backend #174 → ws #988 → front #443).
+  `V55__track_provider_refs.sql` is applied to prod and the Neon test branch; `resolve_uri` takes
+  an optional `provider`. Verified live after deploy, not only in CI: the no-parameter control
+  still returns the Spotify URI, `provider=youtube` resolves a mapped track while the default is
+  unchanged, an unmapped track 404s, an unknown provider 422s at the edge, and a 31-day-old
+  mapping is refused by the III.E.4 retention filter. `smoke.sh prod` 30/30. The same step
+  corrected the two false `FEAT-pocket-buckit` claims and the `spotifyPlayback.ts` comment.
 
-  **Next is A2** (candidate search in music) — **blocked on reading the real `search.list` quota in
-  the Console**, which has never been done; the documented defaults are still an assumption.
+  **A mid-step review caught three defects A1 would otherwise have shipped** — a partial index
+  that excluded exactly the rows the retention sweep exists for, a CHECK advertising a capability
+  the table cannot support, and an integration suite that created its own copy of the table and so
+  could not fail if the migration were wrong. All fixed before the remaining merges; details in
+  the RFC's A1 section.
+
+  **Next is A2** (candidate search in music) — **still blocked on reading the real `search.list`
+  quota in the Console**, which has never been done; the documented defaults are still an
+  assumption. A1 did not unblock it.
+
+  **Three new owner/design questions came out of A1**, none of them A1's to answer:
+  - **OQ7 — are mappings global or per-member? BLOCKS A3.** The table has no member column, so
+    A3's unmap route would let any member re-point what everyone sees. Adding `member_id` later
+    means altering a UNIQUE constraint on a populated table.
+  - OQ8 — `resolve` cannot distinguish "never mapped" from "mapped but dead", and the frontend
+    caches a 404 durably. A3's "wrong video" affordance needs that distinction. Decide before A4.
+  - OQ9 — should `embeddable` be `NOT NULL` at write time? A3's PUT verifies before writing, so
+    the NULL-tolerant read filter protects nothing in v1.
 
   **What is open — all of it the owner's:**
   - **The owner applies the workspace infra** (`terraform apply`), then a real-browser check that the
