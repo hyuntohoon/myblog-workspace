@@ -303,7 +303,16 @@ schema mirrors diffed in the same change. **Also corrects the
 _Current state_. That correction ships here rather than as its own chore because
 this is the step whose design the false claim would otherwise misdirect.
 
-Repos: shared_db → backend → workspace. Prereq: A0.
+Repos, **in this order**: workspace (canonical schema) → shared_db → backend
+(+ the shared-db pin) → workspace (merged contract) → front. Prereq: A0.
+
+The order matters and the obvious one is wrong. shared_db's required `test`
+check runs `cmp tests/canonical_schema.sql` against **workspace `main`**
+(`ci.yml`), so shared_db cannot go green until the workspace schema PR has
+merged — `docs/contracts/README.md` steps 1–3 say the same. And front is not
+optional here: this step's own spec corrects `spotifyPlayback.ts`, and the
+backend merge invalidates `docs/contracts/openapi.json` until the contract is
+re-merged.
 
 **Verification**:
 ```
@@ -313,6 +322,13 @@ pytest
 ```
 Migration applied to production and the Neon test branch in the same session;
 `/api/playback/resolve` exercised with and without the param.
+
+**The shared-db pin has THREE sites in backend, not two** — `requirements.txt`,
+`requirements.lock` (regenerate with `scripts/compile_requirements.sh`, never by
+hand), and a hardcoded SHA in `.github/workflows/deploy.yml` used to load the
+canonical schema for the integration job. `TrackProviderRef` is imported at
+module scope, so a missed bump is an import-time failure for the whole Lambda,
+not a broken endpoint.
 
 **Rollback**: revert the code PR. The table is unread by anything else.
 
@@ -472,6 +488,35 @@ source says no, and none of them is Google.
 5. **One video per track, or several with a choice at play time?** — v1 answers
    "one, re-pickable" via `UNIQUE (track_id, provider)`. Revisit only if the
    confirm UI shows members wanting both an audio and a video mapping.
+
+7. **Are mappings global or per-member? BLOCKS A3, and A3 cannot dodge it.**
+   Raised by the Step-A1 review. `track_provider_refs` has no member column and
+   `UNIQUE (track_id, provider)` makes every mapping global, so A3's
+   `DELETE /api/playback/providers/youtube/mapping/{track_id}` lets **any
+   authenticated member re-point what every other member sees** — an
+   authorization question, not a UI one. It also makes B1's "disconnect deletes
+   that member's YouTube-derived rows" unimplementable and B2's import collide
+   on the unique key. A1 therefore removed `'playlist_import'` from
+   `ck_tpr_source` rather than let the CHECK advertise a shape the table cannot
+   support. Global is defensible for a catalog-wide mapping (it is closer to
+   `artist_source_ids` than to a preference), but it must be **decided**, not
+   inherited: adding `member_id` later means altering a UNIQUE constraint on a
+   populated table.
+
+8. **`resolve` collapses "never mapped" and "mapped but dead" into one 404.**
+   Raised by the Step-A1 review. `uris.ts` caches a 404 durably for the tab, so
+   once A4 lands, a video that goes `'gone'` mid-session is remembered as
+   "unmapped" and A3's "wrong video" affordance never appears. A1 is right to
+   404 both; what is missing is a way for A3/A4 to tell them apart. Decide the
+   mechanism before A4, not during it.
+
+9. **Should `embeddable` be `NOT NULL` at write time?** Raised by the Step-A1
+   review, which showed A1's stated rationale for `embeddable IS NOT FALSE` is
+   inverted: A3's PUT is specified to verify with `videos.list` **before** write,
+   so the only v1 writer always has the value and can never produce NULL. The
+   NULL-tolerant filter therefore protects nothing in v1 and would, in B2, hand
+   the player a possibly non-embeddable video. If A3 writes it `NOT NULL`, the
+   filter can tighten to `IS TRUE` and the ambiguity disappears.
 6. **The API key in SSM `/myblog/youtube` was pasted into a session transcript
    on 2026-09-05 and is therefore an exposed credential.** The owner chose to
    keep using it. It should be rotated before A2 puts it on a live user-facing
