@@ -142,9 +142,20 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   load-bearing justification for the deferral and it does not hold. Cohort split, the three findings
   the counts do not show, and the sample composition → the RFC's *Current state*.
 
-  **Shipped already**: the CSP allowlist (ws #984) and the Cloud project + API key in SSM
-  `/myblog/youtube`. **Merging #984 did not deploy it** — workspace infra is applied by the owner
-  locally, so the IFrame API is still blocked in production until that apply lands.
+  **Step A0 is SHIPPED (2026-09-06).** The ws #984 CSP allowlist is **applied** — and the gap is
+  worth keeping: the LIVE CloudFront function was read immediately before the apply and carried no
+  YouTube host at all, **32 days after the merge**. Post-apply regression on the production origin
+  under the enforcing CSP: `window.Spotify` and `window.YT` both load, a nocookie iframe frames,
+  and `securitypolicyviolation` fired zero times. **Never read "merged" as "deployed" for workspace
+  infra.**
+
+  **Phase 0-A step 3 ran and refuted this RFC's own error-code mapping**: embed-disabled returns
+  `150` as documented, but four separate deleted/private/nonexistent ids ALSO returned `150` and
+  **`100` was produced by nothing**. Consequence for A4: `onError` cannot distinguish "gone" from
+  "embed-disabled", so it must not branch on the codes — `videos.list` in A5 is the discriminator,
+  which is what `verify_state` already does. A control caught a harness defect first (served from
+  `http://127.0.0.1` *every* case returned 150, including the embeddable control), so without the
+  control this would have been recorded as a false finding.
 
   **Milestone A started 2026-09-05** on explicit owner approval, which also promoted the RFC
   `draft` → `in-progress` (hard rule 7). **Step A1 is shipped, deployed and prod-verified** across
@@ -162,10 +173,33 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   could not fail if the migration were wrong. All fixed before the remaining merges; details in
   the RFC's A1 section.
 
-  **Next is A2** (candidate search in music) — **still blocked on reading the real `search.list`
-  quota in the Console**, which has never been done; the documented defaults are still an
-  assumption. A1 did not unblock it, and neither did answering OQ7–9: A3's remaining prerequisite
-  is A2, so the whole milestone still waits on that one Console read.
+  **Step A2 is SHIPPED (2026-09-06)** — `GET /api/music/search/youtube-candidates`, one
+  `search.list` + one `videos.list` enrichment, ranked by duration proximity, never auto-accepted.
+  Live call against the real API for 5 production tracks: 5/5 returned candidates with the correct
+  match first.
+
+  **The Console quota read is retired as a gate** (now RFC OQ10), and **the gate never had a
+  number**: OQ1 cited it as "Open question 2", which is the IFrame error codes, and that
+  mis-pointer travelled through two session hand-offs. It is retired because no code path depends
+  on the figure — A2 reacts to Google's own 403 `reason` and maps it to a distinct `429` without
+  retrying, so a cap of 100 or 1,000 changes how many mappings a day members get, not what the
+  service does. The one thing the number was load-bearing for (forbidding a backfill) holds at any
+  plausible cap. Live evidence beat the Console figure anyway: 500 `search.list` units succeeded,
+  so the pool is ≥515.
+
+  **The live call sharpened "ranked, never auto-accepted" beyond what Phase 0-A showed.** Phase 0-A
+  said 3 of 20 top results were unofficial uploads. The sharper fact is what proximity ranking
+  actually promotes: for 호미들 "끝" the top candidate by duration delta is a fan LYRIC video tied at
+  1s with the correct `- Topic` upload, and Baby Keem "scapegoats" ties the official audio at 3s
+  with an INSTRUMENTAL. A karaoke/instrumental/lyric re-upload matches the real duration to the
+  second, so **duration proximity does not merely fail to detect a wrong version — it promotes
+  one.** `channel_title` is in the response because a human is the only component that can
+  separate them.
+
+  **Next is A3** (confirm-and-save UI + two backend mutation routes). Its prerequisites A1 and A2
+  are both now shipped. A3 also carries a schema change: V55 has **no `created_by_member_id`
+  column**, which OQ7's attribution decision requires, and OQ9's `embeddable NOT NULL` — so A3
+  opens with a V56 migration while the table is still at 0 rows.
 
   **The three design questions A1 opened are answered 2026-09-05**, by Claude under an explicit
   owner delegation ("너가 알아서 해봐" / "handle it as you see fit") rather than chosen by the owner — recorded that way in the

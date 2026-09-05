@@ -1277,7 +1277,12 @@ CREATE TABLE IF NOT EXISTS track_provider_refs (
   external_id      TEXT        NOT NULL,        -- YouTube videoId
   external_kind    TEXT        NOT NULL,        -- 'video'
   source           TEXT        NOT NULL,        -- how the mapping was established
-  embeddable       BOOLEAN,                     -- videos.list status.embeddable
+  -- V56 (Step A3, RFC OQ9): NOT NULL. The A1 rationale for tolerating NULL was
+  -- inverted — A3's write verifies with videos.list BEFORE inserting, so the
+  -- only v1 writer can never produce NULL, and the resolve filter tightens from
+  -- `IS NOT FALSE` to `IS TRUE` in the same change. Applied while the table was
+  -- still at 0 rows, so there is nothing to backfill.
+  embeddable       BOOLEAN     NOT NULL,        -- videos.list status.embeddable
   privacy_status   TEXT,                        -- videos.list status.privacyStatus
   made_for_kids    BOOLEAN,                     -- videos.list status.madeForKids
   duration_sec     INTEGER,                     -- contentDetails.duration, parsed
@@ -1285,6 +1290,19 @@ CREATE TABLE IF NOT EXISTS track_provider_refs (
   last_verified_at TIMESTAMPTZ NOT NULL DEFAULT now(),   -- the III.E.4 clock
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- V56 (Step A3, RFC OQ7): ATTRIBUTION AND AUDIT ONLY. It must never be read
+  -- by an authorization check — doing so reintroduces per-member ownership
+  -- through the back door, which OQ7 decided against on a measurement (the 29
+  -- live playback rows split owner 16 / one non-owner member 13, so owner-only
+  -- would lock out ~45% of this surface's real use). A3 authorizes on STANDING
+  -- instead: the caller holds the track in one of their own buckets.
+  --
+  -- ON DELETE SET NULL, deliberately NOT CASCADE. Every other user-attached
+  -- table in this schema cascades because the row IS the member's. This row is
+  -- not: it is a global catalog fact that every member resolves against, and it
+  -- carries a shared 30-day compliance clock. Cascading would let deleting one
+  -- member silently delete mappings everyone else is playing.
+  created_by_member_id UUID     REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT ck_tpr_provider     CHECK (provider IN ('youtube')),
   CONSTRAINT ck_tpr_kind         CHECK (external_kind IN ('video')),
   -- Only 'user_confirmed' — see the section header for why 'playlist_import'
@@ -1305,7 +1323,14 @@ CREATE INDEX IF NOT EXISTS idx_tpr_stale
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
--- This file is current through V55 (track_provider_refs,
+-- This file is current through V56 (track_provider_refs.embeddable NOT NULL +
+-- created_by_member_id, FEAT-youtube-playback-provider Step A3, RFC OQ7+OQ9 —
+-- authored 2026-09-06). Both land in Step A3 rather than A1 because A3 is the
+-- table's FIRST WRITER: the table is still at 0 rows when the migration runs,
+-- so `SET NOT NULL` is instant and there is nothing to backfill.
+-- `created_by_member_id` is ATTRIBUTION ONLY and is `ON DELETE SET NULL`, not
+-- CASCADE — the row is a global catalog fact every member resolves against, not
+-- the creating member's property. After V55 (track_provider_refs,
 -- FEAT-youtube-playback-provider Step A1 — authored + prod-applied 2026-09-05,
 -- then CORRECTED pre-merge the same day after review: ck_tpr_source narrowed to
 -- 'user_confirmed' only, and idx_tpr_stale made unconditional. Structure

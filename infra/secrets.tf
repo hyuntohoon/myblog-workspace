@@ -61,9 +61,22 @@ resource "aws_iam_role_policy_attachment" "backend_ssm" {
   policy_arn = aws_iam_policy.backend_ssm_read.arn
 }
 
-# --- music role: read /myblog/music, decrypt ---
+# --- music role: read /myblog/music + /myblog/youtube, decrypt ---
+# FEAT-youtube-playback-provider Step A2: the YouTube Data API key lives in its
+# OWN parameter, not inside the /myblog/music blob, because the Step A5 refresh
+# job in myblog_worker reads the same credential — one key, one home, one
+# rotation. kms:Decrypt below already covers it: SSM SecureStrings in this
+# account all use the AWS-managed aws/ssm key (verified live 2026-09-06,
+# alias/aws/ssm -> c2b7ee35-...), which is the same ARN this statement grants.
+# Read-only: nothing in Milestone A writes this parameter back.
 resource "aws_iam_policy" "music_ssm_read" {
-  name        = "myblog-music-ssm-read"
+  name = "myblog-music-ssm-read"
+  # NOT retitled to mention youtube on purpose: `description` forces replacement
+  # of an aws_iam_policy, and a destroy/create cycle drops the attachment for a
+  # moment. A music cold start in that window cannot read /myblog/music, so it
+  # raises on the required-key check and 500s. `policy` updates in place, so the
+  # grant below is added with no window at all. A cosmetic string is not worth a
+  # production gap — the header comment carries the explanation instead.
   description = "Allow musicApi to read its SSM param"
   policy = jsonencode({
     Version = "2012-10-17"
@@ -71,7 +84,7 @@ resource "aws_iam_policy" "music_ssm_read" {
       {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = ["${local.ssm_param_arn_prefix}/music"]
+        Resource = ["${local.ssm_param_arn_prefix}/music", "${local.ssm_param_arn_prefix}/youtube"]
       },
       {
         Effect   = "Allow"
