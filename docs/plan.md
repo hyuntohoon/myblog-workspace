@@ -164,16 +164,30 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
   **Next is A2** (candidate search in music) — **still blocked on reading the real `search.list`
   quota in the Console**, which has never been done; the documented defaults are still an
-  assumption. A1 did not unblock it.
+  assumption. A1 did not unblock it, and neither did answering OQ7–9: A3's remaining prerequisite
+  is A2, so the whole milestone still waits on that one Console read.
 
-  **Three new owner/design questions came out of A1**, none of them A1's to answer:
-  - **OQ7 — are mappings global or per-member? BLOCKS A3.** The table has no member column, so
-    A3's unmap route would let any member re-point what everyone sees. Adding `member_id` later
-    means altering a UNIQUE constraint on a populated table.
-  - OQ8 — `resolve` cannot distinguish "never mapped" from "mapped but dead", and the frontend
-    caches a 404 durably. A3's "wrong video" affordance needs that distinction. Decide before A4.
-  - OQ9 — should `embeddable` be `NOT NULL` at write time? A3's PUT verifies before writing, so
-    the NULL-tolerant read filter protects nothing in v1.
+  **The three design questions A1 opened are answered 2026-09-05**, by Claude under an explicit
+  owner delegation ("너가 알아서 해봐" / "handle it as you see fit") rather than chosen by the owner — recorded that way in the
+  RFC so they can be overturned cheaply. No code was written; all three land inside A3, which is
+  the first writer and therefore still finds the table at 0 rows.
+  - **OQ7 — mappings stay global; A3's write authorization is *standing*, not ownership.** A caller
+    may mutate a mapping only for a track they hold in one of their own buckets. The obvious fix,
+    `require_owner`, was **rejected on a measurement**: the 29 live playback rows split owner 16 /
+    one non-owner member 13, so owner-only would lock out 45% of this surface's actual use.
+    Cross-member track overlap is 0 — but chance alone predicts 0.007 at this catalog size, so it
+    measures sparse usage, not disjoint taste, and is not evidence that contention cannot happen.
+    Revisit only on a Phase 0-B GO or a non-zero overlap. **A3 is no longer blocked by this.**
+  - OQ8 — `resolve` gains **`410 Gone`** for a row that exists but is expired or unplayable; `404`
+    keeps meaning "no row". Lands in A3's backend leg so A4 stays a pure front change.
+  - OQ9 — **yes**: `embeddable` becomes `NOT NULL` and the read filter tightens to `IS TRUE`, both
+    in A3.
+
+  Two corrections came out of answering them, both worth carrying: OQ7's "decide now, expensive
+  later" urgency was overstated (discovery is capped at 100 `search.list`/day plus per-row member
+  confirmation and a backfill is forbidden, so the table reaches hundreds of rows, not 31k), and
+  OQ8 double-counted Step A4 — the provider-keyed cache and the stale "ids are immutable" comment
+  were already in A4's scope, leaving only the discriminator genuinely open.
 
   **What is open — all of it the owner's:**
   - **The owner applies the workspace infra** (`terraform apply`), then a real-browser check that the
