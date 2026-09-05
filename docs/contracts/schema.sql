@@ -1259,8 +1259,16 @@ CREATE TABLE IF NOT EXISTS spotify_member_now_playing (
 -- Music Video vs Live is a real ambiguity; the v1 answer is that the member
 -- picks one and can re-pick. `source` has deliberately NO 'search_auto' value:
 -- there is no unconfirmed mapping in v1, and the CHECK says so rather than
--- prose. Measured 2026-09-05: 3 of 20 top search results were unofficial
--- uploads, which is why verify_state exists at all.
+-- prose. 'playlist_import' is absent for a different reason: THIS TABLE IS
+-- GLOBAL. There is no member column, and UNIQUE (track_id, provider) means one
+-- mapping per track for everyone, so two members importing different videos for
+-- the same track would collide and a per-member disconnect-delete has no row to
+-- identify. A CHECK permitting 'playlist_import' would advertise a capability
+-- the shape cannot deliver. Global-vs-per-member is an open question the RFC
+-- records against A3/B2; widening a CHECK later is the easy direction.
+--
+-- Measured 2026-09-05: 3 of 20 top search results were unofficial uploads,
+-- which is why verify_state exists at all.
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS track_provider_refs (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1279,26 +1287,32 @@ CREATE TABLE IF NOT EXISTS track_provider_refs (
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT ck_tpr_provider     CHECK (provider IN ('youtube')),
   CONSTRAINT ck_tpr_kind         CHECK (external_kind IN ('video')),
-  CONSTRAINT ck_tpr_source       CHECK (source IN ('user_confirmed', 'playlist_import')),
+  -- Only 'user_confirmed' — see the section header for why 'playlist_import'
+  -- is deliberately absent.
+  CONSTRAINT ck_tpr_source       CHECK (source IN ('user_confirmed')),
   CONSTRAINT ck_tpr_verify_state CHECK (verify_state IN ('live', 'gone', 'not_embeddable')),
   CONSTRAINT uq_tpr_track_provider UNIQUE (track_id, provider)
 );
--- The refresh job's scan: oldest live rows first (III.E.4 retention sweep).
+-- The refresh job's scan: oldest first (III.E.4 retention sweep). UNCONDITIONAL
+-- on purpose — a partial index on verify_state='live' would exclude exactly the
+-- rows the sweep exists for, because a 'gone' row still STORES API-derived data
+-- (the videoId, privacy_status, made_for_kids) and the 30-day clock applies to
+-- it in full. Marking a row 'gone' must not opt it out of retention.
 CREATE INDEX IF NOT EXISTS idx_tpr_stale
-  ON track_provider_refs (last_verified_at)
-  WHERE verify_state = 'live';
+  ON track_provider_refs (last_verified_at);
 
 -- =============================================================================
 -- NOTE: `library_items` (V7) is intentionally absent — it was superseded by
 -- `album_to_listen_items` (V8) before any prod apply and does NOT exist in prod.
 --
 -- This file is current through V55 (track_provider_refs,
--- FEAT-youtube-playback-provider Step A1 — authored + prod-applied 2026-09-05;
--- structure verified column-by-column against BOTH prod and the Neon test
--- branch after apply, and its four CHECKs / UNIQUE / FK CASCADE exercised as
--- behaviour, not merely listed), after V54 (pending_reratings,
--- FEAT-album-rerating Step
--- 1), after V53 (tracks.disc_no, DATA-multidisc-track-order Step 1), V52
+-- FEAT-youtube-playback-provider Step A1 — authored + prod-applied 2026-09-05,
+-- then CORRECTED pre-merge the same day after review: ck_tpr_source narrowed to
+-- 'user_confirmed' only, and idx_tpr_stale made unconditional. Structure
+-- verified column-by-column against BOTH prod and the Neon test branch after
+-- each apply, and its CHECKs / UNIQUE / FK CASCADE exercised as behaviour
+-- rather than merely listed). After V54 (pending_reratings,
+-- FEAT-album-rerating Step 1), after V53 (tracks.disc_no, DATA-multidisc-track-order Step 1), V52
 -- (planned_ratings, FEAT-rating-smart-collections Step 2), V51 ('playback'
 -- bucket type + idx_review_buckets_single_playback,
 -- FEAT-playback-bucket-player Step 2 — authored 2026-08-03), after V50 (album_reviews rating→NULLABLE +
