@@ -127,8 +127,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   delete step; keep it reversible. *Status*: not started. **Re-measure before starting** — the figure
   above is from 2026-08-16 and the catalog has grown since.
 
-- **FEAT-youtube-playback-provider** (`docs/rfcs/FEAT-youtube-playback-provider.md`, draft) — a second
-  <!-- rfc: docs/rfcs/FEAT-youtube-playback-provider.md | status: draft -->
+- **FEAT-youtube-playback-provider** (`docs/rfcs/FEAT-youtube-playback-provider.md`, in-progress) — a second
+  <!-- rfc: docs/rfcs/FEAT-youtube-playback-provider.md | status: in-progress -->
   playback provider so a member without a Spotify account can play the tracks in their Buckit. Spotify
   stays the catalog, the ingest path and the default player; nothing in `spotifyPlayback.ts`, the queue
   or membership changes.
@@ -146,9 +146,18 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `/myblog/youtube`. **Merging #984 did not deploy it** — workspace infra is applied by the owner
   locally, so the IFrame API is still blocked in production until that apply lands.
 
+  **Milestone A started 2026-09-05** on explicit owner approval, which also promoted the RFC
+  `draft` → `in-progress` (hard rule 7). **Step A1 is shipped**: `V55__track_provider_refs.sql`
+  applied to prod *and* the Neon test branch in the same session, its four CHECKs / UNIQUE / FK
+  CASCADE exercised as behaviour on the test branch rather than read out of `pg_constraint`, and
+  `resolve_uri` given its `provider` argument with the control test that omitting it still returns
+  the Spotify URI. The same change corrected the two false `FEAT-pocket-buckit` claims and the
+  `spotifyPlayback.ts` comment that repeated one of them.
+
+  **Next is A2** (candidate search in music) — **blocked on reading the real `search.list` quota in
+  the Console**, which has never been done; the documented defaults are still an assumption.
+
   **What is open — all of it the owner's:**
-  - **Does Milestone A start?** Phase 0-A removed the technical objection, not the priority one.
-    Steps A1–A5 are specified and independently revertible; nothing is under way.
   - **The owner applies the workspace infra** (`terraform apply`), then a real-browser check that the
     Spotify SDK still loads — a CSP edit affects every page.
   - **The API key was pasted into a session transcript 2026-09-05 and is an exposed credential.** The
