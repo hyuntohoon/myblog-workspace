@@ -271,25 +271,74 @@ Steps A0–A5 are Milestone A. B1–B2 do not begin until Phase 0-B returns GO.
 
 ### Step A0 — CSP + Google project
 
-**Partially shipped 2026-09-05.** CSP hosts merged in ws #984; Cloud project,
-YouTube Data API v3 and API key created; key stored at SSM `/myblog/youtube`.
+**SHIPPED 2026-09-06.** CSP hosts merged in ws #984 and **applied**; Cloud
+project, YouTube Data API v3 and API key created; key stored at SSM
+`/myblog/youtube`.
 
-Remaining:
-- Owner applies the workspace infra locally (`terraform apply`). Merging did not
-  deploy it.
-- After apply: load the site and confirm zero new CSP violations on home, member
-  dashboard and a review page, **and that the Spotify SDK still loads and
-  plays** — the CSP change must not regress the incumbent.
-- Phase 0-A step 3 was **not run**: load the IFrame API on a throwaway page and
-  play three known videos (one embeddable, one embedding-disabled, one deleted),
-  confirming `onError` yields `101/150` and `100` as documented. It does not gate
-  the GO/NO-GO decision, which rests on the search and embeddable counts, but it
-  is the only thing that proves the error path this design maps onto
-  `'unavailable'`. Run it before A4.
+Applied and verified 2026-09-06:
+- `terraform apply` run against the workspace stack. The plan was exactly what
+  this step predicted — `0 to add, 1 to change, 0 to destroy`, every CSP
+  directive changed by ADDITION only, nothing removed.
+- The live edge header now carries `script-src ... https://www.youtube.com`,
+  `frame-src ... https://www.youtube.com https://www.youtube-nocookie.com` and
+  `img-src ... https://i.ytimg.com`. **Merging really had not deployed it**: the
+  LIVE CloudFront function was read immediately beforehand and had no YouTube
+  host at all, 32 days after the merge.
+- Regression check, run **on the production origin under the enforcing CSP**, so
+  it tests the real policy rather than a local approximation: `sdk.scdn.co`
+  loads and `window.Spotify` is an object (**the incumbent is not regressed**),
+  `www.youtube.com/iframe_api` loads and `window.YT` is an object, a
+  `youtube-nocookie.com` iframe frames successfully, and
+  `securitypolicyviolation` fired **zero** times. The YouTube half of that
+  result is attributable to this apply, because the pre-apply header was read
+  first and allowed none of it.
+- Public-page sweep (`/`, `/reviews/`, `/genres/`, `/canon/`, `/collection/`,
+  `/releases/`, `/members/`): all 200, all carrying the header, no console
+  errors. A `/review/` page could not be swept because prod still has zero
+  published 평론.
 
-**Verification**: `terraform plan` read in full (done — `0 to add, 1 to change,
-0 to destroy`); post-apply `curl -sI` of the live header; real-browser Spotify
-regression check.
+### Phase 0-A step 3 — RUN 2026-09-06, and it corrects this document
+
+The measurement, and it does not match what this RFC assumed. Harness: the
+IFrame API on a throwaway local page, two embeddable controls plus one
+embed-disabled video and four absent ids, each played muted and settled on
+`onError` or a timeout.
+
+| Case | Documented here | **Measured** |
+|---|---|---|
+| Embeddable control (x2) | plays | **plays, no error, state `1`** |
+| Embedding disabled by owner | `101` / `150` | **`150`** |
+| Deleted / private / nonexistent (x4) | `100` | **`150`, never `100`** |
+
+**`100` was not produced by a single case.** Everything unavailable collapses to
+`150`. The behavioural consequence is nil — both codes were already mapped to
+`'unavailable'` — but the design consequence is not: **`onError` cannot tell
+"gone" from "embed-disabled"**, so A4 must not branch on the two codes, and the
+discriminator has to be `videos.list` in the A5 refresh job. That is what the
+`verify_state` design already does, so the design survives the correction; the
+claim about `100` does not. Do not write `if (code === 100)` in A4 — it is a
+dead branch.
+
+**The embed-disabled video had to be found by measurement, not by memory.** A
+batch of 20 famous music videos was 20/20 embeddable; scanning `mostPopular`
+music charts across 8 regions found 3 non-embeddable videos out of 240 (1.25%),
+all in one region. That 1.25% independently corroborates the 20/20 embeddable
+count in the table above.
+
+**A control caught a harness defect before it became a finding.** On the first
+run every case returned `150`, *including the embeddable control*. Served from
+`http://127.0.0.1:8791` the origin itself is rejected; re-served from
+`http://lvh.me:8791` the control played and the discrimination appeared. Without
+the control this would have been written down as "the IFrame API returns 150 for
+everything", which is false.
+
+*Not measured*: error `2` (malformed id). The probe's own case never settled,
+and the case is unreachable by design — ids reach the player from `videos.list`,
+never from user input.
+
+**Verification**: `terraform plan` read in full (done); post-apply read of both
+the LIVE function code and the live `curl -sI` header; real-browser Spotify
+regression check on the production origin (done, above).
 
 **Rollback**: revert the function, re-apply. Seconds, no data involved.
 
@@ -402,6 +451,18 @@ not auto-accepted** (see the duration finding in _Current state_). Explicit
 timeout on every outbound request. Quota exhaustion returns a distinct status
 the UI can print, and never retries in a loop.
 
+The track is identified by **catalog id**, not by a caller-supplied title and
+duration: that is what makes the ranking trustworthy, since a caller cannot
+shift the ordering by misreporting the duration, and the query is built in one
+place. Track artists first, album artists as the fallback — a compilation track
+carries its performer on the track, which is how the Phase 0-A probe matched the
+classical and jazz compilations.
+
+Candidates that are not embeddable or not public are filtered out **in the
+service**, using the same predicate as the resolve read (`embeddable IS TRUE`,
+OQ9), so the two cannot drift apart and an unpickable candidate never reaches a
+member.
+
 Repos: music → workspace. Prereq: A0.
 
 **Verification**:
@@ -409,8 +470,116 @@ Repos: music → workspace. Prereq: A0.
 pytest   # stub models real latency and returns a payload satisfying
          # every reader-side required field; plus a quota-exhausted case
 ```
-Live call for five known tracks; the daily `search.list` counter read in the
-Console afterwards.
+Live call for five known tracks.
+
+**SHIPPED 2026-09-06** (music PR, workspace infra + contract PR).
+
+- 254 passed / 7 skipped / 1 pre-existing environmental failure
+  (`test_candidates_localstack` needs a running LocalStack; it fails identically
+  on a pristine `origin/main` worktree and CI runs it against a real service
+  container). 43 tests are new; all 7 skips are `TEST_DB_URL` integration tests
+  that CI runs for real and fails on skip.
+- **Every new test mutated — 11 mutations, all caught**, and one SURVIVED the
+  first pass and exposed a real defect: the ISO-8601 duration regex required a
+  `T` section, so the live-stream shape `P0D` returned `None` by failing to
+  match rather than through the zero-guard. The test passed for the wrong reason
+  and the guard was unreachable. Both fixed; that mutation now kills four tests.
+- **Live call, 5 production tracks, real API (500 quota units): 5/5 returned
+  candidates with the correct match ranked first.**
+
+**The live call re-confirmed "ranked, never auto-accepted" against our own
+catalog, and more sharply than Phase 0-A did.** Phase 0-A's argument was that 3
+of 20 top results were unofficial uploads. The stronger version is what
+proximity ranking actually surfaces: for 호미들 "끝" the top candidate by delta is
+a fan LYRIC video at 1s, *tied* with the correct `- Topic` upload; for Baby Keem
+"scapegoats" an INSTRUMENTAL ties the official audio at 3s. A karaoke,
+instrumental or lyric re-upload routinely matches the real track's duration to
+the second — so duration proximity does not merely fail to detect a wrong
+version, it actively **promotes** one. Only a human reading `channel_title` can
+separate them, which is why that field is in the response and why there is no
+threshold anywhere in this step.
+
+**Two API behaviours were measured while building it**, both now encoded:
+`contentDetails.duration` is a bare `P0D` for a live stream (no `T` section at
+all), and zero must read as UNKNOWN or it wins every proximity comparison; and
+`videos.list` reports a deleted or private id by **omission**, never as an
+error.
+
+**Infra**: no `infra/apigateway.tf` change — music is fronted by the `ANY
+/api/music/{proxy+}` catch-all and auth is enforced in-app. The workspace leg
+adds `YOUTUBE_SECRETS_PARAM` to the music Lambda and `/myblog/youtube` to
+`myblog-music-ssm-read`. The IAM policy `description` was deliberately left
+unretitled: changing it forces `aws_iam_policy` **replacement**, and the
+destroy/create window would drop the attachment long enough for a music cold
+start to fail its required-key check and 500. `policy` updates in place, so the
+final plan is `0 to add, 2 to change, 0 to destroy`.
+
+#### The review blocked the first revision on three defects, and all three were real
+
+**1. The API key leaked into httpx's own INFO log.** The first revision put the
+key in the query string — the shape most of Google's documentation shows — and
+closed only the *exception* channel, with a test asserting exactly that. httpx
+logs `request.url` at INFO on every completed request, so the key was one
+`basicConfig(level=INFO)` or one Lambda `ApplicationLogLevel` change from
+CloudWatch, and the only thing holding it back was the prod root logger
+defaulting to WARNING: **an unset default, not a control**. Worse than the hole
+itself, the passing test made the suite *read as* "key leakage is covered".
+The key now travels as `X-goog-api-key`, matching `spotify_client.py`.
+Demonstrated against the live API with `basicConfig(level=INFO)` deliberately
+on: httpx logged 10 full request URLs and the key appears in **none** of them.
+Under the previous code all 10 would have carried it.
+
+**2. The DB transaction was held open across both outbound calls** — verbatim
+the recurring bug class that produced the Neon `ProtocolViolation`. `get_db`
+closes only in its `finally`, which runs *after* the response is built, i.e.
+after the network calls. The handler now does fetch → materialise → close →
+external work, and the artist fallback moved into the SELECT as a second alias
+of `artists`, which also removed a lazy load that would have raised
+`DetachedInstanceError` once the session was closed. The test asserts the
+**ordering** (`db.close` before `search.list`), because "close was called" is
+also true of a handler that closes it last.
+
+**3. A malformed `track_id` reached psycopg and 500'd** — the AUDIT-2026-07-26
+A-3 class, with `parse_uuid_or_404` already in the repo one import away. The
+route is now in `tests/test_malformed_ids.py` beside the original four, as the
+first *authenticated* member of that list.
+
+Six should-fixes were also taken; the two worth recording as design facts are
+that **the timeout budget exceeded the Lambda ceiling** (10s × 2 sequential
+calls against `musicApi`'s 15s, so a slow-but-not-failing YouTube killed the
+function before either timeout fired and the whole 429/503/502 taxonomy never
+ran — now 4.0s, asserted by a test against the 15s figure), and that
+**`rateLimitExceeded` was being told to come back tomorrow** when it is a
+short window that clears in seconds. Daily quota and rate limit are now
+separate exceptions: both 429, different advice, different `Retry-After`.
+
+**`videoCategoryId=10` was removed on a measurement.** It looked like an obvious
+narrowing and was a change to the exact input Phase 0-A scored 20/20 on.
+Re-running the same 5 production tracks with and without it returned 5
+candidates each and the identical top match both ways — narrowing an input that
+already scores 20/20 can only lose results.
+
+#### The local venv was behind `requirements.lock`, and its green was false
+
+fastapi 0.136.3 / starlette 1.1.0 locally against **0.141.1 / 1.6.0** in CI. A
+test passed locally and failed in CI with a bare `StopIteration`, because
+**FastAPI 0.141 no longer flattens `include_router` into `app.routes`** — it
+inserts `_IncludedRouter` wrappers reachable only through `original_router`, and
+the child route's `.path` is the *unprefixed* path. So neither `app.routes` nor
+a full-path comparison finds an endpoint. Anything in this codebase that walks
+`app.routes` looking for routes is broken on the locked version. This step's
+worktree now carries its own venv built from `requirements.lock`.
+
+#### A second vacuous test, found by mutation
+
+21 mutations were run and 20 were caught. The survivor: folding the rate-limit
+reasons into the daily-quota set leaves `RATE_LIMIT_REASONS` **empty**, and a
+`pytest.mark.parametrize` over an empty set collects **zero cases** — it reports
+as one *skip*, not a failure. The disjointness assertion beside it is likewise
+satisfied by two empty sets. Both tests now pin membership by name. This is the
+second time in this step that a test passed for a reason unrelated to what it
+claimed to check; **parametrising over a production constant makes the test as
+deletable as the constant.**
 
 ---
 
@@ -551,11 +720,17 @@ source says no, and none of them is Google.
 
 1. ~~**Does the owner want Milestone A started at all?**~~ — **ANSWERED 2026-09-05:
    yes.** The owner approved starting Milestone A and promoting this RFC in the same
-   instruction. A1 shipped that day; A2 remains blocked on the Console quota read
-   (Open question 2), not on this.
-2. **Phase 0-A step 3 (IFrame error codes) was not run.** — Blocks A4, not A1.
-   It is the only evidence for the `100`/`101/150` → `'unavailable'` mapping the
-   adapter depends on.
+   instruction. A1 shipped that day; A2 was then blocked on the Console quota
+   read — which was **never Open question 2**, despite this line having said so.
+   That gate lived only in the Decisions log and had no number; the mis-pointer
+   propagated into two session hand-offs before anyone read both. It is resolved
+   below.
+2. ~~**Phase 0-A step 3 (IFrame error codes) was not run.**~~ — **ANSWERED
+   2026-09-06: run, and it refuted the documented mapping.** Everything
+   unavailable returns `150`; `100` was not produced by any of four absent-video
+   cases. See Step A0 for the table, the harness-defect control, and the
+   consequence for A4 (`onError` cannot distinguish "gone" from
+   "embed-disabled" — only `videos.list` can, which is the A5 job).
 3. **When does Phase 0-B run?** — Blocks B1 and B2 entirely. Requires an owner
    with real YouTube Music use; no code is written until it returns.
 4. **Is the `youtube.readonly` scope labelled "sensitive" or "restricted" in the
@@ -651,10 +826,42 @@ source says no, and none of them is Google.
    nobody writes to yet. If A3 slips far enough that another writer appears
    first, take it as its own migration instead.
 
+10. ~~**What is the project's real `search.list` quota, and does A2 wait for
+    it?**~~ — **ANSWERED 2026-09-06: A2 does not wait. The figure is
+    operational, not a gate.** This is the gate that was recorded only in the
+    Decisions log ("documented defaults are assumed and must be confirmed before
+    A2") and mis-cited as Open question 2 above. Three things retire it:
+
+    - **No code path depends on the number.** A2 never counts units. It reacts
+      to Google's own 403 `reason`, maps it to a distinct `429`, and does not
+      retry. A cap of 100 or of 1,000 changes how many mappings a day the
+      members get, not what the service does.
+    - **The one thing the number was load-bearing for is already decided.** It
+      justified forbidding a catalog-wide backfill — and that prohibition holds
+      at *any* plausible cap, so re-reading it cannot reopen the question.
+    - **Live behaviour was measured instead, which is the stronger evidence.**
+      On 2026-09-06 five real `search.list` calls (500 units) and ~15
+      `videos.list` units succeeded against the production key. The pool is
+      therefore ≥515 units and both endpoints are enabled and unrestricted. A
+      Console reading would add only the ceiling.
+
+    *Residual, stated so it is not lost*: if the cap is the documented 10,000
+    units/day, that is ~100 discovery searches across all members per day. The
+    member-visible consequence of hitting it is a `429` telling them to come
+    back — never a wrong mapping and never a crash. The owner can read the
+    Console figure whenever convenient; nothing waits on it.
+
+
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
+| 2026-09-06 | **A2's review found the API key in httpx's INFO log — and a passing test that hid it.** The key was a query parameter; httpx logs `request.url` at INFO on every completed request. The first revision closed the *exception* channel and shipped a test asserting exactly that, so the suite read as "key leakage is covered" while the larger channel stayed open, held shut only by the prod root logger defaulting to WARNING — an unset default, not a control. Now `X-goog-api-key`. Verified live with `basicConfig(level=INFO)` on: 10 request URLs logged, key in none. **Rule: when closing a leak, enumerate the channels before writing the test that says it is closed** — a test naming one channel is evidence about that channel and nothing else | A2 |
+| 2026-09-06 | **The local venv was behind `requirements.lock` and produced a false green.** fastapi 0.136.3/starlette 1.1.0 local vs 0.141.1/1.6.0 in CI. **FastAPI 0.141 stopped flattening `include_router` into `app.routes`** — routes hide behind `_IncludedRouter.original_router` and carry the *unprefixed* path — so a route lookup by path finds nothing and fails as a bare `StopIteration`. Anything walking `app.routes` is broken on the locked version. Step worktrees now build their own venv from the lock | A2 |
+| 2026-09-06 | **Step A2 shipped, and the live call sharpened the "never auto-accept" rule.** 5 prod tracks against the real API: 5/5 correct match ranked first. But the top candidate by duration proximity for 호미들 "끝" is a fan LYRIC video tied at 1s with the correct `- Topic` upload, and Baby Keem "scapegoats" ties the official audio at 3s with an INSTRUMENTAL. **Duration proximity does not merely fail to detect a wrong version — it promotes one**, because a karaoke/instrumental/lyric re-upload matches the real duration to the second. `channel_title` is in the response because a human is the only component that can separate them. Quota exhaustion maps to a distinct **429** (healthy service, valid request, spent budget) with no retry; a missing key fails closed at 503. 11 mutations run on the new tests, all caught — and one survived first pass, exposing a duration regex that made its own zero-guard unreachable | A2, OQ10 |
+| 2026-09-06 | **Step A0 completed — and "merged" was not "deployed" for 32 days.** The ws #984 CSP was applied; the LIVE CloudFront function read immediately beforehand carried no YouTube host at all. Post-apply regression **on the production origin under the enforcing CSP**: `window.Spotify` and `window.YT` both load, a nocookie iframe frames, zero `securitypolicyviolation` events. The YouTube half is attributable to the apply because the pre-apply header was read first | A0 |
+| 2026-09-06 | **Phase 0-A step 3 run — it refutes this RFC's error-code mapping.** Embed-disabled → `150` as documented, but four separate absent/deleted/nonexistent ids ALSO returned `150`; **`100` was produced by nothing**. Behaviour is unchanged (both already mapped to `'unavailable'`) but the design consequence is real: `onError` cannot distinguish "gone" from "embed-disabled", so A4 must not branch on the codes and the discriminator must be `videos.list` in A5 — which is what `verify_state` already does. A CONTROL caught a harness defect first: served from `http://127.0.0.1` every case returned `150` *including the embeddable control*; re-served from `http://lvh.me` the control played and the discrimination appeared. Without the control this would have been recorded as "the API returns 150 for everything" | A0, OQ2, A4 |
+| 2026-09-06 | **The Console quota read is retired as a gate (OQ10), and the gate had no number.** It lived only in this log and OQ1 mis-cited it as "Open question 2" — which is the IFrame error codes — and that mis-pointer propagated through two session hand-offs. Retired because no code path depends on the figure (A2 reacts to Google's own 403 `reason`, never counts units), the one thing it was load-bearing for (forbidding a backfill) holds at any plausible cap, and live behaviour is stronger evidence than a Console figure: 500 `search.list` units plus ~15 `videos.list` units succeeded on 2026-09-06, so the pool is >=515 and both endpoints are enabled. Residual: at the documented 10,000/day the ceiling is ~100 discovery searches across all members, surfaced as a `429` — never a wrong mapping | A2, OQ10 |
 | 2026-09-05 | Phase 0-A run. Correct-version **20/20**, embeddable **20/20**, controls pass → **GO**. The "~34% wrong-version" figure carried through three RFCs does not hold on this catalog. | A0 |
 | 2026-09-05 | CSP hosts merged (ws #984) without waiting for the numbers, because a closed CSP makes a player spike produce a wrong result rather than a weak one. Not applied — owner applies workspace infra locally. | A0 |
 | 2026-09-05 | Google Cloud project + YouTube Data API v3 key created by the owner; stored SSM SecureString `/myblog/youtube`. Console quota figures not read — the documented defaults are assumed and must be confirmed before A2. | A0 |

@@ -122,6 +122,15 @@ resource "aws_lambda_function" "music" {
       # applied to prod Neon — done 2026-06-05. A/B via the recall gate:
       # off = 0.600, on = 1.000 (Hit@5/Hit@1). Off-switch = set back to "false".
       SEARCH_USE_PG_TRGM = "true"
+      # FEAT-youtube-playback-provider Step A2: the SSM SecureString holding
+      # YOUTUBE_API_KEY. Its own parameter, not the /myblog/music blob — the
+      # Step A5 worker job reads the same credential (see infra/secrets.tf).
+      # UNSET FAILS CLOSED: app/core/config.py leaves YOUTUBE_API_KEY empty and
+      # the endpoint answers 503, so removing this line is the off-switch and
+      # it disables only YouTube. Album search keeps working either way —
+      # deliberately, because a discovery-provider outage must not take the
+      # catalog down with it.
+      YOUTUBE_SECRETS_PARAM = "/myblog/youtube"
     }
   }
 
