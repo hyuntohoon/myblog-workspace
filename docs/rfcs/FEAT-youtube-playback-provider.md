@@ -254,10 +254,10 @@ CREATE INDEX idx_tpr_stale ON track_provider_refs (last_verified_at)
 
 | Endpoint | Repo | Change | Gateway route |
 |---|---|---|---|
-| `GET /api/playback/resolve?…&provider=` | backend | Extend. Optional param, default `spotify` — no existing caller changes. `provider=youtube` reads `track_provider_refs`, 404s when unmapped, which shipped `uris.ts` already treats as a durable miss. | No — rides `GET /api/{proxy+}` |
+| `GET /api/playback/resolve?…&provider=` | backend | Extend. Optional param, default `spotify` — no existing caller changes. `provider=youtube` reads `track_provider_refs`, 404s when unmapped, which shipped `uris.ts` already treats as a durable miss. **A3 adds `410 Gone`** for a row that exists but is expired/unplayable (OQ8). | No — rides `GET /api/{proxy+}` |
 | `GET /api/music/search/youtube-candidates?track_id=` | **music** | New. **In music on purpose:** the service-boundary invariant forbids a synchronous provider call from a user-facing *backend* endpoint, and `/api/music/search/candidates` is the standing precedent. Putting it in backend would be the violation. | No — rides `ANY /api/music/{proxy+}` |
-| `PUT /api/playback/providers/youtube/mapping` | backend | New. `{track_id, video_id}`, verified with `videos.list` before write. | **Yes** — explicit route + Cognito authorizer |
-| `DELETE /api/playback/providers/youtube/mapping/{track_id}` | backend | New. "Wrong video" — without it a bad match is permanent and the feature loses trust on its first miss. | **Yes** — explicit route + Cognito authorizer |
+| `PUT /api/playback/providers/youtube/mapping` | backend | New. `{track_id, video_id}`, verified with `videos.list` before write. Caller must hold the track in one of their own buckets (OQ7) — not owner-only. Writes `embeddable` `NOT NULL` (OQ9). | **Yes** — explicit route + Cognito authorizer |
+| `DELETE /api/playback/providers/youtube/mapping/{track_id}` | backend | New. "Wrong video" — without it a bad match is permanent and the feature loses trust on its first miss. Same standing check as the PUT (OQ7). | **Yes** — explicit route + Cognito authorizer |
 | `GET /api/lyrics/{spotify_track_id}` | backend | **Keep.** Still works under YouTube playback; every catalog track has a `spotify_id`. | Unchanged |
 | `GET /api/lyrics/tracks/{track_id}` | backend | **Later, staged.** Sequenced after Milestone A, never bundled into it. | Yes, when it lands |
 
@@ -421,6 +421,23 @@ track row listing candidates with thumbnail, channel and duration delta; a
 "wrong video" action. Candidates surface the channel, because 3 of 20 measured
 top results were unofficial uploads and the member should see that.
 
+A3 also carries three things decided on 2026-09-05 (Open questions 7–9), because
+A3 is the first writer and the table is still at 0 rows when it runs:
+
+- **Write authorization is standing, not ownership** (OQ7). Both mutations
+  require the caller to hold the track in one of their own buckets —
+  `review_bucket_items.track_id` under `review_buckets.user_id = <sub>`.
+  **Not `require_owner`**: a non-owner member holds 13 of the 29 live playback
+  rows and would otherwise be unable to fix their own bad matches.
+- **`created_by_member_id` is recorded for attribution only** (OQ7). It must
+  never be read by an authorization check — doing so reintroduces per-member
+  ownership through the back door, which this RFC decided against.
+- **`embeddable` becomes `NOT NULL`** and `resolve`'s filter tightens from
+  `IS NOT FALSE` to `IS TRUE` in the same change (OQ9).
+- **`resolve` gains `410 Gone`** for a row that exists but fails the liveness /
+  retention / embeddable filter, keeping `404` for "no row" (OQ8). Backend leg,
+  so A4 stays pure front.
+
 Repos: backend → workspace (infra + contract) → front. Prereq: A1, A2.
 
 **Verification**:
@@ -431,6 +448,13 @@ pnpm lint && pnpm exec astro check && pnpm test
 Each new test mutated to confirm it fails when its assertion is removed.
 New protected routes matched against `infra/apigateway.tf` — a missing route is
 a 404 at the edge. Real-browser: map a track, reload, confirm persistence, unmap.
+
+The authorization decision needs its own negative test, not just a happy path:
+a member authenticated as A must be **rejected** when mutating a track only
+member B has bucketed, and that test must be mutated to confirm it fails when
+the standing check is removed. `410` vs `404` needs both branches asserted —
+an unmapped track and a row aged past retention — since a single-branch test
+passes against a service that always returns one of them.
 
 ---
 
@@ -450,7 +474,16 @@ for re-verification.
 `uris.ts` today keys the memo cache on `trackId` alone and carries a comment
 saying "ids are immutable, a hit can never go stale". **That stops being true
 for YouTube** — a YouTube entry must expire with the mapping. This is the one
-place where shipped reasoning genuinely does not carry over.
+place where shipped reasoning genuinely does not carry over. Concretely, the
+memo is unsound for YouTube in **both** directions, and the positive one is the
+easier to miss: `verify_state` flips under A5, retention expires at 30 days, and
+A3 re-points — so a cached `youtube:video:…` can outlive its row just as a
+cached miss can. Any TTL must sit well under the 30-day retention window, and
+the A3 mutations must invalidate the entry outright.
+
+With OQ8 answered, the three states are distinguishable at last: `200` plays,
+`410` is mapped-but-unplayable and drives the re-pick affordance (never memoised
+durably), `404` is unmapped and keeps today's durable-miss behaviour.
 
 The dock is 16:9, at least 480×270 where the viewport allows, never below the
 200×200 floor, carries the YouTube attribution mark, and **nothing may be drawn
@@ -533,38 +566,90 @@ source says no, and none of them is Google.
    "one, re-pickable" via `UNIQUE (track_id, provider)`. Revisit only if the
    confirm UI shows members wanting both an audio and a video mapping.
 
-7. **Are mappings global or per-member? BLOCKS A3, and A3 cannot dodge it.**
-   Raised by the Step-A1 review. `track_provider_refs` has no member column and
-   `UNIQUE (track_id, provider)` makes every mapping global, so A3's
-   `DELETE /api/playback/providers/youtube/mapping/{track_id}` lets **any
-   authenticated member re-point what every other member sees** — an
-   authorization question, not a UI one. It also makes B1's "disconnect deletes
-   that member's YouTube-derived rows" unimplementable and B2's import collide
-   on the unique key. A1 therefore removed `'playlist_import'` from
-   `ck_tpr_source` rather than let the CHECK advertise a shape the table cannot
-   support. Global is defensible for a catalog-wide mapping (it is closer to
-   `artist_source_ids` than to a preference), but it must be **decided**, not
-   inherited: adding `member_id` later means altering a UNIQUE constraint on a
-   populated table.
-
-8. **`resolve` collapses "never mapped" and "mapped but dead" into one 404.**
-   Raised by the Step-A1 review. `uris.ts` caches a 404 durably for the tab, so
-   once A4 lands, a video that goes `'gone'` mid-session is remembered as
-   "unmapped" and A3's "wrong video" affordance never appears. A1 is right to
-   404 both; what is missing is a way for A3/A4 to tell them apart. Decide the
-   mechanism before A4, not during it.
-
-9. **Should `embeddable` be `NOT NULL` at write time?** Raised by the Step-A1
-   review, which showed A1's stated rationale for `embeddable IS NOT FALSE` is
-   inverted: A3's PUT is specified to verify with `videos.list` **before** write,
-   so the only v1 writer always has the value and can never produce NULL. The
-   NULL-tolerant filter therefore protects nothing in v1 and would, in B2, hand
-   the player a possibly non-embeddable video. If A3 writes it `NOT NULL`, the
-   filter can tighten to `IS TRUE` and the ambiguity disappears.
 6. **The API key in SSM `/myblog/youtube` was pasted into a session transcript
    on 2026-09-05 and is therefore an exposed credential.** The owner chose to
    keep using it. It should be rotated before A2 puts it on a live user-facing
    path. Blocks nothing today.
+
+7. ~~**Are mappings global or per-member?**~~ — **ANSWERED 2026-09-05: global,
+   with writes scoped to standing rather than to ownership.** Decided by Claude
+   under an explicit owner delegation ("너가 알아서 해봐" — "handle it as you
+   see fit"), not chosen by the owner; it is recorded here so it can be
+   overturned cheaply, and the measurement it rests on is below.
+
+   **What was measured** (prod, read-only, 2026-09-05). Playback membership is
+   not owner-only: of the 29 `review_bucket_items` rows with
+   `item_type='playback'`, the owner holds **16** and a single non-owner member
+   holds **13**. Gating the A3 mutations behind `require_owner` — the obvious
+   way to close the hole without touching the schema — would therefore lock the
+   second-heaviest user of this exact surface out of fixing their own bad
+   matches. That option is rejected on evidence, not on taste.
+
+   **The collision surface is empty, and that is weaker evidence than it looks.**
+   Tracks held by *both* members: **0** (16 + 13 = 29 = the union). But two
+   members drawing 16 and 13 tracks from a 31,096-row catalog would be expected
+   to overlap 0.007 times by chance, so zero overlap measures **sparse usage,
+   not disjoint taste**. It says there is no contention to fix today; it does
+   not say the design prevents contention. Do not cite it as if it did.
+
+   **The "expensive later" pressure is overstated.** This question was framed as
+   decide-now because "adding `member_id` later means altering a UNIQUE
+   constraint on a populated table". Bounded: discovery is capped at
+   `search.list` 100 calls/day *and* requires per-row member confirmation, and
+   this RFC forbids a backfill outright (309 saturated days). The table reaches
+   hundreds of rows, not 31k. A UNIQUE change at that size is a non-event.
+
+   **The decision.** The mapping stays global — one row per track, no
+   `member_id` in the key. It is a catalog fact discovered with a *shared*
+   scarce resource (100 `search.list` calls/day for everyone) and carried by a
+   *shared* 30-day compliance clock; per-member rows would duplicate both.
+   `artist_source_ids` remains the right precedent.
+
+   The authorization hole is closed separately, because it is real whether or
+   not anyone collides: A3's mutations require that **the member holds the track
+   in one of their own buckets** (`review_bucket_items.track_id` under a
+   `review_buckets.user_id = <sub>`). Standing, not ownership — it grants the
+   write to exactly the people the mapping affects, needs no schema change, and
+   keeps the non-owner curator working. Known constraint, accepted rather than
+   hidden: a track nobody has bucketed cannot be mapped, so an album-view picker
+   must bucket first. A3 records `created_by_member_id` for **attribution and
+   audit only** — never read for authorization, or it becomes per-member
+   ownership by the back door.
+
+   **Revisit when**, and only when: Phase 0-B returns GO (B1's per-member
+   disconnect and B2's import genuinely need the member dimension, and B is
+   still sealed), or the cross-member overlap above stops being 0. Re-measure it
+   with the same query rather than assuming.
+
+8. ~~**`resolve` collapses "never mapped" and "mapped but dead" into one 404.**~~
+   — **ANSWERED 2026-09-05: `404` keeps meaning "no row", and a row that exists
+   but fails the liveness / retention / embeddable filter answers `410 Gone`.**
+   Semantically exact, and it is the smallest thing that lets A3's "wrong video"
+   affordance ever appear.
+
+   Correcting the framing this question shipped with: two of the three things it
+   implied were missing are **already in Step A4's scope** — the provider-keyed
+   `uris.ts` cache and the fact that the file's "ids are immutable, a hit can
+   never go stale" comment stops holding for YouTube are both written there. The
+   genuinely open part was only the discriminator, and that is what is decided
+   here. (Re-read A4 before quoting this question; it was easy to double-count.)
+
+   Placement: the `410` lands in **A3's backend leg**, not A4, so A4 stays a
+   pure front change. No shipped behaviour is at risk — nothing sends
+   `provider=youtube` until A4, and the Spotify path never returns `410`. A4's
+   rewritten cache must treat `410` as *unplayable-but-mapped*: not memoised
+   durably, and surfaced as the re-pick affordance rather than as a dead row.
+
+9. ~~**Should `embeddable` be `NOT NULL` at write time?**~~ — **ANSWERED
+   2026-09-05: yes, landed in A3**, and the `resolve` filter tightens from
+   `IS NOT FALSE` to `IS TRUE` in the same change. The Step-A1 review was right
+   that the NULL tolerance protects nothing in v1.
+
+   Why A3 and not a V56 now: A3 is the *first writer*, so the table is still at
+   **0 rows** when A3 runs — the constraint is exactly as free then as it is
+   today, and shipping it inside A3 avoids a migration and a deploy for a table
+   nobody writes to yet. If A3 slips far enough that another writer appears
+   first, take it as its own migration instead.
 
 ## Decisions log
 
@@ -577,4 +662,8 @@ source says no, and none of them is Google.
 | 2026-09-05 | **Step A1 shipped.** V55 applied to prod + the Neon test branch in one session; constraints verified as behaviour on the test branch (spotify rejected, search_auto rejected, one-video-per-track enforced, FK CASCADE confirmed), not merely listed from `pg_constraint`. `resolve_uri(provider=…)` added with the control test that omitting the argument still returns the Spotify URI. | A1 |
 | 2026-09-05 | **Step A1 review found three shipping defects**, all fixed before the remaining merges: a partial `idx_tpr_stale` that excluded the rows the III.E.4 sweep exists for; `ck_tpr_source` advertising `'playlist_import'` against a table shape that cannot support it; and an integration suite that created its own copy of the table and so could not fail if V55 were wrong. Also caught: a third pin site in `deploy.yml`, and a stated merge order that would have redded shared_db's required check. Open questions 7-9 opened rather than silently decided. | A1 |
 | 2026-09-05 | **A1 deployed and verified in production** — backend run `33936566712`, `smoke.sh prod` 30/30. The endpoint was exercised live on six paths including the no-parameter control and a temporary mapping row (deleted afterwards). **A2 is NOT unblocked**: it still needs the real `search.list` quota read from the Console. | A1 |
+| 2026-09-05 | **Open questions 7, 8 and 9 answered under owner delegation** ("너가 알아서 해봐" / "handle it as you see fit"), no code written. OQ7: mappings stay **global**, and A3's write authorization is **standing** (the member holds the track in one of their own buckets), not `require_owner`. OQ8: `410 Gone` for a row that exists but is expired/unplayable, `404` stays "no row", landing in A3's backend leg. OQ9: `embeddable NOT NULL` + filter tightened to `IS TRUE`, landed in A3 while the table is still 0 rows. | A3/A4 |
+| 2026-09-05 | **The measurement that decided OQ7**, read-only on prod: the 29 `item_type='playback'` rows split owner **16** / one non-owner member **13**, so `require_owner` would have locked out 45% of live usage of this surface. Cross-member track overlap is **0** — but chance alone predicts 0.007 for 16 and 13 draws from a 31,096-row catalog, so it measures **sparse usage, not disjoint taste** and must not be cited as evidence that contention cannot happen. | A3 |
+| 2026-09-05 | **OQ7's "decide now, expensive later" framing was found overstated.** Discovery is capped at `search.list` 100/day *and* per-row member confirmation, and a backfill is forbidden by this RFC, so the table reaches hundreds of rows — a UNIQUE change at that size is a non-event. The question was still worth answering, but not under the urgency it claimed. | A3 |
+| 2026-09-05 | **OQ8 was found to double-count Step A4.** Two of the three gaps it implied — the provider-keyed `uris.ts` cache and the "ids are immutable" comment ceasing to hold — were already written into A4's scope. Only the discriminator was genuinely open. Recorded because the same over-count would otherwise be inherited by whoever runs A4. | A4 |
 | 2026-09-05 | **`FEAT-pocket-buckit` corrected in place** (two errata in `docs/archive/done/rfcs/`): the provider-neutral-membership claim never shipped, "~34% wrong-version" is unsourced and false on this catalog, and the `search.list` quota shape has changed. The archived text is left standing with the correction attached rather than rewritten — the record of what was believed is itself the finding. | A1 |
