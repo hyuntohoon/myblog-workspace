@@ -635,6 +635,41 @@ resource "aws_apigatewayv2_route" "lyrics_translation_request_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- YouTube mapping writes (FEAT-youtube-playback-provider Step A3) ---
+# PUT/DELETE /api/playback/track/{track_id}/youtube-mapping confirm or clear the
+# member-picked YouTube video for one catalog track.
+#
+# Their OWN explicit Cognito-JWT routes, like every other authenticated mutation
+# here: there is no mutation catch-all, so WITHOUT THESE THE ROUTES 404 AT THE
+# EDGE no matter what the FastAPI router says (reference-apigateway-post-route-required).
+#
+# Authorization beyond "a valid pool token" is IN-APP and cannot be expressed
+# here: the caller must hold the track in one of their own buckets (RFC OQ7,
+# `PlaybackService._has_standing`). The authorizer proves who is calling; the
+# service decides what they may change. Deliberately NOT require_owner — the 29
+# live playback rows split owner 16 / one non-owner member 13, so an owner-only
+# gate would lock the second-heaviest user of this surface out of fixing their
+# own bad matches.
+#
+# rule #9-safe: the handler makes one `videos.list` verification call (1 quota
+# unit) against the YouTube DATA api, never a content/playback proxy, and it is
+# not a Spotify call at all.
+resource "aws_apigatewayv2_route" "playback_youtube_mapping_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/playback/track/{track_id}/youtube-mapping"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "playback_youtube_mapping_delete" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "DELETE /api/playback/track/{track_id}/youtube-mapping"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Invoke permissions ---
 # One broad permission per function (covers all routes via wildcard).
 # Legacy per-route permissions created by the console remain but are redundant;
