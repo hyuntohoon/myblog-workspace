@@ -62,6 +62,14 @@ resource "aws_lambda_function" "backend" {
       # CHORE-secrets-ssm-migration: secrets read from SSM Parameter Store (SM removed Step 7).
       SECRETS_PARAM         = "/myblog/backend"
       SPOTIFY_SECRETS_PARAM = "/myblog/spotify" # status read only; worker owns write-back
+      # FEAT-youtube-playback-provider Step A3: the mapping WRITE verifies a
+      # videoId with `videos.list` before it lands. `track_provider_refs` is
+      # GLOBAL, so taking `embeddable` from the request body would let one
+      # member write a mapping every other member resolves and fails to play.
+      # UNSET FAILS CLOSED and ASYMMETRICALLY: PUT answers 503 while DELETE
+      # keeps working (it makes no outbound call), so a smoke that only unmaps
+      # would report the feature healthy. Same parameter as music and worker.
+      YOUTUBE_SECRETS_PARAM = "/myblog/youtube"
       # FEAT-multi-user 3b-c: member refresh-token custody. References the 3b-a
       # alias, so this env update applies together with the owner's CMK apply;
       # until then the backend fails closed (503) on member Spotify connect.
@@ -156,6 +164,12 @@ resource "aws_lambda_function" "worker" {
       # CHORE-secrets-ssm-migration: secrets from SSM Parameter Store (SM removed Step 7).
       SECRETS_PARAM         = "/myblog/worker"
       SPOTIFY_SECRETS_PARAM = "/myblog/spotify" # read + token write-back via put_parameter
+      # FEAT-youtube-playback-provider Step A5: the daily III.E.4 retention
+      # sweep + re-verification reads the same YouTube key. UNSET makes the job
+      # fail LOUDLY rather than no-op — a retention sweep that silently does
+      # nothing is the exact failure the policy exists to prevent, and it looks
+      # identical to a healthy run.
+      YOUTUBE_SECRETS_PARAM = "/myblog/youtube"
       SQS_QUEUE_URL         = aws_sqs_queue.blog_sqs.url
       # FEAT-spotify-library-sync Gate 3: enable real PUT/DELETE /me/albums in the
       # reconcile. "false" = plan-only (reads + DB writes + logs intended writes, no

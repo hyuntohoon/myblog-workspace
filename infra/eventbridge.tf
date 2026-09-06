@@ -28,6 +28,35 @@ locals {
     # artist with musicbrainz_id IS NULL, then writes either the MBID + aliases
     # or a MBID_NOT_FOUND sentinel. No Gemini fallback (was planned, never
     # implemented).
+    # FEAT-youtube-playback-provider Step A5 — YouTube mapping retention sweep +
+    # re-verification. Constant input, so the handler's `event["job"]` branch
+    # routes it before the alias `source` check.
+    #
+    # DAILY, and the cadence is a POLICY FLOOR rather than a preference. YouTube
+    # Developer Policy III.E.4.c/.d caps stored API data at 30 calendar days with
+    # no exception for a resource id, and this job is what deletes or refreshes
+    # inside that window. Anything slower shrinks the margin for a failed run;
+    # anything faster buys nothing, because a `videos.list` batch is 50 ids at 1
+    # unit and the whole mapped catalog would be ~21 units/day.
+    #
+    # 04:10 UTC = 13:10 KST, deliberately off the hour and away from the other
+    # crons above so a slow run cannot collide with the daily saved-tracks sync
+    # on the same single-concurrency Lambda.
+    #
+    # TURNING THIS OFF IS NOT A NEUTRAL ACT: with the rule disabled, stored
+    # mappings age past the 30-day ceiling and nothing deletes them. The read
+    # path refuses to SERVE data that old (backend `resolve` enforces the same
+    # window independently), so playback fails closed — but the rows themselves
+    # stay, and that is the part the policy is about.
+    youtube_ref_refresh = {
+      name         = "worker-youtube-ref-refresh"
+      description  = "III.E.4 retention sweep + re-verification for track_provider_refs"
+      schedule     = "cron(10 4 * * ? *)"
+      input        = { job = "youtube_ref_refresh" }
+      target_id    = "blogWorkerLambdaYouTubeRefRefresh"
+      statement_id = "AllowInvokeFromEventBridgeYouTubeRefRefresh"
+    }
+
     musicbrainz_alias = {
       name         = "worker-musicbrainz-alias-generation"
       description  = "Backfill artists.musicbrainz_id + aliases via MusicBrainz lookup"

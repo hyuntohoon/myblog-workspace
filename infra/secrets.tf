@@ -35,7 +35,21 @@ locals {
   ssm_param_arn_prefix = "arn:aws:ssm:${var.aws_region}:${var.account_id}:parameter/myblog"
 }
 
-# --- backend role: read /myblog/backend + /myblog/spotify (status), decrypt ---
+# --- backend role: read /myblog/backend + /myblog/spotify + /myblog/youtube, decrypt ---
+# FEAT-youtube-playback-provider Step A3: the mapping WRITE verifies a videoId
+# with `videos.list` before it lands, because `track_provider_refs` is GLOBAL —
+# taking `embeddable` from the request body would let one member write a mapping
+# every other member resolves and fails to play. So backend needs the same key
+# music and (at A5) worker read: one key, one home, one rotation.
+#
+# WITHOUT THIS STATEMENT THE PUT FAILS ASYMMETRICALLY and quietly: the SSM read
+# raises AccessDenied, config.py swallows it by design, YOUTUBE_API_KEY stays
+# empty, and every PUT answers 503 — while DELETE keeps working, because it makes
+# no outbound call. A smoke that only unmaps would report the feature healthy.
+#
+# `description` is NOT retitled: changing it forces aws_iam_policy REPLACEMENT,
+# and the destroy/create window drops the attachment long enough for a cold start
+# to fail its required-key check. `policy` updates in place.
 resource "aws_iam_policy" "backend_ssm_read" {
   name        = "myblog-backend-ssm-read"
   description = "Allow ratemymusic-api to read its SSM params (backend + spotify status)"
@@ -43,9 +57,13 @@ resource "aws_iam_policy" "backend_ssm_read" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["ssm:GetParameter"]
-        Resource = ["${local.ssm_param_arn_prefix}/backend", "${local.ssm_param_arn_prefix}/spotify"]
+        Effect = "Allow"
+        Action = ["ssm:GetParameter"]
+        Resource = [
+          "${local.ssm_param_arn_prefix}/backend",
+          "${local.ssm_param_arn_prefix}/spotify",
+          "${local.ssm_param_arn_prefix}/youtube",
+        ]
       },
       {
         Effect   = "Allow"
@@ -110,9 +128,16 @@ resource "aws_iam_policy" "worker_ssm" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["ssm:GetParameter"]
-        Resource = ["${local.ssm_param_arn_prefix}/worker", "${local.ssm_param_arn_prefix}/spotify"]
+        Effect = "Allow"
+        Action = ["ssm:GetParameter"]
+        # FEAT-youtube-playback-provider Step A5: the daily retention sweep +
+        # re-verification reads the same YouTube key. READ ONLY — nothing in
+        # Milestone A writes that parameter back.
+        Resource = [
+          "${local.ssm_param_arn_prefix}/worker",
+          "${local.ssm_param_arn_prefix}/spotify",
+          "${local.ssm_param_arn_prefix}/youtube",
+        ]
       },
       {
         Effect   = "Allow"
