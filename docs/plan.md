@@ -127,112 +127,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   delete step; keep it reversible. *Status*: not started. **Re-measure before starting** — the figure
   above is from 2026-08-16 and the catalog has grown since.
 
-- **FEAT-youtube-playback-provider** (`docs/rfcs/FEAT-youtube-playback-provider.md`, in-progress) — a second
-  <!-- rfc: docs/rfcs/FEAT-youtube-playback-provider.md | status: in-progress -->
-  playback provider so a member without a Spotify account can play the tracks in their Buckit. Spotify
-  stays the catalog, the ingest path and the default player; nothing in `spotifyPlayback.ts`, the queue
-  or membership changes.
-
-  **Phase 0-A ran 2026-09-05 and returned GO.** It existed because the two numbers governing this
-  decision were borrowed rather than measured. On a 20-track reproducible sample of our own catalog
-  plus 2 controls: top result is the **correct studio version 20/20** (16/20 if every uncertain call is
-  counted against us), **wrong-version 0**, **no-result 0**, **`status.embeddable` 20/20**. Gate was
-  ≥12/20 and ≥16/20. Both controls passed, so the score is not a lenient-harness artefact. **The
-  "~34% wrong-version" figure carried through three RFCs is not true of this catalog** — it was the
-  load-bearing justification for the deferral and it does not hold. Cohort split, the three findings
-  the counts do not show, and the sample composition → the RFC's *Current state*.
-
-  **Step A0 is SHIPPED (2026-09-06).** The ws #984 CSP allowlist is **applied** — and the gap is
-  worth keeping: the LIVE CloudFront function was read immediately before the apply and carried no
-  YouTube host at all, **32 days after the merge**. Post-apply regression on the production origin
-  under the enforcing CSP: `window.Spotify` and `window.YT` both load, a nocookie iframe frames,
-  and `securitypolicyviolation` fired zero times. **Never read "merged" as "deployed" for workspace
-  infra.**
-
-  **Phase 0-A step 3 ran and refuted this RFC's own error-code mapping**: embed-disabled returns
-  `150` as documented, but four separate deleted/private/nonexistent ids ALSO returned `150` and
-  **`100` was produced by nothing**. Consequence for A4: `onError` cannot distinguish "gone" from
-  "embed-disabled", so it must not branch on the codes — `videos.list` in A5 is the discriminator,
-  which is what `verify_state` already does. A control caught a harness defect first (served from
-  `http://127.0.0.1` *every* case returned 150, including the embeddable control), so without the
-  control this would have been recorded as a false finding.
-
-  **Milestone A started 2026-09-05** on explicit owner approval, which also promoted the RFC
-  `draft` → `in-progress` (hard rule 7). **Step A1 is shipped, deployed and prod-verified** across
-  five PRs (ws #986 → ws #987 → shared_db #80 → backend #174 → ws #988 → front #443).
-  `V55__track_provider_refs.sql` is applied to prod and the Neon test branch; `resolve_uri` takes
-  an optional `provider`. Verified live after deploy, not only in CI: the no-parameter control
-  still returns the Spotify URI, `provider=youtube` resolves a mapped track while the default is
-  unchanged, an unmapped track 404s, an unknown provider 422s at the edge, and a 31-day-old
-  mapping is refused by the III.E.4 retention filter. `smoke.sh prod` 30/30. The same step
-  corrected the two false `FEAT-pocket-buckit` claims and the `spotifyPlayback.ts` comment.
-
-  **A mid-step review caught three defects A1 would otherwise have shipped** — a partial index
-  that excluded exactly the rows the retention sweep exists for, a CHECK advertising a capability
-  the table cannot support, and an integration suite that created its own copy of the table and so
-  could not fail if the migration were wrong. All fixed before the remaining merges; details in
-  the RFC's A1 section.
-
-  **Step A2 is SHIPPED (2026-09-06)** — `GET /api/music/search/youtube-candidates`, one
-  `search.list` + one `videos.list` enrichment, ranked by duration proximity, never auto-accepted.
-  Live call against the real API for 5 production tracks: 5/5 returned candidates with the correct
-  match first.
-
-  **The Console quota read is retired as a gate** (now RFC OQ10), and **the gate never had a
-  number**: OQ1 cited it as "Open question 2", which is the IFrame error codes, and that
-  mis-pointer travelled through two session hand-offs. It is retired because no code path depends
-  on the figure — A2 reacts to Google's own 403 `reason` and maps it to a distinct `429` without
-  retrying, so a cap of 100 or 1,000 changes how many mappings a day members get, not what the
-  service does. The one thing the number was load-bearing for (forbidding a backfill) holds at any
-  plausible cap. Live evidence beat the Console figure anyway: 500 `search.list` units succeeded,
-  so the pool is ≥515.
-
-  **The live call sharpened "ranked, never auto-accepted" beyond what Phase 0-A showed.** Phase 0-A
-  said 3 of 20 top results were unofficial uploads. The sharper fact is what proximity ranking
-  actually promotes: for 호미들 "끝" the top candidate by duration delta is a fan LYRIC video tied at
-  1s with the correct `- Topic` upload, and Baby Keem "scapegoats" ties the official audio at 3s
-  with an INSTRUMENTAL. A karaoke/instrumental/lyric re-upload matches the real duration to the
-  second, so **duration proximity does not merely fail to detect a wrong version — it promotes
-  one.** `channel_title` is in the response because a human is the only component that can
-  separate them.
-
-  **Next is A3** (confirm-and-save UI + two backend mutation routes). Its prerequisites A1 and A2
-  are both now shipped. A3 also carries a schema change: V55 has **no `created_by_member_id`
-  column**, which OQ7's attribution decision requires, and OQ9's `embeddable NOT NULL` — so A3
-  opens with a V56 migration while the table is still at 0 rows.
-
-  **The three design questions A1 opened are answered 2026-09-05**, by Claude under an explicit
-  owner delegation ("너가 알아서 해봐" / "handle it as you see fit") rather than chosen by the owner — recorded that way in the
-  RFC so they can be overturned cheaply. No code was written; all three land inside A3, which is
-  the first writer and therefore still finds the table at 0 rows.
-  - **OQ7 — mappings stay global; A3's write authorization is *standing*, not ownership.** A caller
-    may mutate a mapping only for a track they hold in one of their own buckets. The obvious fix,
-    `require_owner`, was **rejected on a measurement**: the 29 live playback rows split owner 16 /
-    one non-owner member 13, so owner-only would lock out 45% of this surface's actual use.
-    Cross-member track overlap is 0 — but chance alone predicts 0.007 at this catalog size, so it
-    measures sparse usage, not disjoint taste, and is not evidence that contention cannot happen.
-    Revisit only on a Phase 0-B GO or a non-zero overlap. **A3 is no longer blocked by this.**
-  - OQ8 — `resolve` gains **`410 Gone`** for a row that exists but is expired or unplayable; `404`
-    keeps meaning "no row". Lands in A3's backend leg so A4 stays a pure front change.
-  - OQ9 — **yes**: `embeddable` becomes `NOT NULL` and the read filter tightens to `IS TRUE`, both
-    in A3.
-
-  Two corrections came out of answering them, both worth carrying: OQ7's "decide now, expensive
-  later" urgency was overstated (discovery is capped at 100 `search.list`/day plus per-row member
-  confirmation and a backfill is forbidden, so the table reaches hundreds of rows, not 31k), and
-  OQ8 double-counted Step A4 — the provider-keyed cache and the stale "ids are immutable" comment
-  were already in A4's scope, leaving only the discriminator genuinely open.
-
-  **What is open — all of it the owner's:**
-  - **The owner applies the workspace infra** (`terraform apply`), then a real-browser check that the
-    Spotify SDK still loads — a CSP edit affects every page.
-  - **The API key was pasted into a session transcript 2026-09-05 and is an exposed credential.** The
-    owner chose to keep using it. Rotate before A2 puts it on a live user-facing path.
-  - Phase 0-A step 3 (IFrame `onError` codes `100` / `101/150`) was **not run**. It gates A4, not A1.
-  - Milestone B stays closed behind Phase 0-B, which needs a real account with real YouTube Music use.
-    No table is designed until it returns — that is the specific failure mode `FEAT-pocket-buckit`
-    demonstrated over fifteen months.
-
 - **Settings-loader required-key sweep (music + worker)** — **DEFERRED by the owner 2026-08-29.**
   <!-- rfc: none -->
   Tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
@@ -430,6 +324,8 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 ---
 
 ## Later (트리거 대기)
+
+- **FEAT-youtube-playback-provider** (**Milestone A shipped and production-verified 2026-09-06; owner actions / Phase 0-B remain**) — A3 selection UI and A4 frontend shipped in [front #444](https://github.com/hyuntohoon/myblog_front/pull/444), `9aea4d7`; deployed smoke **30/0**, real Spotify and YouTube play/pause/seek verified, test mapping deleted. Verification record → `docs/rfcs/FEAT-youtube-playback-provider.md` Step A4. RFC Status stays `in-progress` pending an explicit owner decision. Owner-only: rotate and API-restrict SSM `/myblog/youtube` (OQ6), and read the actual daily `search.list` quota in Console (operational follow-up, not a release gate). **Milestone B remains closed: no design or code before Phase 0-B GO.**
 
 - **FEAT-multi-user-accounts** (**in-progress since 2026-07-07; all remaining work is owner-only**) — multi-user platform: Google+Kakao signup, public album ratings, per-user buckets, Last.fm/Spotify member listening, `LLMEngine`. Phases 0–4 + P3b/3c + library user-scope + 07-14 surface-audit remediation + profile-merge PR1–3 are SHIPPED & prod-verified. Read "Phase 4 SHIPPED" narrowly: the owner-central `LLMEngine` interface/CLI/API skeleton + usage metering exists, but **no caller is wired to the API engine yet**; the first user-facing AI call belongs to `FEAT-album-review-authoring`. Existing rating behavior remains unchanged. **Every remaining item needs the owner, not Claude**: launch gates G1/G2 (≥10 reviews by ≥5 non-owner users within 4 weeks of public launch), Google brand verification, Kakao production review, OAuth secret reissue, owner live-login `returnTo` observation, and the necessity-gated canonical member URL decision (`/members/?u=` vs `/members/[handle]`). Owner deferred launch work 2026-07-20; **do not re-prompt without a new trigger.** → `docs/rfcs/FEAT-multi-user-accounts.md`.
 

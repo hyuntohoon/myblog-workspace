@@ -637,6 +637,41 @@ passes against a service that always returns one of them.
 
 ### Step A4 — Adapter, dispatcher, dock
 
+**SHIPPED and production-verified 2026-09-06.** A4 and the remaining A3
+selection UI landed in [front #444](https://github.com/hyuntohoon/myblog_front/pull/444),
+`9aea4d7`. [Deployment 34015153097](https://github.com/hyuntohoon/myblog_front/actions/runs/34015153097)
+passed, including CloudFront invalidation. [Production smoke evidence](https://github.com/hyuntohoon/myblog_front/pull/444#issuecomment-5557348768):
+**30 passed / 0 failed**, then both providers exercised in the same authenticated
+Chrome context against deployed assets, with all local request overrides removed.
+Spotify play/pause/seek showed 6273ms in the UI and 6272ms in the live paused device;
+YouTube play/pause/seek reached 30000ms. All five candidates started unselected,
+and the official Phoebe Bridgers channel was explicitly chosen for The Outside.
+The frame measured 640×360, with nine sampled points unobstructed and no YouTube
+CSP violation. DELETE returned to resolve 404 immediately; the test mapping was
+removed and Spotify was left paused.
+
+Local Node 20.19.5 verification: separate lint and Astro checks passed (0 errors,
+0 warnings, 2 existing hints), **1192 tests passed**, with the original 1109 tests and
+`session.test.ts` unchanged. 43 manually removed guards produced failing tests.
+A simultaneous build/check run caused existing UI timeouts; the whole suite then
+passed with unchanged assertions/deadlines at two workers. Production build and
+built HTML/CSS checks passed on home, members, and collection routes.
+
+Browser checks found and fixed integration defects before merge. Spotify
+may reject an already-paused device's pause with 403; the dispatcher now requires
+a fresh, strict proof of silence before switching, with a five-second bound over
+token minting, the read, and body parsing. Scrollbars consume layout width:
+viewport 500/client 485 now renders 485×272.8125 at x=0; usable width below 480 destroys
+the player. A saved confirmation notice is cleared once playback begins rather
+than reappearing over Pocket after close. Delayed startup, ownership loss, hidden
+pages, and navigation are covered by asynchronous regression tests and host cleanup.
+
+Observed separately during production verification: intermittent existing API 503s
+on hydration and Last.fm image CSP blocks. Tested paths recovered; backend,
+music, worker, and CSP configuration were unchanged by this frontend step.
+**RFC Status is not promoted.** OQ6 key rotation/API restriction and the Console
+quota reading remain owner actions; Milestone B still requires Phase 0-B GO.
+
 `youtubePlayback.ts`, `playback/provider.ts`, `YouTubePlayerDock`,
 provider-keyed `uris.ts` cache, capability matrix gains a provider dimension.
 
