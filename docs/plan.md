@@ -202,7 +202,7 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
 
-- **FEAT-lyrics-listening-experience** — draft; full-feature player design approved 2026-09-08; album translation demand, connected-member sync, implementation order, verification and rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`; runnable design → `docs/design/lyrics-listening-experience/README.md`. <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: draft -->
+- **FEAT-lyrics-listening-experience** — in-progress (Step 1); frontend #445 deployed, full suite and prod smoke 30/0 passed; live-media confirmation pending (locked Mac / token-error notice); full-feature player design approved 2026-09-08; album translation demand, connected-member sync, implementation order, verification and rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`; runnable design → `docs/design/lyrics-listening-experience/README.md`. <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
 
 - **FEAT-durable-job-status** (**backlogged 2026-09-02; needs owner go + an RFC**) — a durable,
   readable status for the async jobs a user can start from the UI: the Spotify album sync
