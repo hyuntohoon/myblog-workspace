@@ -100,7 +100,7 @@ When a step completes:
 
 In-flight RFCs only. Once `done`, an entry stays here for one cycle as a breadcrumb to the archive, then gets dropped — `git log` and `docs/archive/done/rfcs/` are authoritative for history.
 
-- **FEAT-lyrics-listening-experience** (draft, 2026-09-08) — owner-approved full-feature player design and direct current-song lyrics access; proposed durable album translation demand from connected members' saved libraries, existing recent-listening sync and followed artists' back catalogs. Design reference is versioned; follow/removal/source-waiting policies remain explicit open questions. → [RFC](FEAT-lyrics-listening-experience.md).
+- **FEAT-lyrics-listening-experience** (in-progress, Step 1 deployed; live-media confirmation pending) — owner-approved full-feature player design and direct current-song lyrics access; proposed durable album translation demand from connected members' saved libraries, existing recent-listening sync and followed artists' back catalogs. Design reference is versioned; follow/removal/source-waiting policies remain explicit open questions. → [RFC](FEAT-lyrics-listening-experience.md).
 
 - **ARCH-buckit-navigation-shell** (retired 2026-08-15) — its single-selection `BucketDetailShell`
   structure was reverted from production twice (front #401, then #402 the same day) in favor of the

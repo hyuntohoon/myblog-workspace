@@ -1,11 +1,11 @@
 # FEAT-lyrics-listening-experience: album translation coverage and immediate lyrics access
 
-- **Status**: draft
+- **Status**: in-progress (Step 1)
 - **Owner**: site owner
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: documentation and design preservation only; no implementation step has started. Design approval does not settle the open product policies in §Open questions or promote this RFC to `in-progress`.
+- **Execution state**: owner accepted this RFC and explicitly authorized Step 1 on 2026-09-08. Step 1 code is deployed; live-media confirmation remains pending as recorded below. Steps 2–5 and all unresolved translation/synchronization policies remain pending. Do not chain to Step 2 or create a new task after Step 1.
 
 ## Goal
 
@@ -17,7 +17,7 @@ Spotify-connected members can enter the site, see the song currently playing, an
 - Automatically following an artist on Spotify after listening, saving or rating. Reading Spotify follows does not authorize writing follows.
 - Replacing the playback session, queue model, lyrics host, or provider adapter.
 - Resuming the separately deferred `FEAT-member-own-listening-widgets` work or YouTube Milestone B.
-- Deploying application changes as part of this RFC/documentation PR.
+- Implementing translation/synchronization policy or Steps 2–5 during Step 1.
 
 ## Confirmed requirements
 
@@ -141,11 +141,11 @@ Multi-song requests are a later measured option: explicit track identifiers, per
 
 ## Steps
 
-No implementation step is completed by this documentation merge. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
+Step 1 was authorized and deployed on 2026-09-08; its live-media confirmation remains pending. Steps 2–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
 
 ### Step 1 — Preserve player functionality and add immediate lyrics access
 
-**Current state:** the existing controls and mount-time live synchronization are present, while player styling overrides the site palette. Recheck current-main lifecycle coverage and YouTube controls before editing.
+**Current state:** implemented and deployed in frontend PR #445; local/full-suite and automated production smoke passed. See the delivery record for the outstanding live-media confirmation and browser-cache observation.
 
 **Scope/order:** frontend only, independent of Steps 2–5. Re-audit current-main controls including YouTube; apply the approved styling and direct lyrics entry; extend the existing session lifecycle for entry/return discovery. Update layout offsets to measured responsive height. Do not resume the deferred member widget initiative.
 
@@ -211,12 +211,36 @@ These do not block preserving/merging the approved design. They gate the indicat
 | OQ6 | Unsave/unfollow/disconnect effects on unstarted demand and member provenance | Stop future discovery from that origin; preserve reusable translations; settle member-provenance retention and orphan-work cancellation explicitly. Preserve demand while a source is pending and a recent observation ages out. | Steps 2–5 removal/retention rules. |
 | OQ7 | Whether to batch Claude songs | Keep per-song calls until a version-safe measured experiment supports a change. | Optional optimization only. |
 
-## Delivery and implementation handoff
+## Delivery and implementation record
 
-- This PR stores the RFC, plan/index pointers, exact approved fragment and standalone dark/light previews. It changes no service, route, migration, infrastructure or runtime setting.
-- Run the workspace's existing invariant suite and plan/contract checker, validate saved preview JavaScript and local links, and open the exported previews in a real browser. Wait for actual PR CI before merging.
-- A docs-only merge has no application deployment to verify. Record that fact rather than inventing a production smoke result. The plan row remains because all implementation steps are outstanding; drop it only when the feature's final production verification is complete.
-- Next implementation entry: Step 1, after RFC acceptance under workspace policy and a fresh-main compatibility inventory. Read the design README and preservation matrix first. Do not start a new implementation task automatically merely because this planning PR merged.
+The approved RFC/design baseline is workspace [PR #994](https://github.com/hyuntohoon/myblog-workspace/pull/994), commit `b8ac88d`. Step 1 started from that workspace main and frontend `9aea4d7` ([PR #444](https://github.com/hyuntohoon/myblog_front/pull/444)), including its YouTube provider behavior. A busy shared checkout required isolated workspace/frontend worktrees. The prior planning task was idle; no other active task owned Step 1.
+
+### Step 1 compatibility and implementation
+
+| Requirement | Existing seam retained and result |
+|---|---|
+| Styling and responsive clearance | `GlobalPlaybackBar` / `pocket.css` use the site's warm light/dark surface, red accent and fine rules. One seek rail; actual border-box height drives `--global-player-h`, including reflow and Astro root swaps. |
+| Entry, home and foreground discovery | Shared lifecycle listeners call `playbackSession.syncFromLive`; overlapping reads share work. Mirror tabs request a fresh owner snapshot without taking ownership. Reads do not call play, transfer, pause or load the Spotify SDK. |
+| Likes, device, transport and modes | Existing session/provider commands remain. Live device metadata is adopted; cached like identity resets across YouTube so returning to the same Spotify track restores the heart. Errors retain recovery and optimistic-save rollback. |
+| Queue, docking and collapse | Existing queue rows, editing, docking and collapse remain; controls are directly reachable. Collapsed clearance is zero and expansion/navigation remeasure it. |
+| Current-song lyrics | The bar calls existing `openPlaybackLyrics` and lyrics host. YouTube catalog identity resolves through the URI seam; viewer refresh reads the active provider. Stale provider/track responses cannot open the wrong track. Original text remains readable while translation is requested. |
+| Account isolation and stalled requests | Existing `AuthEpoch` scopes token cache, token mint and shared playback reads. Identity/ownership changes invalidate adoption. Token mint is bounded at 8s, playback read at 10s; stale responses cannot populate cache or publish another account's state. No server authorization, route or contract changed. |
+
+### Step 1 local/browser verification
+
+Real browser clickthrough used the actual player/session/provider/lyrics components with deterministic local service responses and a local IFrame SDK fixture. The temporary fixture was removed before final checks and is not shipped. This verifies UI and provider routing, not live YouTube media availability.
+
+- Spotify layouts at 320, 360, 736, 1024 and 1440 CSS pixels in both themes: no controls outside the viewport; measured expanded heights 210, 210, 170, 125 and 106px respectively in the tested no-error state. Resize, collapse and Astro root-attribute reset restore the actual inset.
+- Heart success and failed-save rollback; shuffle; repeat off/context/track/off; play/pause; previous/next; keyboard seek and volume; device transfer, failed list read and recovery; mobile queue reorder/removal and desktop float/dock; collapse/expand.
+- A paused external track change is discovered on home/return with zero playback writes. Transient read failure retains the previous song, and the next return adopts the new song after recovery.
+- Direct lyrics opens the current song with original lines while translation remains requested. Missing source displays the existing empty state. YouTube direct lyrics, refresh, pause/seek and video selection remain provider-aware; return to Spotify restores the heart. The existing minimum YouTube viewport (480px wide / 410px tall), hidden-tab and navigation stop behavior remain unchanged.
+- Independent reviewer found no further functional issue after recovery fixes. Primary separately resolved the account-boundary finding by inspecting every cache reuse, mint retry, cache write and read publication against `AuthEpoch`; regression tests cover old/new accounts and stalled-operation retry.
+
+Final local checks: `pnpm lint` passed; `pnpm exec astro check` reported 363 files, 0 errors, 0 warnings (2 existing hints); `pnpm test --maxWorkers=2 --no-file-parallelism` passed 109 files / 1,218 tests. Workspace invariant suite passed 23 tests and plan/RFC/OpenAPI validation passed. Frontend [PR #445](https://github.com/hyuntohoon/myblog_front/pull/445) contains the implementation. PR #445 squash-merged as `f0d9adf4f1c69e2ac7d1e7fb8b52ddab9d99c612`. [Deployment run 34170635240](https://github.com/hyuntohoon/myblog_front/actions/runs/34170635240) passed its full check, build, upload, CloudFront invalidation and post-deploy health smoke. The authenticated production suite reported **PASSED: 30, FAILED: 0, elapsed: 6.2s** after deployment.
+
+Production asset verification passed against the fresh HTML's `PocketBuckit.CZRRJIwQ.js` and `PocketBuckit.78l9l3iJ.css`: direct-lyrics, measured resize/navigation inset and new control style markers are present. The existing browser tab initially kept older HTML (`PocketBuckit.B7psq29B.js`); opening the deployment-qualified URL loaded the new components. A plain reload alone had retained the old document in that tab.
+
+**Outstanding live-media confirmation:** the current account's live read did not yield an active track. Playing its existing Nikes queue row through the new player returned the existing recoverable token-error notice; the row remained intact. The Mac was locked, preventing native Spotify interaction/confirmation. The owner was asked to unlock it. Real Spotify audio/remote-device roundtrip and real YouTube media availability are not claimed from the fixture checks. Do not mark this final confirmation green or automatically continue to Step 2. The plan row remains until the entire RFC is complete. Steps 2–5 and OQ1–OQ7 stay open; there is no automatic next task.
 
 ## Decisions log
 
@@ -227,3 +251,4 @@ These do not block preserving/merging the approved design. They gate the indicat
 | 2026-09-08 | Owner fixed the revised full-feature design and requested persistent design/RFC/plan plus push and merge. Source hash and standalone previews are in the design record. | Documentation |
 | 2026-09-08 | Preserve the newer YouTube entry/provider gates found in the available main snapshot; the older visual mock is not authority to remove them. | Compatibility |
 | 2026-09-08 | Follow/removal/source-waiting/batching details remain identified proposals. No implementation step or production deployment is claimed by this PR. | Planning |
+| 2026-09-08 | Owner accepted the RFC and authorized Step 1 implementation, verification and delivery only. Status advanced through accepted to in-progress (Step 1); unresolved policies remain open. Report here after Step 1; no automatic Step 2 or new task. | Step 1 authorization |
