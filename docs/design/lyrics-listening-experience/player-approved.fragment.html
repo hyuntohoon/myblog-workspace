@@ -1,0 +1,164 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Noto+Serif+KR:wght@400;500&display=swap');
+#buckit-player-study{--bk-bg:light-dark(#f5f3ee,#141312);--bk-paper:light-dark(#ebe7df,#211f1c);--bk-ink:light-dark(#1a1a1a,#ede8e0);--bk-muted:light-dark(#6b6359,#aaa197);--bk-rule:light-dark(#d4cec3,#39342e);--bk-red:light-dark(#c8332b,#df524a);--bk-serif:'Newsreader','Noto Serif KR',serif;font-family:'IBM Plex Sans',sans-serif;font-size:14px;width:100%;background:transparent;line-height:1.5}
+#buckit-player-study *{box-sizing:border-box}#buckit-player-study [hidden]{display:none!important}
+#buckit-player-study .bk-window{background:var(--bk-bg);color:var(--bk-ink);width:100%;margin:auto;container-type:inline-size;container-name:buckit}
+#buckit-player-study[data-device="mobile"] .bk-window{max-width:360px}
+#buckit-player-study button{font:inherit;color:inherit;background:transparent;border:0;padding:0;cursor:pointer}
+#buckit-player-study button:hover{color:var(--bk-red)}#buckit-player-study button:focus-visible,#buckit-player-study input:focus-visible{outline:2px solid var(--bk-red);outline-offset:3px}
+#buckit-player-study svg{width:18px;height:18px;stroke-width:1.6;flex:none}
+#buckit-player-study h2,#buckit-player-study h3{color:var(--bk-ink);font-weight:400;margin:0}
+#buckit-player-study .bk-icon{display:inline-flex;justify-content:center;align-items:center;min-width:36px;min-height:36px;flex:none}
+#buckit-player-study button[aria-pressed="true"]{color:var(--bk-red)}
+#buckit-player-study .bk-top{display:grid;gap:15px;padding:23px 30px 15px;border-bottom:1px solid var(--bk-rule)}
+#buckit-player-study .bk-brand{text-align:center;font-family:var(--bk-serif);font-size:47px;line-height:1;letter-spacing:-2px}
+#buckit-player-study .bk-brand em{color:var(--bk-red);font-style:normal}
+#buckit-player-study .bk-nav{justify-content:center;display:flex;flex-wrap:wrap;gap:12px 25px;font-size:12px;color:var(--bk-muted);border-top:1px solid var(--bk-rule);padding-top:13px}
+#buckit-player-study .bk-nav span:first-child{color:var(--bk-ink)}
+#buckit-player-study .bk-content{padding:25px 30px 30px;min-height:231px}
+#buckit-player-study .bk-section-title{font:400 23px/1.3 var(--bk-serif);border-bottom:1px solid var(--bk-rule);padding-bottom:12px;margin-bottom:21px}
+#buckit-player-study .bk-feature{display:flex;align-items:center;gap:22px}
+#buckit-player-study .bk-art{background:var(--bk-paper);border:1px solid var(--bk-rule);flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--bk-serif);color:var(--bk-muted)}
+#buckit-player-study .bk-cover-large{width:100px;height:100px;font-size:24px;letter-spacing:-1px}
+#buckit-player-study .bk-album{font:400 26px/1.15 var(--bk-serif);max-width:300px;margin:0 0 10px}
+#buckit-player-study .bk-muted{color:var(--bk-muted);font-size:12px}
+#buckit-player-study .bk-reader{padding:24px 30px 27px;min-height:231px}
+#buckit-player-study .bk-reader-head{display:flex;align-items:center;justify-content:space-between;gap:15px;border-bottom:1px solid var(--bk-rule);padding-bottom:15px}
+#buckit-player-study .bk-reader h2{font:400 30px/1.1 var(--bk-serif);margin-bottom:6px}
+#buckit-player-study .bk-empty{border-left:2px solid var(--bk-red);padding-left:16px;margin:29px 0 12px}
+#buckit-player-study .bk-empty h3{font:400 20px/1.5 var(--bk-serif);margin-bottom:6px}
+#buckit-player-study .bk-empty p{font-size:12px;line-height:1.7;color:var(--bk-muted);margin:0}
+#buckit-player-study .bk-footer{background:var(--bk-bg);border-top:1px solid var(--bk-rule)}
+#buckit-player-study .bk-player{position:relative;padding:17px 24px 16px;display:grid;grid-template-columns:minmax(180px,.85fr) minmax(220px,1fr) minmax(290px,1.25fr);align-items:center;gap:18px}
+#buckit-player-study .bk-identity{display:flex;gap:11px;align-items:center;min-width:0}
+#buckit-player-study .bk-cover{width:45px;height:45px;font-size:13px;letter-spacing:-.5px}
+#buckit-player-study .bk-meta{min-width:0;flex:1}
+#buckit-player-study .bk-title{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#buckit-player-study .bk-artist{color:var(--bk-muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#buckit-player-study .bk-heart[aria-pressed="true"] svg{fill:var(--bk-red)}
+#buckit-player-study .bk-center{min-width:0}
+#buckit-player-study .bk-transport{display:flex;align-items:center;justify-content:center;gap:8px}
+#buckit-player-study .bk-play{border:1px solid var(--bk-rule);border-radius:50%;background:var(--bk-paper)}
+#buckit-player-study .bk-repeat{position:relative}
+#buckit-player-study .bk-one{font:400 11px/1 'IBM Plex Mono',monospace;position:absolute;right:0;top:0;color:var(--bk-red)}
+#buckit-player-study .bk-timeline{display:flex;align-items:center;gap:9px;margin-top:5px}
+#buckit-player-study .bk-time{font:400 11px/1.2 'IBM Plex Mono',monospace;color:var(--bk-muted);font-variant-numeric:tabular-nums;flex:none}
+#buckit-player-study input[type="range"]{accent-color:var(--bk-red);min-width:0;width:100%;height:18px;margin:0;cursor:pointer}
+#buckit-player-study .bk-timeline input{flex:1}
+#buckit-player-study .bk-utility{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap;min-width:0}
+#buckit-player-study .bk-lyrics{display:inline-flex;align-items:center;gap:6px;color:var(--bk-red);font-size:12px;white-space:nowrap;min-height:36px;padding:0 5px}
+#buckit-player-study .bk-lyrics span{border-bottom:1px solid var(--bk-red);padding-bottom:2px}
+#buckit-player-study .bk-device-trigger{display:inline-flex;align-items:center;gap:6px;min-height:36px;font-size:12px;max-width:126px;min-width:0}
+#buckit-player-study .bk-device-trigger span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#buckit-player-study .bk-device-trigger svg{width:16px;height:16px}
+#buckit-player-study .bk-status{font-size:11px;color:var(--bk-muted);border-top:1px solid var(--bk-rule);padding:7px 24px;min-height:29px}
+#buckit-player-study .bk-panels{padding:0 24px;background:var(--bk-bg)}
+#buckit-player-study .bk-panel{background:var(--bk-paper);color:var(--bk-ink);border:1px solid var(--bk-rule);padding:17px 18px;margin:15px 0 15px auto;max-width:100%;width:350px}
+#buckit-player-study .bk-panel-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
+#buckit-player-study .bk-panel h3{font:400 21px/1.3 var(--bk-serif)}
+#buckit-player-study .bk-panel-tools{display:flex;align-items:center;gap:4px}
+#buckit-player-study .bk-device-option{display:flex;align-items:center;gap:12px;min-height:56px;text-align:left;width:100%;border-top:1px solid var(--bk-rule);padding:10px 0}
+#buckit-player-study .bk-device-option>span{flex:1}
+#buckit-player-study .bk-device-option strong{display:block;font-size:13px;font-weight:400}
+#buckit-player-study .bk-device-option small{display:block;font-size:11px;color:var(--bk-muted);margin-top:2px}
+#buckit-player-study .bk-device-option .bk-check{visibility:hidden}
+#buckit-player-study .bk-device-option[aria-pressed="true"] .bk-check{visibility:visible}
+#buckit-player-study .bk-panel-foot{color:var(--bk-muted);font-size:11px;border-top:1px solid var(--bk-rule);padding-top:11px;margin-top:7px}
+#buckit-player-study .bk-volume-panel{width:290px}
+#buckit-player-study .bk-volume-line{display:flex;align-items:center;gap:13px}
+#buckit-player-study .bk-queue-panel{width:460px}
+#buckit-player-study .bk-queue-row{display:flex;align-items:center;gap:13px;min-height:52px;text-align:left;width:100%;padding:10px 0;border-top:1px solid var(--bk-rule)}
+#buckit-player-study .bk-queue-row>span:nth-child(2){flex:1}
+#buckit-player-study .bk-queue-row strong{font-size:13px;font-weight:400;display:block}
+#buckit-player-study .bk-queue-row small{display:block;font-size:11px;color:var(--bk-muted)}
+#buckit-player-study .bk-queue-check{visibility:hidden}
+#buckit-player-study .bk-queue-row[aria-current="true"]{color:var(--bk-red)}
+#buckit-player-study .bk-queue-row[aria-current="true"] .bk-queue-check{visibility:visible}
+#buckit-player-study .bk-collapsed{display:flex;align-items:center;gap:12px;padding:12px 24px}
+#buckit-player-study[data-finish="paper"] .bk-player,#buckit-player-study[data-finish="paper"] .bk-collapsed{background:var(--bk-paper)}
+@container buckit (max-width:850px){#buckit-player-study .bk-player{grid-template-columns:minmax(190px,1fr) minmax(220px,1fr);gap:15px 25px}#buckit-player-study .bk-utility{grid-column:1/-1;justify-content:flex-end;border-top:1px solid var(--bk-rule);padding-top:10px;gap:11px}#buckit-player-study .bk-device-trigger{margin-right:auto;max-width:220px;order:-1}}
+@container buckit (max-width:480px){#buckit-player-study .bk-top{padding:22px 18px 13px;gap:16px}#buckit-player-study .bk-brand{font-size:41px}#buckit-player-study .bk-nav{gap:21px;font-size:11px}#buckit-player-study .bk-content{padding:23px 20px 27px;min-height:219px}#buckit-player-study .bk-section-title{font-size:21px;margin-bottom:19px}#buckit-player-study .bk-cover-large{width:88px;height:88px;font-size:21px}#buckit-player-study .bk-feature{gap:17px}#buckit-player-study .bk-album{font-size:23px}#buckit-player-study .bk-player{display:flex;flex-direction:column;align-items:stretch;padding:15px 16px 10px;gap:12px}#buckit-player-study .bk-identity{padding-right:44px;gap:10px}#buckit-player-study .bk-cover{width:40px;height:40px}#buckit-player-study .bk-title{font-size:14px}#buckit-player-study .bk-heart{margin-left:auto}#buckit-player-study .bk-transport{justify-content:center;gap:15px}#buckit-player-study .bk-icon{min-height:40px;min-width:40px}#buckit-player-study .bk-timeline{margin-top:7px}#buckit-player-study .bk-utility{justify-content:space-between;padding-top:7px;gap:3px;flex-wrap:nowrap}#buckit-player-study .bk-device-trigger{margin:0;max-width:112px;font-size:11px;gap:5px;min-height:40px;flex:1}#buckit-player-study .bk-lyrics{font-size:11px;min-height:40px;gap:0;padding:0 5px}#buckit-player-study .bk-lyrics svg{display:none}#buckit-player-study .bk-collapse{position:absolute;top:15px;right:14px}#buckit-player-study .bk-reader{padding:23px 20px;min-height:219px}#buckit-player-study .bk-reader h2{font-size:26px}#buckit-player-study .bk-panels{padding:0 12px}#buckit-player-study .bk-panel{padding:14px;margin-top:12px;margin-bottom:12px}#buckit-player-study .bk-status{padding:7px 16px;line-height:1.6}#buckit-player-study .bk-collapsed{padding:12px 16px;gap:7px}}
+@media(pointer:coarse){#buckit-player-study .bk-icon,#buckit-player-study .bk-lyrics,#buckit-player-study .bk-device-trigger{min-height:44px}#buckit-player-study .bk-icon{min-width:44px}#buckit-player-study input[type="range"]{height:28px}}
+</style>
+<div id="buckit-player-study" data-device="desktop" data-finish="integrated" aria-label="기능을 유지한 Buckit 재생 바">
+ <div class="bk-window">
+  <header class="bk-top"><span class="bk-brand">bucki<em>t</em></span><nav class="bk-nav" aria-label="사이트"><span>REVIEWS</span><span>GENRES</span><span>BEST NEW MUSIC</span><span>CANON</span><span>COLLECTION</span></nav></header>
+  <main class="bk-content" data-home><h2 class="bk-section-title">새 앨범</h2><div class="bk-feature"><div class="bk-art bk-cover-large" aria-label="앨범 이미지 자리">DtMF</div><div><h3 class="bk-album">DeBÍ TiRAR<br>MáS FOToS</h3><span class="bk-muted">Bad Bunny</span></div></div></main>
+  <section class="bk-reader" data-reader hidden aria-label="현재 곡 가사"><div class="bk-reader-head"><div><h2 data-reader-title>DtMF</h2><span class="bk-muted" data-reader-artist>Bad Bunny</span></div><button type="button" class="bk-icon" data-act="lyrics" aria-label="가사 닫기"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="bk-empty"><h3>가사를 준비하고 있어요</h3><p>원문과 번역이 준비되면<br>이곳에서 바로 읽을 수 있어요.</p></div></section>
+  <footer class="bk-footer" aria-label="현재 재생">
+   <div class="bk-panels">
+    <section class="bk-panel" data-panel="devices" hidden aria-label="재생 기기 선택"><div class="bk-panel-top"><h3>어디서 들을까요</h3><div class="bk-panel-tools"><button type="button" class="bk-icon" data-act="refresh" aria-label="기기 목록 새로고침"><i data-lucide="refresh-cw" aria-hidden="true"></i></button><button type="button" class="bk-icon" data-act="close-panel" aria-label="기기 선택 닫기"><i data-lucide="x" aria-hidden="true"></i></button></div></div>
+     <button type="button" class="bk-device-option" data-device-choice="MacBook Pro" aria-pressed="true"><i data-lucide="laptop" aria-hidden="true"></i><span><strong>MacBook Pro</strong><small>Spotify 앱</small></span><i class="bk-check" data-lucide="check" aria-hidden="true"></i></button>
+     <button type="button" class="bk-device-option" data-device-choice="iPhone" aria-pressed="false"><i data-lucide="smartphone" aria-hidden="true"></i><span><strong>iPhone</strong><small>Spotify 앱</small></span><i class="bk-check" data-lucide="check" aria-hidden="true"></i></button>
+     <button type="button" class="bk-device-option" data-device-choice="이 브라우저" aria-pressed="false"><i data-lucide="app-window" aria-hidden="true"></i><span><strong>이 브라우저</strong><small>음질 제한</small></span><i class="bk-check" data-lucide="check" aria-hidden="true"></i></button>
+     <div class="bk-panel-foot" data-device-feedback aria-live="polite">기기 예시 · 실제 재생 기기는 변경되지 않아요.</div>
+    </section>
+    <section class="bk-panel bk-volume-panel" data-panel="volume" hidden aria-label="볼륨 조절"><div class="bk-panel-top"><h3>볼륨 <span data-volume-text>65%</span></h3><button type="button" class="bk-icon" data-act="close-panel" aria-label="볼륨 닫기"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="bk-volume-line"><button type="button" class="bk-icon" data-act="mute" aria-label="음소거" aria-pressed="false"><i data-lucide="volume-2" aria-hidden="true"></i></button><input type="range" data-volume min="0" max="100" value="65" aria-label="볼륨"></div></section>
+    <section class="bk-panel bk-queue-panel" data-panel="queue" hidden aria-label="재생 대기열"><div class="bk-panel-top"><h3>재생 대기열</h3><button type="button" class="bk-icon" data-act="close-panel" aria-label="대기열 닫기"><i data-lucide="x" aria-hidden="true"></i></button></div><div data-queue></div><div class="bk-panel-foot">시안용 대기열 · 곡을 눌러 재생 상태를 살펴보세요.</div></section>
+   </div>
+   <div class="bk-player" data-expanded>
+    <div class="bk-identity"><div class="bk-art bk-cover" data-cover aria-label="앨범 이미지 자리">DtMF</div><div class="bk-meta"><div class="bk-title" data-title>DtMF</div><div class="bk-artist" data-artist>Bad Bunny</div></div><button type="button" class="bk-icon bk-heart" data-act="like" aria-label="Spotify 좋아요" aria-pressed="false"><i data-lucide="heart" aria-hidden="true"></i></button></div>
+    <div class="bk-center"><div class="bk-transport"><button type="button" class="bk-icon" data-act="shuffle" aria-label="셔플 꺼짐" aria-pressed="false"><i data-lucide="shuffle" aria-hidden="true"></i></button><button type="button" class="bk-icon" data-act="previous" aria-label="이전 곡"><i data-lucide="skip-back" aria-hidden="true"></i></button><button type="button" class="bk-icon bk-play" data-act="play" aria-label="일시정지" aria-pressed="false"><i data-lucide="pause" aria-hidden="true"></i></button><button type="button" class="bk-icon" data-act="next" aria-label="다음 곡"><i data-lucide="skip-forward" aria-hidden="true"></i></button><button type="button" class="bk-icon bk-repeat" data-act="repeat" aria-label="반복 없음" aria-pressed="false"><i data-lucide="repeat-2" aria-hidden="true"></i><span class="bk-one" data-one hidden>1</span></button></div><div class="bk-timeline"><span class="bk-time" data-elapsed>1:26</span><input type="range" data-seek min="0" max="237" value="86" step="1" aria-label="재생 위치" aria-valuetext="1:26 / 3:57"><span class="bk-time" data-total>3:57</span></div></div>
+    <div class="bk-utility" role="group" aria-label="재생 도구"><button type="button" class="bk-lyrics" data-act="lyrics" aria-expanded="false"><i data-lucide="captions" aria-hidden="true"></i><span data-lyrics-label>가사 보기</span></button><button type="button" class="bk-icon" data-act="queue" aria-label="재생 대기열 열기" aria-expanded="false"><i data-lucide="list-music" aria-hidden="true"></i></button><button type="button" class="bk-device-trigger" data-act="devices" aria-label="재생 기기: MacBook Pro" aria-expanded="false"><i data-lucide="monitor-speaker" aria-hidden="true"></i><span data-device-name>MacBook Pro</span></button><button type="button" class="bk-icon" data-act="volume" aria-label="볼륨 조절: 65%" aria-expanded="false"><i data-lucide="volume-2" aria-hidden="true"></i></button><button type="button" class="bk-icon bk-collapse" data-act="collapse" aria-label="재생 바 접기"><i data-lucide="chevron-down" aria-hidden="true"></i></button></div>
+   </div>
+   <div class="bk-collapsed" data-collapsed hidden><div class="bk-art bk-cover" data-cover aria-hidden="true">DtMF</div><div class="bk-meta"><div class="bk-title" data-title>DtMF</div><div class="bk-artist" data-artist>Bad Bunny</div></div><button type="button" class="bk-lyrics" data-act="lyrics" aria-expanded="false"><span data-lyrics-label>가사 보기</span></button><button type="button" class="bk-icon" data-act="expand" aria-label="재생 바 펼치기"><i data-lucide="chevron-up" aria-hidden="true"></i></button></div>
+   <div class="bk-status" role="status" aria-live="polite" data-status>재생 중 · MacBook Pro</div>
+  </footer>
+ </div>
+</div>
+<script>
+(() => {
+ const root=document.getElementById('buckit-player-study');
+ const windowEl=root.querySelector('.bk-window');
+ const design={theme:'dark',device:'desktop',finish:'integrated'};
+ const tracks=[{title:'DtMF',artist:'Bad Bunny',duration:237,cover:'DtMF'},{title:'예시 트랙 A',artist:'시안용 트랙',duration:180,cover:'A'},{title:'예시 트랙 B',artist:'시안용 트랙',duration:210,cover:'B'}];
+ const state={index:0,playing:true,liked:new Set(),shuffle:false,repeat:0,elapsed:86,volume:65,lastVolume:65,device:'MacBook Pro',panel:null,lyrics:false,collapsed:false};
+ const q=selector=>root.querySelector(selector),qa=selector=>Array.from(root.querySelectorAll(selector));
+ const time=n=>`${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;
+ const icon=name=>`<i data-lucide="${name}" aria-hidden="true"></i>`;
+ const icons=()=>{if(globalThis.lucide)globalThis.lucide.createIcons({attrs:{width:18,height:18}});};
+ const announce=message=>{q('[data-status]').textContent=message;};
+ function renderDesign(){root.dataset.device=design.device;root.dataset.finish=design.finish;windowEl.style.colorScheme=design.theme==='auto'?'light dark':design.theme;}
+ function renderTimeline(){const track=tracks[state.index];q('[data-seek]').max=String(track.duration);q('[data-seek]').value=String(state.elapsed);q('[data-seek]').setAttribute('aria-valuetext',`${time(state.elapsed)} / ${time(track.duration)}`);q('[data-elapsed]').textContent=time(state.elapsed);q('[data-total]').textContent=time(track.duration);}
+ function render(){
+  const track=tracks[state.index];qa('[data-title]').forEach(el=>el.textContent=track.title);qa('[data-artist]').forEach(el=>el.textContent=track.artist);qa('[data-cover]').forEach(el=>el.textContent=track.cover);
+  q('[data-reader-title]').textContent=track.title;q('[data-reader-artist]').textContent=track.artist;
+  const like=q('[data-act="like"]');like.setAttribute('aria-pressed',String(state.liked.has(state.index)));like.setAttribute('aria-label',state.liked.has(state.index)?'Spotify 좋아요 취소':'Spotify 좋아요');
+  const play=q('[data-act="play"]');play.innerHTML=icon(state.playing?'pause':'play');play.setAttribute('aria-label',state.playing?'일시정지':'재생');play.setAttribute('aria-pressed',String(!state.playing));
+  q('[data-act="shuffle"]').setAttribute('aria-pressed',String(state.shuffle));q('[data-act="shuffle"]').setAttribute('aria-label',state.shuffle?'셔플 켜짐':'셔플 꺼짐');
+  q('[data-act="repeat"]').setAttribute('aria-pressed',String(state.repeat!==0));q('[data-act="repeat"]').setAttribute('aria-label',['반복 없음','전체 반복','한 곡 반복'][state.repeat]);q('[data-one]').hidden=state.repeat!==2;
+  q('[data-device-name]').textContent=state.device;q('[data-act="devices"]').setAttribute('aria-label',`재생 기기: ${state.device}`);qa('[data-device-choice]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.deviceChoice===state.device)));
+  q('[data-volume]').value=String(state.volume);q('[data-volume-text]').textContent=`${state.volume}%`;q('[data-act="volume"]').setAttribute('aria-label',`볼륨 조절: ${state.volume}%`);q('[data-act="mute"]').setAttribute('aria-pressed',String(state.volume===0));q('[data-act="mute"]').setAttribute('aria-label',state.volume===0?'음소거 해제':'음소거');q('[data-act="mute"]').innerHTML=icon(state.volume===0?'volume-x':'volume-2');
+  qa('[data-panel]').forEach(el=>el.hidden=el.dataset.panel!==state.panel);['devices','queue','volume'].forEach(name=>q(`[data-act="${name}"]`).setAttribute('aria-expanded',String(name===state.panel)));
+  q('[data-home]').hidden=state.lyrics;q('[data-reader]').hidden=!state.lyrics;qa('[data-lyrics-label]').forEach(el=>el.textContent=state.lyrics?'가사 닫기':'가사 보기');qa('.bk-lyrics').forEach(el=>el.setAttribute('aria-expanded',String(state.lyrics)));
+  q('[data-expanded]').hidden=state.collapsed;q('[data-collapsed]').hidden=!state.collapsed;
+  q('[data-queue]').innerHTML=tracks.map((t,i)=>`<button type="button" class="bk-queue-row" data-track="${i}" aria-current="${i===state.index}"><span class="bk-time">${i+1}</span><span><strong>${t.title}</strong><small>${t.artist}</small></span><span class="bk-time">${time(t.duration)}</span><span class="bk-queue-check">${icon('audio-lines')}</span></button>`).join('');renderTimeline();icons();
+ }
+ function selectTrack(index){state.index=index;state.elapsed=0;state.playing=true;announce(`${tracks[index].title} 재생 중 · ${state.device}`);}
+ root.addEventListener('click',event=>{
+  const button=event.target.closest('button');if(!button||!root.contains(button))return;
+  if(button.hasAttribute('data-track')){selectTrack(Number(button.dataset.track));render();return;}
+  if(button.hasAttribute('data-device-choice')){state.device=button.dataset.deviceChoice;state.panel=null;announce(`${state.device} 선택됨 · 시안에서는 실제 기기가 변경되지 않아요.`);render();q('[data-act="devices"]').focus();return;}
+  const action=button.dataset.act;
+  if(action==='like'){state.liked.has(state.index)?state.liked.delete(state.index):state.liked.add(state.index);announce(state.liked.has(state.index)?'Spotify 좋아요에 추가된 모습이에요.':'Spotify 좋아요가 해제된 모습이에요.');}
+  else if(action==='shuffle'){state.shuffle=!state.shuffle;announce(state.shuffle?'셔플 켜짐':'셔플 꺼짐');}
+  else if(action==='repeat'){state.repeat=(state.repeat+1)%3;announce(['반복 없음','전체 반복','한 곡 반복'][state.repeat]);}
+  else if(action==='play'){state.playing=!state.playing;announce(`${state.playing?'재생 중':'일시정지'} · ${state.device}`);}
+  else if(action==='next')selectTrack((state.index+(state.shuffle?2:1))%tracks.length);
+  else if(action==='previous'){if(state.elapsed>3){state.elapsed=0;announce('현재 곡의 처음으로 이동했어요.');}else selectTrack((state.index+tracks.length-1)%tracks.length);}
+  else if(['devices','queue','volume'].includes(action))state.panel=state.panel===action?null:action;
+  else if(action==='close-panel')state.panel=null;
+  else if(action==='refresh'){q('[data-device-feedback]').textContent='목록을 새로 확인했어요 · 예시 기기 3개';announce('예시 기기 목록을 새로 확인했어요.');}
+  else if(action==='mute'){if(state.volume>0){state.lastVolume=state.volume;state.volume=0;}else state.volume=state.lastVolume||65;announce(`볼륨 ${state.volume}%`);}
+  else if(action==='lyrics'){state.lyrics=!state.lyrics;state.panel=null;}
+  else if(action==='collapse'){state.collapsed=true;state.panel=null;}
+  else if(action==='expand')state.collapsed=false;
+  render();if(action==='collapse')q('[data-act="expand"]').focus();if(action==='expand')q('[data-act="collapse"]').focus();
+ });
+ q('[data-seek]').addEventListener('input',event=>{state.elapsed=Number(event.target.value);renderTimeline();});q('[data-seek]').addEventListener('change',()=>announce(`${time(state.elapsed)} 위치로 이동했어요.`));
+ q('[data-volume]').addEventListener('input',event=>{state.volume=Number(event.target.value);q('[data-volume-text]').textContent=`${state.volume}%`;q('[data-act="volume"]').setAttribute('aria-label',`볼륨 조절: ${state.volume}%`);});q('[data-volume]').addEventListener('change',()=>{if(state.volume>0)state.lastVolume=state.volume;render();announce(`볼륨 ${state.volume}%`);});
+ root.addEventListener('keydown',event=>{if(event.key==='Escape'){state.panel=null;state.lyrics=false;render();}});
+ renderDesign();render();
+ if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:renderDesign});tweak.addSelect(design,'theme',{label:'사이트 테마',options:[{label:'다크',value:'dark'},{label:'라이트',value:'light'},{label:'시스템',value:'auto'}]});tweak.addSelect(design,'device',{label:'화면',options:[{label:'데스크톱',value:'desktop'},{label:'모바일',value:'mobile'}]});tweak.addSelect(design,'finish',{label:'재생 바 바탕',options:[{label:'추천 · 페이지와 같은 바탕',value:'integrated'},{label:'같은 기능 · 한 톤 밝은 바탕',value:'paper'}]});}
+})();
+</script>
