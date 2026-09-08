@@ -202,7 +202,21 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
 
-- **FEAT-lyrics-listening-experience** — in-progress (Step 1); frontend #445 deployed, full suite and prod smoke 30/0 passed; live-media confirmation pending (locked Mac / token-error notice); full-feature player design approved 2026-09-08; album translation demand, connected-member sync, implementation order, verification and rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`; runnable design → `docs/design/lyrics-listening-experience/README.md`. <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
+- **FEAT-lyrics-listening-experience** — in-progress; **Step 1 is complete.** Frontend #445 deployed, full
+  suite and prod smoke 30/0 passed, and the **live-media confirmation closed 2026-09-09** against the
+  deployed bundle with a real owner session: real Spotify play/pause/seek on a remote device, real YouTube
+  media, and direct lyrics on both providers — each checked against an **independent Spotify Web API
+  observer** rather than the player's own state, because a player reporting its own success proves nothing.
+  The earlier `재생 토큰을 가져오지 못했어요` notice was **not a defect**: no Spotify device was active, so the
+  ladder's rung 1 correctly 404s and the SDK fallback surfaces that notice — the owner streaming credential
+  itself exchanges at HTTP 200. A test YouTube mapping was created and deleted through the product's own
+  actions; production carries no residue. *Still unproven*: the in-page browser rung after a cold-start 404,
+  which predates this step and is recorded as an observation, not adopted as work.
+  **Steps 2–5 and OQ1–OQ7 stay open and are the owner's to settle; there is no automatic next task, and the
+  RFC Status is deliberately NOT promoted (hard rule 7).** Album translation demand, connected-member sync,
+  implementation order, verification and rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`; runnable
+  design → `docs/design/lyrics-listening-experience/README.md`.
+  <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
 
 - **FEAT-durable-job-status** (**backlogged 2026-09-02; needs owner go + an RFC**) — a durable,
   readable status for the async jobs a user can start from the UI: the Spotify album sync
