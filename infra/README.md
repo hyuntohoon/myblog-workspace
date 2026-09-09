@@ -82,3 +82,31 @@ These exist in AWS but are **not managed by Terraform** → `terraform plan` is 
 - **Worker console policy** `AWSLambdaBasicExecutionRole-976d757e-…` — attached by ARN (`iam_roles.tf` `worker_basic_exec`), policy body not in repo or state. It carries the worker's real `blogSQS` consume grant, so a console edit could cause a silent consumer outage invisible to `plan`. Audit with `aws iam get-policy-version` before relying on `plan` for the worker's SQS perms.
 
 > The 3 Lambda execution roles (backend/music/worker) are managed in `infra/iam_roles.tf`. **STAB-7** dropped the music role's account-wide `AWSLambdaSQSQueueExecutionRole` attachment (P7-5 over-grant — `musicApi` is producer-only) and the dead `music_rds_ctrl` `rds:Start/Stop/DescribeDBInstances` grant on the phantom `db:blogdb` (P7-1; Neon is the DB). `music_rds_ctrl` is now logs-only. Both land via the STAB-7 `terraform apply`.
+
+
+## Local lyrics translation runtime (Step 3, 2026-09-09)
+
+The cloud source collector is `worker-lyrics-demand-source`, with a proposed 15-minute
+EventBridge schedule. Terraform activation must be checked against the Step 3 delivery record;
+merging the workspace does not apply infrastructure.
+
+The existing launchd label `com.myblog.lyrics-translate-poller` now reads its script from
+`/Users/park_hyun/myblog-workspace/.worktrees/lyrics-poller-runtime/scripts/lyrics_translate_poller.py`.
+The deployed workspace snapshot is `ab2bf8d`, with real nested worktrees for backend `1cd5c6e`
+and shared-db `6c57b78`. It keeps the existing backend virtualenv interpreter, 60-second interval,
+PATH, log file and shared Claude subscription guard. The dirty shared workspace is not used as
+its code source. Do not remove these runtime worktrees during development-worktree cleanup.
+
+The installed plist is `~/Library/LaunchAgents/com.myblog.lyrics-translate-poller.plist`; its
+`WorkingDirectory` is the runtime checkout. The tracked plist remains the clean-shared-checkout
+installation template; an isolated rollout must set both script path and working directory.
+Check `launchctl list` and `~/Library/Logs/myblog-lyrics-translate-poller.log` after a rollout.
+No database URL or model credential belongs in the plist: SSM and the existing Claude login
+remain the sources. The poller runs the legacy queue first, then the V57 demand pass.
+
+To stop just the new demand translation path, append `--no-demand` to the installed
+ProgramArguments and reload the existing launchd label. To stop all local translations,
+boot out that label; requests and results stay durable. Cloud source collection is independent:
+disable its EventBridge rule to pause it. A stopped or transiently failed model call keeps its
+20-minute work lease; later firings reclaim expired leases after the shared subscription cooldown.
+Do not shorten leases or clear the subscription guard merely to force a smoke test through.

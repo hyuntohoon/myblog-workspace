@@ -10,15 +10,17 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
 - **FEAT-lyrics-listening-experience** — in-progress; Steps 1–2 production-verified;
-  Step 3 is in pre-merge verification (workspace #1000 and worker #104).
+  Step 3 merged and deployed, with final activation/translation verification outstanding.
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
-  The targeted source collector and versioned translation bridge are implemented. Resume review
-  found expired-claim recovery, mid-call source changes, publication atomicity and manual-coverage
-  gaps; fixes and regressions are being verified before merge. EventBridge activation and the local
-  poller rollout still require verification; no Step 3 production smoke is claimed yet.
-  Steps 4–5 automatic demand producers remain unimplemented. OQ5/6 are approved; OQ1 gates only the
-  Step 4 liked-track extension, while OQ2–4 gate Step 5. Carry the Step 1 cold-start Spotify 404
-  browser-fallback observation. Full evidence and next-step scope →
+  Worker #104 / workspace #1000 are merged. The deployed Lambda source was verified, authenticated
+  production smoke passed 30/0, and a real source pass preserved unresolved demand with its retry
+  date. The local 60-second poller now runs the clean Step 3 runtime. **Remaining Step 3 gates:**
+  explicit production Terraform apply approval (4 additive resources; no changes/deletes), and
+  successful real Claude publication after the existing subscription cooldown. The first approved
+  one-song call returned a transient CLI error and kept its work lease; it did not publish.
+  Steps 4–5 automatic producers remain unimplemented. OQ5/6 are resolved; OQ1 gates only the liked-
+  track extension, and OQ2–4 gate Step 5. Carry the Step 1 cold-start Spotify 404/browser-fallback
+  observation. Delivery evidence, runtime details and exact next scope →
   `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, accepted) — main governance, keyless
