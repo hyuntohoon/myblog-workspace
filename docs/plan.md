@@ -9,6 +9,25 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
+- **FEAT-lyrics-listening-experience** — in-progress; **Step 1 is complete.** Frontend #445 deployed, full
+  suite and prod smoke 30/0 passed, and the **live-media confirmation closed 2026-09-09** against the
+  deployed bundle with a real owner session: real Spotify play/pause/seek on a remote device, real YouTube
+  media, and direct lyrics on both providers — each checked against an **independent Spotify Web API
+  observer** rather than the player's own state, because a player reporting its own success proves nothing.
+  The earlier `재생 토큰을 가져오지 못했어요` notice was **not a defect**: no Spotify device was active, so the
+  ladder's rung 1 correctly 404s and the SDK fallback surfaces that notice — the owner streaming credential
+  itself exchanges at HTTP 200. A test YouTube mapping was created and deleted through the product's own
+  actions; production carries no residue. *Still unproven*: the in-page browser rung after a cold-start 404,
+  which predates this step and is recorded as an observation, not adopted as work.
+  **Owner requested documentation reconciliation and continuation on 2026-09-09. Step 2 is next,
+  pending OQ6 (origin removal, member-provenance retention and cancellation of unstarted work).**
+  Step 2 preparation may proceed; its dependent schema/implementation waits for that decision.
+  Steps 3–5 are outside this session. OQ5 gates Step 3; OQ1–4 gate the indicated later scopes;
+  OQ7 is optional optimization only. RFC Status is unchanged. Album translation demand, connected-member sync,
+  implementation order, verification and rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`; runnable
+  design → `docs/design/lyrics-listening-experience/README.md`.
+  <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
+
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, accepted) — main governance, keyless
   <!-- rfc: docs/rfcs/SEC-system-hardening.md | status: accepted -->
   deploys, one JWT verifier. **Steps 1–6 are all shipped and production-verified** (rulesets on all six
@@ -92,31 +111,14 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   supplied, never add outside facts/evaluations/metaphors, the result stays editable, and publishing
   is always an explicit user action.
 
-- **ARCH-entity-interaction-domain-audit** (`docs/rfcs/ARCH-entity-interaction-domain-audit.md`,
-  <!-- rfc: docs/rfcs/ARCH-entity-interaction-domain-audit.md | status: in-progress -->
-  in-progress) — independent audit of review/memo commands, playback-state ownership, lyrics hosting,
-  bucket-add flow, modal infrastructure and global events. **Every step is now shipped** — Steps 1, 2,
-  3 (3a/3b/3c) and 4 prod-verified 2026-08-05/06, and **Step 5 shipped 2026-09-03** (docs-only).
-
-  **The only thing left is an owner Status promotion** (`in-progress` → `done`; 하드 룰 7 — Claude never
-  self-promotes). Once promoted, drop this row.
-
-  **Step 5 refuted its own charter, which is why it is worth a line here rather than just in the RFC.**
-  It was written as *"rename the memo, and correct the one-user-album-state premise against the bucket
-  memo."* Neither half survived contact: there was **no name to rename** (that RFC calls the concept
-  자유 감상 원문, never 메모 — the collision is functional, with the already-shipped 버킷 메모), and the
-  premise is false in **five** state stores rather than the one the audit named — including
-  `planned_ratings`, which **the owner deliberately chose on 2026-08-13 knowing it broke the invariant**.
-  A third finding fell out of the same sweep and is the one with a live consequence → see the
-  `FEAT-album-review-authoring` row below. Full evidence, tables and the branch that was *not* taken:
-  the RFC's Step 5 and its Decisions log — **not restated here**, so no outcome branch can be lost in
-  the copy.
-
 - **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval.
   <!-- rfc: none -->
-  **The only Active row that is startable today**: no RFC, no gate, no owner decision pending, and its
-  one stated dependency was retired on promotion — the `PERF-home-feed-latency` note was stale and has
-  never existed as an RFC or a plan row.
+  **Implementation activity exists in another checkout (observed 2026-09-09).** The shared music
+  checkout is on `fix/DATA-release-noise-c-edition-collapse` with untracked
+  `app/services/album_editions.py`; no music PR is open. This is not proof of delivery or a live
+  session, but it invalidates the old "not started / only startable row" claim. Check ownership before
+  resuming; do not duplicate that work. The former `PERF-home-feed-latency` dependency was retired
+  on promotion because it never existed as an RFC or plan row.
 
   Re-measured before promotion, and smaller than the original row implied: artist-scoped exact
   duplicates (same normalized title **and** same artist set) are **56 groups / 57 redundant rows of
@@ -124,7 +126,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   artists sharing an album title and is not the dedup population — do not size the work off it.
   *Scope*: catalog dedup, small enough to live in this row rather than an RFC. *Verification*: the
   touched repo's gate + a before/after count against prod. *Rollback*: nothing is destructive until the
-  delete step; keep it reversible. *Status*: not started. **Re-measure before starting** — the figure
+  delete step; keep it reversible. *Status*: implementation present, delivery unverified. **Re-measure before resuming** — the figure
   above is from 2026-08-16 and the catalog has grown since.
 
 - **Settings-loader required-key sweep (music + worker)** — **DEFERRED by the owner 2026-08-29.**
@@ -152,6 +154,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 Items with no remaining implementation, kept visible because dropping them would lose the only record.
 
+- **ARCH-entity-interaction-domain-audit** — every step shipped and verified; Step 5 closed
+  2026-09-03 (docs only). No implementation remains. The RFC Status is still `in-progress` pending
+  an explicit owner closeout decision; moving this pointer does not promote it. Full findings and
+  corrections remain in `docs/rfcs/ARCH-entity-interaction-domain-audit.md`.
 - **AWS root account access keys** — see `SEC-system-hardening` above. Requires a root sign-in with MFA.
 - **BEST NEW ALBUM toggle: one live click-test.** Shipped 2026-08-25 (backend #161 `a75b943`, front #424
   `9e34228`, ws #933 `2784f97`) — owner-only mark/unmark of `albums.best_new` directly from
@@ -201,22 +207,6 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 ## Backlog
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
-
-- **FEAT-lyrics-listening-experience** — in-progress; **Step 1 is complete.** Frontend #445 deployed, full
-  suite and prod smoke 30/0 passed, and the **live-media confirmation closed 2026-09-09** against the
-  deployed bundle with a real owner session: real Spotify play/pause/seek on a remote device, real YouTube
-  media, and direct lyrics on both providers — each checked against an **independent Spotify Web API
-  observer** rather than the player's own state, because a player reporting its own success proves nothing.
-  The earlier `재생 토큰을 가져오지 못했어요` notice was **not a defect**: no Spotify device was active, so the
-  ladder's rung 1 correctly 404s and the SDK fallback surfaces that notice — the owner streaming credential
-  itself exchanges at HTTP 200. A test YouTube mapping was created and deleted through the product's own
-  actions; production carries no residue. *Still unproven*: the in-page browser rung after a cold-start 404,
-  which predates this step and is recorded as an observation, not adopted as work.
-  **Steps 2–5 and OQ1–OQ7 stay open and are the owner's to settle; there is no automatic next task, and the
-  RFC Status is deliberately NOT promoted (hard rule 7).** Album translation demand, connected-member sync,
-  implementation order, verification and rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`; runnable
-  design → `docs/design/lyrics-listening-experience/README.md`.
-  <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
 
 - **FEAT-durable-job-status** (**backlogged 2026-09-02; needs owner go + an RFC**) — a durable,
   readable status for the async jobs a user can start from the UI: the Spotify album sync
