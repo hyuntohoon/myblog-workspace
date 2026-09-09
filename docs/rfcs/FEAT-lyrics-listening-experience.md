@@ -1,11 +1,11 @@
 # FEAT-lyrics-listening-experience: album translation coverage and immediate lyrics access
 
-- **Status**: in-progress (Step 1)
+- **Status**: in-progress (Steps 1–2 complete; Step 3 pending OQ5)
 - **Owner**: site owner
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Step 1 is complete, including live-media confirmation on 2026-09-09. The owner requested documentation reconciliation and continuation on 2026-09-09. The owner approved the recommended OQ6 policy on 2026-09-09; Step 2 implementation is authorized and in progress. Steps 3–5 remain outside this session. This request does not settle the remaining policy questions or promote the RFC Status.
+- **Execution state**: Steps 1 and 2 are complete. The owner approved recommended OQ6 on 2026-09-09; V57 and dormant package support are deployed and production-verified below. Step 3 waits for OQ5; Steps 3–5 and automatic producer activation have not started. The RFC remains in-progress; this completion record is not a lifecycle Status promotion.
 
 ## Goal
 
@@ -37,6 +37,10 @@ The owner requested recommendations for follow synchronization and missing-sourc
 ## Current state
 
 ### Evidence boundary
+
+The tables below preserve the 2026-09-08 creation audit. Step 2 subsequently added the dormant V57
+stores/repository and compatible package pins; its delivery record supersedes storage-absence claims.
+Source collection and member/follow producers remain as audited until Steps 3–5 activate them.
 
 Audit date: 2026-09-08. Workspace base: `9c9b2c7` (documentation PR #993). The initial code inspection used local front `a8d9eef`, backend `5675d00`, worker `766fd1f`, music `d0f8aee`, shared DB `abf8d57`. Later frontend compatibility inspection used the available `origin/main` object `9aea4d7`, including its YouTube changes. A subsequent service fetch was unavailable; these are inspected snapshots, not a claim that every deployed service was reverified. Re-read fresh main before implementation.
 
@@ -141,7 +145,7 @@ Multi-song requests are a later measured option: explicit track identifiers, per
 
 ## Steps
 
-Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. Step 2 preparation was requested on 2026-09-09; the owner then approved OQ6 and Step 2 implementation is in progress. Steps 3–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
+Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. The owner approved OQ6 on 2026-09-09 and Step 2 is now complete, including test/prod migration, consumer deployments and production verification. Steps 3–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
 
 ### Step 1 — Preserve player functionality and add immediate lyrics access
 
@@ -155,7 +159,7 @@ Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation
 
 ### Step 2 — Add durable album eligibility and version-safe track work
 
-**Current state:** translation rows require catalog UUIDs; durable pre-catalog/source-waiting album demand and member-origin provenance are absent. **Dependencies:** OQ6 resolved by the owner on 2026-09-09 (policy below).
+**Current state:** complete 2026-09-09. V57 stores, the dormant transition repository and compatible backend/worker pins are shipped and production-verified (delivery record below). Automatic producers and legacy translation publication remain disabled. **Dependencies:** OQ6 resolved by the owner on 2026-09-09 (policy below).
 
 **Scope/order:** shared DB additive schema → consuming backend/worker dependency pins and dormant service support. Automatic producers remain disabled. Specify member-origin identity, catalog resolution, unique work keys, source/version states and album accounting before writing migrations. Respect member row scoping.
 
@@ -163,7 +167,7 @@ Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation
 
 **Rollback:** disable new consumers/writers; retain additive schema and demand records. Never run a production rollback migration without owner approval.
 
-#### Step 2 storage contract — V57 (implementation, not yet shipped)
+#### Step 2 storage contract — V57 (shipped 2026-09-09)
 
 | Store | Responsibility |
 |---|---|
@@ -195,7 +199,8 @@ reconcile rejected in-flight discoveries from that scope instead of treating rej
 
 #### Step 2 preparation findings — 2026-09-09
 
-Read-only inspection of the available service `origin/main` snapshots found no existing durable
+**Historical snapshot before V57 implementation.** Read-only inspection of the available service
+`origin/main` snapshots found no existing durable
 album-demand store. V56 is the latest shared migration in those snapshots. Reconfirm remote main
 and migration numbering before implementation.
 
@@ -313,7 +318,51 @@ Production asset verification passed against the fresh HTML's `PocketBuckit.CZRR
 - **A methodology trap worth keeping.** A first YouTube pause/seek attempt read as broken — the toggle never flipped and the position kept advancing. It was the harness: the album overlay and then the lyrics viewer were covering the click point. `document.elementFromPoint` at the button's centre returned `BUTTON.lyv-line`, not the toggle. Re-run with the overlays closed, every control passed. **Hit-test the point before reporting a dead control.**
 - **Not verified, and deliberately left open.** The in-page browser rung (`이 브라우저 (음질 제한)`) was never exercised end to end, so what the SDK fallback does after a cold-start 404 is *explained* above but not *proven*. That path predates this step — #445 did not change the ladder — so it is recorded as an observation, not adopted as Step 1 work.
 
-Step 1 is complete. **Status stays `in-progress`.** The owner subsequently requested continuation on 2026-09-09; Step 2 preparation proceeds in the current session, with the owner-approved OQ6 policy below. The other open questions apply only to the scopes listed in the table. The plan row remains until the entire RFC is complete.
+Step 1 is complete. **Status stays `in-progress`.** The owner subsequently requested continuation and approved OQ6 on 2026-09-09; Step 2 completed as recorded below. The other open questions apply only to the scopes listed in the table. The plan row remains until the entire RFC is complete.
+
+### Step 2 delivery — complete 2026-09-09
+
+| Leg | Shipped record |
+|---|---|
+| Canonical schema and OQ6 | Workspace [#998](https://github.com/hyuntohoon/myblog-workspace/pull/998), `bd68fdb` |
+| Shared models, migration and dormant repository | Shared-db [#82](https://github.com/hyuntohoon/myblog_shared_db/pull/82), `6c57b78`, package 0.42.0 |
+| Backend runtime/CI schema pins | Backend [#176](https://github.com/hyuntohoon/myblog_backend/pull/176), `1cd5c6e` |
+| Worker runtime/CI schema pins | Worker [#103](https://github.com/hyuntohoon/myblog_worker/pull/103), `231905b` |
+
+V57 was applied to both Neon test and production after the canonical/shared merges. Both databases
+verified five empty new tables and the UUID source fence. The actual migration also ran against an
+isolated pre-V57 PostgreSQL 14 schema: only five tables were added, existing table identities remained,
+and replay failed rather than hiding drift. Shared-db CI now exercises the database tests on
+PostgreSQL 16.
+
+Local validation: shared-db **160 passed / 0 skipped** (including 40 real database transition tests
+and the actual migration test); backend **1,125 passed / 0 skipped**, Pyright **0 errors** (10 existing
+warnings), OpenAPI export unchanged; worker **602 passed / 3 skipped**, with only the existing opt-in
+MusicBrainz live tests skipped. Workspace invariants **23 passed** and plan/RFC/OpenAPI/schema mirror
+checks passed. Exact dependency locks regenerated with pinned uv 0.12.7; no other library version
+changed. Independent architecture and implementation/consumer reviews passed.
+
+Both production deployments passed, including their own health smoke:
+[backend run 34321489083](https://github.com/hyuntohoon/myblog_backend/actions/runs/34321489083),
+[worker run 34321467951](https://github.com/hyuntohoon/myblog_worker/actions/runs/34321467951).
+Both downloaded Lambda artifacts contained shared-db 0.42.0 and a byte-identical
+`myblog_shared_db/lyrics_demand.py` to the reviewed merged source. The subsequent authenticated
+production smoke returned **PASSED: 30, FAILED: 0, elapsed: 13.4s**; results are quoted in both PRs.
+
+The production dormant-store smoke also passed: two origins converged on one demand job, a current
+source snapshot created versioned work, a claim started, scope revocation rejected stale discovery,
+and the already-started claim completed. All writes were in one transaction that was rolled back;
+zero member/job/work residue was confirmed. No automatic producer or legacy translation writer was
+activated.
+
+Review fixes retained in tests: source UUID fencing across pending/not-required transitions and row
+recreation; catalog identity/count checks under one SQL snapshot; manual revival of cancelled work;
+and prelocking multiple origins for atomic disconnect. The cross-origin removal fence deliberately
+invalidates that scope's other in-flight observations, so Steps 4/5 must replay/reconcile them.
+
+**Step 3 is next but remains gated by OQ5.** Its source retry/terminal policy was not decided by the
+OQ6 approval. Steps 3–5 do not run in this session. The Active RFC pointer remains because those
+steps/open decisions are real remaining work; no separate completed Step 2 row remains in the plan.
 
 ## Decisions log
 
@@ -328,3 +377,4 @@ Step 1 is complete. **Status stays `in-progress`.** The owner subsequently reque
 | 2026-09-09 | Live-media confirmation closed against the deployed bundle with a real owner session and an independent Spotify Web API observer: real Spotify play/pause/seek on a remote device, real YouTube media, direct lyrics on both providers. Test mapping created and deleted through the product's own actions; no production residue. Status deliberately NOT promoted. | Step 1 |
 | 2026-09-09 | Owner requested documentation reconciliation and continuation after the progress review. Reconcile Step 1 completion throughout the RFC/index and move the plan pointer to Active. Prepare Step 2; OQ6 remains an explicit decision gate, and Steps 3–5 are not authorized by this session's scope. No Status promotion. | Step 2 preparation |
 | 2026-09-09 | Owner approved the recommended OQ6 option: remove affected origin demand, cancel only unstarted orphan work, preserve manual/other-origin demand and completed translations. Source waiting and recent-window expiry retain demand. Step 2 implementation proceeds; no later step or Status promotion is implied. | OQ6, Step 2 |
+| 2026-09-09 | Step 2 complete: V57 applied to test/prod; shared-db #82 and backend #176 / worker #103 deployed; actual Lambda source verified; authenticated production smoke 30/0 and rolled-back dormant-store smoke passed. Step 3 waits for OQ5. Lifecycle Status remains in-progress; step suffix now records completion. | Step 2 delivery |
