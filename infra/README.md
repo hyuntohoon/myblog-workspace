@@ -86,9 +86,12 @@ These exist in AWS but are **not managed by Terraform** → `terraform plan` is 
 
 ## Local lyrics translation runtime (Step 3, 2026-09-09)
 
-The cloud source collector is `worker-lyrics-demand-source`, with a proposed 15-minute
-EventBridge schedule. Terraform activation must be checked against the Step 3 delivery record;
-merging the workspace does not apply infrastructure.
+The cloud source collector `worker-lyrics-demand-source` is ENABLED with a 15-minute EventBridge
+schedule, applied with explicit owner approval on 2026-09-09. Its target invokes `blogWorkerLambda`
+with `{"job":"lyrics_demand_source"}`; the Lambda permission is scoped to the rule ARN and the
+`worker-lyrics-demand-source-failed-invocations` alarm monitors delivery failures. The apply added
+four resources with no changes/deletes; the subsequent full plan reported no changes. The Step 3
+RFC records the production checks. Merging the workspace does not itself apply infrastructure.
 
 The existing launchd label `com.myblog.lyrics-translate-poller` now reads its script from
 `/Users/park_hyun/myblog-workspace/.worktrees/lyrics-poller-runtime/scripts/lyrics_translate_poller.py`.

@@ -107,7 +107,7 @@ each RFC for every gate outcome.
 
 | RFC | Delivery and remaining work |
 |---|---|
-| [FEAT-lyrics-listening-experience](FEAT-lyrics-listening-experience.md) | In-progress. Steps 1–2 production-verified; OQ5/6 resolved. Step 3 merged/deployed (workspace #1000, worker #104), with Terraform activation and real Claude publication still pending. Steps 4–5 automatic producers remain unimplemented. |
+| [FEAT-lyrics-listening-experience](FEAT-lyrics-listening-experience.md) | In-progress. Steps 1–2 production-verified; OQ5/6 resolved. Step 3 merged/deployed (workspace #1000, worker #104), with Terraform applied; real Claude publication and fixture cleanup await the 2026-09-09 23:10 KST quota reset. Steps 4–5 automatic producers remain unimplemented. |
 | [FEAT-youtube-playback-provider](FEAT-youtube-playback-provider.md) | In-progress. Milestone A shipped and production-verified 2026-09-06. Owner credential/quota follow-ups remain; Milestone B requires Phase 0-B GO. |
 | [SEC-system-hardening](SEC-system-hardening.md) | Accepted. Service/governance changes shipped; root-key retirement and the workspace required-check decision remain. |
 | [FEAT-album-review-authoring](FEAT-album-review-authoring.md) | Accepted. Steps 1, 2 and 4 shipped. AI Steps 3/5 deferred; OQ13 resumption decision remains open, including the corrected bucket-memo evidence. |

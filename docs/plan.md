@@ -10,14 +10,16 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
 - **FEAT-lyrics-listening-experience** — in-progress; Steps 1–2 production-verified;
-  Step 3 merged and deployed, with final activation/translation verification outstanding.
+  Step 3 deployed and scheduled; final real-translation verification remains blocked by Claude quota.
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
   Worker #104 / workspace #1000 are merged. The deployed Lambda source was verified, authenticated
   production smoke passed 30/0, and a real source pass preserved unresolved demand with its retry
-  date. The local 60-second poller now runs the clean Step 3 runtime. **Remaining Step 3 gates:**
-  explicit production Terraform apply approval (4 additive resources; no changes/deletes), and
-  successful real Claude publication after the existing subscription cooldown. The first approved
-  one-song call returned a transient CLI error and kept its work lease; it did not publish.
+  date. The local 60-second poller runs the clean Step 3 runtime. The owner approved the full
+  Terraform apply on 2026-09-09: four resources added, no changes/deletes; post-apply plan has no
+  changes and authenticated smoke passed 30/0 again. **Remaining Step 3 gate:** successful real
+  Claude publication and temporary-fixture cleanup. The approved `Two Roads` call failed at 21:38
+  and was automatically reclaimed at 21:58; both Claude session records report a rate limit that
+  resets **2026-09-09 23:10 Asia/Seoul**. Keep the shared cooldown and 20-minute lease intact.
   Steps 4–5 automatic producers remain unimplemented. OQ5/6 are resolved; OQ1 gates only the liked-
   track extension, and OQ2–4 gate Step 5. Carry the Step 1 cold-start Spotify 404/browser-fallback
   observation. Delivery evidence, runtime details and exact next scope →
