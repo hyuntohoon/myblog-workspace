@@ -107,7 +107,7 @@ each RFC for every gate outcome.
 
 | RFC | Delivery and remaining work |
 |---|---|
-| [FEAT-lyrics-listening-experience](FEAT-lyrics-listening-experience.md) | In-progress. Step 1 complete, including live-media confirmation 2026-09-09. Owner approved OQ6 on 2026-09-09; Step 2 implementation is in progress. Steps 3–5 pending. |
+| [FEAT-lyrics-listening-experience](FEAT-lyrics-listening-experience.md) | In-progress. Steps 1–2 complete and production-verified; OQ6 resolved. Step 3 waits for OQ5. Steps 3–5 and automatic producer activation remain pending. |
 | [FEAT-youtube-playback-provider](FEAT-youtube-playback-provider.md) | In-progress. Milestone A shipped and production-verified 2026-09-06. Owner credential/quota follow-ups remain; Milestone B requires Phase 0-B GO. |
 | [SEC-system-hardening](SEC-system-hardening.md) | Accepted. Service/governance changes shipped; root-key retirement and the workspace required-check decision remain. |
 | [FEAT-album-review-authoring](FEAT-album-review-authoring.md) | Accepted. Steps 1, 2 and 4 shipped. AI Steps 3/5 deferred; OQ13 resumption decision remains open, including the corrected bucket-memo evidence. |

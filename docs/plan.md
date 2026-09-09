@@ -9,26 +9,16 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
-- **FEAT-lyrics-listening-experience** — in-progress; **Step 1 is complete.** Frontend #445 deployed, full
-  suite and prod smoke 30/0 passed, and the **live-media confirmation closed 2026-09-09** against the
-  deployed bundle with a real owner session: real Spotify play/pause/seek on a remote device, real YouTube
-  media, and direct lyrics on both providers — each checked against an **independent Spotify Web API
-  observer** rather than the player's own state, because a player reporting its own success proves nothing.
-  The earlier `재생 토큰을 가져오지 못했어요` notice was **not a defect**: no Spotify device was active, so the
-  ladder's rung 1 correctly 404s and the SDK fallback surfaces that notice — the owner streaming credential
-  itself exchanges at HTTP 200. A test YouTube mapping was created and deleted through the product's own
-  actions; production carries no residue. *Still unproven*: the in-page browser rung after a cold-start 404,
-  which predates this step and is recorded as an observation, not adopted as work.
-  **Step 2 is in progress (owner 2026-09-09); OQ6 is resolved with the recommended policy.**
-  Remove affected origin demand; cancel only never-started work without other/manual demand; retain
-  completed translations and source-waiting/recent-history demand. Scope: canonical additive schema
-  → shared DB models and dormant transitions → backend/worker pins. Producers stay disabled.
-  Verification and rollback remain in the RFC; no Step 2 delivery is claimed yet.
-  Steps 3–5 are outside this session. OQ5 gates Step 3; OQ1–4 gate the indicated later scopes;
-  OQ7 is optional optimization only. RFC Status is unchanged. Album translation demand, connected-member sync,
-  implementation order, verification and rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`; runnable
-  design → `docs/design/lyrics-listening-experience/README.md`.
+- **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–2 complete and production-verified.**
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
+  Step 2 shipped 2026-09-09: V57 on test/prod, shared-db #82, backend #176, worker #103; deployed
+  package source verified, authenticated prod smoke **30/0**, dormant-store smoke passed with zero
+  residue. OQ6 is resolved: affected-origin removal, never-started orphan cancellation, shared/manual
+  and completed-work preservation. Automatic translation producers remain disabled.
+  **Next: Step 3, pending OQ5 (missing-source retry and terminal classification).** OQ1–4 apply to
+  their later scopes; OQ7 is optional optimization. The browser fallback after cold-start Spotify 404
+  remains an observation from Step 1, not newly adopted work. Full gates, delivery evidence and
+  rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, accepted) — main governance, keyless
   <!-- rfc: docs/rfcs/SEC-system-hardening.md | status: accepted -->
