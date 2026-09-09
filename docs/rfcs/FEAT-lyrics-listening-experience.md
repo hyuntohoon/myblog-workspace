@@ -5,7 +5,7 @@
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. Real translation and fixture cleanup await the Claude quota reset at 2026-09-09 23:10 KST. Steps 4–5 automatic producers remain unimplemented. This progress record does not promote the RFC lifecycle Status.
+- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. The final gate closed at 2026-09-09 23:22 KST: a real Claude publication completed on the deployed runtime with no manual intervention, and the temporary demand fixture was removed (V57 back to zero rows). Step 3 is complete and production-verified. Steps 4–5 automatic producers remain unimplemented. This progress record does not promote the RFC lifecycle Status.
 
 ## Goal
 
@@ -494,6 +494,39 @@ the manual/concurrent-edit guard retains its result in `lyrics_translation_work`
 retry publication. Bridge DB tests run locally because workspace CI does not provision their DB
 and service dependencies. These limits do not authorize later RFC steps.
 
+
+#### Step 3 final gate — closed 2026-09-09 23:22 KST
+
+A real Claude publication on the deployed runtime, reached **with no manual intervention** — the
+recovery path is itself what the gate was testing:
+
+| Time (KST) | Event |
+|---|---|
+| 23:01:24 | work claimed (25 non-gap lines) |
+| 23:01:31 | Claude throttled; subscription guard set its own 900s cooldown, and the **transient** classification kept the claim without spending a retry rung |
+| 23:16:31 | guard cooldown lapsed |
+| 23:21:25 | 20-minute lease expired |
+| 23:22:08 | `claim_work` reclaimed it |
+| 23:22:41 | `done: 1, published: 1`, nothing skipped or failed |
+
+Recovery came from the **lease**, not from a counter — exactly the OQ5 rule that a provider or
+engine failure paces work rather than discarding it.
+
+Stored: `status=done`, `attempts=6`, `lang=ko`, `translator_version=claude.sonnet/v2`, 26 segments.
+Published: `origin=poller`, `model=claude.sonnet`, 26 segments, `normalizer_version=1`, and the
+stored `source_fingerprint` **equals what the read path re-derives**, which is the condition
+`attach_translation` requires before it will render a translation instead of withholding it as stale.
+
+Both OQ5 arms were observable simultaneously in production: one album reached `state='done'`, while
+the other stayed `source_pending` with reason `not_found` and a retry gap of exactly **6:00:00** —
+the approved base rung, demand preserved rather than discarded.
+
+The temporary demand fixture was then removed. All five V57 tables are back to zero rows, which is
+the correct Step 3 end state because the automatic producers are Steps 4/5; the legacy corpus was
+untouched (`track_lyrics` 31,590, `track_lyrics_translations` 644). The single real translation the
+run produced was deliberately retained: it is current, correct product output whose fingerprint
+matches the live source, not fixture residue.
+
 ## Decisions log
 
 | Date | Decision | Step |
@@ -511,3 +544,4 @@ and service dependencies. These limits do not authorize later RFC steps.
 | 2026-09-09 | Owner approved the recommended OQ5 policy: classification onto V57's three source states (`no_lyrics` and Korean source become `not_required` observations, reopenable by a fresh `source_revision`), a `min(cap, max(base, 2x previous))` ladder recovered from `next_attempt_at - updated_at` with no attempts counter, and transient failures that write nothing so an outage cannot advance the ladder. No cap is terminal. | OQ5, Step 3 |
 | 2026-09-09 | Step 3 implementation prepared: worker `lyrics_demand_source` job and workspace demand bridge; worker suite 623 passed / 3 allowlisted skips, workspace bridge suite 10 passed, terraform plan 4 add / 0 change / 0 destroy. Four defects were caught and fixed before merge: two by the new tests (transient ladder advance, idle-in-transaction across the provider loop) and two by independent review (a guard-kept evaluation never reaching the demand side, and `linked` being a one-way state). EventBridge resources still need a manual `terraform apply`. Lifecycle Status remains in-progress. | Step 3 delivery |
 | 2026-09-09 | Owner explicitly approved the production Terraform apply. Four demand-source resources were added, post-apply plan has no changes, AWS rule/target/permission/alarm checks passed and authenticated smoke passed 30/0. Real Claude publication remains blocked by the recorded 23:10 KST session-limit reset; Step 3 is not yet complete. | Step 3 activation |
+| 2026-09-09 | Step 3 final gate closed: a real Claude publication completed on the deployed runtime with no manual intervention (throttle -> guard cooldown -> claim kept -> lease expiry -> reclaim -> published), the stored fingerprint matches the read path, both OQ5 arms were observed in production, and the temporary demand fixture was removed leaving all V57 tables at zero. Step 3 is complete and production-verified. Lifecycle Status remains in-progress. | Step 3 delivery |

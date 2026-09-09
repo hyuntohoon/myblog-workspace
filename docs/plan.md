@@ -9,21 +9,30 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
-- **FEAT-lyrics-listening-experience** — in-progress; Steps 1–2 production-verified;
-  Step 3 deployed and scheduled; final real-translation verification remains blocked by Claude quota.
+- **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–3 complete and production-verified.**
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
-  Worker #104 / workspace #1000 are merged. The deployed Lambda source was verified, authenticated
-  production smoke passed 30/0, and a real source pass preserved unresolved demand with its retry
-  date. The local 60-second poller runs the clean Step 3 runtime. The owner approved the full
-  Terraform apply on 2026-09-09: four resources added, no changes/deletes; post-apply plan has no
-  changes and authenticated smoke passed 30/0 again. **Remaining Step 3 gate:** successful real
-  Claude publication and temporary-fixture cleanup. The approved `Two Roads` call failed at 21:38
-  and was automatically reclaimed at 21:58; both Claude session records report a rate limit that
-  resets **2026-09-09 23:10 Asia/Seoul**. Keep the shared cooldown and 20-minute lease intact.
-  Steps 4–5 automatic producers remain unimplemented. OQ5/6 are resolved; OQ1 gates only the liked-
-  track extension, and OQ2–4 gate Step 5. Carry the Step 1 cold-start Spotify 404/browser-fallback
-  observation. Delivery evidence, runtime details and exact next scope →
-  `docs/rfcs/FEAT-lyrics-listening-experience.md`.
+  Step 3 closed 2026-09-09 23:22 KST. Worker #104 / workspace #1000-#1002 merged; deployed Lambda
+  source verified; authenticated production smoke 30/0 after deploy and again after the owner-approved
+  Terraform apply (four resources added, no changes/deletes, post-apply plan clean). The final gate —
+  a real Claude publication — completed on the deployed runtime **with no manual intervention**: the
+  23:01 call was throttled, the subscription guard set its own 900s cooldown, the transient path kept
+  the claim without spending a retry rung, and the 20-minute lease expiry let `claim_work` reclaim it
+  at 23:22. Published `origin=poller`, 26 segments, and the stored fingerprint equals what the read
+  path re-derives, so the viewer renders it rather than withholding it as stale. Both OQ5 arms were
+  visible at once: one album reached `state='done'`, the other stayed `source_pending`/`not_found`
+  with its retry gap at exactly the approved 6h base rung. The temporary demand fixture was removed —
+  all five V57 tables are back to zero rows, legacy corpus untouched (31,590 `track_lyrics`, 644
+  translations). The one real translation produced was deliberately retained as product output, not
+  fixture residue.
+  **Open before Step 4:** OQ1 (liked tracks expanded to albums). OQ2–4 gate Step 5; OQ7 is optional.
+  **Steps 4–5 automatic producers remain unimplemented**, so nothing creates demand yet — V57 stays
+  empty until they ship, and the scheduled job is two indexed no-op SELECTs meanwhile.
+  **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
+  Codex co-authored) sits unmerged on the already-merged #104 branch with no open PR. It fixes the
+  pre-existing idle-in-transaction shape in `LyricsIncrementalService`/`LyricsReassessmentService` —
+  the known gap Step 3 recorded and deliberately left out of scope. Decide whether to PR it.
+  Carry the Step 1 cold-start Spotify 404/browser-fallback observation. Delivery evidence, runtime
+  details and exact next scope → `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, accepted) — main governance, keyless
   <!-- rfc: docs/rfcs/SEC-system-hardening.md | status: accepted -->
