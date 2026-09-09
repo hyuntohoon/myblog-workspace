@@ -16,7 +16,8 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V55 (V55 track_provider_refs,
+-- This file shows clean canonical DDL through V57 (dormant lyrics demand/work;
+--   delivery/apply state is recorded in the lyrics listening RFC), including V56 and V55 (V55 track_provider_refs,
 --   FEAT-youtube-playback-provider Step A1 — authored + prod-applied
 --   2026-09-05, and applied to the Neon test branch in the same session; V54
 --   pending_reratings; V53 tracks.disc_no; V52 planned_ratings). V51 was authored 2026-08-03 —
@@ -1376,3 +1377,98 @@ CREATE INDEX IF NOT EXISTS idx_tpr_stale
 -- Phases 0–4 scaffolding + FIX-bug-audit-2026-07 WS-B.2 + FEAT-today-buckit).
 -- Last full structural prod-verify: 2026-07-11.
 -- =============================================================================
+
+-- V57: FEAT-lyrics-listening-experience Step 2 — dormant demand/version stores.
+-- No legacy queue writes or automatic producers. Canonical DDL precedes shared-db.
+CREATE TABLE lyrics_album_jobs (
+	id UUID DEFAULT gen_random_uuid() NOT NULL,
+	spotify_album_id TEXT NOT NULL,
+	album_id UUID,
+	enumeration_complete BOOLEAN DEFAULT false NOT NULL,
+	expected_tracks INTEGER,
+	cancelled BOOLEAN DEFAULT false NOT NULL,
+	last_reason TEXT,
+	next_attempt_at TIMESTAMP WITH TIME ZONE,
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT ck_lyrics_album_provider_id CHECK (length(btrim(spotify_album_id)) BETWEEN 1 AND 128),
+	CONSTRAINT ck_lyrics_album_enumeration CHECK (NOT enumeration_complete OR (expected_tracks IS NOT NULL AND expected_tracks > 0)),
+	UNIQUE (spotify_album_id),
+	FOREIGN KEY(album_id) REFERENCES albums (id) ON DELETE SET NULL
+);
+
+CREATE TABLE lyrics_discovery_scopes (
+	id UUID DEFAULT gen_random_uuid() NOT NULL,
+	user_id UUID NOT NULL,
+	origin TEXT NOT NULL,
+	generation UUID NOT NULL,
+	active BOOLEAN DEFAULT true NOT NULL,
+	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_lyrics_discovery_scope UNIQUE (user_id, origin),
+	CONSTRAINT ck_lyrics_scope_origin CHECK (length(btrim(origin)) BETWEEN 1 AND 64),
+	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE TABLE lyrics_album_demands (
+	scope_id UUID NOT NULL,
+	job_id UUID NOT NULL,
+	origin_key TEXT NOT NULL,
+	observed_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	PRIMARY KEY (scope_id, job_id, origin_key),
+	CONSTRAINT ck_lyrics_demand_origin_key CHECK (length(btrim(origin_key)) BETWEEN 1 AND 128),
+	FOREIGN KEY(scope_id) REFERENCES lyrics_discovery_scopes (id) ON DELETE CASCADE,
+	FOREIGN KEY(job_id) REFERENCES lyrics_album_jobs (id) ON DELETE CASCADE
+);
+
+CREATE TABLE lyrics_translation_work (
+	id UUID DEFAULT gen_random_uuid() NOT NULL,
+	track_id UUID NOT NULL,
+	source_fingerprint TEXT NOT NULL,
+	lang TEXT NOT NULL,
+	translator_version TEXT NOT NULL,
+	status TEXT DEFAULT 'ready' NOT NULL,
+	manual_requested BOOLEAN DEFAULT false NOT NULL,
+	attempts INTEGER DEFAULT 0 NOT NULL,
+	claim_token UUID,
+	lease_until TIMESTAMP WITH TIME ZONE,
+	next_attempt_at TIMESTAMP WITH TIME ZONE,
+	last_reason TEXT,
+	segments JSONB,
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_lyrics_work_version UNIQUE (track_id, source_fingerprint, lang, translator_version),
+	CONSTRAINT uq_lyrics_work_track UNIQUE (id, track_id),
+	CONSTRAINT ck_lyrics_work_status CHECK (status IN ('ready', 'running', 'done', 'retryable_error', 'cancelled')),
+	CONSTRAINT ck_lyrics_work_version CHECK (source_fingerprint ~ '^[0-9a-f]{64}$' AND length(btrim(lang)) BETWEEN 1 AND 16 AND length(btrim(translator_version)) BETWEEN 1 AND 128),
+	CONSTRAINT ck_lyrics_work_attempts CHECK (attempts >= 0 AND (status <> 'cancelled' OR attempts = 0)),
+	CONSTRAINT ck_lyrics_work_claim CHECK ((status = 'running' AND claim_token IS NOT NULL AND lease_until IS NOT NULL AND attempts > 0) OR (status <> 'running' AND claim_token IS NULL AND lease_until IS NULL)),
+	CONSTRAINT ck_lyrics_work_result CHECK (status <> 'done' OR (segments IS NOT NULL AND jsonb_typeof(segments) = 'array' AND segments <> '[]'::jsonb)),
+	FOREIGN KEY(track_id) REFERENCES tracks (id) ON DELETE CASCADE
+);
+
+CREATE TABLE lyrics_album_tracks (
+	job_id UUID NOT NULL,
+	track_id UUID NOT NULL,
+	work_id UUID,
+	source_state TEXT DEFAULT 'source_pending' NOT NULL,
+	source_revision UUID DEFAULT gen_random_uuid() NOT NULL,
+	last_reason TEXT,
+	next_attempt_at TIMESTAMP WITH TIME ZONE,
+	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	PRIMARY KEY (job_id, track_id),
+	CONSTRAINT fk_lyrics_album_track_work FOREIGN KEY(work_id, track_id) REFERENCES lyrics_translation_work (id, track_id),
+	CONSTRAINT ck_lyrics_album_track_state CHECK (source_state IN ('source_pending', 'not_required', 'linked')),
+	CONSTRAINT ck_lyrics_album_track_link CHECK ((source_state = 'linked' AND work_id IS NOT NULL) OR (source_state <> 'linked' AND work_id IS NULL)),
+	CONSTRAINT ck_lyrics_album_track_reason CHECK (source_state <> 'not_required' OR (last_reason IS NOT NULL AND length(btrim(last_reason)) > 0)),
+	FOREIGN KEY(job_id) REFERENCES lyrics_album_jobs (id) ON DELETE CASCADE,
+	FOREIGN KEY(track_id) REFERENCES tracks (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_lyrics_album_due ON lyrics_album_jobs (next_attempt_at) WHERE NOT cancelled;
+CREATE INDEX ix_lyrics_demand_job ON lyrics_album_demands (job_id);
+CREATE INDEX ix_lyrics_work_due ON lyrics_translation_work (next_attempt_at) WHERE status IN ('ready', 'retryable_error');
+CREATE INDEX ix_lyrics_album_source_due ON lyrics_album_tracks (next_attempt_at) WHERE source_state = 'source_pending';
+CREATE INDEX ix_lyrics_album_track_work ON lyrics_album_tracks (work_id);

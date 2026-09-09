@@ -19,9 +19,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   itself exchanges at HTTP 200. A test YouTube mapping was created and deleted through the product's own
   actions; production carries no residue. *Still unproven*: the in-page browser rung after a cold-start 404,
   which predates this step and is recorded as an observation, not adopted as work.
-  **Owner requested documentation reconciliation and continuation on 2026-09-09. Step 2 is next,
-  pending OQ6 (origin removal, member-provenance retention and cancellation of unstarted work).**
-  Step 2 preparation may proceed; its dependent schema/implementation waits for that decision.
+  **Step 2 is in progress (owner 2026-09-09); OQ6 is resolved with the recommended policy.**
+  Remove affected origin demand; cancel only never-started work without other/manual demand; retain
+  completed translations and source-waiting/recent-history demand. Scope: canonical additive schema
+  → shared DB models and dormant transitions → backend/worker pins. Producers stay disabled.
+  Verification and rollback remain in the RFC; no Step 2 delivery is claimed yet.
   Steps 3–5 are outside this session. OQ5 gates Step 3; OQ1–4 gate the indicated later scopes;
   OQ7 is optional optimization only. RFC Status is unchanged. Album translation demand, connected-member sync,
   implementation order, verification and rollback → `docs/rfcs/FEAT-lyrics-listening-experience.md`; runnable

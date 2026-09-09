@@ -5,7 +5,7 @@
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Step 1 is complete, including live-media confirmation on 2026-09-09. The owner requested documentation reconciliation and continuation on 2026-09-09. Step 2 is next; preparation is authorized, while its removal/retention schema and implementation wait for the explicit OQ6 decision. Steps 3–5 remain outside this session. This request does not settle the remaining policy questions or promote the RFC Status.
+- **Execution state**: Step 1 is complete, including live-media confirmation on 2026-09-09. The owner requested documentation reconciliation and continuation on 2026-09-09. The owner approved the recommended OQ6 policy on 2026-09-09; Step 2 implementation is authorized and in progress. Steps 3–5 remain outside this session. This request does not settle the remaining policy questions or promote the RFC Status.
 
 ## Goal
 
@@ -141,7 +141,7 @@ Multi-song requests are a later measured option: explicit track identifiers, per
 
 ## Steps
 
-Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. Step 2 preparation was requested on 2026-09-09; implementation is gated only by OQ6. Steps 3–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
+Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. Step 2 preparation was requested on 2026-09-09; the owner then approved OQ6 and Step 2 implementation is in progress. Steps 3–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
 
 ### Step 1 — Preserve player functionality and add immediate lyrics access
 
@@ -155,13 +155,43 @@ Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation
 
 ### Step 2 — Add durable album eligibility and version-safe track work
 
-**Current state:** translation rows require catalog UUIDs; durable pre-catalog/source-waiting album demand and member-origin provenance are absent. **Dependencies:** OQ6 for removal/retention schema behavior.
+**Current state:** translation rows require catalog UUIDs; durable pre-catalog/source-waiting album demand and member-origin provenance are absent. **Dependencies:** OQ6 resolved by the owner on 2026-09-09 (policy below).
 
 **Scope/order:** shared DB additive schema → consuming backend/worker dependency pins and dormant service support. Automatic producers remain disabled. Specify member-origin identity, catalog resolution, unique work keys, source/version states and album accounting before writing migrations. Respect member row scoping.
 
 **Verification:** shared DB migration/model checks and affected Python suites; repeated event, two members/one album, missing catalog/source, mixed album states, manual translation, changed fingerprint and process restart cases. Export any changed service OpenAPI, merge workspace contracts, regenerate frontend types in the dependent PR sequence. Exercise additive migration on a non-production database, then follow the repository's forward migration and post-deploy verification process.
 
 **Rollback:** disable new consumers/writers; retain additive schema and demand records. Never run a production rollback migration without owner approval.
+
+#### Step 2 storage contract — V57 (implementation, not yet shipped)
+
+| Store | Responsibility |
+|---|---|
+| `lyrics_discovery_scopes` | Member/origin-kind fence, active flag and generation. Removing a scope's album/artist provenance retains only this minimal fence; account deletion cascades it. |
+| `lyrics_album_jobs` | Global Spotify album identity before catalog ingestion, catalog resolution/retry metadata, explicit enumeration completion and expected track count. |
+| `lyrics_album_demands` | Scope + job + origin entity key. Two followed artists can independently justify one album; removal deletes only the matching origin. |
+| `lyrics_album_tracks` | Enumeration snapshot, source waiting/not-required reason, current work pointer and UUID observation revision. Source absence never requires a nullable version-work key. |
+| `lyrics_translation_work` | Unique track + fingerprint + language + translator version, durable claim/lease token, attempts, retry metadata and immutable completed result. No legacy translation writer. |
+
+The shared package's `LyricsDemandStore` accepts a caller-owned SQLAlchemy connection and performs
+only short DB transitions. Backend/worker gain the dormant repository through compatible package
+pins; no redundant service wrapper or automatic invocation is required. Provider collection,
+normalization, retry intervals and legacy-result publication remain Steps 3–5. In particular,
+publication must compare the claimed version and any intervening manual edit; Step 2 cannot activate
+the old poller's track-only writeback safely.
+
+Lock ordering is scope → album jobs in UUID order → work in UUID order. A public mutation is one
+transaction; `revoke_scopes` prelocks the full union for multi-origin disconnect. Claim/completion
+lock only work and never later acquire jobs. Claim rechecks live demand, including after account
+FK cascades. Only never-started orphan work is cancelled; new demand can revive it. Completed work
+is never reset, and legacy manual translations are neither queued nor overwritten.
+
+Source observations carry the snapshot's UUID revision and previous work pointer, so source waiting,
+not-required transitions and deletion/recreation cannot admit an old observation. Album completion
+uses a single SQL snapshot and requires explicit full enumeration, unchanged membership/count and
+only done/not-required tracks. Partial/empty enumeration and pending/error tracks cannot count as
+complete. Removing one entity rotates the entire origin-kind fence: Steps 4/5 must restart or
+reconcile rejected in-flight discoveries from that scope instead of treating rejection as success.
 
 #### Step 2 preparation findings — 2026-09-09
 
@@ -180,7 +210,7 @@ and migration numbering before implementation.
 - Worker runtime requirements and its CI canonical-schema checkout currently pin different shared-db
   commits. Check `requirements.txt`, the deployed `requirements.lock`, and the workflow schema pin
   together when adding model imports. No producer, route, schema or runtime pin changed during this
-  preparation. OQ6 still gates the removal/retention design.
+  preparation. The owner subsequently approved OQ6 below; these preparation constraints still apply.
 
 ### Step 3 — Connect targeted sources to the Claude pipeline
 
@@ -227,8 +257,22 @@ These do not block preserving/merging the approved design. They gate the indicat
 | OQ3 | Automatic Spotify follow reconciliation cadence | Bootstrap plus existing 15-minute cycle, with resumable pagination and provider backoff. | Step 5 scheduler behavior. |
 | OQ4 | What releases count as an artist's complete back catalog? | All artist albums/singles/EPs; explicitly decide artist compilations and `appears_on` rather than importing every credited compilation accidentally. | Step 5 enumeration. |
 | OQ5 | Missing-source retry/terminal classification | Durable waiting and due-work retries; separate not-found/transient/error from confirmed instrumental or translation-not-needed. Define retry intervals from existing reassessment behavior. | Step 3 activation. |
-| OQ6 | Unsave/unfollow/disconnect effects on unstarted demand and member provenance | Stop future discovery from that origin; preserve reusable translations; settle member-provenance retention and orphan-work cancellation explicitly. Preserve demand while a source is pending and a recent observation ages out. | Steps 2–5 removal/retention rules. |
+| OQ6 — resolved 2026-09-09 | Unsave/unfollow/disconnect effects on unstarted demand and member provenance | Owner approved the recommended removal policy below. | No remaining decision gate; implement in Step 2 and wire producers in Steps 4/5. |
 | OQ7 | Whether to batch Claude songs | Keep per-song calls until a version-safe measured experiment supports a change. | Optional optimization only. |
+
+### OQ6 — owner-approved removal policy (2026-09-09)
+
+- Unsave, unfollow or disconnect removes the affected origin's album demand and its detailed
+  member/album provenance. Other members, other origins and explicit manual requests remain valid.
+- Cancel only work that has never started and has no remaining demand/manual request. A claim that
+  already started may finish; completed global translations are retained.
+- Missing source and a recent observation aging out of Spotify's window do not remove demand.
+- Retain only a member/origin generation fence after removal so delayed observations cannot recreate
+  removed demand. It contains no album/artist history and cascades on account deletion. Disconnect
+  disables that origin until explicitly re-enabled; reconnect issues a fresh generation.
+- The source integration/reconciliation producers remain disabled in Step 2. Steps 4/5 must rotate or
+  disable the fence in the same transaction as origin removal and carry its generation on delayed work.
+  This decision does not settle OQ2 follow-union rules or OQ5 retry intervals/classification.
 
 ## Delivery and implementation record
 
@@ -269,7 +313,7 @@ Production asset verification passed against the fresh HTML's `PocketBuckit.CZRR
 - **A methodology trap worth keeping.** A first YouTube pause/seek attempt read as broken — the toggle never flipped and the position kept advancing. It was the harness: the album overlay and then the lyrics viewer were covering the click point. `document.elementFromPoint` at the button's centre returned `BUTTON.lyv-line`, not the toggle. Re-run with the overlays closed, every control passed. **Hit-test the point before reporting a dead control.**
 - **Not verified, and deliberately left open.** The in-page browser rung (`이 브라우저 (음질 제한)`) was never exercised end to end, so what the SDK fallback does after a cold-start 404 is *explained* above but not *proven*. That path predates this step — #445 did not change the ladder — so it is recorded as an observation, not adopted as Step 1 work.
 
-Step 1 is complete. **Status stays `in-progress`.** The owner subsequently requested continuation on 2026-09-09; Step 2 preparation proceeds in the current session, with OQ6 still gating its implementation. The other open questions apply only to the scopes listed in the table. The plan row remains until the entire RFC is complete.
+Step 1 is complete. **Status stays `in-progress`.** The owner subsequently requested continuation on 2026-09-09; Step 2 preparation proceeds in the current session, with the owner-approved OQ6 policy below. The other open questions apply only to the scopes listed in the table. The plan row remains until the entire RFC is complete.
 
 ## Decisions log
 
@@ -283,3 +327,4 @@ Step 1 is complete. **Status stays `in-progress`.** The owner subsequently reque
 | 2026-09-08 | Owner accepted the RFC and authorized Step 1 implementation, verification and delivery only. Status advanced through accepted to in-progress (Step 1); unresolved policies remain open. Report here after Step 1; no automatic Step 2 or new task. | Step 1 authorization |
 | 2026-09-09 | Live-media confirmation closed against the deployed bundle with a real owner session and an independent Spotify Web API observer: real Spotify play/pause/seek on a remote device, real YouTube media, direct lyrics on both providers. Test mapping created and deleted through the product's own actions; no production residue. Status deliberately NOT promoted. | Step 1 |
 | 2026-09-09 | Owner requested documentation reconciliation and continuation after the progress review. Reconcile Step 1 completion throughout the RFC/index and move the plan pointer to Active. Prepare Step 2; OQ6 remains an explicit decision gate, and Steps 3–5 are not authorized by this session's scope. No Status promotion. | Step 2 preparation |
+| 2026-09-09 | Owner approved the recommended OQ6 option: remove affected origin demand, cancel only unstarted orphan work, preserve manual/other-origin demand and completed translations. Source waiting and recent-window expiry retain demand. Step 2 implementation proceeds; no later step or Status promotion is implied. | OQ6, Step 2 |
