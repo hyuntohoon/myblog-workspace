@@ -110,6 +110,11 @@ class DemandBridgeTest(unittest.TestCase):
 
     def tearDown(self):
         poller.claude_translate = self._real_translate
+        # Dispose before dropping the reference: nulling the module global alone leaves the
+        # pool's psycopg connections to be closed by the garbage collector, which is what
+        # raises ResourceWarning and holds Neon sessions open across the suite.
+        if poller._SA_ENGINE is not None:
+            poller._SA_ENGINE.dispose()
         poller._SA_ENGINE = None
         self._cleanup()
 
@@ -346,6 +351,19 @@ class DemandBridgeTest(unittest.TestCase):
         self.assertEqual(metrics["work"]["done"], 0)
         self.assertEqual(self._published()["origin"], "manual")
 
+        # It must also be recorded as COVERED, not left waiting. `claim_work` refuses this
+        # track outright, so leaving it `source_pending` would mean the album could never
+        # reach `done` however many times the sweep looks at it — the same defect that
+        # `korean_source` exists to avoid.
+        row = self._album_track()
+        self.assertEqual(row["source_state"], "not_required")
+        self.assertEqual(row["last_reason"], "manual_translation")
+
+        from myblog_shared_db.lyrics_demand import LyricsDemandStore
+        with self.engine.begin() as c:
+            progress = LyricsDemandStore(c).album_progress(self.user, self.job)
+        self.assertEqual(progress["state"], "done")
+
     def test_work_keyed_to_a_superseded_source_never_publishes(self):
         """A queued work row whose source has since changed must not attach a translation of
         the old text — the fingerprint recheck happens before the model call, so no budget
@@ -371,6 +389,66 @@ class DemandBridgeTest(unittest.TestCase):
                                  "lyrics_translation_work WHERE track_id = :t"),
                             {"t": self.track}).scalar()
         self.assertTrue(due)
+
+        # The track must be RELEASED, not merely failed. `ensure_work` moved it to
+        # 'linked' and nothing else moves it back, so without the release it is deadlocked:
+        # claim, re-derive, mismatch, fail, forever, and the album can never complete.
+        self.assertEqual(metrics["released"], 1)
+        row = self._album_track()
+        self.assertEqual(row["source_state"], "source_pending")
+        self.assertEqual(row["last_reason"], "source_changed")
+        self.assertIsNone(row["work_id"])
+
+    def test_changed_source_is_relinked_and_translated_on_the_next_firing(self):
+        """The recovery half of the test above: a released track must actually come back.
+
+        This is the case a NORMALIZER_VERSION bump creates for every linked-not-yet-done row
+        at once, so "it recovers on its own" has to be true rather than assumed.
+        """
+        self._add_source()
+        self.bridge.link_ready_sources()
+        old_work = self._work()["id"]
+
+        self._add_source(body=BODY_EN + "\nplaceholder delta")
+        self.bridge.process_due_work()          # detects, fails, releases
+
+        metrics = run_once(self.bridge)          # next firing: relink at the new fingerprint
+        self.assertEqual(metrics["link"]["linked"], 1)
+        self.assertEqual(metrics["work"]["published"], 1)
+
+        with self.engine.begin() as c:
+            rows = c.execute(text(
+                "SELECT id, status, source_fingerprint FROM lyrics_translation_work "
+                "WHERE track_id = :t ORDER BY created_at"), {"t": self.track}).mappings().all()
+        self.assertEqual(len(rows), 2, "a new work row at the new fingerprint")
+        new = [r for r in rows if r["id"] != old_work][0]
+        self.assertEqual(new["status"], "done")
+        self.assertEqual(new["source_fingerprint"], self._read_path_fingerprint())
+        self.assertEqual(self._published()["source_fingerprint"], self._read_path_fingerprint())
+
+    def test_existing_translation_at_the_same_fingerprint_is_not_re_translated(self):
+        """The legacy album_research sweep already translates at this exact fingerprint.
+
+        Without this the demand path spends a second model call per track on any album that
+        is both research-linked and member-demanded, against a shared per-song budget.
+        """
+        self._add_source()
+        fp = self._read_path_fingerprint()
+        with self.engine.begin() as c:
+            c.execute(text(
+                "INSERT INTO track_lyrics_translations "
+                "(track_id, status, origin, translator_version, segments, source_fingerprint) "
+                "VALUES (:t, 'done', 'poller', 'v2', CAST(:seg AS jsonb), :fp)"),
+                {"t": self.track, "fp": fp,
+                 "seg": json.dumps([{"i": 0, "text_ko": "기존 번역"}])})
+
+        metrics = run_once(self.bridge)
+
+        self.assertEqual(self.calls, [], "no second model call for an identical version")
+        self.assertEqual(metrics["link"]["already_covered"], 1)
+        row = self._album_track()
+        self.assertEqual(row["source_state"], "not_required")
+        self.assertEqual(row["last_reason"], "already_translated")
 
     def test_expired_claim_discards_the_late_result(self):
         """If the lease expired mid-call, another runner owns the row; our result must not

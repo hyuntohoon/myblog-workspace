@@ -170,10 +170,22 @@ def sa_connect():
     if _SA_ENGINE is None:
         from sqlalchemy import create_engine
 
-        _SA_ENGINE = create_engine(
-            re.sub(r"^postgresql(\+\w+)?", "postgresql+psycopg", database_url()),
-            pool_pre_ping=True, pool_size=2, max_overflow=2, future=True,
-        )
+        try:
+            _SA_ENGINE = create_engine(
+                re.sub(r"^postgresql(\+\w+)?", "postgresql+psycopg", database_url()),
+                pool_pre_ping=True, pool_size=2, max_overflow=2, future=True,
+                # Matches connect() — absorbs Neon cold start (reference-database-url-psql).
+                connect_args={"connect_timeout": 30},
+            )
+        except Exception as e:
+            # SQLAlchemy's ArgumentError for a malformed DSN embeds the URL — password and
+            # all — and every caller of this is inside a `log.exception`, which would write
+            # DATABASE_URL to the poller log (hard rule 3). `from None` drops the original
+            # exception so neither the message nor the __cause__ chain can carry it.
+            raise RuntimeError(
+                f"could not build the demand engine from DATABASE_URL ({type(e).__name__}); "
+                "the URL is withheld deliberately"
+            ) from None
     return _SA_ENGINE.begin()
 
 

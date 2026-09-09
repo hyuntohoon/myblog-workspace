@@ -5,7 +5,7 @@
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Steps 1, 2 and 3 are complete. The owner approved recommended OQ6 on 2026-09-09 and recommended OQ5 on 2026-09-09; V57, the dormant package support, the worker's targeted source job and the poller's demand bridge are deployed and production-verified below. Automatic **producers** are still disabled: demand must be created by hand until Steps 4/5. Steps 4 and 5 have not started. The RFC remains in-progress; this completion record is not a lifecycle Status promotion.
+- **Execution state**: Steps 1, 2 and 3 are complete. The owner approved recommended OQ6 and recommended OQ5, both on 2026-09-09. Steps 1–2 are production-verified. Step 3's worker job and poller bridge are implemented and merged; its production smoke result is recorded on ws #1000 rather than asserted here. Automatic **producers** are still disabled: demand must be created by hand until Steps 4/5. Steps 4 and 5 have not started. The RFC remains in-progress; this completion record is not a lifecycle Status promotion.
 
 ## Goal
 
@@ -460,6 +460,47 @@ refused publication loses nothing — the result stays durable in `lyrics_transl
   `test_non_manual_row_change_during_the_model_call_also_blocks_publication` was added and both
   mutants now die.
 
+**Independent review found two defects that would have shipped.** Both are state-machine
+deadlocks that the suite passed straight over, and both are now fixed with a regression test
+whose mutant was verified to fail:
+
+1. **A guard-kept evaluation never reached the demand side.** `should_replace` refuses to
+   rewrite an existing `no_lyrics` row, so `run_eval_batch` counted it `guard_kept` and left
+   `track_lyrics.updated_at` untouched — and the write-back's "did this run produce evidence"
+   check reads exactly that column. The track therefore kept `next_attempt_at IS NULL`,
+   which `ORDER BY next_attempt_at NULLS FIRST` sorts to the **head** of the queue: one
+   LRCLIB call every 15 minutes forever, its album unable to reach `done`, and once 150 such
+   rows accumulate the job would select nothing else, ever. The commonest trigger is an
+   interlude the global collector reached first — i.e. most albums. Fixed with
+   `touch_on_guard_kept=True`, which is precisely what `TrackLyricsWriter.touch` was written
+   for. The suite missed it because every fixture track started with **no** corpus row, so
+   `should_replace` was never consulted at all.
+2. **`linked` was a one-way state.** `ensure_work` moves a track to `linked`, and nothing
+   moved it back — not the worker (its queue is `source_pending`) and not the link sweep
+   (same filter). A source re-matched after linking therefore failed its fingerprint check,
+   retried, and failed again every 6h forever. A `NORMALIZER_VERSION` bump does this to
+   every linked-not-yet-done row simultaneously. Fixed by releasing the track back to
+   `source_pending` on `source_changed`/`source_unavailable`, so the link sweep mints work at
+   the new fingerprint; the test now follows the track all the way back to a published
+   translation rather than stopping at the failure.
+
+Four further review findings were also fixed: the catalog ladder's rollback path counted a
+deferral it had just discarded (leaving a deterministically failing job pinned to the queue
+head); the whole invocation now shares a deadline, because only the LRCLIB loop was bounded
+while the catalog pass and write-back are per-row round trips that could together exceed the
+120s Lambda; the link sweep no longer inherits the worker's source-fetch backoff, which could
+strand a ready track for up to 30 days for a step that costs nothing; and a track already
+covered by a finished translation — manual, or the legacy sweep's at the same fingerprint —
+is now recorded `not_required` instead of being excluded, which both stops a duplicate model
+call and removes the album-completion block that excluding it created. The work-retry ladder
+also read `attempts` from before `claim_work` incremented it, collapsing its first two rungs.
+
+One review finding was corrected in documentation rather than code: the OQ5 ladder encoding
+is exact for `lyrics_album_tracks` but **not** for `lyrics_album_jobs`, whose `updated_at` is
+also bumped by `add_demand` and `remove_origin`. A member saving an album mid-ladder makes
+the recovered gap negative, and the clamp restarts the catalog ladder at its 15m base — cheap
+and self-correcting, which is why the clamps are load-bearing rather than defensive.
+
 **Known gaps, deliberately not closed here.**
 
 - The workspace test needs `TEST_DB_URL` plus the backend/shared_db checkouts, and `workspace-check`
@@ -468,6 +509,16 @@ refused publication loses nothing — the result stays durable in `lyrics_transl
   is a separate change.
 - The EventBridge resources are merged but **not applied**: workspace infra has no auto-apply, so
   the job does not run until the owner runs `terraform apply`.
+- A publication refused by the manual-edit guard is never retried. The result stays durable in
+  `lyrics_translation_work`, and every way that branch is reached leaves the viewer correct (a
+  manual edit is authoritative; a concurrent `requested` row is picked up by the legacy queue;
+  another runner's publication at the same fingerprint is equivalent). The one degraded case is
+  two work rows publishing out of order, where the viewer holds the older fingerprint and the
+  read path renders it "stale" with the text withheld — the product's existing behaviour, not a
+  new failure mode.
+- A `done` translation whose source changes later is not re-opened by either consumer. This is
+  also the pre-existing behaviour: the read path re-derives the fingerprint, reports `stale`,
+  and offers re-request. A general reconciliation pass for changed sources is a separate change.
 - The idle-in-transaction shape also exists in the two pre-existing corpus jobs
   (`LyricsIncrementalService` / `LyricsReassessmentService`), which materialize their selection and
   then enter `run_eval_batch` with the read transaction still open. Only the new service was fixed;
@@ -491,4 +542,4 @@ pointer remains because those steps and OQ1–4 are real remaining work.
 | 2026-09-09 | Owner approved the recommended OQ6 option: remove affected origin demand, cancel only unstarted orphan work, preserve manual/other-origin demand and completed translations. Source waiting and recent-window expiry retain demand. Step 2 implementation proceeds; no later step or Status promotion is implied. | OQ6, Step 2 |
 | 2026-09-09 | Step 2 complete: V57 applied to test/prod; shared-db #82 and backend #176 / worker #103 deployed; actual Lambda source verified; authenticated production smoke 30/0 and rolled-back dormant-store smoke passed. Step 3 waits for OQ5. Lifecycle Status remains in-progress; step suffix now records completion. | Step 2 delivery |
 | 2026-09-09 | Owner approved the recommended OQ5 policy: classification onto V57's three source states (`no_lyrics` and Korean source become `not_required` observations, reopenable by a fresh `source_revision`), a `min(cap, max(base, 2x previous))` ladder recovered from `next_attempt_at - updated_at` with no attempts counter, and transient failures that write nothing so an outage cannot advance the ladder. No cap is terminal. | OQ5, Step 3 |
-| 2026-09-09 | Step 3 complete: worker `lyrics_demand_source` job and workspace demand bridge shipped; worker suite 623 passed / 3 allowlisted skips, workspace bridge suite 10 passed, terraform plan 4 add / 0 change / 0 destroy. Two defects (transient ladder advance, idle-in-transaction across the provider loop) were caught by the new tests and fixed before merge. EventBridge resources still need a manual `terraform apply`. Lifecycle Status remains in-progress. | Step 3 delivery |
+| 2026-09-09 | Step 3 complete: worker `lyrics_demand_source` job and workspace demand bridge shipped; worker suite 623 passed / 3 allowlisted skips, workspace bridge suite 10 passed, terraform plan 4 add / 0 change / 0 destroy. Four defects were caught and fixed before merge: two by the new tests (transient ladder advance, idle-in-transaction across the provider loop) and two by independent review (a guard-kept evaluation never reaching the demand side, and `linked` being a one-way state). EventBridge resources still need a manual `terraform apply`. Lifecycle Status remains in-progress. | Step 3 delivery |

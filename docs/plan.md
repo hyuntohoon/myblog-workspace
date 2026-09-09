@@ -9,7 +9,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
-- **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–3 complete and production-verified.**
+- **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–2 production-verified; Step 3 implemented, its production smoke recorded on ws #1000.**
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
   Step 3 shipped 2026-09-09: the worker's targeted `lyrics_demand_source` job fills V57 source state
   for demanded albums (including tracks with no corpus row, which neither existing collector can
