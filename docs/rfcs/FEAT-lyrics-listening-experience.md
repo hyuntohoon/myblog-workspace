@@ -5,7 +5,7 @@
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Real translation, scheduler activation and local runtime rollout are being verified. Steps 4–5 automatic producers remain unimplemented. This progress record does not promote the RFC lifecycle Status.
+- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. Real translation and fixture cleanup await the Claude quota reset at 2026-09-09 23:10 KST. Steps 4–5 automatic producers remain unimplemented. This progress record does not promote the RFC lifecycle Status.
 
 ## Goal
 
@@ -219,7 +219,7 @@ and migration numbering before implementation.
 
 ### Step 3 — Connect targeted sources to the Claude pipeline
 
-**Current state:** merged and deployed; final verification and runtime activation in progress (record below). The worker's `lyrics_demand_source` job fills V57 source state for demanded albums, and the poller links ready sources to version-keyed work and publishes guarded results. Automatic producers remain disabled.
+**Current state:** deployed and scheduled; real publication verification is blocked by the Claude quota reset (record below). The worker's `lyrics_demand_source` job fills V57 source state for demanded albums, and the poller links ready sources to version-keyed work and publishes guarded results. Automatic producers remain disabled.
 
 **Dependencies:** Step 2 and OQ5/6. **Scope/order:** worker targeted initial fetch/reassessment → workspace poller ready-work consumption. Validate source-ready versions and preserve the existing manual path.
 
@@ -464,9 +464,19 @@ source arrival → publication without another request, plus the failure/recover
   `Two Roads` reached a usable-source state; `ICHIBAN` retained `source_pending/not_found` demand
   with a six-hour next attempt instead of losing the request.
 - The owner explicitly approved sending `Two Roads` to the existing Claude Sonnet engine and
-  publishing that one translation. The first real call at 21:38 KST returned a blank-stderr CLI exit 1, classified by the existing subscription guard as throttling. The guard set a 900-second cooldown; the work remains running under its 20-minute lease. Publication is not yet verified.
-- The local launcher was switched to the clean runtime and its existing 60-second cadence was retained. Terraform activation remains outstanding. Automatic approval
-  review requested explicit production-apply approval; no apply is claimed before it succeeds.
+  publishing that one translation. The first call at 21:38 KST returned a blank-stderr CLI exit 1.
+  The installed poller automatically reclaimed the expired work at 21:58 without a second request,
+  but that call also failed. Both persisted Claude session error messages explicitly identify a
+  session rate limit resetting **2026-09-09 23:10 Asia/Seoul**. The shared 900-second cooldown and
+  20-minute work lease are preserved; publication and temporary smoke-fixture cleanup remain
+  unverified. Authentication is valid; no model, credential or quota bypass was attempted.
+- The local launcher runs the clean runtime with its existing 60-second cadence.
+- After explicit owner approval, the full Terraform plan was applied on 2026-09-09:
+  **4 added / 0 changed / 0 destroyed**. The post-apply full plan reports **No changes**.
+  AWS reads verified `worker-lyrics-demand-source` is ENABLED at `rate(15 minutes)`, its target
+  invokes `blogWorkerLambda` with `{"job":"lyrics_demand_source"}`, the Lambda permission is
+  scoped to this rule ARN, and `worker-lyrics-demand-source-failed-invocations` monitors it.
+  Post-apply authenticated production smoke: **PASSED: 30, FAILED: 0, elapsed: 7.0s**.
 
 **Runtime:** the local poller uses a dedicated clean checkout at
 `/Users/park_hyun/myblog-workspace/.worktrees/lyrics-poller-runtime`, with nested backend `1cd5c6e`
@@ -500,3 +510,4 @@ and service dependencies. These limits do not authorize later RFC steps.
 | 2026-09-09 | Step 2 complete: V57 applied to test/prod; shared-db #82 and backend #176 / worker #103 deployed; actual Lambda source verified; authenticated production smoke 30/0 and rolled-back dormant-store smoke passed. Step 3 waits for OQ5. Lifecycle Status remains in-progress; step suffix now records completion. | Step 2 delivery |
 | 2026-09-09 | Owner approved the recommended OQ5 policy: classification onto V57's three source states (`no_lyrics` and Korean source become `not_required` observations, reopenable by a fresh `source_revision`), a `min(cap, max(base, 2x previous))` ladder recovered from `next_attempt_at - updated_at` with no attempts counter, and transient failures that write nothing so an outage cannot advance the ladder. No cap is terminal. | OQ5, Step 3 |
 | 2026-09-09 | Step 3 implementation prepared: worker `lyrics_demand_source` job and workspace demand bridge; worker suite 623 passed / 3 allowlisted skips, workspace bridge suite 10 passed, terraform plan 4 add / 0 change / 0 destroy. Four defects were caught and fixed before merge: two by the new tests (transient ladder advance, idle-in-transaction across the provider loop) and two by independent review (a guard-kept evaluation never reaching the demand side, and `linked` being a one-way state). EventBridge resources still need a manual `terraform apply`. Lifecycle Status remains in-progress. | Step 3 delivery |
+| 2026-09-09 | Owner explicitly approved the production Terraform apply. Four demand-source resources were added, post-apply plan has no changes, AWS rule/target/permission/alarm checks passed and authenticated smoke passed 30/0. Real Claude publication remains blocked by the recorded 23:10 KST session-limit reset; Step 3 is not yet complete. | Step 3 activation |
