@@ -221,6 +221,28 @@ locals {
       statement_id = "AllowInvokeFromEventBridgeLyricsReassessment"
     }
 
+    # Targeted source collection for V57 album demand
+    # (FEAT-lyrics-listening-experience Step 3). Resolves due album catalogs, then
+    # evaluates the demanded albums' tracks — including the ones never evaluated at
+    # all, which neither the global collector (newest-first) nor the album expedite
+    # (selects FROM track_lyrics) can reach. Serves existing demand only; it never
+    # creates any (the producers are Steps 4/5), so on a database with no demand
+    # rows this is two cheap SELECTs that return nothing.
+    #
+    # 15 minutes, matching lyrics_incremental rather than the daily reassessment:
+    # this queue is member-facing (somebody saved an album and is waiting), and its
+    # OQ5 backoff ladder — not the cron — is what limits how often any single track
+    # is re-checked. A transient LRCLIB failure writes nothing, so a due track is
+    # simply retried on the next tick; that IS the ladder's transient rung.
+    lyrics_demand_source = {
+      name         = "worker-lyrics-demand-source"
+      description  = "Targeted LRCLIB source collection for album translation demand (V57)"
+      schedule     = "rate(15 minutes)"
+      input        = { job = "lyrics_demand_source" }
+      target_id    = "blogWorkerLambda-lyrics-demand-source"
+      statement_id = "AllowInvokeFromEventBridgeLyricsDemandSource"
+    }
+
     # Weekly artist-photo backfill sweep (BUG-artist-image-backfill Step 3).
     # Selects artists with photo_url IS NULL and runs the Step-1 enrich routine:
     # photo filled when Spotify has one, '' sentinel written when it doesn't, so

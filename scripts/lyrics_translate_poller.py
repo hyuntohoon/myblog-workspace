@@ -76,6 +76,12 @@ sys.path.insert(0, str(BACKEND))
 # runtime (the workspace main checkout) with zero pin bump.
 sys.path.insert(0, str(ROOT / "myblog_shared_db" / "src"))
 
+# The workspace root, so `scripts.*` resolves as a PEP 420 namespace package (there is no
+# scripts/__init__.py). Needed because this file is also imported, not only run as a script:
+# under `python scripts/lyrics_translate_poller.py` sys.path[0] is scripts/ itself, which
+# would make `scripts.lyrics_demand_translate` unresolvable.
+sys.path.insert(0, str(ROOT))
+
 # Same normalizer + fingerprint as the read path (parity by construction — see header).
 from app.services.lyrics_service import (  # noqa: E402
     NORMALIZER_VERSION,
@@ -87,6 +93,18 @@ from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
     LLMSubscriptionCooldown,
     coordinated_run,
     ensure_subscription_available,
+)
+from myblog_shared_db.lyrics_demand import (  # noqa: E402
+    LyricsDemandStore,
+    StaleDiscovery,
+)
+
+# FEAT-lyrics-listening-experience Step 3. Sits alongside the legacy pass below rather than
+# replacing it: the 번역 요청 button and the album_research sweep keep their own queue and
+# their own track-keyed write-back, untouched.
+from scripts.lyrics_demand_translate import (  # noqa: E402
+    DemandBridge,
+    run_once as run_demand_once,
 )
 
 REGION = "ap-northeast-2"
@@ -131,6 +149,57 @@ def connect():
 
     # connect_timeout=30 absorbs Neon cold-start (reference-database-url-psql).
     return psycopg.connect(database_url(), connect_timeout=30, row_factory=dict_row)
+
+
+_SA_ENGINE = None
+
+
+def sa_connect():
+    """A SQLAlchemy connection with a transaction already begun — what LyricsDemandStore
+    expects (it never opens its own; the caller owns the transaction so every V57 mutation
+    stays a short, explicit unit).
+
+    Used as ``with sa_connect() as conn:``; ``Connection.begin()`` commits on a clean exit
+    and rolls back on an exception, so a failed store call leaves nothing behind.
+
+    Pooled through one lazily-built engine: the demand pass opens a handful of these per
+    firing, and a fresh engine per call would pay Neon's cold-start each time. The legacy
+    path keeps its own psycopg connections untouched.
+    """
+    global _SA_ENGINE
+    if _SA_ENGINE is None:
+        from sqlalchemy import create_engine
+
+        _SA_ENGINE = create_engine(
+            re.sub(r"^postgresql(\+\w+)?", "postgresql+psycopg", database_url()),
+            pool_pre_ping=True, pool_size=2, max_overflow=2, future=True,
+        )
+    return _SA_ENGINE.begin()
+
+
+def demand_bridge() -> DemandBridge:
+    """Step 3's bridge, wired to exactly the collaborators the legacy path already uses.
+
+    Passing them in rather than importing them inside the bridge keeps the new module free
+    of the local-checkout path injection this file performs at import time, and lets the
+    tests drive the real normalizer/fingerprint against a stub engine."""
+    return DemandBridge(
+        connect=connect,
+        sa_connect=sa_connect,
+        store_cls=LyricsDemandStore,
+        stale_error=StaleDiscovery,
+        normalize_lyrics=normalize_lyrics,
+        compute_source_fingerprint=compute_source_fingerprint,
+        normalizer_version=NORMALIZER_VERSION,
+        translate=claude_translate,
+        hangul_ratio=hangul_ratio,
+        hangul_dominant_ratio=HANGUL_DOMINANT_RATIO,
+        model_name=MT_MODEL,
+        ensure_subscription_available=ensure_subscription_available,
+        transient_errors=(TransientEngineError,),
+        validation_errors=(EngineValidationError,),
+        cooldown_error=LLMSubscriptionCooldown,
+    )
 
 
 # --- sweep (FEAT-lyrics-translation-sweep) ------------------------------------
@@ -436,7 +505,16 @@ def main() -> int:
                            f"(default: one firing, up to {BATCH_PER_RUN} rows)")
     mode.add_argument("--sweep-only", action="store_true",
                       help="run the sweep, report the inserted count, exit without claiming")
+    mode.add_argument("--demand-only", action="store_true",
+                      help="run only the FEAT-lyrics-listening-experience Step 3 demand pass "
+                           "(link ready sources, translate due work); skip the legacy queue")
+    ap.add_argument("--no-demand", action="store_true",
+                    help="skip the Step 3 demand pass and run only the legacy queue")
     args = ap.parse_args()
+
+    if args.demand_only:
+        _run_demand_pass()
+        return 0
 
     sweep_conn = connect()
     try:
@@ -461,7 +539,28 @@ def main() -> int:
             time.sleep(INTER_RUN_SLEEP_S)
     if handled == 0 and not stopped_for_cooldown:
         log.info("no pending translation request")
+
+    # The Step 3 pass runs AFTER the legacy queue and only if the legacy queue did not stop
+    # for a cooldown: the manual 번역 요청 button is a person waiting on a specific track and
+    # keeps first call on the shared subscription budget.
+    if not args.no_demand and not stopped_for_cooldown:
+        _run_demand_pass()
     return 0
+
+
+def _run_demand_pass() -> None:
+    """One V57 demand firing. Failures are logged, never fatal — the legacy queue and this
+    process's uptime must not depend on the new path."""
+    try:
+        metrics = run_demand_once(demand_bridge())
+    except LLMSubscriptionCooldown as e:
+        log.info("demand pass stopped for subscription cooldown: %s", e)
+        return
+    except Exception:  # noqa: BLE001
+        log.exception("demand pass failed")
+        return
+    if any(metrics["link"].values()) or any(metrics["work"].values()):
+        log.info("demand pass metrics: %s", metrics)
 
 
 if __name__ == "__main__":
