@@ -5,7 +5,7 @@
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: owner accepted this RFC and explicitly authorized Step 1 on 2026-09-08. Step 1 code is deployed; live-media confirmation remains pending as recorded below. Steps 2–5 and all unresolved translation/synchronization policies remain pending. Do not chain to Step 2 or create a new task after Step 1.
+- **Execution state**: Step 1 is complete, including live-media confirmation on 2026-09-09. The owner requested documentation reconciliation and continuation on 2026-09-09. Step 2 is next; preparation is authorized, while its removal/retention schema and implementation wait for the explicit OQ6 decision. Steps 3–5 remain outside this session. This request does not settle the remaining policy questions or promote the RFC Status.
 
 ## Goal
 
@@ -141,11 +141,11 @@ Multi-song requests are a later measured option: explicit track identifiers, per
 
 ## Steps
 
-Step 1 was authorized and deployed on 2026-09-08; its live-media confirmation remains pending. Steps 2–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
+Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. Step 2 preparation was requested on 2026-09-09; implementation is gated only by OQ6. Steps 3–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
 
 ### Step 1 — Preserve player functionality and add immediate lyrics access
 
-**Current state:** implemented and deployed in frontend PR #445; local/full-suite and automated production smoke passed. See the delivery record for the outstanding live-media confirmation and browser-cache observation.
+**Current state:** complete in frontend PR #445; local/full-suite, automated production smoke and live-media verification all passed. Live-media confirmation closed on 2026-09-09. The delivery record retains the browser-cache and unverified browser-fallback observations; neither reopens Step 1.
 
 **Scope/order:** frontend only, independent of Steps 2–5. Re-audit current-main controls including YouTube; apply the approved styling and direct lyrics entry; extend the existing session lifecycle for entry/return discovery. Update layout offsets to measured responsive height. Do not resume the deferred member widget initiative.
 
@@ -162,6 +162,25 @@ Step 1 was authorized and deployed on 2026-09-08; its live-media confirmation re
 **Verification:** shared DB migration/model checks and affected Python suites; repeated event, two members/one album, missing catalog/source, mixed album states, manual translation, changed fingerprint and process restart cases. Export any changed service OpenAPI, merge workspace contracts, regenerate frontend types in the dependent PR sequence. Exercise additive migration on a non-production database, then follow the repository's forward migration and post-deploy verification process.
 
 **Rollback:** disable new consumers/writers; retain additive schema and demand records. Never run a production rollback migration without owner approval.
+
+#### Step 2 preparation findings — 2026-09-09
+
+Read-only inspection of the available service `origin/main` snapshots found no existing durable
+album-demand store. V56 is the latest shared migration in those snapshots. Reconfirm remote main
+and migration numbering before implementation.
+
+- Existing manual `LyricsService.request_translation()` requires a catalog track and usable source;
+  it can reset an existing result. Automatic discovery must not call it to represent waiting demand.
+- The workspace poller claims legacy `requested` rows and its completion writes by `track_id` alone,
+  setting `origin=poller`. New dormant work must stay outside that claim path. Step 3 must guard
+  completion by the claimed work/source version and preserve manual changes made during a model call.
+- Schema rollout starts with the workspace canonical DDL PR, then the shared-db mirror, models,
+  migration and tests, then compatible consumer pins. This is the order in
+  `docs/contracts/README.md`; the high-level scope/order above does not override it.
+- Worker runtime requirements and its CI canonical-schema checkout currently pin different shared-db
+  commits. Check `requirements.txt`, the deployed `requirements.lock`, and the workflow schema pin
+  together when adding model imports. No producer, route, schema or runtime pin changed during this
+  preparation. OQ6 still gates the removal/retention design.
 
 ### Step 3 — Connect targeted sources to the Claude pipeline
 
@@ -250,7 +269,7 @@ Production asset verification passed against the fresh HTML's `PocketBuckit.CZRR
 - **A methodology trap worth keeping.** A first YouTube pause/seek attempt read as broken — the toggle never flipped and the position kept advancing. It was the harness: the album overlay and then the lyrics viewer were covering the click point. `document.elementFromPoint` at the button's centre returned `BUTTON.lyv-line`, not the toggle. Re-run with the overlays closed, every control passed. **Hit-test the point before reporting a dead control.**
 - **Not verified, and deliberately left open.** The in-page browser rung (`이 브라우저 (음질 제한)`) was never exercised end to end, so what the SDK fallback does after a cold-start 404 is *explained* above but not *proven*. That path predates this step — #445 did not change the ladder — so it is recorded as an observation, not adopted as Step 1 work.
 
-Step 1 is complete. **Status stays `in-progress`; Steps 2–5 and OQ1–OQ7 remain open, and there is no automatic next task.** The plan row remains until the entire RFC is complete.
+Step 1 is complete. **Status stays `in-progress`.** The owner subsequently requested continuation on 2026-09-09; Step 2 preparation proceeds in the current session, with OQ6 still gating its implementation. The other open questions apply only to the scopes listed in the table. The plan row remains until the entire RFC is complete.
 
 ## Decisions log
 
@@ -263,3 +282,4 @@ Step 1 is complete. **Status stays `in-progress`; Steps 2–5 and OQ1–OQ7 rema
 | 2026-09-08 | Follow/removal/source-waiting/batching details remain identified proposals. No implementation step or production deployment is claimed by this PR. | Planning |
 | 2026-09-08 | Owner accepted the RFC and authorized Step 1 implementation, verification and delivery only. Status advanced through accepted to in-progress (Step 1); unresolved policies remain open. Report here after Step 1; no automatic Step 2 or new task. | Step 1 authorization |
 | 2026-09-09 | Live-media confirmation closed against the deployed bundle with a real owner session and an independent Spotify Web API observer: real Spotify play/pause/seek on a remote device, real YouTube media, direct lyrics on both providers. Test mapping created and deleted through the product's own actions; no production residue. Status deliberately NOT promoted. | Step 1 |
+| 2026-09-09 | Owner requested documentation reconciliation and continuation after the progress review. Reconcile Step 1 completion throughout the RFC/index and move the plan pointer to Active. Prepare Step 2; OQ6 remains an explicit decision gate, and Steps 3–5 are not authorized by this session's scope. No Status promotion. | Step 2 preparation |
