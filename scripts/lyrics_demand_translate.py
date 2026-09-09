@@ -118,8 +118,9 @@ LIMIT %s;
 DUE_WORK_SQL = f"""
 SELECT w.id AS work_id, w.track_id, w.source_fingerprint, w.attempts, w.lang
 FROM lyrics_translation_work w
-WHERE w.status IN ('ready', 'retryable_error')
-  AND (w.next_attempt_at IS NULL OR w.next_attempt_at <= now())
+WHERE ((w.status IN ('ready', 'retryable_error')
+        AND (w.next_attempt_at IS NULL OR w.next_attempt_at <= now()))
+       OR (w.status = 'running' AND w.lease_until <= now()))
   AND w.lang = %s
   AND (w.manual_requested OR EXISTS (
         SELECT 1 FROM lyrics_album_tracks lat
@@ -166,11 +167,11 @@ WHERE t.id = %s;
 #   * `updated_at <= claimed_before` — nothing touched the row while the model was running.
 #     A re-request or a hand edit wins; the automatic result is simply not published.
 #   * the caller only reaches this after `complete_work` returned True, i.e. the claim token
-#     was still valid and the result is already durable in `lyrics_translation_work`.
+#     was still valid. Completion and publication commit in the same transaction.
 #
 # A skipped publication keeps the RESULT — it stays stored under its exact source version in
 # `lyrics_translation_work` — but there is deliberately no re-publication path: `complete_work`
-# has already set the work row to 'done', and neither `DUE_WORK_SQL` (ready/retryable_error)
+# sets the work row to 'done' in the same successful transaction, and neither `DUE_WORK_SQL` (ready/retryable_error)
 # nor the link sweep ('source_pending') will select it again. That is acceptable because every
 # way this branch is reached leaves the viewer correct: a manual edit is authoritative; a
 # concurrent 'requested' row is picked up by the legacy queue; and another runner's
@@ -280,6 +281,26 @@ class DemandBridge:
         """
         counts = {"linked": 0, "korean": 0, "unnormalizable": 0, "stale": 0,
                   "already_covered": 0}
+        # Manual work may finish after a track was linked; those tracks are no longer
+        # candidates below and claim_work deliberately refuses them. Reconcile coverage
+        # before selecting fresh links so an album can finish without an automatic call.
+        with self._store_txn() as sa:
+            covered = sa.exec_driver_sql(f"""
+                SELECT lat.job_id, lat.track_id, lat.work_id, lat.source_revision
+                FROM lyrics_album_tracks lat
+                JOIN lyrics_album_jobs j ON j.id = lat.job_id
+                JOIN track_lyrics_translations x ON x.track_id = lat.track_id
+                WHERE lat.source_state = 'linked' AND {_LIVE_DEMAND}
+                  AND x.status = 'done' AND x.origin = 'manual'
+                ORDER BY lat.updated_at LIMIT %s
+            """, (limit,)).mappings().all()
+        for row in covered:
+            try:
+                self._mark(row, "not_required", "manual_translation")
+                counts["already_covered"] += 1
+            except self._stale:
+                counts["stale"] += 1
+
         conn = self._connect()
         try:
             with conn.cursor() as cur:
@@ -459,35 +480,49 @@ class DemandBridge:
         ko_by_i = {s.i: t for s, t in zip(non_gap, texts_ko)}
         segments = [{"i": s.i, "text_ko": ko_by_i.get(s.i, "")} for s in out.segments]
 
+        # Re-read and lock the source only AFTER the model has returned. The lock
+        # fences corpus changes through completion and publication; both writes share
+        # one transaction, so a failed publication never strands a durable done row.
+        source_error = None
         with self._store_txn() as sa:
-            completed = self._store_cls(sa).complete_work(work_id, token, segments)
-        if not completed:
-            # The lease expired mid-call and someone else owns the row now. Discarding our
-            # result is correct: theirs is the one with a live claim.
-            counts["lost_claim"] += 1
-            log.warning("claim lost during translation of %s — result discarded", track_id)
-            return True
-        counts["done"] += 1
-
-        self._publish(track_id, segments, fingerprint, out.normalizer_version,
-                      claimed_before, counts)
+            sa.exec_driver_sql(
+                "SELECT track_id FROM track_lyrics WHERE track_id = %s FOR SHARE",
+                (track_id,),
+            ).all()
+            current = sa.exec_driver_sql(
+                SOURCE_FOR_TRACK_SQL, (track_id,),
+            ).mappings().one_or_none()
+            current_out = self._normalized(current) if current is not None else None
+            if current_out is None or current_out.availability != "ok":
+                source_error = "source_unavailable"
+            elif self._fingerprint(current_out.normalizer_version, current_out.segments) != fingerprint:
+                source_error = "source_changed"
+            else:
+                completed = self._store_cls(sa).complete_work(work_id, token, segments)
+                if not completed:
+                    counts["lost_claim"] += 1
+                    log.warning("claim lost during translation of %s — result discarded", track_id)
+                    return True
+                self._publish(sa, track_id, segments, fingerprint, out.normalizer_version,
+                              claimed_before, counts)
+        if source_error:
+            if source_error == "source_changed":
+                counts["source_changed"] += 1
+            self._fail(work_id, token, row, source_error, counts,
+                       count_failed=source_error != "source_changed")
+            counts["released"] += self._release_for_relink(work_id, source_error)
+        else:
+            counts["done"] += 1
         return True
 
-    def _publish(self, track_id, segments, fingerprint, normalizer_version,
+    def _publish(self, sa, track_id, segments, fingerprint, normalizer_version,
                  claimed_before, counts) -> None:
-        conn = self._connect()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(PUBLISH_SQL, (
-                    track_id, TARGET_LANG,
-                    json.dumps(segments, ensure_ascii=False), fingerprint,
-                    normalizer_version, self._model, TRANSLATOR_VERSION,
-                    claimed_before,
-                ))
-                published = cur.fetchone()
-            conn.commit()
-        finally:
-            conn.close()
+        published = sa.exec_driver_sql(PUBLISH_SQL, (
+            track_id, TARGET_LANG,
+            json.dumps(segments, ensure_ascii=False), fingerprint,
+            normalizer_version, self._model, TRANSLATOR_VERSION,
+            claimed_before,
+        )).first()
         if published is None:
             counts["publish_skipped"] += 1
             log.info(

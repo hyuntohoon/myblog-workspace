@@ -25,6 +25,7 @@ import sys
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -179,6 +180,28 @@ class DemandBridgeTest(unittest.TestCase):
                 "FROM track_lyrics_translations WHERE track_id = :t"),
                 {"t": self.track}).mappings().one_or_none()
             return dict(row) if row else None
+
+    def _expire_claim(self):
+        with self.engine.begin() as c:
+            c.execute(text("UPDATE lyrics_translation_work "
+                           "SET lease_until = now() - INTERVAL '1 second' "
+                           "WHERE track_id = :t"), {"t": self.track})
+
+    def _claim_snapshot(self):
+        with self.engine.begin() as c:
+            return dict(c.execute(text(
+                "SELECT status, attempts, claim_token, lease_until, updated_at "
+                "FROM lyrics_translation_work WHERE track_id = :t"),
+                {"t": self.track}).mappings().one())
+
+    def _complete_manual_translation(self):
+        with self.engine.begin() as c:
+            c.execute(text(
+                "INSERT INTO track_lyrics_translations "
+                "(track_id, status, origin, segments, source_fingerprint) "
+                "VALUES (:t, 'done', 'manual', CAST(:seg AS jsonb), :fp)"),
+                {"t": self.track, "fp": self._read_path_fingerprint(),
+                 "seg": json.dumps([{"i": 0, "text_ko": "수동 번역"}])})
 
     def _read_path_fingerprint(self):
         """What the backend read path would derive from the CURRENT source row — the value
@@ -467,6 +490,131 @@ class DemandBridgeTest(unittest.TestCase):
         self.assertEqual(metrics["lost_claim"], 1)
         self.assertEqual(metrics["done"], 0)
         self.assertIsNone(self._published())
+
+    def _assert_failed_engine_claim_recovers(self, error):
+        self._add_source()
+
+        def fail_during_call():
+            raise error
+
+        self.during_call = fail_during_call
+        run_once(self.bridge)
+        self.assertEqual(self._work()["status"], "running")
+        self.assertIsNone(self._published())
+
+        self._expire_claim()
+        recovered = run_once(self.bridge)
+
+        self.assertEqual(recovered["work"]["published"], 1)
+        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(self._work()["status"], "done")
+        self.assertEqual(self._work()["attempts"], 2)
+        self.assertEqual(self._published()["source_fingerprint"], self._read_path_fingerprint())
+
+    def test_transient_failure_is_reclaimed_after_the_lease_expires(self):
+        self._assert_failed_engine_claim_recovers(poller.TransientEngineError("CLI unavailable"))
+
+    def test_cooldown_claim_is_reclaimed_after_the_lease_expires(self):
+        self._assert_failed_engine_claim_recovers(poller.LLMSubscriptionCooldown(60))
+
+    def test_active_lease_is_untouched_by_another_firing(self):
+        self._add_source()
+        self.bridge.link_ready_sources()
+        from myblog_shared_db.lyrics_demand import LyricsDemandStore
+        with self.engine.begin() as c:
+            token = LyricsDemandStore(c).claim_work(self._work()["id"])
+        self.assertIsNotNone(token)
+        before = self._claim_snapshot()
+
+        metrics = run_once(self.bridge)
+
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self._claim_snapshot(), before)
+        self.assertEqual(metrics["work"]["lost_claim"], 0)
+        self.assertIsNone(self._published())
+
+    def test_source_changed_during_translation_is_relinked_on_the_next_firing(self):
+        self._add_source()
+        self.bridge.link_ready_sources()
+        old_work = self._work()["id"]
+        self.during_call = lambda: self._add_source(body=BODY_EN + "\nplaceholder delta")
+
+        first = self.bridge.process_due_work()
+
+        self.assertEqual(first["done"], 0)
+        self.assertEqual(first["source_changed"], 1)
+        self.assertEqual(first["released"], 1)
+        self.assertEqual(self._work()["status"], "retryable_error")
+        self.assertIsNone(self._work()["segments"])
+        self.assertIsNone(self._published())
+        self.assertEqual(self._album_track()["source_state"], "source_pending")
+        self.assertIsNone(self._album_track()["work_id"])
+
+        recovered = run_once(self.bridge)
+
+        self.assertEqual(recovered["work"]["published"], 1)
+        self.assertEqual(len(self.calls), 2)
+        self.assertIn("placeholder delta", self.calls[-1])
+        self.assertNotEqual(self._album_track()["work_id"], old_work)
+        self.assertEqual(self._published()["source_fingerprint"], self._read_path_fingerprint())
+
+    def test_source_unavailable_during_translation_releases_the_track_for_fetching(self):
+        self._add_source()
+        self.during_call = lambda: self._add_source(body="", status="matched")
+
+        metrics = run_once(self.bridge)
+
+        self.assertEqual(metrics["work"]["done"], 0)
+        self.assertEqual(metrics["work"]["released"], 1)
+        self.assertEqual(self._work()["status"], "retryable_error")
+        self.assertEqual(self._work()["last_reason"], "source_unavailable")
+        self.assertIsNone(self._published())
+        self.assertEqual(self._album_track()["source_state"], "source_pending")
+        self.assertEqual(self._album_track()["last_reason"], "source_unavailable")
+        self.assertIsNone(self._album_track()["work_id"])
+
+    def test_publication_failure_rolls_back_completion_and_recovers_after_lease_expiry(self):
+        self._add_source()
+        real_publish = self.bridge._publish
+
+        def fail_after_publication(*args, **kwargs):
+            # Execute the real write first: a failed transaction must undo both database
+            # changes, including completion that preceded this publication.
+            real_publish(*args, **kwargs)
+            raise RuntimeError("publication transaction interrupted")
+
+        with patch.object(self.bridge, "_publish", side_effect=fail_after_publication):
+            with self.assertRaisesRegex(RuntimeError, "publication transaction interrupted"):
+                run_once(self.bridge)
+
+        self.assertEqual(self._work()["status"], "running")
+        self.assertIsNone(self._work()["segments"])
+        self.assertIsNone(self._published())
+
+        self._expire_claim()
+        recovered = run_once(self.bridge)
+
+        self.assertEqual(recovered["work"]["published"], 1)
+        self.assertEqual(self._work()["status"], "done")
+        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(self._published()["source_fingerprint"], self._read_path_fingerprint())
+
+    def test_manual_translation_after_linking_completes_album_without_a_model_call(self):
+        self._add_source()
+        self.bridge.link_ready_sources()
+        self.assertEqual(self._album_track()["source_state"], "linked")
+        self._complete_manual_translation()
+
+        run_once(self.bridge)
+
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self._published()["origin"], "manual")
+        self.assertEqual(self._album_track()["source_state"], "not_required")
+        self.assertEqual(self._album_track()["last_reason"], "manual_translation")
+        from myblog_shared_db.lyrics_demand import LyricsDemandStore
+        with self.engine.begin() as c:
+            progress = LyricsDemandStore(c).album_progress(self.user, self.job)
+        self.assertEqual(progress["state"], "done")
 
     def test_removed_demand_stops_the_bridge_but_keeps_the_completed_result(self):
         """Unsaving the album halts future automatic work; a finished translation stays."""

@@ -1,11 +1,11 @@
 # FEAT-lyrics-listening-experience: album translation coverage and immediate lyrics access
 
-- **Status**: in-progress (Steps 1–3 complete; Step 4 pending OQ1)
+- **Status**: in-progress (Steps 1–2 complete; Step 3 verification in progress)
 - **Owner**: site owner
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Steps 1, 2 and 3 are complete. The owner approved recommended OQ6 and recommended OQ5, both on 2026-09-09. Steps 1–2 are production-verified. Step 3's worker job and poller bridge are implemented and merged; its production smoke result is recorded on ws #1000 rather than asserted here. Automatic **producers** are still disabled: demand must be created by hand until Steps 4/5. Steps 4 and 5 have not started. The RFC remains in-progress; this completion record is not a lifecycle Status promotion.
+- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 implementation and review fixes are on workspace #1000 and worker #104; merge, deployment, local poller rollout and production verification remain outstanding. Earlier Step 3 completion/merge/smoke claims were premature and are withdrawn. Automatic demand producers in Steps 4–5 remain unimplemented. This is a step-progress correction, not a lifecycle Status promotion.
 
 ## Goal
 
@@ -145,7 +145,7 @@ Multi-song requests are a later measured option: explicit track identifiers, per
 
 ## Steps
 
-Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. The owner approved OQ6 on 2026-09-09 and Step 2 is now complete, including test/prod migration, consumer deployments and production verification. Steps 3–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
+Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. The owner approved OQ6 on 2026-09-09 and Step 2 is now complete, including test/prod migration, consumer deployments and production verification. Step 3 is in pre-merge verification; Steps 4–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
 
 ### Step 1 — Preserve player functionality and add immediate lyrics access
 
@@ -219,7 +219,7 @@ and migration numbering before implementation.
 
 ### Step 3 — Connect targeted sources to the Claude pipeline
 
-**Current state:** complete 2026-09-09 (delivery record below). The worker's `lyrics_demand_source` job fills V57 source state for demanded albums, and the poller links ready sources to version-keyed work and publishes guarded results. Automatic producers remain disabled.
+**Current state:** implemented; pre-merge review and verification in progress (record below). The worker's `lyrics_demand_source` job fills V57 source state for demanded albums, and the poller links ready sources to version-keyed work and publishes guarded results. Automatic producers remain disabled.
 
 **Dependencies:** Step 2 and OQ5/6. **Scope/order:** worker targeted initial fetch/reassessment → workspace poller ready-work consumption. Validate source-ready versions and preserve the existing manual path.
 
@@ -410,13 +410,17 @@ recreation; catalog identity/count checks under one SQL snapshot; manual revival
 and prelocking multiple origins for atomic disconnect. The cross-origin removal fence deliberately
 invalidates that scope's other in-flight observations, so Steps 4/5 must replay/reconcile them.
 
-### Step 3 delivery — complete 2026-09-09
+### Step 3 delivery — verification in progress (2026-09-09)
+
+The owner requested completion of the paused PRs on 2026-09-09. Resume inspection found both
+PRs open with green CI and no production-smoke comment on workspace #1000. The earlier completion
+claims were premature. The final delivery evidence below will be recorded only after it occurs.
 
 Worker PR and workspace PR below; shared_db and backend were **not** touched (no schema, no contract,
 no route change — `origin` stays inside the contract's `["poller","manual"]` enum, and full
 provenance lives in `lyrics_translation_work`).
 
-**What shipped.**
+**Implementation.**
 
 - `worker/service/lyrics_demand_source_service.py` + the `lyrics_demand_source` job. Album-scoped,
   demand-driven, and the union of the two existing collectors' arms: tracks with **no** corpus row
@@ -435,8 +439,8 @@ poller already imports them (parity by construction). The two consumers therefor
 
 **Guards the legacy write-back does not have.** The old completion writes by `track_id` alone. The new
 path validates, in this order: the claim token + lease (`complete_work` is a no-op for an expired or
-stolen claim), the source fingerprint before the model call (a superseded version is failed, not
-translated), and at publication time both `origin <> 'manual'` and `updated_at <= claimed_before`. A
+stolen claim), the source fingerprint before and after the model call (a superseded version is failed, not
+translated), and at publication time both `origin <> 'manual'` and `updated_at <= claimed_before`. The source is re-read under a row lock after the model call, and completion plus publication share one transaction. A
 refused publication loses nothing — the result stays durable in `lyrics_translation_work`.
 
 **Verification.**
@@ -501,13 +505,21 @@ also bumped by `add_demand` and `remove_origin`. A member saving an album mid-la
 the recovered gap negative, and the clamp restarts the catalog ladder at its 15m base — cheap
 and self-correcting, which is why the clamps are load-bearing rather than defensive.
 
+**Resume review corrections (2026-09-09).** Expired `running` leases are now eligible for
+reclaim after cooldown/transient failures. A source change during the model call releases linked
+tracks for a fresh version instead of completing stale work. Source validation, completion and
+publication use one short transaction; an injected failure after the publication statement rolls
+both writes back and the expired claim retries successfully. Manual translation completion after
+linking is reconciled into `not_required` without a model call. Seven added real-Postgres regressions
+bring the bridge suite to **19 passed**. The SQS contract now documents the manual demand-source job.
+
 **Known gaps, deliberately not closed here.**
 
 - The workspace test needs `TEST_DB_URL` plus the backend/shared_db checkouts, and `workspace-check`
   provides neither, so it runs locally only — the same status as the repo's six other
   `scripts/tests` files. Wiring a Postgres service and a private-repo checkout into `workspace-check`
   is a separate change.
-- The EventBridge resources are merged but **not applied**: workspace infra has no auto-apply, so
+- The EventBridge resources are proposed in workspace #1000 and **not applied**: workspace infra has no auto-apply, so
   the job does not run until the owner runs `terraform apply`.
 - A publication refused by the manual-edit guard is never retried. The result stays durable in
   `lyrics_translation_work`, and every way that branch is reached leaves the viewer correct (a
@@ -519,12 +531,12 @@ and self-correcting, which is why the clamps are load-bearing rather than defens
 - A `done` translation whose source changes later is not re-opened by either consumer. This is
   also the pre-existing behaviour: the read path re-derives the fingerprint, reports `stale`,
   and offers re-request. A general reconciliation pass for changed sources is a separate change.
-- The idle-in-transaction shape also exists in the two pre-existing corpus jobs
-  (`LyricsIncrementalService` / `LyricsReassessmentService`), which materialize their selection and
-  then enter `run_eval_batch` with the read transaction still open. Only the new service was fixed;
-  changing the shipped jobs is out of Step 3's scope and wants its own change and verification.
+- The transaction-lifecycle sweep covers the incremental and both reassessment entry points as
+  well as the new demand collector. Each materializes and closes its selection transaction before
+  external provider work; real Postgres probes check transaction state during the provider call.
 
-**Step 3 is complete (record below).** Steps 4 and 5 do not run in this session. The Active RFC
+
+**Step 3 is not yet complete.** Steps 4 and 5 do not run in this session. The Active RFC
 pointer remains because those steps and OQ1–4 are real remaining work.
 
 ## Decisions log
@@ -542,4 +554,4 @@ pointer remains because those steps and OQ1–4 are real remaining work.
 | 2026-09-09 | Owner approved the recommended OQ6 option: remove affected origin demand, cancel only unstarted orphan work, preserve manual/other-origin demand and completed translations. Source waiting and recent-window expiry retain demand. Step 2 implementation proceeds; no later step or Status promotion is implied. | OQ6, Step 2 |
 | 2026-09-09 | Step 2 complete: V57 applied to test/prod; shared-db #82 and backend #176 / worker #103 deployed; actual Lambda source verified; authenticated production smoke 30/0 and rolled-back dormant-store smoke passed. Step 3 waits for OQ5. Lifecycle Status remains in-progress; step suffix now records completion. | Step 2 delivery |
 | 2026-09-09 | Owner approved the recommended OQ5 policy: classification onto V57's three source states (`no_lyrics` and Korean source become `not_required` observations, reopenable by a fresh `source_revision`), a `min(cap, max(base, 2x previous))` ladder recovered from `next_attempt_at - updated_at` with no attempts counter, and transient failures that write nothing so an outage cannot advance the ladder. No cap is terminal. | OQ5, Step 3 |
-| 2026-09-09 | Step 3 complete: worker `lyrics_demand_source` job and workspace demand bridge shipped; worker suite 623 passed / 3 allowlisted skips, workspace bridge suite 10 passed, terraform plan 4 add / 0 change / 0 destroy. Four defects were caught and fixed before merge: two by the new tests (transient ladder advance, idle-in-transaction across the provider loop) and two by independent review (a guard-kept evaluation never reaching the demand side, and `linked` being a one-way state). EventBridge resources still need a manual `terraform apply`. Lifecycle Status remains in-progress. | Step 3 delivery |
+| 2026-09-09 | Step 3 implementation prepared: worker `lyrics_demand_source` job and workspace demand bridge; worker suite 623 passed / 3 allowlisted skips, workspace bridge suite 10 passed, terraform plan 4 add / 0 change / 0 destroy. Four defects were caught and fixed before merge: two by the new tests (transient ladder advance, idle-in-transaction across the provider loop) and two by independent review (a guard-kept evaluation never reaching the demand side, and `linked` being a one-way state). EventBridge resources still need a manual `terraform apply`. Lifecycle Status remains in-progress. | Step 3 delivery |

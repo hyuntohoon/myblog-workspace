@@ -9,21 +9,16 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
-- **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–2 production-verified; Step 3 implemented, its production smoke recorded on ws #1000.**
+- **FEAT-lyrics-listening-experience** — in-progress; Steps 1–2 production-verified;
+  Step 3 is in pre-merge verification (workspace #1000 and worker #104).
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
-  Step 3 shipped 2026-09-09: the worker's targeted `lyrics_demand_source` job fills V57 source state
-  for demanded albums (including tracks with no corpus row, which neither existing collector can
-  reach), and the workspace poller links ready sources to version-keyed work and publishes results
-  under claim-token, source-version and manual-edit guards. OQ5 is resolved (ladder + classification
-  below). OQ6 was resolved in Step 2. Automatic **producers** remain disabled — demand still has to be
-  created by hand until Steps 4/5.
-  **Open before Step 4:** OQ1 (liked tracks expanded to albums). OQ2–4 apply to Step 5; OQ7 is optional
-  optimization.
-  **Owner action outstanding:** the four `lyrics_demand_source` EventBridge resources are merged but
-  **not applied** — workspace infra has no auto-apply, so the job does not run until someone runs
-  `terraform apply` (plan was 4 to add / 0 change / 0 destroy).
-  The browser fallback after cold-start Spotify 404 remains an observation from Step 1, not newly
-  adopted work. Full gates, delivery evidence and rollback →
+  The targeted source collector and versioned translation bridge are implemented. Resume review
+  found expired-claim recovery, mid-call source changes, publication atomicity and manual-coverage
+  gaps; fixes and regressions are being verified before merge. EventBridge activation and the local
+  poller rollout still require verification; no Step 3 production smoke is claimed yet.
+  Steps 4–5 automatic demand producers remain unimplemented. OQ5/6 are approved; OQ1 gates only the
+  Step 4 liked-track extension, while OQ2–4 gate Step 5. Carry the Step 1 cold-start Spotify 404
+  browser-fallback observation. Full evidence and next-step scope →
   `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, accepted) — main governance, keyless
