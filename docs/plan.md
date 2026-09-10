@@ -9,24 +9,51 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
-- **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–3 complete and production-verified.**
+- **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified.**
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
-  Step 3 closed 2026-09-09 23:22 KST. Worker #104 / workspace #1000-#1002 merged; deployed Lambda
-  source verified; authenticated production smoke 30/0 after deploy and again after the owner-approved
-  Terraform apply (four resources added, no changes/deletes, post-apply plan clean). The final gate —
-  a real Claude publication — completed on the deployed runtime **with no manual intervention**: the
-  23:01 call was throttled, the subscription guard set its own 900s cooldown, the transient path kept
-  the claim without spending a retry rung, and the 20-minute lease expiry let `claim_work` reclaim it
-  at 23:22. Published `origin=poller`, 26 segments, and the stored fingerprint equals what the read
-  path re-derives, so the viewer renders it rather than withholding it as stale. Both OQ5 arms were
-  visible at once: one album reached `state='done'`, the other stayed `source_pending`/`not_found`
-  with its retry gap at exactly the approved 6h base rung. The temporary demand fixture was removed —
-  all five V57 tables are back to zero rows, legacy corpus untouched (31,590 `track_lyrics`, 644
-  translations). The one real translation produced was deliberately retained as product output, not
-  fixture residue.
-  **Open before Step 4:** OQ1 (liked tracks expanded to albums). OQ2–4 gate Step 5; OQ7 is optional.
-  **Steps 4–5 automatic producers remain unimplemented**, so nothing creates demand yet — V57 stays
-  empty until they ship, and the scheduled job is two indexed no-op SELECTs meanwhile.
+  **Step 4 shipped 2026-09-11: the demand producers are on.** A connected member's saved albums
+  (`GET /me/albums`, fully paginated) and their recently-played albums now create durable V57 demand
+  with no owner involvement — `saved` reconciles as a set, `recent` is append-only because OQ6 says an
+  observation ageing out of Spotify's window is not a removal. The producer rides the existing
+  15-minute member poll and reuses the token that pass already mints; its failures are isolated and
+  counted, never able to break the listening sync. Connect enqueues a bootstrap that runs the
+  *identical* narrowed pass, so a lost message costs one interval and pre-existing members are
+  backfilled by the same cron. Disconnect revokes both discovery scopes in the same transaction as the
+  credential delete (OQ6). No contract, schema, route or Terraform change — the producer rides the
+  already-live `worker-spotify-member-poll` rule (`rate(15 minutes)`, verified ENABLED against AWS
+  before merge). Member isolation — the claim the step is judged on — is proved end-to-end against
+  real Postgres. Worker #105 / backend #177 merged 2026-09-11.
+
+  **The security review found two MEDIUMs and both were about what happens AFTER the stop signal.**
+  The one worth carrying: the OQ6 fence was built for `DELETE /api/integrations/spotify`, but a member
+  who removes the app at `spotify.com/account/apps` never enters that route — it reaches us only as
+  `invalid_grant`. The poll flipped them to `reauth` and stopped, leaving their scopes `active` and
+  every demand row derived from their private library live and served. **The verification list asked to
+  prove "a disconnected member stops producing demand", and the code satisfied that sentence exactly**
+  — but "stops producing new demand" and "stops using the member's library" are different claims, and a
+  fence written against the first leaves the second open. Fixed: `revoke_scopes` now runs in the same
+  transaction as the reauth flip. The second MEDIUM was this plan row and the RFC recording rollback as
+  a plain revert; it is not one, and the corrected procedure is in the RFC.
+
+  **Mutation honesty.** Eighteen probes in the build round, four more in the review round — all killed
+  in the end, but **the review round's first draft killed only one of its four**: the control member sat
+  inside the same poll and repaired her own scope, so a mutant that revoked *every* member's library
+  passed. A control that the code under test can repair is not a control.
+  **OQ1 resolved 2026-09-09 by owner delegation** ("OQ는 추천으로 질문하지 말고 바로 착수"): saved
+  albums only; the liked-track expansion stays out until explicitly requested. OQ2–4 gate Step 5;
+  OQ7 is optional.
+  **Production-verified 2026-09-11 08:53:45 KST (2026-09-10T23:53:45Z), and the volume is now measured rather than estimated.**
+  Both Lambda `CodeSha256` values changed from fingerprints captured before the merge; smoke **30/0**
+  against a pre-deploy baseline of the same 30/0. The falsifiable gate: V57 was **all-zero** with
+  exactly **1 connected Spotify member**, and one poll tick produced **2 scopes** (`saved` + `recent`,
+  both active), **77 demands** (71 saved / 6 recent) and **75 jobs** — 75 < 77 because two albums are
+  demanded by both origins and share one job. `count(distinct user_id)` in scopes = **1**. The Step 3
+  collector picked it up unprompted: `track_lyrics` 31,590 → 31,787 (+197); translations still 644, so
+  the queue is filled and the spend has not landed yet.
+  **That number is the input to Step 5.** One member's saved library alone is 77 albums in one tick,
+  and Step 5 widens scope to complete discographies with no cap (D5). The production population is
+  currently one member — the owner's own account.
+  **Next: Step 5** — follow reconciliation + complete discographies. Blocked on OQ2–4.
   **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
   Codex co-authored) sits unmerged on the already-merged #104 branch with no open PR. It fixes the
   pre-existing idle-in-transaction shape in `LyricsIncrementalService`/`LyricsReassessmentService` —

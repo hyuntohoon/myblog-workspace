@@ -5,7 +5,7 @@
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. The final gate closed at 2026-09-09 23:22 KST: a real Claude publication completed on the deployed runtime with no manual intervention, and the temporary demand fixture was removed (V57 back to zero rows). Step 3 is complete and production-verified. Steps 4–5 automatic producers remain unimplemented. This progress record does not promote the RFC lifecycle Status.
+- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. The final gate closed at 2026-09-09 23:22 KST: a real Claude publication completed on the deployed runtime with no manual intervention, and the temporary demand fixture was removed (V57 back to zero rows). Step 3 is complete and production-verified. Step 4's automatic producers are implemented, merged and deployed (2026-09-11); Step 5 remains unimplemented and is gated on OQ2–4. This progress record does not promote the RFC lifecycle Status.
 
 ## Goal
 
@@ -145,7 +145,7 @@ Multi-song requests are a later measured option: explicit track identifiers, per
 
 ## Steps
 
-Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. The owner approved OQ6 on 2026-09-09 and Step 2 is now complete, including test/prod migration, consumer deployments and production verification. Step 3 is deployed and in final verification; Steps 4–5 have not started. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
+Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. The owner approved OQ6 on 2026-09-09 and Step 2 is now complete, including test/prod migration, consumer deployments and production verification. Step 3 closed on 2026-09-09. Step 4 shipped the automatic producers on 2026-09-11 under the owner's OQ1 delegation (implemented 2026-09-09/10, merged and deployed 2026-09-11); Step 5 has not started and is gated on OQ2–4. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
 
 ### Step 1 — Preserve player functionality and add immediate lyrics access
 
@@ -229,7 +229,12 @@ and migration numbering before implementation.
 
 ### Step 4 — Bootstrap member saved-library and recent-listening demand
 
-**Current state:** connection persists credentials without bootstrap; member recent polling exists, while saved-library storage remains owner-global.
+**Current state (delivered 2026-09-11):** the automatic producers exist and are on. Before this
+step, connection persisted credentials without bootstrap, member recent polling existed with no
+album path, and saved-library storage was owner-global — all three re-verified against code at the
+start of the step, and all three were still true. `spotify_library_albums` remains owner-global and
+untouched: it is keyed on `album_id` alone with the owner's own token, and Step 4 deliberately did
+not extend it. Member-scoped saved-library state lives in the V57 discovery scopes instead.
 
 **Dependencies:** Steps 2–3; OQ1 for liked-track inclusion and OQ6 for removal behavior. **Scope/order:** worker member-scoped sync consumers → durable connect/bootstrap producers and existing-member backfill → any required frontend connection recovery/status. Reuse existing recent observations, not owner-only library endpoints.
 
@@ -257,13 +262,32 @@ These do not block preserving/merging the approved design. They gate the indicat
 
 | ID | Decision to settle | Recommended starting point | Blocks |
 |---|---|---|---|
-| OQ1 | Does saved-library demand also include liked tracks expanded to their albums? | Saved albums are confirmed. Treat the player's saved-track action as a separate explicit extension. | Step 4 liked-track extension; saved-album/recent work can be specified independently. |
+| OQ1 — resolved 2026-09-09 | Does saved-library demand also include liked tracks expanded to their albums? | Owner delegation: the recommendation was adopted as written. **Saved albums only.** | No remaining decision gate; implemented in Step 4. The liked-track extension stays out until explicitly requested. |
 | OQ2 | Which follow origins survive unfollow and site exclusion? | Manual ∪ Spotify; remove only the relevant origin; keep explicit exclusions against resurrection. | Step 5 reconciliation. |
 | OQ3 | Automatic Spotify follow reconciliation cadence | Bootstrap plus existing 15-minute cycle, with resumable pagination and provider backoff. | Step 5 scheduler behavior. |
 | OQ4 | What releases count as an artist's complete back catalog? | All artist albums/singles/EPs; explicitly decide artist compilations and `appears_on` rather than importing every credited compilation accidentally. | Step 5 enumeration. |
 | OQ5 — resolved 2026-09-09 | Missing-source retry/terminal classification | Owner approved the recommended ladder and classification below. | No remaining decision gate; implemented in Step 3. |
 | OQ6 — resolved 2026-09-09 | Unsave/unfollow/disconnect effects on unstarted demand and member provenance | Owner approved the recommended removal policy below. | No remaining decision gate; implement in Step 2 and wire producers in Steps 4/5. |
 | OQ7 | Whether to batch Claude songs | Keep per-song calls until a version-safe measured experiment supports a change. | Optional optimization only. |
+
+### OQ1 — owner-delegated scope decision (2026-09-09)
+
+The owner's standing instruction is that an open question carrying a recommendation is not an
+approval gate: *"OQ는 추천으로 질문하지 말고 작업 바로 시작할 수 있도록 하자."* OQ1 was therefore
+adopted as recommended rather than re-asked, and Step 4 implemented it:
+
+- **Saved albums are in scope. Liked tracks expanded to their albums are not.**
+- Saved albums are already a confirmed requirement (D2), so nothing about them was in doubt. The
+  liked-track expansion is a different entry point — the player's saved-**track** heart, which
+  writes Spotify saved tracks rather than saved albums — and the RFC's own Current state warns
+  against flattening those two into one generic library event.
+- The practical reason to split them is verification, not preference. Step 4's central claim is
+  that two members cannot read or use one another's connection or library. Adding a second
+  producer with its own entry point, its own removal semantics and its own provider call doubles
+  the surface that claim has to cover, in the one step where getting it wrong is a privacy defect
+  rather than a missing feature.
+- Nothing is foreclosed: liked-track expansion would be another origin alongside `saved` and
+  `recent`, and the `lyrics_discovery_scopes` origin column already accommodates it.
 
 ### OQ5 — owner-approved retry and classification policy (2026-09-09)
 
@@ -410,7 +434,7 @@ recreation; catalog identity/count checks under one SQL snapshot; manual revival
 and prelocking multiple origins for atomic disconnect. The cross-origin removal fence deliberately
 invalidates that scope's other in-flight observations, so Steps 4/5 must replay/reconcile them.
 
-### Step 3 delivery — deployed; final verification in progress (2026-09-09)
+### Step 3 delivery — complete and production-verified (2026-09-09)
 
 The owner requested completion of the paused Claude work. On resumption, both PRs were open and
 workspace #1000 had no production-smoke comment; earlier completion claims were corrected before
@@ -526,6 +550,237 @@ the correct Step 3 end state because the automatic producers are Steps 4/5; the 
 untouched (`track_lyrics` 31,590, `track_lyrics_translations` 644). The single real translation the
 run produced was deliberately retained: it is current, correct product output whose fingerprint
 matches the live source, not fixture residue.
+
+### Step 4 delivery — the producers are on (implemented 2026-09-09, shipped 2026-09-11)
+
+Steps 2 and 3 built the demand store and the collector that serves it; until this step nothing
+created demand, so every V57 row in production had come from a manual request or a fixture. Step 4
+is the point where a member saving an album or simply listening produces translation work with no
+owner involvement.
+
+**Two origins, kept separate.**
+
+| Origin | Source | Removal semantics |
+|---|---|---|
+| `saved` | `GET /me/albums`, fully paginated with the member's own token | A reconciled **set**: un-saving an album removes its demand from this origin (OQ6). |
+| `recent` | the 50-item recently-played page the member poll already reads | **Append-only.** OQ6 is explicit that an observation ageing out of Spotify's rolling window is not a removal, so this origin never diffs for removals. |
+
+They are separate scope rows rather than one "library" origin because the RFC's Current state is
+explicit that saved tracks, saved albums and follows are different facts; collapsing them would make
+an un-save delete a member's listening-derived demand.
+
+**Where the code went.**
+
+- `myblog_worker/worker/service/lyrics_member_demand_service.py` — the producer. Diffs the
+  observation against stored demand and writes only the delta, so a steady-state pass over an
+  unchanged library issues zero writes. Each store call takes its own short transaction: `add_demand`
+  locks the scope and then one job, so batching would take job locks in observation order rather than
+  the UUID order `remove_origin` uses, and deadlock. Additions run before removals because
+  `remove_origin` rotates the generation that `add_demand` is fenced on.
+- `myblog_worker/worker/service/spotify_member_sync_service.py` — the producer rides the existing
+  15-minute member poll, reusing the access token that pass already minted. Its failures are isolated
+  and counted (`demand_failed`), never able to break the listening sync or flip an integration to
+  `reauth`. A new `only_user_id` narrows the identical pass to one member.
+- `myblog_worker/worker/clients/spotify_member_client.py` — member-scoped `get_saved_albums` with the
+  same pagination contract as the owner client (`next` authoritative, `total` guarding a never-null
+  `next`). A 403 raises `SpotifyMemberScopeError`, deliberately distinct from `SpotifyInvalidGrant`:
+  the token is still valid, so a missing library grant must not break the member's player.
+- `myblog_backend` — `PUT /api/integrations/spotify` enqueues `{"job": "lyrics_member_bootstrap",
+  "user_id": …}` after the connection commits (an enqueue only; no library read on the request), and
+  `IntegrationService.disconnect` revokes the member's discovery scopes in the **same transaction**
+  as the credential delete.
+
+**Enqueue failure is recoverable because the bootstrap is not a second implementation.** The SQS
+message runs `run_spotify_member_sync(only_user_id=…)` — the same code the cron runs for everyone. A
+message that is never delivered therefore costs at most one 15-minute interval, and the same property
+is what backfills members who connected before this step shipped: they need no special handling
+because the cron already covers every connected member.
+
+**Verification.** Worker suite and backend suite green, including two new real-Postgres suites; the
+producer's properties are all SQL properties, which a fake session cannot see.
+
+- *Member isolation*, the claim this step is judged on, is proved end-to-end in
+  `test_two_members_cannot_read_or_use_each_others_connection_or_library`: two connected members with
+  their own KMS envelopes, a client that answers differently per access token, then assertions that
+  each member's scope holds exactly their own albums, that `album_progress` returns `None` across
+  members, and that `add_demand` into another member's scope raises `StaleDiscovery`. Its control is
+  the album each member saved and the other did not, plus the album both saved — without the shared
+  album, "returns `None`" would not distinguish isolation from a query that never returns anything.
+- Newly connected, already connected, reconnect, disconnected, multi-page (120 albums), duplicate
+  recent event, unknown-catalog and steady-state cases all covered; the disconnect fence is proved by
+  a scope captured before a revoke and rejected after it.
+- The enqueue-failure-after-commit case is covered on both sides: the backend proves the connect still
+  succeeds when the broker raises, and the worker proves an ordinary cron pass reconciles a member
+  whose bootstrap was never sent.
+- **Every new test was mutation-tested.** Eighteen deliberate defects — removals before additions, a
+  recent origin that reconciles removals, a saved origin that does not, a failed library read treated
+  as an empty library, a fixed access token instead of the member's, untrimmed ids, a producer failure
+  that propagates, an ignored `only_user_id`, pagination that stops after one page, a disconnect that
+  skips the revoke, one that commits first, one that revokes only one origin, one that fires for every
+  provider, an enqueue moved before the connect, an enqueue that propagates, a removed connection
+  guard, a guard that keeps its `SELECT` but drops the `FOR UPDATE`, and an unchecked bootstrap
+  `user_id` — were each killed by the test that claims to guard them. Two mutants initially survived and both were informative rather than
+  cosmetic: one was pointed at the wrong test (the guard lives in the poll wiring, not the service,
+  and the two unit tests covering that line kill it), and the `FOR UPDATE` mutant survived every
+  sequential test in the file, which is what prompted the concurrency test described below.
+
+**A defect this review found in its own change, and the hole it came from.** The OQ6 fence was
+initially bypassable by the very producer it was meant to constrain. `reset_scope` sets
+`active = true` unconditionally, and the producer calls it at the start of every pass — so a pass that
+began before a disconnect and wrote after it would re-activate the scope the disconnect had just
+revoked and re-add the member's entire library, with every generation check passing, because the pass
+mints a fresh generation itself rather than carrying a stale one. The window is real: the cron selects
+connected members once, then spends a token exchange and a full paginated library read per member
+before it writes.
+
+The reason the first round of tests missed it is worth recording, because it is the same shape as
+[[feedback-rfc-verification-list-is-not-a-threat-model]]: the fence test that existed handed
+`add_demand` a generation captured before the revoke and watched the store reject it. That is the
+fence working — on a path the producer never takes. The verification list said "prove disconnect stops
+production", and the test proved it for the raw store call rather than for the caller.
+
+The fix is `_CONNECTION_EXISTS`: a `SELECT … FOR UPDATE` on the member's connection row inside the
+same transaction as `reset_scope`. The producer's authority to create demand is that row, so its
+absence means produce nothing. The lock is what makes both orderings safe — a disconnect that commits
+first leaves no row to find, and one that commits second blocks until the pass finishes and then
+rotates the generation out from under every remaining `add_demand`. Both sides take the connection row
+before the scope rows, so they cannot deadlock. Two regression tests cover it: a sequential one for the
+"disconnect already committed" case, and a threaded one that forces a disconnect to commit inside the
+guard's window — the latter exists specifically because dropping only the `FOR UPDATE` left every
+sequential test green.
+
+**A second, smaller defect found the same way.** `_run_member_demand_bootstrap` originally passed the
+message's `user_id` through as `str(user_id) if user_id else None`. A non-UUID value would have reached
+`CAST(:only AS uuid)` and failed the invocation into the DLQ — noisy but harmless, since it is a bind
+parameter and not an injection point. The silent half was worse: `only_user_id=None` is the *every
+member* selector, so a message with a missing or empty `user_id` would have quietly synced an
+arbitrary member instead of doing nothing. The handler now requires a well-formed UUID and no-ops
+otherwise. Queue messages come from trusted AWS principals, so this is robustness rather than a
+patched vulnerability — but "malformed input selects everybody" is not a default worth keeping.
+
+**No contract, schema or infrastructure change.** No route was added or removed, so
+`infra/apigateway.tf` is untouched and `openapi.json` is unchanged (the new `Depends` is a
+dependency, not a request field). No migration: Step 2's V57 already holds everything. No Terraform:
+the producer rides the existing `spotify_member_poll` schedule and the bootstrap rides the existing
+worker queue, so the step delivers without an apply the workspace does not do automatically.
+
+**Production verification (2026-09-11).** Both Lambda `CodeSha256` values were captured *before* the
+merge and both changed, so "the deployed code is this code" is evidence rather than an inference from a
+green workflow: `blogWorkerLambda` `YWrGpi…` → `Ap4TVDF…` (2026-09-10T23:46:42Z) and `ratemymusic-api` `Ooizt3X…`
+→ `NSLj+eH…` (2026-09-10T23:50:05Z). Deploy runs were pinned by head SHA, because immediately after a merge the
+most-recent run is still the *previous* deploy. Merge order was consumer before producer: worker #105,
+then backend #177. Authenticated production smoke **30/0**, against a **pre-deploy baseline of the same
+30/0** — without that control the number would not distinguish a healthy deploy from a suite that never
+touches the changed paths.
+
+The smoke is not the gate for this step, though: it covers the HTTP surface, and Step 4 barely touches
+it. The falsifiable claim is that demand is now produced *automatically*, so the pre-deploy state was
+recorded as the control — all five V57 tables at **0 rows**, exactly **1 connected Spotify member**
+(the owner's own account, holding both `user-library-read` and `user-read-recently-played`). `logger.info`
+does not reach CloudWatch on these functions, so the observation is taken from DB state rather than logs.
+**The tick landed at 2026-09-11 08:53:45 KST (2026-09-10T23:53:45Z) and the producers did what the step claims.** V57 went from all-zero to:
+
+| | before | after |
+|---|---|---|
+| `lyrics_discovery_scopes` | 0 | **2** — `saved` and `recent`, both `active`, one member |
+| `lyrics_album_demands` | 0 | **77** — `saved` 71, `recent` 6 |
+| `lyrics_album_jobs` | 0 | **75** |
+
+`jobs` (75) is deliberately smaller than `demands` (77): two albums are demanded by *both* origins and
+share one job, which is the point of keying jobs by `spotify_album_id` rather than by demand. The
+isolation assertion is `SELECT count(DISTINCT user_id) FROM lyrics_discovery_scopes` = **1** — production
+has exactly one connected member and exactly one member appears in the scopes.
+
+The downstream chain picked it up without prompting: `track_lyrics` moved 31,590 → **31,787** (+197) as
+the Step 3 collector resolved the new albums and fetched their sources. `track_lyrics_translations`
+remains at 644, so no translation had completed at the time of this reading — the queue is filled, the
+spend has not landed yet.
+
+**Read the volume before Step 5.** One member's saved library alone produced 77 album demands in a
+single tick. Step 5 widens scope to complete discographies, and D5 forbids adding a cap as a product
+restriction, so this number — not an estimate — is the input to that decision. It is also the first
+honest measure of what a *single* connected member costs; the production population is currently one.
+
+*Method note:* an intermediate reading of `scopes` was taken with a `RIGHT JOIN` against
+`user_integrations`, which returned a phantom `1` while the real count was still `0`. Every figure above
+is a plain `count(*)` against the single table. A join that manufactures a row is not a count.
+
+**Security review (mandatory: auth guards / user input). Verdict — the judged claim holds.** Two
+members cannot read or use one another's Spotify connection or library. No HIGH findings. Checked
+rather than assumed: the SQS `user_id` cannot reach the `only_user_id=None` "every member" selector by
+any malformed shape; the access token and the `user_id` are the same two locals from the same row all
+the way through, and `SpotifyMemberClient` holds no per-user state; no SQL is built by interpolation;
+nothing new reads owner-global `spotify_library_albums`; no token, ciphertext or KMS material reaches a
+log, an exception or the SQS body; the enqueued `user_id` is claims-derived, so there is no IDOR. Two
+open items the review could not settle were closed by measurement: the `FOR UPDATE` mutant is killed by
+**exactly one** test — the threaded one — with all fourteen sequential tests still green, and production
+runs at `read committed`, which is what the both-orderings argument assumes.
+
+**The review found two MEDIUMs, both about what happens *after* the stop signal, and both real.**
+
+*One — revoking the app at Spotify did not revoke the demand it produced.* The OQ6 fence was built for
+`DELETE /api/integrations/spotify`, but that route is not how a member usually withdraws. Removing the
+app at `spotify.com/account/apps` is the strongest "stop using my library" signal there is and it never
+touches our UI: it reaches us only as `invalid_grant` on the next refresh. The poll flipped the member
+to `reauth` — which drops them out of `_SELECT_CONNECTED` — and stopped there. Their `saved`/`recent`
+scopes stayed `active`, and every demand row derived from their private library stayed live and served,
+with no way for them to reach it short of reconnecting in order to disconnect.
+
+This is [[feedback-rfc-verification-list-is-not-a-threat-model]] a second time in one step, and the
+sharper lesson is in the wording: the verification list asked to prove that *a disconnected member
+stops producing demand*, and the implementation satisfies that sentence exactly. **"Stops producing new
+demand" and "stops using the member's library" are different claims**, and a fence written against the
+first leaves the second open. `revoke_scopes` now runs in the *same transaction* as the status flip, for
+the same reason the backend's disconnect is atomic, and deliberately is not gated on
+`LYRICS_MEMBER_DEMAND_ENABLED`: the switch stops new production, it does not make an existing scope
+legitimate.
+
+*Two — the rollback recorded in this section was wrong*, in a way that made it worse than doing
+nothing. See the corrected procedure below.
+
+**A third defect, found outside the review.** `LYRICS_MEMBER_DEMAND_ENABLED` is advertised here and in
+the config as the owner's fast override, and nothing asserted it was wired. Every test passed
+`demand_enabled` explicitly, so replacing the settings read with a bare `True` left all 661 tests green.
+A kill switch nothing asserts on is a kill switch nobody can trust; it is tested now in both directions.
+
+**Mutation results for the review round: four probes, all killed** — the revoke deleted, the revoke
+widened to every member, the revoke split into its own transaction, and the revoke narrowed to one
+origin. Recorded honestly, **the first draft of those tests killed only the first of the four.** The
+control member sat inside the same poll and repaired her own scope, so a blanket revoke of every
+member's library passed; and atomicity is invisible to a sequential test. The pass is now narrowed to
+the disconnecting member, and a forced revoke failure asserts that the status flip rolls back with it.
+`DISCOVERY_ORIGINS` collects the origin list in one place per repo so the producer and both revoke
+sites cannot drift; `status='reauth'` is flipped in exactly one place across all three service repos, so
+there is no second copy of this defect. Step 5's `follow` must extend both lists.
+
+**Rollback is not a plain revert, and the flag alone is not a rollback either.** Both stop *new*
+production and neither touches what has already been produced: a member's `saved`/`recent` scope stays
+`active` and the Step 3 collector keeps serving every demand row derived from their library. Reverting
+is strictly worse than it looks, because it also removes `IntegrationService.disconnect`'s revoke — so
+a member who disconnects *after* the revert keeps a live scope that nothing can then revoke. Demand is
+DB state, and `git revert` does not reach DB state.
+
+The order that actually rolls Step 4 back:
+
+1. `LYRICS_MEMBER_DEMAND_ENABLED=false` (worker settings, default true, read from the worker's own
+   settings and never from a message, so a stray or replayed SQS message cannot switch production back
+   on) — stops production while preserving connections, playback and all durable work.
+2. Revoke every member's discovery scopes — `LyricsDemandStore.revoke_scopes` over `DISCOVERY_ORIGINS`,
+   or `UPDATE lyrics_discovery_scopes SET active = false` plus deletion of the demand rows —
+   **while the revoking code is still deployed.**
+3. *Then* revert the squash commits.
+
+This was recorded as a plain revert in the first draft of this step and corrected by the Step 4
+security review; the erratum is kept rather than silently fixed because the failure mode it hides —
+a rollback that strands exactly the data the rollback was for — is not obvious from the diff.
+
+**What turning this on actually costs.** `lyrics_demand_source` has been running every 15 minutes as
+two indexed no-op SELECTs. From this deploy it has real work: every album a connected member has
+saved, plus every album behind their recent plays, becomes catalog resolution, then LRCLIB source
+collection, then Claude translation under the existing subscription guard. That is the intended
+behaviour of the step, and no quota or cap was added because D5 forbids treating limits as a product
+restriction — but the first day's volume is the first honest measurement of what member-driven demand
+looks like, and it is worth reading before Step 5 widens the scope to whole discographies.
 
 ## Decisions log
 
