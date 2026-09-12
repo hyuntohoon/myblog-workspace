@@ -144,24 +144,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   supplied, never add outside facts/evaluations/metaphors, the result stays editable, and publishing
   is always an explicit user action.
 
-- **DATA-release-noise (c) exact-dup dedup** — promoted from Backlog 2026-08-16 on owner approval.
-  <!-- rfc: none -->
-  **Implementation activity exists in another checkout (observed 2026-09-09).** The shared music
-  checkout is on `fix/DATA-release-noise-c-edition-collapse` with untracked
-  `app/services/album_editions.py`; no music PR is open. This is not proof of delivery or a live
-  session, but it invalidates the old "not started / only startable row" claim. Check ownership before
-  resuming; do not duplicate that work. The former `PERF-home-feed-latency` dependency was retired
-  on promotion because it never existed as an RFC or plan row.
-
-  Re-measured before promotion, and smaller than the original row implied: artist-scoped exact
-  duplicates (same normalized title **and** same artist set) are **56 groups / 57 redundant rows of
-  3,440 albums = 1.7%**. A title-only count reads 107 groups / 169 rows, but that conflates distinct
-  artists sharing an album title and is not the dedup population — do not size the work off it.
-  *Scope*: catalog dedup, small enough to live in this row rather than an RFC. *Verification*: the
-  touched repo's gate + a before/after count against prod. *Rollback*: nothing is destructive until the
-  delete step; keep it reversible. *Status*: implementation present, delivery unverified. **Re-measure before resuming** — the figure
-  above is from 2026-08-16 and the catalog has grown since.
-
 - **Settings-loader required-key sweep (music + worker)** — **DEFERRED by the owner 2026-08-29.**
   <!-- rfc: none -->
   Tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
