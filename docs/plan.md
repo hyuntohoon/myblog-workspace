@@ -53,7 +53,29 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **That number is the input to Step 5.** One member's saved library alone is 77 albums in one tick,
   and Step 5 widens scope to complete discographies with no cap (D5). The production population is
   currently one member — the owner's own account.
-  **Next: Step 5** — follow reconciliation + complete discographies. Blocked on OQ2–4.
+
+  **The pre-measurement Step 4 asked for was read 2026-09-13 15:16 KST, 54.4 h after the first tick,
+  population still one connected member.** 84 demands / 78 jobs / 933 enumerated tracks; 334 translation
+  work rows, **all `done`, zero pending, zero error**; `track_lyrics` 31,787 → 31,997; translations
+  644 → 972. **Split by intent the +328 is 291 member-driven + 37 legacy-path**, against a pre-deploy
+  control of **1–3 rows/day** on the same table and writer. Translate rate **35.8%** of enumerated
+  tracks (`not_required` 37.4%, `source_pending` 26.8% — all `not_found`, all with a *future*
+  `next_attempt_at`, so the OQ5 ladder is holding, not stalled). **LRCLIB is not the constraint**: all
+  334 `linked` tracks resolved against `track_lyrics` rows that predate the deploy, so this step's own
+  provider traffic is its 250 misses; the +210 `track_lyrics` rows are the separate legacy path.
+  **Bootstrap is a burst, not a rate** — 83 of the 84 demands landed on day one and one arrived in the
+  next 44 h, so **cost scales with members joining, not elapsed time**.
+  **The Step 5 multiplier is now measured, not estimated.** Those 78 albums cover **63 artists**, for
+  whom the catalog *already* holds **488 albums / 3,794 tracks** — a **6.3× album / 4.1× track floor**,
+  and a floor twice over because D5 wants Spotify's complete discography and OQ4 has not ruled on
+  compilations/`appears_on`. At the measured rate that projects **~1,358 Claude translations for one
+  member's first Step 5 pass** against Step 4's 334. **Followed artists cannot be sized at all — there
+  is no follows table in production.**
+  **Next: Step 5** — follow reconciliation + complete discographies. Still blocked on OQ2–4; the
+  measurement decides none of them. Its one input: the binding cost is Claude translations per member
+  who connects, and **OQ4's compilation/`appears_on` boundary is the largest lever on the multiplier.**
+  Read surfaced two unregistered loose ends: one job stuck at `album_not_in_catalog` (1 of 78), and 43
+  pre-existing `failed` translation rows (2026-07-05 … 2026-09-02) untouched by this step.
   **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
   Codex co-authored) sits unmerged on the already-merged #104 branch with no open PR. It fixes the
   pre-existing idle-in-transaction shape in `LyricsIncrementalService`/`LyricsReassessmentService` —
