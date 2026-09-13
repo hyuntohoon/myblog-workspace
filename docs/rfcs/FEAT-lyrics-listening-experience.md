@@ -5,7 +5,7 @@
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. The final gate closed at 2026-09-09 23:22 KST: a real Claude publication completed on the deployed runtime with no manual intervention, and the temporary demand fixture was removed (V57 back to zero rows). Step 3 is complete and production-verified. Step 4's automatic producers are implemented, merged and deployed (2026-09-11); Step 5 remains unimplemented and is gated on OQ2–4. This progress record does not promote the RFC lifecycle Status.
+- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. The final gate closed at 2026-09-09 23:22 KST: a real Claude publication completed on the deployed runtime with no manual intervention, and the temporary demand fixture was removed (V57 back to zero rows). Step 3 is complete and production-verified. Step 4's automatic producers are implemented, merged and deployed (2026-09-11), and the cost measurement Step 4 asked for before widening scope was read on 2026-09-13 (record below). Step 5 remains unimplemented and is gated on OQ2–4. This progress record does not promote the RFC lifecycle Status.
 
 ## Goal
 
@@ -782,6 +782,76 @@ behaviour of the step, and no quota or cap was added because D5 forbids treating
 restriction — but the first day's volume is the first honest measurement of what member-driven demand
 looks like, and it is worth reading before Step 5 widens the scope to whole discographies.
 
+#### Step 4 -> Step 5 cost measurement — read 2026-09-13 15:16 KST
+
+The paragraph above asked for the first day's volume to be read before Step 5 widens scope. This is
+that reading. Production was queried read-only (`BEGIN; SET LOCAL default_transaction_read_only = on;
+... ROLLBACK`); **no code, schema, route or infrastructure changed, and Step 5 is not started.**
+
+**Window and population.** From the producer's first tick, 2026-09-11 08:53:45 KST
+(2026-09-10T23:53:45Z), to 2026-09-13 15:16:47 KST — **54.4 hours (2.27 days)** — with **one connected
+Spotify member** throughout, the owner's own account. Every per-day or per-album figure below carries
+that denominator: one member, 2.27 days.
+
+| Store | At the first tick | 2026-09-13 15:16 KST | Delta |
+|---|---|---|---|
+| Connected members / active scopes | 1 / 2 | 1 / 2 | 0 |
+| `lyrics_album_demands` | 77 | 84 | +7 |
+| `lyrics_album_jobs` | 75 | 78 | +3 |
+| `lyrics_album_tracks` | — | 933 | — |
+| `lyrics_translation_work` | 0 | 334, **all `done`** | +334 |
+| `track_lyrics` | 31,787 | 31,997 | +210 |
+| `track_lyrics_translations` | 644 | 972 | +328 |
+
+**The Claude spend, split by intent.** The +328 translation rows are not one population. 291 have a
+V57 `lyrics_translation_work` row behind them and are member-driven; the other **37 have none** and came
+from the legacy incremental path that was already running. The 334 work rows landed as 291 inserts plus
+**43 in-place re-translations** of rows requested before the deploy, which is why 334 completions
+produced 328 new rows. The control is the same table and the same writer before the deploy: **1–3 rows
+per day** across the nine days to 2026-09-10, against **178 / 161 / 32** on 09-11 / 09-12 / 09-13. The
+step is unambiguously the cause.
+
+**What 78 albums actually cost.** 933 enumerated tracks, 12.0 per album, splitting into `not_required`
+349 (37.4%), `linked` 334 (**35.8% — the translate rate**) and `source_pending` 250 (26.8%). Every one
+of those 250 is `not_found` with a *future* `next_attempt_at` and none is due: that is the OQ5 ladder
+holding, not a stalled queue. Retry cost was 415 attempts over 334 rows (1.24 average); 64 rows (19%)
+needed a second, five reached five.
+
+**LRCLIB is not the constraint, and the reason is the part worth carrying.** All **334** `linked`
+tracks resolved against `track_lyrics` rows that **already existed before the deploy** — zero came from
+a row this pipeline fetched. Step 4's own provider traffic is therefore bounded by its 250 misses across
+54 hours, well inside the ~2.5 req/s ceiling. The +210 `track_lyrics` rows in the same window are the
+separate legacy fetch path, not member demand; reading that delta as this step's provider cost would be
+wrong in both directions.
+
+**Bootstrap is not a rate, and must not be extrapolated as one.** 83 of the 84 demands landed on 09-11
+and every job was created that day; exactly **one** further demand (`recent`) arrived in the remaining
+44 hours. One member's join is a burst of 78 albums that drained to **zero pending and zero error** work
+in roughly 44 hours, after which the drip is under one album per day. **This cost scales with members
+joining, not with elapsed time** — and the production population is still one.
+
+**The Step 5 multiplier, measured rather than estimated.** The 78 albums involve **63 distinct artists**.
+For those same 63 artists the catalog *already* holds **488 albums / 3,794 tracks** — **6.3x the albums
+and 4.1x the tracks** of Step 4's bootstrap, for the same single member. That is a floor twice over: D5
+requires enumerating Spotify's complete discography rather than whatever we happen to have ingested, and
+OQ4 has not decided whether compilations and `appears_on` are in. Applying the measured 35.8% translate
+rate to 3,794 tracks projects **roughly 1,358 Claude translations** for one member's first Step 5 pass,
+against the 334 Step 4 actually spent.
+
+**What this measurement cannot size.** Followed artists. There is **no follows table in production** —
+Spotify follow import is still owner-only and manual — so the population Step 5 reconciles under OQ2/OQ3
+has no row count to read at all. The 63 artists above are the artists behind saved and recently-played
+albums, a different and probably smaller set than whom the member follows.
+
+**Two loose ends the read surfaced**, neither registered as work: one job is stuck at
+`enumeration_complete = false` with `last_reason = 'album_not_in_catalog'` (1 of 78), and the 43 `failed`
+translation rows are all pre-existing, requested between 2026-07-05 and 2026-09-02, untouched by this step.
+
+**This decides nothing.** OQ2–4 remain the owner's. The measurement's one substantive input to them: the
+binding cost is Claude translations per member who connects, multiplied about fourfold by Step 5, and
+**OQ4's compilation/`appears_on` boundary is the largest single lever on that multiplier** — it decides
+whether an artist contributes their own releases or every record they appear on.
+
 ## Decisions log
 
 | Date | Decision | Step |
@@ -800,3 +870,4 @@ looks like, and it is worth reading before Step 5 widens the scope to whole disc
 | 2026-09-09 | Step 3 implementation prepared: worker `lyrics_demand_source` job and workspace demand bridge; worker suite 623 passed / 3 allowlisted skips, workspace bridge suite 10 passed, terraform plan 4 add / 0 change / 0 destroy. Four defects were caught and fixed before merge: two by the new tests (transient ladder advance, idle-in-transaction across the provider loop) and two by independent review (a guard-kept evaluation never reaching the demand side, and `linked` being a one-way state). EventBridge resources still need a manual `terraform apply`. Lifecycle Status remains in-progress. | Step 3 delivery |
 | 2026-09-09 | Owner explicitly approved the production Terraform apply. Four demand-source resources were added, post-apply plan has no changes, AWS rule/target/permission/alarm checks passed and authenticated smoke passed 30/0. Real Claude publication remains blocked by the recorded 23:10 KST session-limit reset; Step 3 is not yet complete. | Step 3 activation |
 | 2026-09-09 | Step 3 final gate closed: a real Claude publication completed on the deployed runtime with no manual intervention (throttle -> guard cooldown -> claim kept -> lease expiry -> reclaim -> published), the stored fingerprint matches the read path, both OQ5 arms were observed in production, and the temporary demand fixture was removed leaving all V57 tables at zero. Step 3 is complete and production-verified. Lifecycle Status remains in-progress. | Step 3 delivery |
+| 2026-09-13 | Step 5's required pre-measurement was read from production read-only, 54.4 h after the Step 4 producers' first tick, with the population unchanged at one connected member: 84 demands / 78 jobs / 933 tracks, 334 translation work rows all `done`, and `track_lyrics_translations` 644 -> 972. Split by intent the +328 is **291 member-driven + 37 legacy-path**, against a pre-deploy control of 1-3 rows/day. The translate rate is **35.8%** of enumerated tracks; LRCLIB is not the constraint because all 334 `linked` tracks resolved against pre-existing `track_lyrics`. Bootstrap is a burst, not a rate — 83 of 84 demands landed on day one and the queue drained to zero pending / zero error — so **cost scales with members joining, not elapsed time**. The 78 albums cover 63 artists for whom the catalog already holds **488 albums / 3,794 tracks**, a measured floor of **6.3x albums / 4.1x tracks** for Step 5, projecting ~1,358 Claude translations per member's first pass. Followed artists cannot be sized: there is no follows table in production. No code, schema, route or infra change; Step 5 not started; OQ2-4 remain open and undecided. | Step 5 pre-measurement |
