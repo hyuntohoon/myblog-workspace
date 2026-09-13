@@ -1472,3 +1472,55 @@ CREATE INDEX ix_lyrics_demand_job ON lyrics_album_demands (job_id);
 CREATE INDEX ix_lyrics_work_due ON lyrics_translation_work (next_attempt_at) WHERE status IN ('ready', 'retryable_error');
 CREATE INDEX ix_lyrics_album_source_due ON lyrics_album_tracks (next_attempt_at) WHERE source_state = 'source_pending';
 CREATE INDEX ix_lyrics_album_track_work ON lyrics_album_tracks (work_id);
+
+-- V58: FEAT-lyrics-listening-experience Step 5 — follow provenance, exclusions
+-- and the shared discography enumeration checkpoint. Additive; canonical DDL
+-- precedes shared-db. The provenance backfill ('manual' for every pre-V58 edge)
+-- lives in the migration, not here — this file is structure.
+CREATE TABLE user_artist_track_origins (
+	user_id UUID NOT NULL, 
+	artist_id UUID NOT NULL, 
+	origin TEXT NOT NULL, 
+	added_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+	PRIMARY KEY (user_id, artist_id, origin), 
+	CONSTRAINT fk_user_artist_track_origin_edge FOREIGN KEY(user_id, artist_id) REFERENCES user_artist_tracks (user_id, artist_id) ON DELETE CASCADE, 
+	CONSTRAINT ck_user_artist_track_origin CHECK (origin IN ('manual', 'spotify_follow'))
+);
+
+CREATE TABLE user_artist_follow_exclusions (
+	user_id UUID NOT NULL, 
+	artist_id UUID NOT NULL, 
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+	PRIMARY KEY (user_id, artist_id), 
+	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+	FOREIGN KEY(artist_id) REFERENCES artists (id) ON DELETE CASCADE
+);
+
+CREATE TABLE lyrics_artist_discographies (
+	spotify_artist_id TEXT NOT NULL, 
+	next_offset INTEGER DEFAULT 0 NOT NULL, 
+	complete BOOLEAN DEFAULT false NOT NULL, 
+	album_total INTEGER, 
+	last_reason TEXT, 
+	next_attempt_at TIMESTAMP WITH TIME ZONE, 
+	last_complete_at TIMESTAMP WITH TIME ZONE, 
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+	PRIMARY KEY (spotify_artist_id), 
+	CONSTRAINT ck_lyrics_discography_artist CHECK (length(btrim(spotify_artist_id)) BETWEEN 1 AND 128), 
+	CONSTRAINT ck_lyrics_discography_offset CHECK (next_offset >= 0)
+);
+
+CREATE TABLE lyrics_artist_albums (
+	spotify_artist_id TEXT NOT NULL, 
+	spotify_album_id TEXT NOT NULL, 
+	release_group TEXT NOT NULL, 
+	first_seen_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+	PRIMARY KEY (spotify_artist_id, spotify_album_id), 
+	CONSTRAINT ck_lyrics_artist_album_id CHECK (length(btrim(spotify_album_id)) BETWEEN 1 AND 128), 
+	CONSTRAINT ck_lyrics_artist_album_group CHECK (release_group IN ('album', 'single', 'compilation', 'appears_on')), 
+	FOREIGN KEY(spotify_artist_id) REFERENCES lyrics_artist_discographies (spotify_artist_id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_lyrics_discography_due ON lyrics_artist_discographies (next_attempt_at) WHERE NOT complete;
+CREATE INDEX ix_lyrics_artist_albums_album ON lyrics_artist_albums (spotify_album_id);
