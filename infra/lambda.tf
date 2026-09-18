@@ -179,6 +179,26 @@ resource "aws_lambda_function" "worker" {
       # id). References the 3b-a alias → rides the owner's pending CMK apply, same
       # as the backend twin in this file.
       USER_TOKENS_KMS_KEY_ID = aws_kms_alias.user_tokens.name
+      # FEAT-lyrics-listening-experience Steps 4 and 5 — the two demand producers'
+      # kill switches, declared here so they can be thrown at all.
+      #
+      # Both default to true in the worker's own settings, so these values change
+      # nothing today. They exist because `environment` is NOT in the lifecycle
+      # ignore list below: with the variables undeclared, the only way to turn a
+      # producer off is editing the Lambda in the console, and the next
+      # `terraform apply` silently removes that edit and switches the producer back
+      # on — while the intervening `terraform plan` presents the member's own
+      # rollback as drift to be corrected. A rollback lever that a routine apply
+      # reverses is not a lever.
+      #
+      # Step 5's switch is separate from Step 4's on purpose: the follow producer
+      # costs roughly 4x per member (a whole followed back catalogue rather than a
+      # saved library), so the expensive half must be stoppable without also losing
+      # saved/recent demand. Flip to "false" + apply to stop NEW production; it does
+      # not touch what has already been produced — see the rollback order in the
+      # worker's core/config.py.
+      LYRICS_MEMBER_DEMAND_ENABLED = "true"
+      LYRICS_FOLLOW_DEMAND_ENABLED = "true"
     }
   }
 

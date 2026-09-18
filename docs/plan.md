@@ -71,10 +71,36 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   compilations/`appears_on`. At the measured rate that projects **~1,358 Claude translations for one
   member's first Step 5 pass** against Step 4's 334. **Followed artists cannot be sized at all — there
   is no follows table in production.**
-  **Next: Step 5** — follow reconciliation + complete discographies. Still blocked on OQ2–4; the
-  measurement decides none of them. Its one input: the binding cost is Claude translations per member
-  who connects, and **OQ4's compilation/`appears_on` boundary is the largest lever on the multiplier.**
-  Read surfaced two unregistered loose ends: one job stuck at `album_not_in_catalog` (1 of 78), and 43
+  **Step 5 shipped 2026-09-18 after the owner approved the spend on those numbers.** OQ2–4 were taken
+  as recommended rather than re-asked (the owner's standing instruction): **OQ2** manual ∪ Spotify with
+  per-origin removal and an explicit exclusion against resurrection; **OQ3** bootstrap plus the existing
+  15-minute cycle with resumable pagination; **OQ4** the artist's own album/single/EP only —
+  compilations and `appears_on` excluded, which the measurement identified as the largest single lever
+  on the multiplier. V58 adds four additive tables (applied to test and prod 2026-09-13, 33/33 existing
+  edges backfilled `manual`, zero left without provenance). A follow now produces demand for the
+  artist's whole eligible catalogue, enumerated **globally** with the app's client-credentials token so
+  members who follow the same artist share one read. Enumeration rides the existing blogSQS queue and
+  the existing member poll — **no EventBridge schedule and no Terraform**, because the work only exists
+  when someone follows someone new.
+  **Two asymmetries carry the design.** A half-enumerated artist looks like a *smaller* set, so removals
+  are reconciled only for artists whose enumeration is `complete` — an artist mid-read can gain albums
+  and never lose them. And a missing `user-follow-read` grant passes `None`, never `[]`: every member
+  who connected before Step 5 has that gap until they re-consent, so the failed-read path is the common
+  case, and an empty list would have reconciled their entire follow origin away.
+  **Three reviews found three real defects, all fixed before merge.** (1) V58's "every edge has at least
+  one origin row" was maintained by nobody going forward — the owner's snapshot import created edges
+  with no provenance, which the follow union cannot see at all. (2) The scope-generation ladder gained
+  `follow` *above* `library`, and three frontend derivations used equality lists; a member with the
+  NEWEST grant would have had the player's whole capability matrix switched off, silently, because the
+  wrong answer still renders. (3) CI pins the canonical schema by a ref that is a **second copy** of the
+  requirements pin — bumping only the requirements left CI loading a pre-V58 schema and failing as
+  "relation does not exist", which reads like a missing migration rather than a stale workflow.
+  **One review finding was answered with a measurement instead of a test**: deleting `_lock_job` from
+  `remove_demand` leaves every test green, because the recompute is a single
+  `UPDATE … SET cancelled = NOT EXISTS (…)` and PostgreSQL re-evaluates that subquery under the row
+  lock. A concurrency test was written, could not be made to fail by any mutant, and was deleted — a
+  test no mutant kills guards nothing.
+  Still open from the pre-measurement: one job stuck at `album_not_in_catalog` (1 of 78), and 43
   pre-existing `failed` translation rows (2026-07-05 … 2026-09-02) untouched by this step.
   **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
   Codex co-authored) sits unmerged on the already-merged #104 branch with no open PR. It fixes the
