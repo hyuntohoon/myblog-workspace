@@ -977,12 +977,60 @@ lives in the `follow` scope, which a Spotify disconnect revokes — consistent, 
 producer only runs for connected members either way, but it means manual tracking is not an
 independent demand source in this step.
 
-**Delivery order and current state.** shared-db #83 and #84 merged; worker #106 and backend
-#178 carry the producers; frontend adds `user-follow-read` and the reconsent prompt. **Until
-the frontend ships, every member's follow read 403s and the step is a safe no-op** — it
-produces nothing rather than producing something wrong. Production smoke and the follow /
-back-catalogue verification the Step 5 list requires are not yet run; this record will not
-claim them until they are.
+**Delivery and the production reading — 2026-09-18 00:29Z deploy, 00:38Z first tick.**
+shared-db #83/#84, worker #106 and backend #178 merged and deployed; both Lambda
+`CodeSha256` values changed from fingerprints captured before the merge; authenticated
+production smoke **30/0** against the same 30/0 baseline.
+
+**The "safe no-op until the frontend ships" prediction was wrong, and the way it was wrong
+is the finding.** The stored grant recorded 6 scopes and not `user-follow-read`, so the
+follow read was expected to 403. It did not: Spotify grants are cumulative per (user, app),
+and the owner's earlier *owner-token* bootstrap had already consented `user-follow-read` for
+this same app, so every token minted for that account carries it regardless of what our
+stored scope string says. **The stored scope string is what we asked for; it is not the
+grant.** ([[feedback-ask-the-live-grant-not-the-constant]] — asked about a constant instead
+of issuing a token and looking.)
+
+So the first tick ran the step for real: 9 Spotify follows reconciled, 2 new tracked edges,
+7 artists gaining a second origin alongside their manual one, **35 artists registered** and
+enumeration started.
+
+#### The cost is roughly 7x what the pre-measurement projected, and the projection's error is instructive
+
+| | pre-measurement projection | measured on the first pass |
+|---|---|---|
+| artists in the follow universe | 63 | **35** |
+| albums across them | 488 | **~2,500** (2,012 read at the pause, 8 of 35 still enumerating; Spotify's own reported totals sum to 2,504 across the 28 that reported one) |
+| albums per artist | 7.7 | **71.2** (largest single artist: **1,050+**, still incomplete) |
+| projected Claude translations | ≈1,358 | **≈8,800–10,000** |
+
+**Why the projection was low.** It counted what the *catalog already held* for those artists
+and treated that as the discography. D5 warns against mistaking a first page for the complete
+catalog; the inverse is the trap that actually fired — **mistaking the ingested catalog for the
+complete discography.** `include_groups=album,single` returns every regional edition, reissue,
+deluxe and single Spotify lists for an artist, which the catalog had never ingested. OQ4 drew
+the boundary at compilations and `appears_on`; it did not consider that an artist's *own*
+releases number in the hundreds once every edition counts.
+
+**Production was paused rather than allowed to spend it.** `LYRICS_FOLLOW_DEMAND_ENABLED=false`
+on `blogWorkerLambda` at 2026-09-18 00:4xZ, before the tick that would have turned those albums
+into demand. Nothing was lost and nothing is irreversible: `lyrics_album_demands` and
+`lyrics_album_jobs` are unchanged at **110 / 98**, `track_lyrics_translations` unchanged at
+**1,105**, and the enumeration already read stays on disk. Step 4's producer is untouched —
+its own switch is a separate variable, which is exactly why the two were kept apart. The only
+spend so far is Spotify catalog reads, which are bounded and not the constrained resource.
+
+**This is an owner decision, not a defect.** The owner approved the spend on ≈1,358; the real
+figure is ~7x that. The levers, in rough order of how much they cut:
+- **Deduplicate editions.** 2,012 rows are 1,991 distinct provider ids but far fewer distinct
+  *records*; the 1,050-album artist is overwhelmingly regional editions and reissues of the
+  same releases. This is the largest cut available and costs no coverage.
+- **Narrow OQ4 to `album` only**, dropping `single`: 847 vs 505 of the rows read so far.
+- **Accept it** and re-enable.
+- **Leave it off**; Steps 1–4 continue unaffected.
+
+Production smoke and the per-origin follow/back-catalogue verification the Step 5 list requires
+are **not** claimed here. The step is deployed and paused pending that decision.
 
 ## Decisions log
 

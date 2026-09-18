@@ -100,6 +100,25 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `UPDATE … SET cancelled = NOT EXISTS (…)` and PostgreSQL re-evaluates that subquery under the row
   lock. A concurrency test was written, could not be made to fail by any mutant, and was deleted — a
   test no mutant kills guards nothing.
+  **Deployed 2026-09-18 and immediately PAUSED — owner decision needed on the spend.** Both
+  Lambda fingerprints changed, smoke 30/0. The predicted "safe no-op until the frontend ships"
+  was wrong and instructively so: Spotify grants are cumulative per (user, app), so the owner's
+  earlier owner-token bootstrap had already consented `user-follow-read` and every member token
+  carries it whatever our stored scope string says — **the stored scope is what we asked for,
+  not the grant**. The first tick therefore ran for real: 9 follows, 35 artists registered,
+  enumeration started.
+  **The cost is ~7x the projection, and the projection's error is the lesson.** Pre-measurement
+  said 63 artists / 488 albums → ≈1,358 translations, counting what the *catalog already held*.
+  Measured: **35 artists, ~2,500 albums, 71 per artist** (one artist alone 1,050+) → **≈8,800–10,000
+  translations**. D5 warns against mistaking a first page for the complete catalog; the trap that
+  fired is the inverse — **mistaking the ingested catalog for the complete discography**, because
+  `include_groups=album,single` returns every regional edition, reissue and deluxe.
+  `LYRICS_FOLLOW_DEMAND_ENABLED=false` was set before the tick that would have created the demand:
+  demands/jobs unchanged at **110/98**, translations unchanged at **1,105**, enumeration preserved.
+  Step 4's producer is untouched — separate switch, which is why they were kept apart.
+  **Owner's call:** dedupe editions (largest cut, no coverage lost — 2,012 rows are far fewer
+  distinct records) · narrow OQ4 to `album` only (847 vs 505 so far) · accept and re-enable ·
+  leave off. Nothing here is irreversible.
   Still open from the pre-measurement: one job stuck at `album_not_in_catalog` (1 of 78), and 43
   pre-existing `failed` translation rows (2026-07-05 … 2026-09-02) untouched by this step.
   **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
