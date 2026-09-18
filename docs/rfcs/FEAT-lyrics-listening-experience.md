@@ -852,6 +852,186 @@ binding cost is Claude translations per member who connects, multiplied about fo
 **OQ4's compilation/`appears_on` boundary is the largest single lever on that multiplier** — it decides
 whether an artist contributes their own releases or every record they appear on.
 
+### Step 5 delivery — follows become complete discographies (2026-09-18)
+
+Steps 1–4 made a member's saved albums and plays produce translation work. D4's third
+source — artists they follow, "including previous releases" — lands here. The owner
+approved the spend on 2026-09-13's measured numbers; OQ2–4 were taken as recommended
+rather than re-asked, per the owner's standing instruction that a recommendation is not
+an approval gate.
+
+**What the decisions became.** OQ2: a tracked edge is the union of its origins, so a
+Spotify unfollow deletes the `spotify_follow` row and a manual edge underneath survives,
+while removing the artist on the site writes an exclusion — without one the removal is a
+15-minute pause, because the provider still reports the follow. OQ3: bootstrap on connect
+plus the existing 15-minute cycle, resumable pagination, provider backoff. OQ4:
+`include_groups=album,single` — the artist's own records, not every compilation they were
+pressed onto; Spotify delivers EPs inside `single`. The measurement had identified OQ4's
+boundary as the largest single lever on the multiplier, and it is now a CHECK constraint
+and a writer-side filter rather than a convention.
+
+**Storage (V58, applied to test and prod 2026-09-13).** Four additive tables. Two hold
+member intent — provenance on the tracked edge, and exclusions. Two are **global**: an
+artist's discography is public catalog data read with the app's client-credentials token,
+so two members following the same artist share one enumeration and nothing
+member-identifying is stored. All 33 pre-existing edges were backfilled `manual`; zero
+were left without provenance.
+
+**Two asymmetries carry the design.** A half-enumerated artist looks like a *smaller* set,
+so removals reconcile only for artists whose enumeration is `complete` — an artist
+mid-read can gain albums and never lose them. And a missing `user-follow-read` grant
+passes `None`, never `[]`: every member who connected before this step has that gap until
+they re-consent, so the failed-read path is the common case, and an empty list would have
+reconciled their whole follow origin away.
+
+**No EventBridge schedule and no Terraform for the producer.** Enumeration is
+demand-driven — it only has work when someone follows someone new — so a cron would be two
+indexed no-op SELECTs a minute for the months between joins. The member poll enqueues a run
+only when artists are due, and a run that still has work chains one hop-capped successor.
+The only infra change is declaring the two kill switches (below).
+
+#### What three reviews found, and what each one cost
+
+A schema review, a security review and CI each found a real defect. They are recorded
+because the *shape* of each recurs.
+
+**1. An invariant maintained by nobody.** V58 asserts "every edge has at least one origin
+row" and the model docstring offered a read-side fallback for edges without one. Both
+cannot be true: the follow union SELECTs `manual` rows, so an edge with no origin is not
+"treated as manual", it is invisible. Three writers create edges; one wrote no provenance.
+A migration comment is not an enforcement mechanism, and the fallback was deleted rather
+than implemented — a reader that treats absence as a default hides the writer that forgot.
+
+**2. The consent artefact nobody revoked — the Step 4 lesson, a second time.** Step 5
+creates *two* things from a member's private account: their demand, and a row-for-row copy
+of whom they follow, stored as site tracking. `revoke_scopes` removed the first. Nothing
+removed the second, and a member who withdraws drops out of the connected-members selector
+— so the reconciler that used to prune those edges can never run again. The copy is
+**permanent, not stale**; their only remedy would be deleting artists one at a time, each
+of which writes a further derived row. OQ6 asks for the demand *and its detailed
+member/artist provenance*; only the first half had been built. `revoke_provider_follows`
+lives in the shared store because it is one consent rule with two callers, and two copies
+of a revocation is how the first version of this fence came to miss a path.
+
+There was a second half with no permanence required: the caller took the connection row
+`FOR UPDATE`, committed, and only then reconciled edges one transaction per artist. For a
+member with 300 follows that is a window hundreds of round-trips wide in which a disconnect
+commits and every remaining edge is still written. The reconcile now holds that row for its
+whole transaction — safe because the block is pure DB work, the provider read having
+already happened.
+
+**3. Dead code where the design's load-bearing column was supposed to act.**
+`lyrics_artist_albums` was append-only, so the desired set could only grow, so the
+`complete` removal arm — the entire reason `complete` exists, and the reason the store
+gained `remove_demand` to break a one-way ratchet — was unreachable. A delisted release
+kept its demand for ever. Worse, the test that claimed to cover it reached its state with a
+fixture `DELETE FROM lyrics_artist_albums`, **a state no production path could produce**:
+it proved the store method worked and proved nothing about whether the producer could ever
+call it. The enumerator now prunes what a full pass did not see, and the test drives the
+enumerator.
+
+**4. A kill switch checked only where messages are produced.** The chain always has a
+message in flight while work remains, so throwing `LYRICS_FOLLOW_DEMAND_ENABLED` during a
+cost incident would still have let that message re-open every stale discography and spend
+up to the hop cap in further provider reads. And the switch was not settable at all without
+drift: `environment` is not in the Lambda's `ignore_changes`, so the only lever was a
+console edit that the next `terraform apply` silently reverses — while the intervening plan
+presents the owner's own rollback as drift to be corrected. Both switches are declared in
+`infra/lambda.tf` now. **`terraform plan`: 0 to add, 1 to change, 0 to destroy** — exactly
+the two variables. The workspace does not auto-apply; this needs a human apply to take
+effect.
+
+**5. A checkpoint that could rewind, and nothing claiming an artist.** Two chains can be in
+flight (the poll and a member connecting). They selected the same due artists and paid for
+the same pages twice, and a blind `SET next_offset = :offset` let a slower run write a
+smaller offset — re-reading those pages indefinitely under a backlog, against a provider
+quota this project cannot replace. `_SELECT_DUE` now claims what it selects with a short
+lease; `_ADVANCE` is `GREATEST(...)`. A negative `hops` is clamped, because
+`hops + 1 < MAX_HOPS` is otherwise true for ever.
+
+**6. CI pins the schema twice.** `deploy.yml` checks the canonical schema out by an explicit
+ref, a *second* copy of the requirements pin. Bumping only the requirements left CI loading
+a pre-V58 schema, failing as "relation does not exist" — which reads like a missing
+migration rather than a stale workflow. Separately, `requirements.lock` embeds a sha256 of
+`requirements.txt` precisely so a hand-edited pin does not survive; editing it with `sed`
+updated the URL and left the hash, and the drift check caught it.
+
+**One finding was answered with a measurement instead of a test.** Deleting `_lock_job`
+from `remove_demand` leaves every test green. It does, because the recompute is a single
+`UPDATE … SET cancelled = NOT EXISTS (…)` and PostgreSQL re-evaluates that subquery under
+the row lock, so a concurrent remover already blocks and re-reads. A concurrency test was
+written, could not be made to fail by any mutant of the method, and was **deleted**: a test
+no mutant kills guards nothing. The call stays for lock-order discipline and says so.
+
+**Mutation results.** Every new test was mutation-tested: 7 probes on the schema half, 11 on
+the producer and enumerator, 7 more on the review fixes, 2 on the backend, 3 on the
+frontend. All killed. One is recorded as having survived its first attempt: the disconnect
+test does not pin the *inner* connection guard, because it deletes the connection before
+the caller's own guard runs — which is exactly why the window is a window. A direct test of
+the reconcile kills it.
+
+**Scope consequences worth stating rather than discovering.** The follow universe is
+`followed ∪ manually-tracked − excluded`, so the 33 artists the owner already tracks by hand
+become full-back-catalogue demand the moment the frontend ships the scope. And that demand
+lives in the `follow` scope, which a Spotify disconnect revokes — consistent, because the
+producer only runs for connected members either way, but it means manual tracking is not an
+independent demand source in this step.
+
+**Delivery and the production reading — 2026-09-18 00:29Z deploy, 00:38Z first tick.**
+shared-db #83/#84, worker #106 and backend #178 merged and deployed; both Lambda
+`CodeSha256` values changed from fingerprints captured before the merge; authenticated
+production smoke **30/0** against the same 30/0 baseline.
+
+**The "safe no-op until the frontend ships" prediction was wrong, and the way it was wrong
+is the finding.** The stored grant recorded 6 scopes and not `user-follow-read`, so the
+follow read was expected to 403. It did not: Spotify grants are cumulative per (user, app),
+and the owner's earlier *owner-token* bootstrap had already consented `user-follow-read` for
+this same app, so every token minted for that account carries it regardless of what our
+stored scope string says. **The stored scope string is what we asked for; it is not the
+grant.** ([[feedback-ask-the-live-grant-not-the-constant]] — asked about a constant instead
+of issuing a token and looking.)
+
+So the first tick ran the step for real: 9 Spotify follows reconciled, 2 new tracked edges,
+7 artists gaining a second origin alongside their manual one, **35 artists registered** and
+enumeration started.
+
+#### The cost is roughly 7x what the pre-measurement projected, and the projection's error is instructive
+
+| | pre-measurement projection | measured on the first pass |
+|---|---|---|
+| artists in the follow universe | 63 | **35** |
+| albums across them | 488 | **~2,500** (2,012 read at the pause, 8 of 35 still enumerating; Spotify's own reported totals sum to 2,504 across the 28 that reported one) |
+| albums per artist | 7.7 | **71.2** (largest single artist: **1,050+**, still incomplete) |
+| projected Claude translations | ≈1,358 | **≈8,800–10,000** |
+
+**Why the projection was low.** It counted what the *catalog already held* for those artists
+and treated that as the discography. D5 warns against mistaking a first page for the complete
+catalog; the inverse is the trap that actually fired — **mistaking the ingested catalog for the
+complete discography.** `include_groups=album,single` returns every regional edition, reissue,
+deluxe and single Spotify lists for an artist, which the catalog had never ingested. OQ4 drew
+the boundary at compilations and `appears_on`; it did not consider that an artist's *own*
+releases number in the hundreds once every edition counts.
+
+**Production was paused rather than allowed to spend it.** `LYRICS_FOLLOW_DEMAND_ENABLED=false`
+on `blogWorkerLambda` at 2026-09-18 00:4xZ, before the tick that would have turned those albums
+into demand. Nothing was lost and nothing is irreversible: `lyrics_album_demands` and
+`lyrics_album_jobs` are unchanged at **110 / 98**, `track_lyrics_translations` unchanged at
+**1,105**, and the enumeration already read stays on disk. Step 4's producer is untouched —
+its own switch is a separate variable, which is exactly why the two were kept apart. The only
+spend so far is Spotify catalog reads, which are bounded and not the constrained resource.
+
+**This is an owner decision, not a defect.** The owner approved the spend on ≈1,358; the real
+figure is ~7x that. The levers, in rough order of how much they cut:
+- **Deduplicate editions.** 2,012 rows are 1,991 distinct provider ids but far fewer distinct
+  *records*; the 1,050-album artist is overwhelmingly regional editions and reissues of the
+  same releases. This is the largest cut available and costs no coverage.
+- **Narrow OQ4 to `album` only**, dropping `single`: 847 vs 505 of the rows read so far.
+- **Accept it** and re-enable.
+- **Leave it off**; Steps 1–4 continue unaffected.
+
+Production smoke and the per-origin follow/back-catalogue verification the Step 5 list requires
+are **not** claimed here. The step is deployed and paused pending that decision.
+
 ## Decisions log
 
 | Date | Decision | Step |
