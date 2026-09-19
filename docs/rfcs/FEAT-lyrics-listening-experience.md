@@ -995,6 +995,59 @@ So the first tick ran the step for real: 9 Spotify follows reconciled, 2 new tra
 7 artists gaining a second origin alongside their manual one, **35 artists registered** and
 enumeration started.
 
+#### Correction (2026-09-19): the 7x figure was wrong, and the real driver is one artist
+
+The section below is kept as written because the correction is more useful than a clean
+record. Two things in it are wrong, and both are the same mistake in different clothes.
+
+**The Claude spend was never 7x.** That number applied the 35.8% translate rate — measured
+on the pop/vocal catalogue Step 4 produced — to a population it does not describe. Measured
+directly, with a control:
+
+| | tracks looked up | with lyrics | rate |
+|---|---|---|---|
+| Claude Debussy (the outlier artist) | 3,108 already in our catalogue | **2** | **0.06%** |
+| whole catalogue (control) | 32,481 | 14,645 | **45%** |
+
+A classical composer's catalogue is instrumental, so it is classified `not_required` and
+**never reaches the model**. Split by artist, the picture inverts:
+
+| | albums | tracks | actual Claude spend |
+|---|---|---|---|
+| Debussy alone | 1,459 (60%) | 56,899 (**92%**) | ≈0 |
+| the other 27 artists | 962 (40%) | 4,905 (8%) | ≈1,700 — in line with the original ≈1,358 |
+
+**The real cost of that branch was never Claude.** It was ~57,000 LRCLIB source lookups
+(~6 hours of provider traffic at the measured ~2.5 req/s), ~57,000 `lyrics_album_tracks`
+rows and 1,459 album jobs — all to discover that a composer has no lyrics.
+
+**And the recommended remedy was wrong too.** "Deduplicate editions, the largest cut with no
+coverage lost" was measured at **0.3–1.8%**, not a large cut: `name+date+tracks` collapsed
+2,421 rows to 2,420. Those releases are genuinely distinct, not regional duplicates of each
+other. The recommendation was an assumption presented as a finding, and measuring it took
+ten minutes that should have come before the recommendation, not after.
+
+**What a composer's Spotify page actually is.** Not a discography — every recording anyone
+has ever made of their work. Each new performance of *Clair de Lune* is a separate release
+credited to Debussy. That is why `include_groups=album,single` returns 1,459 and rising for
+one followed artist, and why no release-type boundary (OQ4) or edition key could have caught
+it: the releases are real and distinct, they are simply not the member's listening.
+
+**Resolution (owner decision, 2026-09-19).** The artist was added to
+`user_artist_follow_exclusions` — the mechanism this very step built, used for exactly the
+case it was designed for, with no code change. The owner keeps following Debussy on Spotify
+and keeps the manual tracking edge for release radar; only lyrics discovery excludes them.
+Result: 2,421 -> **962 albums across 33 artists**, and the projected Claude spend returns to
+the original estimate.
+
+**A gap this exposed, fixed by hand and not yet in code.** An artist registered in
+`lyrics_artist_discographies` stays registered for ever: `_SELECT_DUE` selects by
+`NOT complete` with no reference to whether anybody still follows them, and
+`reopen_stale_discographies` re-opens completed ones on a timer. So an excluded or unfollowed
+artist keeps being paged against the Spotify quota with nothing consuming the result.
+Debussy's rows were deleted manually to stop it. **The producer should prune registrations
+that no member's universe still contains** — registered as an open item, not done here.
+
 #### The cost is roughly 7x what the pre-measurement projected, and the projection's error is instructive
 
 | | pre-measurement projection | measured on the first pass |
