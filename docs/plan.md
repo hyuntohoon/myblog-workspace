@@ -116,9 +116,27 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   `LYRICS_FOLLOW_DEMAND_ENABLED=false` was set before the tick that would have created the demand:
   demands/jobs unchanged at **110/98**, translations unchanged at **1,105**, enumeration preserved.
   Step 4's producer is untouched — separate switch, which is why they were kept apart.
-  **Owner's call:** dedupe editions (largest cut, no coverage lost — 2,012 rows are far fewer
-  distinct records) · narrow OQ4 to `album` only (847 vs 505 so far) · accept and re-enable ·
-  leave off. Nothing here is irreversible.
+  **CORRECTED 2026-09-19, and both corrections are the same mistake.** The 7x was a Claude
+  figure built by applying Step 4's 35.8% translate rate — measured on pop/vocal music — to a
+  population that is **0.06%**: Debussy has 3,108 tracks already looked up in our catalogue and
+  **2 have lyrics**, against a whole-catalogue control of **45%**. A composer's catalogue is
+  instrumental, classified `not_required`, and never reaches the model. Split by artist:
+  Debussy is **92% of the tracks and ≈0 of the Claude spend**; the other 27 artists are 4,905
+  tracks ≈ **1,700 translations**, i.e. the original estimate. The real cost of that branch was
+  ~57,000 LRCLIB lookups and ~57,000 rows to discover a composer has no lyrics.
+  The recommended remedy was also wrong: **deduplicating editions removes 0.3–1.8%**, not a
+  large cut — those releases are genuinely distinct. A composer's Spotify page is not a
+  discography, it is every recording anyone ever made of their work, so no release-type or
+  edition rule could have caught it.
+  **Resolved (owner, 2026-09-19): Debussy added to `user_artist_follow_exclusions`** — the
+  mechanism this step built, used for exactly its designed case, no code change. Owner keeps
+  the Spotify follow and the manual release-radar edge; only lyrics discovery excludes them.
+  2,421 → **962 albums / 33 artists**; producer re-enabled and demand converging normally.
+  **Open item this exposed:** a registered discography is never pruned —
+  `_SELECT_DUE` selects on `NOT complete` with no reference to whether anyone still follows the
+  artist, and the refresh re-opens completed ones on a timer, so an unfollowed or excluded
+  artist keeps being paged against the Spotify quota for nothing. Debussy's rows were deleted
+  by hand; **the producer should prune registrations no member's universe contains.**
   Still open from the pre-measurement: one job stuck at `album_not_in_catalog` (1 of 78), and 43
   pre-existing `failed` translation rows (2026-07-05 … 2026-09-02) untouched by this step.
   **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
