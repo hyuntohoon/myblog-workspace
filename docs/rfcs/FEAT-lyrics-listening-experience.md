@@ -1040,13 +1040,83 @@ and keeps the manual tracking edge for release radar; only lyrics discovery excl
 Result: 2,421 -> **962 albums across 33 artists**, and the projected Claude spend returns to
 the original estimate.
 
-**A gap this exposed, fixed by hand and not yet in code.** An artist registered in
-`lyrics_artist_discographies` stays registered for ever: `_SELECT_DUE` selects by
-`NOT complete` with no reference to whether anybody still follows them, and
-`reopen_stale_discographies` re-opens completed ones on a timer. So an excluded or unfollowed
-artist keeps being paged against the Spotify quota with nothing consuming the result.
-Debussy's rows were deleted manually to stop it. **The producer should prune registrations
-that no member's universe still contains** — registered as an open item, not done here.
+**A gap this exposed, now closed in code (worker #107, 2026-09-21) — and the first remedy was
+wrong.** An artist registered in `lyrics_artist_discographies` used to be read for ever:
+`_SELECT_DUE` selects by `NOT complete` with no reference to whether anybody still follows
+them, and `reopen_stale_discographies` re-opens completed ones on a timer. So an excluded or
+unfollowed artist kept being paged against the Spotify quota with nothing consuming the
+result. Debussy's rows were deleted manually to stop it.
+
+**It is a fence on the read paths, not a delete, and review is what changed that.** Deleting
+the registration is the obvious remedy and it is strictly more destructive than the defect
+requires. `invalid_grant` — a member's token expiring, or them removing the app at
+`spotify.com/account/apps` — flips them to `reauth` and, in the *same transaction*, revokes
+both their follow demand (`revoke_scopes`) and their `spotify_follow` edges
+(`revoke_provider_follows`). Every registration only that member held therefore loses **both**
+consumer signals at once; deleting then cascades `lyrics_artist_albums` and the page
+checkpoints, so the recoverable state the 3b-e reconnect badge exists for would have cost a
+full re-enumeration out of the one resource this project cannot refund. Fencing stops the
+spend and keeps the corpus, so a reconnect, a re-follow or a lifted exclusion resumes at zero
+provider cost. Owner decision, 2026-09-21. The rows stay, and deleting them by hand remains
+available — as it was for Debussy.
+
+*One spelling, three statements.* `_CONSUMED` is interpolated into `_SELECT_DUE`, `_COUNT_DUE`
+and `_REOPEN_STALE`. `_COUNT_DUE` has to carry it as well, or the nudge produces a message
+every 15 minutes for work the run then declines, and `remaining` hops the self-chain to its
+cap doing nothing.
+
+*What "no consumer" means, and why one signal is not enough.* Both the tracked edge
+(`user_artist_track_origins`, minus that member's own exclusions) and follow demand
+(`lyrics_album_demands` on the `follow` scope, whose `origin_key` is the artist id) are
+required. The edge is the only signal for an artist whose discography turned out to be
+**empty** — no albums, therefore no demand. Demand is the only signal for a followed artist
+the **catalog does not have** — no `artists.id`, therefore no edge at all, which is precisely
+why this step keys on provider ids end to end.
+
+*Member fence.* `status = 'connected'`, a deliberate twin of `_SELECT_CONNECTED` rather than
+the producer's `_CONNECTION_EXISTS`, which ignores status: a follow universe only exists for
+members that selector returns. The obligation to change both together is written at the
+definition as well as at the copy.
+
+*The third arm is a deadlock break, not a consumer.* A registration nobody has read has no
+albums, so no demand, and if the artist is uncatalogued no edge either — the two signals
+cannot see it, and a fence without this arm starves exactly the artists this step keyed on
+provider ids to support. It is `last_complete_at IS NULL` ("has never finished a pass") and
+**not** "has never read a page": a first pass spans runs, and demand for what it already found
+is only written by the next member poll, so the narrow version stalled every multi-page
+uncatalogued artist after page one. Two pre-existing tests caught that. Accepted gap: an
+uncatalogued artist whose completed pass found no eligible release has neither signal and no
+longer qualifies here, so a release they put out later is never picked up; they cost nothing
+while that is true, and a catalog entry or one album brings them back.
+
+*Evidence, including a mutation round that had to be redone.* Ten new real-engine tests; 713
+passed / 3 skipped (the opt-in live MusicBrainz trio) with zero DB skips against the pinned
+canonical schema. All ten guards were mutation-tested one at a time and each mutant is killed
+by the test that claims it — but the first three call-site mutants died of psycopg
+`IndeterminateDatatype` rather than of any assertion, and a crash reads as a kill while
+proving nothing. Made type-safe, `_COUNT_DUE`'s fence turned out to have **no test at all**:
+the `due_count` test had taken its baseline *after* the row was already fenced, so it compared
+the fenced count with itself. It now measures the baseline first and carries a control that the
+same row *with* a consumer is both counted and claimed. Every test in the new block also has to
+**settle** its row, because `_enumerated` leaves `last_complete_at` NULL and that alone
+satisfies the deadlock break — unsettled, all ten would have passed for a reason unrelated to
+the fence. The predicate was also lifted out of the source and run against production
+read-only: all 34 live registrations read as consumed, and the hand-deleted registration —
+re-inserted, settled, transaction rolled back — is the only row it fences off.
+
+**A second defect found while fixing the first, reported and NOT fixed — it is a spend
+decision.** The 24-hour refresh is unreachable in steady state, for the same missing-trigger
+reason that hid the orphan. `complete = false` is written by exactly two things, the INSERT
+default in `_ENSURE_ARTIST` and `_REOPEN_STALE`; `_REOPEN_STALE` runs only inside
+`_run_discography_enumeration`, which runs only off the `due_count > 0` nudge. Once every
+registration is `complete` nothing is due, no enumeration message is produced, and the refresh
+that would re-open them never executes. Only a member following a **new** artist breaks the
+cycle — and that run then re-opens everything stale, which is why the refresh has ever appeared
+to work. Production, read 2026-09-20 05:11Z: **34/34 complete, `last_complete_at` 2026-09-19
+03:58–04:00Z, all 34 past the 24 h window, 0 due.** New releases by followed artists are not
+being picked up. The fix — the nudge also firing on "a refresh is due" — starts spending roughly
+42 provider pages per 24 h at today's 34 registrations, so it belongs to the owner and not to
+this change.
 
 #### The cost is roughly 7x what the pre-measurement projected, and the projection's error is instructive
 
