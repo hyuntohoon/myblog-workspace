@@ -132,11 +132,45 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   mechanism this step built, used for exactly its designed case, no code change. Owner keeps
   the Spotify follow and the manual release-radar edge; only lyrics discovery excludes them.
   2,421 → **962 albums / 33 artists**; producer re-enabled and demand converging normally.
-  **Open item this exposed:** a registered discography is never pruned —
-  `_SELECT_DUE` selects on `NOT complete` with no reference to whether anyone still follows the
-  artist, and the refresh re-opens completed ones on a timer, so an unfollowed or excluded
-  artist keeps being paged against the Spotify quota for nothing. Debussy's rows were deleted
-  by hand; **the producer should prune registrations no member's universe contains.**
+  **Open item CLOSED 2026-09-21 (worker #107) — and the remedy changed under review.**
+  An unfollowed or excluded artist no longer gets read: `_CONSUMED` fences every statement
+  that can lead to a provider call (`_SELECT_DUE`, `_COUNT_DUE`, and `_REOPEN_STALE`, which
+  is the one that actually turned a stale registration into recurring traffic). "No consumer"
+  needs **two** signals — the tracked edge minus that member's exclusions (the only signal for
+  an artist whose discography turned out empty) and follow demand's `origin_key` (the only
+  signal for a followed artist the catalog does not have, which has no `artists.id` and so no
+  edge at all) — plus a third arm that is not a consumer but a **deadlock break**, because a
+  registration nobody has read has neither signal and a fence without it starves exactly the
+  artists this step keyed on provider ids to support.
+  **It was written as a DELETE first and review rejected that, which is the lesson worth
+  keeping.** `invalid_grant` — a token expiring, or the member removing the app at
+  spotify.com — flips them to 'reauth' and revokes both their follow demand and their
+  `spotify_follow` edges *in the same transaction*, so every registration only that member
+  held loses both signals at once. Deleting cascades `lyrics_artist_albums` and the page
+  checkpoints, so a routine token event would have cost a full re-enumeration out of the one
+  resource that cannot be refunded. Fencing stops the spend and keeps the corpus: a reconnect,
+  a re-follow or a lifted exclusion resumes at zero provider cost. The rows stay, and deleting
+  them by hand is still available — as it was for Debussy.
+  **Mutation honesty.** Ten guards, each killed by the test that claims it — after a redo: the
+  first three call-site mutants died of `IndeterminateDatatype` rather than of any assertion,
+  and a crash reads as a kill while proving nothing. Made type-safe, `_COUNT_DUE`'s fence
+  turned out to have **no test at all** — the `due_count` test had taken its baseline after the
+  row was already fenced, comparing the count with itself. Every test also has to *settle* its
+  row, because `_enumerated` leaves `last_complete_at` NULL and that alone satisfies the
+  deadlock break. Verified against production read-only with the predicate lifted out of the
+  source: all 34 live registrations read as consumed, and the hand-deleted row — re-inserted,
+  settled, rolled back — is the only one fenced off.
+  **NEW open item, found while fixing that one and NOT fixed — it is a spend decision.** The
+  24 h discography refresh is unreachable in steady state, for the same missing-trigger reason.
+  `complete = false` is written by exactly two things, the INSERT default and `_REOPEN_STALE`,
+  and `_REOPEN_STALE` runs only inside the enumeration job, which runs only off the
+  `due_count > 0` nudge. So once every registration is complete nothing is due, no message is
+  produced, and the refresh never runs; only a member following a **new** artist breaks the
+  cycle, and that run then re-opens everything stale — which is why it has ever appeared to
+  work. Production 2026-09-20 05:11Z: **34/34 complete, `last_complete_at` 2026-09-19
+  03:58–04:00Z, all past the 24 h window, 0 due** — new releases by followed artists are not
+  being picked up. Making the nudge also fire on "a refresh is due" starts spending ~42
+  provider pages per 24 h at today's 34 registrations.
   Still open from the pre-measurement: one job stuck at `album_not_in_catalog` (1 of 78), and 43
   pre-existing `failed` translation rows (2026-07-05 … 2026-09-02) untouched by this step.
   **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
