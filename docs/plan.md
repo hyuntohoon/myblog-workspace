@@ -9,8 +9,24 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
+> **Owner priority, 2026-09-28:** reconcile progress → home lyrics entry and automatic next-track
+> lyrics → other lyrics operational gaps → validate real user journeys. Existing P0/security
+> incidents take precedence. This is planning priority, not runtime implementation approval.
+
+- **OPS-project-stabilization** — **FIRST PLANNED PRIORITY; draft.**
+  <!-- rfc: docs/rfcs/OPS-project-stabilization.md | status: draft -->
+  Step 1: reconcile the remaining plan/RFC/index discrepancies. **Step 2A, first runtime fix:** home
+  playback discovery with direct lyrics, and automatic next-track lyrics (the A → B → A rollback).
+  Steps 2B–2D: transaction-boundary proof; the catalog refresh and back-catalogue ingestion spend
+  decisions; the subscription guard and residual failures. Their evidence baseline is the lyrics
+  Step 5 audit below. Step 3: inspect real user journeys. **Next: RFC acceptance, then Step 1.**
+  → `docs/rfcs/OPS-project-stabilization.md`
+
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
+  **Home-entry and next-track lyrics are open, not fixed** (owner report 2026-09-28). Step 1's
+  historical completion does not establish that these journeys work; correction and acceptance →
+  `OPS-project-stabilization` Step 2A. The open items below are sequenced there as Steps 2B–2D.
   **Step 4 shipped 2026-09-11: the demand producers are on.** A connected member's saved albums
   (`GET /me/albums`, fully paginated) and their recently-played albums now create durable V57 demand
   with no owner involvement — `saved` reconciles as a set, `recent` is append-only because OQ6 says an
@@ -99,6 +115,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   Codex co-authored) sits unmerged on the already-merged #104 branch with no open PR. It fixes the
   pre-existing idle-in-transaction shape in `LyricsIncrementalService`/`LyricsReassessmentService` —
   the known gap Step 3 recorded and deliberately left out of scope. Decide whether to PR it.
+  **Corrected 2026-09-29, re-confirmed 2026-09-30:** the service change in `4d4c181` is already on
+  worker `main`; it went in with the #104 squash (`4ece539`), and the three non-test files diff empty
+  against `e29b669`. Only its real-DB regression test (`tests/test_lyrics_transaction_boundary_db.py`)
+  is missing. Proof and deploy confirmation → `OPS-project-stabilization` Step 2B.
   Carry the Step 1 cold-start Spotify 404/browser-fallback observation. Delivery evidence, runtime
   details and exact next scope → `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 
