@@ -9,7 +9,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
-- **FEAT-lyrics-listening-experience** — in-progress; **all five steps complete and production-verified.**
+- **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
   **Step 4 shipped 2026-09-11: the demand producers are on.** A connected member's saved albums
   (`GET /me/albums`, fully paginated) and their recently-played albums now create durable V57 demand
@@ -71,108 +71,30 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   compilations/`appears_on`. At the measured rate that projects **~1,358 Claude translations for one
   member's first Step 5 pass** against Step 4's 334. **Followed artists cannot be sized at all — there
   is no follows table in production.**
-  **Step 5 shipped 2026-09-18 after the owner approved the spend on those numbers.** OQ2–4 were taken
-  as recommended rather than re-asked (the owner's standing instruction): **OQ2** manual ∪ Spotify with
-  per-origin removal and an explicit exclusion against resurrection; **OQ3** bootstrap plus the existing
-  15-minute cycle with resumable pagination; **OQ4** the artist's own album/single/EP only —
-  compilations and `appears_on` excluded, which the measurement identified as the largest single lever
-  on the multiplier. V58 adds four additive tables (applied to test and prod 2026-09-13, 33/33 existing
-  edges backfilled `manual`, zero left without provenance). A follow now produces demand for the
-  artist's whole eligible catalogue, enumerated **globally** with the app's client-credentials token so
-  members who follow the same artist share one read. Enumeration rides the existing blogSQS queue and
-  the existing member poll — **no EventBridge schedule and no Terraform**, because the work only exists
-  when someone follows someone new.
-  **Two asymmetries carry the design.** A half-enumerated artist looks like a *smaller* set, so removals
-  are reconciled only for artists whose enumeration is `complete` — an artist mid-read can gain albums
-  and never lose them. And a missing `user-follow-read` grant passes `None`, never `[]`: every member
-  who connected before Step 5 has that gap until they re-consent, so the failed-read path is the common
-  case, and an empty list would have reconciled their entire follow origin away.
-  **Three reviews found three real defects, all fixed before merge.** (1) V58's "every edge has at least
-  one origin row" was maintained by nobody going forward — the owner's snapshot import created edges
-  with no provenance, which the follow union cannot see at all. (2) The scope-generation ladder gained
-  `follow` *above* `library`, and three frontend derivations used equality lists; a member with the
-  NEWEST grant would have had the player's whole capability matrix switched off, silently, because the
-  wrong answer still renders. (3) CI pins the canonical schema by a ref that is a **second copy** of the
-  requirements pin — bumping only the requirements left CI loading a pre-V58 schema and failing as
-  "relation does not exist", which reads like a missing migration rather than a stale workflow.
-  **One review finding was answered with a measurement instead of a test**: deleting `_lock_job` from
-  `remove_demand` leaves every test green, because the recompute is a single
-  `UPDATE … SET cancelled = NOT EXISTS (…)` and PostgreSQL re-evaluates that subquery under the row
-  lock. A concurrency test was written, could not be made to fail by any mutant, and was deleted — a
-  test no mutant kills guards nothing.
-  **Deployed 2026-09-18 and immediately PAUSED — owner decision needed on the spend.** Both
-  Lambda fingerprints changed, smoke 30/0. The predicted "safe no-op until the frontend ships"
-  was wrong and instructively so: Spotify grants are cumulative per (user, app), so the owner's
-  earlier owner-token bootstrap had already consented `user-follow-read` and every member token
-  carries it whatever our stored scope string says — **the stored scope is what we asked for,
-  not the grant**. The first tick therefore ran for real: 9 follows, 35 artists registered,
-  enumeration started.
-  **The cost is ~7x the projection, and the projection's error is the lesson.** Pre-measurement
-  said 63 artists / 488 albums → ≈1,358 translations, counting what the *catalog already held*.
-  Measured: **35 artists, ~2,500 albums, 71 per artist** (one artist alone 1,050+) → **≈8,800–10,000
-  translations**. D5 warns against mistaking a first page for the complete catalog; the trap that
-  fired is the inverse — **mistaking the ingested catalog for the complete discography**, because
-  `include_groups=album,single` returns every regional edition, reissue and deluxe.
-  `LYRICS_FOLLOW_DEMAND_ENABLED=false` was set before the tick that would have created the demand:
-  demands/jobs unchanged at **110/98**, translations unchanged at **1,105**, enumeration preserved.
-  Step 4's producer is untouched — separate switch, which is why they were kept apart.
-  **CORRECTED 2026-09-19, and both corrections are the same mistake.** The 7x was a Claude
-  figure built by applying Step 4's 35.8% translate rate — measured on pop/vocal music — to a
-  population that is **0.06%**: Debussy has 3,108 tracks already looked up in our catalogue and
-  **2 have lyrics**, against a whole-catalogue control of **45%**. A composer's catalogue is
-  instrumental, classified `not_required`, and never reaches the model. Split by artist:
-  Debussy is **92% of the tracks and ≈0 of the Claude spend**; the other 27 artists are 4,905
-  tracks ≈ **1,700 translations**, i.e. the original estimate. The real cost of that branch was
-  ~57,000 LRCLIB lookups and ~57,000 rows to discover a composer has no lyrics.
-  The recommended remedy was also wrong: **deduplicating editions removes 0.3–1.8%**, not a
-  large cut — those releases are genuinely distinct. A composer's Spotify page is not a
-  discography, it is every recording anyone ever made of their work, so no release-type or
-  edition rule could have caught it.
-  **Resolved (owner, 2026-09-19): Debussy added to `user_artist_follow_exclusions`** — the
-  mechanism this step built, used for exactly its designed case, no code change. Owner keeps
-  the Spotify follow and the manual release-radar edge; only lyrics discovery excludes them.
-  2,421 → **962 albums / 33 artists**; producer re-enabled and demand converging normally.
-  **Open item CLOSED 2026-09-21 (worker #107) — and the remedy changed under review.**
-  An unfollowed or excluded artist no longer gets read: `_CONSUMED` fences every statement
-  that can lead to a provider call (`_SELECT_DUE`, `_COUNT_DUE`, and `_REOPEN_STALE`, which
-  is the one that actually turned a stale registration into recurring traffic). "No consumer"
-  needs **two** signals — the tracked edge minus that member's exclusions (the only signal for
-  an artist whose discography turned out empty) and follow demand's `origin_key` (the only
-  signal for a followed artist the catalog does not have, which has no `artists.id` and so no
-  edge at all) — plus a third arm that is not a consumer but a **deadlock break**, because a
-  registration nobody has read has neither signal and a fence without it starves exactly the
-  artists this step keyed on provider ids to support.
-  **It was written as a DELETE first and review rejected that, which is the lesson worth
-  keeping.** `invalid_grant` — a token expiring, or the member removing the app at
-  spotify.com — flips them to 'reauth' and revokes both their follow demand and their
-  `spotify_follow` edges *in the same transaction*, so every registration only that member
-  held loses both signals at once. Deleting cascades `lyrics_artist_albums` and the page
-  checkpoints, so a routine token event would have cost a full re-enumeration out of the one
-  resource that cannot be refunded. Fencing stops the spend and keeps the corpus: a reconnect,
-  a re-follow or a lifted exclusion resumes at zero provider cost. The rows stay, and deleting
-  them by hand is still available — as it was for Debussy.
-  **Mutation honesty.** Ten guards, each killed by the test that claims it — after a redo: the
-  first three call-site mutants died of `IndeterminateDatatype` rather than of any assertion,
-  and a crash reads as a kill while proving nothing. Made type-safe, `_COUNT_DUE`'s fence
-  turned out to have **no test at all** — the `due_count` test had taken its baseline after the
-  row was already fenced, comparing the count with itself. Every test also has to *settle* its
-  row, because `_enumerated` leaves `last_complete_at` NULL and that alone satisfies the
-  deadlock break. Verified against production read-only with the predicate lifted out of the
-  source: all 34 live registrations read as consumed, and the hand-deleted row — re-inserted,
-  settled, rolled back — is the only one fenced off.
-  **NEW open item, found while fixing that one and NOT fixed — it is a spend decision.** The
-  24 h discography refresh is unreachable in steady state, for the same missing-trigger reason.
-  `complete = false` is written by exactly two things, the INSERT default and `_REOPEN_STALE`,
-  and `_REOPEN_STALE` runs only inside the enumeration job, which runs only off the
-  `due_count > 0` nudge. So once every registration is complete nothing is due, no message is
-  produced, and the refresh never runs; only a member following a **new** artist breaks the
-  cycle, and that run then re-opens everything stale — which is why it has ever appeared to
-  work. Production 2026-09-20 05:11Z: **34/34 complete, `last_complete_at` 2026-09-19
-  03:58–04:00Z, all past the 24 h window, 0 due** — new releases by followed artists are not
-  being picked up. Making the nudge also fire on "a refresh is due" starts spending ~42
-  provider pages per 24 h at today's 34 registrations.
-  Still open from the pre-measurement: one job stuck at `album_not_in_catalog` (1 of 78), and 43
-  pre-existing `failed` translation rows (2026-07-05 … 2026-09-02) untouched by this step.
+  **Step 5 shipped 2026-09-18** (shared-db #83/#84, worker #106, backend #178, front #446; V58 applied
+  2026-09-13; OQ2–4 taken as recommended). Delivery, the 7x mis-estimate and its 2026-09-19
+  correction (Debussy excluded), and worker #107's fence are recorded in the RFC under
+  *Step 5 delivery*. **The 2026-09-30 audit in the same place is what this row now tracks.**
+  **Open — owner decisions (spend):**
+  - **Back-catalogue albums outside the catalog are never ingested.** 686 of 1,061 follow jobs (28
+    artists) have waited on `album_not_in_catalog` since 09-19. The Step 5 enumerator never sends a
+    missing album to album sync, so a follow translates only what the catalog already held (≈35%).
+    The fix is to enqueue album sync for those albums: one Spotify catalog read per album, plus the
+    translations that follow.
+  - **The 24 h discography refresh has never run.** It is unreachable in steady state because the
+    nudge fires only on `due_count > 0`. All 34 registrations are still at `last_complete_at` 09-19.
+    Fixing it costs ~42 provider pages per 24 h.
+  **Open — no decision needed, not yet done:**
+  - **Step 5 verification is not met.** The post-deploy member/follow/back-catalogue smoke was never
+    run. The "production-verified" claim for Step 5 is withdrawn until it has been.
+  - **`infra/lambda.tf` kill switches are unapplied.** The live Lambda has only the console-set
+    `LYRICS_FOLLOW_DEMAND_ENABLED=true`, so `terraform plan` shows 1 change. Needs a human apply.
+  - **The subscription guard hides an expired login.** It reads a blank `claude exit 1:` as throttling,
+    which hid an expired CLI login and stopped translation from 09-27 until the owner's `/login` on
+    09-30. Fix it in `subscription_guard`.
+  - **Some translations get a model copyright refusal.** 14 work rows are refusal-looped and will be
+    retried; `track_lyrics_translations` `failed` rose from 43 to 54. The refusal rate is unmeasured.
+  - **One non-follow job is stuck on `album_not_in_catalog`**, left over from the pre-measurement.
   **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
   Codex co-authored) sits unmerged on the already-merged #104 branch with no open PR. It fixes the
   pre-existing idle-in-transaction shape in `LyricsIncrementalService`/`LyricsReassessmentService` —

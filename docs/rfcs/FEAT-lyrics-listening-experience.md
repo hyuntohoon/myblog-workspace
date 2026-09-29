@@ -1,11 +1,11 @@
 # FEAT-lyrics-listening-experience: album translation coverage and immediate lyrics access
 
-- **Status**: in-progress (Steps 1–2 complete; Step 3 deployed, final verification in progress)
+- **Status**: in-progress (Steps 1–4 complete; Step 5 deployed but not complete — see the 2026-09-30 audit)
 - **Owner**: site owner
 - **Created**: 2026-09-08
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-listening-experience
 - **Design baseline**: approved by the owner on 2026-09-08; [preserved reference and implementation contract](../design/lyrics-listening-experience/README.md).
-- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. The final gate closed at 2026-09-09 23:22 KST: a real Claude publication completed on the deployed runtime with no manual intervention, and the temporary demand fixture was removed (V57 back to zero rows). Step 3 is complete and production-verified. Step 4's automatic producers are implemented, merged and deployed (2026-09-11), and the cost measurement Step 4 asked for before widening scope was read on 2026-09-13 (record below). Step 5 remains unimplemented and is gated on OQ2–4. This progress record does not promote the RFC lifecycle Status.
+- **Execution state**: Steps 1–2 are complete and production-verified. OQ5/6 were approved on 2026-09-09. Step 3 worker #104 and workspace #1000 are merged; worker deployment and authenticated production smoke passed. Scheduler activation and local runtime rollout are verified. The final gate closed at 2026-09-09 23:22 KST: a real Claude publication completed on the deployed runtime with no manual intervention, and the temporary demand fixture was removed (V57 back to zero rows). Step 3 is complete and production-verified. Step 4's automatic producers are implemented, merged and deployed (2026-09-11), and the cost measurement Step 4 asked for before widening scope was read on 2026-09-13 (record below). Step 5 shipped on 2026-09-18 with OQ2–4 taken as recommended and is deployed and running, but it is **not complete**: the 2026-09-30 audit (under Step 5 delivery) found that back-catalogue albums the catalog does not already hold are never ingested, that the 24 h discography refresh never runs in steady state, and that the post-deploy member/follow/back-catalogue smoke in Step 5's verification list has not been run. This progress record does not promote the RFC lifecycle Status.
 
 ## Goal
 
@@ -145,7 +145,7 @@ Multi-song requests are a later measured option: explicit track identifiers, per
 
 ## Steps
 
-Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. The owner approved OQ6 on 2026-09-09 and Step 2 is now complete, including test/prod migration, consumer deployments and production verification. Step 3 closed on 2026-09-09. Step 4 shipped the automatic producers on 2026-09-11 under the owner's OQ1 delegation (implemented 2026-09-09/10, merged and deployed 2026-09-11); Step 5 has not started and is gated on OQ2–4. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
+Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation closed on 2026-09-09. The owner approved OQ6 on 2026-09-09 and Step 2 is now complete, including test/prod migration, consumer deployments and production verification. Step 3 closed on 2026-09-09. Step 4 shipped the automatic producers on 2026-09-11 under the owner's OQ1 delegation (implemented 2026-09-09/10, merged and deployed 2026-09-11); Step 5 shipped on 2026-09-18 and is deployed but not complete; see the 2026-09-30 audit under Step 5 delivery. Each numbered step is one session boundary under workspace policy; where multiple repositories are named, carry the migration/consumer sequence through the step's separate PRs and verification gates. Recheck fresh service main and related RFCs before starting.
 
 ### Step 1 — Preserve player functionality and add immediate lyrics access
 
@@ -263,9 +263,9 @@ These do not block preserving/merging the approved design. They gate the indicat
 | ID | Decision to settle | Recommended starting point | Blocks |
 |---|---|---|---|
 | OQ1 — resolved 2026-09-09 | Does saved-library demand also include liked tracks expanded to their albums? | Owner delegation: the recommendation was adopted as written. **Saved albums only.** | No remaining decision gate; implemented in Step 4. The liked-track extension stays out until explicitly requested. |
-| OQ2 | Which follow origins survive unfollow and site exclusion? | Manual ∪ Spotify; remove only the relevant origin; keep explicit exclusions against resurrection. | Step 5 reconciliation. |
-| OQ3 | Automatic Spotify follow reconciliation cadence | Bootstrap plus existing 15-minute cycle, with resumable pagination and provider backoff. | Step 5 scheduler behavior. |
-| OQ4 | What releases count as an artist's complete back catalog? | All artist albums/singles/EPs; explicitly decide artist compilations and `appears_on` rather than importing every credited compilation accidentally. | Step 5 enumeration. |
+| OQ2 — resolved 2026-09-13 | Which follow origins survive unfollow and site exclusion? | Recommendation adopted (owner's standing instruction): manual ∪ Spotify; remove only the relevant origin; explicit exclusions against resurrection. | No remaining decision gate; implemented in Step 5 (V58 origins + exclusions). |
+| OQ3 — resolved 2026-09-13 | Automatic Spotify follow reconciliation cadence | Recommendation adopted: bootstrap plus existing 15-minute cycle, with resumable pagination and provider backoff. | No remaining decision gate; implemented in Step 5. The 24 h *refresh* that rides this cadence is unreachable in steady state — see the 2026-09-30 audit. |
+| OQ4 — resolved 2026-09-13 | What releases count as an artist's complete back catalog? | Recommendation adopted: `include_groups=album,single` (EPs arrive inside `single`); compilations and `appears_on` excluded. | No remaining decision gate; implemented in Step 5 as a CHECK constraint and a writer-side filter. |
 | OQ5 — resolved 2026-09-09 | Missing-source retry/terminal classification | Owner approved the recommended ladder and classification below. | No remaining decision gate; implemented in Step 3. |
 | OQ6 — resolved 2026-09-09 | Unsave/unfollow/disconnect effects on unstarted demand and member provenance | Owner approved the recommended removal policy below. | No remaining decision gate; implement in Step 2 and wire producers in Steps 4/5. |
 | OQ7 | Whether to batch Claude songs | Keep per-song calls until a version-safe measured experiment supports a change. | Optional optimization only. |
@@ -1118,7 +1118,103 @@ being picked up. The fix — the nudge also firing on "a refresh is due" — sta
 42 provider pages per 24 h at today's 34 registrations, so it belongs to the owner and not to
 this change.
 
+#### Post-delivery audit (2026-09-30): Step 5 is running, but it is not complete
+
+A reconciliation of this RFC, `docs/plan.md`, the five service `main` branches and
+production, all read-only, on 2026-09-29 15:47–15:57Z. The plan row had said "all five
+steps complete and production-verified". The first half is true of Steps 1–4 only, and the
+second half was never shown for Step 5.
+
+**1. Back-catalogue albums the catalog does not already hold are never ingested.** This
+is the step's headline gap. The follow scope holds 1,082 demands over 1,061 jobs: **372
+resolved, 686 waiting on `album_not_in_catalog`, 3 in other states**. The 686 belong to
+28 followed artists. All were created 2026-09-19 and none has resolved in ten days; the
+catalog ladder re-checks them daily. `_resolve_one_catalog` treats the condition as "the
+album simply has not been ingested yet", but nothing ingests them:
+- The Step 5 enumerator writes only `lyrics_artist_albums`. No path sends an enumerated
+  album that is missing from `albums` to album sync.
+- The only artist → album-sync path, `run_follow_ingest`, belongs to the owner's follow
+  import. It reads a single 50-album page, and only for artists the catalog does not have.
+
+So Step 5 translates the part of a followed artist's discography the catalog already
+held, about 35% of it. That is the "ingested catalog ≠ discography" trap again, this time
+inside the producer rather than inside the estimate. It also means the ≈1,700-translation
+figure in the correction above was never going to be reached as built. The fix is to send
+enumerated albums missing from `albums` to album sync. That costs one Spotify catalog read
+per album plus the translations that follow, so it is an owner cost decision and is not
+made here.
+
+**2. The 24 h refresh still has never run.** Read 2026-09-29 15:47Z: 34/34 registrations
+`complete`, `last_complete_at` 2026-09-19 03:58–04:00Z, all 34 more than ten days past the
+window. This is the defect recorded above and it is unchanged.
+
+**3. Front #446 was missing from this record.** `757b37b` merged and deployed 2026-09-19
+03:43Z. It is Step 5's "follow-read consent/reconsent" leg: the authorize URL asks for
+`user-follow-read`, and `spotifyGrantLacksFollowScope` prompts members who lack it. It also
+carries a fix. Scope generations became an ordered ladder (`spotifyGenerationAtLeast`)
+because three derivations compared by equality, and a member holding the new `follow`
+generation would have had the player's capability matrix switched off. The PR body cites
+`pnpm lint`, `astro check` and `pnpm test` 1227 passed, plus three killed mutants. No
+post-deploy browser clickthrough of #446 is recorded anywhere in the workspace.
+
+**4. Translation stopped for three days, and the stop was reported as throttling.**
+`lyrics_translation_work` rows completed per day:
+
+| 09-19 | 09-20 | 09-21 | 09-22 | 09-23 | 09-24 | 09-25 → 09-30 00:54 KST |
+|---|---|---|---|---|---|---|
+| 193 | 225 | 153 | 222 | 11 | 4 | 0 |
+
+- From 09-27 every claim ended in `claude exit 1:` with empty stderr.
+  `subscription_guard.is_throttle_error` classifies exactly that message as a throttle
+  (the 2026-07-28 rule), so each of roughly 180 claims logged "subscription throttled"
+  and started a 15-minute cooldown.
+- The owner ran `/login` on 2026-09-30. The next claim, at 00:54 KST, published.
+- The cause is therefore an expired CLI login that looked like a rate limit. That is
+  inferred from the recovery rather than from any error text, because the guard discards
+  the CLI's stdout, which is where JSON mode writes errors.
+- The drop on 09-23 to 09-26 is **not** attributed. The poller logged few claims and
+  mostly "no pending translation request" on those days.
+- Follow-up, not fixed here: a blank `exit 1` should not count as a throttle unless the
+  JSON envelope says so.
+
+**5. Some lyrics get a model refusal.** 14 `running` work rows have leases that expired
+2026-09-24/25, with up to 5 attempts each. Their `last_reason` is
+`engine_validation: no JSON array in output:` followed by a Korean-language refusal
+citing lyric copyright. `DUE_WORK_SQL` re-claims expired `running` rows, so they will be
+retried. `track_lyrics_translations` rows with status `failed` rose from 43 to 54. The
+refusal rate has not been measured.
+
+**6. The kill switches in `infra/lambda.tf` are declared but not applied.** The live
+`blogWorkerLambda` has `LYRICS_FOLLOW_DEMAND_ENABLED=true`, left by the console re-enable,
+and no `LYRICS_MEMBER_DEMAND_ENABLED`. Behaviour is the same because both default to true.
+Until a human apply, however, the console value is the only lever, and `terraform plan`
+shows one change.
+
+**7. The artist counts in the correction above do not agree with each other.** The split
+table gives 27 artists and the Resolution line gives 33, both over the same 962 albums. The
+record does not say which is right. Current reading (2026-09-29):
+
+| Measure | Count |
+|---|---|
+| Registrations | 34 |
+| Registrations with at least one enumerated album | 34 |
+| `lyrics_artist_albums` rows | 1,082 |
+| Exclusions | 1 |
+| Track origins | 33 `manual` / 8 `spotify_follow` (the first tick saw 9 follows) |
+
+**8. Step 5's verification list is not met.** It requires a post-deploy
+member/follow/back-catalogue smoke. The recorded evidence is:
+- the generic smoke (30/0);
+- the read-only predicate check for #107.
+
+Neither shows complete eligible coverage, and item 1 shows that coverage is not complete.
+The plan row's "production-verified" is withdrawn for Step 5.
+
 #### The cost is roughly 7x what the pre-measurement projected, and the projection's error is instructive
+
+> **Superseded 2026-09-19 — kept as written, do not act on it.** Both the 7x figure and the
+> "deduplicate editions" lever below were measured wrong; see *Correction (2026-09-19)* above.
+> The "not claimed here" line at the end of this section is still true: see the 2026-09-30 audit.
 
 | | pre-measurement projection | measured on the first pass |
 |---|---|---|
@@ -1174,3 +1270,7 @@ are **not** claimed here. The step is deployed and paused pending that decision.
 | 2026-09-09 | Owner explicitly approved the production Terraform apply. Four demand-source resources were added, post-apply plan has no changes, AWS rule/target/permission/alarm checks passed and authenticated smoke passed 30/0. Real Claude publication remains blocked by the recorded 23:10 KST session-limit reset; Step 3 is not yet complete. | Step 3 activation |
 | 2026-09-09 | Step 3 final gate closed: a real Claude publication completed on the deployed runtime with no manual intervention (throttle -> guard cooldown -> claim kept -> lease expiry -> reclaim -> published), the stored fingerprint matches the read path, both OQ5 arms were observed in production, and the temporary demand fixture was removed leaving all V57 tables at zero. Step 3 is complete and production-verified. Lifecycle Status remains in-progress. | Step 3 delivery |
 | 2026-09-13 | Step 5's required pre-measurement was read from production read-only, 54.4 h after the Step 4 producers' first tick, with the population unchanged at one connected member: 84 demands / 78 jobs / 933 tracks, 334 translation work rows all `done`, and `track_lyrics_translations` 644 -> 972. Split by intent the +328 is **291 member-driven + 37 legacy-path**, against a pre-deploy control of 1-3 rows/day. The translate rate is **35.8%** of enumerated tracks; LRCLIB is not the constraint because all 334 `linked` tracks resolved against pre-existing `track_lyrics`. Bootstrap is a burst, not a rate — 83 of 84 demands landed on day one and the queue drained to zero pending / zero error — so **cost scales with members joining, not elapsed time**. The 78 albums cover 63 artists for whom the catalog already holds **488 albums / 3,794 tracks**, a measured floor of **6.3x albums / 4.1x tracks** for Step 5, projecting ~1,358 Claude translations per member's first pass. Followed artists cannot be sized: there is no follows table in production. No code, schema, route or infra change; Step 5 not started; OQ2-4 remain open and undecided. | Step 5 pre-measurement |
+| 2026-09-18 | Step 5 shipped (shared-db #83/#84, worker #106, backend #178; V58 applied 2026-09-13). OQ2–4 taken as recommended under the owner's standing instruction. The first tick ran for real because Spotify grants are cumulative per (user, app), and the follow producer was paused on a cost estimate that proved wrong. | Step 5 delivery |
+| 2026-09-19 | Owner decision: add Debussy to `user_artist_follow_exclusions` rather than change code; follow producer re-enabled. Front #446 shipped the `user-follow-read` consent and the scope-generation ladder fix. | Step 5 |
+| 2026-09-21 | Owner decision: fence unconsumed discography registrations on the read paths (worker #107) rather than delete them, so a recoverable `invalid_grant` does not cost a re-enumeration. The unreachable 24 h refresh was reported, not fixed: it is a spend decision. | Step 5 |
+| 2026-09-30 | Post-delivery audit: Step 5 is running but not complete. 686 of 1,061 follow jobs wait on albums nothing ingests, the refresh has never run, the Step 5 smoke was never run, and translation was stopped from 09-27 by an expired CLI login that was reported as throttling. The plan row's "production-verified" was withdrawn for Step 5. No Status promotion. | Step 5 audit |
