@@ -149,7 +149,7 @@ Step 1 was authorized and deployed on 2026-09-08 and its live-media confirmation
 
 ### Step 1 — Preserve player functionality and add immediate lyrics access
 
-**Current state:** complete in frontend PR #445; local/full-suite, automated production smoke and live-media verification all passed. Live-media confirmation closed on 2026-09-09. The delivery record retains the browser-cache and unverified browser-fallback observations; neither reopens Step 1.
+**Current state:** complete in frontend PR #445; local/full-suite, automated production smoke and live-media verification all passed. Live-media confirmation closed on 2026-09-09. The delivery record retains the browser-cache and unverified browser-fallback observations; neither reopens Step 1. **Qualified 2026-09-30:** the owner's 2026-09-28 report does reopen two journeys this step's verification never exercised — the cold-home entry while Spotify is already playing externally, and an open viewer following the next track. The historical completion stands as a delivery record, not as proof those journeys work; their repair and acceptance → `OPS-project-stabilization` Step 2A.
 
 **Scope/order:** frontend only, independent of Steps 2–5. Re-audit current-main controls including YouTube; apply the approved styling and direct lyrics entry; extend the existing session lifecycle for entry/return discovery. Update layout offsets to measured responsive height. Do not resume the deferred member widget initiative.
 

@@ -1,12 +1,13 @@
 # OPS-project-stabilization: reconcile progress, repair lyrics reliability, validate real use
 
-- **Status**: draft
+- **Status**: accepted (owner, 2026-09-30; Step 1 delivered in this change)
 - **Owner**: site owner
 - **Created**: 2026-09-28 (rebuilt on `main` 2026-09-30 after the Step 5 post-delivery audit, ws #1013)
 - **Plan row**: `docs/plan.md` → OPS-project-stabilization
 - **Priority**: first planned priority; home-entry and next-track lyrics are the first runtime fix.
-- **Authorization**: planning and priority ordering only. No runtime implementation, recurring-spend
-  activation or lifecycle promotion is implied.
+- **Authorization**: accepted by the owner in-session on 2026-09-30, which authorizes Step 1. Each
+  later step is still a separate session/PR; recurring-spend activation (Step 2C) and promotion to
+  `in-progress` remain explicit owner decisions.
 
 ---
 
@@ -300,6 +301,32 @@ remaining work.
 
 **Rollback:** revert the documentation change; historical evidence is retained.
 
+#### Step 1 execution record — 2026-09-30
+
+Delivered as one workspace PR after owner acceptance. Every item below was re-read on 2026-09-30,
+not carried from the 2026-09-28 analysis.
+
+**Repository heads** (`origin/main`, all equal to the handoff baseline): workspace `9ba84f6`,
+backend `0e2014a`, frontend `757b37b`, music `2c7d791`, worker `e29b669`, shared_db `98875c8`.
+`myblog_shared_db` was read this time (the 2026-09-28 baseline had not inspected it); the only
+finding used below is the absence of any `ApiEngine` caller outside it.
+
+| # | Discrepancy | Resolution (2026-09-30) |
+|---|---|---|
+| 1 | `docs/rfcs/README.md` lyrics row still led with "Steps 4–5 automatic producers remain unimplemented", qualified only by an appended note. | Row rewritten current-answer-first: Steps 1–4 production-verified, Step 5 deployed but not complete, home-entry/next-track reopened. The superseded summary is no longer restated; `git log` holds it. |
+| 2 | Lyrics RFC Step 1 *Current state* said the retained observations "neither reopens Step 1". | Qualified: the owner's 2026-09-28 report reopens the home-entry and next-track journeys; the historical delivery record is kept unchanged. |
+| 3 | `plan.md` lyrics row carried "worker `4d4c181` sits unmerged … Decide whether to PR it" beside a dated correction. | Folded into one current note: the service change is on `main` via #104 (`4ece539`); only the real-DB test is missing → Step 2B. No owner decision is pending on it. |
+| 4 | `SEC-system-hardening` follow-ups 4 (per-service shared_db pin invariants) and 5 (frontend Playwright golden E2E) were in the RFC but absent from the plan row's open list and the RFC index. | Restored to both, in their original order and under `SEC-system-hardening` ownership; neither has started. Item 5 still waits for item 4. |
+| 5 | `CHORE-dep-reproducibility` still asked to "add lockfiles" and replace a SHA dependency with a tag. | Qualified: lockfiles shipped as SEC Step 5 follow-up 3 (2026-08-29; `requirements.lock` present on backend, music and worker `main`), and SHA pins are now the convention (shared_db tags were abandoned). Residuals kept: the unpinned build backend for `myblog-shared-db`, and wildcard `requirements.txt` inputs that still mislead CVE search. |
+| 6 | Multi-user Phase 4 read as shipped. | Kept narrow in both places: owner-central `LLMEngine` scaffolding + V43 metering exist in shared_db; `git grep` over backend, music and worker `main` finds **no `ApiEngine` caller**. The BYOK half remains behind G2. No gate changed. |
+| 7 | Multi-user canonical member URL decision was "necessity-gated while prod `/api/members` is empty — 0 duplicate URLs today". | **That premise is false.** Prod `GET /api/members` returns two members (the owner, 37 ratings; the smoke user, 1); `album_reviews` holds 39 rows from 2 users (2026-08-10 → 08-19). The sitemap lists both static `/members/<handle>/` pages, which canonicalize to themselves; the runtime `/members/?u=<handle>` view canonicalizes to `/members/`. `/profile` redirects to `/members/?me` (front #280). The decision stays deferred and owner-only — only the stated reason is corrected. |
+
+**Unknowns left explicit:** whether the running worker Lambda carries `4ece539` (Step 2B); the
+copyright-refusal rate (Step 2D); the actual owning record of the no-polling rule (finding E, Step 2A).
+
+**Verification:** see the PR body; statuses, links and ownership were checked by hand against the
+files above.
+
 ---
 
 ### Step 2A — Home entry and automatic next-track lyrics
@@ -509,8 +536,8 @@ content.
 
 ## Open questions
 
-1. **RFC lifecycle approval** — keep `draft`; creation and priority ordering did not authorize
-   promotion. Blocks every step's implementation.
+1. ~~**RFC lifecycle approval**~~ — **resolved 2026-09-30**: the owner accepted the RFC in-session
+   (`draft` → `accepted`). Promotion to `in-progress` is a separate owner decision.
 2. **External playback observation policy** — define the latency/mechanism, and locate and reconcile
    the no-polling rule (finding E), before introducing regular polling. Blocks the external-skip part
    of Step 2A, not the rollback fix.
@@ -530,3 +557,4 @@ content.
 | 2026-09-29 | Documentation handoff prepared because the original integration could not write to GitHub (`403 Resource not accessible by integration`). This is not evidence of implementation, deployment or lifecycle promotion. | — |
 | 2026-09-29 | Re-check of worker `main` (`e29b669`) found the `4d4c181` service change already merged via worker #104 (`4ece539`); only its real-DB regression test is missing. Step 2B rescoped from "port" to "prove and confirm deployed". The no-polling rule's "D28" attribution recorded as unresolved (finding E). | 2B, 2A |
 | 2026-09-30 | Rebuilt on workspace `main` `9318958`; the original PR's branch conflicted with #1013 in `docs/plan.md`. The Step 5 post-delivery audit (#1013) was absorbed as the evidence baseline. Findings 1 and 5 were rewritten against it. Step 2C gains the back-catalogue ingestion decision (OQ4), the rollback-lever note and the unrun Step 5 smoke. Step 2D gains the subscription-guard fix and copyright refusals. Worker `4d4c181` finding re-confirmed. Status stays `draft`. | 1, 2C, 2D |
+| 2026-09-30 | **Owner accepted the RFC** in-session (`draft` → `accepted`) and chose Step 1 first. Step 1 delivered; execution record under Step 1. Canonical member URL premise found false (prod `/api/members` non-empty) — recorded, decision not re-opened. | 1 |
