@@ -13,13 +13,13 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > lyrics → other lyrics operational gaps → validate real user journeys. Existing P0/security
 > incidents take precedence. This is planning priority, not runtime implementation approval.
 
-- **OPS-project-stabilization** — **FIRST PLANNED PRIORITY; draft.**
-  <!-- rfc: docs/rfcs/OPS-project-stabilization.md | status: draft -->
-  Step 1: reconcile the remaining plan/RFC/index discrepancies. **Step 2A, first runtime fix:** home
+- **OPS-project-stabilization** — **FIRST PLANNED PRIORITY; accepted 2026-09-30 (owner).**
+  <!-- rfc: docs/rfcs/OPS-project-stabilization.md | status: accepted -->
+  Step 1 (document reconciliation) delivered 2026-09-30; record under Step 1 in the RFC. **Step 2A, first runtime fix:** home
   playback discovery with direct lyrics, and automatic next-track lyrics (the A → B → A rollback).
   Steps 2B–2D: transaction-boundary proof; the catalog refresh and back-catalogue ingestion spend
   decisions; the subscription guard and residual failures. Their evidence baseline is the lyrics
-  Step 5 audit below. Step 3: inspect real user journeys. **Next: RFC acceptance, then Step 1.**
+  Step 5 audit below. Step 3: inspect real user journeys. **Next: Step 2A.**
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
@@ -108,17 +108,17 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   - **The subscription guard hides an expired login.** It reads a blank `claude exit 1:` as throttling,
     which hid an expired CLI login and stopped translation from 09-27 until the owner's `/login` on
     09-30. Fix it in `subscription_guard`.
-  - **Some translations get a model copyright refusal.** 14 work rows are refusal-looped and will be
-    retried; `track_lyrics_translations` `failed` rose from 43 to 54. The refusal rate is unmeasured.
+  - **Some translations get a model copyright refusal.** 14 work rows were refusal-looped at the audit
+    and 5 were still `running` on 2026-09-30; `track_lyrics_translations` `failed` rose from 43 to 54.
+    The refusal rate is unmeasured.
   - **One non-follow job is stuck on `album_not_in_catalog`**, left over from the pre-measurement.
-  **Loose end for the owner:** worker `4d4c181` (*close collector transactions before provider waits*,
-  Codex co-authored) sits unmerged on the already-merged #104 branch with no open PR. It fixes the
-  pre-existing idle-in-transaction shape in `LyricsIncrementalService`/`LyricsReassessmentService` —
-  the known gap Step 3 recorded and deliberately left out of scope. Decide whether to PR it.
-  **Corrected 2026-09-29, re-confirmed 2026-09-30:** the service change in `4d4c181` is already on
-  worker `main`; it went in with the #104 squash (`4ece539`), and the three non-test files diff empty
-  against `e29b669`. Only its real-DB regression test (`tests/test_lyrics_transaction_boundary_db.py`)
-  is missing. Proof and deploy confirmation → `OPS-project-stabilization` Step 2B.
+  **Worker transaction boundary (`4d4c181`) — no owner decision pending** (corrected 2026-09-29,
+  re-confirmed 2026-09-30). The fix for the idle-in-transaction shape in
+  `LyricsIncrementalService`/`LyricsReassessmentService` is already on worker `main` via the #104
+  squash (`4ece539`); the non-test files diff empty against `e29b669`. Only its real-DB regression test
+  (`tests/test_lyrics_transaction_boundary_db.py`) is missing, and whether the running Lambda carries
+  the fix is unverified. Proof and deploy confirmation → `OPS-project-stabilization` Step 2B.
+  (Earlier text called the commit unmerged and asked the owner to decide on a PR; that was wrong.)
   Carry the Step 1 cold-start Spotify 404/browser-fallback observation. Delivery evidence, runtime
   details and exact next scope → `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 
@@ -130,7 +130,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   music with a daily drift workflow). No AWS credential secret exists in any of the six repositories and
   `github-actions-deploy` has zero access keys. Full per-step record → the RFC and `git log`.
 
-  **What is still open — one P0 and one question, both the owner's:**
+  **What is still open — one P0 and one question, both the owner's, plus two ordered follow-ups:**
   - **The AWS root account access keys.** Deleting the `myblog_front` repo secret did not retire the key.
     `AccountAccessKeysPresent = 1` **re-verified 2026-09-03**; the per-key reading from 2026-08-29 is
     `access_key_1` (rotated 2025-11-13, last used 2025-12-10, ap-northeast-2/cloudformation) and
@@ -140,6 +140,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   - **Should `workspace-check` become a required check?** The workspace repo gained a `pull_request`
     workflow in ws #948 and it has passed on eleven PRs; its ruleset still carries only `main-protection`.
     Making it required is an open item, not a decision already taken.
+  - **Step 5 follow-ups 4 and 5 — not started** (restored to this row 2026-09-30; they had dropped out
+    of it). In order, one PR each: **4.** per-service shared_db pin invariants — duplicated pins inside
+    one service fail CI when they drift, cross-service skew stays allowed; **5.** frontend Playwright
+    golden E2E — only after 4, 3–5 mocked-boundary journeys, non-required until repeated PR evidence
+    shows it stable. Follow-ups 1–3 are done (3 = the lockfiles). → the RFC, *Step 5 follow-ups*.
 
 - **FEAT-album-review-authoring** (`docs/rfcs/FEAT-album-review-authoring.md`, accepted) — album
   <!-- rfc: docs/rfcs/FEAT-album-review-authoring.md | status: accepted -->
@@ -256,7 +261,7 @@ Items with no remaining implementation, kept visible because dropping them would
 
 ### P2 — 실사용자 증거 후
 
-- **CHORE-dep-reproducibility** — `myblog_backend` + `myblog_music`. Add lockfiles and pin `fastapi`/`boto3`/`SQLAlchemy`; replace backend non-tag SHA dependency with a tag. Trigger: another deployment 500 caused by dependency drift. Current additive convention remains accepted until then. Additional 2026-07-26 evidence: `SQLAlchemy==2.*` and `psycopg[binary]==3.*` re-resolve on deploy and wildcard strings create misleading CVE-search results. Dependency *notification* is separate → `OPS-safety-net-drift` Step 4.
+- **CHORE-dep-reproducibility** — **Lockfiles done 2026-08-29** as `SEC-system-hardening` Step 5 follow-up 3: `requirements.lock` is the bundle input on backend, music and worker, so the "add lockfiles and pin" half is complete, and the "replace SHA with tag" half is superseded (shared_db tags were abandoned; SHA pins are the convention). **Residual:** `myblog-shared-db` is still built on the runner from an unpinned build backend (needs a hashed wheel), and the wildcard `requirements.txt` inputs (`SQLAlchemy==2.*`, `psycopg[binary]==3.*`, bare `fastapi`/`boto3`) still mislead CVE search. Original 2026-07-23 scope: `myblog_backend` + `myblog_music`, add lockfiles and pin `fastapi`/`boto3`/`SQLAlchemy`; replace backend non-tag SHA dependency with a tag. Trigger: another deployment 500 caused by dependency drift. Current additive convention remains accepted until then. Additional 2026-07-26 evidence: `SQLAlchemy==2.*` and `psycopg[binary]==3.*` re-resolve on deploy and wildcard strings create misleading CVE-search results. Dependency *notification* is separate → `OPS-safety-net-drift` Step 4.
 
 - **DISCOVERY-flow** (**hypothesis; rejected for now**) — potential `signup → import → Buckit → publish → discovery` investment. Current evidence remains insufficient: published content, other-user activity, and public collections are too sparse for discovery investment to be meaningful. Re-evaluate only after real-user + content evidence. What the product's core flow should be remains an owner strategy decision.
 
@@ -409,7 +414,7 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 - **FEAT-youtube-playback-provider** (**Milestone A shipped and production-verified 2026-09-06; owner actions / Phase 0-B remain**) — A3 selection UI and A4 frontend shipped in [front #444](https://github.com/hyuntohoon/myblog_front/pull/444), `9aea4d7`; deployed smoke **30/0**, real Spotify and YouTube play/pause/seek verified, test mapping deleted. Verification record → `docs/rfcs/FEAT-youtube-playback-provider.md` Step A4. RFC Status stays `in-progress` pending an explicit owner decision. Owner-only: rotate and API-restrict SSM `/myblog/youtube` (OQ6), and read the actual daily `search.list` quota in Console (operational follow-up, not a release gate). **Milestone B remains closed: no design or code before Phase 0-B GO.**
 
-- **FEAT-multi-user-accounts** (**in-progress since 2026-07-07; all remaining work is owner-only**) — multi-user platform: Google+Kakao signup, public album ratings, per-user buckets, Last.fm/Spotify member listening, `LLMEngine`. Phases 0–4 + P3b/3c + library user-scope + 07-14 surface-audit remediation + profile-merge PR1–3 are SHIPPED & prod-verified. Read "Phase 4 SHIPPED" narrowly: the owner-central `LLMEngine` interface/CLI/API skeleton + usage metering exists, but **no caller is wired to the API engine yet**; the first user-facing AI call belongs to `FEAT-album-review-authoring`. Existing rating behavior remains unchanged. **Every remaining item needs the owner, not Claude**: launch gates G1/G2 (≥10 reviews by ≥5 non-owner users within 4 weeks of public launch), Google brand verification, Kakao production review, OAuth secret reissue, owner live-login `returnTo` observation, and the necessity-gated canonical member URL decision (`/members/?u=` vs `/members/[handle]`). Owner deferred launch work 2026-07-20; **do not re-prompt without a new trigger.** → `docs/rfcs/FEAT-multi-user-accounts.md`.
+- **FEAT-multi-user-accounts** (**in-progress since 2026-07-07; all remaining work is owner-only**) — multi-user platform: Google+Kakao signup, public album ratings, per-user buckets, Last.fm/Spotify member listening, `LLMEngine`. Phases 0–4 + P3b/3c + library user-scope + 07-14 surface-audit remediation + profile-merge PR1–3 are SHIPPED & prod-verified. Read "Phase 4 SHIPPED" narrowly: the owner-central `LLMEngine` interface/CLI/API skeleton + usage metering exists, but **no caller is wired to the API engine yet**; the first user-facing AI call belongs to `FEAT-album-review-authoring`. Existing rating behavior remains unchanged. **Every remaining item needs the owner, not Claude**: launch gates G1/G2 (≥10 reviews by ≥5 non-owner users within 4 weeks of public launch), Google brand verification, Kakao production review, OAuth secret reissue, owner live-login `returnTo` observation, and the canonical member URL decision (`/members/?u=` vs `/members/[handle]`). **Corrected 2026-09-30:** that decision was deferred on the premise that prod `/api/members` is empty, so no duplicate URLs exist; it is not — the owner (37 ratings) and the smoke user (1) both have prebuilt static pages in the sitemap, alongside the runtime `?u=` view, which canonicalizes to `/members/`. The decision itself stays deferred and owner-only. Re-verified 2026-09-30: no service calls `ApiEngine`. Owner deferred launch work 2026-07-20; **do not re-prompt without a new trigger.** → `docs/rfcs/FEAT-multi-user-accounts.md`.
 
 - **SEO-review-structured-data 첫 발행 검증** — implementation DONE 2026-07-19 and RFC archived. `Review` + `MusicAlbum` JSON-LD is already generated and locally validated. **Trigger = first production review publication** → run Rich Results Test once against the real published URL. → `docs/archive/done/rfcs/SEO-review-structured-data.md`.
 
