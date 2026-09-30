@@ -1,13 +1,14 @@
 # OPS-project-stabilization: reconcile progress, repair lyrics reliability, validate real use
 
-- **Status**: accepted (owner, 2026-09-30; Step 1 delivered in this change)
+- **Status**: in-progress (Step 2A) — owner approved in-session 2026-09-30; Step 1 delivered; Step 2A's rollback part deployed, real-device gate open
 - **Owner**: site owner
 - **Created**: 2026-09-28 (rebuilt on `main` 2026-09-30 after the Step 5 post-delivery audit, ws #1013)
 - **Plan row**: `docs/plan.md` → OPS-project-stabilization
 - **Priority**: first planned priority; home-entry and next-track lyrics are the first runtime fix.
-- **Authorization**: accepted by the owner in-session on 2026-09-30, which authorizes Step 1. Each
-  later step is still a separate session/PR; recurring-spend activation (Step 2C) and promotion to
-  `in-progress` remain explicit owner decisions.
+- **Authorization**: accepted by the owner in-session on 2026-09-30, which authorized Step 1.
+  Promoted to `in-progress` by the owner in-session on 2026-09-30, authorizing Step 2A. Each later
+  step is still a separate session/PR; recurring-spend activation (Step 2C) remains an explicit
+  owner decision.
 
 ---
 
@@ -393,6 +394,53 @@ verification evidence.
 **Rollback:** revert this frontend change independently; keep the defect record. No production data
 migration is planned.
 
+
+#### Step 2A execution record — 2026-09-30 (rollback part)
+
+**Scope delivered:** findings B and C — acceptance cases 3, 4, 6 and 7. Front #447, merged as
+`048fc31`. **Not delivered:** home discovery (finding A, case 1–2); external-skip detection latency
+(case 5 — blocked on OQ2 / finding E); case 8 (pause/repeat/background/multi-tab/account/provider)
+beyond the paths the regression suite already touches.
+
+**What changed:**
+
+- **B.** The viewer's Spotify read goes through the new `playbackSession.observeLive()` →
+  `adoptLive()`, so an observation of B becomes the session's B under the existing fences — the
+  same single request in the owner tab. `observeLive()` does not read while the session is
+  settling a command or a boundary. A mirror tab reads for itself and forwards a sync to the owner
+  only when its answer disagrees. The adoption effect refuses a session identity whose anchor
+  predates the viewer's own read (latest confirmed wins); an anchor-less identity is adopted as
+  before.
+- **C.** End detection runs on its own song clock, independent of the lyric scheduler, as a bounded
+  burst (4 × 500 ms). **The session's `confirmCompletion` no longer settles on `idle`:** a
+  transitional idle between tracks used to stop it while the next song was about to start. The
+  viewer and session now share one settle rule; the viewer defers to a running session burst and
+  follows its outcome, including a genuine stop.
+
+**Verification (Verified locally / Deployed; real-device gate open):**
+
+- Front `pnpm lint`, `astro check`, `pnpm test` (111 files, 1252 passed, 0 skipped) and required
+  `check`, all on the merged head. A mounted-component regression suite (18 tests, no remount)
+  fails 12/13 of its original cases against the pre-fix component, including the isolated row
+  "provider B, session A". 12 mutants over the fix were each killed.
+- Independent `reviewer` pass found one blocker (the session burst settling on transitional idle
+  stranded a deferring viewer) and three should-fixes. All four were fixed before merge, each with a
+  test that fails without the fix.
+- Real-browser clickthrough (stub backend, in-page Spotify stub with a lag window at each boundary):
+  - **Control, `757b37b`:** the one end read landed in the lag window, got A, and nothing asked
+    again. Viewer and Global Player stayed on A while B played.
+  - **Fix:** reads `26.50:A · 27.03:A · 27.55:A · 28.08:B`; viewer and bar on B at 28.3 s.
+    Plain-lyrics B's end detected. Genuine stop: 4 idle reads, then none.
+- Deploy run `36660035883` success. Production smoke 30/0. New-bundle marker (`"superseded"`,
+  `"mirror"`: 0 in source at `757b37b`, present in the deployed `session` and `PlaybackPanel`
+  chunks). Evidence comment on front #447.
+
+**Open gate (Unverified):** authenticated real-Spotify evidence on the deployed revision —
+observed identity, transition timing and request counts on a real device, for a natural end, an
+external-app skip, the viewer's ⏭ and a genuine stop. Needs the owner's account and device. Step
+2A's Exit (`FEAT-lyrics-listening-experience` records the corrected evidence) waits on it and on
+the undelivered parts above.
+
 ---
 
 ### Step 2B — Worker transaction boundaries
@@ -557,4 +605,5 @@ content.
 | 2026-09-29 | Documentation handoff prepared because the original integration could not write to GitHub (`403 Resource not accessible by integration`). This is not evidence of implementation, deployment or lifecycle promotion. | — |
 | 2026-09-29 | Re-check of worker `main` (`e29b669`) found the `4d4c181` service change already merged via worker #104 (`4ece539`); only its real-DB regression test is missing. Step 2B rescoped from "port" to "prove and confirm deployed". The no-polling rule's "D28" attribution recorded as unresolved (finding E). | 2B, 2A |
 | 2026-09-30 | Rebuilt on workspace `main` `9318958`; the original PR's branch conflicted with #1013 in `docs/plan.md`. The Step 5 post-delivery audit (#1013) was absorbed as the evidence baseline. Findings 1 and 5 were rewritten against it. Step 2C gains the back-catalogue ingestion decision (OQ4), the rollback-lever note and the unrun Step 5 smoke. Step 2D gains the subscription-guard fix and copyright refusals. Worker `4d4c181` finding re-confirmed. Status stays `draft`. | 1, 2C, 2D |
+| 2026-09-30 | **Owner promoted the RFC to `in-progress`** in-session and chose the Step 2A rollback part first (cases 3, 4, 6, 7; OQ2-independent). Delivered as front #447 (`048fc31`); record under Step 2A. Review changed the session's boundary burst: `idle` is no longer a settled answer. | 2A |
 | 2026-09-30 | **Owner accepted the RFC** in-session (`draft` → `accepted`) and chose Step 1 first. Step 1 delivered; execution record under Step 1. Canonical member URL premise found false (prod `/api/members` non-empty) — recorded, decision not re-opened. | 1 |
