@@ -29,7 +29,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   Step 5 audit below. Step 3: inspect real user journeys. **Step 2B proved 2026-10-01** with no
   worker change: the regression test was already on `main`, each `commit()` mutant fails it on its
   assertion, and the deployed bundle equals `e29b669`; what it does not establish is listed in the
-  RFC record. **Next: the 2A real-device gate (owner) and Step 2C.**
+  RFC record. **Step 2C measured and decided 2026-10-01, not implemented:** the owner approved the
+  24 h refresh (42 provider pages a day) and back-catalogue ingestion for popularity ≥ 20 only (374
+  of the 686 waiting releases, ≈ 1,000 translations) with `MAX_CATALOG_ALBUMS` raised — all 686
+  would put `albums` at 5,474 against a cap of 5,000 and stop the daily new-release sweep. Nothing
+  is activated; the measurement, the three scopes and what the implementation leg inherits are in
+  the RFC record. **Next: the 2A real-device gate (owner) and the Step 2C implementation leg.**
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).

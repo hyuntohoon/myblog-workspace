@@ -274,6 +274,11 @@ the interval, is a change to this record.
    - **Model copyright refusals.** `track_lyrics_translations` `failed` is 54 (was 43). Work rows
      re-claimed after `engine_validation: no JSON array in output:` refusals: 14 at the audit, 5
      still `running` on 2026-09-30. The refusal rate is unmeasured.
+     **Corrected 2026-10-01 (Step 2C read):** the `failed` rows are not refusals. Of 52, 51 are
+     `korean_source` (the legacy path's way of recording a Korean original) and 1 is a malformed
+     JSON reply. The refusals live in `lyrics_translation_work`: 23 rows in `retryable_error`,
+     every one at 9 attempts with an `engine_validation: no JSON array in output:` refusal text,
+     against 1,433 `done` — 1.6% of work rows, still being retried.
    - **Step 5 verification list unmet.** The post-deploy member/follow/back-catalogue smoke was never
      run.
    - **`infra/lambda.tf` kill switches declared but unapplied.** Until a human `terraform apply`, the
@@ -719,6 +724,110 @@ budget means unresolved/deferred, not complete.
 **Rollback:** disable the relevant follow-demand producer/consumer, confirm fencing, then revert if
 needed. Preserve data/checkpoints and the separate saved/recent producer switch.
 
+**Execution record (2026-10-01) — measurement leg and owner decisions; nothing activated, no code.**
+
+Read-only against production at 2026-10-01 05:22Z, worker `main` `e29b669`. Nothing was written
+and no registration was made due. Outside reads: 35 Spotify `GET /albums` calls (client
+credentials, the 686 waiting ids, results kept local) and 74 LRCLIB `/api/search` calls.
+
+*Current state, re-read before measuring.* 34/34 registrations `complete`, `last_complete_at`
+2026-09-19 03:58–04:00Z, none due, all 34 consumed under `_CONSUMED`, all 34 catalogued. Follow
+scope: 1,082 demands over 1,061 jobs — 372 resolved, **686 `album_not_in_catalog` (28 artists)**,
+2 `album_partially_ingested`, 1 `album_has_no_tracks`. One connected Spotify member. Findings 3
+and 5 hold as written, except the refusal count (corrected under finding 5).
+
+**Refresh.**
+
+| Measure | Value | Basis |
+|---|---|---|
+| Spotify pages per pass | **42** | `sum(max(1, ceil(album_total / 50)))` over the 34 registrations; 7 need 2–3 pages, largest `album_total` 132 |
+| Runs per pass | 4 chained | `LYRICS_DISCOGRAPHY_ARTISTS_PER_RUN=10`, hop cap 20 |
+| Retries | ≤ 3 attempts per page in `_request_with_retry`; a failed page defers 900 s and keeps its checkpoint | code |
+| Cadence | `LYRICS_DISCOGRAPHY_REFRESH_HOURS=24` → 42 pages/day | config |
+| New releases it would find | **98 in the 365 days before enumeration** (≈ 2/week) | `release_date ≥ 2025-09-19`: 74 already in `albums`, 24 among the waiting 686 |
+| LRCLIB / Claude | ≈ 300 tracks and ≈ 160 translations a year | extrapolated from the 24 waiting recent releases (64 tracks) and the per-artist rates below — an estimate, not a measurement |
+
+Without the refresh a new release can reach the catalog and still create no lyrics demand, because
+demand is derived from `lyrics_artist_albums`. With the refresh but without the ingestion fix, a
+release the catalog does not hold joins the `album_not_in_catalog` pile. The two are coupled.
+
+**Back-catalogue (the 686).**
+
+| Cost | Value | Basis |
+|---|---|---|
+| Spotify | 35 `GET /albums` calls (20 ids each), plus `get_artists` batches for new artists without a photo | `sync_albums_batch` |
+| Catalog rows | 686 albums (64 `album`, 622 `single`), **2,064 tracks**, none truncated at 50, none already in `tracks` | the 35 reads |
+| LRCLIB | 2,064 first lookups, one `/api/search` each; the not-found share then joins the retry ladder | `LrclibClient.search_candidates` |
+| Claude | **≈ 1,100–1,200 translations** | two methods, below |
+
+*Translations were not taken from the catalog's rate.* Two estimates, both specific to these
+artists:
+
+- **Per-artist measured outcome.** The 3,059 follow tracks the catalog already held split as
+  29.6% translated (`linked` 659 + `already_translated` 245), 65.4% `not_found`, 3.7%
+  `korean_source`, 1.3% `no_lyrics` — and the aggregate describes no artist. Charli xcx, The
+  Weeknd, Mac Miller, Olivia Rodrigo, Lorde, sombr, Frank Ocean and Radiohead translate at
+  93–100%; the Korean hip-hop artists (B-Free, Paloalto, Sik-K, Kid Milli, CHANGMO, Legit Goons,
+  Skyminhyuk, JDL, Bassagong) at 0–8%, because LRCLIB does not have them or the source is Korean;
+  Michael Korstick, a classical pianist, at 0% of 925. Applying each artist's own rate to their
+  waiting tracks gives **1,094**. One artist (Yu Su, 54 tracks) has no resolved tracks and is
+  counted as 0.
+- **Direct LRCLIB sample**, seeded, of the waiting tracks: 27 of 30 from the high-rate artists and
+  4 of 20 from the rest returned a duration-matched non-Korean body → 1,103 × 0.90 + 961 × 0.20 ≈
+  **1,185**. The second stratum is n = 20 and wide. **Control in the same pass:** 24 tracks with a
+  known pipeline outcome — 8/8 `linked`, 7/8 `korean_source`, 7/8 `not_found` reproduced (22/24).
+  The probe is `/api/search` plus a ±3 s duration filter, not `decide_match`, so it runs slightly
+  lenient.
+
+*Three things the count alone hides.*
+
+1. **`MAX_CATALOG_ALBUMS = 5000`.** `albums` is 4,788. All 686 make it 5,474, and
+   `run_album_ingest` returns before sweeping once the cap is reached — which stops the daily
+   new-release sweep and the release-calendar confirmation that only that sweep drives. The cap is
+   checked only there; `sync_albums_batch` would write straight past it.
+2. **312 of the 686 are below `ALBUM_POP_MIN = 20`**, the gate the scheduled ingest already
+   applies. They carry ≈ 93 of the translations.
+3. **468 of the 2,064 tracks (23%) repeat a title** the catalog already holds for that artist or
+   that appears earlier in the 686 — singles and remix bundles. Reuse is per track
+   (`already_translated` compares this track's own published row), so each is a separate model
+   call. Excluding them leaves ≈ 713. Title equality is a proxy; ISRC was not read.
+
+| Scope | Releases | Tracks | Translations (per-artist rate) | `albums` after |
+|---|---|---|---|---|
+| All | 686 | 2,064 | ≈ 1,094 | 5,474 |
+| Popularity ≥ 20 | 374 | 1,239 | ≈ 1,002 | 5,162 |
+| `album` group only | 64 | 930 | ≈ 521 | 4,852 |
+
+Claude is a shared subscription, not a metered bill: the poller has completed 150 work rows per
+active day on average (maximum 270), so ≈ 1,000 is about a week of that budget.
+
+**Owner decisions (2026-10-01, in-session).**
+
+- **Refresh: approved at 24 h** — 42 provider pages a day at today's 34 registrations.
+- **Back-catalogue: approved for releases with popularity ≥ 20 only** (374 of the 686, ≈ 1,000
+  translations), with the catalog cap raised to make room. Step 5's follow coverage is therefore
+  recorded as *complete within the existing curation gate*, not complete: the 312 releases under
+  the gate stay out by decision.
+
+**What the implementation leg inherits.** Not started; a separate session and worker PR.
+
+- Popularity is not in the `/artists/{id}/albums` listing, so the gate is applied to the
+  `GET /albums` response — all waiting ids are read, only those passing are written.
+- The releases under the gate need a resting disposition. Today they would stay
+  `album_not_in_catalog` and be re-checked on the catalog ladder for ever.
+- The new `MAX_CATALOG_ALBUMS` value is not chosen. 5,162 is the floor; the catalog was 212 short
+  of the cap before this decision.
+- The rollback lever is still the console value of `LYRICS_FOLLOW_DEMAND_ENABLED`; the
+  `infra/lambda.tf` switches remain unapplied.
+- This step's Verification list is untouched: nothing here was activated, so none of it is met.
+
+**Observed while measuring, not acted on (Step 2D).**
+
+- Michael Korstick: 925 resolved tracks, 913 `not_found`, 12 `no_lyrics`, none translated — the
+  Debussy shape. He is 46% of the 2,002 follow tracks on the LRCLIB retry ladder (gaps of 8 and 16
+  days today). `user_artist_follow_exclusions` would stop it with no code change; that is the
+  owner's call and was not asked.
+
 ---
 
 ### Step 2D — Residual failures
@@ -786,10 +895,11 @@ content.
    exception and its bounds are owned by finding E; delivered as front #449. *History: the
    question was to define the latency/mechanism and reconcile the no-polling rule before
    introducing regular polling; the bounded discovery retry (front #448) did not answer it.*
-3. **Recurring catalog refresh cadence and spend** — decide from Step 2C measurements. Does not block
-   frontend repair.
-4. **Back-catalogue ingestion spend** (added 2026-09-30) — whether to send the 686 waiting `follow`
-   albums (28 artists) to album sync. Decided separately from OQ3, from Step 2C measurements.
+3. ~~**Recurring catalog refresh cadence and spend**~~ — **resolved 2026-10-01** (owner,
+   in-session): approved at 24 h, measured at 42 provider pages a day. Record under Step 2C.
+4. ~~**Back-catalogue ingestion spend**~~ (added 2026-09-30) — **resolved 2026-10-01** (owner,
+   in-session): approved for releases with popularity ≥ 20 only — 374 of the 686 waiting `follow`
+   albums — with the catalog cap raised. The 312 under the gate stay out. Record under Step 2C.
 5. **Next product investment** — decide after Step 3 rather than from old usage counts.
 
 ## Decisions log
@@ -807,3 +917,4 @@ content.
 | 2026-10-01 | Owner chose the Step 2A home-discovery part (finding A, cases 1–2). No-polling rule located — a convention without a single owning record (finding E); the bounded retry after a failed read reconciled there. Delivered as front #448; record under Step 2A. | 2A |
 | 2026-09-30 | **Owner accepted the RFC** in-session (`draft` → `accepted`) and chose Step 1 first. Step 1 delivered; execution record under Step 1. Canonical member URL premise found false (prod `/api/members` non-empty) — recorded, decision not re-opened. | 1 |
 | 2026-10-01 | **OQ2 resolved by the owner:** external changes are observed by a conditional 10 s read while the lyrics viewer is open (option A of three). This reverses, for song identity and observed discontinuities only, the 2026-08-01 acceptance of the "phone operated while the tab stays visible" gap; the no-periodic-re-sync rule itself stands (an agreeing read changes nothing). Owner also confirmed watching a paused track for 5 minutes. Finding E now owns the exception. Delivered as front #449. | 2A |
+| 2026-10-01 | **OQ3 and OQ4 resolved by the owner** from the Step 2C read-only measurement. Refresh approved at 24 h (42 pages/day). Back-catalogue approved for popularity ≥ 20 only (374 of 686 releases, ≈ 1,000 translations) with `MAX_CATALOG_ALBUMS` raised; follow coverage is recorded as complete within the curation gate, not complete. Nothing activated; implementation is a separate leg. Finding 5's refusal count corrected. | 2C, 2D |
