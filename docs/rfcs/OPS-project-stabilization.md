@@ -488,7 +488,7 @@ finding A6 (the profile `NowPlaying` fallback) — unchanged.
   so the Global Player moves too) and opens that; it falls back to the stored identity only when the
   read fails or the session is settling a command or boundary.
 
-**Verification (Verified locally; deployment pending at time of writing):**
+**Verification (Verified locally / Deployed; real-device gate open):**
 
 - Front `pnpm lint`, `astro check`, `pnpm test` (111 files, 1294 passed, 0 skipped) on HEAD
   `8d09494`; 42 new tests. Mutation: 27 of 29 mutants over the new logic killed; the two survivors
@@ -517,6 +517,11 @@ finding A6 (the profile `NowPlaying` fallback) — unchanged.
     Covered by unit tests and mutants instead.
 - Found, not fixed (pre-existing, outside 2A): at 360 px the lyrics viewer's ✕ extends to x=370 on
   origin/main as well.
+
+- Deployed: merged as front `9dd3546`, deploy run `36806429741` success. New-bundle markers (0 in
+  source at `048fc31`) present in production: the pill text and class in `PocketBuckit.*.js/.css`,
+  the retry delays `2e3,5e3,15e3` in `session.*.js` (56 assets crawled to a fixed point).
+  Production smoke 30/0. Evidence comment on front #448.
 
 **Open gate (Unverified):** authenticated real-Spotify evidence on the deployed revision, for a
 connected member and the owner, desktop and mobile: home entry during phone playback, an initial
