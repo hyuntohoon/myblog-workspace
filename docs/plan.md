@@ -19,10 +19,14 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   playback discovery with direct lyrics, and automatic next-track lyrics (the A → B → A rollback).
   **2A rollback part deployed 2026-09-30** (front #447, cases 3/4/6/7); real-device evidence still
   open. **2A home-discovery part deployed 2026-10-01** (front #448, finding A, cases 1/2);
-  real-device evidence open for both parts. Remaining 2A: external-skip latency (blocked on OQ2).
+  real-device evidence open for both parts. **2A external-skip part deployed 2026-10-01** (front
+  #449, case 5): OQ2 resolved by the owner — a conditional 10 s read while the lyrics viewer is
+  open; the exception to the no-polling rule is owned by finding E in the RFC. **2A's Exit still
+  waits on the owner's real-device evidence for all three parts** (and on case 8 beyond what the
+  suites touch); it is not closed by these deploys.
   Steps 2B–2D: transaction-boundary proof; the catalog refresh and back-catalogue ingestion spend
   decisions; the subscription guard and residual failures. Their evidence baseline is the lyrics
-  Step 5 audit below. Step 3: inspect real user journeys. **Next: Step 2A.**
+  Step 5 audit below. Step 3: inspect real user journeys. **Next: the 2A real-device gate (owner) and Step 2B.**
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).

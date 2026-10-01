@@ -198,6 +198,35 @@ next read is again 1:1 with a lifecycle event or a press. It is **not** an obser
 for playback that was read successfully — an external skip remains undetected until the next event,
 and that question stays OQ2.
 
+**Owning record of the exception (2026-10-01, OQ2 resolved).** Since no single record owned the
+no-polling rule, this paragraph owns its one exception. The rule itself is unchanged everywhere
+else: no surface polls playback, and the permitted-trigger list above still governs.
+
+*The exception.* While the lyrics viewer is open, `playbackSession` reads `GET /v1/me/player` every
+**10 s** (`EXTERNAL_WATCH_INTERVAL_MS`). A timer exists only while all of these hold: a surface
+asked for the watch (today only the open lyrics viewer); the page is visible; this tab may adopt
+(the owner tab, or any tab while nobody owns playback); a track is known; the audio is not this
+tab's in-page SDK device (which pushes); the provider is Spotify.
+
+*Why it does not contradict the owner's 2026-08-01 statement.* That decision was about the sync
+**anchor** — "싱크는 한번 맞으면 안 바뀌는게 맞아", drift ≈ 10 ms per track, so only events invalidate
+it. It still holds: a read that agrees with the session changes nothing (no patch, no re-anchor, no
+re-render). The watch exists because some events never reach a visible tab — a skip, seek or pause
+made in another Spotify client — and it re-anchors only when it observes one: another track, a
+play/pause flip, or a position more than 2 s from where the clock says it should be. The same RFC
+recorded exactly this gap as "Residual gap, accepted … Widening this would require polling";
+the owner has now widened it.
+
+*Bounds.* A paused track is watched for 5 minutes, then left until the next event (owner confirmed
+in-session: without it a phone pause is seen and the phone resume never is). 401/403/429, or three
+failures in a row, stop it until some other read gets an answer. One `idle` read is not adopted; it
+goes to the boundary burst. Cost: ≈ 24 reads per 4-minute song per open, visible viewer, against 1
+before.
+
+*Not covered, by decision.* A mirror tab; a page with no viewer open (the bar alone); playback
+that starts from nothing while the session is idle. Adding a second watcher surface, or changing
+the interval, is a change to this record.
+
 ### Other stabilization findings
 
 1. **Progress documents disagree — partly resolved 2026-09-30.** Workspace #1013 corrected the
@@ -377,7 +406,9 @@ Highest runtime priority. Frontend first.
 
 **Policy:** define a measurable external-skip detection latency and the mechanism that supports it.
 The frontend's no-polling rule (cited as D28; see finding E) forbids regular playback polling;
-reconcile any proposed change in the owning record before introducing an interval. Do not promise
+reconcile any proposed change in the owning record before introducing an interval. *(Resolved
+2026-10-01: target — the open viewer is on the new song within one 10 s interval plus the read;
+mechanism and its record — finding E.)* Do not promise
 immediate external detection from lifecycle events alone. Playback observation is separate from the
 worker catalog refresh and its spend gate.
 
@@ -527,6 +558,52 @@ finding A6 (the profile `NowPlaying` fallback) — unchanged.
 connected member and the owner, desktop and mobile: home entry during phone playback, an initial
 failure, and the natural end of an adopted song. Same owner-device gate as the rollback part.
 
+#### Step 2A execution record — 2026-10-01 (external-skip part, OQ2)
+
+**Scope:** acceptance case 5, external skip — the part blocked on OQ2. Front #449, merged as
+`c7994a3`. The viewer's ⏭ and rapid A → B → C were delivered with the rollback part. **Still not
+delivered:** case 8 beyond what the suites touch; finding A6.
+
+**Decision (owner, in-session):** offered a conditional periodic read (A), a read on user input
+inside the viewer (B), and no change with the limit recorded (C). Owner chose **A at 10 s**. During
+implementation the "only while playing" condition was widened to "a paused track for 5 minutes";
+the owner confirmed that before merge. Record: finding E.
+
+**What changed:** `playbackSession.watchExternalPlayback()` — a ref-counted, quiet watch owned by
+the session; the viewer asks for it while bound to live playback and releases it on close, and
+spends no read of its own. A detected change is adopted through the ordinary `adoptLive()` with the
+read that saw it, under the existing fences.
+
+**Verification (Verified locally / Deployed; real-device gate open):**
+
+- Front `pnpm lint`, `astro check`, `pnpm test` (111 files, 1321 passed, 0 skipped; 27 new) and the
+  required `check` on the PR head.
+- Mutation: 29 mutants over the new logic, 28 killed. The first pass left 10 survivors — the tests
+  were tightened for 9 and one redundant guard was removed. The remaining survivor is equivalent
+  (the YouTube guard: a YouTube session is `rung: 'in-page'` and already excluded).
+- Real-browser clickthrough (stub backend; in-page Spotify stub mutated at runtime; 240 s songs so
+  no boundary interferes; origin/main `9dd3546` as control). Home → 가사 → the "phone" skips to B:
+  - **Control:** reads `1.5:A 6.3:A`, then none; viewer and bar on Song A 30 s after the skip.
+  - **Fix:** skip at 4.4 s → reads `12.7:B 22.7:B 32.7:B`; viewer and bar on B at the first of
+    them (8.3 s after the skip), on the line B's own position implies.
+  - Phone seek → re-anchored at the next read. Phone pause → shown paused, line held across two
+    further reads. Phone resume → following again. 429 → one failed read, then none for 25 s;
+    manual ↻ answered → the cadence resumed. Viewer closed → 0 reads in 22 s.
+  - Not exercised in the browser: a hidden tab (unit-tested).
+- No independent `reviewer` pass: no contract, infra or auth touch, so not mandatory; skipped
+  deliberately. The two earlier parts each had one, and each found defects — weigh this record
+  accordingly.
+- Deployed: deploy run `36814741411` success. `watchExternalPlayback` (0 in source at `9dd3546`)
+  present in production `session.*.js` and `PlaybackPanel.*.js` (54 assets crawled to a fixed
+  point). Production smoke 30/0. Evidence comment on front #449.
+
+**Open gate (Unverified):** real-Spotify evidence on a real device — an external-app skip, seek,
+pause and resume with the viewer open: identity, latency against the 10 s target, and request
+count. Same owner-device gate as the two parts above. Two things only a real device can show: how
+far Spotify's reported `progress_ms` strays from the session's clock on an untouched song (if it
+exceeds 2 s the watch re-anchors on agreement, which is the behaviour the 2026-08-01 decision
+rejected), and whether the read rate draws a 429.
+
 ---
 
 ### Step 2B — Worker transaction boundaries
@@ -672,10 +749,11 @@ content.
 
 1. ~~**RFC lifecycle approval**~~ — **resolved 2026-09-30**: the owner accepted the RFC in-session
    (`draft` → `accepted`). Promotion to `in-progress` is a separate owner decision.
-2. **External playback observation policy** — define the latency/mechanism, and locate and reconcile
-   the no-polling rule (finding E), before introducing regular polling. Blocks the external-skip part
-   of Step 2A, not the rollback fix. *2026-10-01: rule located (finding E); the bounded discovery
-   retry is reconciled there and does not answer this question.*
+2. ~~**External playback observation policy**~~ — **resolved 2026-10-01** (owner, in-session): a
+   conditional 10 s read while the lyrics viewer is open, quiet unless something changed. The
+   exception and its bounds are owned by finding E; delivered as front #449. *History: the
+   question was to define the latency/mechanism and reconcile the no-polling rule before
+   introducing regular polling; the bounded discovery retry (front #448) did not answer it.*
 3. **Recurring catalog refresh cadence and spend** — decide from Step 2C measurements. Does not block
    frontend repair.
 4. **Back-catalogue ingestion spend** (added 2026-09-30) — whether to send the 686 waiting `follow`
@@ -695,3 +773,4 @@ content.
 | 2026-09-30 | **Owner promoted the RFC to `in-progress`** in-session and chose the Step 2A rollback part first (cases 3, 4, 6, 7; OQ2-independent). Delivered as front #447 (`048fc31`); record under Step 2A. Review changed the session's boundary burst: `idle` is no longer a settled answer. | 2A |
 | 2026-10-01 | Owner chose the Step 2A home-discovery part (finding A, cases 1–2). No-polling rule located — a convention without a single owning record (finding E); the bounded retry after a failed read reconciled there. Delivered as front #448; record under Step 2A. | 2A |
 | 2026-09-30 | **Owner accepted the RFC** in-session (`draft` → `accepted`) and chose Step 1 first. Step 1 delivered; execution record under Step 1. Canonical member URL premise found false (prod `/api/members` non-empty) — recorded, decision not re-opened. | 1 |
+| 2026-10-01 | **OQ2 resolved by the owner:** external changes are observed by a conditional 10 s read while the lyrics viewer is open (option A of three). This reverses, for song identity and observed discontinuities only, the 2026-08-01 acceptance of the "phone operated while the tab stays visible" gap; the no-periodic-re-sync rule itself stands (an agreeing read changes nothing). Owner also confirmed watching a paused track for 5 minutes. Finding E now owns the exception. Delivered as front #449. | 2A |
