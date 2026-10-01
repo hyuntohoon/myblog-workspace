@@ -26,7 +26,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   suites touch); it is not closed by these deploys.
   Steps 2B–2D: transaction-boundary proof; the catalog refresh and back-catalogue ingestion spend
   decisions; the subscription guard and residual failures. Their evidence baseline is the lyrics
-  Step 5 audit below. Step 3: inspect real user journeys. **Next: the 2A real-device gate (owner) and Step 2B.**
+  Step 5 audit below. Step 3: inspect real user journeys. **Step 2B proved 2026-10-01** with no
+  worker change: the regression test was already on `main`, each `commit()` mutant fails it on its
+  assertion, and the deployed bundle equals `e29b669`; what it does not establish is listed in the
+  RFC record. **Next: the 2A real-device gate (owner) and Step 2C.**
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
@@ -122,10 +125,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **Worker transaction boundary (`4d4c181`) — no owner decision pending** (corrected 2026-09-29,
   re-confirmed 2026-09-30). The fix for the idle-in-transaction shape in
   `LyricsIncrementalService`/`LyricsReassessmentService` is already on worker `main` via the #104
-  squash (`4ece539`); the non-test files diff empty against `e29b669`. Only its real-DB regression test
-  (`tests/test_lyrics_transaction_boundary_db.py`) is missing, and whether the running Lambda carries
-  the fix is unverified. Proof and deploy confirmation → `OPS-project-stabilization` Step 2B.
-  (Earlier text called the commit unmerged and asked the owner to decide on a PR; that was wrong.)
+  squash (`4ece539`), **and so is its real-DB regression test**
+  (`tests/integration/test_lyrics_transaction_boundary_db.py`; earlier text looked for it under
+  `tests/` and called it missing). Proved 2026-10-01: it runs in CI with zero DB-bound skips, fails
+  on its assertion when any of the four `commit()` calls is removed, and the running Lambda's
+  `worker/` tree is identical to `e29b669` → `OPS-project-stabilization` Step 2B record.
+  (Earlier text also called the commit unmerged and asked the owner to decide on a PR; that was wrong.)
   Carry the Step 1 cold-start Spotify 404/browser-fallback observation. Delivery evidence, runtime
   details and exact next scope → `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 

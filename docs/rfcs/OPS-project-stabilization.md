@@ -59,7 +59,8 @@ needs. Service `main` at the rebuild: frontend `757b37b`, worker `e29b669`, back
 `2c7d791`, shared_db `98875c8`. Frontend and worker are the revisions findings A–C and finding 4 were
 read at, so those findings stand unchanged. Worker `4d4c181` was re-compared against `e29b669` on
 2026-09-30: the three non-test files show no diff and the real-DB test is still absent (finding 4
-confirmed).
+confirmed). **That last clause was wrong** — the test was looked for at `tests/`, and it lives at
+`tests/integration/`; corrected 2026-10-01 under finding 4 and Step 2B.
 
 ### Evidence classes
 
@@ -253,6 +254,10 @@ the interval, is a change to this record.
    both service files is empty. What is **not** on `main` is that commit's real-DB regression test,
    `tests/test_lyrics_transaction_boundary_db.py`. Deployment of the fix to the running Lambda was
    not checked (Unverified).
+   **Corrected again 2026-10-01 (Step 2B): the test is on `main` too.** It was searched for at the
+   path above; the file is `tests/integration/test_lyrics_transaction_boundary_db.py`, it arrived in
+   the same #104 squash, and `git diff 4d4c181 e29b669` over it is empty. Nothing from `4d4c181`
+   was ever missing from `main`. Deployment is now verified — see Step 2B's execution record.
 5. **Residual counts — superseded by the 2026-09-30 audit.** The first draft carried one
    `album_not_in_catalog` job and 43 `failed` translations. The audit (items 1, 4, 5) and a read-only
    re-read on 2026-09-30 show a different picture:
@@ -373,7 +378,8 @@ finding used below is the absence of any `ApiEngine` caller outside it.
 | 6 | Multi-user Phase 4 read as shipped. | Kept narrow in both places: owner-central `LLMEngine` scaffolding + V43 metering exist in shared_db; `git grep` over backend, music and worker `main` finds **no `ApiEngine` caller**. The BYOK half remains behind G2. No gate changed. |
 | 7 | Multi-user canonical member URL decision was "necessity-gated while prod `/api/members` is empty — 0 duplicate URLs today". | **That premise is false.** Prod `GET /api/members` returns two members (the owner, 37 ratings; the smoke user, 1); `album_reviews` holds 39 rows from 2 users (2026-08-10 → 08-19). The sitemap lists both static `/members/<handle>/` pages, which canonicalize to themselves; the runtime `/members/?u=<handle>` view canonicalizes to `/members/`. `/profile` redirects to `/members/?me` (front #280). The decision stays deferred and owner-only — only the stated reason is corrected. |
 
-**Unknowns left explicit:** whether the running worker Lambda carries `4ece539` (Step 2B); the
+**Unknowns left explicit:** whether the running worker Lambda carries `4ece539` (Step 2B —
+resolved 2026-10-01: it does); the
 copyright-refusal rate (Step 2D); the actual owning record of the no-polling rule (finding E, Step 2A).
 
 **Verification:** see the PR body; statuses, links and ownership were checked by hand against the
@@ -631,6 +637,32 @@ After Step 2A. **Rescoped 2026-09-29** by finding 4: the service change already 
 
 **Rollback:** revert independently.
 
+**Execution record (2026-10-01) — proof only; no worker change, no deploy.**
+
+The step's premise was wrong in one respect: the regression test it set out to add already exists
+(finding 4, second correction). Nothing was ported. What was established, all against worker
+`main` `e29b669`:
+
+| Claim | Evidence |
+|---|---|
+| The test runs in CI rather than skipping | Run `35569268246` (push, `e29b669`): all four cases of `tests/integration/test_lyrics_transaction_boundary_db.py` `PASSED`; 713 passed, 3 skipped; the skip gate reports `db_bound_skips: 0` (the 3 are the allowed MusicBrainz live skips). `test` is a required check, and CI sets `TEST_DB_URL` to a Postgres 16 service loaded from the canonical schema. |
+| The test fails when a `commit()` is removed, on its assertion | Each of the four `self.session.commit()` calls was removed in turn, on a local Postgres 14.19 loaded from shared_db `98875c8` `tests/canonical_schema.sql` + the worker fixtures, with a venv built from `requirements.lock`. Baseline 4 passed. Every mutant: 1 failed / 3 passed, failing with `AssertionError: assert 'idle in transaction' not in ['idle in transaction']` — never a crash. `lyrics_incremental_service.py:71` → `[incremental]`; `:98` (lost-race guard) → `test_incremental_lost_race_…`; `lyrics_reassessment_service.py:123` → `[reassess]`; `:174` → `[album]`. One test per commit, no overlap. |
+| The running Lambda carries the fix | `blogWorkerLambda` `$LATEST`, `LastModified` 2026-09-21T06:39:54Z (the deploy job of the same run), `CodeSha256` `KEDveHQG7FQSSumjEYdYk8cEqFQBZ3rqNh0v5JIGooY=`. The deployed bundle was downloaded and its `worker/` tree diffed against `e29b669`: identical. |
+| No other path holds a transaction across a provider wait | Read, not run. `run_eval_batch` has three callers; all commit after their selection (`LyricsDemandSourceService.collect` is the third, with its own `pg_stat_activity` test). Inside the loop every branch that touches the session ends in a commit: `write_outcomes` and `touch` commit per row; the incremental lost-race guard commits; reassessment's `should_replace` is in-memory; the demand-source gate's query is followed by a write or a `touch` (`touch_on_guard_kept=True`). The transient-error and consistency-violation branches do not touch the session. |
+| Bounded production observation | CloudWatch `/aws/lambda/blogWorkerLambda`, from that deploy (2026-09-21T06:40Z) to 2026-10-01T05:09Z, all pages: 0 events matching `ProtocolViolation`, 0 `idle in transaction`, 0 `Task timed out`. Control in the same pass: 6,040 `REPORT` lines, i.e. the search reads the window and the function ran 6,040 times in it. Read-only; no replay and no demand was injected. |
+
+**Not established, stated rather than implied:**
+
+- *"The later write must still succeed"* is not asserted by this file for the incremental and
+  reassessment entry points: its provider fake raises before the writer, and the lost-race case
+  ends in a guard-kept row. The write after the same commit shape is exercised on a real database
+  only through the demand-source suite (`tests/integration/test_lyrics_demand_source_db.py`),
+  which shares `run_eval_batch` and `TrackLyricsWriter`. No test was added for it here.
+- With `concurrency > 1` the per-row write transactions overlap other rows' in-flight provider
+  calls by design; what is ruled out is a transaction left *open and idle* across a wait.
+- The log observation is an absence of three strings over 6,040 invocations, not a measurement of
+  `pg_stat_activity` in production.
+
 ---
 
 ### Step 2C — Recurring catalog refresh
@@ -770,6 +802,7 @@ content.
 | 2026-09-29 | Documentation handoff prepared because the original integration could not write to GitHub (`403 Resource not accessible by integration`). This is not evidence of implementation, deployment or lifecycle promotion. | — |
 | 2026-09-29 | Re-check of worker `main` (`e29b669`) found the `4d4c181` service change already merged via worker #104 (`4ece539`); only its real-DB regression test is missing. Step 2B rescoped from "port" to "prove and confirm deployed". The no-polling rule's "D28" attribution recorded as unresolved (finding E). | 2B, 2A |
 | 2026-09-30 | Rebuilt on workspace `main` `9318958`; the original PR's branch conflicted with #1013 in `docs/plan.md`. The Step 5 post-delivery audit (#1013) was absorbed as the evidence baseline. Findings 1 and 5 were rewritten against it. Step 2C gains the back-catalogue ingestion decision (OQ4), the rollback-lever note and the unrun Step 5 smoke. Step 2D gains the subscription-guard fix and copyright refusals. Worker `4d4c181` finding re-confirmed. Status stays `draft`. | 1, 2C, 2D |
+| 2026-10-01 | Step 2B found its own premise false: the real-DB regression test was already on worker `main` (`tests/integration/…`, in #104), looked for at the wrong path twice. Owner approved in-session narrowing the step to proof — CI execution, mutation, deployed bundle, residual-path read, bounded log observation — with no worker change. Record under Step 2B. | 2B |
 | 2026-09-30 | **Owner promoted the RFC to `in-progress`** in-session and chose the Step 2A rollback part first (cases 3, 4, 6, 7; OQ2-independent). Delivered as front #447 (`048fc31`); record under Step 2A. Review changed the session's boundary burst: `idle` is no longer a settled answer. | 2A |
 | 2026-10-01 | Owner chose the Step 2A home-discovery part (finding A, cases 1–2). No-polling rule located — a convention without a single owning record (finding E); the bounded retry after a failed read reconciled there. Delivered as front #448; record under Step 2A. | 2A |
 | 2026-09-30 | **Owner accepted the RFC** in-session (`draft` → `accepted`) and chose Step 1 first. Step 1 delivered; execution record under Step 1. Canonical member URL premise found false (prod `/api/members` non-empty) — recorded, decision not re-opened. | 1 |
