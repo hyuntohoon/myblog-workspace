@@ -176,6 +176,28 @@ not itself state a polling ban. Step 2A must locate the actual owning record of 
 (or record that it exists only as a code-level convention) before reconciling it — and must not
 introduce an interval without that reconciliation.
 
+**Located 2026-10-01 (home-discovery part of Step 2A).** No single record owns it. "D28 — no
+polling" is a convention carried forward by every playback RFC since `FEAT-member-player`
+(`FEAT-playback-bucket-player` lists it as "D28 — no polling, ever | member-player | Retained";
+`ARCH-global-playback-experience` "carried from `FEAT-member-player`"). The closest it has to an
+owning statement is:
+
+- the **permitted-trigger list** in `ARCH-playback-authority-convergence` (non-goals): *SDK push,
+  `MYBLOG_PLAYBACK_CHANGED`, `visibilitychange`, a natural track boundary, a bounded confirmation
+  burst, an explicit refresh* — "no new polling loop anywhere";
+- the **owner's own statement** in `FEAT-lyrics-sync-precision` (2026-08-01): periodic re-sync is
+  wrong, only *events* invalidate an anchor; adaptive polling was dropped.
+
+**Reconciliation for the discovery retry.** Front #448 adds one trigger that is on neither list:
+after a read that **failed** for a reason asking again can fix (network, timeout, 5xx, token-route
+error — not 401/403/429), while nothing is known to be playing and the page is visible, the session
+reads again at +2 s, +5 s and +15 s, then stops and says so. It is a bounded burst keyed to a failed
+read, as the confirmation bursts are keyed to a command or a boundary: it never starts from a
+successful answer (`idle` included), it is finite (≤ 3 extra reads per lifecycle event), and the
+next read is again 1:1 with a lifecycle event or a press. It is **not** an observation mechanism
+for playback that was read successfully — an external skip remains undetected until the next event,
+and that question stays OQ2.
+
 ### Other stabilization findings
 
 1. **Progress documents disagree — partly resolved 2026-09-30.** Workspace #1013 corrected the
@@ -441,6 +463,65 @@ external-app skip, the viewer's ⏭ and a genuine stop. Needs the owner's accoun
 2A's Exit (`FEAT-lyrics-listening-experience` records the corrected evidence) waits on it and on
 the undelivered parts above.
 
+#### Step 2A execution record — 2026-10-01 (home-discovery part)
+
+**Scope:** finding A — acceptance cases 1 and 2 (A1, A2, A3, A4, A5). Front #448. **Still not
+delivered:** external-skip detection latency (case 5, OQ2); case 8 beyond what the suites touch;
+finding A6 (the profile `NowPlaying` fallback) — unchanged.
+
+**What changed:**
+
+- **A2 — bounded recovery.** `{state:'unavailable'}` now carries `retryable` for failures asking
+  again can fix. After such a failure with nothing known, the session retries at 2/5/15 s (visible
+  page, reader tab only), stops at the first answer of any kind, and when the budget is spent sets
+  `discoveryFailed`; the Global Player then shows a "다시 시도" pill instead of rendering nothing.
+  A member without connected Spotify never sees it (not retryable). Rationale: finding E.
+- **A3 — boundary for adopted playback.** The end-of-track read used to require `isOwner &&
+  rung === 'remote'`, both set only by a play from this site, so playback adopted from a phone at
+  home entry (no owner, `rung: null`) was never confirmed at its end. Now: any tab allowed to adopt
+  (owner, or any tab while nobody owns playback) arms it, unless the adopted device is this tab's
+  in-page SDK device; ownerless tabs skip it while hidden.
+- **A4 — no queue wait.** Adoption no longer waits for queue URI prefetch and capability. A song
+  first shown as external is re-matched to its queue row when the cache warms, without a second
+  read. The anchored row's own URI is still warmed before a read (T2 completion delete).
+- **A5 — fresh read at the press.** 가사 reads what is playing at the press (through the session,
+  so the Global Player moves too) and opens that; it falls back to the stored identity only when the
+  read fails or the session is settling a command or boundary.
+
+**Verification (Verified locally; deployment pending at time of writing):**
+
+- Front `pnpm lint`, `astro check`, `pnpm test` (111 files, 1294 passed, 0 skipped) on HEAD
+  `8d09494`; 42 new tests. Mutation: 27 of 29 mutants over the new logic killed; the two survivors
+  are equivalent (a redundant guard re-checked when the timer fires; the re-match anchor once the
+  anchored URI is pre-warmed).
+- Independent `reviewer`, three passes. Pass 1: no blockers, six should-fixes, all fixed (cold-cache
+  completion delete and boundary in a tab promoted from mirror; in-page decided by the adopted
+  device, not the sticky `rung`; 401/429 not retried; the re-match no longer holds the sync or the
+  가사 press; tests; this reconciliation). Pass 2 caught that the cold-cache fix was a no-op in
+  production — `prefetchUris([id])` skips an id the queue-wide prefetch already has in flight, and
+  the test stub did not model the skip, so the tests were falsely green. Fixed by joining the
+  in-flight `resolveUri` (capped at 1 s) and a stub that models the skip. Pass 3: pass.
+- Real-browser clickthrough (stub backend, in-page Spotify stub with a 3 s boundary lag, origin/main
+  `048fc31` as control):
+  - **A1/A3, no viewer open.** Control: bar on A from the first read, then **no read at all**; bar
+    still on A at 25 s while B had played since 13 s. HEAD: reads `1.38:A · 11.50:A · 12.01:A ·
+    12.52:A · 13.03:B`, bar on B at 14 s; next boundary `36.50–38.03` → C; nothing in between.
+  - **A2.** Reads fail until 4 s. Control: one failed read, no bar, no lyrics entry at 15 s. HEAD:
+    `0.27:FAIL · 2.27:FAIL · 7.27:A`, bar at 8.5 s, no further reads.
+  - **Budget.** All reads fail: `0.23 · 2.24 · 7.24 · 22.24`, pill at 23.5 s, no read to 35 s;
+    pill press after recovery: one read, song shown, pill gone; 가사 then spends one fresh read
+    (A5) and opens the viewer on that song.
+  - **Mobile 390/360 px:** pill sits one row above Pocket's entry (360 px: pill 682–718, Pocket
+    726–762; no horizontal scroll); recovery → bar → 가사 → viewer with the song's lyrics.
+  - Not isolable in this harness: A5 on the control (CDP's own focus event fires a lifecycle read).
+    Covered by unit tests and mutants instead.
+- Found, not fixed (pre-existing, outside 2A): at 360 px the lyrics viewer's ✕ extends to x=370 on
+  origin/main as well.
+
+**Open gate (Unverified):** authenticated real-Spotify evidence on the deployed revision, for a
+connected member and the owner, desktop and mobile: home entry during phone playback, an initial
+failure, and the natural end of an adopted song. Same owner-device gate as the rollback part.
+
 ---
 
 ### Step 2B — Worker transaction boundaries
@@ -588,7 +669,8 @@ content.
    (`draft` → `accepted`). Promotion to `in-progress` is a separate owner decision.
 2. **External playback observation policy** — define the latency/mechanism, and locate and reconcile
    the no-polling rule (finding E), before introducing regular polling. Blocks the external-skip part
-   of Step 2A, not the rollback fix.
+   of Step 2A, not the rollback fix. *2026-10-01: rule located (finding E); the bounded discovery
+   retry is reconciled there and does not answer this question.*
 3. **Recurring catalog refresh cadence and spend** — decide from Step 2C measurements. Does not block
    frontend repair.
 4. **Back-catalogue ingestion spend** (added 2026-09-30) — whether to send the 686 waiting `follow`
@@ -606,4 +688,5 @@ content.
 | 2026-09-29 | Re-check of worker `main` (`e29b669`) found the `4d4c181` service change already merged via worker #104 (`4ece539`); only its real-DB regression test is missing. Step 2B rescoped from "port" to "prove and confirm deployed". The no-polling rule's "D28" attribution recorded as unresolved (finding E). | 2B, 2A |
 | 2026-09-30 | Rebuilt on workspace `main` `9318958`; the original PR's branch conflicted with #1013 in `docs/plan.md`. The Step 5 post-delivery audit (#1013) was absorbed as the evidence baseline. Findings 1 and 5 were rewritten against it. Step 2C gains the back-catalogue ingestion decision (OQ4), the rollback-lever note and the unrun Step 5 smoke. Step 2D gains the subscription-guard fix and copyright refusals. Worker `4d4c181` finding re-confirmed. Status stays `draft`. | 1, 2C, 2D |
 | 2026-09-30 | **Owner promoted the RFC to `in-progress`** in-session and chose the Step 2A rollback part first (cases 3, 4, 6, 7; OQ2-independent). Delivered as front #447 (`048fc31`); record under Step 2A. Review changed the session's boundary burst: `idle` is no longer a settled answer. | 2A |
+| 2026-10-01 | Owner chose the Step 2A home-discovery part (finding A, cases 1–2). No-polling rule located — a convention without a single owning record (finding E); the bounded retry after a failed read reconciled there. Delivered as front #448; record under Step 2A. | 2A |
 | 2026-09-30 | **Owner accepted the RFC** in-session (`draft` → `accepted`) and chose Step 1 first. Step 1 delivered; execution record under Step 1. Canonical member URL premise found false (prod `/api/members` non-empty) — recorded, decision not re-opened. | 1 |
