@@ -18,7 +18,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   Step 1 (document reconciliation) delivered 2026-09-30; record under Step 1 in the RFC. **Step 2A, first runtime fix:** home
   playback discovery with direct lyrics, and automatic next-track lyrics (the A → B → A rollback).
   **2A rollback part deployed 2026-09-30** (front #447, cases 3/4/6/7); real-device evidence still
-  open. Remaining 2A: home discovery (finding A), external-skip latency (blocked on OQ2).
+  open. **2A home-discovery part (finding A, cases 1/2) — front #448, 2026-10-01**; real-device
+  evidence open. Remaining 2A: external-skip latency (blocked on OQ2).
   Steps 2B–2D: transaction-boundary proof; the catalog refresh and back-catalogue ingestion spend
   decisions; the subscription guard and residual failures. Their evidence baseline is the lyrics
   Step 5 audit below. Step 3: inspect real user journeys. **Next: Step 2A.**
