@@ -6,18 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-lyrics-chat** — owner-authorized 2026-10-05: replace the stopped Claude
-  <!-- rfc: none -->
-  lyrics/commentary consumers with explicit, bounded Chat translation tools. Scope:
-  backend stateless authenticated MCP, existing V57 claims/cache/publication guards,
-  dedicated Cognito client and discovery/routes in workspace infra, Chat connection
-  runbook. No automatic queue drain, new model API billing, source-collector changes,
-  or retranslating completed results. Order: backend verification → infra plan and
-  owner apply → deploy → owner OAuth link → end-to-end Chat smoke. Verification:
-  full backend suite, real-Postgres concurrency/staleness/idempotency tests, workspace
-  checks, Terraform validation/full plan, production read/write smoke. Rollback:
-  disable the dedicated client/endpoint; preserve completed translations and keep
-  Claude launchd jobs disabled. Status: implementation; connection not yet live.
+- **FEAT-lyrics-chat** — preserve automatic queue consumption and replace local Claude execution with a dedicated GPT worker using ChatGPT plan OAuth; single-PR implementation authorized by owner correction on 2026-10-05. [Design and rollout](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
 
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
