@@ -34,7 +34,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   of the 686 waiting releases, ≈ 1,000 translations) with `MAX_CATALOG_ALBUMS` raised — all 686
   would put `albums` at 5,474 against a cap of 5,000 and stop the daily new-release sweep. Nothing
   is activated; the measurement, the three scopes and what the implementation leg inherits are in
-  the RFC record. **Next: the 2A real-device gate (owner) and the Step 2C implementation leg.**
+  the RFC record. **Step 2C narrowed 2026-10-05 (owner: as conservative as possible):** only
+  `MAX_CATALOG_ALBUMS` 5000 → 8000 shipped (worker #108) — the catalog hit the cap on 10-05 and
+  the daily sweep had stopped; the refresh fix and the back-catalogue ingest are held on an
+  unpushed branch because automatic translation is being retired (ws #1022). Open: the 10-06
+  `album_ingest` tick must sweep again. **Next: the 2A real-device gate (owner).**
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
