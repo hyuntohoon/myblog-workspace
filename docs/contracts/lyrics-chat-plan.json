@@ -1,0 +1,60 @@
+{
+  "resource_changes": [
+    {
+      "address": "aws_apigatewayv2_route.chat_mcp",
+      "actions": [
+        "create"
+      ]
+    },
+    {
+      "address": "aws_apigatewayv2_route.chat_mcp_oauth_metadata",
+      "actions": [
+        "create"
+      ]
+    },
+    {
+      "address": "aws_apigatewayv2_route.chat_mcp_resource_metadata",
+      "actions": [
+        "create"
+      ]
+    },
+    {
+      "address": "aws_cognito_resource_server.chat_translation",
+      "actions": [
+        "create"
+      ]
+    },
+    {
+      "address": "aws_lambda_function.backend",
+      "actions": [
+        "update"
+      ],
+      "changed_environment_keys": [
+        "CHAT_MCP_CLIENT_ID",
+        "CHAT_MCP_COGNITO_DOMAIN",
+        "CHAT_MCP_RESOURCE_URL",
+        "CHAT_MCP_SCOPE",
+        "CHAT_TRANSLATION_DAILY_CAP"
+      ]
+    },
+    {
+      "address": "aws_lambda_function.worker",
+      "actions": [
+        "update"
+      ],
+      "changed_environment_keys": [
+        "LYRICS_MEMBER_DEMAND_ENABLED"
+      ]
+    }
+  ],
+  "callback_configured": false,
+  "planned_mcp_url": "https://ld8pjw3mx4.execute-api.ap-northeast-2.amazonaws.com/mcp",
+  "baseline_drift": {
+    "address": "aws_lambda_function.worker",
+    "key": "LYRICS_MEMBER_DEMAND_ENABLED",
+    "live": "unset (application default true)",
+    "planned": "true",
+    "effective_behavior_change": false,
+    "owner_review_required": true
+  }
+}

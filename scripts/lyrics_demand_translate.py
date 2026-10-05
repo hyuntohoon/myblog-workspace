@@ -122,6 +122,7 @@ WHERE ((w.status IN ('ready', 'retryable_error')
         AND (w.next_attempt_at IS NULL OR w.next_attempt_at <= now()))
        OR (w.status = 'running' AND w.lease_until <= now()))
   AND w.lang = %s
+  AND w.translator_version = 'claude.sonnet/v2'
   AND (w.manual_requested OR EXISTS (
         SELECT 1 FROM lyrics_album_tracks lat
         JOIN lyrics_album_jobs j ON j.id = lat.job_id

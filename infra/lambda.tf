@@ -39,6 +39,11 @@ resource "aws_lambda_function" "backend" {
       # (infra/apigateway.tf), so the two layers now agree. MyBlogAdminClient is
       # deliberately NOT listed: nothing in any repo authenticates with it.
       COGNITO_ALLOWED_CLIENT_IDS = aws_cognito_user_pool_client.spa_client.id
+      CHAT_MCP_RESOURCE_URL      = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/mcp"
+      CHAT_MCP_CLIENT_ID         = try(aws_cognito_user_pool_client.chat_translation[0].id, "")
+      CHAT_MCP_COGNITO_DOMAIN    = "https://ap-northeast-254vejkeu5.auth.ap-northeast-2.amazoncognito.com"
+      CHAT_MCP_SCOPE             = "myblog-chat/translate"
+      CHAT_TRANSLATION_DAILY_CAP = "10"
       # FEAT-multi-user-accounts 0d: DELETE /api/me refuses this sub (403) so the
       # blog-admin identity can't self-delete via the member flow. Value = the
       # owner account's Cognito sub. Points at zlxlgus123@gmail.com (CONFIRMED),
