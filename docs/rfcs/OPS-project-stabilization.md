@@ -828,6 +828,46 @@ active day on average (maximum 270), so ≈ 1,000 is about a week of that budget
   days today). `user_artist_follow_exclusions` would stop it with no code change; that is the
   owner's call and was not asked.
 
+**Execution record (2026-10-05) — implementation leg narrowed to the catalog cap; the rest held.**
+
+Production moved between the decision and the implementation (read-only, 2026-10-05):
+
+- **The refresh ran once by the old accident.** A 35th artist was followed at 2026-10-03 03:53Z;
+  that new registration made the enumeration job due, and the job re-opened and re-read all 35
+  stale registrations (`last_complete_at` 2026-10-03 for all 35). Finding 3's cycle still holds:
+  nothing re-opens them again without another new follow. The waiting follow releases grew from
+  686 to **848**.
+- **The catalog reached the cap.** `albums` 5,002; CloudWatch 2026-10-05 05:31:53Z
+  `album_ingest: catalog cap reached (5001 >= 5000) — skipping tick`. The daily new-release sweep
+  and release-calendar confirmation stopped — before any back-catalogue ingest, from ordinary
+  growth of ~190 albums/week (151–229 over ten weeks).
+- **Automatic Claude translation is being retired** in favour of explicitly requested translation
+  (ws #1022, draft; launchd translation jobs already disabled). The back-catalogue spend was
+  approved for the ≈ 1,000 translations it would unlock automatically; that benefit no longer
+  follows from ingesting the releases.
+
+**Owner decision (2026-10-05, in-session):** work as conservatively as possible and close this
+leg; the translation move is handled separately. **Shipped:** worker #108 (`89b8e6b`) —
+`MAX_CATALOG_ALBUMS` 5000 → 8000, the value the owner chose on 2026-10-01 (~14 weeks at the
+current rate). Nothing else changed.
+
+- CI `test` green on the PR and on `main` (713 passed / 3 skipped, all `musicbrainz_live`,
+  `db_bound_skips: 0`); deploy run 37291037299 green; `blogWorkerLambda` `CodeSha256`
+  `KEDveHQG…` → `L3l9UxDm…` at 09:37:39Z; `scripts/smoke.sh prod` 30/0, quoted on #108.
+- **Open:** the next daily `album_ingest` tick (~2026-10-06 05:32Z) must log an
+  `album_ingest summary:` line instead of the cap message. Deliberately not triggered by hand —
+  a manual invoke is an extra sweep of Spotify reads.
+
+**Held, not shipped:** the refresh-reachability fix (a `refresh_due_count` the nudge also asks)
+and the gated back-catalogue ingest (claim → `GET /albums` → write ≥ `ALBUM_POP_MIN`, rest the
+rest for 30 days, stop at the cap). Both were written and tested (740 passed against a local
+Postgres with the canonical schema; 31 mutants, all killed) and are kept on an unpushed worker
+branch, `feat/OPS-project-stabilization-step2c-refresh-backcatalogue` (`2ca9b40`). Re-decide
+them once the translation path is settled: with on-request translation the back-catalogue
+would only pre-fill catalog and lyrics sources out of the irreplaceable Spotify quota. Until
+then Step 5's follow coverage stays **partial**, and this step's Verification list is unmet
+except for the cap.
+
 ---
 
 ### Step 2D — Residual failures
