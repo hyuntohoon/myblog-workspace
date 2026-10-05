@@ -1,16 +1,19 @@
-# Automatic GPT translations
+# Automatic translations: Work Cloud direction
 
-The manual-only MCP proposal is superseded by the owner's 2026-10-05 correction.
-Keep queue-triggered execution. See [design and rollout](../rfcs/FEAT-lyrics-chat.md).
+The owner selected Work Cloud on 2026-10-05. See the current
+[design and capability gates](../rfcs/FEAT-lyrics-chat.md).
+Cloud execution is not connected or enabled yet. The local GPT prototype and both
+Claude translation jobs remain disabled. Do not follow the historical activation
+instructions below as the current rollout procedure.
 
-Existing Claude translation jobs stay disabled. No new AWS OAuth client, MCP routes,
-Terraform apply, or per-song manual Chat prompt is required for the selected local
-executor. A dedicated ChatGPT plan login, model selection and queue-enable control
-are required before automatic consumption. Never reuse Codex credentials or silently
-switch to paid API keys.
+The proposed conversation policy is one independent context per bounded job,
+initially one track or commentary source. The database owns queue state and
+results. Custom MCP Events deliver to a subscribed chat; fresh-chat dispatch must
+be verified before implementation promises it. No separately billed OpenAI
+Platform API fallback is authorized by this design.
 
+## Historical local prototype setup (superseded; do not activate)
 
-## Local setup and cutover
 
 Run `scripts/install_gpt_translation_worker.py` with the backend Python 3.12
 interpreter and explicit backend/shared checkout paths. It freezes workspace,
