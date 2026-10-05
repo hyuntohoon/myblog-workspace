@@ -1,40 +1,10 @@
 #!/usr/bin/env python3
-"""Korean bodies for Genius annotations — FEAT-lyrics-annotations Thread 1.
+"""Retired Claude translation runner, replaced by explicit Chat tools.
 
-The owner decision is that **the body a reader sees is always Korean**; the original
-stays as the collapsible secondary. The fetch job (worker `genius_fetch`) writes
-`body_source` and leaves `translation_status='pending'`. This fills `body_ko`.
-
-**Why a local poller and not the worker Lambda.** The fetch job runs in Lambda by
-owner decision (RFC §6.9 O1) because it only needs an HTTP token. Translation runs
-`claude -p` on the owner's subscription, which has no Lambda equivalent — the same
-constraint that already puts `lyrics_translate_poller.py` on launchd. Different
-answer, different reason; not an inconsistency.
-
-Sibling of `lyrics_translate_poller.py` and deliberately shaped like it: same
-`CliEngine`, same SSM/DATABASE_URL resolution, same claim/stale-claim recovery.
-
-Two things it does NOT copy, both because annotation bodies are a different shape
-from lyric lines:
-
-* **It batches by OUTPUT SIZE, not by row count.** Bodies run past 2,500 characters.
-  The 2026-07-25 session lost two runs to exactly this: an agent given 4 tracks /
-  38 annotations died on "response stalled mid-stream", and splitting into 2+1+1
-  succeeded immediately. Size the output, not the input.
-* **It batches at most six annotations / 7,000 source characters per call.** Each
-  body remains independently indexed and validated, so one bad item does not discard
-  the other usable translations. Calls are serialized across every local LLM worker.
-
-**The fingerprint is a twin and must not drift.** The read path recomputes
-`sha256(body_source)` and withholds `body_ko` when it differs
-(`lyrics_service.compute_body_fingerprint`). This imports that function rather than
-reimplementing it — a local copy that drifted would mark every row stale and the UI
-would silently show "아직 준비되지 않았습니다" for translations that exist.
-
-Usage:
-    python3 scripts/genius_translate_poller.py            # one bounded batch
-    python3 scripts/genius_translate_poller.py --drain    # until the queue is empty
-    python3 scripts/genius_translate_poller.py --limit 3
+All CLI options remain parseable for old launchd/backfill invocations, but main
+returns before database access. Model dispatch also fails closed when imported.
+Historical claim/publication helpers remain for regression tests only. Keep the
+installed launchd job disabled. See docs/contracts/lyrics-chat.md.
 """
 from __future__ import annotations
 
@@ -43,9 +13,7 @@ import json
 import logging
 import os
 import re
-import shutil
 import sys
-import tempfile
 import time
 from functools import lru_cache
 from pathlib import Path
@@ -59,10 +27,8 @@ sys.path.insert(0, str(ROOT / "myblog_shared_db" / "src"))
 
 # Same fingerprint as the read path — parity by construction, not by copy.
 from app.services.lyrics_service import compute_body_fingerprint  # noqa: E402
-from myblog_shared_db.llm import CliEngine, LLMJob, LLMTransientError  # noqa: E402
 from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
     LLMSubscriptionCooldown,
-    coordinated_run,
     ensure_subscription_available,
 )
 
@@ -233,105 +199,13 @@ def is_translatable(body: str) -> bool:
 
 
 def _translate_batch_once(bodies: list[str]) -> list[str | None]:
-    """One `claude -p` call over a batch; returns translations in input order.
-
-    Batch-shape problems (no array, wrong count, bad item shape) raise
-    EngineValidationError; a per-item validation failure yields None in that
-    slot instead, so the rest of the batch survives.
-    """
-    claude_bin = shutil.which("claude")
-    if claude_bin is None:
-        raise TransientEngineError("claude CLI not on PATH")
-    prompt = PROMPT_HEADER + "\n\n".join(
-        f"[{n}]\n{b}" for n, b in enumerate(bodies, 1)
-    )
-    try:
-        res = coordinated_run(CliEngine(binary=claude_bin), LLMJob(
-            feature="genius_translate",
-            prompt=prompt,
-            model=ENGINE_CLI_MODEL,
-            output_mode=None,
-            timeout_s=ENGINE_TIMEOUT_S,
-            # NEUTRAL cwd. Left unset the subprocess inherits the workspace root,
-            # reads CLAUDE.md, and answers that a song annotation is unrelated to
-            # this project instead of translating it. Observed live on 25890.
-            cwd=tempfile.gettempdir(),
-        ), feature="genius_translate")
-    except LLMTransientError as e:
-        raise TransientEngineError(str(e)) from None
-
-    stdout = (res.result or "").strip()
-    if not stdout:
-        raise TransientEngineError("empty stdout")
-    head = stdout[:200]
-    raw = _extract_json_array(stdout)
-    if raw is None:
-        # A refusal or meta-answer lands here — it is not an array, so the output
-        # CONTRACT rejects it. No keyword sniffing needed.
-        raise EngineValidationError(f"no JSON array in output: {head}")
-    try:
-        # strict=False allows RAW newlines inside strings. Annotation bodies have
-        # paragraphs, so the model emits real line breaks rather than \n escapes,
-        # and strict parsing rejected whole batches over it — a retry then a
-        # discard, twice the budget for nothing. The lyrics poller never hit this
-        # because a lyric line has no paragraphs.
-        items = json.loads(raw, strict=False)
-    except json.JSONDecodeError as e:
-        raise EngineValidationError(f"bad JSON ({e}): {head}") from None
-    if not isinstance(items, list) or len(items) != len(bodies):
-        got = len(items) if isinstance(items, list) else type(items).__name__
-        raise EngineValidationError(f"item count {got} != {len(bodies)}: {head}")
-    by_n: dict[int, str] = {}
-    for it in items:
-        if not (isinstance(it, dict) and isinstance(it.get("i"), int)
-                and isinstance(it.get("ko"), str)):
-            raise EngineValidationError(f"bad item shape {it!r:.80}: {head}")
-        by_n[it["i"]] = it["ko"]
-    if set(by_n) != set(range(1, len(bodies) + 1)):
-        raise EngineValidationError(f"index set != 1..{len(bodies)}: {head}")
-    out = [by_n[n].strip() for n in range(1, len(bodies) + 1)]
-    # The array contract rejects a refusal by SHAPE, but cannot notice an item
-    # that parsed fine and simply was not translated. Item-level checks return
-    # None for that slot instead of raising, so one bad item cannot discard the
-    # other five translations in the batch. Checked against the SOURCE:
-    # - a body with no prose in it (a bare embed URL) is SUPPOSED to come back
-    #   unchanged, so demanding Korean there fails over a non-problem;
-    # - a quote-heavy body legitimately keeps its quotes in the original
-    #   language (per the prompt), so the absolute hangul threshold is waived
-    #   when the output moved meaningfully toward Korean relative to its source.
-    #   An untranslated item has the same hangul ratio as its source; a real
-    #   translation raises it even when long English quotes dominate the total.
-    checked: list[str | None] = []
-    for src, ko in zip(bodies, out):
-        if len(ko) < 4:
-            log.warning("suspiciously short item: %r", ko)
-            checked.append(None)
-        elif (is_translatable(src) and hangul_ratio(ko) < 0.15
-                and hangul_ratio(ko) - hangul_ratio(src) < 0.05):
-            log.warning("item is not Korean: %r", ko[:60])
-            checked.append(None)
-        else:
-            checked.append(ko)
-    return checked
+    """Retired dispatch: imports and historical backfills cannot invoke Claude."""
+    raise TransientEngineError("Claude translation is retired; request it in Chat")
 
 
 def translate_batch(bodies: list[str]) -> list[str | None]:
-    """Batch translate with one retry; a None slot is a per-item give-up."""
-    try:
-        first = _translate_batch_once(bodies)
-    except EngineValidationError as err:
-        log.warning("batch validation failed, retrying once: %s", err)
-        return _translate_batch_once(bodies)
-    bad = sum(1 for ko in first if ko is None)
-    if not bad:
-        return first
-    log.warning("%d item(s) failed validation, retrying once", bad)
-    try:
-        second = _translate_batch_once(bodies)
-    except EngineValidationError as err:
-        log.warning("retry failed batch-level (%s) — keeping first-pass results", err)
-        return first
-    return [a if a is not None else b for a, b in zip(first, second)]
+    """Compatibility entrypoint with no model invocation or retry."""
+    return _translate_batch_once(bodies)
 
 
 def _chunks(rows: list[dict]) -> list[list[dict]]:
@@ -431,37 +305,10 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="run even inside the nightly quiet window")
     args = ap.parse_args()
 
-    hour = time.localtime().tm_hour
-    if QUIET_HOURS[0] <= hour < QUIET_HOURS[1] and not args.force:
-        log.info("inside the %02d:00-%02d:00 nightly window — standing down", *QUIET_HOURS)
-        return 0
-
-    total = {"claimed": 0, "done": 0, "failed": 0, "transient": 0}
-    stalls = 0
-    while True:
-        m = run_batch(args.limit)
-        for k, v in m.items():
-            total[k] += v
-        if not args.drain or m["claimed"] == 0:
-            break
-        if m["done"] > 0:
-            stalls = 0
-            continue
-        # A pass that translated nothing is usually a momentary CLI rate
-        # limit, not an empty queue — repeated calls can trip one and it
-        # clears in seconds. Backing off and retrying beats ending a drain of
-        # hundreds of rows on one bad minute; three stalls in a row is a real
-        # wall and worth stopping for. The shared subscription guard handles
-        # cross-poller concurrency and the longer account-level cooldown.
-        stalls += 1
-        if stalls >= 3:
-            log.warning("three passes with no progress — stopping the drain")
-            break
-        wait = 30 * stalls
-        log.warning("no progress (transient=%d) — backing off %ds", m["transient"], wait)
-        time.sleep(wait)
-    log.info("genius-translate done: %s", total)
+    # An accidentally restored launchd plist must remain harmless after cutover.
+    log.warning("Claude commentary translation is disabled; use the MyBlog Chat connection")
     return 0
+
 
 
 if __name__ == "__main__":
