@@ -890,6 +890,38 @@ After the Step 2C decision.
 - Do not reset all failures or overwrite completed/manual translations.
 - Give larger newly found defects their own scoped entries.
 
+#### Step 2D redefinition — 2026-10-05
+
+**Owner decision (2026-10-05, in-session):** narrow the step and record it instead of implementing
+it. Automatic Claude translation is being retired in favour of explicitly requested Chat
+translation (ws #1022 and backend #179, both draft), which removes the premise of two of the three
+legs above. Nothing was changed in any service; this is a disposition, not a delivery.
+
+What the read found (read-only, workspace `origin/main` `6bb5fcd`, shared_db `98875c8`):
+
+- **#1022 retires every Claude dispatch on the translation path:** `lyrics_translate_poller`,
+  `genius_translate_poller` and `lyrics_demand_translate` return before DB/model work, and the
+  demand selector is fenced to `translator_version = 'claude.sonnet/v2'`.
+- **The subscription guard outlives #1022.** `coordinated_run` / `ensure_subscription_available`
+  are still called by `research_poller`, `editor_buckit`, `buckit_nightly`, `genre_heal_poller`
+  and shared_db `scripts/backfill_genres.py`. The 2026-07-28 rule (a blank `claude exit 1:` read
+  as a throttle) is still on `main` for all of them.
+- **No Claude CLI job is running today.** On the owner's machine the only loaded `com.myblog.*`
+  launchd job is `cdp-reaper`. The `buckit-nightly`, `genre-heal-poller`, `research-poller` and
+  `genre-backfill` plists are installed but not loaded, and the translation jobs are already
+  disabled. With no consumer running, the misclassification cannot cause another outage.
+
+Disposition per leg:
+
+| Leg | Disposition | Trigger to reopen |
+|-----|-------------|-------------------|
+| Subscription guard | **Deferred, conditional.** The design above stands unchanged (read the discarded stdout envelope, a regression test that fails on the 2026-07-28 rule, a real throttle still cools down, shared_db first, then every consumer's pin). | Before any Claude CLI launchd job is loaded again, or any of the consumers above is run on a schedule. Run it first in that session. |
+| Copyright refusals | **Dropped.** The re-claim loop it targeted belongs to the runner #1022 retires. On the Chat path the owner requests each translation directly and sees a refusal immediately. | The Claude translation runner is revived. |
+| Residual failures | **Recorded as frozen, no remediation.** The 2026-10-05 read was `done` 1,915 / `retryable_error` 169 (23 on 10-01) / `ready` 93 / `running` 70. With no runner, these rows stay where they are, and `running` rows whose lease expires have nobody to re-claim them. No reset, no overwrite. | A failure visible to a user on the Chat path, or a decision on what to do with the frozen `claude.sonnet/v2` rows once #1022 lands. |
+
+The `album_not_in_catalog` waiting jobs stay under Step 2C (held back-catalogue leg), as above.
+**Step 2D's part of the 2B–2D Exit is met by this explicit deferred/dropped disposition.**
+
 **Exit (Steps 2B–2D):** each operational leg has deployed/verified evidence or an explicit
 blocked/deferred disposition.
 
@@ -958,3 +990,4 @@ content.
 | 2026-09-30 | **Owner accepted the RFC** in-session (`draft` → `accepted`) and chose Step 1 first. Step 1 delivered; execution record under Step 1. Canonical member URL premise found false (prod `/api/members` non-empty) — recorded, decision not re-opened. | 1 |
 | 2026-10-01 | **OQ2 resolved by the owner:** external changes are observed by a conditional 10 s read while the lyrics viewer is open (option A of three). This reverses, for song identity and observed discontinuities only, the 2026-08-01 acceptance of the "phone operated while the tab stays visible" gap; the no-periodic-re-sync rule itself stands (an agreeing read changes nothing). Owner also confirmed watching a paused track for 5 minutes. Finding E now owns the exception. Delivered as front #449. | 2A |
 | 2026-10-01 | **OQ3 and OQ4 resolved by the owner** from the Step 2C read-only measurement. Refresh approved at 24 h (42 pages/day). Back-catalogue approved for popularity ≥ 20 only (374 of 686 releases, ≈ 1,000 translations) with `MAX_CATALOG_ALBUMS` raised; follow coverage is recorded as complete within the curation gate, not complete. Nothing activated; implementation is a separate leg. Finding 5's refusal count corrected. | 2C, 2D |
+| 2026-10-05 | **Owner narrowed Step 2D** in-session because automatic Claude translation is being retired (ws #1022, backend #179, draft). Subscription-guard fix deferred until any Claude CLI job is loaded again; refusal classification dropped; residual translation work recorded as frozen. No service change. Record under Step 2D. | 2D |
