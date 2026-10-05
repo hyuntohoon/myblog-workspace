@@ -26,7 +26,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   suites touch); it is not closed by these deploys.
   Steps 2B–2D: transaction-boundary proof; the catalog refresh and back-catalogue ingestion spend
   decisions; the subscription guard and residual failures. Their evidence baseline is the lyrics
-  Step 5 audit below. Step 3: inspect real user journeys. **Step 2B proved 2026-10-01** with no
+  Step 5 audit below. **Step 2D narrowed 2026-10-05 (owner), no service change:** guard fix deferred
+  until a Claude CLI job is loaded again, refusal classification dropped, residual translation work
+  recorded as frozen (Claude translation is being retired, ws #1022). Step 3: inspect real user journeys. **Step 2B proved 2026-10-01** with no
   worker change: the regression test was already on `main`, each `commit()` mutant fails it on its
   assertion, and the deployed bundle equals `e29b669`; what it does not establish is listed in the
   RFC record. **Step 2C measured and decided 2026-10-01, not implemented:** the owner approved the
