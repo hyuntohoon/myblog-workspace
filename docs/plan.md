@@ -312,6 +312,8 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
 
+- **FEAT-automation-admin** — **draft; planning only**: inventory all queued/scheduled/background jobs and add an owner-only management page to the existing site, covering status, schedules, execution history and supported controls; evaluate existing tools before selecting an implementation. Coordinate with `FEAT-durable-job-status` and `FEAT-lyrics-chat`. → `docs/rfcs/FEAT-automation-admin.md`. <!-- rfc: docs/rfcs/FEAT-automation-admin.md | status: draft -->
+
 - **FEAT-durable-job-status** (**backlogged 2026-09-02; needs owner go + an RFC**) — a durable,
   readable status for the async jobs a user can start from the UI: the Spotify album sync
   (`POST /api/music/sync-requests`) and the Release Radar's Spotify follow import
