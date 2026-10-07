@@ -152,7 +152,9 @@ service `main`.
 
 **Resolved 2026-10-07 (owner, in-session): all three as recommended.** OQ1 → dedicated
 `PUT /api/buckets/{id}/playback-queue`. OQ2 → inserts count against the cap, checked *before* the
-delete, so displaced rows still count and repeated replaces cannot churn past it. OQ3 → 200. Prod
+delete. This is **not** a churn bound: the cap counts rows that still exist, so displaced rows stop
+counting once deleted and a replace can be repeated — the same property `POST /items` + `DELETE`
+always had. What bounds a single call is OQ3. OQ3 → 200. Prod
 read-only check the same day: the largest album has 50 tracks and the longest live queue 20, so
 200 clips nothing that exists.
 
