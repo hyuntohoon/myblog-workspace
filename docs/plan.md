@@ -47,7 +47,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   queue replace under Lambda throttling → `ARCH-playback-queue-atomic-replace`, **Steps 1–3 shipped
   2026-10-07** (front #453: one ▶ = one backend request, zero resolves, prod-verified); ⏭ sending
   nothing was not reproduced. **Ready timeout and rung-2 failure notices deployed 2026-10-07**
-  (front #451); `autoplay_failed`/`activateElement` stays open until reproduced against a control.
+  (front #451); `autoplay_failed` **not reproduced** on desktop Chrome 154 under the strict autoplay
+  flag (owner heard playback, 2026-10-07); phones untested.
   **Next:** Lambda concurrency quota (owner), closing the atomic-replace RFC (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
 
