@@ -44,14 +44,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   2026-10-06/07:** viewer cases pass. The home-entry 503 defect is fixed by front #450 and
   device-verified. The in-page player's scope failure was found; the token was re-minted and the
   script fix ws #1026 merged 2026-10-07 after `security-review`. **2026-10-07 follow-up:** the wrong first track is a non-atomic
-  queue replace under Lambda throttling → `ARCH-playback-queue-atomic-replace` (accepted); ⏭ sending
+  queue replace under Lambda throttling → `ARCH-playback-queue-atomic-replace`, **Steps 1–3 shipped
+  2026-10-07** (front #453: one ▶ = one backend request, zero resolves, prod-verified); ⏭ sending
   nothing was not reproduced. **Ready timeout and rung-2 failure notices deployed 2026-10-07**
   (front #451); `autoplay_failed`/`activateElement` stays open until reproduced against a control.
-  **Next:** Lambda concurrency quota (owner), the atomic-replace RFC decision (owner), then 2A Exit.
+  **Next:** Lambda concurrency quota (owner), closing the atomic-replace RFC (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
-
-- **ARCH-playback-queue-atomic-replace** — accepted 2026-10-07 (owner); Steps 1–2 shipped 2026-10-07 (backend #180, ws #1031 route applied, ws #1032 contract, front #452 api.gen). Next = Step 3 (front switch to the new endpoint). ▶ replaces the playback queue in one server transaction and returns Spotify URIs; fixes stale rows at the queue head under throttling. → `docs/rfcs/ARCH-playback-queue-atomic-replace.md`
-  <!-- rfc: docs/rfcs/ARCH-playback-queue-atomic-replace.md | status: accepted -->
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
