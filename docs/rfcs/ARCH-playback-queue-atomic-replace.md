@@ -88,7 +88,13 @@ Two further consequences of the same shape:
   zero requests even cold. `rewriteQueue`/`deleteRows` are removed. The YouTube branch is unchanged.
 - **Failure semantics:** if the endpoint fails, the queue is untouched and the existing
   `REPLACE_FAILED` notice shows. If it succeeds and play fails, the queue is replaced and Undo is
-  offered (unchanged from today).
+  offered (unchanged from today). One narrow exception: the commit succeeds and the post-commit
+  re-read fails (e.g. a dropped connection) — the client sees an error for a queue that was in
+  fact replaced. The next tree read shows the truth; no mixed state is possible.
+- **When Undo is offered:** only when `displaced_track_ids` holds 1..200 ids, the bounds the
+  endpoint accepts as `track_ids`. An empty queue has nothing to undo (today's front already offers
+  none), and a queue over 200 rows (reachable only by unbounded `POST /items` appends; longest live
+  queue on 2026-10-07 was 20) cannot be restored in one call.
 
 ## Steps
 
@@ -112,7 +118,10 @@ Additive change. Merge order per `docs/contracts/README.md`: service → workspa
   transaction boundary must fail it.
 - Cross-member test: member B's bucket id → 404, no rows touched.
 - Required checks `check`, `test`, `contract`, `integration` green; `terraform plan` shows exactly
-  one new route (it reuses the shared `backend` integration) and no other drift; post-apply `curl` of the new route without a
+  one new route (it reuses the shared `backend` integration). The only other expected change is
+  the worker env `+ LYRICS_MEMBER_DEMAND_ENABLED = "true"` (the kill switch declared in ws #1008 and
+  never applied; the worker's default is already true, so applying it changes no behavior). Any
+  other change, or that key appearing as a value change rather than an addition, is drift: stop; post-apply `curl` of the new route without a
   JWT → 401, not 404.
 
 **Rollback:** revert the PR. The old endpoints are untouched, so the shipped front keeps working.
