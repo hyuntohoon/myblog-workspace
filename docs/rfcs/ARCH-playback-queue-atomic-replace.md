@@ -1,6 +1,6 @@
 # ARCH-playback-queue-atomic-replace: one request, one transaction for ▶
 
-- **Status**: draft
+- **Status**: accepted — owner approved in-session 2026-10-07; Step 1 in progress
 - **Owner**: site owner
 - **Created**: 2026-10-07
 - **Plan row**: `docs/plan.md` → ARCH-playback-queue-atomic-replace
@@ -88,7 +88,13 @@ Two further consequences of the same shape:
   zero requests even cold. `rewriteQueue`/`deleteRows` are removed. The YouTube branch is unchanged.
 - **Failure semantics:** if the endpoint fails, the queue is untouched and the existing
   `REPLACE_FAILED` notice shows. If it succeeds and play fails, the queue is replaced and Undo is
-  offered (unchanged from today).
+  offered (unchanged from today). One narrow exception: the commit succeeds and the post-commit
+  re-read fails (e.g. a dropped connection) — the client sees an error for a queue that was in
+  fact replaced. The next tree read shows the truth; no mixed state is possible.
+- **When Undo is offered:** only when `displaced_track_ids` holds 1..200 ids, the bounds the
+  endpoint accepts as `track_ids`. An empty queue has nothing to undo (today's front already offers
+  none), and a queue over 200 rows (reachable only by unbounded `POST /items` appends; longest live
+  queue on 2026-10-07 was 20) cannot be restored in one call.
 
 ## Steps
 
@@ -112,7 +118,10 @@ Additive change. Merge order per `docs/contracts/README.md`: service → workspa
   transaction boundary must fail it.
 - Cross-member test: member B's bucket id → 404, no rows touched.
 - Required checks `check`, `test`, `contract`, `integration` green; `terraform plan` shows exactly
-  one new route plus its integration and no drift; post-apply `curl` of the new route without a
+  one new route (it reuses the shared `backend` integration). The only other expected change is
+  the worker env `+ LYRICS_MEMBER_DEMAND_ENABLED = "true"` (the kill switch declared in ws #1008 and
+  never applied; the worker's default is already true, so applying it changes no behavior). Any
+  other change, or that key appearing as a value change rather than an addition, is drift: stop; post-apply `curl` of the new route without a
   JWT → 401, not 404.
 
 **Rollback:** revert the PR. The old endpoints are untouched, so the shipped front keeps working.
@@ -150,6 +159,14 @@ service `main`.
 3. **Undo payload size** — `track_ids` replays can exceed one album. Recommend a server-side cap
    equal to the largest album in the catalog (or 200). Blocks Step 1.
 
+**Resolved 2026-10-07 (owner, in-session): all three as recommended.** OQ1 → dedicated
+`PUT /api/buckets/{id}/playback-queue`. OQ2 → inserts count against the cap, checked *before* the
+delete. This is **not** a churn bound: the cap counts rows that still exist, so displaced rows stop
+counting once deleted and a replace can be repeated — the same property `POST /items` + `DELETE`
+always had. What bounds a single call is OQ3. OQ3 → 200. Prod
+read-only check the same day: the largest album has 50 tracks and the longest live queue 20, so
+200 clips nothing that exists.
+
 ## Alternatives considered
 
 - **Front-only: retry 503 with backoff, cap resolve concurrency.** Cheaper and same-day, but the
@@ -165,3 +182,4 @@ service `main`.
 |------|----------|------|
 | 2026-10-07 | Owner: fix the cause structurally (server-side atomic replace) rather than patch retries in the front | — |
 | 2026-10-07 | Owner: the four leftover *QRÖMELIFE* rows in the live queue are left for the owner to remove by hand; Claude does not touch them | — |
+| 2026-10-07 | Owner: RFC accepted (draft → accepted); OQ1–3 taken as recommended (dedicated PUT, cap counts inserts, 200 tracks max) | 1 |

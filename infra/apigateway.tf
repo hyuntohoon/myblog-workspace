@@ -482,6 +482,17 @@ resource "aws_apigatewayv2_route" "buckets_items_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# ARCH-playback-queue-atomic-replace Step 1: ▶ replaces the member's playback queue in one
+# request / one transaction (replaces the front's POST + N×DELETE + N×resolve sequence).
+# Member-scoped in the app; JWT-gated here like every bucket mutation.
+resource "aws_apigatewayv2_route" "buckets_playback_queue_put" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "PUT /api/buckets/{id}/playback-queue"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "buckets_items_patch" {
   api_id             = aws_apigatewayv2_api.lambda_api.id
   route_key          = "PATCH /api/buckets/{id}/items/{item_id}"
