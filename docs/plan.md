@@ -50,7 +50,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **Next:** Lambda concurrency quota (owner), the atomic-replace RFC decision (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
 
-- **ARCH-playback-queue-atomic-replace** — accepted 2026-10-07 (owner); Step 1 (backend endpoint + route) in progress. ▶ replaces the playback queue in one server transaction and returns Spotify URIs; fixes stale rows at the queue head under throttling. → `docs/rfcs/ARCH-playback-queue-atomic-replace.md`
+- **ARCH-playback-queue-atomic-replace** — accepted 2026-10-07 (owner); Step 1 shipped 2026-10-07 (backend #180, ws #1031, route applied). Next = Step 2 (workspace contract), then Step 3 (front switch). ▶ replaces the playback queue in one server transaction and returns Spotify URIs; fixes stale rows at the queue head under throttling. → `docs/rfcs/ARCH-playback-queue-atomic-replace.md`
   <!-- rfc: docs/rfcs/ARCH-playback-queue-atomic-replace.md | status: accepted -->
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).

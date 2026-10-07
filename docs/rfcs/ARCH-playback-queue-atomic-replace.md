@@ -1,6 +1,6 @@
 # ARCH-playback-queue-atomic-replace: one request, one transaction for ▶
 
-- **Status**: accepted — owner approved in-session 2026-10-07; Step 1 in progress
+- **Status**: accepted — owner approved in-session 2026-10-07; Step 1 shipped 2026-10-07, Step 2 next
 - **Owner**: site owner
 - **Created**: 2026-10-07
 - **Plan row**: `docs/plan.md` → ARCH-playback-queue-atomic-replace
@@ -183,3 +183,4 @@ read-only check the same day: the largest album has 50 tracks and the longest li
 | 2026-10-07 | Owner: fix the cause structurally (server-side atomic replace) rather than patch retries in the front | — |
 | 2026-10-07 | Owner: the four leftover *QRÖMELIFE* rows in the live queue are left for the owner to remove by hand; Claude does not touch them | — |
 | 2026-10-07 | Owner: RFC accepted (draft → accepted); OQ1–3 taken as recommended (dedicated PUT, cap counts inserts, 200 tracks max) | 1 |
+| 2026-10-07 | **Step 1 shipped.** backend #180 (`54d7491`, deploy run 37601164012, prod smoke 30/0) + ws #1031 (route). `terraform apply` (owner-approved in-session, Claude ran it from merged main, full plan): 1 added (`buckets_playback_queue_put`), 1 changed (worker env `+ LYRICS_MEMBER_DEMAND_ENABLED="true"`, no behavior change). Post-apply: no JWT → 401 (control 404); JWT + nonexistent bucket → app 404 `Bucket not found`; empty body → 422. Review follow-ups applied: set-based `DELETE … RETURNING` scoped to the bucket, shared `ALBUM_TRACK_ORDER`. The `FOR UPDATE` lock has no test (fixture cannot hold committed concurrent connections) | 1 |
