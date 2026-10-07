@@ -1,9 +1,12 @@
 # ARCH-playback-queue-atomic-replace: one request, one transaction for ▶
 
-- **Status**: accepted — owner approved in-session 2026-10-07; Steps 1–2 shipped 2026-10-07, Step 3 next
+- **Status**: **done** (2026-10-07 — Steps 1–3 all shipped and production-verified; archived).
+  Owner promoted the Status in-session on 2026-10-07 under CLAUDE.md rule #7's explicit-approval
+  exception; accepted in-session the same day with OQ1–3 as recommended. Last shipment: Step 3,
+  `myblog_front#453` (`11d38bd`, deploy run 37610604847, prod smoke 30/0).
 - **Owner**: site owner
 - **Created**: 2026-10-07
-- **Plan row**: `docs/plan.md` → ARCH-playback-queue-atomic-replace
+- **Plan row**: none of its own — tracked inside `docs/plan.md` → OPS-project-stabilization
 - **Origin**: `OPS-project-stabilization` Step 2A, open item 3 ("Popstar ▶ started Backwards"),
   reproduced 2026-10-07. The owner chose a structural fix over a front-only retry patch.
 
@@ -186,3 +189,4 @@ read-only check the same day: the largest album has 50 tracks and the longest li
 | 2026-10-07 | **Step 1 shipped.** backend #180 (`54d7491`, deploy run 37601164012, prod smoke 30/0) + ws #1031 (route). `terraform apply` (owner-approved in-session, Claude ran it from merged main, full plan): 1 added (`buckets_playback_queue_put`), 1 changed (worker env `+ LYRICS_MEMBER_DEMAND_ENABLED="true"`, no behavior change). Post-apply: no JWT → 401 (control 404); JWT + nonexistent bucket → app 404 `Bucket not found`; empty body → 422. Review follow-ups applied: set-based `DELETE … RETURNING` scoped to the bucket, shared `ALBUM_TRACK_ORDER`. The `FOR UPDATE` lock has no test (fixture cannot hold committed concurrent connections) | 1 |
 | 2026-10-07 | **Step 2 shipped** in the same session (the Steps section declares the change additive). Workspace contract merged in ws #1032 (`e620931`, additive only). The owner approved regenerating `api.gen.ts` alongside it (front #452, `29a3a54`, types only, deploy green, prod smoke 30/0), because a contract merged without it fails every front deploy. Step 3 therefore starts with `api.gen.ts` already current and does not regenerate it | 2 |
 | 2026-10-07 | **Step 3 shipped.** front #453 (`11d38bd`, deploy run 37610604847, prod smoke 30/0). `replaceQueueAndPlay`/`undoReplace` call the endpoint once; `rewriteQueue`/`deleteRows` deleted; `resolveTail`'s Spotify branch reads `spotify_uri` and the queue prefetch seeds the cache from it; Undo only for 1..200 displaced ids. Review follow-ups in the same PR: Undo serialized behind `replaceChain`, and a failed replace re-reads again after 20 s (past `apiFetch`'s 15 s timeout) so a late commit cannot leave the old queue stamped fresh. 16/16 mutants killed. Prod clickthrough in the owner's Chrome, one ▶ on *Popstar* (16): 1 backend request, 0 resolves since page load, `PUT /play` 16 URIs, DB 20 → exactly 16 rows with no mixed state seen; Undo (owner-approved) restored the original 20 in order. Deviations: the live queue was 20 rows, not 14; the control was a local stubbed run of origin/main (32 backend requests per ▶ plus 14 resolves on home entry), not the pre-deploy prod build. Status line left for the owner (rule 7) | 3 |
+| 2026-10-07 | **RFC closed.** Owner approved the Status change in-session (accepted → done) and the move to `docs/archive/done/rfcs/`. Nothing in scope remains open; carried outside this RFC: the `FOR UPDATE` lock has no test, the daily cap does not bound repeated replaces (OQ2, by design), the four leftover *QRÖMELIFE* rows are the owner's to remove, and the Lambda concurrency quota (10) is the owner's to raise | — |
