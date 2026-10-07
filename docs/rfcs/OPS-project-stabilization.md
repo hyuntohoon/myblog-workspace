@@ -697,6 +697,20 @@ with `Promise.all` (15 requests at once).
 **Open for the next session (not fixed):**
 1. The front waits for SDK `ready` with no timeout. It does not handle `authentication_error` or
    `autoplay_failed` beyond a generic notice, and it never calls `activateElement`.
+   **Ready timeout fixed 2026-10-07 (front #451, merge 327f2aa).** Before the fix a device that
+   never readied left `play()` pending forever and the session `busy` with it, so the play buttons
+   stayed disabled with no notice. Reproduced with a control: unit harness (ready → in-page; never
+   ready → still pending at 60 s), then a stubbed real-browser clickthrough on the album overlay
+   ▶ (this branch: notice and button back at 16.5 s; `origin/main` af440e9: still busy at 30 s).
+   Now: a 15 s deadline over SDK download and connect, a failed or late player is disconnected and
+   never adopted, a failed SDK script load can be retried, `authentication_error` drops the cached
+   token, and rung-2 failures have their own sentences. Each guard was mutation-checked. Prod smoke
+   30/30; the deployed `session` chunk carries the new code. **Still open: `autoplay_failed` and
+   `activateElement`.** Not attempted, not "not reproducible": it needs the real SDK with a
+   Premium streaming token (the owner account) in a Chrome started with
+   `--autoplay-policy=document-user-activation-required`, next to a default-policy control, with no
+   ghost Connect device, and the play rewrites the owner's queue. Since the scope fix nobody has
+   checked whether `autoplay_failed` fires at all. Reproduce first; do not fix blind.
 2. While playing in-page, ⏭ sent **no** Spotify request. A live playback-owner lease from an
    unidentified tab is the leading suspect. **Not reproduced 2026-10-07 (later session):** in the
    owner's Chrome, ⏭ after an album ▶ sent `PUT /me/player/play` from track 2 as expected, with

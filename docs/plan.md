@@ -45,8 +45,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   device-verified. The in-page player's scope failure was found; the token was re-minted and the
   script fix ws #1026 merged 2026-10-07 after `security-review`. **2026-10-07 follow-up:** the wrong first track is a non-atomic
   queue replace under Lambda throttling → `ARCH-playback-queue-atomic-replace` (draft); ⏭ sending
-  nothing was not reproduced. **Next:** ready timeout and failure notices, Lambda
-  concurrency quota (owner), then 2A Exit.
+  nothing was not reproduced. **Ready timeout and rung-2 failure notices deployed 2026-10-07**
+  (front #451); `autoplay_failed`/`activateElement` stays open until reproduced against a control.
+  **Next:** Lambda concurrency quota (owner), the atomic-replace RFC decision (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **ARCH-playback-queue-atomic-replace** — draft (2026-10-07). ▶ replaces the playback queue in one server transaction and returns Spotify URIs; fixes stale rows at the queue head under throttling. → `docs/rfcs/ARCH-playback-queue-atomic-replace.md`
