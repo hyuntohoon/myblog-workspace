@@ -698,8 +698,17 @@ with `Promise.all` (15 requests at once).
 1. The front waits for SDK `ready` with no timeout. It does not handle `authentication_error` or
    `autoplay_failed` beyond a generic notice, and it never calls `activateElement`.
 2. While playing in-page, ⏭ sent **no** Spotify request. A live playback-owner lease from an
-   unidentified tab is the leading suspect.
-3. Album "Popstar" ▶ started "Backwards (feat. T.I.)", a track not in that album.
+   unidentified tab is the leading suspect. **Not reproduced 2026-10-07 (later session):** in the
+   owner's Chrome, ⏭ after an album ▶ sent `PUT /me/player/play` from track 2 as expected, with
+   this tab holding the lease. One false reproduction came from clicking ⏭ while the album
+   overlay's backdrop covered the bar. Rung 1 (iPhone) only; in-page ⏭ was not re-run.
+3. Album "Popstar" ▶ started "Backwards (feat. T.I.)", a track not in that album. **Cause found
+   2026-10-07 (later session): the queue replace is non-atomic.** One ▶ on *Popstar* sent 16
+   `resolve` requests at once (8 × 503) and 14 row DELETEs (4 × 503, Lambda throttle at
+   concurrency 10). The four undeleted *QRÖMELIFE* rows, Backwards first, came back at the head
+   of the queue (read-only DB check). Owner chose the structural fix →
+   `docs/rfcs/ARCH-playback-queue-atomic-replace.md` (draft). The four leftover rows are left for
+   the owner to remove.
 4. Owner decision 2026-10-07: mobile browsers do not fall back to the in-page player; they show
    an "open the Spotify app" notice instead. Not yet implemented, and the decision was made before
    the scope cause was found. Reconfirm with the owner.
