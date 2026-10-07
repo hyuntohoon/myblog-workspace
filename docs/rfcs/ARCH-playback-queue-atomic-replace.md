@@ -1,6 +1,6 @@
 # ARCH-playback-queue-atomic-replace: one request, one transaction for ▶
 
-- **Status**: draft
+- **Status**: accepted — owner approved in-session 2026-10-07; Step 1 in progress
 - **Owner**: site owner
 - **Created**: 2026-10-07
 - **Plan row**: `docs/plan.md` → ARCH-playback-queue-atomic-replace
@@ -112,7 +112,7 @@ Additive change. Merge order per `docs/contracts/README.md`: service → workspa
   transaction boundary must fail it.
 - Cross-member test: member B's bucket id → 404, no rows touched.
 - Required checks `check`, `test`, `contract`, `integration` green; `terraform plan` shows exactly
-  one new route plus its integration and no drift; post-apply `curl` of the new route without a
+  one new route (it reuses the shared `backend` integration) and no other drift; post-apply `curl` of the new route without a
   JWT → 401, not 404.
 
 **Rollback:** revert the PR. The old endpoints are untouched, so the shipped front keeps working.
@@ -150,6 +150,12 @@ service `main`.
 3. **Undo payload size** — `track_ids` replays can exceed one album. Recommend a server-side cap
    equal to the largest album in the catalog (or 200). Blocks Step 1.
 
+**Resolved 2026-10-07 (owner, in-session): all three as recommended.** OQ1 → dedicated
+`PUT /api/buckets/{id}/playback-queue`. OQ2 → inserts count against the cap, checked *before* the
+delete, so displaced rows still count and repeated replaces cannot churn past it. OQ3 → 200. Prod
+read-only check the same day: the largest album has 50 tracks and the longest live queue 20, so
+200 clips nothing that exists.
+
 ## Alternatives considered
 
 - **Front-only: retry 503 with backoff, cap resolve concurrency.** Cheaper and same-day, but the
@@ -165,3 +171,4 @@ service `main`.
 |------|----------|------|
 | 2026-10-07 | Owner: fix the cause structurally (server-side atomic replace) rather than patch retries in the front | — |
 | 2026-10-07 | Owner: the four leftover *QRÖMELIFE* rows in the live queue are left for the owner to remove by hand; Claude does not touch them | — |
+| 2026-10-07 | Owner: RFC accepted (draft → accepted); OQ1–3 taken as recommended (dedicated PUT, cap counts inserts, 200 tracks max) | 1 |
