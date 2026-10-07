@@ -711,6 +711,34 @@ with `Promise.all` (15 requests at once).
    `--autoplay-policy=document-user-activation-required`, next to a default-policy control, with no
    ghost Connect device, and the play rewrites the owner's queue. Since the scope fix nobody has
    checked whether `autoplay_failed` fires at all. Reproduce first; do not fix blind.
+   **Attempted 2026-10-07 (later session) on desktop Chrome 154 — not reproduced.**
+   - *Setup:* two throwaway-profile Chromes on the owner account. One ran with
+     `--autoplay-policy=document-user-activation-required`, the other with no flag. No Connect
+     device was active: the desktop app was quit and the phone app closed, and rung 1 answered 404
+     both times. A local CDP script wrapped `Spotify.Player` before the SDK loaded, so every SDK
+     event (`autoplay_failed` included) and any `activateElement` call was logged. It then clicked
+     queue row 01 in the Pocket mini player (`playAt`, which does not rewrite the queue) with
+     trusted input, after a hit-test.
+   - *Strict:* `ready` at 1.09 s, `PUT /play?device_id` 204, **no `autoplay_failed`**,
+     `getCurrentState` position 0.17 s → 18.2 s over 20 s. A second strict run (ready 0.62 s,
+     0.07 s → 9.7 s) **was heard by the owner**. *Default:* the same (ready 1.31 s, 204, no event,
+     0.35 s → 17.9 s).
+   - *The flag was live:* an unmuted `Audio.play()` in a fresh tab with no gesture was rejected
+     with `NotAllowedError`. Inside the SDK iframe (`sdk.scdn.co`, `hasBeenActive: false`) the same
+     call was not rejected.
+   - *Limit of the control:* the default-policy Chrome also rejected the fresh-tab play. A new
+     profile has no media engagement for the site, so default policy behaves like the strict flag
+     there. The two windows were therefore not a discriminating pair. The run shows that a
+     gesture-started rung-2 play works under the strict policy. It does not compare against the
+     owner's everyday Chrome.
+   - *Not covered:* iOS/Android browsers, where `activateElement` matters most; rung-2 plays that
+     start without a fresh gesture (SDK auto-advance, a play issued after the SDK took longer than
+     the activation window); in-page ⏭.
+   - *Side effects:* none. The owner's queue was snapshotted read-only before and after: 20 rows,
+     identical. Both test devices were disconnected (`DELETE …/devices/…` 204).
+   - *Consequence:* there is no desktop evidence for handling `autoplay_failed` or calling
+     `activateElement`. Item 4's "mobile → app" decision still rests on nothing measured on a
+     phone.
 2. While playing in-page, ⏭ sent **no** Spotify request. A live playback-owner lease from an
    unidentified tab is the leading suspect. **Not reproduced 2026-10-07 (later session):** in the
    owner's Chrome, ⏭ after an album ▶ sent `PUT /me/player/play` from track 2 as expected, with
