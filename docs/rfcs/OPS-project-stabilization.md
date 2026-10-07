@@ -685,7 +685,7 @@ with `Promise.all` (15 requests at once).
   `GET /v1/melody/v1/check_scope?scope=web-playback` → **403 `{"error":"Token does not satisfy scope."}`**.
   The owner streaming token carried `streaming` but not `user-read-email` / `user-read-private`.
   Only the scope string was printed, with the owner's permission.
-- *Fix:* ws #1026 (draft; `security-review` required) adds both scopes to
+- *Fix:* ws #1026 (merged 2026-10-07; `security-review`: no findings) adds both scopes to
   `scripts/spotify_bootstrap_token.py`. The owner re-minted the token from that branch.
 - *After the re-mint:* the device was ready in **1.2 s**, `PUT /play?device_id` returned 204, and
   `Computer/Buckit` played (32.9 s → 36.8 s).
