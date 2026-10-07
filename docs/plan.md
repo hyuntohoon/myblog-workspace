@@ -39,8 +39,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   the RFC record. **Step 2C narrowed 2026-10-05 (owner: as conservative as possible):** only
   `MAX_CATALOG_ALBUMS` 5000 → 8000 shipped (worker #108) — the catalog hit the cap on 10-05 and
   the daily sweep had stopped; the refresh fix and the back-catalogue ingest are held on an
-  unpushed branch because automatic translation is being retired (ws #1022). Open: the 10-06
-  `album_ingest` tick must sweep again. **Next: the 2A real-device gate (owner).**
+  unpushed branch because automatic translation is being retired (ws #1022). **2C's last check
+  closed 2026-10-06:** the tick swept again (`albums` 5,027). **2A real-device gate run
+  2026-10-06/07:** viewer cases pass. The home-entry 503 defect is fixed by front #450 and
+  device-verified. The in-page player's scope failure was found; the token was re-minted and the
+  script fix is ws #1026 (draft). **Next:** in-page player follow-ups (ready timeout, ⏭ sending
+  nothing, wrong first track), Lambda concurrency quota (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).

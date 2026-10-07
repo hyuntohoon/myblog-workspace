@@ -203,9 +203,11 @@ and that question stays OQ2.
 no-polling rule, this paragraph owns its one exception. The rule itself is unchanged everywhere
 else: no surface polls playback, and the permitted-trigger list above still governs.
 
-*The exception.* While the lyrics viewer is open, `playbackSession` reads `GET /v1/me/player` every
+*The exception.* While the lyrics viewer is open — and, since 2026-10-06, while the global bar
+shows a song — `playbackSession` reads `GET /v1/me/player` every
 **10 s** (`EXTERNAL_WATCH_INTERVAL_MS`). A timer exists only while all of these hold: a surface
-asked for the watch (today only the open lyrics viewer); the page is visible; this tab may adopt
+asked for the watch (the open lyrics viewer, or the global bar while it shows a song — one
+ref-counted timer however many surfaces ask); the page is visible; this tab may adopt
 (the owner tab, or any tab while nobody owns playback); a track is known; the audio is not this
 tab's in-page SDK device (which pushes); the provider is Spotify.
 
@@ -224,9 +226,17 @@ failures in a row, stop it until some other read gets an answer. One `idle` read
 goes to the boundary burst. Cost: ≈ 24 reads per 4-minute song per open, visible viewer, against 1
 before.
 
-*Not covered, by decision.* A mirror tab; a page with no viewer open (the bar alone); playback
-that starts from nothing while the session is idle. Adding a second watcher surface, or changing
-the interval, is a change to this record.
+*Not covered, by decision.* A mirror tab; playback that starts from nothing while the session is
+idle. Adding a watcher surface, or changing the interval, is a change to this record.
+
+*Second surface (owner decision 2026-10-06, after the real-device gate).* The owner reported on
+the device that the home bar does not follow playback in real time: the bar alone was not
+watched, so a phone skip reached it only at the next lifecycle event or the old song's estimated
+end. Offered: the bar on the same 10 s watch, the bar at 30 s, or no change. Owner chose **the
+bar at 10 s, same conditions**. The watch stays one ref-counted timer, so a bar and a viewer
+open together still read once per interval. Cost: ≈ 6 reads a minute per visible reader tab
+showing a song, against the viewer's ≈ 6 before only while it was open; the device run measured
+0 429s at that rate for the viewer (Step 2A record, 2026-10-06).
 
 ### Other stabilization findings
 
@@ -615,6 +625,85 @@ far Spotify's reported `progress_ms` strays from the session's clock on an untou
 exceeds 2 s the watch re-anchors on agreement, which is the behaviour the 2026-08-01 decision
 rejected), and whether the read rate draws a 429.
 
+#### Step 2A execution record — 2026-10-06/07 (real-device gate)
+
+**Run on deployed `c7994a3`, owner account, real Spotify.** Desktop measurements came from the
+owner's Chrome. A passive wrapper logged every `GET /v1/me/player` answer; delays are measured
+from Spotify's own `timestamp` field to the DOM change. The phone was the Spotify source, and
+some cases were driven by the owner on the phone.
+
+| Case | Result |
+|---|---|
+| #448 home entry while the phone plays | ❌ twice: `spotify-token` **503**, no retry, no bar until a focus event |
+| #447 natural end ×2 | ✅ 1.3 s, 1.0 s; new song kept (both without lyrics) |
+| #449 external skip ×2 · external pause | ✅ 1.4 s, 6.8 s · 7.4 s |
+| #447 viewer ⏭ | ✅ 5.5 s: the first confirm read still saw the old song; the next read came 5 s later |
+| #447 genuine stop | ✅ bounded burst of 5 idle reads, then none. Two reads went out 61 ms apart (minor) |
+| `progress_ms` drift, untouched song, 2 min 12 s | **5 ms** against the 2 s tolerance. The 2026-08-01 concern does not arise |
+| Read rate | about one read every 10.1–10.2 s, **0 × 429** |
+| Resume from a long pause or idle | not seen until a lifecycle event or ↻ (out of scope by decision) |
+| Seek within a track | not captured on the device |
+
+**Defect found: home entry.** The account's Lambda concurrency is **10** (unreserved), and a cold
+home load fans out about 15 backend requests. CloudWatch shows Throttles 6 and account
+ConcurrentExecutions max 10 at 07:47Z. API Gateway answered the throttled token mint 503
+`{"message":"Service Unavailable"}`. The front read every token 503 as `dormant`, which is not
+retryable, so the 2/5/15 s discovery retry never ran. This is the likely real path behind the
+2026-09-28 report.
+
+**Fixed: front #450, merged `af440e9`.**
+- Only the route's own `"Spotify playback not configured"` 503 is `dormant`; any other 503 is
+  `error` and retried.
+- The prefetch concurrency limit applies across the tab, not per call.
+- Per the owner decision in finding E, the global bar now asks for the 10 s watch.
+
+Verification of #450:
+- `pnpm lint` 0 · `astro check` 0 · `pnpm test` 1331/0 skipped; 12 mutants, all killed.
+- Independent `reviewer`: no blockers; its should-fixes are fixed.
+- Stub clickthrough against an origin/main control: control showed no read and no bar for 15 s;
+  the fix retried at +2.01 s and showed the bar at 3.8 s. The bar followed a skip in 9 s with the
+  viewer closed.
+- Deploy run `37452070255` green. Marker present in production `session.*.js`. `smoke.sh prod`
+  30/0.
+- **Device recheck:** home entry hit the 503 again and **retried at +2.55 s** (200, then the
+  player read). Phone playing with the viewer closed: the bar read every 10 s.
+- The bar's skip latency on the device was not measured. The phone's Spotify stopped advancing on
+  skip; see below.
+
+**Still open: Lambda concurrency.** It is still 10. During testing on 2026-10-07, one album ▶ drew
+5–9 throttles and once failed with "재생 대기열을 바꾸지 못했어요". The owner is asked to raise it
+in Service Quotas. A second fan-out remains: `resolveTail` resolves the whole tail at play time
+with `Promise.all` (15 requests at once).
+
+**Found: the in-page player (rung 2, "Buckit") could not start in any browser.**
+
+- *Owner report (phone):* ⏭ in the site left the current song at 0 ms, paused.
+- *Reproduced on a computer:* owner Chrome, a default-policy test Chrome, and a
+  `--autoplay-policy=document-user-activation-required` test Chrome all behaved the same:
+  `PUT /play` 404 → SDK loads → no further request and no notice.
+- *Root cause, observed inside the SDK iframe:*
+  `GET /v1/melody/v1/check_scope?scope=web-playback` → **403 `{"error":"Token does not satisfy scope."}`**.
+  The owner streaming token carried `streaming` but not `user-read-email` / `user-read-private`.
+  Only the scope string was printed, with the owner's permission.
+- *Fix:* ws #1026 (draft; `security-review` required) adds both scopes to
+  `scripts/spotify_bootstrap_token.py`. The owner re-minted the token from that branch.
+- *After the re-mint:* the device was ready in **1.2 s**, `PUT /play?device_id` returned 204, and
+  `Computer/Buckit` played (32.9 s → 36.8 s).
+- *Corrected:* the in-session hypothesis that mobile autoplay policy was the cause was wrong for
+  this failure.
+- *Also seen:* a closed Spotify desktop app stayed the active Connect device. It accepted
+  `PUT /play` (204) but never played, which is the same "0 ms, paused" signature the phone showed.
+
+**Open for the next session (not fixed):**
+1. The front waits for SDK `ready` with no timeout. It does not handle `authentication_error` or
+   `autoplay_failed` beyond a generic notice, and it never calls `activateElement`.
+2. While playing in-page, ⏭ sent **no** Spotify request. A live playback-owner lease from an
+   unidentified tab is the leading suspect.
+3. Album "Popstar" ▶ started "Backwards (feat. T.I.)", a track not in that album.
+4. Owner decision 2026-10-07: mobile browsers do not fall back to the in-page player; they show
+   an "open the Spotify app" notice instead. Not yet implemented, and the decision was made before
+   the scope cause was found. Reconfirm with the owner.
+
 ---
 
 ### Step 2B — Worker transaction boundaries
@@ -854,9 +943,13 @@ current rate). Nothing else changed.
 - CI `test` green on the PR and on `main` (713 passed / 3 skipped, all `musicbrainz_live`,
   `db_bound_skips: 0`); deploy run 37291037299 green; `blogWorkerLambda` `CodeSha256`
   `KEDveHQG…` → `L3l9UxDm…` at 09:37:39Z; `scripts/smoke.sh prod` 30/0, quoted on #108.
-- **Open:** the next daily `album_ingest` tick (~2026-10-06 05:32Z) must log an
-  `album_ingest summary:` line instead of the cap message. Deliberately not triggered by hand —
-  a manual invoke is an extra sweep of Spotify reads.
+- **Closed 2026-10-06 (read-only, no manual invoke):** the scheduled tick swept again.
+  CloudWatch `/aws/lambda/blogWorkerLambda` 2026-10-06 05:32:09Z `album_ingest summary:
+  eligible=2901 swept=64 tracked_swept=34 discovered=2060 fresh=105 novel=37 passed_gate=20
+  enqueued=20 … confirm_inserted=18`; no `catalog cap reached` line after 10-06 00:00Z; `albums`
+  5,027 (was 5,002; `max(created_at)` 2026-10-06 07:58Z, in a READ ONLY transaction). Rule
+  `worker-album-catalog-ingest` `rate(1 day)` ENABLED; `blogWorkerLambda` LastModified
+  2026-10-05 09:37:39Z = the #108 deploy. The log evidence was collected by a parallel session.
 
 **Held, not shipped:** the refresh-reachability fix (a `refresh_due_count` the nudge also asks)
 and the gated back-catalogue ingest (claim → `GET /albums` → write ≥ `ALBUM_POP_MIN`, rest the
