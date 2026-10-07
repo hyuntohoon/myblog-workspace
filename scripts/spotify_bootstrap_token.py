@@ -44,7 +44,8 @@ Scopes requested (default / worker token):
     FEAT-for-you-releases Step 2 — read-only)
 
 Scopes requested (--streaming token):
-  streaming                                               (Web Playback SDK audio)
+  streaming, user-read-email, user-read-private           (Web Playback SDK audio — the SDK's
+    init scope check rejects `streaming` alone, 2026-10-07)
   user-read-playback-state, user-modify-playback-state    (device transfer + play control)
 
 NOTE: re-run this with --write after adding the library scopes — a token minted by an
@@ -74,7 +75,15 @@ SCOPES = (
 # FEAT-spotify-streaming-playback Step 1: the Web Playback SDK needs `streaming`; device
 # transfer + play control need the two playback-state scopes. Minted into a DISTINCT
 # refresh token (streaming_refresh_token) so it never mixes with the worker's read token.
-STREAMING_SCOPES = "streaming user-read-playback-state user-modify-playback-state"
+# OPS-project-stabilization (2026-10-07): `streaming` alone is not enough. The SDK's own
+# init check (`GET /v1/melody/v1/check_scope?scope=web-playback`) answered 403 "Token does
+# not satisfy scope." for a token that carried `streaming` but not `user-read-email` /
+# `user-read-private` — the scope set Spotify's SDK examples always request — and the
+# in-page device never became ready. Spotify unions newly granted scopes with earlier ones.
+STREAMING_SCOPES = (
+    "streaming user-read-email user-read-private "
+    "user-read-playback-state user-modify-playback-state"
+)
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 SECRET_ID = "/myblog/spotify"  # SSM SecureString param (was Secrets Manager)
