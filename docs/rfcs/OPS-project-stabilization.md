@@ -749,8 +749,13 @@ with `Promise.all` (15 requests at once).
    `resolve` requests at once (8 × 503) and 14 row DELETEs (4 × 503, Lambda throttle at
    concurrency 10). The four undeleted *QRÖMELIFE* rows, Backwards first, came back at the head
    of the queue (read-only DB check). Owner chose the structural fix →
-   `docs/rfcs/ARCH-playback-queue-atomic-replace.md` (draft). The four leftover rows are left for
-   the owner to remove.
+   `docs/archive/done/rfcs/ARCH-playback-queue-atomic-replace.md`. The four leftover rows are left
+   for the owner to remove.
+   **Resolved 2026-10-07 by that RFC (done, archived).** Front #453 (`11d38bd`): one ▶ is one
+   `PUT /api/buckets/{id}/playback-queue` that replaces the queue in a single transaction, with
+   zero `resolve` calls. Prod clickthrough on *Popstar* (16): 1 backend request, the queue went
+   20 → exactly 16 rows with no mixed state seen, and Undo restored the original 20 in order.
+   Throttling can now fail a ▶ as a whole but cannot leave another album's tracks at the head.
 4. Owner decision 2026-10-07: mobile browsers do not fall back to the in-page player; they show
    an "open the Spotify app" notice instead. Not yet implemented, and the decision was made before
    the scope cause was found. Reconfirm with the owner.

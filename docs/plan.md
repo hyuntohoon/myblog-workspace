@@ -49,7 +49,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   nothing was not reproduced. **Ready timeout and rung-2 failure notices deployed 2026-10-07**
   (front #451); `autoplay_failed` **not reproduced** on desktop Chrome 154 under the strict autoplay
   flag (owner heard playback, 2026-10-07); phones untested.
-  **Next:** Lambda concurrency quota (owner), closing the atomic-replace RFC (owner), then 2A Exit.
+  **ARCH-playback-queue-atomic-replace closed 2026-10-07** (owner, done, archived).
+  **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency quota (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
