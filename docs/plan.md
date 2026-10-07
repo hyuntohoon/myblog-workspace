@@ -43,9 +43,14 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   closed 2026-10-06:** the tick swept again (`albums` 5,027). **2A real-device gate run
   2026-10-06/07:** viewer cases pass. The home-entry 503 defect is fixed by front #450 and
   device-verified. The in-page player's scope failure was found; the token was re-minted and the
-  script fix is ws #1026 (draft). **Next:** in-page player follow-ups (ready timeout, ⏭ sending
-  nothing, wrong first track), Lambda concurrency quota (owner), then 2A Exit.
+  script fix is ws #1026 (draft). **2026-10-07 follow-up:** the wrong first track is a non-atomic
+  queue replace under Lambda throttling → `ARCH-playback-queue-atomic-replace` (draft); ⏭ sending
+  nothing was not reproduced. **Next:** ready timeout and failure notices, ws #1026, Lambda
+  concurrency quota (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
+
+- **ARCH-playback-queue-atomic-replace** — draft (2026-10-07). ▶ replaces the playback queue in one server transaction and returns Spotify URIs; fixes stale rows at the queue head under throttling. → `docs/rfcs/ARCH-playback-queue-atomic-replace.md`
+  <!-- rfc: docs/rfcs/ARCH-playback-queue-atomic-replace.md | status: draft -->
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
