@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from scripts.gpt_translation_store import GPTTranslationStore
+from scripts.gpt_translation_store import INSTRUCTIONS, GPTTranslationStore
 from app.services.lyrics_service import LyricsService, compute_body_fingerprint
 
 TEST_DB_URL = os.environ.get("TEST_DB_URL")
@@ -77,6 +77,7 @@ def edit(catalog, sql, **params):
 
 def test_saved_viewer_cache_and_duplicate_submission(catalog):
     claim = prepare(catalog)
+    assert claim["instructions"] == INSTRUCTIONS["lyrics"]
     assert submit(catalog, claim)["status"] == "saved"
     assert submit(catalog, claim)["status"] == "already_completed"
     assert prepare(catalog)["status"] == "cached"
@@ -185,6 +186,7 @@ def test_genius_lease_source_hash_and_manual_lyrics_are_independent(catalog):
         track=catalog[1][0], segments='[{"i":0,"text_ko":"수동 번역"}]', fp='a'*64)
     claim = prepare(catalog, kind="genius", annotation_id=catalog[3])
     assert claim["status"] == "ready"
+    assert claim["instructions"] == INSTRUCTIONS["genius"]
     translated = [{"i": 0, "text_ko": "해설 문단."}]
     assert submit(catalog, claim, translated, annotation_id=catalog[3])["status"] == "saved"
     assert prepare(catalog, kind="genius", annotation_id=catalog[3])["status"] == "cached"

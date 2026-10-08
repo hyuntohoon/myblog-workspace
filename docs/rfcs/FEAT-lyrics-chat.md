@@ -1,59 +1,71 @@
-# FEAT-lyrics-chat: automatic translation with Work Cloud
+# FEAT-lyrics-chat: automatic translation with a local GPT worker
 
 - **Status**: draft
 - **Owner**: site owner
 - **Created**: 2026-10-05
 - **Plan row**: docs/plan.md → FEAT-lyrics-chat
-- **Decision**: the owner selected ChatGPT Work Cloud on 2026-10-05, superseding the local GPT plan-login executor. This record does not promote lifecycle status.
+- **Execution**: single-PR cutover (code + docs); activation follows the delivery gates below. This record does not promote lifecycle status.
+
+## Decision record
+
+| Date | Decision | Why |
+|---|---|---|
+| 2026-10-05 | Manual per-song Chat (owner-only MCP tools, backend #179) | First proposal. |
+| 2026-10-05 | Owner corrected to **automatic** queue processing; local GPT worker built and installed disabled | Per-song manual prompts do not scale to the queue. |
+| 2026-10-05 | Owner selected Work Cloud (MCP Events) | Not implemented; routing to fresh chats was unverified. |
+| 2026-10-08 | Owner asked for translation through a **chat that leaves no history (temporary chat)**, then chose the **local GPT worker** | See below. |
+
+**Why not a chat, 2026-10-08.** Any ChatGPT chat — temporary or not — can only reach our queue through a custom MCP app, and adding one requires ChatGPT *developer mode*. The owner's account is **ChatGPT Plus** (read from the plan claim of the local Codex login, no token printed), and the owner confirmed the settings screen offers no developer mode. OpenAI's help centre lists full (write-capable) custom MCP for Business/Enterprise/Edu only. Even where available, a temporary chat starts only when a person opens it, so it cannot consume the queue automatically. Nothing is deployed for chat: API Gateway has no MCP/chat route, there is no MCP Lambda and no Cognito client for it (checked 2026-10-08); backend #179 was closed unmerged.
+
+**What the owner's actual goal maps to.** "No chat left behind" is met by the local worker by construction: it calls the Responses API with `store=false` through the owner's own ChatGPT plan sign-in, outside any chat UI, so no conversation is ever created. Wiring in Work Cloud is dropped.
+
+## Model comparison (2026-10-08, owner-requested)
+
+One song, the production lyrics prompt verbatim, production validator (JSON array, line count, index set): Tame Impala, "It Might Be Time" (41 non-gap lines) — chosen because production Claude Sonnet had refused it.
+
+| Model | Result |
+|---|---|
+| Claude Sonnet (retired production engine) | **refused 3/3** (plus the production refusal: 4/4) |
+| Claude Opus | pass 2/2 |
+| Claude Haiku | pass; literal, some awkward lines |
+| GPT-5.6-sol / -terra / -luna, GPT-5.5 | pass, each 1/1 |
+
+GPT ran through the Codex CLI on the same ChatGPT Plus account (`--ephemeral`, read-only, empty cwd), **not** through this worker's sign-in path; the worker's model list comes from the signed-in account and may differ. One song, one judge (the agent), no control: this is a smoke-level comparison, not a benchmark. Not run: Fable 5.1 (needs usage credits), GLM (provider balance empty), GPT-6.x (rejected for ChatGPT-account Codex).
+
+**Prompt alignment.** The comparison used the retired pollers' frozen 의역 prompt, but the worker had shipped a generic one-line English instruction. The worker now sends the same 의역 rules per kind (`INSTRUCTIONS` in `scripts/gpt_translation_store.py`), adapted to the `{i,text_ko}` schema; `scripts/tests/test_gpt_prompt_mirror.py` pins them to the Claude pollers' `PROMPT_HEADER`. `translator_version` stays `chatgpt/*-v1`: no GPT result has been stored under it yet.
 
 ## Outcome
 
-Preserve automatic processing of the existing AWS-produced PostgreSQL translation queue and the current viewer. Work Cloud is the selected execution destination. The queue, source revisions, claims and published results remain authoritative in the database. Neither a manual prompt for every song nor a separately billed OpenAI Platform API is part of the selected design.
+Keep the AWS producers, durable PostgreSQL queues and viewer. Replace the local Claude executor with a dedicated local GPT consumer. The machine periodically checks the queue, claims one eligible source, closes the DB transaction, calls GPT with dedicated ChatGPT-plan OAuth credentials, then validates and publishes atomically. An empty queue causes no inference.
 
-The local GPT prototype is implemented and tested, but remains disabled and is not the selected rollout. Both retired Claude translation jobs remain disabled. Cloud integration is not implemented or enabled yet; local tests do not verify Cloud execution.
+The official locally hosted Sign in with ChatGPT flow supports eligible Responses API requests with a user-authorized OAuth token. No Codex execution, ChatGPT browser automation, Codex credential reuse or paid API-key fallback. Account eligibility (including whether Plus is eligible) is established only by the owner's successful sign-in.
 
-## Conversation policy
+## Queue and controls
 
-Proposed default: one independent conversation/context per bounded translation job, initially one track or one commentary source. Supply the fixed translation instructions, current source and output schema on every job. Do not accumulate unrelated songs in a permanent translation chat or create a chat per lyric line. A later small batch may group related sources only after measuring context size and failure recovery.
+Retain explicit requested lyrics, active album demand and matched Genius pending commentary. Do not recreate a research-catalog sweep. Preserve unfinished Claude work/history and rebind active album demands to GPT work for the current source; reuse completed translations. One active inference at a time, 20-minute claims and source fingerprint checks, ordered segment/gap validation, newer request/manual edit protection, and actual selected model provenance (reserved work-result metadata stripped before viewer publication). Queue scans are bounded and continue by cursor so a stopped source cannot starve later requests.
 
-Persist job identity, attempts, source revision and results in the database rather than relying on conversation history. Retried delivery of the same event retains its event/idempotency identity; retrying a job must not bypass claim checks or the attempt ceiling. Do not require chat continuity for correctness. A fresh conversation does not reset subscription usage limits.
+Keep all eligible demand durable. A configurable daily admission budget pauses consumption until the next UTC day; it does not delete or truncate member scope. Default 10 until measured. Per source/version at most two attempts; refusal/cancellation stops immediately. Temporary failures use a delayed, bounded retry. Authentication revocation, unavailable plan usage and plan-limit errors trip a persistent consumer pause rather than trying the remaining queue. Partial/incomplete streams never publish.
 
-Keep conversation output to a short job summary after tool-based result submission. Successful conversations may be archived where supported; retain failures for diagnosis. Archiving organizes history and does not establish that model context was reset. Durable settings belong in the configured task/skill, not in incidental earlier chat messages.
+## Authentication and inference
 
-## Trigger capability gate
+Fresh dedicated dynamic client, stable opaque host ID, loopback 127.0.0.1 callback, state/nonce/PKCE, verified ID-token signature/issuer/audience/expiry/nonce and returned plan-use scopes. Credentials in owner-only local files (0600 in a 0700 directory), refreshed without log disclosure. Never a token copied from Codex or a browser cookie.
 
-Official MCP Events documentation supports Work on ChatGPT web and desktop with Cloud selected. It specifies delivery to the subscribed chat, potentially batched according to task settings. It does not establish a switch that creates a fresh conversation for every custom MCP event. Verify actual supported routing before promising independent event-triggered chats.
-
-Official scheduled-task documentation distinguishes standalone runs starting from a saved prompt from runs returning to an existing chat. This is a possible fallback, not the selected trigger: periodic model wakeups may spend allowance even when the queue is empty, so assess that behavior before enabling polling.
-
-The separately documented Workspace Agents trigger API provides conversation_key and Idempotency-Key. It is an alternative only if the owner's workspace supports that product and its API channel; ordinary Work Cloud access does not prove eligibility. Do not silently substitute this product or request a Platform API key.
-
-Prefer a lightweight AWS dispatcher that checks eligible work without invoking a model and emits bounded events only when work exists. MCP event receipt is not proof of completed translation. A subscribed control chat and independent execution chats would be acceptable only after supported dispatch/routing is verified; do not assume nested chat creation is available to a Cloud task.
-
-## Queue and usage controls
-
-Preserve explicit requested lyrics, active album demand and matched pending Genius commentary. A trigger/model change alone does not reduce producer-created demand; do not silently broaden admission. Keep all eligible demand durable and preserve completed results, manual edits and unfinished historical work.
-
-Reuse source fingerprints, ordered segment/gap validation, claim fencing, newer-request protection and live album-demand checks. No DB transaction may span model work. Publish only complete validated results; never accept a stale claim or changed source. Keep observed model provenance when exposed, and explicitly mark it unavailable otherwise rather than inventing it.
-
-Start with one active job, a conservative daily admission budget of 10, and at most two attempts per source/version. An operational budget pauses consumption without deleting or truncating member scope. Use delayed bounded retry for temporary failures; refusal/cancellation stops the source. Plan/usage/authentication rejection must pause dispatch instead of draining the queue through repeated failures. Cloud-level retries and batching must not defeat database admission controls.
-
-MCP subscriptions, callback secrets, delivery attempts and pending events need durable storage. Implement owner-scoped authentication, signed webhook verification, subscription expiry/unsubscribe, SSRF-safe callback delivery and stable event IDs. Result writes must not recursively trigger more translation events. Do not send arbitrary translation payloads into the existing generic SQS consumer without a matching handler.
+List the signed-in account's eligible models and require an explicit selection. Send `store=false`, `stream=true`, text input, no tools. Accept success only at `response.completed`. Reject refusal, errors, incomplete output and malformed/misaligned segments. No automatic model fallback or SDK retry.
 
 ## Delivery gates
 
-1. Verify the owner's supported Work Cloud trigger and conversation-routing capabilities. Resolve fresh execution context without assuming an undocumented custom-event setting. Keep existing executors disabled throughout this check.
-2. Finalize cloud contracts and the RFC implementation sequence after that gate. Implement authenticated queue claim/result tools, durable subscriptions/outbox and bounded AWS dispatch as required. Update API contracts, schema pins and infrastructure plans together where touched.
-3. Validate idle/no-model behavior, duplicate events, stale claims, changed sources, withdrawn demand, partial output, retries, usage pauses and restart recovery. Local prototype tests are reusable evidence for queue rules only.
-4. Connect the owner's Cloud integration through its supported authorization flow. Process one controlled queued job, verify the database and viewer, then confirm separate subsequent jobs receive the agreed context isolation before enabling broader consumption.
+1. Tests: full `scripts/tests` suite against the canonical schema (Neon test branch). No real inference in tests.
+2. Merge, then reinstall the runtime from merged `main` so the frozen manifest carries the aligned prompt. launchd job stays disabled.
+3. Owner completes **Continue with ChatGPT** on the loopback setup page, reviews plan-use permission and selects a model. Verify sign-in, scopes and model list without spending inference.
+4. One `--smoke` tick: one queued source → GPT → DB → authenticated viewer. Then an idle tick with no eligible source to confirm no inference. Only then set `enabled` and load the launchd job. Preserve every unrelated Claude research/nightly job.
 
-Do not claim cutover complete until an AWS-produced job is automatically processed in Work Cloud and displayed correctly. Account authorization or unsupported routing must be reported explicitly. Do not bypass a browser security-policy denial.
+Do not claim completion until the installed worker processes a queued item automatically and the viewer displays the validated result. If sign-in shows the Plus account is not eligible, stop and report — there is no API-key fallback.
 
-Rollback: pause Cloud dispatch/subscriptions and new claims; keep Claude and local GPT translation jobs disabled. Retain pending work, source data and completed results. Preserve unrelated Claude research/nightly jobs.
+Rollback: disable the GPT launchd job (or Stop on the setup page); keep both Claude translation jobs disabled; retain sources, pending demand, completed results and old work history. No DB migration or Terraform change.
 
 ## Sources
 
-- [MCP Events and subscribed chats](https://developers.openai.com/plugins/build/mcp-events)
-- [Standalone and existing-chat scheduled tasks](https://learn.chatgpt.com/docs/automations)
-- [Workspace Agents trigger runs](https://developers.openai.com/workspace-agents/trigger-runs)
-- [Superseded local plan-login prototype](https://developers.openai.com/siwc/token-sharing-open-source)
+- [ChatGPT plan usage (Sign in with ChatGPT)](https://developers.openai.com/siwc/token-sharing-open-source)
+- [Models and streamed inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference)
+- [Developer mode and MCP apps in ChatGPT](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt)
+- [Temporary Chat FAQ](https://help.openai.com/en/articles/8914046-temporary-chat-faq)

@@ -1,19 +1,13 @@
-# Automatic translations: Work Cloud direction
+# Automatic translations: local GPT worker
 
-The owner selected Work Cloud on 2026-10-05. See the current
-[design and capability gates](../rfcs/FEAT-lyrics-chat.md).
-Cloud execution is not connected or enabled yet. The local GPT prototype and both
-Claude translation jobs remain disabled. Do not follow the historical activation
-instructions below as the current rollout procedure.
+The owner selected the local GPT worker on 2026-10-08, superseding the Work Cloud
+direction (a ChatGPT chat cannot reach the queue on the owner's Plus plan: no
+developer mode, so no custom MCP app). See the
+[design and delivery gates](../rfcs/FEAT-lyrics-chat.md). The worker calls the
+Responses API with `store=false`, so no ChatGPT conversation is created. Both
+Claude translation jobs remain disabled.
 
-The proposed conversation policy is one independent context per bounded job,
-initially one track or commentary source. The database owns queue state and
-results. Custom MCP Events deliver to a subscribed chat; fresh-chat dispatch must
-be verified before implementation promises it. No separately billed OpenAI
-Platform API fallback is authorized by this design.
-
-## Historical local prototype setup (superseded; do not activate)
-
+## Local setup and cutover
 
 Run `scripts/install_gpt_translation_worker.py` with the backend Python 3.12
 interpreter and explicit backend/shared checkout paths. It freezes workspace,
