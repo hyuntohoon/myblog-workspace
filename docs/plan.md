@@ -6,6 +6,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+- **FEAT-lyrics-chat** — move automatic translation queue execution to Work Cloud; verify event routing and independent per-job context before enabling consumption. Owner selected Cloud on 2026-10-05; local GPT prototype remains disabled. [Design and rollout](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
+
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 
