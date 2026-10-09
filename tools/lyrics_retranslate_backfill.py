@@ -1,35 +1,8 @@
 #!/usr/bin/env python3
-"""FEAT-lyrics-engine-sonnet Step 2 — one-shot re-translation backfill (WRITES).
+"""Retired Claude lyrics backfill. Requests now run explicitly in Chat.
 
-Re-translates every remaining ``done | amazon.translate`` row of
-``track_lyrics_translations`` in place with the Step-1 poller engine
-(headless ``claude -p --model sonnet``, benchmark-frozen 의역 prompt). This
-driver adds NO engine, validation, or normalization logic of its own — it
-imports ``scripts/lyrics_translate_poller.py`` and reuses its functions
-verbatim (RFC: no logic fork), so the backfill writes exactly what the
-forward path would.
-
-Safety (RFC Step 2):
-  * a pre-run dump of every selected row (full row as JSON) is written to
-    ``--out-dir`` BEFORE any write — restoring a row is a single UPDATE from
-    that file;
-  * per-track commit; only a validation-PASS translation touches the row
-    (failures of either kind leave the Amazon row intact — the viewer never
-    loses a translation mid-backfill);
-  * the UPDATE is guarded by ``AND status='done' AND model='amazon.translate'``
-    so a concurrent viewer re-request can't be clobbered;
-  * re-running resumes naturally: converted rows leave the selection.
-
-Usage:
-    python tools/lyrics_retranslate_backfill.py                 # dry-run: selection only
-    python tools/lyrics_retranslate_backfill.py --execute       # translate + write
-    python tools/lyrics_retranslate_backfill.py --execute --limit 2
-    # DATABASE_URL overrides; else SSM /myblog/backend (owner AWS creds).
-
-RFC: docs/rfcs/FEAT-lyrics-engine-sonnet.md (Step 2). Success gate: all
-selected rows flipped to ``claude.sonnet`` with validation PASS (denominator =
-rows still ``model='amazon.translate'`` at run start), plus owner 3-track
-viewer spot-audit.
+Legacy flags are accepted, but the entrypoint returns before DB/model access.
+The historical single-row helper also reaches the retired model dispatch.
 """
 from __future__ import annotations
 
@@ -131,54 +104,9 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=None, help="sanity slice")
     ap.add_argument("--out-dir", type=Path, default=ROOT / "tools" / "out",
                     help="pre-state dump + report directory (gitignored)")
-    args = ap.parse_args()
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-
-    conn = poller.connect()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(SELECT_SQL)
-            targets = cur.fetchall()
-        conn.commit()
-        if args.limit:
-            targets = targets[: args.limit]
-        log.info("selection: %d row(s) still done|amazon.translate", len(targets))
-        for t in targets:
-            log.info("  %s  %s (%d segments)", t["track_id"], t["title"], t["seg_count"])
-        if not targets:
-            return 0
-        if not args.execute:
-            log.info("dry-run — pass --execute to translate + write")
-            return 0
-
-        # Pre-state dump BEFORE any write (rollback = one UPDATE per row from this file).
-        with conn.cursor() as cur:
-            cur.execute(DUMP_SQL)
-            pre = cur.fetchone()
-        conn.commit()
-        stamp = time.strftime("%Y%m%d-%H%M%S")
-        dump_path = args.out_dir / f"retranslate_prestate_{stamp}.json"
-        dump_path.write_text(json.dumps(list(pre.values())[0], ensure_ascii=False, indent=1))
-        log.info("pre-state dumped: %s", dump_path)
-
-        report = []
-        for i, t in enumerate(targets):
-            entry = {"track_id": str(t["track_id"]), "title": t["title"]}
-            entry.update(retranslate_one(conn, t["track_id"], execute=True))
-            report.append(entry)
-            log.info("[%d/%d] %s — %s", i + 1, len(targets), t["title"], entry["result"])
-            if i + 1 < len(targets):
-                time.sleep(poller.INTER_RUN_SLEEP_S)
-
-        report_path = args.out_dir / f"retranslate_report_{stamp}.json"
-        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=1))
-        n_pass = sum(1 for r in report if r["result"] == "PASS")
-        log.info("==== %d/%d PASS ==== report: %s", n_pass, len(report), report_path)
-        for r in report:
-            log.info("  %-28s %s", r["title"][:28], r["result"])
-        return 0 if n_pass == len(report) else 1
-    finally:
-        conn.close()
+    ap.parse_args()
+    log.warning("Claude retranslation backfill is retired; request a track in Chat")
+    return 0
 
 
 if __name__ == "__main__":

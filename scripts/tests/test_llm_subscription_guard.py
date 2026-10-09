@@ -311,8 +311,6 @@ def test_research_closes_read_connection_before_model_wait(monkeypatch) -> None:
 @pytest.mark.parametrize(
     "relative_path",
     [
-        "scripts/genius_translate_poller.py",
-        "scripts/lyrics_translate_poller.py",
         "scripts/research_poller.py",
         "scripts/buckit_nightly.py",
         "scripts/editor_buckit.py",
@@ -346,27 +344,23 @@ def test_buckit_cooldown_does_not_spend_retry_budget(monkeypatch) -> None:
     assert sleeps == [7]
 
 
-def test_lyrics_cooldown_stops_current_firing(monkeypatch) -> None:
+def test_retired_lyrics_entrypoint_never_claims_or_spends(monkeypatch) -> None:
     import lyrics_translate_poller as lyrics
-
-    class DummyConn:
-        def close(self) -> None:
-            pass
-
-    calls = 0
-
-    def process_one() -> bool:
-        nonlocal calls
-        calls += 1
-        raise LLMSubscriptionCooldown(30)
-
-    monkeypatch.setattr(lyrics, "connect", DummyConn)
-    monkeypatch.setattr(lyrics, "sweep", lambda _conn: None)
-    monkeypatch.setattr(lyrics, "process_one", process_one)
-    monkeypatch.setattr(sys, "argv", ["lyrics_translate_poller.py"])
-
+    def forbidden(*args, **kwargs):
+        pytest.fail("Retired entrypoint attempted DB or model work")
+    for name in ("connect", "sweep", "process_one", "_run_demand_pass"):
+        monkeypatch.setattr(lyrics, name, forbidden)
+    monkeypatch.setattr(sys, "argv", ["lyrics_translate_poller.py", "--drain"])
     assert lyrics.main() == 0
-    assert calls == 1
+
+
+def test_retired_genius_entrypoint_never_claims_or_spends(monkeypatch) -> None:
+    import genius_translate_poller as genius
+    def forbidden(*args, **kwargs):
+        pytest.fail("Retired entrypoint attempted DB or model work")
+    monkeypatch.setattr(genius, "run_batch", forbidden)
+    monkeypatch.setattr(sys, "argv", ["genius_translate_poller.py", "--drain", "--force"])
+    assert genius.main() == 0
 
 
 @pytest.mark.parametrize("module_name", ["lyrics_translate_poller", "research_poller"])
@@ -509,3 +503,32 @@ def test_genre_heal_only_finishes_successful_backfill(
     assert genre.run_once() == return_code
     assert connections == 2
     assert expected_sql in executed[-1]
+
+
+@pytest.mark.parametrize("module_name,entrypoint", [
+    ("lyrics_translate_poller", "claude_translate"),
+    ("genius_translate_poller", "translate_batch"),
+])
+def test_imported_translation_dispatch_is_retired(monkeypatch, module_name, entrypoint):
+    import importlib
+    import subprocess
+
+    module = importlib.import_module(module_name)
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("Retired translation must not spawn a model")
+    monkeypatch.setattr(subprocess, "run", must_not_run)
+    with pytest.raises(module.TransientEngineError, match="retired"):
+        getattr(module, entrypoint)(["One source line"])
+
+
+def test_retranslation_backfill_is_retired_before_db(monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("retired_backfill", ROOT / "tools/lyrics_retranslate_backfill.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("Retired backfill must not open the DB")
+    monkeypatch.setattr(module.poller, "connect", must_not_run)
+    monkeypatch.setattr(sys, "argv", ["lyrics_retranslate_backfill.py", "--execute"])
+    assert module.main() == 0

@@ -6,6 +6,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+- **FEAT-lyrics-chat** — automatic translation queue on a dedicated **local GPT worker** (ChatGPT plan sign-in, `store=false` — no chat history). Owner chose it 2026-10-08 over Work Cloud/temporary chat (Plus has no developer mode → no custom MCP). Next: merge → reinstall runtime from `main` → owner sign-in → one smoke → enable. [Design and rollout](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
+
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
 

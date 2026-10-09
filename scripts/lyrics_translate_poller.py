@@ -1,55 +1,10 @@
 #!/usr/bin/env python3
-"""FEAT-lyrics-engine-sonnet Step 1 — local lyrics-translation poller.
+"""Retired Claude translation runner, replaced by explicit Chat tools.
 
-Drains `track_lyrics_translations(status='requested')` rows — filled by the
-lyrics viewer's 번역 요청 button (POST /api/lyrics/{sid}/translation-request)
-and, since FEAT-lyrics-translation-sweep, by a state-based sweep that runs at
-the start of every firing: any track on an `album_research` album with viewable
-matched lyrics and no translation row yet is INSERTed as `requested` (idempotent
-— existing rows of any status are never touched). Each claimed track is
-translated whole-lyric with headless
-**`claude -p --model sonnet`** (benchmark-frozen 의역 prompt, 1:1 line mapping,
-JSON-only output contract) — the genre-heal/research poller claim pattern
-(launchd fires it every 60s; claim via FOR UPDATE SKIP LOCKED + a 20-min
-claimed_at re-claim window). RFC: docs/rfcs/FEAT-lyrics-engine-sonnet.md.
-
-Engine history:
-  - Original plan (FEAT-lyrics-translation): `claude -p` — dropped 2026-07-04
-    after headless refusals on copyright grounds (sonnet AND opus).
-  - v1 shipped: per-line Amazon Translate (auto→ko, Formality=INFORMAL) —
-    FEAT-lyrics-translation decisions log 2026-07-04.
-  - v2 (this file): back to `claude -p --model sonnet`. The 2026-07-04 LUX
-    benchmark (5 tracks × opus/sonnet/haiku, 194 non-gap lines) ran 15/15 PASS
-    with 0 refusals — the earlier refusal keyed on PROMPT SHAPE (의역 framing +
-    numbered lines + JSON-only output passes), not on headless-ness. Owner
-    decision 2026-07-05: Sonnet, NO Amazon fallback — terminal engine failures
-    are marked visibly (`failed`); transient CLI failures (session limit,
-    timeout) leave the claim in place so the stale-claim window retries.
-
-Fingerprint parity by construction: this script imports `normalize_lyrics` +
-`compute_source_fingerprint` from the LOCAL myblog_backend checkout, so the
-fingerprint stored at translate time equals what the read path re-derives in
-`attach_translation`. The backend repo must therefore sit on merged `main`
-(same rule as the other pollers).
-
-Flow per claimed row:
-  load track_lyrics → normalize (same code as the read) → Korean-dominant guard
-  (nothing to translate; closed as failed('korean_source')) → one `claude -p`
-  call over all non-gap lines (already-Korean lines come back verbatim per the
-  prompt contract) → validate JSON/count/index alignment (retry once) →
-  re-insert gaps as "" → upsert done + fingerprint (origin='poller').
-
-REQUIRES the backend venv (psycopg v3 + boto3 for SSM + the shared_db pin) and
-the `claude` CLI on PATH (owner subscription; the launchd plist puts
-~/.local/bin on PATH):
-
-    myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py               # one firing: sweep + up to BATCH_PER_RUN rows
-    myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py --drain       # sweep + rows until empty
-    myblog_backend/.venv/bin/python scripts/lyrics_translate_poller.py --sweep-only  # sweep only, no claims (dry observation)
-
-Env: DATABASE_URL overrides; else resolved from SSM /myblog/backend (owner AWS
-creds). LYRICS_CLAUDE_MODEL overrides the CLI model alias — test hook only
-(a bogus alias exercises the transient-failure/claim-kept path end-to-end).
+All CLI options remain parseable for old launchd/backfill invocations, but main
+returns before database access. Model dispatch also fails closed when imported.
+Historical claim/publication helpers remain for regression tests only. Keep the
+installed launchd job disabled. See docs/contracts/lyrics-chat.md.
 """
 from __future__ import annotations
 
@@ -58,7 +13,6 @@ import json
 import logging
 import os
 import re
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -88,10 +42,8 @@ from app.services.lyrics_service import (  # noqa: E402
     compute_source_fingerprint,
     normalize_lyrics,
 )
-from myblog_shared_db.llm import CliEngine, LLMJob, LLMTransientError  # noqa: E402
 from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
     LLMSubscriptionCooldown,
-    coordinated_run,
     ensure_subscription_available,
 )
 from myblog_shared_db.lyrics_demand import (  # noqa: E402
@@ -310,7 +262,7 @@ def hangul_ratio(text: str) -> float:
     return hangul / len(letters)
 
 
-# --- engine: headless claude -p (Sonnet) ----------------------------------------
+# --- retired engine compatibility --------------------------------------------
 class TransientEngineError(RuntimeError):
     """CLI-level failure (non-zero exit / timeout / missing binary) — the claim
     is left in place so the 20-min stale-claim window retries automatically
@@ -336,72 +288,15 @@ def _extract_json_array(stdout: str) -> str | None:
 
 
 def _claude_translate_once(lines: list[str]) -> list[str]:
-    """One `claude -p --model sonnet` call over ALL non-gap lines; returns the
-    translations in input order. Raises TransientEngineError (claim kept) or
-    EngineValidationError (retried once by the caller).
-
-    P4 cutover (FEAT-multi-user-accounts-p4-llmengine): the subprocess body is
-    shared_db CliEngine; argv byte-parity with the previous inline call is
-    pinned by shared_db tests/test_llm_engine.py::test_golden_argv_lyrics_translate.
-    The quirk-tuned output validator below stays local and untouched — the
-    engine runs text-mode (output_mode=None, no schema), so it only maps
-    dispatch failures. Known delta: empty stdout was engine_validation
-    (terminal after one retry), now transient/claim-kept — the RFC decision-3
-    classification, lifted from this poller's own split.
-    """
-    claude_bin = shutil.which("claude")
-    if claude_bin is None:
-        raise TransientEngineError("claude CLI not on PATH")
-    prompt = PROMPT_HEADER + "\n".join(f"{n}: {ln}" for n, ln in enumerate(lines, 1))
-    try:
-        res = coordinated_run(CliEngine(binary=claude_bin), LLMJob(
-            feature="lyrics_translate",
-            prompt=prompt,
-            model=ENGINE_CLI_MODEL,
-            output_mode=None,
-            timeout_s=ENGINE_TIMEOUT_S,
-        ), feature="lyrics_translate")
-    except LLMSubscriptionCooldown:
-        raise
-    except LLMTransientError as e:
-        raise TransientEngineError(str(e)) from None
-    stdout = res.result
-
-    head = stdout.strip()[:200]  # diagnostic capture (refusal prose lands here)
-    raw = _extract_json_array(stdout)
-    if raw is None:
-        raise EngineValidationError(f"no JSON array in output: {head}")
-    try:
-        items = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise EngineValidationError(f"bad JSON ({e}): {head}") from None
-    if not isinstance(items, list) or len(items) != len(lines):
-        got = len(items) if isinstance(items, list) else type(items).__name__
-        raise EngineValidationError(f"line count {got} != {len(lines)}: {head}")
-    ko_by_n: dict[int, str] = {}
-    for it in items:
-        if not (isinstance(it, dict) and isinstance(it.get("i"), int)
-                and isinstance(it.get("ko"), str)):
-            raise EngineValidationError(f"bad item shape {it!r:.80}: {head}")
-        ko_by_n[it["i"]] = it["ko"]
-    if set(ko_by_n) != set(range(1, len(lines) + 1)):
-        raise EngineValidationError(f"index set != 1..{len(lines)}: {head}")
-    # Empty translation falls back to the source line (mirrors the v1 behavior;
-    # "" is the stored-gap sentinel and must not appear for a non-gap line).
-    return [ko_by_n[n].strip() or lines[n - 1] for n in range(1, len(lines) + 1)]
+    """Retired dispatch: imports and historical backfills cannot invoke Claude."""
+    raise TransientEngineError("Claude translation is retired; request it in Chat")
 
 
 def claude_translate(lines: list[str]) -> list[str]:
-    """Engine call with the RFC failure policy: validation failure retries the
-    call once; TransientEngineError propagates immediately (claim kept)."""
-    try:
-        return _claude_translate_once(lines)
-    except EngineValidationError as e:
-        log.warning("engine validation failed, retrying once: %s", e)
-        return _claude_translate_once(lines)
+    """Compatibility entrypoint with no model invocation or retry."""
+    return _claude_translate_once(lines)
 
 
-# --- orchestration ------------------------------------------------------------
 def _mark_failed_fresh(track_id, error: str) -> None:
     conn = connect()
     try:
@@ -524,40 +419,11 @@ def main() -> int:
                     help="skip the Step 3 demand pass and run only the legacy queue")
     args = ap.parse_args()
 
-    if args.demand_only:
-        _run_demand_pass()
-        return 0
-
-    sweep_conn = connect()
-    try:
-        sweep(sweep_conn)
-    finally:
-        sweep_conn.close()
-    if args.sweep_only:
-        return 0
-    limit = None if args.drain else BATCH_PER_RUN
-    handled = 0
-    stopped_for_cooldown = False
-    while limit is None or handled < limit:
-        try:
-            did_handle = process_one()
-        except LLMSubscriptionCooldown:
-            stopped_for_cooldown = True
-            break
-        if not did_handle:
-            break
-        handled += 1
-        if limit is None or handled < limit:
-            time.sleep(INTER_RUN_SLEEP_S)
-    if handled == 0 and not stopped_for_cooldown:
-        log.info("no pending translation request")
-
-    # The Step 3 pass runs AFTER the legacy queue and only if the legacy queue did not stop
-    # for a cooldown: the manual 번역 요청 button is a person waiting on a specific track and
-    # keeps first call on the shared subscription budget.
-    if not args.no_demand and not stopped_for_cooldown:
-        _run_demand_pass()
+    # FEAT-lyrics-chat: the automatic Claude consumer is retired. Keep historical
+    # functions for regression tests; an old launchd plist must not spend quota.
+    log.warning("Claude lyrics translation is disabled; use the MyBlog Chat connection")
     return 0
+
 
 
 def _run_demand_pass() -> None:
