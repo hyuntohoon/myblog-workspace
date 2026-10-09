@@ -6,7 +6,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
-- **FEAT-lyrics-chat** — automatic translation queue on a dedicated **local GPT worker** (ChatGPT plan sign-in, `store=false` — no chat history). Owner chose it 2026-10-08 over Work Cloud/temporary chat (Plus has no developer mode → no custom MCP). Next: merge → reinstall runtime from `main` → owner sign-in → one smoke → enable. [Design and rollout](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
+- **FEAT-lyrics-chat** — **live 2026-10-09**: translation queue runs on a local GPT worker on the owner's Mac (ChatGPT Plus sign-in, `gpt-5.6-sol`, `store=false` — no chat history; launchd every 60 s, budget 100/UTC day). Smoke + first scheduled tick both `saved` and served by `GET /api/lyrics`. Sign-in needed the at_hash fix (ws #1038). **Open (observe):** plan usage vs. Plus allowance, GPT refusal rate after a full day. [Design, architecture, delivery record](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
 
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
@@ -30,7 +30,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   decisions; the subscription guard and residual failures. Their evidence baseline is the lyrics
   Step 5 audit below. **Step 2D narrowed 2026-10-05 (owner), no service change:** guard fix deferred
   until a Claude CLI job is loaded again, refusal classification dropped, residual translation work
-  recorded as frozen (Claude translation is being retired, ws #1022). Step 3: inspect real user journeys. **Step 2B proved 2026-10-01** with no
+  recorded as frozen (Claude translation retired; the queue now runs on the local GPT worker, FEAT-lyrics-chat, live 2026-10-09). Step 3: inspect real user journeys. **Step 2B proved 2026-10-01** with no
   worker change: the regression test was already on `main`, each `commit()` mutant fails it on its
   assertion, and the deployed bundle equals `e29b669`; what it does not establish is listed in the
   RFC record. **Step 2C measured and decided 2026-10-01, not implemented:** the owner approved the
@@ -41,7 +41,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   the RFC record. **Step 2C narrowed 2026-10-05 (owner: as conservative as possible):** only
   `MAX_CATALOG_ALBUMS` 5000 → 8000 shipped (worker #108) — the catalog hit the cap on 10-05 and
   the daily sweep had stopped; the refresh fix and the back-catalogue ingest are held on an
-  unpushed branch because automatic translation is being retired (ws #1022). **2C's last check
+  unpushed branch, held while automatic translation moved off Claude (now the local GPT worker, FEAT-lyrics-chat, live 2026-10-09). **2C's last check
   closed 2026-10-06:** the tick swept again (`albums` 5,027). **2A real-device gate run
   2026-10-06/07:** viewer cases pass. The home-entry 503 defect is fixed by front #450 and
   device-verified. The in-page player's scope failure was found; the token was re-minted and the
