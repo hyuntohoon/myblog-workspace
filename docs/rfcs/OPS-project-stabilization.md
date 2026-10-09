@@ -759,6 +759,59 @@ with `Promise.all` (15 requests at once).
 4. Owner decision 2026-10-07: mobile browsers do not fall back to the in-page player; they show
    an "open the Spotify app" notice instead. Not yet implemented, and the decision was made before
    the scope cause was found. Reconfirm with the owner.
+5. **Silent ▶ on a live desktop app — fixed 2026-10-09 (front #454, merge `fce0cd9`).**
+   - *Owner report (desktop Chrome):* ▶ changed the song in the bar; nothing sounded. A second
+     report: with the app quit, the browser played, but the bar did not appear right away.
+   - *Measured, read-only, owner streaming token:*
+     - The only active Connect device was the Mac desktop app, and its process was running.
+     - After the site's rung-1 `PUT /play` returned 204, `GET /me/player` showed
+       `is_playing: false`, `progress_ms: 0`, `item: null`, and the app itself showed nothing.
+     - This is the 10-07 "closed app accepts 204" signature on an app that was **open**, so
+       telling the member to quit the app cannot prevent it.
+     - After the owner restarted the app it played normally again. The app-side state was
+       transient.
+     - With the app quit, rung 1 → 404 → Buckit played (`Buckit active, is_playing true`).
+   - *Causes:*
+     - Rung 1 counted a 204 as success.
+     - The bar appears on `currentItemId`, which `playFrom` writes only after `play()` returns;
+       on rung 2 that includes the SDK download and `ready`.
+   - *Fix (owner chose both recommendations):*
+     - **Read-back after a rung-1 204.** At most 3 reads of `GET /me/player?market=from_token`
+       (0.6 / 1.5 / 3 s), on a fresh press only. If the play has not started, hand off to rung 2.
+       A failed read keeps the 204.
+     - **The bar answers ▶ at once.** `pendingLabel` carries the press's title until the queue
+       replace returns; then `pendingItemId` carries the starting row. The bar shows
+       "재생 준비 중…".
+     - **Nothing aims at the old track while pending.** The old track's controls are withheld,
+       and ⏯ ⏭ ⏮ are refused and shown disabled on the bar, the queue panel and the lyrics
+       viewer.
+     - **`putPlay` has an 8 s timeout.**
+     - **The read-back does not run** on a reissue, a natural advance or ⏮. The device played
+       a moment ago, and the wait would lengthen the OQ1 restart glitch.
+   - *Verification:*
+     - `pnpm lint` 0, `astro check` 0, `pnpm test` 1378/0 skipped.
+     - 28 mutants, all killed.
+     - Independent `reviewer` (opus), two passes: 7 findings, then 2; all fixed.
+     - Stubbed real-browser clickthrough with an `origin/main` control:
+
+       | Case | `origin/main` | Fix |
+       |---|---|---|
+       | Dead device, queue ▶ | Bar showed Ⅱ playing at 183 ms; no fallback | "준비 중" at 36 ms; Buckit at 5.0 s |
+       | Dead device, album overlay ▶ | Ⅱ at 824 ms | Title at 18–19 ms; Buckit at 5.6 s |
+       | Cold start (404), bar visible | 1,859 ms | 36 ms |
+
+     - Deploy run `37902763269` green; `smoke.sh prod` 30/0.
+     - The live bundle carries `market=from_token`, `pendingLabel` and `재생 준비 중`.
+   - *Not verified:*
+     - The dead-app state against the real app. It cleared on restart and cannot be triggered
+       on purpose.
+     - Relinked tracks. 0 of 44 recent owner tracks are relinked under `market=from_token`, so
+       the reviewer's relink false-negative was neither confirmed nor refuted. The `market`
+       parameter is the mitigation.
+   - *Known limits:*
+     - A mirror tab's forwarded ⏯/⏭ during the window is dropped without a notice, because
+       pending is not broadcast.
+     - Hardware media keys bypass the session; this predates the fix.
 
 ---
 
@@ -1140,3 +1193,4 @@ content.
 | 2026-10-01 | **OQ2 resolved by the owner:** external changes are observed by a conditional 10 s read while the lyrics viewer is open (option A of three). This reverses, for song identity and observed discontinuities only, the 2026-08-01 acceptance of the "phone operated while the tab stays visible" gap; the no-periodic-re-sync rule itself stands (an agreeing read changes nothing). Owner also confirmed watching a paused track for 5 minutes. Finding E now owns the exception. Delivered as front #449. | 2A |
 | 2026-10-01 | **OQ3 and OQ4 resolved by the owner** from the Step 2C read-only measurement. Refresh approved at 24 h (42 pages/day). Back-catalogue approved for popularity ≥ 20 only (374 of 686 releases, ≈ 1,000 translations) with `MAX_CATALOG_ALBUMS` raised; follow coverage is recorded as complete within the curation gate, not complete. Nothing activated; implementation is a separate leg. Finding 5's refusal count corrected. | 2C, 2D |
 | 2026-10-05 | **Owner narrowed Step 2D** in-session because automatic Claude translation is being retired (ws #1022, backend #179, draft). Subscription-guard fix deferred until any Claude CLI job is loaded again; refusal classification dropped; residual translation work recorded as frozen. No service change. Record under Step 2D. | 2D |
+| 2026-10-09 | Owner reported a silent ▶ (the bar changed, no sound) and a late bar on cold start. Root cause measured: a running desktop app as the active Connect device accepted `PUT /play` 204 and played nothing; rung 1 trusted the 204. Owner chose the read-back with automatic Buckit fallback, and an immediate "재생 준비 중" bar. Delivered as front #454; record under Step 2A item 5. Item 4 (mobile → app) is still to be reconfirmed. | 2A |
