@@ -125,7 +125,7 @@ class PlanAccount:
         # Caller holds this in memory only. Never log an authorization URL containing an ID token hint.
         return pending, AUTHORIZE + "?" + urlencode(query)
 
-    def validate_identity(self, token, client_id, nonce=None):
+    def validate_identity(self, token, client_id, nonce=None, access_token=None):
         response = self.client.get(ISSUER + "/.well-known/jwks.json")
         if response.status_code != 200:
             raise PlanUnavailable("Identity verification unavailable")
@@ -133,7 +133,10 @@ class PlanAccount:
             keys = response.json()
             kid = jwt.get_unverified_header(token).get("kid")
             key = next(k for k in keys["keys"] if k.get("kid") == kid)
+            # OpenAI ID tokens carry at_hash; jose refuses them unless given the paired access token,
+            # and then also proves the ID token was issued together with that access token.
             claims = jwt.decode(token, key, algorithms=["RS256"], issuer=ISSUER, audience=client_id,
+                                access_token=access_token,
                                 options={"require_exp": True, "require_sub": True, "require_aud": True})
             if nonce is not None and not hmac.compare_digest(str(claims.get("nonce", "")), nonce):
                 raise JWTError("nonce")
@@ -173,7 +176,8 @@ class PlanAccount:
             raise PlanUnavailable("Sign-in exchange failed; start again")
         tokens = response.json()
         scopes = self.granted(tokens)
-        claims = self.validate_identity(tokens.get("id_token", ""), client_id, pending["nonce"])
+        claims = self.validate_identity(tokens.get("id_token", ""), client_id, pending["nonce"],
+                                        access_token=tokens.get("access_token"))
         if pending["subject"] is not None and claims["sub"] != pending["subject"]:
             raise PlanUnavailable("Returning account does not match")
         if not tokens.get("refresh_token"):
@@ -220,7 +224,8 @@ class PlanAccount:
             tokens = response.json()
             scopes = self.granted(tokens, record)
             if tokens.get("id_token"):
-                identity = self.validate_identity(tokens["id_token"], record["client_id"])
+                identity = self.validate_identity(tokens["id_token"], record["client_id"],
+                                                  access_token=tokens.get("access_token"))
                 if identity["sub"] != record["subject"]:
                     raise PlanUnavailable("Renewed account does not match")
             record.update(tokens, scopes=scopes, expires_at=time.time() + int(tokens["expires_in"]))

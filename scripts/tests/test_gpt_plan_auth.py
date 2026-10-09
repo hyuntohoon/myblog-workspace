@@ -38,9 +38,16 @@ def auth(tmp_path):
     return state, account, pem, replies, requests
 
 
-def tokens(pem, expected_nonce, **claims):
-    identity = {'iss':ISSUER,'sub':'owner-fixture','aud':'issued-client','exp':int(time.time())+3600,'nonce':expected_nonce, **claims}
-    return {'access_token':'fixture-access','refresh_token':'fixture-refresh','token_type':'Bearer','scope':' '.join(REQUIRED),
+def at_hash(access_token):
+    digest = hashlib.sha256(access_token.encode()).digest()
+    return base64.urlsafe_b64encode(digest[:len(digest)//2]).decode().rstrip('=')
+
+
+def tokens(pem, expected_nonce, access='fixture-access', **claims):
+    # Real OpenAI ID tokens carry at_hash (2026-10-08 owner sign-in failed on it); the fixture must too.
+    identity = {'iss':ISSUER,'sub':'owner-fixture','aud':'issued-client','exp':int(time.time())+3600,'nonce':expected_nonce,
+                'at_hash':at_hash(access), **claims}
+    return {'access_token':access,'refresh_token':'fixture-refresh','token_type':'Bearer','scope':' '.join(REQUIRED),
             'expires_in':3600,'id_token':jwt.encode(identity,pem,algorithm='RS256',headers={'kid':'fixture'})}
 
 
@@ -82,7 +89,8 @@ def test_bad_callback_never_exchanges(auth,change):
     assert not requests
 
 
-@pytest.mark.parametrize('bad',[{'iss':'https://wrong.invalid'},{'aud':'wrong'},{'exp':1},{'nonce':'wrong'},{'sub':None}])
+@pytest.mark.parametrize('bad',[{'iss':'https://wrong.invalid'},{'aud':'wrong'},{'exp':1},{'nonce':'wrong'},{'sub':None},
+                                 {'at_hash':at_hash('some-other-access-token')}])
 def test_identity_fail_closed_does_not_save(auth,bad):
     state, *_ = auth
     with pytest.raises(PlanUnavailable): login(auth,**bad)
@@ -111,7 +119,7 @@ def test_returning_account_cannot_be_overwritten(auth):
 def test_refresh_is_serial_and_rotates_token(auth):
     state, account, pem, replies, requests = auth
     key,record=login(auth);record['expires_at']=0;state.write(key+'.json',record)
-    refresh=tokens(pem,'unused');refresh['refresh_token']='rotated';refresh.pop('scope')
+    refresh=tokens(pem,'unused',access='rotated-access');refresh['refresh_token']='rotated';refresh.pop('scope')
     replies.append(httpx.Response(200,json=refresh))
     with ThreadPoolExecutor(max_workers=2) as pool:
         outputs=list(pool.map(lambda _:account.credentials(), range(2)))
