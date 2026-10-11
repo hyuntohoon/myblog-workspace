@@ -99,9 +99,21 @@ Do not claim completion until the installed worker processes a queued item autom
 
 **Not done, and why.** The idle tick (gate 4's "no eligible source → no inference") was not run in production: the queue was not empty (12 Genius annotations pending plus album demand), and emptying it to test idleness is not a reason to spend. The behaviour is covered by `test_gpt_queue_worker.py`. The viewer was checked through its API, not in a browser (the Chrome extension was not connected).
 
+**First days measured (2026-10-11, read at 08:02 UTC).** Sources: production `lyrics_translation_work` (read-only) and `~/.local/share/myblog-gpt/worker.log` (local times converted to UTC). Enabled 2026-10-09 06:36 UTC, so 10-09 is a partial day; 10-10 is the first full UTC day; 10-11 is partial up to the read.
+
+| UTC day | Inferences (HTTP 200) | Saved (`done`) | Not saved | Budget exhausted at | Ticks after exhaustion |
+|---|---|---|---|---|---|
+| 10-09 (from 06:36) | 100 (99 logged + the `--smoke` tick, which ran before `worker.log` began) | 99 | 1 `output_limit` | 09:18 | 734, no inference |
+| 10-10 | 99 | 97 | 1 `output_limit` (2nd attempt, same row), 1 `temporary_error` | 02:33 | 1,145, no inference |
+| 10-11 (to 08:02) | 100 | 100 | 0 | 02:31 | 288, no inference |
+
+- **Refusal rate: 0 of 298 attempted rows.** Denominator = `chatgpt/%` rows that left `ready` (296 `done` + 2 `retryable_error`). Neither refusal path appears: no `refused` (structured refusal event) and no `invalid_output` (prose instead of a JSON array). The second path matters. The control is the retired engine on the same table: `claude.sonnet/v2` also shows **0** `refused`, yet **199 of 2,247** of its rows end in `engine_validation: no JSON array in output: 이 가사는 저작권이 있…`. It refused in prose, so counting `last_reason='refused'` alone would have reported "0" for Claude too.
+- **The two failures are not refusals.** "WILSHIRE" hit `output_limit` on both attempts and is now terminal (`attempts=2`). This is a length limit, not a content limit. "Diver" had one `temporary_error`; it is due again and will be retried when the scan cursor wraps around to it.
+- **Budget behaviour.** The 100-per-UTC-day budget ran out about 2.5 h into every full day. After that the worker kept ticking every 60 s, made no request to `api.openai.com`, and resumed at 00:00 UTC. No `pause_reason`, no ERROR line, no sign-in failure (8 token refreshes, all 200).
+- **Backlog, not inflow, sets the pace.** 509 `chatgpt/%` rows exist: 508 seeded on 10-09 and **1** new on 10-10. 211 are still `ready`. At 100/day the queue should empty around 10-13 UTC; after that the worker should reach its first real idle tick in production (gate 4's unrun check).
+
 **Open — observe, no decision needed:**
 - **Plan usage.** Budget is 100 admissions per UTC day (owner's choice at save). Whether this draws on the same Plus allowance as ChatGPT chat messages is unverified; read `chatgpt.com/settings/usage` after a few days. A plan-limit rejection pauses the worker by design (`pause_reason` in `settings.json`).
-- **Refusal rate under GPT.** Unmeasured. Each refusal stops that source; count `lyrics_translation_work.last_reason='refused'` for `chatgpt/%` after the first full day.
 - **The Mac must be awake.** A sleeping or switched-off machine stops consumption; the queue is durable and resumes.
 
 Rollback: **Stop** on the setup page, or `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.myblog.gpt-translate-poller.plist` (an in-flight tick may finish); keep both Claude translation jobs disabled; retain sources, pending demand, completed results and old work history. No DB migration or Terraform change.
