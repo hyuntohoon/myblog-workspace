@@ -674,6 +674,13 @@ Verification of #450:
 5–9 throttles and once failed with "재생 대기열을 바꾸지 못했어요". The owner is asked to raise it
 in Service Quotas. A second fan-out remains: `resolveTail` resolves the whole tail at play time
 with `Promise.all` (15 requests at once).
+**Rechecked 2026-10-11 (read-only).** The account limit is still 10 (unreserved 10). CloudWatch over
+the last 7 days, in UTC 07:48-aligned daily buckets: Throttles 0 / 6 / 73 / 0 / 0 / 0 / 0, against
+1,186–2,201 invocations a day. Peak ConcurrentExecutions was 4 / 10 / 10 / 7 / 7 / 8 / 4. The
+throttles fell on the 10-05 and 10-06 test days; since front #453 (one ▶ = one request) there have
+been 0 in 4 days. Headroom is still thin (peak 8 of 10). **Owner decided to request the raise** in
+Service Quotas (owner action; `claude_aws_manager` has no Service Quotas access). Until the new
+limit shows in `aws lambda get-account-settings`, this item stays open.
 
 **Found: the in-page player (rung 2, "Buckit") could not start in any browser.**
 
@@ -759,6 +766,11 @@ with `Promise.all` (15 requests at once).
 4. Owner decision 2026-10-07: mobile browsers do not fall back to the in-page player; they show
    an "open the Spotify app" notice instead. Not yet implemented, and the decision was made before
    the scope cause was found. Reconfirm with the owner.
+   **Asked 2026-10-11: owner gave no preference.** Options offered were a phone test first
+   (recommended), keep the 10-07 decision, or withdraw it. Item 4 stays undecided and
+   unimplemented. Mobile browsers keep today's behaviour: they fall back to Buckit. Nothing on a
+   phone has been measured yet. Do not implement this and do not ask again unprompted; wait for the
+   owner to raise it.
 5. **Silent ▶ on a live desktop app — fixed 2026-10-09 (front #454, merge `fce0cd9`).**
    - *Owner report (desktop Chrome):* ▶ changed the song in the bar; nothing sounded. A second
      report: with the app quit, the browser played, but the bar did not appear right away.
@@ -802,6 +814,8 @@ with `Promise.all` (15 requests at once).
 
      - Deploy run `37902763269` green; `smoke.sh prod` 30/0.
      - The live bundle carries `market=from_token`, `pendingLabel` and `재생 준비 중`.
+   - *Owner device check 2026-10-11:* confirmed normal. With the desktop app open, a regular ▶
+     plays in the app (no needless switch to Buckit), and the cold-start bar appears at once.
    - *Not verified:*
      - The dead-app state against the real app. It cleared on restart and cannot be triggered
        on purpose.
@@ -1194,3 +1208,4 @@ content.
 | 2026-10-01 | **OQ3 and OQ4 resolved by the owner** from the Step 2C read-only measurement. Refresh approved at 24 h (42 pages/day). Back-catalogue approved for popularity ≥ 20 only (374 of 686 releases, ≈ 1,000 translations) with `MAX_CATALOG_ALBUMS` raised; follow coverage is recorded as complete within the curation gate, not complete. Nothing activated; implementation is a separate leg. Finding 5's refusal count corrected. | 2C, 2D |
 | 2026-10-05 | **Owner narrowed Step 2D** in-session because automatic Claude translation is being retired (ws #1022, backend #179, draft). Subscription-guard fix deferred until any Claude CLI job is loaded again; refusal classification dropped; residual translation work recorded as frozen. No service change. Record under Step 2D. | 2D |
 | 2026-10-09 | Owner reported a silent ▶ (the bar changed, no sound) and a late bar on cold start. Root cause measured: a running desktop app as the active Connect device accepted `PUT /play` 204 and played nothing; rung 1 trusted the 204. Owner chose the read-back with automatic Buckit fallback, and an immediate "재생 준비 중" bar. Delivered as front #454; record under Step 2A item 5. Item 4 (mobile → app) is still to be reconfirmed. | 2A |
+| 2026-10-11 | Owner follow-ups for 2A. Front #454 confirmed normal by the owner on a real device. Lambda concurrency rechecked read-only: still 10, 0 throttles in the 4 days since front #453, peak 8/10. Owner will request the raise. Item 4 reconfirm: no preference given, so it stays undecided and unimplemented. Record under Step 2A. | 2A |
