@@ -159,9 +159,19 @@ Do not claim completion until the installed worker processes a queued item autom
 | Gate | Result | Evidence |
 |---|---|---|
 | 1 Tests | ✅ 2026-10-12 | Full `scripts/tests`: **269 passed / 0 skipped** against the Neon test branch, run alone. Every new check was mutation-tested: 15 mutants (admission lock removed, slot limit off by one, limit counted per sibling, streak cleared inside the wait, `main` ignoring the wait, serial slots, no third-limit stop, limit treated as pause, usage written without its lock, no attempt refund, every held claim cancelled, no shared stop, streak kept after stop, Save keeping the wait, a failing slot not stopping the others). All 15 fail the suite. Two first-round "kills" were syntax errors and were redone. Independent `reviewer` pass: 3 real defects fixed before merge (sibling stop cancelled a source permanently; limits used up attempts; idle runs rescanned the queue 3×); its `finish()` locking finding was wrong, because the only caller already holds `worker.lock` + `control.lock`. **These DB tests share one test database and read global counts.** Run them alone: a concurrent run, or fixtures left by a killed run, make `run()` translate other suites' rows. |
-| 2 Merge | ⏳ | |
-| 3 Stop → reinstall → re-enable | ⏳ | |
-| 4 Observe | ⏳ | |
+| 2 Merge | ✅ 2026-10-12 | ws #1043 merged `381a6e7`; `workspace-check` pass. |
+| 3 Stop → reinstall → re-enable | ✅ 2026-10-12 07:17 UTC | `enabled=false` under `control.lock`; `worker.lock` was free; installer ran from merged `main`. Manifest: workspace `381a6e7`, backend `54d7491`, shared `98875c8`; the four changed scripts are byte-identical to `main`. `daily_cap=300`, model `gpt-5.6-sol` and `pause_reason=None` were confirmed before `enabled=true` and the launchd bootstrap. |
+| 4 Observe | ✅ throughput / ⏳ idle tick | **First run, 07:18:55–07:30 UTC:** three streams opened within 5 s. Production showed **3 live leases** at once, and never more. 23 saved plus 7 `temporary_error` in 11 min, about **2.1 saved/min against about 0.67/min serial** (≈3×). `usage.json` after 22 completions: 31,774 input / 0 cached / 39,325 output / 6,325 reasoning tokens. 0 ERROR lines and no plan-limit event. Budget used today: 178 of 300; 85 sources still `ready`. The idle tick waits for the backlog to drain. |
+
+**Observed, not caused by this change: `temporary_error` rose on 10-12 from about 06:00 UTC.**
+
+| Window (UTC) | Worker | Ticks / items | `temporary_error` |
+|---|---|---|---|
+| 00–02 | old serial worker | 100 ticks | 3 |
+| 06:00–07:17 | old serial worker | 45 ticks | 17 |
+| 07:19–07:30 | new worker | 30 items | 7 |
+
+The failures arrive about 1 s after HTTP 200, with no `usage`. The client deliberately keeps no provider detail, so the event type (`response.failed` without a known code, `response.incomplete`, or an early stream end) is not recorded. Each failure uses an attempt, so a source hit twice becomes terminal. Recording the event type (no text) is the next step if the rate stays high.
 
 Rollback: **Stop** on the setup page, or `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.myblog.gpt-translate-poller.plist` (an in-flight tick may finish); keep both Claude translation jobs disabled; retain sources, pending demand, completed results and old work history. No DB migration or Terraform change.
 
