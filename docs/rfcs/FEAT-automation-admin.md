@@ -15,7 +15,7 @@ usage or a queue that is not progressing.
 ## Non-goals
 
 - This registration does not authorize implementation, deployment or enabling any job. (Lifted
-  for Step 1's read-only inventory on 2026-10-12, and for Step 2's read-only page, split 2a–2e,
+  for Step 1's read-only inventory on 2026-10-12, and for Step 2's read-only page, split 2a–2e (2f added after 2c),
   on the same day; Step 3 controls still need owner approval.)
 - Moving every job into Work Cloud or replacing all queues with a new framework.
 - Introducing a separately billed model API as a prerequisite.
@@ -342,6 +342,7 @@ a source that is not wired yet renders **unknown**, never healthy or empty.
 | **2c** | Owner page via `apiFetch`; real-browser walkthrough | front | — |
 | **2d** | AWS adapter (`GetMetricData` batch, explicit botocore `Config`, DB session closed before AWS calls) + read-only IAM on the backend role; full `terraform plan` | backend + infra | `reviewer` + `security-review` |
 | **2e** | Heartbeat writers: GPT worker first (frozen runtime → reinstall); the four unloaded Claude-CLI agents get the code but only report once OPS Step 2D reloads them | workspace `scripts/` | — |
+| **2f** | Queue detail API (added 2026-10-12, owner's B+C pick): per queue, counts by **reason code** (`last_reason` / status-reason columns, never raw error text — `track_lyrics_translations.error` can hold a raw exception), 24 h in/out, the oldest N waiting rows (ids, titles, age, next retry). Read-only, `require_owner`, same one-transaction DB adapter as 2b. The 2c detail panel then shows *why* rows wait and whether the queue drains | backend → workspace contract → front | `reviewer` + `security-review` |
 
 Why 2d is split from 2b: it is the only sub-step with IAM and Terraform, and 2b already makes the
 failure that went unnoticed visible (DB queues + local-agent staleness).
@@ -370,6 +371,37 @@ gives `counts: null`, never `{}`.
 - **Carried to 2c/2e.** An agent that has never written a heartbeat shows unknown, not stale, until its
   first write. The 2e GPT writer must heartbeat mid-run if `run()` can exceed 15 minutes. 2c renders
   `details`/`last_outcome` as text only. 2e writers must not put raw exception strings in `details`.
+
+**2c result (2026-10-12, shipped in two PRs).**
+
+- **First page:** front [#456](https://github.com/hyuntohoon/myblog_front/pull/456) (`887e484`). Prod
+  smoke through CloudFront: no token → 401, member → 403 `Owner only`, and the deployed bundle carries
+  the new identifiers (quoted on #456). The owner then opened it on prod, which was the first owner 200.
+- **Owner feedback the same day:** *"not intuitive — I can't tell whether it is running, what is wrong,
+  or what is waiting."* From a three-direction mock-up the owner picked **B+C, in two stages**: a front
+  rework now (B: 흐름/표 switch, C: one shared detail panel), and the data the panel needs later (**2f**).
+- **Rework:** front [#457](https://github.com/hyuntohoon/myblog_front/pull/457) (`6e76327`). Queue
+  verdicts come from evidence the 2b snapshot already carries: counts, the oldest waiting row, expired
+  leases and `frozen`. The tiers are 손볼 것 (expired leases, ranked above frozen), 동결, 지켜볼 것
+  (consumers all off in the inventory, or the oldest waiting row is over a day old), 볼 수 없음 (read
+  failed, or the table is empty, shown apart) and 문제 없음. The page opens on the most urgent queue.
+  Prod smoke (deploy run 38256808492): no token → 401, member → 403, and the new bundle
+  `AutomationBoard.Ijj7j7_d.js` carries the new identifiers and no `막힘`. It is quoted on #457.
+- **Why the verdicts are conservative.** A read-only prod check the same day showed 848 of 854 waiting
+  album jobs at `album_not_in_catalog`, with the queue shrinking (13 in / 18 out in 24 h). It also
+  showed 2,409 of 2,412 album tracks at `not_found`, and 167 of 169 `claude.sonnet/v2` retries at
+  `engine_validation`. A count-only "stuck" verdict would have been confidently wrong. So the page
+  never says 막힘/stuck, says only "1일 넘게 대기" for a long wait, and states that the reason and the
+  drain rate are not visible yet. `declared_state` is used in one direction only, to warn that a
+  queue's consumers are switched off.
+- **What the page now shows on prod (local walkthrough against the prod DB, 13:28 UTC):** 10 queues.
+  1 is 손볼 것: `claude.sonnet/v2`, 70 expired leases, frozen. 3 are 지켜볼 것: album jobs 855 (31 days),
+  album tracks 2,412 (15 days), GPT lyrics 26 (3 days). 1 is 볼 수 없음: GPT Genius, no rows yet. 5 are
+  문제 없음. Of the 40 jobs, 0 show run evidence: AWS waits on 2d, and heartbeats wait on 2e (0 rows).
+- **Next sub-step: the owner picks.** The recommendation is **2f → 2e → 2d**. 2f answers the owner's
+  actual complaint (why rows wait, and whether a queue drains) from the DB alone, with no IAM. 2e is
+  small and makes the one live Mac agent (GPT worker) observable. 2d is the only step with IAM and
+  Terraform, and it adds AWS liveness, which no current verdict depends on.
 
 **Design notes fixed for 2a–2e**
 
@@ -419,7 +451,7 @@ and reconcile any already-started work before reverting execution adapters.
 1. **Coverage and tooling** — *Answered by Step 1 (2026-10-12):* the catalog is tables A–F, and the
    approach is site-native aggregation (static catalog + AWS/DB read adapters + local heartbeat), with no
    queue/dashboard library. The Scheduler/bus check (F) was resolved the same day, and Step 2 was
-   approved as sub-steps 2a–2e.
+   approved as sub-steps 2a–2e (2f added after 2c).
 2. **Cloud model controls** — Verify event-run model selection/persistence and what the
    site can observe or change. Blocks that control, not the read-only page.
 3. **Operational policy** — Decide history retention, stale thresholds, optional budgets
@@ -433,3 +465,4 @@ and reconcile any already-started work before reverting execution adapters.
 | 2026-10-06 | Continuous monitoring with manual stopping is acceptable; self-unsubscription is not a production requirement. | Design constraint |
 | 2026-10-12 | Owner lifted the registration-only non-goal **for Step 1 only** (Steps 2+ still need approval). Step 1 inventory recorded; site-native aggregation chosen. Status stays draft. | Step 1 |
 | 2026-10-12 | Owner approved Step 2 as sub-steps 2a–2e (one per session) and granted `claude_aws_manager` read access to Scheduler/event buses; F resolved. Stale threshold = 2 × interval, min 15 min. Status stays draft. | Step 2 |
+| 2026-10-12 | After opening the 2c page on prod, owner chose the B+C layout (흐름/표 switch + shared detail panel) in two stages: front rework now (#457), queue detail API as new sub-step 2f. Ordering of 2d/2e/2f left to the owner (recommended 2f → 2e → 2d). Status stays draft. | Step 2 (2c, 2f) |
