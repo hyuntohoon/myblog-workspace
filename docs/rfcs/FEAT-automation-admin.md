@@ -169,13 +169,13 @@ is compared below against what is installed (`~/Library/LaunchAgents`), the laun
 
 | Label | Repo | Installed | Override | Loaded | Last log activity | Work it drains | State |
 |---|---|---|---|---|---|---|---|
-| `gpt-translate-poller` (`gpt_queue_worker.py`, frozen runtime) | yes (template) | yes | enabled | **yes** (pid 71502) | `worker.log` 16:45 KST today | `lyrics_translation_work`, `chatgpt/lyrics-ko-v1` | **active** — see D |
+| `gpt-translate-poller` (`gpt_queue_worker.py`, frozen runtime) | yes (template) | yes | enabled | **yes** (pid 71502) | `worker.log` 16:45 KST today | `lyrics_translation_work` (`chatgpt/lyrics-ko-v1`, `chatgpt/genius-ko-v1`); also `track_lyrics_translations` `requested`, `track_genius_annotations` `pending` and `lyrics_album_tracks` (corrected in 2b) | **active** — see D |
 | `buckit-nightly` (03:00 daily; `buckit_nightly.py`) | yes | yes | enabled | no | `myblog-buckit-nightly.log` last INFO 2026-09-27 03:31 KST ("no checked memos … $0") | review-bucket memos → draft reports | disabled (not reloaded after reboot; OPS-project-stabilization Step 2D gates reload on the subscription-guard fix) |
 | `research-poller` (60 s, `--once`) | yes | yes | enabled | no | last line 2026-09-27 11:31 KST (genius nudge timeout) | `album_research` | disabled (same gate). Queue: 87 `done`, **0 `queued`** — nothing stranded today |
 | `genre-heal-poller` (30 min) | yes | yes | enabled | no | last INFO 2026-09-24 20:59 KST ("no pending genre-backfill request") | `genre_backfill_requests` | disabled (same gate). Queue: 2 finished (06-21), **0 pending** |
 | `genre-backfill` (04:00 daily; shared_db `backfill_genres.py`) | shared_db only | yes | enabled | no | last line 2026-09-27 06:31 KST (throttle cool-down) | genre pipeline over catalog | disabled (same gate) |
-| `lyrics-translate-poller` (60 s) | yes | **no** | **disabled** | no | — | `track_lyrics_translations` (legacy Claude) | **obsolete** — script returns before DB work (retired by Chat translation) |
-| `genius-translate-poller` (60 s) | yes | **no** | **disabled** | no | — | `track_genius_annotations` | **obsolete** — same; table frozen: 6,596 done / 23 failed / 12 pending, last update 2026-08-15 |
+| `lyrics-translate-poller` (60 s) | yes | **no** | **disabled** | no | — | `track_lyrics_translations` (legacy Claude) | **obsolete** — script returns before DB work (retired by Chat translation). *Corrected in 2b:* the table is not orphaned — the GPT worker drains its `requested` rows |
+| `genius-translate-poller` (60 s) | yes | **no** | **disabled** | no | — | `track_genius_annotations` | **obsolete** — same; 6,596 done / 23 failed / 12 pending, last update 2026-08-15. *Corrected in 2b:* the table is **not frozen** — the GPT worker drains eligible `pending` rows; all 12 are ineligible for its filter |
 | `cdp-reaper` (30 min; `~/.local/bin/cdp-reaper.sh`) | **no** | yes | enabled | yes (687 runs, last exit 0) | — | stray CDP Chrome processes | active, **dev tooling, not a site job** — excluded from the catalog |
 
 Not scheduled, but they share the queues above: `editor_buckit.py` (manual Stage 0; `buckit_nightly`
@@ -262,7 +262,9 @@ Shape of the chosen approach, which Step 2 builds and this step does not:
      `sqs:GetQueueAttributes` (three queues), `cloudwatch:DescribeAlarms` (state).
    - **DB**, read-only: per-queue counts by state, oldest waiting item and last update. The queues are
      `lyrics_translation_work`, `lyrics_album_jobs`, `lyrics_album_tracks`, `lyrics_artist_discographies`,
-     `album_research` and `genre_backfill_requests`. Frozen legacy tables are shown as frozen.
+     `album_research` and `genre_backfill_requests`. Frozen legacy tables are shown as frozen. (2b added
+     `track_lyrics_translations` and `track_genius_annotations` as live GPT inputs; the only frozen store is
+     the `claude.sonnet/v2` slice of `lyrics_translation_work`.)
    - **Local heartbeat**: each local agent writes a small row (short label, `observed_at`, last outcome,
      enabled, model/cap for GPT, today's usage totals) to a new additive table. The page derives
      "not loaded / not running" from **heartbeat age**, which is exactly the failure that went
@@ -350,6 +352,25 @@ branch **before** the merge. A live check at 09:20 UTC showed 5 columns, the 4 c
 and is quoted on shared_db #85. Consumers pin `d31b060` (no tag) when 2b lands. The migration test runs
 the real V59 file and asserts every CHECK by a rejected write; all 5 mutants were killed.
 
+**2b result (2026-10-12).** Backend [#181](https://github.com/hyuntohoon/myblog_backend/pull/181):
+`GET /api/admin/automation` (`require_owner`), pinning shared_db `d31b060` (requirements and the CI
+canonical-schema ref). The catalog is 40 rows (A 18, F 2, B 12, C 7, E 1). The DB adapter reads 7 queue
+tables plus `lyrics_translation_work` per `translator_version` in one `SET TRANSACTION READ ONLY`
+transaction, closed before assembly. Every row without fresh evidence renders `unknown`; a failed read
+gives `counts: null`, never `{}`.
+
+- **Inventory correction.** Table C was wrong about two tables. The GPT worker's `CANDIDATES` reads
+  `track_lyrics_translations.status='requested'`, `track_genius_annotations.translation_status='pending'`
+  and `lyrics_album_tracks`, and `gpt_translation_store.py` publishes to the first two. All three are live.
+  Rows its filter can never pick up count as `*_ineligible`, not waiting. On prod, all 12 pending Genius
+  annotations are ineligible, so they no longer read as a stuck backlog.
+- **Local smoke against prod (read-only), 09:50 UTC:** 200 in about 2 s; 40 jobs, all `unknown`
+  (0 heartbeats). Queue counts match the Step 1 audit, e.g. `claude.sonnet/v2` with
+  `stale_running 70` (every lease expired).
+- **Carried to 2c/2e.** An agent that has never written a heartbeat shows unknown, not stale, until its
+  first write. The 2e GPT writer must heartbeat mid-run if `run()` can exceed 15 minutes. 2c renders
+  `details`/`last_outcome` as text only. 2e writers must not put raw exception strings in `details`.
+
 **Design notes fixed for 2a–2e**
 
 - **Route (decided in 2b's security-review, not here):** functionally, a read-only owner GET needs no
@@ -361,6 +382,11 @@ the real V59 file and asserts every CHECK by a rejected write; all 5 mutants wer
   `lyrics_get` each have their own JWT route as defence in depth. This page exposes operational detail
   but no credentials, so the catch-all is the default; 2b's security-review must weigh it explicitly.
   The acceptance criterion "unauthenticated → 401" is checked through CloudFront.
+  **Decided in 2b (security-review, 2026-10-12): catch-all + in-Lambda `require_owner`, no apigateway
+  route.** A JWT route's authorizer only proves "valid pool token", which self-signup members also hold,
+  so the owner/member boundary is `require_owner` either way; the guard-downgrade regression is pinned by
+  backend `tests/test_route_guard_map.py`. **Revisit when** Step 3 adds controls (mutations need routes
+  regardless) or 2d puts anything beyond AWS resource identifiers in the response.
 - **Heartbeat shape (2a):** one row per agent, upserted in place with `observed_at = now()` on the DB
   side. No history, so OQ3 retention does not arise for this table. Writer contract for 2e:
   - `agent_key` is the **short** label with `com.myblog.` removed (e.g. `gpt-translate-poller`). The
