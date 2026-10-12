@@ -50,27 +50,65 @@ AWS (unchanged)                      PostgreSQL (Neon, unchanged schema)        
 ───────────────                      ───────────────────────────────────          ──────────────────────────────────────────
 viewer POST translation-request ──▶  track_lyrics_translations  status=requested
 worker Step 4/5 album demand    ──▶  lyrics_album_jobs / _tracks (V57/V58)    ◀── launchd com.myblog.gpt-translate-poller
-Genius matcher                  ──▶  track_genius_annotations  pending              every 60 s → gpt_queue_worker.py (one tick)
+Genius matcher                  ──▶  track_genius_annotations  pending              every 60 s → gpt_queue_worker.py (one run, 3 slots)
                                      lyrics_translation_work   (claims, leases)        1. scan ≤30 candidates by cursor (no model call)
-                                                                                     2. bind album demand, claim one source (short txn)
+                                                                                     2. bind album demand, claim a source (short txn)
                                                                                      3. close DB → Responses API, store=false, stream
                                                                                         (owner's ChatGPT plan OAuth token)
 viewer GET /api/lyrics/{id}     ◀──  track_lyrics_translations  status=done   ◀── 4. validate {i,text_ko} → publish (fresh short txn)
 ```
 
-- **One tick = at most one inference.** An empty queue makes no model call. One active lease across all GPT work (`lyrics_translation_work.status='running'`).
+- **One run = up to three concurrent inferences** (since 2026-10-12; see _Throughput and usage_). Each slot repeats one-item ticks; an empty queue makes no model call. At most three live leases across all GPT work (`lyrics_translation_work.status='running'`). A run that is still going holds `worker.lock`, so the next launchd start exits at once.
 - **Runtime is frozen, not the checkout.** `scripts/install_gpt_translation_worker.py` copies the worker scripts plus the backend `app/` and shared-db `src/` at explicit revisions into `~/.local/share/myblog-gpt/runtime`, with its own `.venv` and a `manifest.json` (revisions + script SHA-256). Changing code on `main` changes nothing until the installer is rerun — and it refuses while `enabled` is true (Stop first).
-- **State directory** `~/.local/share/myblog-gpt/` (0700; files 0600): `settings.json` (`enabled`, `model`, `daily_cap`, `active`, `pause_reason`), one credential file per signed-in account, `host.json`, `scan.json` (cursor), `status.json` (last outcome), `worker.log`, and `worker.lock` / `control.lock`.
+- **State directory** `~/.local/share/myblog-gpt/` (0700; files 0600): `settings.json` (`enabled`, `model`, `daily_cap`, `active`, `pause_reason`, and during a plan-limit wait `resume_at` / `limit_hits`), one credential file per signed-in account, `host.json`, `scan.json` (cursor), `status.json` (outcome counts of the last run), `usage.json` (token totals per UTC day), `worker.log`, and `worker.lock` / `control.lock` / `usage.lock`.
 - **Owner controls** run from the loopback setup page (`runtime/.venv/bin/python runtime/scripts/gpt_worker_setup.py`, prints `http://127.0.0.1:<random port>`): sign in, list models, save model + daily budget, **Stop**. Saving never enables background work; enabling is a separate step (gate 4).
-- **Pauses are persistent.** Plan/auth/usage rejection writes `pause_reason` and `enabled=false`; the next tick does nothing until sign-in + save + re-enable.
+- **Pauses are persistent; usage limits wait.** Plan/auth rejection writes `pause_reason` and `enabled=false`; the next tick does nothing until sign-in + save + re-enable. A plan usage limit waits one hour and resumes; the third consecutive one is a persistent pause (see _Throughput and usage_).
 - **What reaches OpenAI:** the source segments and the instructions only. No tools, no project files, no chat; `store=false`, so nothing appears in ChatGPT history.
 - **Provenance:** `track_lyrics_translations.model` holds the model the response reported (`gpt-5.6-sol`); `translator_version` is `chatgpt/lyrics-ko-v1` / `chatgpt/genius-ko-v1`.
 
 ## Queue and controls
 
-Retain explicit requested lyrics, active album demand and matched Genius pending commentary. Do not recreate a research-catalog sweep. Preserve unfinished Claude work/history and rebind active album demands to GPT work for the current source; reuse completed translations. One active inference at a time, 20-minute claims and source fingerprint checks, ordered segment/gap validation, newer request/manual edit protection, and actual selected model provenance (reserved work-result metadata stripped before viewer publication). Queue scans are bounded and continue by cursor so a stopped source cannot starve later requests.
+Retain explicit requested lyrics, active album demand and matched Genius pending commentary. Do not recreate a research-catalog sweep. Preserve unfinished Claude work/history and rebind active album demands to GPT work for the current source; reuse completed translations. At most three concurrent inferences (originally one; changed 2026-10-12), 20-minute claims and source fingerprint checks, ordered segment/gap validation, newer request/manual edit protection, and actual selected model provenance (reserved work-result metadata stripped before viewer publication). Queue scans are bounded and continue by cursor so a stopped source cannot starve later requests.
 
-Keep all eligible demand durable. A configurable daily admission budget pauses consumption until the next UTC day; it does not delete or truncate member scope. Default 10 until measured. Per source/version at most two attempts; refusal/cancellation stops immediately. Temporary failures use a delayed, bounded retry. Authentication revocation, unavailable plan usage and plan-limit errors trip a persistent consumer pause rather than trying the remaining queue. Partial/incomplete streams never publish.
+Keep all eligible demand durable. A configurable daily admission budget pauses consumption until the next UTC day; it does not delete or truncate member scope. Default 10 until measured. Per source/version at most two attempts; refusal/cancellation stops immediately. Temporary failures use a delayed, bounded retry. Authentication revocation and unavailable plan usage trip a persistent consumer pause rather than trying the remaining queue. A plan usage limit waits and resumes (_Throughput and usage_). Partial/incomplete streams never publish.
+
+## Throughput and usage (2026-10-12)
+
+Owner decisions, 2026-10-12: budget **300 per UTC day** (set in `settings.json`, not code), **three concurrent inferences**, **resume by itself after a plan usage limit**, and **record token usage** so it can be compared with `chatgpt.com/settings/usage`.
+
+**Why.** Each tick ran one inference: p50 27 s, p90 42 s. Ticks started every 60 s, so the gap between two saves had a p50 of 90 s, and 100 items took about 2.5 h. At 300/day that would be about 7.5 h. With three streams in flight and no wait between items, 300 take about an hour.
+
+**Concurrency.**
+- `GPTTranslationStore.max_running = 3` replaces the single-lease rule. Before, any live `running` lease refused a claim. Now a claim is refused only when three are live. A lease whose time has run out frees its slot.
+- **The budget and slot checks were already free of races, and stay that way.** `prepare` takes `pg_advisory_xact_lock('myblog-gpt-translation-admission')` before it reads `sum(attempts)` and the live-lease count. It keeps the lock until the claim commits. Two claimers cannot both pass the last budget unit or the last slot. A test widens the window between the read and the claim with a sleep. With the lock removed, that test fails.
+- `QueueWorker.run()` starts `PARALLEL = 3` slots. Each slot repeats `tick()` until any slot reaches a final outcome: `idle`, `scan_wrap`, `daily_budget`, `owner_paused`, `usage_limit_wait` or `disabled`. Then every slot stops after the item it holds. One run therefore makes at most one pass over the queue; without the shared stop, a wrap would let the other two slots rescan it from the start. A slot that raises also stops the others. A thread lock serializes the scan cursor and claims. Claims take milliseconds against a 27 s inference, so claiming one at a time costs nothing. The claim `UPDATE` still guarantees that two slots never get the same source.
+- Session shape is unchanged for each slot: fetch → close → stream → fresh short write session. A test asserts that the pool has no connection checked out while inference runs.
+- `--smoke` still runs exactly one item.
+- **A run can last about an hour, so stopping and saving behave differently.** Before each tick a slot reads `enabled` again, and before each claim and each stream it reads `pause_reason`. **Stop** on the setup page, or setting `enabled=false` in `settings.json`, therefore ends the run once the in-flight streams finish (at most 3, each bounded by the 300 s deadline). **Save** on the setup page still needs `worker.lock`, so it fails while a run is going. Stop first, wait for the run to end, then save. The same applies to reinstalling.
+- `PlanAccount.credentials()` refreshes tokens under `account.lock`, which is an `flock`. Measured: it serializes threads within one process (peak 1 holder of 3), so concurrent slots cannot reuse one refresh token.
+
+**Plan usage limit → wait, resume, then stop.**
+- A plan usage limit is either HTTP 429 or the code `subscription_sharing_usage_limit_exceeded`. The client marks it `limit`. The worker writes `resume_at = now + 3600` and `limit_hits += 1` under `control.lock`. Scheduled starts before `resume_at` exit before any DB access.
+- **The third consecutive limit** sets `enabled=false` and `pause_reason`, as every limit did before this change.
+- A completed inference after the wait clears the streak.
+- If three streams are rejected by the same event, it counts once: any limit while `resume_at` is still in the future is not counted. A stream that started before the event and succeeds during the wait does not cancel the wait.
+- 401/403, eligibility, scope and sign-in failures still stop immediately. A 429 that carries one of those codes also stops; only the usage-limit code resumes.
+- **A limit rejection returns the source's attempt** (`fail(..., refund=True)`, which also gives back the daily budget unit). The source stays `retryable_error`. Before this change a limit used up one of the two attempts, which was harmless only because a person restarted the worker. With automatic resume, two limits on the same small queue would have stopped a member's request permanently.
+- **Only the owner's own Stop, or a model change, cancels a source that is claimed but not yet streamed** (`user_cancelled`, which is terminal). Two other things can stop a slot between its claim and its stream: a sibling's plan stop, or a limit wait. In both cases the claim is released as `claim_released`, the attempt is returned, and the source can be retried at once.
+- The third limit in a row also clears `limit_hits`, so re-enabling starts a fresh streak.
+
+**Usage.**
+- Each `response.completed` returns `usage`: input, cached input, output and reasoning tokens. A missing or malformed count is recorded as 0.
+- The worker logs one line per request (model and counts only) and adds the counts to `usage.json` as `{ "YYYY-MM-DD" (UTC): {requests, input_tokens, cached_input_tokens, output_tokens, reasoning_tokens} }`, under `usage.lock`.
+- A failure to record usage, or to reset the limit streak, never fails the item.
+- Requests that end without `response.completed` (errors, limits) are not counted, because they have no usage to report.
+- No API reads the plan usage itself: `/v1/usage` and `/v1/me` return 401 with this token. These totals are the only machine-side record. Compare them with the settings page by hand.
+
+**Plan-usage reading (owner Chrome, 2026-10-12 06:10 UTC).**
+- Plan limits are shared by Codex, Work and apps. **Chat conversations are not included**, so the worker does not use up the owner's chat allowance.
+- Only a weekly bar is shown, with 89% left; there is no 5-hour bar.
+- Estimate: about **3% of the weekly allowance per 100 translations**. The prior week's "Unknown" 5.8% ≈ ~197 worker rows; the upper bound is 11%. At 300/day that is about 9% per day, so the weekly allowance may run out in about 10 days of full budget. The wait-and-resume path, and then the third-limit stop, are what bound that.
+- App limits show four "MyBlog GPT translation worker" rows, one per sign-in attempt on 10-09. Whether to tidy them is the owner's account setting.
 
 ## Authentication and inference
 
@@ -115,6 +153,15 @@ Do not claim completion until the installed worker processes a queued item autom
 **Open — observe, no decision needed:**
 - **Plan usage.** Budget is 100 admissions per UTC day (owner's choice at save). Whether this draws on the same Plus allowance as ChatGPT chat messages is unverified; read `chatgpt.com/settings/usage` after a few days. A plan-limit rejection pauses the worker by design (`pause_reason` in `settings.json`).
 - **The Mac must be awake.** A sleeping or switched-off machine stops consumption; the queue is durable and resumes.
+
+### Throughput and usage delivery (2026-10-12)
+
+| Gate | Result | Evidence |
+|---|---|---|
+| 1 Tests | ✅ 2026-10-12 | Full `scripts/tests`: **269 passed / 0 skipped** against the Neon test branch, run alone. Every new check was mutation-tested: 15 mutants (admission lock removed, slot limit off by one, limit counted per sibling, streak cleared inside the wait, `main` ignoring the wait, serial slots, no third-limit stop, limit treated as pause, usage written without its lock, no attempt refund, every held claim cancelled, no shared stop, streak kept after stop, Save keeping the wait, a failing slot not stopping the others). All 15 fail the suite. Two first-round "kills" were syntax errors and were redone. Independent `reviewer` pass: 3 real defects fixed before merge (sibling stop cancelled a source permanently; limits used up attempts; idle runs rescanned the queue 3×); its `finish()` locking finding was wrong, because the only caller already holds `worker.lock` + `control.lock`. **These DB tests share one test database and read global counts.** Run them alone: a concurrent run, or fixtures left by a killed run, make `run()` translate other suites' rows. |
+| 2 Merge | ⏳ | |
+| 3 Stop → reinstall → re-enable | ⏳ | |
+| 4 Observe | ⏳ | |
 
 Rollback: **Stop** on the setup page, or `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.myblog.gpt-translate-poller.plist` (an in-flight tick may finish); keep both Claude translation jobs disabled; retain sources, pending demand, completed results and old work history. No DB migration or Terraform change.
 

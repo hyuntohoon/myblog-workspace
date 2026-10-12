@@ -20,6 +20,8 @@ from app.services.lyrics_service import compute_body_fingerprint, compute_source
 
 VERSIONS = {"lyrics": "chatgpt/lyrics-ko-v1", "genius": "chatgpt/genius-ko-v1"}
 MAX_ATTEMPTS = 2
+# Concurrent inferences across all local consumers (owner decision 2026-10-12).
+MAX_RUNNING = 3
 MAX_SOURCE_CHARS = 16000
 # The benchmark-frozen 의역 prompts of the retired Claude pollers (lyrics_translate_poller /
 # genius_translate_poller PROMPT_HEADER), adapted to the {i,text_ko} segment schema. The owner
@@ -116,8 +118,9 @@ def _publish(db, track_id, kind, segments, fingerprint, extra, version, claimed_
 
 
 class GPTTranslationStore:
-    def __init__(self, daily_cap=10):
+    def __init__(self, daily_cap=10, max_running=MAX_RUNNING):
         self.daily_cap = daily_cap
+        self.max_running = max_running
 
     def prepare(self, db: Session, spotify_track_id: str, kind="lyrics", annotation_id=None, manual_requested=True):
         if kind not in VERSIONS or (kind == "genius" and annotation_id is None):
@@ -144,6 +147,8 @@ class GPTTranslationStore:
             return {"status": "cached", "segments": [{"i": 0, "text_ko": extra["body_ko"]}]}
 
         # Serializes admissions across local consumers; it is released on commit.
+        # The budget sum and the running count below are read under it, so
+        # concurrent claimers can never both pass the last unit of either.
         _execute(db, "SELECT pg_advisory_xact_lock(hashtext('myblog-gpt-translation-admission'))")
         work_id = _execute(db, """INSERT INTO lyrics_translation_work
             (track_id,source_fingerprint,lang,translator_version,manual_requested)
@@ -177,8 +182,8 @@ class GPTTranslationStore:
         running = _execute(db, """SELECT count(*) FROM lyrics_translation_work
             WHERE translator_version IN (:lyrics,:genius) AND status='running' AND lease_until>now()""",
             lyrics=VERSIONS["lyrics"], genius=VERSIONS["genius"]).scalar_one()
-        if running:
-            raise HTTPException(409, "Another GPT worker holds the active inference lease")
+        if running >= self.max_running:
+            raise HTTPException(409, "Every GPT inference lease slot is held")
         # Genius must not inherit claim_work's manual-LYRICS exclusion.
         token = _execute(db, """UPDATE lyrics_translation_work SET status='running',
             attempts=attempts+1,claim_token=gen_random_uuid(),lease_until=now()+interval '20 minutes',
@@ -230,14 +235,16 @@ class GPTTranslationStore:
         return {"status": "saved" if published is not None else "stored_not_published",
                 "work_id": str(work_id), "reason": None if published is not None else "A newer edit or request was preserved"}
 
-    def fail(self, db: Session, work_id: UUID, claim_token: UUID, reason: str):
+    def fail(self, db: Session, work_id: UUID, claim_token: UUID, reason: str, refund=False):
+        """Release a claim. ``refund`` returns the attempt (and its budget unit) when no
+        inference was consumed: a plan usage limit or a claim released before streaming."""
         work = _execute(db, "SELECT translator_version FROM lyrics_translation_work WHERE id=:id", id=work_id).scalar_one_or_none()
         if work not in VERSIONS.values():
             raise HTTPException(404, "Unknown GPT work")
         done = _execute(db, """UPDATE lyrics_translation_work SET status='retryable_error',
-            claim_token=NULL,lease_until=NULL,last_reason=:reason,next_attempt_at=CASE WHEN :reason='temporary_error' THEN now()+interval '10 minutes' ELSE NULL END,updated_at=now()
+            attempts=attempts-CASE WHEN :refund THEN 1 ELSE 0 END,claim_token=NULL,lease_until=NULL,last_reason=:reason,next_attempt_at=CASE WHEN :reason='temporary_error' THEN now()+interval '10 minutes' ELSE NULL END,updated_at=now()
             WHERE id=:id AND status='running' AND claim_token=:token AND lease_until>now() RETURNING id""",
-            id=work_id, token=claim_token, reason=reason).scalar_one_or_none()
+            id=work_id, token=claim_token, reason=reason, refund=refund).scalar_one_or_none()
         if done is None:
             raise HTTPException(409, "Claim expired or already completed")
         return {"status": "stopped", "automatic_retry": False, "reason": reason}

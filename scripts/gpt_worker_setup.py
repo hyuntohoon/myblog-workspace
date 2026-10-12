@@ -9,6 +9,7 @@ import json
 import logging
 import secrets
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -79,10 +80,13 @@ class SetupHandler(BaseHTTPRequestHandler):
         pause = settings.get('pause_reason')
         if pause:
             status += ' · 중지 사유: ' + pause
+        elif settings.get('resume_at', 0) > time.time():
+            status += (' · 사용량 한도 대기: ' + time.strftime('%H:%M', time.localtime(settings['resume_at']))
+                       + f"까지 ({settings.get('limit_hits', 0)}/3)")
         self.send_page(f'''<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>MyBlog GPT 연결</title><style>body{{font-family:system-ui;max-width:650px;margin:70px auto;padding:20px;line-height:1.65}}button,select,input{{font:inherit;padding:8px;margin:6px 0}}button{{cursor:pointer}}aside{{background:#f3f4f6;padding:18px;border-radius:12px}}label{{display:block}}</style>
 <h1>번역 자동 처리 연결</h1><p>{html.escape(status)}</p><p>{html.escape(record.get('email',''))}</p>
-<p>{html.escape(self.server.message)}</p><aside>AWS에 쌓인 가사·해설 요청을 이 컴퓨터에서 하나씩 처리합니다.
+<p>{html.escape(self.server.message)}</p><aside>AWS에 쌓인 가사·해설 요청을 이 컴퓨터에서 최대 세 건씩 동시에 처리합니다.
 ChatGPT 플랜의 허용량을 사용하며, 다른 연결 앱과 한도를 공유할 수 있습니다.
 로그인하거나 설정을 저장해도 자동 처리가 시작되지는 않습니다.</aside>
 <form method="post" action="/login">{hidden}<label><input type="checkbox" name="consent" value="yes" required> ChatGPT 플랜을 사용하여 번역하는 데 동의합니다.</label>
@@ -90,7 +94,8 @@ ChatGPT 플랜의 허용량을 사용하며, 다른 연결 앱과 한도를 공�
 <form method="post" action="/models">{hidden}<button>이 계정의 모델 확인</button></form>
 <form method="post" action="/save">{hidden}<label>번역 모델 <select name="model" required><option value="">선택</option>{options}</select></label>
 <label>하루 호출 예산 <input type="number" name="daily_cap" value="{int(settings.get('daily_cap',10))}" min="1" max="10000" required></label>
-<p>예산에 도달하면 요청을 남겨 두고 다음 UTC 날짜에 이어서 처리합니다. 같은 원문의 실패는 최대 두 번 시도합니다.</p><button>설정 저장 (자동 실행은 꺼짐)</button></form>
+<p>예산에 도달하면 요청을 남겨 두고 다음 UTC 날짜에 이어서 처리합니다. 같은 원문의 실패는 최대 두 번 시도합니다.
+플랜 사용량 한도에 걸리면 한 시간 뒤 이어서 처리하고, 세 번 연속이면 자동 처리를 끕니다.</p><button>설정 저장 (자동 실행은 꺼짐)</button></form>
 <form method="post" action="/pause">{hidden}<button>자동 처리 중지</button></form>
 <p><a href="{USAGE}" target="_blank" rel="noopener noreferrer">ChatGPT 사용량·앱별 권한 설정</a></p>
 <p>저장 후 담당 에이전트가 요청 한 건과 결과 화면을 검증한 다음 자동 실행을 켭니다. 계정 토큰은 이 컴퓨터에만 보관됩니다.</p></html>''')
@@ -153,6 +158,8 @@ ChatGPT 플랜의 허용량을 사용하며, 다른 연결 앱과 한도를 공�
                 with self.server.state.lock('worker.lock', blocking=False), self.server.state.lock('control.lock'):
                     settings = self.server.state.settings()
                     settings.update(model=model, daily_cap=cap, enabled=False, pause_reason=None)
+                    settings.pop('limit_hits', None)
+                    settings.pop('resume_at', None)
                     self.server.state.write('settings.json', settings)
                 self.server.message = '설정을 저장했습니다. 자동 처리는 꺼져 있으며, 검증 후 시작합니다.'
             elif self.path == '/pause':
@@ -160,7 +167,7 @@ ChatGPT 플랜의 허용량을 사용하며, 다른 연결 앱과 한도를 공�
                     settings = self.server.state.settings()
                     settings.update(enabled=False, pause_reason='owner_paused')
                     self.server.state.write('settings.json', settings)
-                self.server.message = '자동 처리를 껐습니다. 진행 중인 한 건은 마무리될 수 있습니다.'
+                self.server.message = '자동 처리를 껐습니다. 진행 중인 건(최대 세 건)은 마무리될 수 있습니다.'
             else:
                 self.send_page('페이지가 없습니다.',404)
                 return

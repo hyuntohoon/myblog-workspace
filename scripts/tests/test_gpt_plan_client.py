@@ -40,8 +40,14 @@ def event(kind, **fields):
     return ("data: " + json.dumps({"type": kind, **fields}, ensure_ascii=False) + "\n\n").encode()
 
 
-def completed(result=RESULT, model="actual-model"):
+USAGE = {"input_tokens": 120, "input_tokens_details": {"cached_tokens": 20},
+         "output_tokens": 300, "output_tokens_details": {"reasoning_tokens": 64}, "total_tokens": 420}
+ZERO = {"input_tokens": 0, "cached_input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0}
+
+
+def completed(result=RESULT, model="actual-model", usage=None):
     return event("response.completed", response={"status": "completed", "model": model,
+        **({"usage": usage} if usage is not None else {}),
         "output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps(result, ensure_ascii=False)}]}]})
 
 
@@ -71,7 +77,7 @@ def assert_failure(worker, reason, pause=False):
 def test_success_and_exact_public_request():
     worker, requests, stream, account = setup([
         event("response.output_text.delta", delta="discarded partial"), completed()])
-    assert worker.translate(CLAIM, "selected-model") == (RESULT, "actual-model")
+    assert worker.translate(CLAIM, "selected-model") == (RESULT, "actual-model", ZERO)
     assert len(requests) == account.calls == 1
     request = requests[0]
     assert str(request.url) == RESPONSES_URL
@@ -123,12 +129,37 @@ def test_incomplete_or_unconfirmed_output_is_never_returned(chunks):
     assert len(requests) == 1 and stream.closed
 
 
-@pytest.mark.parametrize("status", [401, 403, 429])
-def test_pre_stream_auth_or_usage_errors_pause(status):
+@pytest.mark.parametrize("status", [401, 403])
+def test_pre_stream_auth_errors_pause_without_resume(status):
     worker, requests, _, _ = setup([b'{"detail":"secret-token private source"}'], status=status)
     error = assert_failure(worker, "plan_authorization_or_usage", pause=True)
     assert error.status_code == status
+    assert error.limit is False
     assert len(requests) == 1
+
+
+def test_bare_429_is_a_resumable_usage_limit():
+    worker, requests, _, _ = setup([b'{"detail":"secret-token private source"}'], status=429)
+    error = assert_failure(worker, "plan_usage_limit", pause=True)
+    assert error.limit is True and error.status_code == 429
+    assert len(requests) == 1
+
+
+@pytest.mark.parametrize("code", sorted(PAUSE_CODES))
+def test_only_the_usage_limit_code_is_resumable(code):
+    # 429 status with an eligibility/auth code must still stop, never wait and retry.
+    worker, *_ = setup([json.dumps({"error": {"code": code}}).encode()], status=429)
+    error = assert_failure(worker, code, pause=True)
+    assert error.limit is (code == "subscription_sharing_usage_limit_exceeded")
+
+
+def test_completed_usage_is_returned_and_malformed_counts_are_zero():
+    worker, *_ = setup([completed(usage=USAGE)])
+    assert worker.translate(CLAIM, "selected-model")[2] == {
+        "input_tokens": 120, "cached_input_tokens": 20, "output_tokens": 300, "reasoning_tokens": 64}
+    worker, *_ = setup([completed(usage={"input_tokens": "120", "output_tokens": -1,
+                                         "input_tokens_details": None, "output_tokens_details": {"reasoning_tokens": True}})])
+    assert worker.translate(CLAIM, "selected-model")[2] == ZERO
 
 
 def test_detail_code_and_transient_unknown_messages_are_sanitized():
@@ -161,7 +192,7 @@ def test_invalid_json_does_not_echo_model_output():
 def test_actual_model_falls_back_to_selected_catalog_slug():
     worker, *_ = setup([event("response.output_text.delta", delta=json.dumps(RESULT)),
         event("response.completed", response={"status": "completed"})])
-    assert worker.translate(CLAIM, "selected-model") == (RESULT, "selected-model")
+    assert worker.translate(CLAIM, "selected-model") == (RESULT, "selected-model", ZERO)
 
 
 def test_transport_timeout_is_bounded_and_never_retried():
@@ -207,7 +238,7 @@ def test_non_string_error_code_and_nested_detail_fail_safely():
     worker, *_ = setup([event("error", error={"code": {"secret-token": "private source"}})])
     assert_failure(worker, "temporary_error")
     worker, *_ = setup([json.dumps({"detail": {"error": {"code": "subscription_sharing_usage_limit_exceeded"}}}).encode()], status=429)
-    assert_failure(worker, "subscription_sharing_usage_limit_exceeded", pause=True)
+    assert assert_failure(worker, "subscription_sharing_usage_limit_exceeded", pause=True).limit is True
 
 
 @pytest.mark.parametrize("segments", [[], [{"i": -1, "text": "private source"}], [{"i": 0, "text": "private source", "auxiliary": "secret-token"}], [{"i": 0, "text": "x" * 16001}]])

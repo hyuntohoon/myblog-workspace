@@ -4,6 +4,8 @@ There are no transport retries or alternative credentials. Partial streamed text
 is never returned: a successful response.completed event is required first.
 The total deadline is checked on every stream chunk, including keepalives;
 a stalled read can extend it by at most the explicit 30-second read timeout.
+A plan usage limit is marked ``limit`` so the worker can wait and resume; every
+other plan rejection stays a plain pause.
 """
 from __future__ import annotations
 
@@ -25,15 +27,17 @@ PAUSE_CODES = frozenset({
     "subscription_sharing_route_not_supported", "subscription_sharing_invalid_user",
     "chatpass_v2_scope_not_authorized", "chatpass_v2_invalid_authorization_context",
 })
+USAGE_LIMIT_CODE = "subscription_sharing_usage_limit_exceeded"
 
 
 class PlanInferenceError(RuntimeError):
     """Safe failure metadata; never retains a provider message or request body."""
 
     def __init__(self, reason: str, *, pause: bool = False, status_code: int | None = None,
-                 request_id: str | None = None):
+                 request_id: str | None = None, limit: bool = False):
         self.reason = reason
         self.pause = pause
+        self.limit = limit
         self.status_code = status_code
         # Headers are untrusted too. Keep only the opaque identifier syntax.
         self.request_id = request_id if isinstance(request_id, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", request_id) else None
@@ -51,12 +55,29 @@ def _failure(payload, status=None, request_id=None):
         value = nested
     code = value.get("code")
     if isinstance(code, str) and code in PAUSE_CODES:
-        return PlanInferenceError(code, pause=True, status_code=status, request_id=request_id)
-    if status in (401, 403, 429):
+        return PlanInferenceError(code, pause=True, status_code=status, request_id=request_id,
+                                  limit=code == USAGE_LIMIT_CODE)
+    if status == 429:
+        return PlanInferenceError("plan_usage_limit", pause=True, status_code=status,
+                                  request_id=request_id, limit=True)
+    if status in (401, 403):
         return PlanInferenceError("plan_authorization_or_usage", pause=True, status_code=status, request_id=request_id)
     if status is not None and 400 <= status < 500 and status != 408:
         return PlanInferenceError("plan_request_rejected", pause=True, status_code=status, request_id=request_id)
     return PlanInferenceError("temporary_error", status_code=status, request_id=request_id)
+
+
+def _usage(completed):
+    """Token counts from response.completed; absent or malformed fields count as 0."""
+    usage = completed.get("usage")
+    usage = usage if isinstance(usage, dict) else {}
+    def count(container, key):
+        value = container.get(key) if isinstance(container, dict) else None
+        return value if type(value) is int and value >= 0 else 0
+    return {"input_tokens": count(usage, "input_tokens"),
+            "cached_input_tokens": count(usage.get("input_tokens_details"), "cached_tokens"),
+            "output_tokens": count(usage, "output_tokens"),
+            "reasoning_tokens": count(usage.get("output_tokens_details"), "reasoning_tokens")}
 
 
 def _shape(value):
@@ -224,7 +245,7 @@ class GPTPlanClient:
                         actual_model = completed.get("model", model)
                         if not isinstance(actual_model, str) or not actual_model.strip() or len(actual_model) > 200:
                             raise PlanInferenceError("invalid_output")
-                        return segments, actual_model
+                        return segments, actual_model, _usage(completed)
         except (httpx.HTTPError, UnicodeEncodeError):
             raise PlanInferenceError("temporary_error") from None
         raise PlanInferenceError("temporary_error")

@@ -31,7 +31,7 @@ RESULT = [{"i": 0, "text_ko": "첫 줄"}, {"i": 1, "text_ko": ""}, {"i": 2, "tex
 def catalog(monkeypatch):
     engine = create_engine(TEST_DB_URL)
     album = uuid4()
-    tracks = [uuid4() for _ in range(3)]
+    tracks = [uuid4() for _ in range(4)]
     spotify_ids = [uuid4().hex[:22] for _ in tracks]
     annotation = int(uuid4().hex[:14], 16)
     monkeypatch.setattr(SERVICE, "daily_cap", 10)
@@ -220,18 +220,59 @@ def test_malformed_segments_never_complete(catalog, segments):
                          {"id": catalog[1][0]}).scalar_one() == 0
 
 
-def test_global_serialization_also_covers_different_tracks(catalog):
+def _race(catalog, indices):
     def run(index):
         try:
             return prepare(catalog, index=index)["status"]
         except HTTPException as error:
             return error.status_code
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(run, [0, 1]))
-    assert sorted(results, key=str) == sorted(["ready", 409], key=str)
+    with ThreadPoolExecutor(max_workers=len(indices)) as pool:
+        return sorted(pool.map(run, indices), key=str)
+
+
+def _running(catalog):
     with catalog[0].connect() as c:
-        assert c.execute(text("SELECT count(*) FROM lyrics_translation_work WHERE track_id=ANY(:tracks) AND status='running'"),
-                         {"tracks": catalog[1]}).scalar_one() == 1
+        return c.execute(text("SELECT count(*) FROM lyrics_translation_work WHERE track_id=ANY(:tracks) AND status='running'"),
+                         {"tracks": catalog[1]}).scalar_one()
+
+
+def _widen_admission_window(monkeypatch):
+    """Sleep after each admission read so racing claimers overlap unless the lock serializes them."""
+    import time
+    import scripts.gpt_translation_store as module
+    original = module._execute
+    def slow(db, sql, **params):
+        result = original(db, sql, **params)
+        if "sum(attempts)" in sql or "status='running' AND lease_until>now()" in sql:
+            time.sleep(0.5)
+        return result
+    monkeypatch.setattr(module, "_execute", slow)
+
+
+def test_lease_slots_cap_concurrent_claims_across_tracks(catalog, monkeypatch):
+    assert SERVICE.max_running == 3
+    _widen_admission_window(monkeypatch)
+    assert _race(catalog, [0, 1, 2, 3]) == sorted(["ready"] * 3 + [409], key=str)
+    assert _running(catalog) == 3
+
+
+def test_expired_lease_frees_its_slot(catalog):
+    claims = [prepare(catalog, index=i) for i in range(3)]
+    with pytest.raises(HTTPException) as error:
+        prepare(catalog, index=3)
+    assert error.value.status_code == 409
+    edit(catalog, "UPDATE lyrics_translation_work SET lease_until=now()-interval '1 second' WHERE id=:id",
+         id=UUID(claims[0]["work_id"]))
+    assert prepare(catalog, index=3)["status"] == "ready"
+
+
+def test_concurrent_claimers_cannot_overrun_the_daily_budget(catalog, monkeypatch):
+    monkeypatch.setattr(SERVICE, "daily_cap", 2)
+    _widen_admission_window(monkeypatch)
+    assert _race(catalog, [0, 1, 2]) == sorted(["ready", "ready", 429], key=str)
+    with catalog[0].connect() as c:
+        assert c.execute(text("SELECT sum(attempts) FROM lyrics_translation_work WHERE track_id=ANY(:tracks)"),
+                         {"tracks": catalog[1]}).scalar_one() == 2
 
 
 def test_actual_model_provenance_is_saved(catalog):
