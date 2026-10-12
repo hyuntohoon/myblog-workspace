@@ -403,6 +403,43 @@ gives `counts: null`, never `{}`.
   small and makes the one live Mac agent (GPT worker) observable. 2d is the only step with IAM and
   Terraform, and it adds AWS liveness, which no current verdict depends on.
 
+**2f result (2026-10-12, shipped).** Backend [#182](https://github.com/hyuntohoon/myblog_backend/pull/182)
+(`b648eeb`), contract ws [#1050](https://github.com/hyuntohoon/myblog-workspace/pull/1050), front
+[#458](https://github.com/hyuntohoon/myblog_front/pull/458) (`16891e9`).
+
+- **Endpoint.** `GET /api/admin/automation/queue-detail?key=<snapshot queue key>`, `require_owner` on the
+  edge_guard GET catch-all (2b's posture). Only keys the snapshot can show resolve; the translator version
+  is a bind parameter. A member gets 403 for a real, unknown or missing key (not 404/422). One
+  `SET TRANSACTION READ ONLY` transaction, 4 SELECTs, no external call. A failed read gives
+  `status: unknown` with null sections.
+- **Reason codes only.** `lyrics_translation_work.last_reason` holds `engine_validation: <exception text>`
+  on the legacy Claude rows. So the code is cut in SQL (`^[a-z][a-z0-9_]{0,63}`, optionally followed by
+  `:`), and anything else comes back as `unrecognized`. The `error` columns of `album_research` /
+  `track_lyrics_translations` are never selected. `album_research`, `genre_backfill_requests`,
+  `track_lyrics_translations` and `track_genius_annotations` record no codes, and the panel says so.
+- **Flow is not uniform: each queue states its basis, and a basis that cannot measure returns null.**
+  Review found two traps. The GPT worker publishes album translations straight into
+  `track_lyrics_translations` as `done` (`requested_at = translated_at`). Those are excluded from
+  "entered", and "left" is **null** there. A Genius re-fetch bumps `updated_at`, so "left" uses
+  `translated_at`. `lyrics_album_tracks` has no `created_at`, so its "entered" is null. The `updated_at`
+  proxies elsewhere are labelled *Approximate*. The front never claims a direction unless both sides were
+  measured. **The verdict tiers stay snapshot-only** for the same reason.
+- **Prod reading (2026-10-12 ~14:05 UTC, read-only).**
+  - Album jobs: 848 `album_not_in_catalog`, **all backing off**; 14 in / 19 out in 24 h.
+  - Album tracks: 2,409 `not_found`, all backing off.
+  - GPT lyrics: 25 `temporary_error` + 1 `output_limit`.
+  - claude v2: 169 `engine_validation`, retries all overdue (frozen).
+  - Manual lyrics requests: 0 entered in 24 h. The 255 "requests" a naive count showed were GPT publishes.
+- **Smoke.** Backend through CloudFront at 14:20 UTC: 401 / member 403 (quoted on #182). Front bundle
+  `AutomationBoard.C6rXGmSs.js` carries the new identifiers, and the 2c placeholder is gone (quoted on
+  #458). The owner's own 200 is still unobserved by Claude. The local clickthrough against the prod DB
+  rendered all three sections, including at 390 px.
+- **Tests.** Mutation-tested on both sides. The backend killed 19 of 20 mutants; the survivor is an
+  unreachable `requested_ineligible` state. The front killed 6 of 7; the survivor is a single-render-flash
+  guard, which a DOM test cannot observe.
+- **Next sub-step: the owner picks between 2e and 2d.** The recommendation is still 2e first: it is
+  small, needs no IAM, and the GPT worker is the one live Mac agent.
+
 **Design notes fixed for 2a–2e**
 
 - **Route (decided in 2b's security-review, not here):** functionally, a read-only owner GET needs no
@@ -466,3 +503,4 @@ and reconcile any already-started work before reverting execution adapters.
 | 2026-10-12 | Owner lifted the registration-only non-goal **for Step 1 only** (Steps 2+ still need approval). Step 1 inventory recorded; site-native aggregation chosen. Status stays draft. | Step 1 |
 | 2026-10-12 | Owner approved Step 2 as sub-steps 2a–2e (one per session) and granted `claude_aws_manager` read access to Scheduler/event buses; F resolved. Stale threshold = 2 × interval, min 15 min. Status stays draft. | Step 2 |
 | 2026-10-12 | After opening the 2c page on prod, owner chose the B+C layout (흐름/표 switch + shared detail panel) in two stages: front rework now (#457), queue detail API as new sub-step 2f. Ordering of 2d/2e/2f left to the owner (recommended 2f → 2e → 2d). Status stays draft. | Step 2 (2c, 2f) |
+| 2026-10-12 | Owner picked 2f as the next sub-step; shipped the same day (backend #182, ws #1050, front #458). 2e/2d remain, owner picks (recommended 2e → 2d). Status stays draft. | Step 2 (2f) |
