@@ -119,6 +119,7 @@ sys.path.insert(0, os.path.join(
 
 from myblog_shared_db.llm import CliEngine, LLMJob, ToolPolicy, build_argv  # noqa: E402
 from myblog_shared_db.llm.exceptions import LLMTransientError  # noqa: E402
+import automation_heartbeat  # noqa: E402
 from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
     LLMSubscriptionCooldown,
     coordinated_run,
@@ -134,6 +135,7 @@ log = logging.getLogger("buckit_nightly")
 # --- config ---------------------------------------------------------------
 REGION = "ap-northeast-2"
 SECRET_ID = "/myblog/backend"           # SSM SecureString param (holds DATABASE_URL)
+HEARTBEAT_KEY = "buckit-nightly"        # automation_heartbeats.agent_key (FEAT-automation-admin 2e)
 RUN_SPEC_FILE = "buckit-nightly-run.md"  # the run spec (entry point), inlined as the base prompt
 # Conversion + method rule docs inlined into the prompt (the model has no Read tool). The model
 # inherits buckit-nightly.md §3 four rules + review-critique-method.md ★ honesty / §6 language.
@@ -1135,4 +1137,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    automation_heartbeat.run_and_record(database_url, HEARTBEAT_KEY, main)
