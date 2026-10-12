@@ -16,7 +16,8 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V57 (dormant lyrics demand/work;
+-- This file shows clean canonical DDL through V59 (V59 automation_heartbeats,
+--   FEAT-automation-admin 2a; V58 follow provenance/discography; V57 dormant lyrics demand/work;
 --   delivery/apply state is recorded in the lyrics listening RFC), including V56 and V55 (V55 track_provider_refs,
 --   FEAT-youtube-playback-provider Step A1 — authored + prod-applied
 --   2026-09-05, and applied to the Neon test branch in the same session; V54
@@ -1524,3 +1525,18 @@ CREATE TABLE lyrics_artist_albums (
 
 CREATE INDEX ix_lyrics_discography_due ON lyrics_artist_discographies (next_attempt_at) WHERE NOT complete;
 CREATE INDEX ix_lyrics_artist_albums_album ON lyrics_artist_albums (spotify_album_id);
+
+-- V59: FEAT-automation-admin Step 2a — local agent heartbeats. Additive; one row
+-- per locally scheduled agent, overwritten in place (no history). The owner page
+-- derives "not running" from the age of observed_at.
+CREATE TABLE automation_heartbeats (
+	agent_key TEXT NOT NULL, 
+	observed_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+	enabled BOOLEAN, 
+	last_outcome TEXT, 
+	details JSONB DEFAULT '{}'::jsonb NOT NULL, 
+	PRIMARY KEY (agent_key), 
+	CONSTRAINT ck_automation_heartbeat_key CHECK (agent_key ~ '^[a-z0-9][a-z0-9-]{0,63}$'), 
+	CONSTRAINT ck_automation_heartbeat_outcome CHECK (last_outcome IS NULL OR length(last_outcome) <= 200), 
+	CONSTRAINT ck_automation_heartbeat_details CHECK (jsonb_typeof(details) = 'object' AND pg_column_size(details) <= 8192)
+);
