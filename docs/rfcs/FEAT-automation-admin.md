@@ -222,7 +222,7 @@ writes, but not the worker's process, its settings or its usage.
 The inventory could not read these: `scheduler:ListSchedules` and `events:ListEventBuses` were denied for
 `claude_aws_manager`. With the owner's approval the same day, that user's inline `events-manage-terraform`
 policy was compacted (`events:List*`, `events:Describe*`) and gained `scheduler:List*` and
-`scheduler:GetSchedule`; no write action was added. Reads at ~09:30 UTC:
+`scheduler:GetSchedule`; no write action was added. Reads were taken the same day, before 09:20 UTC:
 
 - **Event buses:** `default` only. Its 18 rules are table A; nothing is hidden on another bus.
 - **Scheduler:** one group (`default`) with **two schedules that `infra/` does not declare**:
@@ -343,6 +343,12 @@ a source that is not wired yet renders **unknown**, never healthy or empty.
 
 Why 2d is split from 2b: it is the only sub-step with IAM and Terraform, and 2b already makes the
 failure that went unnoticed visible (DB queues + local-agent staleness).
+
+**2a result (2026-10-12, shipped).** V59 `automation_heartbeats` was merged in shared_db #85
+(`d31b060`) after ws #1046 added it to the canonical schema. It was applied to Neon prod and to the test
+branch **before** the merge. A live check at 09:20 UTC showed 5 columns, the 4 constraints and 0 rows,
+and is quoted on shared_db #85. Consumers pin `d31b060` (no tag) when 2b lands. The migration test runs
+the real V59 file and asserts every CHECK by a rejected write; all 5 mutants were killed.
 
 **Design notes fixed for 2a–2e**
 
