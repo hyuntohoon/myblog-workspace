@@ -2,6 +2,8 @@
 import json
 import os
 import sys
+import threading
+import time
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -10,19 +12,22 @@ for path in (ROOT, ROOT / 'myblog_backend', ROOT / 'myblog_shared_db' / 'src'):
     sys.path.insert(0, str(path))
 
 import pytest
+from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 from app.services.lyrics_service import LyricsService
 from myblog_shared_db.lyrics_demand import LyricsDemandStore, StaleDiscovery
 from scripts.gpt_plan_auth import PrivateState
 from scripts.gpt_plan_client import PlanInferenceError
-from scripts.gpt_queue_worker import QueueWorker, bind_album
+from scripts.gpt_queue_worker import FINAL, QueueWorker, bind_album
 from scripts.gpt_translation_store import VERSIONS, _source
 
 TEST_DB_URL = os.environ.get('TEST_DB_URL')
 pytestmark = [pytest.mark.skipif(not TEST_DB_URL, reason='TEST_DB_URL not set')]
 MODEL = 'eligible-selected-model'
 ACTUAL = 'eligible-actual-model-version'
+USAGE = {'input_tokens': 100, 'cached_input_tokens': 10, 'output_tokens': 200, 'reasoning_tokens': 30}
+LIMIT = 'subscription_sharing_usage_limit_exceeded'
 
 
 class FakeClient:
@@ -37,14 +42,22 @@ class FakeClient:
         if self.error:
             raise self.error
         return [{'i': s['i'], 'text_ko': '한국어 자리표시' if s['text'] else ''}
-                for s in claim['segments']], ACTUAL
+                for s in claim['segments']], ACTUAL, USAGE
+
+
+class Clock:
+    def __init__(self):
+        self.now = time.time()
+
+    def __call__(self):
+        return self.now
 
 
 @pytest.fixture
 def queue(tmp_path):
     engine = create_engine(TEST_DB_URL)
     album, user = uuid4(), uuid4()
-    tracks = [uuid4() for _ in range(3)]
+    tracks = [uuid4() for _ in range(4)]
     spotify = [uuid4().hex[:22] for _ in tracks]
     album_sid = 'gpt-queue-' + uuid4().hex
     with engine.begin() as c:
@@ -104,8 +117,8 @@ def candidate(q, job, index=0):
     return dict(job_id=job, track_id=q['tracks'][index])
 
 
-def worker(q, client=None):
-    return QueueWorker(q['engine'], q['state'], client or FakeClient(), daily_cap=1000)
+def worker(q, client=None, clock=time.time):
+    return QueueWorker(q['engine'], q['state'], client or FakeClient(), daily_cap=1000, clock=clock)
 
 
 def test_idle_tick_never_calls_model(queue):
@@ -231,16 +244,109 @@ def test_queue_temporary_failure_has_delayed_two_attempt_cap(queue):
     assert row(queue, 'SELECT attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0])['attempts'] == 2
 
 
-def test_plan_limit_trips_persistent_pause(queue):
+def limit_error():
+    return PlanInferenceError(LIMIT, pause=True, limit=True)
+
+
+def test_plan_usage_limit_waits_an_hour_then_resumes(queue):
     request(queue)
-    reason = 'subscription_sharing_usage_limit_exceeded'
+    clock = Clock()
+    client = FakeClient(error=limit_error())
+    w = worker(queue, client, clock)
+    assert w.tick(MODEL) == LIMIT
+    settings = PrivateState(queue['state'].directory).settings()
+    assert settings['enabled'] is True and settings.get('pause_reason') is None
+    assert settings['resume_at'] == clock.now + 3600
+    assert settings['limit_hits'] == 1
+    # The rejected request produced nothing, so the source keeps both of its attempts.
+    assert row(queue, 'SELECT last_reason,status,attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0]) == {'last_reason': LIMIT, 'status': 'retryable_error', 'attempts': 0}
+    clock.now += 3599
+    assert w.tick(MODEL) == 'usage_limit_wait'
+    assert len(client.calls) == 1
+    clock.now += 2
+    client.error = None
+    assert w.tick(MODEL) == 'scan_wrap'
+    assert w.tick(MODEL) == 'saved'
+    assert len(client.calls) == 2
+    settings = PrivateState(queue['state'].directory).settings()
+    assert 'limit_hits' not in settings and 'resume_at' not in settings
+
+
+def test_third_consecutive_usage_limit_stops_the_worker(queue):
+    request(queue)
+    request(queue, index=1)
+    request(queue, index=2)
+    clock = Clock()
+    client = FakeClient(error=limit_error())
+    w = worker(queue, client, clock)
+    for hits in (1, 2):
+        assert w.tick(MODEL) == LIMIT
+        assert PrivateState(queue['state'].directory).settings()['limit_hits'] == hits
+        clock.now += 3601
+    assert w.tick(MODEL) == LIMIT
+    settings = PrivateState(queue['state'].directory).settings()
+    assert settings['enabled'] is False
+    assert settings['pause_reason'] == LIMIT
+    assert 'resume_at' not in settings
+    assert w.tick(MODEL) == 'owner_paused'
+    assert len(client.calls) == 3
+    assert 'limit_hits' not in settings  # A re-enable starts a fresh streak.
+
+
+def test_repeated_limits_on_one_source_never_exhaust_its_attempts(queue):
+    request(queue)
+    clock = Clock()
+    client = FakeClient(error=limit_error())
+    w = worker(queue, client, clock)
+    for _ in range(2):
+        assert w.tick(MODEL) == LIMIT
+        clock.now += 3601
+        assert w.tick(MODEL) == 'scan_wrap'
+    client.error = None
+    assert w.tick(MODEL) == 'saved'
+    assert row(queue, 'SELECT status,attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0]) == {'status': 'done', 'attempts': 1}
+
+
+@pytest.mark.parametrize('control,last_reason,attempts', [
+    ({'pause_reason': 'owner_paused'}, 'user_cancelled', 1),
+    ({'pause_reason': 'plan_authorization_or_usage'}, 'claim_released', 0),
+    ({'resume_at': 'future'}, 'claim_released', 0)])
+def test_only_the_owner_stop_cancels_a_claimed_source(queue, control, last_reason, attempts):
+    request(queue)
+    client = FakeClient()
+    w = worker(queue, client)
+    claimed_row, claim = w._claim()
+    # A sibling (or the owner) changes the controls between this slot's claim and its stream.
+    settings = queue['state'].settings()
+    settings.update({k: (time.time() + 600 if v == 'future' else v) for k, v in control.items()})
+    queue['state'].write('settings.json', settings)
+    assert w._infer(MODEL, claimed_row, claim) in ('owner_paused', 'usage_limit_wait')
+    assert client.calls == []
+    assert row(queue, 'SELECT status,last_reason,attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0]) == {'status': 'retryable_error', 'last_reason': last_reason, 'attempts': attempts}
+
+
+def test_sibling_streams_rejected_by_one_limit_event_count_once(queue):
+    clock = Clock()
+    w = worker(queue, clock=clock)
+    for _ in range(3):
+        w.limit_hit(LIMIT)
+    settings = PrivateState(queue['state'].directory).settings()
+    assert settings['limit_hits'] == 1 and settings['enabled'] is True
+    # A sibling that started before the event and finishes inside the wait keeps the wait.
+    w.limit_cleared()
+    assert PrivateState(queue['state'].directory).settings()['resume_at'] == clock.now + 3600
+
+
+def test_auth_rejection_still_stops_immediately(queue):
+    request(queue)
+    reason = 'subscription_sharing_user_not_eligible'
     client = FakeClient(error=PlanInferenceError(reason, pause=True))
     assert worker(queue, client).tick(MODEL) == reason
     settings = PrivateState(queue['state'].directory).settings()
     assert settings['enabled'] is False
     assert settings['pause_reason'] == reason
     assert settings['model'] == MODEL
-    assert row(queue, 'SELECT last_reason FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0])['last_reason'] == reason
+    assert 'resume_at' not in settings
     assert len(client.calls) == 1
 
 
@@ -275,7 +381,7 @@ def test_inference_runs_with_all_db_connections_returned(queue):
 def test_persistent_pause_blocks_later_queue_inference(queue):
     request(queue)
     request(queue, index=1)
-    reason = 'subscription_sharing_usage_limit_exceeded'
+    reason = 'subscription_sharing_user_not_eligible'
     client = FakeClient(error=PlanInferenceError(reason, pause=True))
     w = worker(queue, client)
     assert w.tick(MODEL) == reason
@@ -294,6 +400,17 @@ def test_disabled_scheduled_main_stops_before_database_access(queue, monkeypatch
     assert module.main(['--state-dir', str(queue['state'].directory)]) == 0
 
 
+def test_usage_limit_wait_stops_scheduled_main_before_database_access(queue, monkeypatch):
+    import scripts.gpt_queue_worker as module
+    settings = queue['state'].settings()
+    settings.update(resume_at=time.time() + 600, limit_hits=1)
+    queue['state'].write('settings.json', settings)
+    def fail_if_db(*args, **kwargs):
+        raise AssertionError('Usage-limit wait must not access DB')
+    monkeypatch.setattr(module, 'create_engine', fail_if_db)
+    assert module.main(['--state-dir', str(queue['state'].directory)]) == 0
+
+
 def test_terminal_refusal_does_not_retry_on_later_scan(queue):
     request(queue)
     client = FakeClient(error=PlanInferenceError('refused'))
@@ -307,12 +424,12 @@ def test_terminal_refusal_does_not_retry_on_later_scan(queue):
 
 
 
+@pytest.mark.parametrize('reason', ['subscription_sharing_user_not_eligible', LIMIT])
 @pytest.mark.parametrize('cleanup_error', ['claim_lost', 'database_failed'])
-def test_plan_limit_pause_survives_failed_claim_cleanup(queue, monkeypatch, cleanup_error):
+def test_plan_stop_or_wait_survives_failed_claim_cleanup(queue, monkeypatch, cleanup_error, reason):
     from fastapi import HTTPException
     request(queue)
-    reason = 'subscription_sharing_usage_limit_exceeded'
-    client = FakeClient(error=PlanInferenceError(reason, pause=True))
+    client = FakeClient(error=PlanInferenceError(reason, pause=True, limit=reason == LIMIT))
     w = worker(queue, client)
     def cannot_cleanup(*args, **kwargs):
         if cleanup_error == 'claim_lost':
@@ -321,6 +438,105 @@ def test_plan_limit_pause_survives_failed_claim_cleanup(queue, monkeypatch, clea
     monkeypatch.setattr(w.store, 'fail', cannot_cleanup)
     assert w.tick(MODEL) == reason
     persisted = PrivateState(queue['state'].directory).settings()
-    assert persisted['enabled'] is False
-    assert persisted['pause_reason'] == reason
+    if reason == LIMIT:
+        assert persisted['enabled'] is True and persisted['resume_at'] > time.time()
+    else:
+        assert persisted['enabled'] is False
+        assert persisted['pause_reason'] == reason
     assert len(client.calls) == 1
+
+
+def test_run_keeps_three_inferences_in_flight_without_sharing_a_source(queue):
+    for index in range(4):
+        request(queue, index)
+    barrier = threading.Barrier(3, timeout=20)
+    def overlap(_):
+        if len(client.calls) <= 3:
+            barrier.wait()  # Times out (BrokenBarrierError) unless three streams overlap.
+    client = FakeClient(hook=overlap)
+    outcomes = worker(queue, client).run(MODEL)
+    assert outcomes['saved'] == 4
+    assert sorted(c[0]['spotify_track_id'] for c in client.calls) == sorted(queue['spotify'])
+    with queue['engine'].connect() as c:
+        assert c.execute(text("SELECT count(*) FROM track_lyrics_translations WHERE track_id=ANY(:ids) AND status='done'"),
+                         {'ids': queue['tracks']}).scalar_one() == 4
+        assert c.execute(text('SELECT sum(attempts) FROM lyrics_translation_work WHERE track_id=ANY(:ids)'),
+                         {'ids': queue['tracks']}).scalar_one() == 4
+
+
+def test_extra_slots_never_exceed_the_lease_limit(queue):
+    for index in range(4):
+        request(queue, index)
+    turn, live, peak = threading.Condition(), [0], [0]
+    def hold(_):
+        # Hold every stream until three overlap, then long enough for a 4th slot to claim.
+        with turn:
+            live[0] += 1
+            peak[0] = max(peak[0], live[0])
+            turn.notify_all()
+            turn.wait_for(lambda: peak[0] >= 3, timeout=30)
+        time.sleep(5)
+        with turn:
+            live[0] -= 1
+    client = FakeClient(hook=hold)
+    outcomes = worker(queue, client).run(MODEL, parallel=4)
+    assert peak[0] == 3
+    # The 4th slot found every slot held, finished the pass, and ended the run.
+    assert outcomes['saved'] == 3
+
+
+def test_usage_is_summed_per_utc_day(queue):
+    request(queue)
+    request(queue, index=1)
+    clock = Clock()
+    clock.now = 1760313599.0  # 2025-10-12T23:59:59Z
+    w = worker(queue, clock=clock)
+    assert w.tick(MODEL) == 'saved'
+    clock.now += 2
+    assert w.tick(MODEL) == 'saved'
+    daily = PrivateState(queue['state'].directory).read('usage.json')
+    assert daily == {'2025-10-12': {'requests': 1, **USAGE}, '2025-10-13': {'requests': 1, **USAGE}}
+
+
+def test_usage_totals_stay_exact_under_concurrent_writers(queue):
+    w = worker(queue)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        list(pool.map(lambda _: w.record_usage(ACTUAL, USAGE), range(30)))
+    (totals,) = PrivateState(queue['state'].directory).read('usage.json').values()
+    assert totals == {'requests': 30, **{k: v * 30 for k, v in USAGE.items()}}
+
+
+def test_disabling_mid_run_stops_new_claims(queue):
+    for index in range(3):
+        request(queue, index)
+    def disable(_):
+        settings = queue['state'].settings()
+        settings['enabled'] = False
+        queue['state'].write('settings.json', settings)
+    client = FakeClient(hook=disable)
+    outcomes = worker(queue, client).run(MODEL, parallel=1)
+    assert outcomes == {'saved': 1, 'disabled': 1}
+    assert len(client.calls) == 1
+
+
+def test_one_finished_pass_ends_every_slot(queue):
+    request(queue)
+    outcomes = worker(queue).run(MODEL)
+    assert outcomes.get('saved') == 1
+    # Exactly one slot reaches a final outcome; the others stop on the shared signal.
+    # Without it each slot runs to its own wrap, rescanning the queue up to 3 times.
+    assert sum(v for k, v in outcomes.items() if k in FINAL) == 1
+
+
+def test_a_failing_slot_stops_the_run_and_raises(queue):
+    for index in range(4):
+        request(queue, index)
+    def first_fails(_):
+        if len(client.calls) == 1:
+            raise RuntimeError('synthetic')
+        time.sleep(1)
+    client = FakeClient(hook=first_fails)
+    with pytest.raises(RuntimeError):
+        worker(queue, client).run(MODEL)
+    # Siblings finish what they hold but claim nothing new: the 4th source is never sent.
+    assert len(client.calls) <= 3
