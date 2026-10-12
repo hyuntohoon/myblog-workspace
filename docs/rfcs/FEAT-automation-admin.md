@@ -15,7 +15,8 @@ usage or a queue that is not progressing.
 ## Non-goals
 
 - This registration does not authorize implementation, deployment or enabling any job. (Lifted
-  for Step 1's read-only inventory on 2026-10-12; Steps 2+ still need owner approval.)
+  for Step 1's read-only inventory on 2026-10-12, and for Step 2's read-only page, split 2a–2e,
+  on the same day; Step 3 controls still need owner approval.)
 - Moving every job into Work Cloud or replacing all queues with a new framework.
 - Introducing a separately billed model API as a prerequisite.
 - Automatically publishing generated reviews or changing existing content permissions.
@@ -216,11 +217,29 @@ writes, but not the worker's process, its settings or its usage.
 - **Other in-process background work**: none found. A `git grep` of backend and music `app/` for
   `BackgroundTasks`, `create_task` or threads returned no matches.
 
-##### F. Not observable with this audit's access (unknown)
+##### F. EventBridge Scheduler and event buses (resolved 2026-10-12, after the inventory)
 
-- **EventBridge Scheduler** schedules and **non-default event buses**: `scheduler:ListSchedules` and
-  `events:ListEventBuses` were denied for `claude_aws_manager`. Nothing in `infra/` declares either, so
-  the expected answer is "none", but this is **unverified**.
+The inventory could not read these: `scheduler:ListSchedules` and `events:ListEventBuses` were denied for
+`claude_aws_manager`. With the owner's approval the same day, that user's inline `events-manage-terraform`
+policy was compacted (`events:List*`, `events:Describe*`) and gained `scheduler:List*` and
+`scheduler:GetSchedule`; no write action was added. Reads at ~09:30 UTC:
+
+- **Event buses:** `default` only. Its 18 rules are table A; nothing is hidden on another bus.
+- **Scheduler:** one group (`default`) with **two schedules that `infra/` does not declare**:
+
+| Schedule | Expression (Asia/Seoul) | Target | Input | State |
+|---|---|---|---|---|
+| `StartBlogDB` | `cron(0 9 ? * TUE-FRI *)` | Lambda `mydbhandler` | `{"action":"start"}` | **obsolete, still firing** |
+| `StopBlogDB` | `cron(0 18 ? * TUE-FRI *)` | Lambda `mydbhandler` | `{"action":"stop"}` | **obsolete, still firing** |
+
+  Both were created 2025-10 in the console. `mydbhandler` does not exist (`GetFunction` →
+  `ResourceNotFoundException`) and the account has no RDS instance or cluster, so these are the pre-Neon
+  office-hours DB switch. They still fire: `AWS/Scheduler TargetErrorCount` summed 4 for 10-05 → 10-12.
+  Retry is 0 and there is no DLQ, so the failure goes nowhere. Harmless, but noise. Deleting them is the
+  owner's call (finding 5); the catalog lists them as obsolete.
+
+##### G. Not observable with this audit's access (unknown)
+
 - **Per-message SQS history**: SQS keeps none, so past album-sync / follow-import outcomes cannot be
   reconstructed (→ `FEAT-durable-job-status`).
 
@@ -244,12 +263,12 @@ Shape of the chosen approach, which Step 2 builds and this step does not:
    - **DB**, read-only: per-queue counts by state, oldest waiting item and last update. The queues are
      `lyrics_translation_work`, `lyrics_album_jobs`, `lyrics_album_tracks`, `lyrics_artist_discographies`,
      `album_research` and `genre_backfill_requests`. Frozen legacy tables are shown as frozen.
-   - **Local heartbeat**: each local agent writes a small row (label, `observed_at`, last outcome,
+   - **Local heartbeat**: each local agent writes a small row (short label, `observed_at`, last outcome,
      enabled, model/cap for GPT, today's usage totals) to a new additive table. The page derives
      "not loaded / not running" from **heartbeat age**, which is exactly the failure that went
      unnoticed here: four agents silently stopped at the 09-27 reboot.
-3. **One owner-only read endpoint in `myblog_backend`** (`require_owner`, matching `infra/apigateway.tf`
-   route), and one page in `myblog_front` via `apiFetch`. Backend, not music, because owner authorization
+3. **One owner-only read endpoint in `myblog_backend`** (`require_owner`; whether it also gets an
+   `infra/apigateway.tf` JWT route is decided in 2b, see the Step 2 design notes), and one page in `myblog_front` via `apiFetch`. Backend, not music, because owner authorization
    tiers are backend-only (`app/core/authz.py`).
 
 **Overlap resolution.**
@@ -268,9 +287,9 @@ credentials the agents already hold. No new secret.
 
 **Acceptance criteria for Step 2.**
 
-- Every row in tables A–E (excluding dev tooling) is in the catalog.
+- Every row in tables A–F (excluding dev tooling) is in the catalog.
 - Each state cell shows `observed_at`, and a stale or missing source renders "unknown".
-- A local agent that is not loaded shows stale within one schedule interval plus grace.
+- A local agent that is not loaded shows stale by the staleness rule in the Step 2 design notes.
 - Opening the page starts nothing.
 - A non-owner gets 403, and an unauthenticated caller gets 401.
 - The AWS adapter's IAM grant contains no non-read action.
@@ -280,7 +299,6 @@ credentials the agents already hold. No new secret.
 
 **Coverage gaps carried into Step 2.**
 
-- The Scheduler/bus check (F) needs an owner-run read or a role grant before Step 2 can claim it.
 - SQS message outcomes are invisible until `FEAT-durable-job-status`.
 - GPT plan usage on chatgpt.com remains external: the page can show local `usage.json` totals and link to
   the account page, but cannot read the plan allowance.
@@ -295,6 +313,8 @@ credentials the agents already hold. No new secret.
 3. Manual `blogSQS` messages for `isrc_backfill`, `youtube_ref_refresh` and `disc_no_backfill` are
    silently dropped (table B). The `infra/eventbridge.tf` comment claiming otherwise is stale.
 4. `research_poller.py` still names a `researchWorkerLambda` that no longer exists.
+5. Two console-made Scheduler schedules (`StartBlogDB` / `StopBlogDB`) still invoke a deleted Lambda
+   every weekday (F).
 
 ### Step 2 — Add status reporting and a read-only management page
 
@@ -307,6 +327,47 @@ stale-source cases; service checks and a browser walkthrough; deployment smoke f
 changed service. No job is started by opening the page.
 
 **Rollback**: Revert UI/read endpoints; retain additive history data and existing execution.
+
+#### Step 2 split (owner-approved 2026-10-12)
+
+One sub-step per session. Each ships and verifies alone, and every sub-step leaves the page honest:
+a source that is not wired yet renders **unknown**, never healthy or empty.
+
+| Sub-step | Scope | Repos | Mandatory review |
+|---|---|---|---|
+| **2a** | `automation_heartbeats` table (V59, additive), prod + test-branch apply | workspace `schema.sql` → shared_db | `reviewer` (contract) |
+| **2b** | Static catalog (tables A–F) + DB adapter + heartbeat read; `GET /api/admin/automation` behind `require_owner`; contract + `openapi.json`. AWS rows render unknown | backend → workspace contract → front types | `reviewer` + `security-review` |
+| **2c** | Owner page via `apiFetch`; real-browser walkthrough | front | — |
+| **2d** | AWS adapter (`GetMetricData` batch, explicit botocore `Config`, DB session closed before AWS calls) + read-only IAM on the backend role; full `terraform plan` | backend + infra | `reviewer` + `security-review` |
+| **2e** | Heartbeat writers: GPT worker first (frozen runtime → reinstall); the four unloaded Claude-CLI agents get the code but only report once OPS Step 2D reloads them | workspace `scripts/` | — |
+
+Why 2d is split from 2b: it is the only sub-step with IAM and Terraform, and 2b already makes the
+failure that went unnoticed visible (DB queues + local-agent staleness).
+
+**Design notes fixed for 2a–2e**
+
+- **Route (decided in 2b's security-review, not here):** functionally, a read-only owner GET needs no
+  `infra/apigateway.tf` route. It can ride the edge_guard GET catch-all and be owner-gated in-Lambda by
+  `require_owner`, as `GET /api/todays-pick/queue` and `GET /api/me/reratings` do. Through CloudFront an
+  unauthenticated caller then gets 401 "Missing token" from the Cognito guard. On the raw API Gateway
+  host the `edge_guard` fallthrough answers 403 "Forbidden". Both fail closed. The same file has the
+  opposite precedent for sensitive owner reads: `spotify-library/state`, `playback/spotify-token` and
+  `lyrics_get` each have their own JWT route as defence in depth. This page exposes operational detail
+  but no credentials, so the catch-all is the default; 2b's security-review must weigh it explicitly.
+  The acceptance criterion "unauthenticated → 401" is checked through CloudFront.
+- **Heartbeat shape (2a):** one row per agent, upserted in place with `observed_at = now()` on the DB
+  side. No history, so OQ3 retention does not arise for this table. Writer contract for 2e:
+  - `agent_key` is the **short** label with `com.myblog.` removed (e.g. `gpt-translate-poller`). The
+    full launchd label has dots, which the key CHECK rejects.
+  - Writers truncate `last_outcome` to 200 characters.
+  - `details` is a JSON object whose **stored** size is capped at 8 KB (`pg_column_size`, which is
+    not the JSON text length), so writers keep it far smaller. It must never hold credentials, tokens or
+    member data.
+  - A rejected write leaves the row stale while the agent runs. That fails safe (the page shows
+    unknown), but writers log the rejection so it can be found.
+- **Staleness (OQ3, recommendation taken):** a heartbeat is stale after **2 × the agent's schedule
+  interval, minimum 15 minutes**. A daily agent is therefore stale after 48 h. The thresholds live in
+  the static catalog, next to each schedule.
 
 ### Step 3 — Add supported operational controls
 
@@ -323,10 +384,10 @@ and reconcile any already-started work before reverting execution adapters.
 
 ## Open questions
 
-1. **Coverage and tooling** — *Answered by Step 1 (2026-10-12):* the catalog is tables A–E, and the
+1. **Coverage and tooling** — *Answered by Step 1 (2026-10-12):* the catalog is tables A–F, and the
    approach is site-native aggregation (static catalog + AWS/DB read adapters + local heartbeat), with no
-   queue/dashboard library. Still open: the EventBridge Scheduler/bus check (F), and Step 2 itself needs
-   owner approval.
+   queue/dashboard library. The Scheduler/bus check (F) was resolved the same day, and Step 2 was
+   approved as sub-steps 2a–2e.
 2. **Cloud model controls** — Verify event-run model selection/persistence and what the
    site can observe or change. Blocks that control, not the read-only page.
 3. **Operational policy** — Decide history retention, stale thresholds, optional budgets
@@ -339,3 +400,4 @@ and reconcile any already-started work before reverting execution adapters.
 | 2026-10-06 | Owner requested task registration in plan and RFC only; keep draft/backlog, with no implementation or runtime changes. | Registration |
 | 2026-10-06 | Continuous monitoring with manual stopping is acceptable; self-unsubscription is not a production requirement. | Design constraint |
 | 2026-10-12 | Owner lifted the registration-only non-goal **for Step 1 only** (Steps 2+ still need approval). Step 1 inventory recorded; site-native aggregation chosen. Status stays draft. | Step 1 |
+| 2026-10-12 | Owner approved Step 2 as sub-steps 2a–2e (one per session) and granted `claude_aws_manager` read access to Scheduler/event buses; F resolved. Stale threshold = 2 × interval, min 15 min. Status stays draft. | Step 2 |
