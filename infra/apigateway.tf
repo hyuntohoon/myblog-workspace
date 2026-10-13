@@ -420,6 +420,19 @@ resource "aws_apigatewayv2_route" "todays_pick_queue_promote_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# FEAT-automation-admin 3b: owner pause/resume of background jobs. The two
+# automation GETs ride the edge_guard GET catch-all (2b route decision); this
+# mutation cannot (there is no POST catch-all), so it is Cognito-JWT gated here
+# and owner-gated in-Lambda by require_owner — the authorizer alone only proves
+# "a valid pool token", which self-signup members also hold.
+resource "aws_apigatewayv2_route" "admin_automation_controls_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/admin/automation/controls"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # FEAT-spotify-library-sync: manual "동기화" enqueues an async Spotify-Library sync
 # job; the worker does the Spotify reads/diffs/writes (rule #9 — never sync here).
 # Declared before the {id} routes is unnecessary for API Gateway (it matches the
