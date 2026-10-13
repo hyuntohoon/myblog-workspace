@@ -440,6 +440,38 @@ gives `counts: null`, never `{}`.
 - **Next sub-step: the owner picks between 2e and 2d.** The recommendation is still 2e first: it is
   small, needs no IAM, and the GPT worker is the one live Mac agent.
 
+**2e result (2026-10-13, shipped).** Workspace [#1052](https://github.com/hyuntohoon/myblog-workspace/pull/1052)
+(`2974705`).
+
+- **Writer.** `scripts/automation_heartbeat.py` upserts one row per agent in its own short connection
+  (`observed_at = now()`, connect timeout 10 s, `statement_timeout` 5 s, and `SET TRANSACTION READ WRITE`
+  against a pooler session's leaked read-only default). It keeps the design-note contract:
+  `last_outcome` at most 200 characters, `details` at most 2 KB of JSON (a marker replaces anything
+  larger), codes and counts only, and only the exception *type* in logs. A failed write never fails
+  the agent.
+- **GPT worker.** It writes at the end of every run. During a run it writes at most every 120 s, and only
+  when a slot makes progress, so a run whose slots all hang stops writing and goes stale after 15 min.
+  An idle start (stopped, paused or limit wait) writes at most every 300 s. *Behaviour change:* a
+  disabled or limit-waiting worker used to skip the DB entirely. It now opens one short connection at
+  most every 5 min (no claims). The runtime was reinstalled from `2974705` with backend `54d7491` and
+  shared `98875c8`, the same pins as before, so the heartbeat is the only change.
+- **Prod check (02:19 UTC).** The first tick wrote `gpt-translate-poller` (`scan_wrap 2, scanned 2`,
+  phase `finished`, model/cap/today's usage). A local backend at `b648eeb` against the prod DB returned
+  it as **fresh (23 s, 900 s bound)**. The heartbeat source reads `ok, 1 agent(s) reporting`. This is
+  quoted on #1052.
+- **Claude-CLI agents: code only.** research-poller (one write per start and per handled item),
+  buckit-nightly and genre-heal-poller (one write per start) report only after OPS Step 2D reloads them.
+  Their plists run the **shared checkout's** `scripts/`, so that checkout must be on a main that includes
+  #1052 at reload time. A genre-heal backfill longer than its 60-min bound shows stale until it ends.
+- **genre-backfill is not wired.** Its code and plist live in shared_db. The wrapper
+  `automation_heartbeat.py exec genre-backfill -- <command>` exists, but the shared_db plist was not
+  changed. Carried to OPS Step 2D: install it through the wrapper when it is reloaded.
+- **Tests.** Writer 17 and GPT worker 40, both on the shared test branch, run serially. 19 mutants: the
+  first pass killed 17, and after two added tests (DSN text in the log, read-only session default) all
+  19 were killed. `security-review`: no findings.
+- **Next sub-step:** 2d (AWS adapter + read-only IAM + full `terraform plan`). It is the last Step 2
+  sub-step. Step 3 still needs separate approval.
+
 **Design notes fixed for 2a–2e**
 
 - **Route (decided in 2b's security-review, not here):** functionally, a read-only owner GET needs no
