@@ -16,8 +16,8 @@
 -- Service-local schema files (myblog_music/db/schema.sql, etc.) are
 -- DERIVED from this file and kept for local dev convenience only.
 --
--- This file shows clean canonical DDL through V59 (V59 automation_heartbeats,
---   FEAT-automation-admin 2a; V58 follow provenance/discography; V57 dormant lyrics demand/work;
+-- This file shows clean canonical DDL through V60 (V60 automation_controls/control_events,
+--   FEAT-automation-admin 3b; V59 automation_heartbeats, FEAT-automation-admin 2a; V58 follow provenance/discography; V57 dormant lyrics demand/work;
 --   delivery/apply state is recorded in the lyrics listening RFC), including V56 and V55 (V55 track_provider_refs,
 --   FEAT-youtube-playback-provider Step A1 — authored + prod-applied
 --   2026-09-05, and applied to the Neon test branch in the same session; V54
@@ -1539,4 +1539,32 @@ CREATE TABLE automation_heartbeats (
 	CONSTRAINT ck_automation_heartbeat_key CHECK (agent_key ~ '^[a-z0-9][a-z0-9-]{0,63}$'), 
 	CONSTRAINT ck_automation_heartbeat_outcome CHECK (last_outcome IS NULL OR length(last_outcome) <= 200), 
 	CONSTRAINT ck_automation_heartbeat_details CHECK (jsonb_typeof(details) = 'object' AND pg_column_size(details) <= 8192)
+);
+
+-- V60: FEAT-automation-admin Step 3b — owner pause/resume controls. Additive.
+-- automation_controls holds one flag row per controlled job (created on first use);
+-- executors skip new runs while paused and stamp honored_at when they do.
+-- automation_control_events is the audit trail, kept indefinitely; request_id is the
+-- client-minted idempotency key, so a replayed request cannot act twice.
+CREATE TABLE automation_controls (
+	job_key TEXT NOT NULL,
+	paused BOOLEAN DEFAULT false NOT NULL,
+	changed_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	honored_at TIMESTAMP WITH TIME ZONE,
+	PRIMARY KEY (job_key),
+	CONSTRAINT ck_automation_control_key CHECK (job_key ~ '^[a-z0-9][a-z0-9_-]{0,63}$')
+);
+
+CREATE TABLE automation_control_events (
+	request_id UUID NOT NULL,
+	job_key TEXT NOT NULL,
+	action TEXT NOT NULL,
+	outcome TEXT NOT NULL,
+	actor_sub TEXT NOT NULL,
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	PRIMARY KEY (request_id),
+	CONSTRAINT ck_automation_control_event_key CHECK (job_key ~ '^[a-z0-9][a-z0-9_-]{0,63}$'),
+	CONSTRAINT ck_automation_control_event_action CHECK (action IN ('pause', 'resume')),
+	CONSTRAINT ck_automation_control_event_outcome CHECK (outcome IN ('applied', 'no_change')),
+	CONSTRAINT ck_automation_control_event_actor CHECK (length(btrim(actor_sub)) BETWEEN 1 AND 128)
 );

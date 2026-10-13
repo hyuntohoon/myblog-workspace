@@ -16,7 +16,7 @@ usage or a queue that is not progressing.
 
 - This registration does not authorize implementation, deployment or enabling any job. (Lifted
   for Step 1's read-only inventory on 2026-10-12, and for Step 2's read-only page, split 2a–2e (2f added after 2c),
-  on the same day; Step 3 controls still need owner approval.)
+  on the same day; and for Step 3, split by control, on 2026-10-13.)
 - Moving every job into Work Cloud or replacing all queues with a new framework.
 - Introducing a separately billed model API as a prerequisite.
 - Automatically publishing generated reviews or changing existing content permissions.
@@ -592,6 +592,81 @@ service checks, browser walkthrough and production smoke for the approved rollou
 **Rollback**: Disable the control endpoints first, retain status visibility and audit history,
 and reconcile any already-started work before reverting execution adapters.
 
+#### Step 3 split (owner-approved 2026-10-13)
+
+Each executor offers a different control point, so Step 3 is split by control, one sub-step per session.
+
+| Sub-step | Control | Executors | Needs |
+|---|---|---|---|
+| **3b** (first) | Pause / resume, plus the audit + idempotency base every later control reuses | the 16 worker crons (table A minus the two warm pings) and `gpt-translate-poller` | V60, worker, GPT worker reinstall, backend, contract, one `infra/apigateway.tf` route (`apply`), front |
+| **3c** | Run now | the worker crons, through `lambda:InvokeFunction` on `blogWorkerLambda` only | a mutating IAM grant + `apply`; a per-job cooldown; it competes with the account's 10 concurrent Lambda executions |
+| **3a** (deferred) | Retry | DB queues | a retry-limit policy first (OQ3) — see below |
+
+**Why retry was demoted from first (measured 2026-10-13, prod, `BEGIN READ ONLY … ROLLBACK`).**
+
+- The GPT queues hold 7 waiting rows, **all at `attempts = 2`**: 4 `temporary_error` and 3 `output_limit`.
+  None is backing off, because a `temporary_error` backs off only 10 minutes
+  (`gpt_translation_store.fail`). So a "retry now" that advances `next_attempt_at` would change **0 rows**.
+- Rearming a row at the cap means overriding `MAX_ATTEMPTS = 2`. That is OQ3's retry-limit policy, not a
+  button. Resetting `attempts` would also refund the day's budget, because admission sums today's
+  `attempts`.
+- The album queues back off for long periods: 856 jobs at `album_not_in_catalog` for up to 24 h, and
+  2,409 tracks at `not_found` for up to 30 days. These causes are structural, so advancing them would mostly
+  repeat the same result. For tracks it would also mean a mass re-query of LRCLIB (~2.5 req/s).
+- Pause is the control the owner set as a design constraint on 2026-10-06 ("continuous monitoring with
+  manual stopping"). Today stopping requires the Mac's setup screen (GPT) or the console/Terraform (crons).
+
+#### 3b design
+
+**Semantics.** Pause means *stop starting new runs at the executor's next boundary*. Resume clears it.
+Nothing is cancelled.
+
+- **Worker crons.** The check sits at the top of `lambda_handler`, for top-level events only (EventBridge, or a
+  direct invoke). It maps an event to its catalog key: `job`, plus `mode` for `release_upcoming_poll` and
+  `spotify_saved_tracks_sync`; `source = aws.events` maps to `musicbrainz_alias_fill`. A run already
+  executing finishes. **SQS messages of the same job type are not paused**, because they are user or owner
+  actions (for example "지금 새로고침"). The page says so.
+- **GPT worker.** The DB flag joins the worker's existing hold check, which runs every tick and before each
+  inference. An inference already streaming finishes and saves. A claim taken but not yet inferred is
+  released with its attempt refunded (`claim_released`), **never `user_cancelled`**: on this worker that
+  reason is terminal, and a site pause must not permanently stop a source. The local `settings.json`
+  switches keep working unchanged.
+- **The pause boundary is observable.** When a consumer skips because of the pause, it writes
+  `honored_at = now()` on the control row. The page shows "paused, last skip HH:MM" or "paused, not yet
+  confirmed by the executor". That second state is also how a key mismatch between the catalog and an
+  executor would surface.
+- **A read failure means proceed (fail-open), with an `ERROR` log.** Pause is an operational control, not
+  an auth boundary. Failing closed would let a DB blip, or a missing V60, silently stop all 16 crons. A
+  pause that failed to apply stays visible, because `honored_at` does not advance.
+
+**Schema (V60, additive).**
+
+- `automation_controls`: `job_key` PK (`^[a-z0-9][a-z0-9_-]{0,63}$`; catalog keys use both `_` and `-`),
+  `paused` (default false), `changed_at`, `honored_at`. One row per controlled job, created on first use.
+- `automation_control_events` (the audit trail): `request_id` UNIQUE, `job_key`, `action`
+  (`pause`/`resume`), `outcome` (`applied`/`no_change`), `actor_sub`, `created_at`. **Kept indefinitely**
+  (OQ3 retention): one small row per owner action.
+
+**Endpoint.** `POST /api/admin/automation/controls` with `{job_key, action, request_id}`, gated by
+`require_owner` and given its own JWT route in `infra/apigateway.tf` (the 2b route decision's Step 3
+trigger: mutations always get a route).
+
+- Idempotency is two-layered:
+  - The client mints one `request_id` per confirmation dialog, so a double click or a network retry replays
+    the stored result instead of acting twice. Reusing a `request_id` with a different job or action is a
+    409.
+  - The action itself is idempotent: pausing a paused job records `no_change`.
+- The whole action runs in one short transaction under the control row's lock.
+- Only catalog keys with `controls` containing `pause` are accepted. A member gets 403 for any body.
+- The snapshot gains a `control` block per controllable job (`paused`, `changed_at`, `honored_at`).
+
+**Rollout order: consumers before the producer**, so a button never exists before it is honoured:
+workspace `schema.sql` → shared_db V60 (prod + test branch before merge) → worker → GPT worker (reinstall)
+→ backend + pin → workspace contract + route (`apply`) → front.
+
+**Rollback.** Resume anything paused, then remove the route and the button. The flags and the audit trail
+stay.
+
 ## Open questions
 
 1. **Coverage and tooling** — *Answered by Step 1 (2026-10-12):* the catalog is tables A–F, and the
@@ -615,3 +690,4 @@ and reconcile any already-started work before reverting execution adapters.
 | 2026-10-12 | Owner picked 2f as the next sub-step; shipped the same day (backend #182, ws #1050, front #458). 2e/2d remain, owner picks (recommended 2e → 2d). Status stays draft. | Step 2 (2f) |
 | 2026-10-13 | Owner picked 2d, with AWS state as a structured contract block plus a front panel in the same sub-step (backend #183, front #459). New liveness value `failing`. Route decision revisited and kept. IAM apply is the owner's. Status stays draft. | Step 2 (2d) |
 | 2026-10-13 | Owner authorized Claude to run the 2d `terraform apply` in session; applied from a full plan (1 add). Step 2 complete. Status stays draft; Step 3 needs separate approval. | Step 2 (2d) |
+| 2026-10-13 | Owner approved Step 3, split by control (retry / pause-resume / run now). A prod read the same session showed retry would change 0 rows today, so the owner moved **3b (pause/resume + audit base) first**; 3a is deferred behind OQ3's retry-limit policy. Audit history is kept indefinitely. Status stays draft. | Step 3 |
