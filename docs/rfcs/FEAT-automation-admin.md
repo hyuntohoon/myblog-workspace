@@ -661,7 +661,7 @@ Nothing is cancelled.
   in its own migration, together with the requested → invoked → completed columns that an external invoke
   needs.
 - `actor_sub` is the verified JWT `sub`. Under `ENV=local|dev`, `require_owner` returns no claims, so the
-  backend records the existing single-owner sentinel (`authz.owner_id`). That is a value, not a new
+  backend records the existing single-owner sentinel (`authz.resolve_owner`). That is a value, not a new
   bypass.
 
 **Endpoint.** `POST /api/admin/automation/controls` with `{job_key, action, request_id}`, gated by
