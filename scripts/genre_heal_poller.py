@@ -32,6 +32,7 @@ import psycopg
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_shared_db" / "src"))
 
+import automation_heartbeat  # noqa: E402
 from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
     LLMSubscriptionCooldown,
     ensure_subscription_available,
@@ -165,4 +166,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # A backfill longer than the 60-min stale bound shows stale until it ends.
+    sys.exit(automation_heartbeat.run_and_record(_db_url, "genre-heal-poller", main))

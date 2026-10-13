@@ -67,6 +67,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_shared_db" / "src"))
 
 from myblog_shared_db.llm import CliEngine, LLMJob, ToolPolicy  # noqa: E402
+import automation_heartbeat  # noqa: E402
 from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
     LLMSubscriptionCooldown,
     coordinated_run,
@@ -82,6 +83,7 @@ log = logging.getLogger("research_poller")
 # --- config ---------------------------------------------------------------
 REGION = "ap-northeast-2"
 SECRET_ID = "/myblog/backend"         # SSM SecureString param (holds DATABASE_URL)
+HEARTBEAT_KEY = "research-poller"   # automation_heartbeats.agent_key (FEAT-automation-admin 2e)
 PROMPT_VERSION = "v2"                  # must match the vendored prompt below
 PROMPT_FILE = "album_research_v2.md"   # vendored copy of docs/editorial/album-research-prompt.md
                                        # (its prompt head, through the Output-format fence; keep the
@@ -929,10 +931,16 @@ def main() -> None:
 
     base_prompt = load_base_prompt()
     log.info("poller up (model=%s, prompt=%s, db=myblog/backend)", CLAUDE_MODEL, PROMPT_VERSION)
+    handled_count = 0
     try:
         while True:
             try:
                 handled = process_one(base_prompt)
+                if handled:
+                    # One item can take minutes; beat per item so a long drain stays fresh.
+                    handled_count += 1
+                    automation_heartbeat.record(database_url, HEARTBEAT_KEY, "running",
+                                                {"handled_this_run": handled_count})
             except LLMSubscriptionCooldown as e:
                 log.info(
                     "subscription cooldown — stopping this firing; queue work remains retryable: %s",
@@ -952,4 +960,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    automation_heartbeat.run_and_record(database_url, HEARTBEAT_KEY, main)

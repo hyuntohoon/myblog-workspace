@@ -19,7 +19,8 @@ from app.services.lyrics_service import LyricsService
 from myblog_shared_db.lyrics_demand import LyricsDemandStore, StaleDiscovery
 from scripts.gpt_plan_auth import PrivateState
 from scripts.gpt_plan_client import PlanInferenceError
-from scripts.gpt_queue_worker import FINAL, QueueWorker, bind_album
+from scripts import automation_heartbeat
+from scripts.gpt_queue_worker import FINAL, QueueWorker, bind_album, heartbeat_fields, idle_heartbeat
 from scripts.gpt_translation_store import VERSIONS, _source
 
 TEST_DB_URL = os.environ.get('TEST_DB_URL')
@@ -51,6 +52,23 @@ class Clock:
 
     def __call__(self):
         return self.now
+
+
+@pytest.fixture(autouse=True)
+def no_production_heartbeat(monkeypatch):
+    """main() heartbeats resolve the prod URL from SSM; no test may reach it."""
+    def refuse():
+        raise AssertionError('test reached the production heartbeat URL')
+    monkeypatch.setattr(automation_heartbeat, 'database_url', refuse)
+
+
+@pytest.fixture
+def beats(monkeypatch):
+    writes = []
+    monkeypatch.setattr(automation_heartbeat, 'database_url', lambda: 'test-url')
+    monkeypatch.setattr(automation_heartbeat, 'write',
+                        lambda url, key, **fields: writes.append((key, fields)) or True)
+    return writes
 
 
 @pytest.fixture
@@ -389,26 +407,65 @@ def test_persistent_pause_blocks_later_queue_inference(queue):
     assert len(client.calls) == 1
 
 
-def test_disabled_scheduled_main_stops_before_database_access(queue, monkeypatch):
+def test_disabled_scheduled_main_only_heartbeats(queue, monkeypatch, beats):
     import scripts.gpt_queue_worker as module
     settings = queue['state'].settings()
     settings.update(enabled=False, pause_reason='owner_paused')
     queue['state'].write('settings.json', settings)
     def fail_if_db(*args, **kwargs):
-        raise AssertionError('Disabled scheduler must not access DB')
+        raise AssertionError('Disabled scheduler must not open the queue engine')
     monkeypatch.setattr(module, 'create_engine', fail_if_db)
     assert module.main(['--state-dir', str(queue['state'].directory)]) == 0
+    assert [(k, f['enabled'], f['last_outcome'], f['details']['phase']) for k, f in beats] == \
+        [('gpt-translate-poller', False, 'paused: owner_paused', 'stopped')]
 
 
-def test_usage_limit_wait_stops_scheduled_main_before_database_access(queue, monkeypatch):
+def test_usage_limit_wait_main_only_heartbeats(queue, monkeypatch, beats):
     import scripts.gpt_queue_worker as module
     settings = queue['state'].settings()
     settings.update(resume_at=time.time() + 600, limit_hits=1)
     queue['state'].write('settings.json', settings)
     def fail_if_db(*args, **kwargs):
-        raise AssertionError('Usage-limit wait must not access DB')
+        raise AssertionError('Usage-limit wait must not open the queue engine')
     monkeypatch.setattr(module, 'create_engine', fail_if_db)
     assert module.main(['--state-dir', str(queue['state'].directory)]) == 0
+    (key, fields), = beats
+    assert fields['enabled'] is True and fields['last_outcome'] == 'usage_limit_wait'
+    assert fields['details']['resume_at'] == int(settings['resume_at'])
+
+
+def test_idle_heartbeat_is_throttled_across_starts(queue, beats, monkeypatch):
+    clock = Clock()
+    assert idle_heartbeat(queue['state'], 'stopped', clock=clock)
+    clock.now += 299
+    assert not idle_heartbeat(queue['state'], 'stopped', clock=clock)
+    clock.now += 1
+    assert idle_heartbeat(queue['state'], 'stopped', clock=clock)
+    assert len(beats) == 2
+    # A failed write is not remembered: the next start tries again.
+    monkeypatch.setattr(automation_heartbeat, 'write', lambda *a, **f: False)
+    clock.now += 300
+    assert not idle_heartbeat(queue['state'], 'stopped', clock=clock)
+    monkeypatch.setattr(automation_heartbeat, 'write', lambda *a, **f: True)
+    assert idle_heartbeat(queue['state'], 'stopped', clock=clock)
+
+
+def test_heartbeat_fields_carry_codes_counts_and_today_usage_only(queue):
+    clock = Clock()
+    state = queue['state']
+    settings = state.settings()
+    settings.update(pause_reason='Plan said: account abc@example.com blocked', resume_at=clock.now - 5)
+    state.write('settings.json', settings)
+    day = time.strftime('%Y-%m-%d', time.gmtime(clock.now))
+    state.write('usage.json', {day: dict(requests=2, input_tokens=5, cached_input_tokens=0,
+                                         output_tokens=7, reasoning_tokens=1), '2000-01-01': {'requests': 99}})
+    fields = heartbeat_fields(state, 'stopped', clock=clock)
+    assert fields['last_outcome'] == 'paused: other'
+    assert fields['details']['pause_reason'] == 'other' and fields['details']['resume_at'] is None
+    assert fields['details']['usage_today']['requests'] == 2
+    error = heartbeat_fields(state, 'error', error=ValueError('postgresql://u:secret@host'), clock=clock)
+    assert error['last_outcome'] == 'error ValueError'
+    assert 'secret' not in json.dumps(error) and 'example.com' not in json.dumps(fields)
 
 
 def test_terminal_refusal_does_not_retry_on_later_scan(queue):
@@ -526,6 +583,37 @@ def test_one_finished_pass_ends_every_slot(queue):
     # Exactly one slot reaches a final outcome; the others stop on the shared signal.
     # Without it each slot runs to its own wrap, rescanning the queue up to 3 times.
     assert sum(v for k, v in outcomes.items() if k in FINAL) == 1
+
+
+def test_run_beats_on_slot_progress_into_the_real_table(queue):
+    key = 'test-hb-' + uuid4().hex[:12]
+    url = TEST_DB_URL.replace('postgresql+psycopg://', 'postgresql://', 1)
+    clock = Clock()
+    beat = automation_heartbeat.Heartbeat(url, key, 120, clock=clock)
+    for index in range(2):
+        request(queue, index)
+    def advance(_):
+        clock.now += 121  # every inference outlasts the throttle window
+    w = QueueWorker(queue['engine'], queue['state'], FakeClient(hook=advance), daily_cap=1000, heartbeat=beat)
+    try:
+        outcomes = w.run(MODEL, parallel=1)
+        assert outcomes['saved'] == 2
+        with queue['engine'].connect() as c:
+            stored = c.execute(text('SELECT enabled, last_outcome, details FROM automation_heartbeats WHERE agent_key=:k'),
+                               {'k': key}).mappings().one()
+        assert stored['enabled'] is True
+        assert stored['last_outcome'].startswith('running: saved 2')
+        assert stored['details']['outcomes']['saved'] == 2 and stored['details']['parallel'] == 3
+    finally:
+        execute(queue, 'DELETE FROM automation_heartbeats WHERE agent_key=:k', k=key)
+
+
+def test_run_beats_per_tick_not_on_a_timer(queue):
+    writes = []
+    beat = automation_heartbeat.Heartbeat('url', 'k', 0, writer=lambda *a, **f: writes.append(f) or True)
+    w = QueueWorker(queue['engine'], queue['state'], FakeClient(), daily_cap=1000, heartbeat=beat)
+    assert set(w.run(MODEL, parallel=1)) <= FINAL
+    assert len(writes) == 1  # the one finishing outcome; no timer writes without a tick
 
 
 def test_a_failing_slot_stops_the_run_and_raises(queue):

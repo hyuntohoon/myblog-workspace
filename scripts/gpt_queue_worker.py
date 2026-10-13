@@ -5,6 +5,9 @@ Each slot repeats one-item ticks until it reaches a FINAL outcome. Claims share 
 scan cursor under a thread lock; the DB admission lock and claim UPDATE remain the
 authority on which work runs. A plan usage limit waits LIMIT_WAIT_SECONDS and
 resumes; LIMIT_STOP_AFTER consecutive limit events stop the worker.
+Heartbeats (FEAT-automation-admin 2e, `automation_heartbeats`): a run writes at its end, and
+also every HEARTBEAT_SECONDS while its slots make progress; a start that runs nothing
+(stopped, paused, limit wait) writes at most every IDLE_HEARTBEAT_SECONDS.
 """
 from __future__ import annotations
 
@@ -27,6 +30,7 @@ from fastapi import HTTPException
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 from myblog_shared_db.lyrics_demand import LyricsDemandStore, StaleDiscovery
+from scripts import automation_heartbeat
 from scripts.gpt_plan_auth import DEFAULT_DIR, PlanAccount, PlanUnavailable, PrivateState
 from scripts.gpt_translation_store import GPTTranslationStore, VERSIONS, _source
 
@@ -37,6 +41,11 @@ LIMIT_STOP_AFTER = 3
 # A slot stops claiming in this run after any of these.
 FINAL = frozenset({'idle', 'scan_wrap', 'daily_budget', 'owner_paused', 'usage_limit_wait', 'disabled'})
 USAGE_FIELDS = ('input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_tokens')
+AGENT_KEY = 'gpt-translate-poller'
+# The page calls this agent stale after 15 min (2 × 60 s, minimum 15 min). A run beats on
+# slot progress, so a run whose slots all hang stops beating and shows stale.
+HEARTBEAT_SECONDS = 120
+IDLE_HEARTBEAT_SECONDS = 300
 LIVE = """NOT j.cancelled AND EXISTS (SELECT 1 FROM lyrics_album_demands d
 JOIN lyrics_discovery_scopes s ON s.id=d.scope_id AND s.active WHERE d.job_id=j.id)"""
 # Stable composite keys + persistent cursor keep a poison row from monopolizing scans.
@@ -94,8 +103,9 @@ def bind_album(db, row):
 
 
 class QueueWorker:
-    def __init__(self, engine, state, client, daily_cap=10, clock=time.time):
+    def __init__(self, engine, state, client, daily_cap=10, clock=time.time, heartbeat=None):
         self.engine, self.state, self.client, self.clock = engine, state, client, clock
+        self.heartbeat = heartbeat
         self.store = GPTTranslationStore(daily_cap)
         self._scan = threading.Lock()
 
@@ -118,6 +128,9 @@ class QueueWorker:
                     outcome = self.tick(model) if self.state.settings().get('enabled') else 'disabled'
                     with guard:
                         outcomes[outcome] += 1
+                        progress = dict(outcomes)
+                    if self.heartbeat:
+                        self.heartbeat.maybe(lambda: heartbeat_fields(self.state, 'running', progress, clock=self.clock))
                     if outcome in FINAL:
                         # One wrap/budget/stop ends every slot: no slot rescans the queue
                         # from the start after a sibling finished the pass.
@@ -292,36 +305,96 @@ class QueueWorker:
             log.warning('GPT usage record unavailable (%s)', type(error).__name__)
 
 
+def heartbeat_fields(state, phase, outcomes=None, error=None, clock=time.time):
+    """Row fields from the worker's own files: codes, counts and model only — no credentials."""
+    settings = state.settings()
+    day = datetime.fromtimestamp(clock(), timezone.utc).date().isoformat()
+    try:
+        usage = state.read('usage.json', {}).get(day, {})
+    except Exception:
+        usage = {}
+    counts = {automation_heartbeat.code(k): int(v) for k, v in (outcomes or {}).items()}
+    pause = settings.get('pause_reason')
+    if error is not None:
+        last = f'error {type(error).__name__}'
+    elif phase == 'finished':
+        last = automation_heartbeat.counts_summary(counts)
+    elif phase == 'running':
+        last = 'running: ' + automation_heartbeat.counts_summary(counts)
+    elif pause:
+        last = 'paused: ' + automation_heartbeat.code(pause)
+    else:
+        last = phase
+    resume_at = settings.get('resume_at')
+    details = {
+        'phase': phase,
+        'model': str(settings.get('model') or '')[:64] or None,
+        'daily_cap': settings.get('daily_cap'),
+        'parallel': PARALLEL,
+        'outcomes': counts,
+        'pause_reason': automation_heartbeat.code(pause) if pause else None,
+        'resume_at': int(resume_at) if isinstance(resume_at, (int, float)) and resume_at > clock() else None,
+        'usage_day_utc': day,
+        'usage_today': {k: int(usage.get(k, 0)) for k in ('requests',) + USAGE_FIELDS},
+    }
+    return dict(enabled=bool(settings.get('enabled')), last_outcome=last, details=details)
+
+
+def idle_heartbeat(state, phase, clock=time.time):
+    """A start that runs nothing still proves the agent is loaded; throttled across starts."""
+    try:
+        last = state.read('heartbeat.json', {}).get('at', 0)
+        if clock() - last < IDLE_HEARTBEAT_SECONDS:
+            return False
+        if automation_heartbeat.write(automation_heartbeat.database_url(), AGENT_KEY,
+                                      **heartbeat_fields(state, phase, clock=clock)):
+            state.write('heartbeat.json', {'at': clock()})
+            return True
+    except Exception as error:
+        log.warning('GPT idle heartbeat unavailable (%s)', type(error).__name__)
+    return False
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--state-dir', type=Path, default=DEFAULT_DIR)
     parser.add_argument('--smoke', action='store_true', help='One owner-authorized queue tick while scheduler stays disabled')
     args = parser.parse_args(argv)
     state = PrivateState(args.state_dir)
+    beat = None
     try:
         with state.lock('worker.lock', blocking=False):
             settings = state.settings()
             if not settings.get('model') or (not args.smoke and not settings.get('enabled')):
+                idle_heartbeat(state, 'stopped' if settings.get('model') else 'not_configured')
                 return 0
             if settings.get('resume_at', 0) > time.time():
-                return 0  # Plan usage limit wait; no DB access, no claims.
+                # Plan usage limit wait: no claims; only the throttled heartbeat touches the DB.
+                idle_heartbeat(state, 'usage_limit_wait')
+                return 0
             from scripts.gpt_plan_client import GPTPlanClient
             from scripts.lyrics_translate_poller import database_url
-            url = database_url().replace('postgresql://', 'postgresql+psycopg://', 1)
-            engine = create_engine(url, pool_pre_ping=True, connect_args={'connect_timeout': 30})
+            url = database_url()
+            beat = automation_heartbeat.Heartbeat(url, AGENT_KEY, HEARTBEAT_SECONDS)
+            engine = create_engine(url.replace('postgresql://', 'postgresql+psycopg://', 1),
+                                   pool_pre_ping=True, connect_args={'connect_timeout': 30})
             try:
-                worker = QueueWorker(engine, state, GPTPlanClient(PlanAccount(state)), settings['daily_cap'])
+                worker = QueueWorker(engine, state, GPTPlanClient(PlanAccount(state)), settings['daily_cap'],
+                                     heartbeat=beat)
                 # A smoke stays one owner-authorized item; the schedule runs PARALLEL slots.
                 outcomes = {worker.tick(settings['model']): 1} if args.smoke else worker.run(settings['model'])
                 state.write('status.json', {'outcomes': outcomes})
                 log.info('GPT queue run: %s', outcomes)
+                beat.force(lambda: heartbeat_fields(state, 'finished', outcomes))
             finally:
                 engine.dispose()
     except BlockingIOError:
-        return 0
+        return 0  # Another start holds worker.lock; that run writes the heartbeat.
     except Exception as error:
         # Credential/DB library exception text can include secrets; log only the type.
         log.error('GPT queue tick stopped (%s)', type(error).__name__)
+        if beat is not None:
+            beat.force(lambda: heartbeat_fields(state, 'error', error=error))
         return 1
     return 0
 
