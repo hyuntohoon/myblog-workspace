@@ -472,7 +472,7 @@ gives `counts: null`, never `{}`.
 - **Next sub-step:** 2d (AWS adapter + read-only IAM + full `terraform plan`). It is the last Step 2
   sub-step. Step 3 still needs separate approval.
 
-**2d result (2026-10-13; backend shipped, IAM awaits the owner's apply).** Backend
+**2d result (2026-10-13; shipped, IAM applied the same day).** Backend
 [#183](https://github.com/hyuntohoon/myblog_backend/pull/183) (`f7f4c44`), this workspace PR (contract +
 `infra/iam_roles.tf`), front [#459](https://github.com/hyuntohoon/myblog_front/pull/459). Owner's pick at the
 start of the session: a structured `aws` block in the contract **and** a front panel in the same sub-step,
@@ -498,6 +498,11 @@ rather than packing AWS state into reason strings.
     FailedInvocations alarm returns to OK after 5 minutes.
   - A fresh reason says it is **delivery only**. EventBridge invokes the worker asynchronously, and handler
     failures are worker-wide (`blogWorkerLambda-errors`, `worker-cron-dlq`), not per rule.
+- **Applied (2026-10-13, owner-authorized in session).** A full plan gave 1 to add, 0 to change and 0 to destroy, with
+  no drift. The IAM simulator allows the four read actions on the backend role and still denies `events:PutRule`.
+  On the prod page the owner saw blogSQS and both DLQs, the three Lambdas' 24 h counts, and all 24 alarms read
+  (`OK 24 · 경보 0`). So the batched `DescribeAlarms` call is authorized under ARN scoping, which the reviewer had
+  flagged as a risk.
   - Scheduler rows (F) stay unknown: they are outside the grant. SQS message rows stay unknown: SQS keeps
     no per-message history.
 - **IAM** (`backend_automation_read`, inline on `myblog-prod-lambda-role`). It is read-only:
@@ -609,3 +614,4 @@ and reconcile any already-started work before reverting execution adapters.
 | 2026-10-12 | After opening the 2c page on prod, owner chose the B+C layout (흐름/표 switch + shared detail panel) in two stages: front rework now (#457), queue detail API as new sub-step 2f. Ordering of 2d/2e/2f left to the owner (recommended 2f → 2e → 2d). Status stays draft. | Step 2 (2c, 2f) |
 | 2026-10-12 | Owner picked 2f as the next sub-step; shipped the same day (backend #182, ws #1050, front #458). 2e/2d remain, owner picks (recommended 2e → 2d). Status stays draft. | Step 2 (2f) |
 | 2026-10-13 | Owner picked 2d, with AWS state as a structured contract block plus a front panel in the same sub-step (backend #183, front #459). New liveness value `failing`. Route decision revisited and kept. IAM apply is the owner's. Status stays draft. | Step 2 (2d) |
+| 2026-10-13 | Owner authorized Claude to run the 2d `terraform apply` in session; applied from a full plan (1 add). Step 2 complete. Status stays draft; Step 3 needs separate approval. | Step 2 (2d) |
