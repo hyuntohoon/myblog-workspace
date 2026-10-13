@@ -628,3 +628,73 @@ def test_a_failing_slot_stops_the_run_and_raises(queue):
         worker(queue, client).run(MODEL)
     # Siblings finish what they hold but claim nothing new: the 4th source is never sent.
     assert len(client.calls) <= 3
+
+
+@pytest.fixture
+def site_pause(queue):
+    """The owner's pause row from the automation page (FEAT-automation-admin 3b, V60)."""
+    def set_paused(paused):
+        execute(queue, """INSERT INTO automation_controls(job_key, paused) VALUES ('gpt-translate-poller', :p)
+            ON CONFLICT (job_key) DO UPDATE SET paused=EXCLUDED.paused, honored_at=NULL""", p=paused)
+    yield set_paused
+    execute(queue, "DELETE FROM automation_controls WHERE job_key='gpt-translate-poller'")
+
+
+def honored(q):
+    return row(q, "SELECT honored_at FROM automation_controls WHERE job_key='gpt-translate-poller'")['honored_at']
+
+
+def test_site_pause_blocks_claims_and_is_stamped_as_honoured(queue, site_pause):
+    request(queue)
+    site_pause(True)
+    client = FakeClient()
+    assert worker(queue, client).tick(MODEL) == 'site_paused'
+    assert 'site_paused' in FINAL
+    assert client.calls == []
+    assert honored(queue) is not None
+    # Nothing was claimed, so the source has no work row and no spent attempt.
+    assert row(queue, 'SELECT count(*) AS n FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0])['n'] == 0
+
+
+def test_site_pause_after_claim_releases_with_refund_never_cancels(queue, site_pause):
+    request(queue)
+    client = FakeClient()
+    w = worker(queue, client)
+    w.site_pause_ttl = 0  # read the flag at every boundary, as after the TTL elapses
+    claimed_row, claim = w._claim()
+    site_pause(True)
+    assert w._infer(MODEL, claimed_row, claim) == 'site_paused'
+    assert client.calls == []
+    # 'user_cancelled' would stop this source for good; a site pause must stay resumable.
+    assert row(queue, 'SELECT status,last_reason,attempts FROM lyrics_translation_work WHERE track_id=:id',
+               id=queue['tracks'][0]) == {'status': 'retryable_error', 'last_reason': 'claim_released', 'attempts': 0}
+    site_pause(False)
+    # The scan cursor already passed this source: one wrap, then it is claimable again.
+    assert w.tick(MODEL) == 'scan_wrap'
+    assert w.tick(MODEL) == 'saved'
+    assert len(client.calls) == 1
+
+
+def test_resumed_site_pause_is_not_stamped(queue, site_pause):
+    site_pause(False)
+    assert worker(queue).held() is None
+    assert honored(queue) is None
+
+
+def test_site_pause_check_failure_continues_and_logs_only_the_type(queue, caplog):
+    class Broken:
+        def begin(self):
+            raise RuntimeError('postgresql://user:secret@host/db')
+    w = QueueWorker(Broken(), queue['state'], FakeClient(), daily_cap=1000)
+    assert w.held() is None
+    assert 'RuntimeError' in caplog.text and 'secret' not in caplog.text
+
+
+def test_site_pause_answer_is_shared_for_the_ttl(queue, site_pause):
+    site_pause(False)
+    w = worker(queue)
+    assert w.held() is None
+    site_pause(True)
+    assert w.held() is None  # still inside the TTL: no new DB read
+    w.site_pause_ttl = 0
+    assert w.held() == 'site_paused'
