@@ -131,6 +131,62 @@ resource "aws_iam_role_policy" "backend_sqs_produce" {
   })
 }
 
+# FEAT-automation-admin 2d: the owner's automation page (GET /api/admin/automation,
+# require_owner) reads AWS liveness — rule state, delivery/failure metrics, the
+# three queues' depth and the alarms' state. READ ONLY: no write, invoke, start,
+# stop, enable or disable action, and every action that supports resource-level
+# permissions is scoped to exactly the resources this config declares.
+# cloudwatch:GetMetricData cannot be scoped to a metric (its only resource type is
+# a dataset, which plain metric queries do not use), so it is "*"; it reads
+# numbers, not configuration. events:ListRules is deliberately absent — it is
+# "*"-only, and the backend already knows its rule names, so it uses the scoped
+# DescribeRule instead.
+resource "aws_iam_role_policy" "backend_automation_read" {
+  name = "automation-admin-read"
+  role = aws_iam_role.backend.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "DescribeCatalogRules"
+        Effect = "Allow"
+        Action = ["events:DescribeRule"]
+        Resource = concat(
+          [for r in aws_cloudwatch_event_rule.worker_cron : r.arn],
+          [aws_cloudwatch_event_rule.backend_warm_ping.arn, aws_cloudwatch_event_rule.music_warm_ping.arn],
+        )
+      },
+      {
+        Sid    = "DescribeCatalogAlarms"
+        Effect = "Allow"
+        Action = ["cloudwatch:DescribeAlarms"]
+        Resource = concat(
+          [for a in aws_cloudwatch_metric_alarm.cron_failed_invocations : a.arn],
+          [for a in aws_cloudwatch_metric_alarm.lambda_errors : a.arn],
+          [for a in aws_cloudwatch_metric_alarm.lambda_throttles : a.arn],
+          [aws_cloudwatch_metric_alarm.dlq_messages.arn, aws_cloudwatch_metric_alarm.worker_cron_dlq_messages.arn],
+        )
+      },
+      {
+        Sid      = "ReadMetrics"
+        Effect   = "Allow"
+        Action   = ["cloudwatch:GetMetricData"]
+        Resource = "*"
+      },
+      {
+        Sid    = "ReadQueueDepth"
+        Effect = "Allow"
+        Action = ["sqs:GetQueueAttributes"]
+        Resource = [
+          aws_sqs_queue.blog_sqs.arn,
+          aws_sqs_queue.album_sync_dlq.arn,
+          aws_sqs_queue.worker_cron_dlq.arn,
+        ]
+      },
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "worker_sqs_produce" {
   name = "sqs-produce-blogSQS"
   role = aws_iam_role.worker.id

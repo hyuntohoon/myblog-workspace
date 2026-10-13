@@ -472,6 +472,77 @@ gives `counts: null`, never `{}`.
 - **Next sub-step:** 2d (AWS adapter + read-only IAM + full `terraform plan`). It is the last Step 2
   sub-step. Step 3 still needs separate approval.
 
+**2d result (2026-10-13; backend shipped, IAM awaits the owner's apply).** Backend
+[#183](https://github.com/hyuntohoon/myblog_backend/pull/183) (`f7f4c44`), this workspace PR (contract +
+`infra/iam_roles.tf`), front [#459](https://github.com/hyuntohoon/myblog_front/pull/459). Owner's pick at the
+start of the session: a structured `aws` block in the contract **and** a front panel in the same sub-step,
+rather than packing AWS state into reason strings.
+
+- **Adapter** (`app/services/automation_aws.py`). It runs four read-only sections concurrently: `DescribeRule`
+  for each of the 18 rules; one `GetMetricData` pass over two windows; `GetQueueAttributes` for blogSQS and its
+  two DLQs; and `DescribeAlarms` for the 24 alarms. The metric windows are 24 h at 5-minute periods, and
+  15 days at hourly periods for the daily and weekly rules.
+  - Each section has its own `status` and `observed_at`, and a failed read gives null numbers, never 0.
+  - Every client has an explicit botocore `Config` (connect 2 s, read 3 s, 2 attempts), and all four sections
+    share one 6 s deadline. The backend Lambda's timeout is 15 s.
+  - The DB session is closed before the first AWS call.
+  - The response holds names, counts and states. It contains no ARN, account id or queue URL, and errors
+    appear as AWS error codes only.
+- **Rule liveness.**
+  - `fresh`: the rule is ENABLED and its last **successful** delivery (Invocations − FailedInvocations > 0)
+    is within the existing 2 × interval / min 15 min bound.
+  - `stale`: the rule is disabled, or no successful delivery is inside that bound.
+  - **New value `failing`:** the newest attempt failed, a failure falls inside the bound, or the rule's
+    alarm is in ALARM.
+  - Why `failing` is needed: EventBridge counts a failed delivery as an invocation, and the
+    FailedInvocations alarm returns to OK after 5 minutes.
+  - A fresh reason says it is **delivery only**. EventBridge invokes the worker asynchronously, and handler
+    failures are worker-wide (`blogWorkerLambda-errors`, `worker-cron-dlq`), not per rule.
+  - Scheduler rows (F) stay unknown: they are outside the grant. SQS message rows stay unknown: SQS keeps
+    no per-message history.
+- **IAM** (`backend_automation_read`, inline on `myblog-prod-lambda-role`). It is read-only:
+  - `events:DescribeRule` on the 18 rule ARNs.
+  - `cloudwatch:DescribeAlarms` on the 24 alarm ARNs.
+  - `sqs:GetQueueAttributes` on the 3 queue ARNs.
+  - `cloudwatch:GetMetricData` on `*`, because its only resource type is `dataset`.
+
+  `events:ListRules` and `cloudwatch:GetMetricStatistics` from the original proposal are **not** used:
+  ListRules can only be granted on `*`, and the batched GetMetricData replaces GetMetricStatistics. Resource
+  support was checked against AWS's Service Reference JSON.
+  - **Full `terraform plan`:** 1 to add, 0 to change, 0 to destroy, with no drift.
+  - The plan's rule, alarm and queue lists equal the catalog's (checked programmatically).
+  - **Apply is the owner's.** Until then prod shows the `aws` source as unavailable (AccessDenied) and
+    every AWS row as unknown. `iam simulate-principal-policy` on the role returns `implicitDeny` for now and
+    is the post-apply check.
+- **Review.**
+  - `reviewer` found one blocking bug: a weekly or daily rule read `fresh` 24 h after a failed delivery.
+    It was fixed with regression tests and re-reviewed ✅.
+  - The reviewer then suggested that `failing` mean "failing now", not "any failure in 24 h". One
+    transient failure would otherwise keep a 5-minute rule red for a day. Taken.
+  - `security-review`: no findings.
+- **Route decision revisited (design-notes trigger).** The response now carries more than identifiers:
+  queue depths, Lambda error counts and alarm states. The decision is **kept: catch-all + in-Lambda
+  `require_owner`**.
+  - These are operational numbers, no more sensitive than the DB queue counts the page already showed.
+  - They hold no credentials or member data.
+  - A JWT route would still only prove "a valid pool token", which members also hold.
+  - Both reviews found no exposure.
+- **Verification.**
+  - Tests: backend 1072 unit tests and all required checks green; front 1450 tests.
+  - Mutation: backend 33/33 and front 9/9 mutants killed.
+  - **Local smoke at `5c645ef`** (prod DB read-only, AWS as `claude_aws_manager`, 03:33 UTC):
+    - `200` in 2.9 s, with all four sources `ok`.
+    - 19 jobs fresh: the 18 EventBridge rules and the GPT worker.
+    - Queues 0/0/0, Lambda errors 0, 24 alarms OK.
+  - Real-browser walkthrough of the front at 1440 px and 390 px.
+  - **Prod smoke after deploy:** `smoke.sh prod` passed 30/0. On `/api/admin/automation`, no token gives
+    401, a member gives 403, and the raw API GW gives 403 (quoted on #183).
+- **Observed, not acted on:** during the session the GPT worker's heartbeat reported `error
+  OperationalError`. That coincided with a window in which this Mac's Neon handshake timed out, while prod
+  Lambdas logged 0 DB errors. It is left to the owner with the other GPT worker items.
+- **Step 2 is complete in code once front #459 merges.** AWS rows become observable in prod after the
+  owner's `terraform apply`. Step 3 (controls) still needs separate approval.
+
 **Design notes fixed for 2a–2e**
 
 - **Route (decided in 2b's security-review, not here):** functionally, a read-only owner GET needs no
@@ -487,7 +558,8 @@ gives `counts: null`, never `{}`.
   route.** A JWT route's authorizer only proves "valid pool token", which self-signup members also hold,
   so the owner/member boundary is `require_owner` either way; the guard-downgrade regression is pinned by
   backend `tests/test_route_guard_map.py`. **Revisit when** Step 3 adds controls (mutations need routes
-  regardless) or 2d puts anything beyond AWS resource identifiers in the response.
+  regardless) or 2d puts anything beyond AWS resource identifiers in the response. *Revisited in 2d
+  (2026-10-13): kept — see the 2d result. Step 3's trigger still stands.*
 - **Heartbeat shape (2a):** one row per agent, upserted in place with `observed_at = now()` on the DB
   side. No history, so OQ3 retention does not arise for this table. Writer contract for 2e:
   - `agent_key` is the **short** label with `com.myblog.` removed (e.g. `gpt-translate-poller`). The
@@ -536,3 +608,4 @@ and reconcile any already-started work before reverting execution adapters.
 | 2026-10-12 | Owner approved Step 2 as sub-steps 2a–2e (one per session) and granted `claude_aws_manager` read access to Scheduler/event buses; F resolved. Stale threshold = 2 × interval, min 15 min. Status stays draft. | Step 2 |
 | 2026-10-12 | After opening the 2c page on prod, owner chose the B+C layout (흐름/표 switch + shared detail panel) in two stages: front rework now (#457), queue detail API as new sub-step 2f. Ordering of 2d/2e/2f left to the owner (recommended 2f → 2e → 2d). Status stays draft. | Step 2 (2c, 2f) |
 | 2026-10-12 | Owner picked 2f as the next sub-step; shipped the same day (backend #182, ws #1050, front #458). 2e/2d remain, owner picks (recommended 2e → 2d). Status stays draft. | Step 2 (2f) |
+| 2026-10-13 | Owner picked 2d, with AWS state as a structured contract block plus a front panel in the same sub-step (backend #183, front #459). New liveness value `failing`. Route decision revisited and kept. IAM apply is the owner's. Status stays draft. | Step 2 (2d) |
