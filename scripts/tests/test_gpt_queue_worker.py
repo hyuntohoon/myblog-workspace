@@ -698,3 +698,23 @@ def test_site_pause_answer_is_shared_for_the_ttl(queue, site_pause):
     assert w.held() is None  # still inside the TTL: no new DB read
     w.site_pause_ttl = 0
     assert w.held() == 'site_paused'
+
+
+@pytest.mark.parametrize('local', [{'pause_reason': 'owner_paused'}, {'resume_at': 'future'}])
+def test_local_hold_wins_and_never_reads_or_confirms_the_site_flag(queue, site_pause, local):
+    # Order matters: a stopped or limit-waiting worker must not stamp honored_at, or the
+    # page would call a pause "confirmed" by a worker that is not running at all.
+    site_pause(True)
+    settings = queue['state'].settings()
+    settings.update({k: (time.time() + 600 if v == 'future' else v) for k, v in local.items()})
+    queue['state'].write('settings.json', settings)
+    w = worker(queue)
+    w.site_pause_ttl = 0
+    assert w.held() in ('owner_paused', 'usage_limit_wait')
+    assert honored(queue) is None
+
+
+def test_agent_key_is_the_shared_pausable_key():
+    from myblog_shared_db.automation import GPT_WORKER_KEY, PAUSABLE_JOB_KEYS
+    from scripts.gpt_queue_worker import AGENT_KEY
+    assert AGENT_KEY == GPT_WORKER_KEY and AGENT_KEY in PAUSABLE_JOB_KEYS

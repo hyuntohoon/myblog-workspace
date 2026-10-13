@@ -10,7 +10,10 @@ also every HEARTBEAT_SECONDS while its slots make progress; a start that runs no
 (stopped, paused, limit wait) writes at most every IDLE_HEARTBEAT_SECONDS.
 Site pause (FEAT-automation-admin 3b, `automation_controls`): the owner's page can pause this
 agent. It is checked with the local switches before every claim and every inference; a claim
-it interrupts is released with its attempt refunded, never cancelled.
+it interrupts is released with its attempt refunded, never cancelled. A site-paused start still
+runs to its end and writes the 'finished' heartbeat, so it is not throttled like an idle start.
+The local switches are checked first: a stopped or limit-waiting worker never reads (or confirms)
+the site flag, and the page reads that together with the heartbeat's `enabled`.
 """
 from __future__ import annotations
 
@@ -55,7 +58,9 @@ IDLE_HEARTBEAT_SECONDS = 300
 # Slots share one answer for this long: a pause reaches a run within SITE_PAUSE_TTL, and
 # three slots do not each add a DB round trip under the scan lock to every claim.
 SITE_PAUSE_TTL = 5.0
-SITE_PAUSE = text("UPDATE automation_controls SET honored_at=now() WHERE job_key=:key AND paused RETURNING job_key")
+# clock_timestamp(): a stamp taken after a wait on the row lock must not predate the
+# owner's changed_at, or a real skip would read as "not yet confirmed".
+SITE_PAUSE = text("UPDATE automation_controls SET honored_at=clock_timestamp() WHERE job_key=:key AND paused RETURNING job_key")
 LIVE = """NOT j.cancelled AND EXISTS (SELECT 1 FROM lyrics_album_demands d
 JOIN lyrics_discovery_scopes s ON s.id=d.scope_id AND s.active WHERE d.job_id=j.id)"""
 # Stable composite keys + persistent cursor keep a poison row from monopolizing scans.
