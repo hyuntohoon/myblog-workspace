@@ -625,16 +625,28 @@ Nothing is cancelled.
   direct invoke). It maps an event to its catalog key: `job`, plus `mode` for `release_upcoming_poll` and
   `spotify_saved_tracks_sync`; `source = aws.events` maps to `musicbrainz_alias_fill`. A run already
   executing finishes. **SQS messages of the same job type are not paused**, because they are user or owner
-  actions (for example "지금 새로고침"). The page says so.
+  actions (for example "지금 새로고침"). The page says so. **The one exception is `lyrics_incremental`:** the
+  worker enqueues it itself after every album sync, so exempting it would make the pause a no-op while the page
+  reads "confirmed". Its SQS branch honours the pause too. A skipped pass is harmless, because the cron
+  catches up after resume.
 - **GPT worker.** The DB flag joins the worker's existing hold check, which runs every tick and before each
   inference. An inference already streaming finishes and saves. A claim taken but not yet inferred is
   released with its attempt refunded (`claim_released`), **never `user_cancelled`**: on this worker that
   reason is terminal, and a site pause must not permanently stop a source. The local `settings.json`
   switches keep working unchanged.
 - **The pause boundary is observable.** When a consumer skips because of the pause, it writes
-  `honored_at = now()` on the control row. The page shows "paused, last skip HH:MM" or "paused, not yet
-  confirmed by the executor". That second state is also how a key mismatch between the catalog and an
-  executor would surface.
+  `honored_at = now()` on the control row, using one `UPDATE … WHERE paused RETURNING` in its own short
+  transaction. That single statement both checks and stamps. **"Confirmed" means `honored_at >= changed_at`**,
+  so a stamp left over from an earlier pause does not count.
+  - The page shows "paused, last skip HH:MM" or "paused, not yet confirmed by the executor". It warns about
+    "not yet confirmed" only after one schedule interval has passed since `changed_at`, so a weekly cron does
+    not warn for a week.
+  - The GPT worker reads the flag only when its local switch is on and it is not in a usage-limit wait. A
+    disabled worker therefore never confirms a pause, and the page reads that together with the heartbeat's
+    `enabled`.
+- **Keys live in one place.** `myblog_shared_db.automation.PAUSABLE_JOB_KEYS` (V60) is the list of pausable
+  keys. The backend tests that the catalog's `pause` rows equal it, and the worker tests that its
+  `(job, mode)` mapping (using the handler's own `mode` defaults) covers exactly its cron subset.
 - **A read failure means proceed (fail-open), with an `ERROR` log.** Pause is an operational control, not
   an auth boundary. Failing closed would let a DB blip, or a missing V60, silently stop all 16 crons. A
   pause that failed to apply stays visible, because `honored_at` does not advance.
@@ -643,9 +655,14 @@ Nothing is cancelled.
 
 - `automation_controls`: `job_key` PK (`^[a-z0-9][a-z0-9_-]{0,63}$`; catalog keys use both `_` and `-`),
   `paused` (default false), `changed_at`, `honored_at`. One row per controlled job, created on first use.
-- `automation_control_events` (the audit trail): `request_id` UNIQUE, `job_key`, `action`
+- `automation_control_events` (the audit trail): `request_id` primary key, `job_key`, `action`
   (`pause`/`resume`), `outcome` (`applied`/`no_change`), `actor_sub`, `created_at`. **Kept indefinitely**
-  (OQ3 retention): one small row per owner action.
+  (OQ3 retention): one small row per owner action. The action and outcome CHECKs stay narrow. 3c widens them
+  in its own migration, together with the requested → invoked → completed columns that an external invoke
+  needs.
+- `actor_sub` is the verified JWT `sub`. Under `ENV=local|dev`, `require_owner` returns no claims, so the
+  backend records the existing single-owner sentinel (`authz.owner_id`). That is a value, not a new
+  bypass.
 
 **Endpoint.** `POST /api/admin/automation/controls` with `{job_key, action, request_id}`, gated by
 `require_owner` and given its own JWT route in `infra/apigateway.tf` (the 2b route decision's Step 3
@@ -656,16 +673,32 @@ trigger: mutations always get a route).
     the stored result instead of acting twice. Reusing a `request_id` with a different job or action is a
     409.
   - The action itself is idempotent: pausing a paused job records `no_change`.
-- The whole action runs in one short transaction under the control row's lock.
+- **Transaction order** (one short transaction, with every transaction taking the locks in the same order,
+  so no deadlock cycle is possible):
+  1. Upsert and lock the control row: `INSERT … ON CONFLICT (job_key) DO UPDATE SET job_key = EXCLUDED.job_key
+     RETURNING …`.
+  2. Compute the outcome from the locked row.
+  3. `INSERT` the event with `ON CONFLICT (request_id) DO NOTHING RETURNING`.
+  4. If no row comes back, the `request_id` was already used. Roll back and read the stored event. When its
+     job and action match, it is a replay: return the stored outcome with the **current** state, and never
+     act again (an old pause replayed after a resume does not pause). Otherwise return 409.
+  5. Otherwise update the flag (and `changed_at`, only when `applied`) and commit.
+
+  This is tested against a real engine with two connections; a mock cannot see the race.
+- **3c interaction (decided now):** run-now on a paused job is rejected with 409 by the backend, so the worker
+  needs no force flag.
 - Only catalog keys with `controls` containing `pause` are accepted. A member gets 403 for any body.
 - The snapshot gains a `control` block per controllable job (`paused`, `changed_at`, `honored_at`).
 
 **Rollout order: consumers before the producer**, so a button never exists before it is honoured:
-workspace `schema.sql` → shared_db V60 (prod + test branch before merge) → worker → GPT worker (reinstall)
-→ backend + pin → workspace contract + route (`apply`) → front.
+workspace `schema.sql` → shared_db V60 (prod + test branch before merge) → worker + its shared_db pin
+(requirements and the CI canonical-schema ref) → GPT worker (reinstall) → backend + pin → workspace contract
++ route (`apply`) → front.
 
-**Rollback.** Resume anything paused, then remove the route and the button. The flags and the audit trail
-stay.
+**Rollback.** Resume everything first, because executors keep honouring a flag after the UI is gone, and a
+backend revert for an unrelated reason would leave no button:
+`UPDATE automation_controls SET paused = false, changed_at = now() WHERE paused;`
+Then remove the route and the button. The flags and the audit trail stay.
 
 ## Open questions
 
