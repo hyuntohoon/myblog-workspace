@@ -1,0 +1,121 @@
+[
+  {
+    "sample": "R01",
+    "wall_s": 171.831,
+    "output_chars": 6471,
+    "unique_urls": 15,
+    "web_tool_calls": 16,
+    "usage_reported": [
+      {
+        "input_tokens": 1403654,
+        "cached_input_tokens": 1288448,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6365,
+        "reasoning_output_tokens": 1401
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R03",
+    "wall_s": 136.533,
+    "output_chars": 4995,
+    "unique_urls": 6,
+    "web_tool_calls": 7,
+    "usage_reported": [
+      {
+        "input_tokens": 379051,
+        "cached_input_tokens": 314368,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3588,
+        "reasoning_output_tokens": 533
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R04",
+    "wall_s": 287.947,
+    "output_chars": 6849,
+    "unique_urls": 14,
+    "web_tool_calls": 11,
+    "usage_reported": [
+      {
+        "input_tokens": 878874,
+        "cached_input_tokens": 775296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5591,
+        "reasoning_output_tokens": 294
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R06",
+    "wall_s": 210.863,
+    "output_chars": 8365,
+    "unique_urls": 14,
+    "web_tool_calls": 16,
+    "usage_reported": [
+      {
+        "input_tokens": 1522273,
+        "cached_input_tokens": 1374848,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 8027,
+        "reasoning_output_tokens": 2366
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R09",
+    "wall_s": 82.41,
+    "output_chars": 5865,
+    "unique_urls": 7,
+    "web_tool_calls": 8,
+    "usage_reported": [
+      {
+        "input_tokens": 472939,
+        "cached_input_tokens": 379648,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4333,
+        "reasoning_output_tokens": 740
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R13",
+    "wall_s": 229.803,
+    "output_chars": 8055,
+    "unique_urls": 14,
+    "web_tool_calls": 15,
+    "usage_reported": [
+      {
+        "input_tokens": 1354078,
+        "cached_input_tokens": 1212672,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6487,
+        "reasoning_output_tokens": 819
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R17",
+    "wall_s": 66.939,
+    "output_chars": 5098,
+    "unique_urls": 10,
+    "web_tool_calls": 8,
+    "usage_reported": [
+      {
+        "input_tokens": 478849,
+        "cached_input_tokens": 397056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4952,
+        "reasoning_output_tokens": 1585
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  }
+]

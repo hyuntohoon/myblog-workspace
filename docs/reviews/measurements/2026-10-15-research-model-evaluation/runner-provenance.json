@@ -1,0 +1,12 @@
+{
+  "protocol_commit": "75706eb",
+  "runner_sha256": "421800b5aa4aa5faa4ee191282776e38f76d20ebfb0635ef4c7bc3b70b2b2af0",
+  "claude_version": "2.1.300",
+  "gpt_lane_note": "The GPT lane process started before the provider-throttle halt patch was finalized. Its per-model dispatch argv and input hash are unchanged. Its in-memory loop lacks the later lane-halt branch; inspect outcomes before claiming throttle-stop parity. Claude lane uses final runner source.",
+  "review_gpt_model": "gpt-6-astra",
+  "review_claude_model": "claude-opus-5-5",
+  "generation_input_sha256": "9acd15ebffebbd6aa6f3facc97935b3b4ccfb6b8c6129df28da791c88e18eb2a",
+  "codex_version": "0.162.0-alpha.17.2",
+  "gpt_lane_outcome": "All seven completed successfully; no provider throttling occurred, so the preloaded older halt branch was never exercised.",
+  "preflight_note": "One early model-catalog CLI probe was rejected by the CLI argument parser before any inference; catalogs were then read directly. It is not a research-note generation."
+}

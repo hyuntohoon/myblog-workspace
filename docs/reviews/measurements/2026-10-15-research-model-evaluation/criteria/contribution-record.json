@@ -1,0 +1,14 @@
+{
+  "status": "independent GPT proposal only; joint criteria and thresholds pending",
+  "gpt_model_requested": "gpt-6-astra",
+  "gpt_context": "fresh isolated agent; no producer ranking or Claude proposal supplied; historical prompt and pilot rubric allowed; common brief checked before final proposal",
+  "claude_model_planned": "claude-opus-5-5",
+  "claude_status": "pending recorded subscription session limit",
+  "generation_dispatched_for_new_criteria": 0,
+  "hashes": {
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/common-brief.txt": "7a6c7cc302101c5e1c825bfa639bdbf3ad312bc4baf4cabc681d2b90d47182c4",
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/astra-proposal.md": "55a39c2906482f64f527e90347d04d0773b50d5eb7d0a9bd6b21e4a9f2241e39",
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/prompt-revised-ko.md": "f6c3a6277f4d6e4a5b7a1a978820e5c592e2a24151bc022c87d2f9cb290a8d2f",
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/rubric.md": "468c9e84bd3d06f30103e9bec78af3b566ddd209b3825cd28fc72bbe840acb00"
+  }
+}

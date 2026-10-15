@@ -1,0 +1,300 @@
+[
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-fable-5"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-fable-5-1"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-haiku-4-5-20251001"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-haiku-5-5"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-opus-4-6"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-opus-4-7"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-opus-4-8"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-opus-5"
+  },
+  {
+    "status": "rate_limited",
+    "dispatch_count": 1,
+    "wall_s": 2.47,
+    "process_wall_s": 2.466,
+    "resolution_evidence": "cli_event",
+    "resolved_models": [
+      "<synthetic>",
+      "claude-opus-5-5"
+    ],
+    "tool_counts": {},
+    "model": "claude-opus-5-5"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-sonnet-4-6"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-sonnet-5"
+  },
+  {
+    "status": "not_run",
+    "dispatch_count": 0,
+    "wall_s": 0,
+    "process_wall_s": null,
+    "resolution_evidence": null,
+    "resolved_models": null,
+    "tool_counts": null,
+    "model": "claude-sonnet-5-5"
+  },
+  {
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 66.939,
+    "process_wall_s": 66.932,
+    "resolution_evidence": "not_exposed_by_cli",
+    "resolved_models": [],
+    "tool_counts": {
+      "web_search": 8
+    },
+    "model": "gpt-5.6-luna",
+    "output_chars": 5098,
+    "url_occurrences": 10,
+    "unique_urls": 10,
+    "unique_domains": 9,
+    "usage_reported": [
+      {
+        "input_tokens": 478849,
+        "cached_input_tokens": 397056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4952,
+        "reasoning_output_tokens": 1585
+      }
+    ]
+  },
+  {
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 210.863,
+    "process_wall_s": 210.856,
+    "resolution_evidence": "not_exposed_by_cli",
+    "resolved_models": [],
+    "tool_counts": {
+      "web_search": 16
+    },
+    "model": "gpt-5.6-sol",
+    "output_chars": 8365,
+    "url_occurrences": 29,
+    "unique_urls": 14,
+    "unique_domains": 12,
+    "usage_reported": [
+      {
+        "input_tokens": 1522273,
+        "cached_input_tokens": 1374848,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 8027,
+        "reasoning_output_tokens": 2366
+      }
+    ]
+  },
+  {
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 136.533,
+    "process_wall_s": 136.527,
+    "resolution_evidence": "not_exposed_by_cli",
+    "resolved_models": [],
+    "tool_counts": {
+      "web_search": 7
+    },
+    "model": "gpt-5.6-terra",
+    "output_chars": 4995,
+    "url_occurrences": 15,
+    "unique_urls": 6,
+    "unique_domains": 6,
+    "usage_reported": [
+      {
+        "input_tokens": 379051,
+        "cached_input_tokens": 314368,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3588,
+        "reasoning_output_tokens": 533
+      }
+    ]
+  },
+  {
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 287.947,
+    "process_wall_s": 287.94,
+    "resolution_evidence": "not_exposed_by_cli",
+    "resolved_models": [],
+    "tool_counts": {
+      "web_search": 11
+    },
+    "model": "gpt-6-astra",
+    "output_chars": 6849,
+    "url_occurrences": 14,
+    "unique_urls": 14,
+    "unique_domains": 12,
+    "usage_reported": [
+      {
+        "input_tokens": 878874,
+        "cached_input_tokens": 775296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5591,
+        "reasoning_output_tokens": 294
+      }
+    ]
+  },
+  {
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 82.41,
+    "process_wall_s": 82.405,
+    "resolution_evidence": "not_exposed_by_cli",
+    "resolved_models": [],
+    "tool_counts": {
+      "web_search": 8
+    },
+    "model": "gpt-6-luna",
+    "output_chars": 5865,
+    "url_occurrences": 17,
+    "unique_urls": 7,
+    "unique_domains": 7,
+    "usage_reported": [
+      {
+        "input_tokens": 472939,
+        "cached_input_tokens": 379648,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4333,
+        "reasoning_output_tokens": 740
+      }
+    ]
+  },
+  {
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 171.831,
+    "process_wall_s": 171.824,
+    "resolution_evidence": "not_exposed_by_cli",
+    "resolved_models": [],
+    "tool_counts": {
+      "web_search": 16
+    },
+    "model": "gpt-6-sol",
+    "output_chars": 6471,
+    "url_occurrences": 15,
+    "unique_urls": 15,
+    "unique_domains": 14,
+    "usage_reported": [
+      {
+        "input_tokens": 1403654,
+        "cached_input_tokens": 1288448,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6365,
+        "reasoning_output_tokens": 1401
+      }
+    ]
+  },
+  {
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 229.803,
+    "process_wall_s": 229.794,
+    "resolution_evidence": "not_exposed_by_cli",
+    "resolved_models": [],
+    "tool_counts": {
+      "web_search": 15
+    },
+    "model": "gpt-6.1-sol",
+    "output_chars": 8055,
+    "url_occurrences": 28,
+    "unique_urls": 14,
+    "unique_domains": 14,
+    "usage_reported": [
+      {
+        "input_tokens": 1354078,
+        "cached_input_tokens": 1212672,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6487,
+        "reasoning_output_tokens": 819
+      }
+    ]
+  }
+]

@@ -1,0 +1,878 @@
+{
+  "inventory_basis": "account model catalogs; catalog-listed is not execution-proven availability",
+  "recorded_at": "2026-10-15T14:00:20.650696+00:00",
+  "gpt_catalog_fetched_at": "2026-10-15T13:59:40.831374Z",
+  "gpt_models": [
+    {
+      "slug": "gpt-6.1-sol",
+      "visibility": "list",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "effort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ]
+    },
+    {
+      "slug": "gpt-6-astra",
+      "visibility": "list",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "effort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ]
+    },
+    {
+      "slug": "gpt-6-sol",
+      "visibility": "list",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "effort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ]
+    },
+    {
+      "slug": "gpt-6-luna",
+      "visibility": "list",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        }
+      ]
+    },
+    {
+      "slug": "gpt-reserve",
+      "visibility": "hide",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        }
+      ]
+    },
+    {
+      "slug": "gpt-5.6-sol",
+      "visibility": "list",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "effort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ]
+    },
+    {
+      "slug": "gpt-5.6-terra",
+      "visibility": "list",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "effort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ]
+    },
+    {
+      "slug": "gpt-5.6-luna",
+      "visibility": "list",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        }
+      ]
+    },
+    {
+      "slug": "codex-auto-review",
+      "visibility": "hide",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast responses with lighter reasoning"
+        },
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        }
+      ]
+    }
+  ],
+  "claude_catalog_fetched_at": 1792072030129,
+  "claude_models": [
+    {
+      "id": "claude-opus-5-5",
+      "name": "Opus 5.5",
+      "short_name": "Opus",
+      "description": "For complex work and everyday tasks",
+      "section": "main",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "high",
+            "name": "High"
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra"
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "badge": {
+              "message": "3.5× or more usage",
+              "variant": "warning"
+            },
+            "tooltip": {
+              "content": "Claude thinks longer with Max effort and can consume 3.5× or more usage than Medium."
+            }
+          }
+        ]
+      },
+      "fast_mode": {
+        "type": "toggle",
+        "name": "Fast mode",
+        "options": [
+          {
+            "id": "fast",
+            "name": "Enable fast mode",
+            "selector_label": "Fast"
+          },
+          {
+            "id": "off",
+            "name": "Off"
+          }
+        ]
+      },
+      "quick_select": true,
+      "min_claude_code_version": "2.1.280"
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "name": "Sonnet 5.5",
+      "short_name": "Sonnet",
+      "description": "Most efficient for simpler tasks",
+      "section": "main",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "high",
+            "name": "High"
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra"
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      },
+      "quick_select": true
+    },
+    {
+      "id": "claude-fable-5-1",
+      "name": "Fable 5.1",
+      "short_name": "Fable",
+      "description": "For your toughest challenges",
+      "section": "main",
+      "badge": {
+        "message": "Requires usage credits",
+        "variant": "neutral"
+      },
+      "tooltip": {
+        "content": "Fable runs on usage credits, billed separately from your plan."
+      },
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium"
+          },
+          {
+            "id": "high",
+            "name": "High",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra"
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      },
+      "quick_select": true,
+      "min_claude_code_version": "2.1.251"
+    },
+    {
+      "id": "claude-haiku-5-5",
+      "name": "Haiku 5.5",
+      "short_name": "Haiku",
+      "description": "Fastest for quick answers",
+      "section": "main",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "high",
+            "name": "High"
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra"
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      },
+      "quick_select": true
+    },
+    {
+      "id": "claude-haiku-4-5-20251001",
+      "name": "Haiku 4.5",
+      "short_name": "Haiku",
+      "section": "overflow",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "none"
+      },
+      "auto_permission_mode": "unavailable",
+      "auto_permission_mode_note": "Requires Claude 4.6 or newer"
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "Sonnet 5",
+      "short_name": "Sonnet",
+      "section": "overflow",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium"
+          },
+          {
+            "id": "high",
+            "name": "High",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra"
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "claude-opus-5",
+      "name": "Opus 5",
+      "short_name": "Opus",
+      "section": "overflow",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium"
+          },
+          {
+            "id": "high",
+            "name": "High",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra"
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      },
+      "fast_mode": {
+        "type": "toggle",
+        "name": "Fast mode",
+        "options": [
+          {
+            "id": "fast",
+            "name": "Enable fast mode",
+            "selector_label": "Fast"
+          },
+          {
+            "id": "off",
+            "name": "Off"
+          }
+        ]
+      }
+    },
+    {
+      "id": "claude-fable-5",
+      "name": "Fable 5",
+      "short_name": "Fable",
+      "section": "overflow",
+      "badge": {
+        "message": "Requires usage credits",
+        "variant": "neutral"
+      },
+      "tooltip": {
+        "content": "Fable runs on usage credits, billed separately from your plan."
+      },
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium"
+          },
+          {
+            "id": "high",
+            "name": "High",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra"
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "claude-opus-4-8",
+      "name": "Opus 4.8",
+      "short_name": "Opus",
+      "section": "overflow",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium"
+          },
+          {
+            "id": "high",
+            "name": "High",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra"
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      },
+      "fast_mode": {
+        "type": "toggle",
+        "name": "Fast mode",
+        "options": [
+          {
+            "id": "fast",
+            "name": "Enable fast mode",
+            "selector_label": "Fast"
+          },
+          {
+            "id": "off",
+            "name": "Off"
+          }
+        ]
+      }
+    },
+    {
+      "id": "claude-opus-4-7",
+      "name": "Opus 4.7",
+      "short_name": "Opus",
+      "section": "overflow",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium"
+          },
+          {
+            "id": "high",
+            "name": "High"
+          },
+          {
+            "id": "xhigh",
+            "name": "Extra",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "claude-opus-4-6",
+      "name": "Opus 4.6",
+      "short_name": "Opus",
+      "section": "overflow",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium"
+          },
+          {
+            "id": "high",
+            "name": "High",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      },
+      "fast_mode": {
+        "type": "toggle",
+        "name": "Fast mode",
+        "options": [
+          {
+            "id": "fast",
+            "name": "Enable fast mode",
+            "selector_label": "Fast"
+          },
+          {
+            "id": "off",
+            "name": "Off"
+          }
+        ]
+      }
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "name": "Sonnet 4.6",
+      "short_name": "Sonnet",
+      "section": "overflow",
+      "capabilities": {
+        "compass": true,
+        "gsuite_tools": true,
+        "mm_images": true,
+        "mm_pdf": true,
+        "web_search": true
+      },
+      "thinking": {
+        "type": "effort",
+        "description": "Higher effort means more thorough responses, but takes longer and uses your limits faster.",
+        "effort_options": [
+          {
+            "id": "low",
+            "name": "Low"
+          },
+          {
+            "id": "medium",
+            "name": "Medium"
+          },
+          {
+            "id": "high",
+            "name": "High",
+            "badge": {
+              "message": "Recommended",
+              "variant": "neutral"
+            }
+          },
+          {
+            "id": "max",
+            "name": "Max",
+            "tooltip": {
+              "content": "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks."
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "source_commit": "dbec55c4ac3f9600fc1a3b5100f5a9332943c4a3",
+  "prompt_sha256": "f6c3a6277f4d6e4a5b7a1a978820e5c592e2a24151bc022c87d2f9cb290a8d2f",
+  "generation_input_sha256": "9acd15ebffebbd6aa6f3facc97935b3b4ccfb6b8c6129df28da791c88e18eb2a",
+  "user_decisions": [
+    "Use revised prompt writing block 73184, not operational v2",
+    "Test all available subscription-included Claude and GPT models once each",
+    "Exclude Fable separately billed usage-credit models",
+    "GPT reviewer must be gpt-6-astra",
+    "Claude independent reviewer planned: claude-opus-5-5"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "R01": "gpt-6-sol",
+  "R02": "claude-haiku-4-5-20251001",
+  "R03": "gpt-5.6-terra",
+  "R04": "gpt-6-astra",
+  "R05": "claude-opus-4-8",
+  "R06": "gpt-5.6-sol",
+  "R07": "claude-sonnet-5-5",
+  "R08": "claude-opus-4-6",
+  "R09": "gpt-6-luna",
+  "R10": "claude-haiku-5-5",
+  "R11": "claude-sonnet-5",
+  "R12": "claude-opus-5",
+  "R13": "gpt-6.1-sol",
+  "R14": "claude-opus-4-7",
+  "R15": "claude-opus-5-5",
+  "R16": "claude-sonnet-4-6",
+  "R17": "gpt-5.6-luna"
+}

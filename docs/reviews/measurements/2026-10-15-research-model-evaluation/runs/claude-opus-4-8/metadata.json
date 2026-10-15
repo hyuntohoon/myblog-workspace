@@ -1,0 +1,21 @@
+{
+  "id": "claude-opus-4-8",
+  "provider": "claude",
+  "requested_model": "claude-opus-4-8",
+  "model_config": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "model": "claude-opus-4-8",
+    "availability": "available",
+    "reasoning_effort": "medium"
+  },
+  "prompt_sha256": "9acd15ebffebbd6aa6f3facc97935b3b4ccfb6b8c6129df28da791c88e18eb2a",
+  "started_at": "2026-10-15T14:04:02.642136+00:00",
+  "status": "not_run",
+  "dispatch_count": 0,
+  "orchestration_retry_policy": "none",
+  "orchestration_fallback_policy": "none",
+  "reason": "Provider lane halted after claude-opus-5-5: rate_limited; no further inference or automatic retry authorized",
+  "finished_at": "2026-10-15T14:04:02.642920+00:00",
+  "wall_s": 0
+}

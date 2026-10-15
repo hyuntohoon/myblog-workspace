@@ -1,0 +1,41 @@
+{
+  "packet_sha256": "5b27ad808849fcdb724f103874acf9a91fa908ee7945e54fb855a584f0b88578",
+  "samples": [
+    "R01",
+    "R03",
+    "R04",
+    "R06",
+    "R09",
+    "R13",
+    "R17"
+  ],
+  "gpt_reviewer": "gpt-6-astra",
+  "claude_reviewer": "claude-opus-5-5",
+  "claude_status": "blocked_session_usage_limit; no generated Claude verdict",
+  "gpt_process": "independent per-sample Astra audits; final common packet for calibration; no Claude feedback supplied",
+  "web_trace_support_sha256": {
+    "R06-web-trace.json": "15b1b4cfe09ca654744824986e78ea6ad330c0de0bbfeb069a3cc978451541f6",
+    "R13-web-trace.json": "da6a424fd167d8a719754aa90993680b90a20018c1cb1380a2a4d1e3935c55d4",
+    "R01-web-trace.json": "fe4a9d076f899c41902b4dc9ce02e23496d49330413b3e9bf2465bbdea7d6a60",
+    "R09-web-trace.json": "ebc874329c715c532488838a3d51018902a72e91683c6c2f04ca22012d7ed1c0",
+    "R03-web-trace.json": "4823a4b265cbd3e79410669bed6ba983a7f81448766c6ca3e34202a6eedf85dc",
+    "R04-web-trace.json": "24e698bfc4beec35c5eae511b45f4762a9935dc59590f972369e8ccc2f0b01ab",
+    "R17-web-trace.json": "ab216ad9af4bb7d324146faade27a42d5e5a3dbdd1754ea28cf64f4364fd337b"
+  },
+  "trace_limit": "Native tool events expose actions and returned result snippets; not a complete HTML/session recording. Current reviewer access does not prove or disprove generator access.",
+  "astra_status": "completed",
+  "astra_per_sample_auditors": 2,
+  "astra_comparative_reviewer": "gpt-6-astra",
+  "score_adjustments": 0,
+  "review_sha256": {
+    "astra-comparative-feedback.md": "0b6d3a69801aae4a5f2dd86bc62548a801035a7aab35531ae76ea50169205325",
+    "astra-R17-review.md": "2da340e30e8be54d2429a7a59d0689b7fdd0c84f81baa1736bad3d5cfa086554",
+    "astra-R03-review.md": "418de6e8daf45708a42081870fce4eacdbeb48daccc63c6d781aeb05e9f15d1c",
+    "astra-R04-review.md": "524545ff8dbd7fffe74318f37f8d7d2bbd3bb772c50841a09891a7c8f2dafa9e",
+    "astra-R09-review.md": "38c64d91d810b6da1fb805061e8ab96ace51d793b19ef2ef9829ec99e6addaf8",
+    "astra-R13-review.md": "b39debf7390dbf35e3213615f309dde67a40a7dcff7608cf7ac43bbd0ce3979a",
+    "astra-R01-review.md": "e881854a7de97df826541ccd80257d93c74a75711b5943d622757e3dcc4d26c8",
+    "astra-R06-review.md": "5fdb56ebf622026071097f77d5171deb58dc0db9405d39cc6273b82386547e5d"
+  },
+  "comparative_report_finalisation": "Reviewer supplied final compressed wording after the interim record; original scores and order unchanged. Frozen generation/review packet inputs unchanged."
+}
