@@ -2,7 +2,7 @@
   "mcpServers": {
     "codex": {
       "type": "stdio",
-      "command": "/Applications/ChatGPT.app/Contents/Resources/codex",
+      "command": "/Users/park_hyun/.local/bin/codex",
       "args": [
         "mcp-server"
       ],
