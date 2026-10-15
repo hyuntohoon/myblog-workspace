@@ -55,6 +55,20 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency quota (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
 
+- **FEAT-lyrics-match-correction** — draft (2026-10-15). Wrong lyrics are permanent today: an
+  `exact-title` match is never re-examined and nothing remembers a rejected candidate. Owner report:
+  Steve Lacy "Bad Habit" serves Ed Sheeran (one LRCLIB upload with correct metadata, wrong body, beat
+  20 correct candidates); BTS "Go Go" serves the Japanese version. Root causes RC1–RC6 recorded:
+  selection is content-blind, the noise strip is a deny-list, bodies are never validated, a match
+  is write-once, `matcher_version` drives no re-evaluation (9,099 rows still `step2-v2`), and
+  consensus only sees LRCLIB's 20 results. Steps: matcher content consensus + rendition markers →
+  re-sweep resolved rows by `matcher_version` → owner candidate panel with pick-and-lock (3a), then
+  one-tap member reports into the owner queue (3b) → suspicion sweep. Model chosen after a
+  prior-art comparison (Spotify/Musixmatch, Genius, Lyrimuse). Every matcher change adds an entry to the RFC's **Matcher patch
+  notes** (history reconstructed back to worker #55).
+  → `docs/rfcs/FEAT-lyrics-match-correction.md`
+  <!-- rfc: docs/rfcs/FEAT-lyrics-match-correction.md | status: draft -->
+
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
   **Home-entry and next-track lyrics are open, not fixed** (owner report 2026-09-28). Step 1's
@@ -323,6 +337,18 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 ## Backlog
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
+
+- **DOCS-patch-notes-from-history** (**goal set by the owner 2026-10-15; needs an RFC**) — write
+  update patch notes for the site from commit history across the six repos, so that what changed
+  for users, and why, can be read without going through PRs.
+  <!-- rfc: none -->
+  **What exists to build on:** squash-merged PR subjects with `(#N)` in every repo, RFC decision
+  logs, and from 2026-10-15 the first curated per-feature log, the **Matcher patch notes** in
+  `docs/rfcs/FEAT-lyrics-match-correction.md`. That table is the convention to copy: version, date,
+  PR, behaviour change, why, measured effect.
+  **Open when an RFC is written:** audience (members vs owner), cadence, where the notes are
+  published, and how a commit is marked user-visible vs internal. Commit subjects alone do not
+  carry the "why" or the effect.
 
 - **FEAT-automation-admin** — **draft; Step 1 recorded 2026-10-12; Step 2 owner-approved as sub-steps 2a–2e; 2a (V59 heartbeat table), 2b (`GET /api/admin/automation`), 2c (owner page, B+C rework in front #457) and 2f (queue detail: reason codes, 24 h flow, oldest waiting — backend #182, front #458) shipped 2026-10-12; 2e (heartbeat writers, ws #1052; GPT worker reports fresh on prod, the 4 Claude-CLI agents wait on OPS 2D) shipped 2026-10-13; 2d (AWS adapter + `aws` panel + `failing` liveness — backend #183, front #459) shipped 2026-10-13, read-only IAM (`backend_automation_read`) applied 2026-10-13 (ws #1054 comment) and the owner's prod page shows the AWS panel read; Step 2 complete; Step 3 owner-approved 2026-10-13, split by control — 3b (pause/resume + audit base) first, 3c run-now next, 3a retry deferred behind OQ3 (a prod read showed retry would change 0 rows)**: inventory all queued/scheduled/background jobs and add an owner-only management page to the existing site, covering status, schedules, execution history and supported controls; evaluate existing tools before selecting an implementation. Coordinate with `FEAT-durable-job-status` and `FEAT-lyrics-chat`. → `docs/rfcs/FEAT-automation-admin.md`. <!-- rfc: docs/rfcs/FEAT-automation-admin.md | status: draft -->
 
