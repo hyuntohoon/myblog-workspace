@@ -281,8 +281,9 @@ which `CLAUDE.md` § Subagents counts as an infra touch: `reviewer` is mandatory
 > scenarios: un-recompiled bump, recompiled-but-unstaged lock, lock-only stale hash, header removed, lock removed
 > from the index → refused; both staged, unrelated file → accepted; mutant `[ x != x ]` let the bump through.
 > `sha256sum` and `shasum` branches and `/bin/dash` exercised. Deployed with no runtime change; prod smoke 30/30.
-> **Not yet enabled in the owner's clones** — `core.hooksPath` is per clone and is the owner's call (it also
-> applies to concurrent sessions' worktrees of the same clone).
+> **Enabled 2026-10-16 on the owner's approval** in the three clones (`core.hooksPath=scripts/githooks`, applies
+> to every worktree of each clone). Verified live: a worktree cut from `origin/main` refused an un-recompiled
+> `requirements.txt` commit. Checkouts still on a `main` older than the hook file run nothing until pulled.
 
 `requirements.lock` already records the hash of the `requirements.txt` it was compiled from
 (`# requirements.txt sha256: …`, written by `scripts/compile_requirements.sh`). Add
@@ -462,7 +463,8 @@ worker `test` green on the PRs.
 | 2026-10-16 | **Accepted by the owner** for Steps 1, 2, 3 and 5. Step 4 is not taken (OQ2, recommendation "no"); Step 6 stays blocked on OQ4. | 1, 2, 3, 5 |
 | 2026-10-16 | OQ1 answered **no** by the owner: `workspace-check` stays advisory; reading its result before a workspace merge remains Claude's self-attested gate. No ruleset change. | — |
 | 2026-10-16 | OQ6 answered **no** by the owner: no skip-by-tree on push; the push-to-`main` re-run stays as decided above. | — |
-| 2026-10-16 | Steps 1, 2, 3, 5 delivered (backend #187, music #80, worker #113, front #464, #465, #466); prod smoke 30/30 after each deploy. Remaining: OQ3, OQ4 (→ Step 6), OQ5, and enabling `core.hooksPath` in the owner's clones. | 1, 2, 3, 5 |
+| 2026-10-16 | Steps 1, 2, 3, 5 delivered (backend #187, music #80, worker #113, front #464, #465, #466); prod smoke 30/30 after each deploy. Remaining: OQ3, OQ4 (→ Step 6), OQ5. | 1, 2, 3, 5 |
+| 2026-10-16 | Owner approved enabling the hook: `core.hooksPath=scripts/githooks` set in the backend, music and worker clones; live refusal verified. | 1 |
 
 ## Appendix — reproducing the numbers
 
