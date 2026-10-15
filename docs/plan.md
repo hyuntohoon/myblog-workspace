@@ -10,7 +10,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **CHORE-research-model-evaluation** — **FIRST PLANNED PRIORITY; draft; research explicitly authorized 2026-10-15.** Complete a prompt that passes jointly designed **GPT-6 Astra + Claude** criteria for efficient evidence collection useful to a music critic; structure/outline/expression may vary. Preserve the revised-prompt all-model pilot, agree measurable thresholds, iterate bounded prompt comparisons, then verify on held-out albums and critic-use tasks. Subscription models only; separately billed Fable excluded. Production adoption remains separate. → `docs/rfcs/CHORE-research-model-evaluation.md`. <!-- rfc: docs/rfcs/CHORE-research-model-evaluation.md | status: draft -->
 
-- **OPS-ci-cd-optimization** — **accepted 2026-10-16 (Steps 1, 2, 3, 5; Step 4 declined, Step 6 waits on OQ4; OQ1 and OQ6 answered no); diagnosis delivered 2026-10-16 (owner request 2026-10-15:
+- **OPS-ci-cd-optimization** — **accepted 2026-10-16; Steps 1, 2, 3, 5 delivered 2026-10-16** (lock pre-commit hook in backend/music/worker — not yet enabled in the owner's clones; front HTML sync 157 s → 33 s; dead `code-review.yml` gone; `MemberProfile` flake root-caused and fixed). Step 4 declined, Step 6 waits on OQ4; OQ1 and OQ6 answered no. Diagnosis delivered 2026-10-16 (owner request 2026-10-15:
   "지금 테스트 과정이 과하진 않는지 진단해보고 분석해서 cicd를 최적화해보자").** Verdict: the test
   process is not excessive in time or money — 30 days: 283 job-minutes on the four public repos
   with runs (free) and 13 on the private shared_db; PR-gate median 0.4–2.6 min per repo, no matrix.
@@ -19,7 +19,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   deploy (the HTML upload is 157 s median, 70 % of the deploy job, 4,170 objects), deleting the
   front `code-review.yml` that has run 481 times since 2026-05-25 and never commented, and
   hardening the one flake that held a deploy 17 min. The push-to-`main` gate re-run stays (39/40 merges re-tested an identical tree; decision
-  recorded). Each step is a separate PR; open: OQ3, OQ4, OQ5.
+  recorded). Open: OQ3, OQ4, OQ5.
   → `docs/rfcs/OPS-ci-cd-optimization.md`. <!-- rfc: docs/rfcs/OPS-ci-cd-optimization.md | status: accepted -->
 
 - **FEAT-lyrics-chat** — **live 2026-10-09**: translation queue runs on a local GPT worker on the owner's Mac (ChatGPT Plus sign-in, `gpt-5.6-sol`, `store=false` — no chat history; launchd every 60 s; since 10-12 budget 300/UTC day, 3 concurrent inferences, plan usage limit → 1 h wait and resume (3rd in a row stops), token usage in `usage.json`). Smoke + first scheduled tick both `saved` and served by `GET /api/lyrics`. Sign-in needed the at_hash fix (ws #1038). First days measured 10-11: **0 refusals in 298 attempts** (structured and prose), budget exhausted ~2.5 h into each UTC day, no pause. **Open (observe):** plan usage vs. Plus allowance; first production idle tick once the 211-row backlog drains (~10-13). [Design, architecture, delivery record](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
