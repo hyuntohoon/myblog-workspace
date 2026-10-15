@@ -1136,6 +1136,36 @@ Disposition per leg:
 | Residual failures | **Recorded as frozen, no remediation.** The 2026-10-05 read was `done` 1,915 / `retryable_error` 169 (23 on 10-01) / `ready` 93 / `running` 70. With no runner, these rows stay where they are, and `running` rows whose lease expires have nobody to re-claim them. No reset, no overwrite. | A failure visible to a user on the Chat path, or a decision on what to do with the frozen `claude.sonnet/v2` rows once #1022 lands. |
 
 The `album_not_in_catalog` waiting jobs stay under Step 2C (held back-catalogue leg), as above.
+
+**Execution record (2026-10-15) — subscription-guard leg reopened by its trigger.**
+
+- **Trigger met, out of order.** All four Claude launchd jobs (`research-poller`, `buckit-nightly`,
+  `genre-heal-poller`, `genre-backfill`) had been unloaded since the 2026-09-27 reboot. The `album_research`
+  queue then held a waiting row and nothing drained it. On the owner's instruction the four were
+  re-bootstrapped at 21:58 KST **before** this leg ran: the gate was read only after the reload. The owner
+  chose to keep them loaded while the leg ran. While they are loaded, a misread can do no more than cause a
+  false shared cooldown.
+- **Measured, $0:** `claude -p --output-format json --model no-such-model-xyz` (CLI 2.1.300) exits 1.
+  Its stderr holds only a tag, and its stdout holds the full envelope (`is_error`, `api_error_status: 404`,
+  `terminal_reason: api_error`, `result`). The 2026-07-28 diagnostic was blank because `CliEngine`
+  discarded that stdout.
+- **Fix, shared_db #87:** `CliEngine` appends the envelope to the exit diagnostic, and `is_throttle_error`
+  drops the `claude exit 1:` rule. A 429 envelope or a usage-limit `result` text still cools down.
+  Mutation-checked in both directions.
+- **Pins:** the consumers are the workspace scripts running in the backend and worker venvs, so the
+  backend and worker pins move. Music does not import `myblog_shared_db.llm`, so its pin stays.
+- **Workspace twin:** `scripts/tests/test_llm_subscription_guard.py`'s blank-exit test is inverted. Nine
+  other tests in that file fail identically with and without this change; they are pre-existing and out of
+  scope here.
+- **Pins and the local runtime:** backend #185 and worker #110 move the pins to `08b2ee7`. The backend and
+  worker venvs, which are what the launchd jobs import, were reinstalled at `08b2ee7`
+  (`is_throttle_error("claude exit 1: ")` is `False` in both). The shared checkout the plists run was
+  sitting on a detached `9ba84f6`, 42 commits behind and without the ws #1052 heartbeat writers. With
+  the owner's approval it moved to `origin/main`.
+- **genre-backfill heartbeat:** the FEAT-automation-admin 2e carry-over is done in shared_db #88, which
+  runs the plist under `automation_heartbeat.py exec`.
+- **Subscription-guard leg: delivered.** It needs no prod smoke: the consumers are local, and a misread
+  now leaves a diagnostic in the agent logs instead of a silent cooldown.
 **Step 2D's part of the 2B–2D Exit is met by this explicit deferred/dropped disposition.**
 
 **Exit (Steps 2B–2D):** each operational leg has deployed/verified evidence or an explicit

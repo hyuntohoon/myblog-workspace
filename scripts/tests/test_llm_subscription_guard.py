@@ -111,26 +111,29 @@ def test_throttle_sets_shared_cooldown_without_second_call(tmp_path: Path) -> No
     assert calls == 0
 
 
-def test_observed_blank_claude_exit_sets_cooldown(tmp_path: Path) -> None:
+def test_blank_claude_exit_does_not_set_cooldown(tmp_path: Path) -> None:
+    # Inverted 2026-10-15 (OPS-project-stabilization 2D, shared_db #87): a blank
+    # `claude exit 1:` was read as a throttle on 2026-07-28 and held every
+    # Claude job in cooldown for three days. CliEngine now carries the stdout
+    # envelope, so a real throttle arrives with a marker; a blank one is not.
     def silent_exit() -> None:
         raise LLMTransientError("claude exit 1: ")
 
     with pytest.raises(LLMTransientError, match="claude exit 1"):
         coordinated_call(
             silent_exit,
-            feature="observed-live-throttle",
+            feature="blank-exit",
             state_dir=tmp_path,
             min_gap_s=0,
             cooldown_s=60,
         )
 
-    with pytest.raises(LLMSubscriptionCooldown):
-        coordinated_call(
-            lambda: None,
-            feature="next-worker",
-            state_dir=tmp_path,
-            min_gap_s=0,
-        )
+    assert coordinated_call(
+        lambda: "next worker ran",
+        feature="next-worker",
+        state_dir=tmp_path,
+        min_gap_s=0,
+    ) == "next worker ran"
 
 
 def test_non_throttle_transient_does_not_set_cooldown(tmp_path: Path) -> None:

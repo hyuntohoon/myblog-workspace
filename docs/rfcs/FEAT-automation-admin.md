@@ -152,7 +152,7 @@ Message types, matched producer by consumer branch (`worker/handler.py` Records 
 | `lyrics_member_bootstrap` | backend `integrations.py` → `safe_enqueue_member_demand_bootstrap` | member connects Spotify | active (code path) |
 | `lyrics_discography_enumerate` (self-chained, delayed) | worker `_nudge_discography_enumeration` / enumeration hops | worker | active; `lyrics_artist_discographies` 36 complete, last update 10-10 05:10 UTC |
 | `lyrics_incremental` | worker `enqueue_lyrics_incremental` (after album sync) | worker | active (code path) |
-| `genius_fetch` + `album_id` | local `research_poller.py` nudge | local poller | **disabled with its producer** (see C) |
+| `genius_fetch` + `album_id` | local `research_poller.py` nudge | local poller | **disabled with its producer** (see C). **→ active 2026-10-15** with research-poller |
 | `lyrics_reassessment` / `lyrics_demand_source` / `artist_photo_backfill` with overrides | no `main` producer | manual send | manual-only entry points |
 | `isrc_backfill` / `youtube_ref_refresh` / `disc_no_backfill` | no producer | manual send | **dropped**: the Records loop has no branch for them, so the message is logged as "Unknown message format" and deleted unrun. `infra/eventbridge.tf`'s "manual blogSQS `{"job":"isrc_backfill"}` message still works" comment is wrong. The only manual path is a direct Lambda invoke (pre-existing; relevant to Step 3 controls) |
 
@@ -170,13 +170,21 @@ is compared below against what is installed (`~/Library/LaunchAgents`), the laun
 | Label | Repo | Installed | Override | Loaded | Last log activity | Work it drains | State |
 |---|---|---|---|---|---|---|---|
 | `gpt-translate-poller` (`gpt_queue_worker.py`, frozen runtime) | yes (template) | yes | enabled | **yes** (pid 71502) | `worker.log` 16:45 KST today | `lyrics_translation_work` (`chatgpt/lyrics-ko-v1`, `chatgpt/genius-ko-v1`); also `track_lyrics_translations` `requested`, `track_genius_annotations` `pending` and `lyrics_album_tracks` (corrected in 2b) | **active** — see D |
-| `buckit-nightly` (03:00 daily; `buckit_nightly.py`) | yes | yes | enabled | no | `myblog-buckit-nightly.log` last INFO 2026-09-27 03:31 KST ("no checked memos … $0") | review-bucket memos → draft reports | disabled (not reloaded after reboot; OPS-project-stabilization Step 2D gates reload on the subscription-guard fix) |
-| `research-poller` (60 s, `--once`) | yes | yes | enabled | no | last line 2026-09-27 11:31 KST (genius nudge timeout) | `album_research` | disabled (same gate). Queue: 87 `done`, **0 `queued`** — nothing stranded today |
-| `genre-heal-poller` (30 min) | yes | yes | enabled | no | last INFO 2026-09-24 20:59 KST ("no pending genre-backfill request") | `genre_backfill_requests` | disabled (same gate). Queue: 2 finished (06-21), **0 pending** |
-| `genre-backfill` (04:00 daily; shared_db `backfill_genres.py`) | shared_db only | yes | enabled | no | last line 2026-09-27 06:31 KST (throttle cool-down) | genre pipeline over catalog | disabled (same gate) |
+| `buckit-nightly` (03:00 daily; `buckit_nightly.py`) | yes | yes | enabled | no | `myblog-buckit-nightly.log` last INFO 2026-09-27 03:31 KST ("no checked memos … $0") | review-bucket memos → draft reports | disabled (not reloaded after reboot; OPS-project-stabilization Step 2D gates reload on the subscription-guard fix). **→ active 2026-10-15** (see the reload note below) |
+| `research-poller` (60 s, `--once`) | yes | yes | enabled | no | last line 2026-09-27 11:31 KST (genius nudge timeout) | `album_research` | disabled (same gate). Queue: 87 `done`, **0 `queued`** — nothing stranded today. **→ active 2026-10-15** |
+| `genre-heal-poller` (30 min) | yes | yes | enabled | no | last INFO 2026-09-24 20:59 KST ("no pending genre-backfill request") | `genre_backfill_requests` | disabled (same gate). Queue: 2 finished (06-21), **0 pending**. **→ active 2026-10-15** |
+| `genre-backfill` (04:00 daily; shared_db `backfill_genres.py`) | shared_db only | yes | enabled | no | last line 2026-09-27 06:31 KST (throttle cool-down) | genre pipeline over catalog | disabled (same gate). **→ active 2026-10-15**, now under the heartbeat wrapper |
 | `lyrics-translate-poller` (60 s) | yes | **no** | **disabled** | no | — | `track_lyrics_translations` (legacy Claude) | **obsolete** — script returns before DB work (retired by Chat translation). *Corrected in 2b:* the table is not orphaned — the GPT worker drains its `requested` rows |
 | `genius-translate-poller` (60 s) | yes | **no** | **disabled** | no | — | `track_genius_annotations` | **obsolete** — same; 6,596 done / 23 failed / 12 pending, last update 2026-08-15. *Corrected in 2b:* the table is **not frozen** — the GPT worker drains eligible `pending` rows; all 12 are ineligible for its filter |
 | `cdp-reaper` (30 min; `~/.local/bin/cdp-reaper.sh`) | **no** | yes | enabled | yes (687 runs, last exit 0) | — | stray CDP Chrome processes | active, **dev tooling, not a site job** — excluded from the catalog |
+
+**Reload (2026-10-15, OPS-project-stabilization Step 2D).** The four Claude-CLI agents were
+re-bootstrapped after a waiting `album_research` row was found with no consumer. Alongside the reload:
+the subscription-guard fix (shared_db #87) and its pins (backend #185, worker #110); the backend and
+worker venvs reinstalled at shared_db `08b2ee7`; the shared checkout moved from a stale detached
+`9ba84f6` to `origin/main` so the plists run the #1052 heartbeat writers; and `genre-backfill`
+wrapped by `automation_heartbeat.py exec` (shared_db #88). The backend catalog (#185) declares the
+four agents `active`.
 
 Not scheduled, but they share the queues above: `editor_buckit.py` (manual Stage 0; `buckit_nightly`
 is its scheduled sibling), `lyrics_demand_translate.py` (library module, imported transitively by the GPT runtime via
@@ -466,6 +474,7 @@ gives `counts: null`, never `{}`.
 - **genre-backfill is not wired.** Its code and plist live in shared_db. The wrapper
   `automation_heartbeat.py exec genre-backfill -- <command>` exists, but the shared_db plist was not
   changed. Carried to OPS Step 2D: install it through the wrapper when it is reloaded.
+  **Done 2026-10-15:** shared_db #88, installed with the reload.
 - **Tests.** Writer 17 and GPT worker 40, both on the shared test branch, run serially. 19 mutants: the
   first pass killed 17, and after two added tests (DSN text in the log, read-only session default) all
   19 were killed. `security-review`: no findings.
