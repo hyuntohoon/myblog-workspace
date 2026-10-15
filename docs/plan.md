@@ -12,6 +12,19 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **FEAT-spotify-library-autosync** — **draft; opened 2026-10-15 (owner request in session)**: the Spotify library syncs on every board entry, with a server-side in-flight gate plus a 30 s post-finish debounce. It renders as one list, newest-saved first, with other sort orders; the 내가 넣은 / 기존 split is gone. Every library album is queued for research once. The ✎ 평론 쓸 것 / research-dot overlap on covers is fixed. Steps: 1 (front overlap) ‖ 2 (V61) → 3a worker ‖ 3b backend contract → 4 front. Research runs only once the owner's local `research-poller` is loaded again (not loaded on 2026-10-15). → `docs/rfcs/FEAT-spotify-library-autosync.md`. <!-- rfc: docs/rfcs/FEAT-spotify-library-autosync.md | status: draft -->
 
+- **OPS-ci-cd-optimization** — **draft; diagnosis delivered 2026-10-16 (owner request 2026-10-15:
+  "지금 테스트 과정이 과하진 않는지 진단해보고 분석해서 cicd를 최적화해보자").** Verdict: the test
+  process is not excessive in time or money — 30 days: 283 job-minutes on the four public repos
+  with runs (free) and 13 on the private shared_db; PR-gate median 0.4–2.6 min per repo, no matrix.
+  What the measurement supports instead: an offline staged-hash lock check as a pre-commit hook
+  (9 of 21 failed runs were `requirements.lock is out of date`), S3 sync concurrency on the front
+  deploy (the HTML upload is 157 s median, 70 % of the deploy job, 4,170 objects), deleting the
+  front `code-review.yml` that has run 481 times since 2026-05-25 and never commented, and
+  hardening the one flake that held a deploy 17 min. The push-to-`main` gate re-run stays (39/40 merges re-tested an identical tree; decision
+  recorded). **Nothing changed in any workflow or ruleset yet; each step is a separate PR after owner
+  acceptance.** OQ1 restates the `workspace-check`-required decision with numbers.
+  → `docs/rfcs/OPS-ci-cd-optimization.md`. <!-- rfc: docs/rfcs/OPS-ci-cd-optimization.md | status: draft -->
+
 - **FEAT-lyrics-chat** — **live 2026-10-09**: translation queue runs on a local GPT worker on the owner's Mac (ChatGPT Plus sign-in, `gpt-5.6-sol`, `store=false` — no chat history; launchd every 60 s; since 10-12 budget 300/UTC day, 3 concurrent inferences, plan usage limit → 1 h wait and resume (3rd in a row stops), token usage in `usage.json`). Smoke + first scheduled tick both `saved` and served by `GET /api/lyrics`. Sign-in needed the at_hash fix (ws #1038). First days measured 10-11: **0 refusals in 298 attempts** (structured and prose), budget exhausted ~2.5 h into each UTC day, no pause. **Open (observe):** plan usage vs. Plus allowance; first production idle tick once the 211-row backlog drains (~10-13). [Design, architecture, delivery record](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
 
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
