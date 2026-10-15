@@ -8,6 +8,12 @@ resumes; LIMIT_STOP_AFTER consecutive limit events stop the worker.
 Heartbeats (FEAT-automation-admin 2e, `automation_heartbeats`): a run writes at its end, and
 also every HEARTBEAT_SECONDS while its slots make progress; a start that runs nothing
 (stopped, paused, limit wait) writes at most every IDLE_HEARTBEAT_SECONDS.
+Site pause (FEAT-automation-admin 3b, `automation_controls`): the owner's page can pause this
+agent. It is checked with the local switches before every claim and every inference; a claim
+it interrupts is released with its attempt refunded, never cancelled. A site-paused start still
+runs to its end and writes the 'finished' heartbeat, so it is not throttled like an idle start.
+The local switches are checked first: a stopped or limit-waiting worker never reads (or confirms)
+the site flag, and the page reads that together with the heartbeat's `enabled`.
 """
 from __future__ import annotations
 
@@ -39,13 +45,22 @@ PARALLEL = 3
 LIMIT_WAIT_SECONDS = 3600
 LIMIT_STOP_AFTER = 3
 # A slot stops claiming in this run after any of these.
-FINAL = frozenset({'idle', 'scan_wrap', 'daily_budget', 'owner_paused', 'usage_limit_wait', 'disabled'})
+FINAL = frozenset({'idle', 'scan_wrap', 'daily_budget', 'owner_paused', 'site_paused', 'usage_limit_wait', 'disabled'})
 USAGE_FIELDS = ('input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_tokens')
 AGENT_KEY = 'gpt-translate-poller'
 # The page calls this agent stale after 15 min (2 × 60 s, minimum 15 min). A run beats on
 # slot progress, so a run whose slots all hang stops beating and shows stale.
 HEARTBEAT_SECONDS = 120
 IDLE_HEARTBEAT_SECONDS = 300
+# One statement checks the owner's site pause and stamps that this agent honoured it, so the
+# page can tell "paused and seen" from "paused, not yet seen". READ WRITE first: a pooler
+# session can carry a leaked read-only default.
+# Slots share one answer for this long: a pause reaches a run within SITE_PAUSE_TTL, and
+# three slots do not each add a DB round trip under the scan lock to every claim.
+SITE_PAUSE_TTL = 5.0
+# clock_timestamp(): a stamp taken after a wait on the row lock must not predate the
+# owner's changed_at, or a real skip would read as "not yet confirmed".
+SITE_PAUSE = text("UPDATE automation_controls SET honored_at=clock_timestamp() WHERE job_key=:key AND paused RETURNING job_key")
 LIVE = """NOT j.cancelled AND EXISTS (SELECT 1 FROM lyrics_album_demands d
 JOIN lyrics_discovery_scopes s ON s.id=d.scope_id AND s.active WHERE d.job_id=j.id)"""
 # Stable composite keys + persistent cursor keep a poison row from monopolizing scans.
@@ -108,6 +123,9 @@ class QueueWorker:
         self.heartbeat = heartbeat
         self.store = GPTTranslationStore(daily_cap)
         self._scan = threading.Lock()
+        self._site_lock = threading.Lock()
+        self._site = (None, False)  # (monotonic time of the last read, paused)
+        self.site_pause_ttl = SITE_PAUSE_TTL
 
     def held(self, settings=None):
         """Why no new claim may start now, or None."""
@@ -116,7 +134,29 @@ class QueueWorker:
             return 'owner_paused'
         if settings.get('resume_at', 0) > self.clock():
             return 'usage_limit_wait'
+        if self.site_paused():
+            return 'site_paused'
         return None
+
+    def site_paused(self):
+        """The owner's pause from the automation page. A read failure means continue (fail-open):
+        it is an operational switch, not an auth boundary, and a pause that did not apply stays
+        visible on the page because `honored_at` does not advance."""
+        with self._site_lock:
+            read_at, paused = self._site
+            if read_at is not None and time.monotonic() - read_at < self.site_pause_ttl:
+                return paused
+            try:
+                with self.engine.begin() as connection:
+                    connection.execute(text('SET TRANSACTION READ WRITE'))
+                    connection.execute(text("SET LOCAL statement_timeout = '5s'"))
+                    paused = connection.execute(SITE_PAUSE, {'key': AGENT_KEY}).first() is not None
+            except Exception as error:
+                # Only the type: driver messages can carry connection details.
+                log.error('GPT site pause check failed (%s); continuing', type(error).__name__)
+                paused = False
+            self._site = (time.monotonic(), paused)
+            return paused
 
     def run(self, model, parallel=PARALLEL):
         outcomes, guard, done = Counter(), threading.Lock(), threading.Event()
