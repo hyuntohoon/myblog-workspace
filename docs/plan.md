@@ -6,6 +6,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+- **FEAT-spotify-library-autosync** — **draft; opened 2026-10-15 (owner request in session)**: the Spotify library syncs on every board entry, with a server-side in-flight gate plus a 30 s post-finish debounce. It renders as one list, newest-saved first, with other sort orders; the 내가 넣은 / 기존 split is gone. Every library album is queued for research once. The ✎ 평론 쓸 것 / research-dot overlap on covers is fixed. Steps: 1 (front overlap) ‖ 2 (V61) → 3a worker ‖ 3b backend contract → 4 front. Research runs only once the owner's local `research-poller` is loaded again (not loaded on 2026-10-15). → `docs/rfcs/FEAT-spotify-library-autosync.md`. <!-- rfc: docs/rfcs/FEAT-spotify-library-autosync.md | status: draft -->
+
 - **FEAT-lyrics-chat** — **live 2026-10-09**: translation queue runs on a local GPT worker on the owner's Mac (ChatGPT Plus sign-in, `gpt-5.6-sol`, `store=false` — no chat history; launchd every 60 s; since 10-12 budget 300/UTC day, 3 concurrent inferences, plan usage limit → 1 h wait and resume (3rd in a row stops), token usage in `usage.json`). Smoke + first scheduled tick both `saved` and served by `GET /api/lyrics`. Sign-in needed the at_hash fix (ws #1038). First days measured 10-11: **0 refusals in 298 attempts** (structured and prose), budget exhausted ~2.5 h into each UTC day, no pause. **Open (observe):** plan usage vs. Plus allowance; first production idle tick once the 211-row backlog drains (~10-13). [Design, architecture, delivery record](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
 
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
