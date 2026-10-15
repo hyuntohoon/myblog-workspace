@@ -696,6 +696,7 @@ CREATE TABLE IF NOT EXISTS spotify_library_albums (
   in_spotify     BOOLEAN                NOT NULL DEFAULT FALSE,    -- last-observed Library membership
   last_error     TEXT,
   last_synced_at TIMESTAMPTZ,                                      -- poll anchor
+  spotify_added_at TIMESTAMPTZ,                                    -- V61: Spotify saved time (added_at)
   created_at     TIMESTAMPTZ            NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ            NOT NULL DEFAULT now(),
   CONSTRAINT uq_spotify_library_albums_album UNIQUE (album_id)
@@ -1567,4 +1568,19 @@ CREATE TABLE automation_control_events (
 	CONSTRAINT ck_automation_control_event_action CHECK (action IN ('pause', 'resume')),
 	CONSTRAINT ck_automation_control_event_outcome CHECK (outcome IN ('applied', 'no_change')),
 	CONSTRAINT ck_automation_control_event_actor CHECK (length(btrim(actor_sub)) BETWEEN 1 AND 128)
+);
+
+-- V61: FEAT-spotify-library-autosync Step 2 — library sync run state. Additive; one row
+-- per kind='spotify_library' bucket. The backend claims a run via requested_at (in-flight
+-- gate + post-finish debounce); the worker stamps started_at / finished_at on every pass.
+-- (V61 also adds spotify_library_albums.spotify_added_at above.)
+CREATE TABLE spotify_library_sync_runs (
+	bucket_id UUID NOT NULL,
+	requested_at TIMESTAMP WITH TIME ZONE,
+	started_at TIMESTAMP WITH TIME ZONE,
+	finished_at TIMESTAMP WITH TIME ZONE,
+	last_outcome TEXT,
+	PRIMARY KEY (bucket_id),
+	FOREIGN KEY (bucket_id) REFERENCES review_buckets (id) ON DELETE CASCADE,
+	CONSTRAINT ck_spotify_library_sync_outcome CHECK (last_outcome IS NULL OR length(last_outcome) <= 200)
 );
