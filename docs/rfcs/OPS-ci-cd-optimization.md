@@ -274,7 +274,15 @@ which `CLAUDE.md` § Subagents counts as an infra touch: `reviewer` is mandatory
 
 ### Step 0 — this diagnosis (docs only) — **delivered by the PR that adds this file**
 
-### Step 1 — offline lock-drift check as a versioned pre-commit hook (backend, music, worker)
+### Step 1 — offline lock-drift check as a versioned pre-commit hook (backend, music, worker) — **delivered 2026-10-16** (backend #187, music #80, worker #113)
+
+> **Delivered.** `scripts/githooks/pre-commit`, byte-identical in the three repos, reads both blobs with
+> `git cat-file blob :<file>` (reviewer: immune to a future textconv setting, unlike `git show`). Scratch-clone
+> scenarios: un-recompiled bump, recompiled-but-unstaged lock, lock-only stale hash, header removed, lock removed
+> from the index → refused; both staged, unrelated file → accepted; mutant `[ x != x ]` let the bump through.
+> `sha256sum` and `shasum` branches and `/bin/dash` exercised. Deployed with no runtime change; prod smoke 30/30.
+> **Not yet enabled in the owner's clones** — `core.hooksPath` is per clone and is the owner's call (it also
+> applies to concurrent sessions' worktrees of the same clone).
 
 `requirements.lock` already records the hash of the `requirements.txt` it was compiled from
 (`# requirements.txt sha256: …`, written by `scripts/compile_requirements.sh`). Add
@@ -312,7 +320,11 @@ git add requirements.lock && git commit -m x           # expect: accepted
 the Bash guard reads a `core.hooksPath` change as skipping hooks (hard rule 10), so that form is the
 owner's.
 
-### Step 2 — front S3 HTML sync concurrency
+### Step 2 — front S3 HTML sync concurrency — **delivered 2026-10-16** (front #464)
+
+> **Delivered and measured.** First deploy after merge (`83f29c3`, run 38780929262): `Upload HTML/XML/JSON
+> (no-cache)` **33 s** (baseline 157 s median / 176 s p90), 4,183 objects uploaded — same work; `deploy` job
+> 102 s (was 226 s). Next deploy (`ac4cc34`): 36 s. Post-deploy health and prod smoke green.
 
 In `myblog_front/.github/workflows/main.yml` `deploy`, before `Upload _astro/** (immutable)`, add
 `aws configure set default.s3.max_concurrent_requests 64` (and `max_queue_size 10000`). No flag
@@ -328,7 +340,9 @@ gh run view <first deploy run after merge> --repo hyuntohoon/myblog_front --json
 
 **Rollback**: revert the one-line PR; the next deploy is slow again, nothing else changes.
 
-### Step 3 — delete `myblog_front/.github/workflows/code-review.yml`
+### Step 3 — delete `myblog_front/.github/workflows/code-review.yml` — **delivered 2026-10-16** (front #465)
+
+> **Delivered.** The PR itself reported only `check`; the next PR (#466) produced no `code-review`/`keycheck` run.
 
 One PR removing the file. Saves 18 no-op runs a month and one noise row per PR; loses nothing (0
 reviews ever). The ruleset requires only `check`, so no required context disappears.
@@ -362,7 +376,25 @@ Blocked on OQ2.
 
 **Rollback**: revert; the step is a single block again.
 
-### Step 5 — the `MemberProfile.test.tsx` flake
+### Step 5 — the `MemberProfile.test.tsx` flake — **delivered 2026-10-16** (front #466)
+
+> **Delivered; root cause reproduced deterministically.** The plain 20× full-suite measurement below was run
+> first and is recorded as **not informative**: `MemberProfile` 0/20, while 4/20 runs failed elsewhere
+> (`BucketBoard` and two others, `Test timed out in 5000ms`) only when a run took > 120 s against 56 s normal —
+> host load average 51–99 on 8 cores from concurrent sessions. CI hit the flake at normal speed.
+>
+> Cause: `MemberProfile` attaches its `ENT_ALBUM_STATE_CHANGED` listener in a passive effect; `findByRole` on
+> the dashboard nav resolves at the commit, RTL then waits one `setTimeout(0)`, and when that wins against
+> React's scheduler (`setImmediate`) the test dispatches to no listener. Its unconsumed `mockImplementationOnce`
+> entries survive `vi.clearAllMocks()` and feed the next three tests — one race, four failures, the exact CI
+> signature. A temporary harness that delays `setImmediate` by 20 ms (setup file loaded before
+> `src/test/setup.ts`) reproduced those 4 failures with the same 3 messages in 4/5 runs on `main`.
+>
+> Fix (test only): wait for the `addEventListener(ENT_ALBUM_STATE_CHANGED)` call made after mount (spy), and
+> reset the `fetchMemberProfile` once-queue per test. Harness: fixed 20/20 pass; mutant without the listener
+> wait 9/10 fail. **The fix recorded for earlier flakes, `await act(async () => {})`, does not work here** —
+> React 19 does not flush inside `act` a passive effect it scheduled outside `act`. The load-only `BucketBoard`
+> 5 s timeouts are a separate observation, not acted on.
 
 Measure on `main` as the memory prescribes: 20 full-suite `pnpm test` runs (full suite, not the
 file alone — the 2026-09-01 flake was 0/12 alone and 1/10 under load). If ≥ 1/20, fix the race
@@ -430,6 +462,7 @@ worker `test` green on the PRs.
 | 2026-10-16 | **Accepted by the owner** for Steps 1, 2, 3 and 5. Step 4 is not taken (OQ2, recommendation "no"); Step 6 stays blocked on OQ4. | 1, 2, 3, 5 |
 | 2026-10-16 | OQ1 answered **no** by the owner: `workspace-check` stays advisory; reading its result before a workspace merge remains Claude's self-attested gate. No ruleset change. | — |
 | 2026-10-16 | OQ6 answered **no** by the owner: no skip-by-tree on push; the push-to-`main` re-run stays as decided above. | — |
+| 2026-10-16 | Steps 1, 2, 3, 5 delivered (backend #187, music #80, worker #113, front #464, #465, #466); prod smoke 30/30 after each deploy. Remaining: OQ3, OQ4 (→ Step 6), OQ5, and enabling `core.hooksPath` in the owner's clones. | 1, 2, 3, 5 |
 
 ## Appendix — reproducing the numbers
 
