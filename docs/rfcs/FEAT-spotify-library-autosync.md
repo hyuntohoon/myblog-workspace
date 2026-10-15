@@ -23,6 +23,8 @@ research dot no longer covers it.
 - Running the research poller. Queued rows wait for the owner's local `research-poller`
   (`scripts/research_poller.py`, launchd). It is **not loaded** as of 2026-10-15
   (`launchctl list` shows no entry), and starting it is an owner action.
+  *Update 2026-10-15 17:23Z:* it is running — the library bucket's research rows went from
+  41 done / 56 queued to 52 done / 47 queued over the day.
 - Changing the reconcile rules (ADD / REMOVE / PULL, never delete a `preexisting` album).
   `source` is still stamped and still blocks deletion. Only its display goes away.
 - Multi-user library sync. The bucket stays owner-only (`require_owner`).
@@ -143,6 +145,12 @@ is 36 px), vertically centred on it. Keep the z-order comments truthful.
   and at the dot centre returns `.rsh-cover-badge`, both before the fix (expected: dot) and
   after, on desktop and on a coarse-pointer emulation.
 
+**Shipped**: front #460 (`edfe1e6`, 2026-10-15). **Post-deploy recheck** (2026-10-15, deployed
+bundle, owner's Chrome, desktop pointer): To Listen bucket, 24/24 tiles — ✎ centre →
+`.bb-tile-mark`, dot centre → `.rsh-cover-badge`; ✎ x 7–33, dot x 39–55, 0 overlaps. The served
+CSS carries the `:has(.bb-tile-mark)` rule. The coarse-pointer branch was not re-run on
+production. Record: front #462 comment.
+
 **Rollback**: revert the front PR.
 
 ---
@@ -158,6 +166,9 @@ production in the same session (reference-neon-test-branch-migration-drift), **b
 - `pytest` (`PYTHONPATH=src`)
 - `\d spotify_library_sync_runs` and `\d spotify_library_albums` on prod + test
 - library `research_mode` = `all`
+
+**Shipped**: shared_db V61 (`4544da2`), applied to the Neon test branch and to production on
+2026-10-15 before the 3a / 3b deploys.
 
 **Rollback**: down-migration in the file header (drops the table + column, sets the mode back to `off`). Rule 4 — production rollback needs owner approval.
 
@@ -176,6 +187,10 @@ As in Target state. `get_saved_albums` keeps `added_at` on each returned album d
   - research rows inserted once and not again on a second pass;
   - no row inserted for an album that already has a note of another prompt version.
 - Mutation check on each new test.
+
+**Shipped**: worker #111 (`5faea02`, 2026-10-15). Production (Step 4 clickthrough): three claimed
+passes each stamped `sync_finished_at` within 0.5 s of `sync_requested_at` with `last_synced_at`
+unchanged; `spotify_added_at` on 99/99 library albums. `last_outcome` was not read (DB-only).
 
 ---
 
@@ -197,6 +212,10 @@ The contract order is service → workspace → front (additive). `reviewer` is 
 - Stale request → `queued`.
 - No new route, so `infra/apigateway.tf` is unchanged (verified by grep).
 
+**Shipped**: backend #186 (`17bc783`, 2026-10-15); contract merged in ws #1065. Production
+(Step 4 clickthrough): `queued` ×3 (each > 30 s after the previous finish), `debounced` ×1 (26 s
+after a finish); the three state fields and `albums[].spotify_added_at` present and advancing.
+
 ---
 
 ### Step 4 — Front: auto-sync on entry, one sorted list, research on library covers
@@ -216,6 +235,26 @@ As in Target state. `api.gen.ts` is regenerated from the merged workspace contra
   - default order matches Spotify's 최근 추가됨;
   - each sort option reorders;
   - the research dot shows on library covers.
+
+**Shipped**: front #462 (`5c4d0a4`, 2026-10-15, deploy run 38768978310). **Post-deploy
+clickthrough** (2026-10-15 17:18–17:24Z, deployed bundle, owner's logged-in Chrome; full record
+in the front #462 comment):
+- entry → exactly one POST → `queued`. A hidden mount (`document.hidden`, window occluded) made
+  no POST for 25 min and POSTed 0.7 s after `visibilitychange`;
+- re-entry (개요 → My Buckit) → one POST each: `queued` when > 30 s after the previous finish,
+  `debounced` 26 s after a finish, with one state GET and no polling;
+- default order = `spotify_added_at` desc, exact match with the state API (99/99); the five
+  sort options each reorder with 0 monotonicity violations, restored to 저장 최신;
+- 99/99 library covers carry the research dot, 🔎 pressed, scope 전체; research status for the
+  99: done 52 / queued 47;
+- no 내가 넣은 / 기존 string on the board, no source pill;
+- **not attempted**: "two tabs → one `queued` + one `in_flight`". A pass finishes in < 0.5 s, so
+  a hand-timed second tab cannot land inside it; the race rests on backend #186's real-engine
+  test.
+
+Observation: a hidden mount shows the library in insertion order until the page is shown — the
+sort key arrives with the sync flow's state read, which the hook defers while hidden. Transient;
+no change planned.
 
 ---
 
