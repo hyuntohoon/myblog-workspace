@@ -10,8 +10,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **CHORE-research-model-evaluation** — **FIRST PLANNED PRIORITY; draft; research explicitly authorized 2026-10-15.** Complete a prompt that passes jointly designed **GPT-6 Astra + Claude** criteria for efficient evidence collection useful to a music critic; structure/outline/expression may vary. Preserve the revised-prompt all-model pilot, agree measurable thresholds, iterate bounded prompt comparisons, then verify on held-out albums and critic-use tasks. Subscription models only; separately billed Fable excluded. Production adoption remains separate. → `docs/rfcs/CHORE-research-model-evaluation.md`. <!-- rfc: docs/rfcs/CHORE-research-model-evaluation.md | status: draft -->
 
-- **FEAT-spotify-library-autosync** — **draft; opened 2026-10-15 (owner request in session)**: the Spotify library syncs on every board entry, with a server-side in-flight gate plus a 30 s post-finish debounce. It renders as one list, newest-saved first, with other sort orders; the 내가 넣은 / 기존 split is gone. Every library album is queued for research once. The ✎ 평론 쓸 것 / research-dot overlap on covers is fixed. Steps: 1 (front overlap) ‖ 2 (V61) → 3a worker ‖ 3b backend contract → 4 front. Research runs only once the owner's local `research-poller` is loaded again (not loaded on 2026-10-15). → `docs/rfcs/FEAT-spotify-library-autosync.md`. <!-- rfc: docs/rfcs/FEAT-spotify-library-autosync.md | status: draft -->
-
 - **OPS-ci-cd-optimization** — **draft; diagnosis delivered 2026-10-16 (owner request 2026-10-15:
   "지금 테스트 과정이 과하진 않는지 진단해보고 분석해서 cicd를 최적화해보자").** Verdict: the test
   process is not excessive in time or money — 30 days: 283 job-minutes on the four public repos
