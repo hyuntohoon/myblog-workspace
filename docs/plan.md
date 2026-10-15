@@ -61,7 +61,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency quota (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
 
-- **FEAT-lyrics-match-correction** — accepted 2026-10-16; **Step 1 (matcher `step4-v1`, worker #112) shipping, Bad Habit fixed by hand on prod**; next is Step 2 (re-sweep by `matcher_version`). BTS `Go Go` is *not* fixable by consensus (the Japanese body is LRCLIB's majority) → Step 3a panel. Wrong lyrics are permanent today: an
+- **FEAT-lyrics-match-correction** — accepted 2026-10-16; **Step 1 shipped 2026-10-16 (matcher `step4-v1`, worker #112, prod smoke 30/30), Bad Habit fixed by hand on prod**; next is Step 2 (re-sweep by `matcher_version`). BTS `Go Go` is *not* fixable by consensus (the Japanese body is LRCLIB's majority) → Step 3a panel. Wrong lyrics are permanent today: an
   `exact-title` match is never re-examined and nothing remembers a rejected candidate. Owner report:
   Steve Lacy "Bad Habit" serves Ed Sheeran (one LRCLIB upload with correct metadata, wrong body, beat
   20 correct candidates); BTS "Go Go" serves the Japanese version. Root causes RC1–RC6 recorded:
