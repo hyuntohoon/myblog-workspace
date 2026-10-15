@@ -1,0 +1,58 @@
+[
+  {
+    "sample": "R04",
+    "astra_individual_score": 85.5,
+    "score_basis": "independent per-output source audit, same gpt-6-astra model in two isolated instances",
+    "wall_s": 287.947,
+    "output_chars": 6849,
+    "model_identity": "withheld_from_reviewers; blind-key.json held separately"
+  },
+  {
+    "sample": "R13",
+    "astra_individual_score": 82,
+    "score_basis": "independent per-output source audit, same gpt-6-astra model in two isolated instances",
+    "wall_s": 229.803,
+    "output_chars": 8055,
+    "model_identity": "withheld_from_reviewers; blind-key.json held separately"
+  },
+  {
+    "sample": "R01",
+    "astra_individual_score": 78.5,
+    "score_basis": "independent per-output source audit, same gpt-6-astra model in two isolated instances",
+    "wall_s": 171.831,
+    "output_chars": 6471,
+    "model_identity": "withheld_from_reviewers; blind-key.json held separately"
+  },
+  {
+    "sample": "R06",
+    "astra_individual_score": 72.5,
+    "score_basis": "independent per-output source audit, same gpt-6-astra model in two isolated instances",
+    "wall_s": 210.863,
+    "output_chars": 8365,
+    "model_identity": "withheld_from_reviewers; blind-key.json held separately"
+  },
+  {
+    "sample": "R09",
+    "astra_individual_score": 69.5,
+    "score_basis": "independent per-output source audit, same gpt-6-astra model in two isolated instances",
+    "wall_s": 82.41,
+    "output_chars": 5865,
+    "model_identity": "withheld_from_reviewers; blind-key.json held separately"
+  },
+  {
+    "sample": "R17",
+    "astra_individual_score": 65.5,
+    "score_basis": "independent per-output source audit, same gpt-6-astra model in two isolated instances",
+    "wall_s": 66.939,
+    "output_chars": 5098,
+    "model_identity": "withheld_from_reviewers; blind-key.json held separately"
+  },
+  {
+    "sample": "R03",
+    "astra_individual_score": 56,
+    "score_basis": "independent per-output source audit, same gpt-6-astra model in two isolated instances",
+    "wall_s": 136.533,
+    "output_chars": 4995,
+    "model_identity": "withheld_from_reviewers; blind-key.json held separately"
+  }
+]

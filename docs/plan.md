@@ -6,6 +6,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 ## Active
 
+> **Owner priority override, 2026-10-15:** CHORE-research-model-evaluation is the first planned task, superseding the earlier planned order below. Existing emergency/security incidents still take precedence. The owner subsequently expanded the goal to joint acceptance criteria and iterative prompt validation; production adoption remains separate.
+
+- **CHORE-research-model-evaluation** — **FIRST PLANNED PRIORITY; draft; research explicitly authorized 2026-10-15.** Complete a prompt that passes jointly designed **GPT-6 Astra + Claude** criteria for efficient evidence collection useful to a music critic; structure/outline/expression may vary. Preserve the revised-prompt all-model pilot, agree measurable thresholds, iterate bounded prompt comparisons, then verify on held-out albums and critic-use tasks. Subscription models only; separately billed Fable excluded. Production adoption remains separate. → `docs/rfcs/CHORE-research-model-evaluation.md`. <!-- rfc: docs/rfcs/CHORE-research-model-evaluation.md | status: draft -->
+
 - **FEAT-spotify-library-autosync** — **draft; opened 2026-10-15 (owner request in session)**: the Spotify library syncs on every board entry, with a server-side in-flight gate plus a 30 s post-finish debounce. It renders as one list, newest-saved first, with other sort orders; the 내가 넣은 / 기존 split is gone. Every library album is queued for research once. The ✎ 평론 쓸 것 / research-dot overlap on covers is fixed. Steps: 1 (front overlap) ‖ 2 (V61) → 3a worker ‖ 3b backend contract → 4 front. Research runs only once the owner's local `research-poller` is loaded again (not loaded on 2026-10-15). → `docs/rfcs/FEAT-spotify-library-autosync.md`. <!-- rfc: docs/rfcs/FEAT-spotify-library-autosync.md | status: draft -->
 
 - **FEAT-lyrics-chat** — **live 2026-10-09**: translation queue runs on a local GPT worker on the owner's Mac (ChatGPT Plus sign-in, `gpt-5.6-sol`, `store=false` — no chat history; launchd every 60 s; since 10-12 budget 300/UTC day, 3 concurrent inferences, plan usage limit → 1 h wait and resume (3rd in a row stops), token usage in `usage.json`). Smoke + first scheduled tick both `saved` and served by `GET /api/lyrics`. Sign-in needed the at_hash fix (ws #1038). First days measured 10-11: **0 refusals in 298 attempts** (structured and prose), budget exhausted ~2.5 h into each UTC day, no pause. **Open (observe):** plan usage vs. Plus allowance; first production idle tick once the 211-row backlog drains (~10-13). [Design, architecture, delivery record](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
@@ -17,7 +21,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 > lyrics → other lyrics operational gaps → validate real user journeys. Existing P0/security
 > incidents take precedence. This is planning priority, not runtime implementation approval.
 
-- **OPS-project-stabilization** — **FIRST PLANNED PRIORITY; in-progress (Step 2A) since 2026-09-30 (owner).**
+- **OPS-project-stabilization** — **in-progress (Step 2A) since 2026-09-30 (owner); previous first planned priority, superseded by the 2026-10-15 override.**
   <!-- rfc: docs/rfcs/OPS-project-stabilization.md | status: in-progress -->
   Step 1 (document reconciliation) delivered 2026-09-30; record under Step 1 in the RFC. **Step 2A, first runtime fix:** home
   playback discovery with direct lyrics, and automatic next-track lyrics (the A → B → A rollback).
@@ -452,7 +456,7 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
   rejects an Active row that references `docs/archive/done/`.
   Background → `docs/archive/done/rfcs/ARCH-playback-authority-convergence.md` (OQ3, OQ4).
 
-- **CHORE-research-prompt-port-not-swap** (**legs 1–6 SHIPPED 2026-07-30; measurements remain**) — do **not** replace `album_research_v2` with v4 wholesale. Controlled RENAISSANCE comparison scored **v2 12/22, v4 12/22**, with complementary rather than strictly better coverage. v4 improved biography/primary-statement pressure but lost v2's explicit "do not import others' critical verdicts" protection and costs more tokens/wall time. The shipped approach ports the useful v4 pressure into v2, retains the no-verdict rule, adds liner-notes and sample-chain-depth requirements, injects catalog context, and intentionally keeps `PROMPT_VERSION=v2` so stored notes remain visible.
+- **CHORE-research-prompt-port-not-swap** (**legs 1–6 SHIPPED 2026-07-30; measurements remain; the owner-prioritized revised-prompt/model experiment is now tracked in `CHORE-research-model-evaluation`**) — do **not** replace `album_research_v2` with v4 wholesale. Controlled RENAISSANCE comparison scored **v2 12/22, v4 12/22**, with complementary rather than strictly better coverage. v4 improved biography/primary-statement pressure but lost v2's explicit "do not import others' critical verdicts" protection and costs more tokens/wall time. The shipped approach ports the useful v4 pressure into v2, retains the no-verdict rule, adds liner-notes and sample-chain-depth requirements, injects catalog context, and intentionally keeps `PROMPT_VERSION=v2` so stored notes remain visible.
 
   Remaining measurements only:
   1. Re-run RENAISSANCE against the checked-in 22-item sheet + ONYX with `grep -ci izm = 0`; record score, wall clock, output length and **actual per-hop citation support**. Pass target = recover ≥3 of items 5/6/8/22 at ≤1.3× v2 wall clock.

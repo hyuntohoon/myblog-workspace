@@ -1,0 +1,22 @@
+{
+  "id": "claude-fable-5-1",
+  "provider": "claude",
+  "requested_model": "claude-fable-5-1",
+  "model_config": {
+    "id": "claude-fable-5-1",
+    "provider": "claude",
+    "model": "claude-fable-5-1",
+    "availability": "excluded",
+    "unavailable_reason": "Excluded by owner: separately billed usage-credit models are out of scope; not an inference failure.",
+    "reasoning_effort": "medium"
+  },
+  "prompt_sha256": "9acd15ebffebbd6aa6f3facc97935b3b4ccfb6b8c6129df28da791c88e18eb2a",
+  "started_at": "2026-10-15T14:04:02.638422+00:00",
+  "status": "not_run",
+  "dispatch_count": 0,
+  "orchestration_retry_policy": "none",
+  "orchestration_fallback_policy": "none",
+  "reason": "Excluded by owner: separately billed usage-credit models are out of scope; not an inference failure.",
+  "finished_at": "2026-10-15T14:04:02.638862+00:00",
+  "wall_s": 0
+}
