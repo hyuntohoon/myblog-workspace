@@ -1,6 +1,6 @@
 # OPS-ci-cd-optimization: measure the six repos' CI/CD and trim only what the measurement supports
 
-- **Status**: draft
+- **Status**: accepted (owner approval 2026-10-16; scope Steps 1, 2, 3, 5)
 - **Owner**: site owner
 - **Created**: 2026-10-16
 - **Plan row**: `docs/plan.md` → OPS-ci-cd-optimization
@@ -427,6 +427,9 @@ worker `test` green on the PRs.
 | 2026-10-16 | No pip cache: installs are 10–16 s per job for 25–39 pinned packages and run in parallel jobs; a cache save/restore costs about the same seconds. | — |
 | 2026-10-16 | Never `--size-only` on the HTML sync; concurrency only. | 2 |
 | 2026-10-16 | No `paths:` filter and no required-context change anywhere in this RFC. | all |
+| 2026-10-16 | **Accepted by the owner** for Steps 1, 2, 3 and 5. Step 4 is not taken (OQ2, recommendation "no"); Step 6 stays blocked on OQ4. | 1, 2, 3, 5 |
+| 2026-10-16 | OQ1 answered **no** by the owner: `workspace-check` stays advisory; reading its result before a workspace merge remains Claude's self-attested gate. No ruleset change. | — |
+| 2026-10-16 | OQ6 answered **no** by the owner: no skip-by-tree on push; the push-to-`main` re-run stays as decided above. | — |
 
 ## Appendix — reproducing the numbers
 
