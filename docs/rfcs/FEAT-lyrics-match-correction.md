@@ -1,6 +1,6 @@
 # FEAT-lyrics-match-correction: detect and correct wrongly attached lyrics
 
-- **Status**: draft
+- **Status**: accepted (owner approval 2026-10-16)
 - **Owner**: site owner
 - **Created**: 2026-10-15
 - **Plan row**: `docs/plan.md` → FEAT-lyrics-match-correction
@@ -41,6 +41,14 @@ shows Ed Sheeran's "Bad Habits".
   **content**: the body opens with the line `Bad Habits - Ed Sheeran`, then Ed Sheeran's lyric.
 - `/api/search` for the same track today returns **20 plausible candidates** (same artist, exact
   title, most at 232 s). All 20 carry the correct Steve Lacy lyric (`I wish I knew you— / Wanted me`).
+
+**Manual fix 2026-10-16 (owner-approved, prod data write).** The row now carries LRCLIB 34738767
+(`Bad Habit (Single)`, 232 s, synced), whose body is shared by 19 of today's 20 search results.
+Evidence keeps `basis=exact-title`, `matcher_version=step3-v1`, and adds
+`manual_fix {replaced_lrclib_id: 8996695, …}`. Verified through `GET /api/lyrics/4k6Uh1HXdhtusDW5y8Gbvy`
+as the smoke member: first line `I wish I knew you—`, translation `stale`, no Korean text served.
+There is no lock until Step 3a; a later sweep that re-evaluates the row under the Step 1 matcher
+picks the same majority body, so it does not reintroduce Ed Sheeran.
 
 Every gate in `decide_match` looks at metadata only (artist identity, title, duration, version
 tokens). The near-duplicate collapse then picks a group representative by version agreement, exact
@@ -90,6 +98,7 @@ five repos for report/override/reject on lyrics: nothing.
 |---|---|---|---|
 | A | Correct metadata, wrong content (crowd upload) | Bad Habit → Ed Sheeran | Step 1 consensus, when other candidates exist; otherwise a report |
 | B | Language version collapsed into the original | BTS `Go Go` (Korean original) serves the Japanese lyric of LRCLIB 13611969 `Go Go (Japanese Ver.)` | Step 1 language tokens |
+| B′ | Language version uploaded **under the plain title** | BTS `Go Go`: 16 of the 17 plausible uploads titled plain `Go Go` carry the Japanese body; one (23791915) carries the Korean one | **not by Step 1** — consensus follows the majority. Panel (3a) or a report |
 | C | Best-of promotion picked the wrong group | — (not yet observed) | report |
 | D | Homonym artist + same title + coincident duration | — (not yet observed) | report |
 
@@ -248,11 +257,36 @@ LRCLIB call and changes nothing. Everything else waits for the owner's panel.
 - Write `lrclib_id` at the top level of evidence for promoted rows too.
 - Bump `MATCHER_VERSION`. Keep the change pure: `decide_match` only.
 - Twin: `tools/lyrics_*.py` import nothing from the worker. Change their copies in the same change or
-  record why not.
+  record why not. *(Corrected at Step 1: `lyrics_batch_api.py`, `lyrics_dump_matcher.py`,
+  `lyrics_bestof_backfill.py`, `lyrics_bestof_probe.py` and `lyrics_matcher_noise_probe.py` put `myblog_worker` on `sys.path` and
+  import `decide_match` / `promote_best` from it. Only the selection SQL is duplicated. The decision
+  change therefore reaches them with no copy to edit.)*
 
 **Verification:** unit tests built from the two real cases (Bad Habit's 20 + 1 candidates; Go Go /
 Go Go - Japanese ver.). Mutation-check each new test: remove the consensus key, then the token, and
 confirm the test fails. Worker `test` check green.
+
+**Step 1 result (2026-10-16).**
+
+- Fixtures: `tests/fixtures/lyrics_consensus.json` holds real LRCLIB responses for Bad Habit (20 + the
+  stored 8996695), Big Poe, BEEP BEEP and Go Go (+ 13611969). Lyric words are replaced by hash tokens
+  after the matcher's own strip and normalization, so similarity is exact and no lyric text is
+  committed.
+- Mutation: 12 mutants, 12 killed. They removed the consensus key, the disagreement park, `ver`, the
+  language tokens, the `ver`→`version` alias, the ad-lib strip and the apostrophe strip; reverted the
+  window to 150 words; raised the threshold to 0.6; and in best-of, dropped the disagreement guard,
+  the top-level id and the consensus rank.
+- Replay before shipping: 168 production tracks (120 random `matched`, 28 with a Hangul-named artist,
+  20 `ambiguous`/`review_required`). Each was re-searched on LRCLIB sequentially (0 errors) and the
+  same candidates were run through `origin/main` and the new matcher (+ best-of).
+  - 167 had an identical outcome.
+  - 0 parked as `content_disagreement`.
+  - 1 changed: G-DRAGON `One Of A Kind`, from 26071681 to 26034284. It is the same song in the
+    transcription shared by 3 of the 5 plausible candidates.
+  - Control: the old matcher on today's candidates reproduces the stored pick for 90 / 148 matched
+    rows. The rest is retrieval drift since the original write, not a matcher difference.
+- Class B′ (above): `Go Go` itself is **not** fixed by Step 1, because the Japanese body is the
+  majority under the plain title. Step 2 will not change it either; it needs the Step 3a panel.
 
 ### Step 2 — Re-sweep existing matches under the Step 1 matcher (worker + one-off run)
 
@@ -371,7 +405,7 @@ They describe what the commits say they did. Effects are filled in only where a 
 | — | 2026-07-28 | worker #84, #85, #86 | Park dead-source labels by measured yield; album-scoped re-check | Retrieval and scheduling only |
 | — | 2026-08-03 | worker #93 | Best-of backlog drained ahead of the unresolved queue | Scheduling only |
 | — | 2026-09-09 | worker #104 | Targeted source collection for album demand (V57) | New producer, same decision core |
-| *next* | — | — | Step 1 of this RFC: content consensus, rendition markers | Bad Habit (RC1), Go Go (RC2) |
+| `step4-v1` | 2026-10-16 | worker #112 | Content consensus ranks right after version agreement; ≥ 2 same-stance bodies that all disagree park as `review_required` / `content_disagreement`. `ver` is a rendition marker; language names count inside segments. Best-of never promotes a `content_disagreement`, ranks tier 1 by consensus, writes top-level `lrclib_id`. Evidence gains `content_cluster_size`, `plausible_count` | Bad Habit (RC1), Go Go `(Japanese Ver.)` (RC2). **Pre-ship replay** (see Step 1 result): 167 / 168 sampled prod tracks unchanged, 0 parked for content, 1 same-song transcription swap. Production effect on stored rows: none until the Step 2 sweep |
 
 ## Open questions
 
@@ -379,9 +413,15 @@ They describe what the commits say they did. Effects are filled in only where a 
 2. **Does a stale translation re-queue itself after a replacement?** `attach_translation` shows
    `stale`. Whether album-demand work re-links to the new fingerprint without a viewer re-request is
    unverified. Audit at Step 2 kickoff.
-3. **Consensus similarity threshold** — 0.6 ratio on the first 500 normalized chars was used for the
-   probe. It produced 2 false positives in 200 (transcription variants), so it is not the measure to
-   ship. Tune against Step 1 fixtures. Blocks Step 1.
+3. ~~**Consensus similarity threshold**~~ — **resolved 2026-10-16.** Word 3-shingles over the whole
+   body (capped at 2,000 words), LRC timestamps, parenthesised ad-libs and apostrophes removed,
+   compared with the overlap coefficient; agree at ≥ 0.4. On the real fixtures the lowest same-song
+   pair scores 0.55 (Pharrell Williams `Big Poe`, two transcriptions with a different section order),
+   Korean vs Japanese `Go Go` 0.22, Bad Habit's Ed Sheeran body vs the good ones 0.01, and unrelated
+   songs ≤ 0.01. A leading window was measured and rejected: at 150 words the Big Poe pair falls to
+   0.32. The probe's two false positives were misattributed to Travis Scott / Tyler, The Creator; the
+   stored rows are SahBabii `BEEP BEEP` and Pharrell Williams `Big Poe (feat. Sk8brd)`, and both are
+   now must-agree fixtures.
 
 ## Decisions log
 
@@ -392,3 +432,7 @@ They describe what the commits say they did. Effects are filled in only where a 
 | 2026-10-15 | A report triggers a recheck and never unlinks lyrics by itself | 3 |
 | 2026-10-15 | Root causes recorded (RC1–RC6). Every matcher change carries a patch-notes entry (owner) | all |
 | 2026-10-15 | After the prior-art comparison: the owner's candidate panel with pick-and-lock is the core. Members report only; the owner decides (owner) | 3 |
+| 2026-10-16 | RFC accepted (owner). OQ3 taken on the recommendation: shingle overlap, tuned on real fixtures | 1 |
+| 2026-10-16 | Bad Habit fixed by hand on production ahead of Step 2 (owner) | — |
+| 2026-10-16 | Consensus ranks **after** version agreement, not first: a larger cluster of a different rendition must not outrank the agreeing one. `content_disagreement` is judged among same-stance candidates only, so the Korean original is not parked just because a Japanese version disagrees | 1 |
+| 2026-10-16 | Best-of promotion never promotes a `content_disagreement` park, and ranks its tier 1 by the same consensus before richness. Otherwise the promotion layer would undo the park by picking the richest body | 1 |
