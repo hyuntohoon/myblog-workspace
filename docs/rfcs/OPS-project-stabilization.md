@@ -1154,9 +1154,11 @@ The `album_not_in_catalog` waiting jobs stay under Step 2C (held back-catalogue 
   Mutation-checked in both directions.
 - **Pins:** the consumers are the workspace scripts running in the backend and worker venvs, so the
   backend and worker pins move. Music does not import `myblog_shared_db.llm`, so its pin stays.
-- **Workspace twin:** `scripts/tests/test_llm_subscription_guard.py`'s blank-exit test is inverted. Nine
-  other tests in that file fail identically with and without this change; they are pre-existing and out of
-  scope here.
+- **Workspace twin:** `scripts/tests/test_llm_subscription_guard.py`'s blank-exit test is inverted. With
+  `myblog_backend` and shared_db present (the file imports `app.*` and prefers
+  `ROOT/myblog_shared_db/src`), the file runs **24 passed** on `08b2ee7`. The old test fails only its
+  blank-exit case there, and the new test fails only its inverted case on `e4e98b9`. Its tests need the
+  nested repos: in a bare worktree nine of them fail with `No module named 'app'`, which is not a defect.
 - **Pins and the local runtime:** backend #185 and worker #110 move the pins to `08b2ee7`. The backend and
   worker venvs, which are what the launchd jobs import, were reinstalled at `08b2ee7`
   (`is_throttle_error("claude exit 1: ")` is `False` in both). The shared checkout the plists run was
