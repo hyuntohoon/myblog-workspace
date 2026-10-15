@@ -709,6 +709,38 @@ backend revert for an unrelated reason would leave no button:
 `UPDATE automation_controls SET paused = false, changed_at = now() WHERE paused;`
 Then remove the route and the button. The flags and the audit trail stay.
 
+**3b result (2026-10-16; shipped, production-checked).** Every leg is on `main` and live:
+
+| Leg | Where | Evidence |
+|---|---|---|
+| V60 `automation_controls` + `automation_control_events` | shared_db #86 | applied to prod and the test branch before merge |
+| Worker crons honour the pause | worker #109 | top-level events only; `lyrics_incremental`'s SQS branch too |
+| GPT worker honours the pause | ws #1057 (`031e417`) | 48 passed / 0 skipped on the test branch at HEAD `a02f7dd`; **reinstalled 2026-10-16 ~01:30 KST** by the FEAT-lyrics-chat procedure (stop under `control.lock`, `worker.lock` free, installer from merged `main`, re-enable). Manifest: workspace `031e417`, backend `54d7491`, shared `98875c8` (pins unchanged); four scripts byte-identical to `main`. First run after reinstall: 53 saved, 15 `invalid_output`, then the 300/day budget; 0 ERROR lines |
+| `POST /api/admin/automation/controls` | backend #184 | |
+| Contract + JWT route | ws #1058, applied 2026-10-15 | prod 404 → 401 without a token |
+| Buttons on `/admin/automation` | front #463 (`ede07f7`) | see below |
+
+- **Rollout order.** The backend leg merged before the GPT worker was reinstalled, so for about a day the
+  endpoint could store a `gpt-translate-poller` pause that the running worker would not read. No button
+  existed until front #463, so the invariant the order protects (no button before its executor honours
+  it) held; the endpoint itself was owner-only and unused.
+- **Front behaviour.** One `request_id` per confirmation; only no answer or a 5xx is "outcome unknown",
+  and its only retry resends the same id. Any other 4xx is final. The status line is `control_state`
+  verbatim (confirmed / waiting for the next run / overdue / local switch off / unread = no action). The
+  POST's answer is shown, per `job_key`, until the re-read snapshot lands (~1.4 s locally: the snapshot
+  carries AWS reads), so the job-row copy, the queue-detail copy and the header never disagree. Paused
+  jobs are named in the header.
+- **Verification.** Front suite 1479 passed; 13 mutants on the new checks, all killed. Real-browser
+  clickthrough against a local backend (`origin/main`, `ENV=local`) on the **Neon test branch**:
+  pause → executor-style `honored_at` stamp → "실행기가 확인함" → resume, every audit row `applied`, test
+  branch left with 0 paused jobs. The client owner guard was satisfied by rewriting `/api/me`'s handle in
+  the browser (the test branch has no owner member row); the server path is unchanged.
+- **Production.** Deploy run `38773404263` success; the live `AutomationBoard` chunk carries the new
+  strings; `smoke.sh prod` 30/0; controls POST with no token 401, with the smoke member's token 403.
+- **Not verified:** an owner pause/resume click on prod (it acts on a live job, and Claude cannot sign in
+  as the owner), and therefore a real executor's `honored_at` stamp in production. Both are the owner's
+  first use of the button.
+
 ## Open questions
 
 1. **Coverage and tooling** — *Answered by Step 1 (2026-10-12):* the catalog is tables A–F, and the
@@ -733,3 +765,4 @@ Then remove the route and the button. The flags and the audit trail stay.
 | 2026-10-13 | Owner picked 2d, with AWS state as a structured contract block plus a front panel in the same sub-step (backend #183, front #459). New liveness value `failing`. Route decision revisited and kept. IAM apply is the owner's. Status stays draft. | Step 2 (2d) |
 | 2026-10-13 | Owner authorized Claude to run the 2d `terraform apply` in session; applied from a full plan (1 add). Step 2 complete. Status stays draft; Step 3 needs separate approval. | Step 2 (2d) |
 | 2026-10-13 | Owner approved Step 3, split by control (retry / pause-resume / run now). A prod read the same session showed retry would change 0 rows today, so the owner moved **3b (pause/resume + audit base) first**; 3a is deferred behind OQ3's retry-limit policy. Audit history is kept indefinitely. Status stays draft. | Step 3 |
+| 2026-10-16 | Owner chose to finish 3b in session (GPT worker merge + reinstall, then the front buttons). 3b shipped. Status stays draft; 3c (run now) is next and needs its own session. | Step 3 (3b) |
