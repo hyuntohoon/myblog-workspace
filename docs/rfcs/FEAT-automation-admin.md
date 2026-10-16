@@ -814,6 +814,30 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
 - **Rollback.** Remove the front button and the route. Revoke the grant to stop all invokes at once, even from a
   stale tab. The audit rows stay. Nothing is left running: each run is one bounded worker invocation.
 
+
+**3c result (2026-10-16; shipped, production-checked).** Every leg is on `main` and live:
+
+| Leg | Where | Evidence |
+|---|---|---|
+| Design + canonical V62 DDL | ws #1074 | reviewer: no blockers; three RFC fixes (stalled runs, throttled cooldown, invoke_failed as a 200) |
+| V62 run columns + `WORKER_CRON_PAYLOADS` | shared_db #91 | applied to the test branch and **prod (04:14 UTC) before merge**; CI 188 passed / 0 skipped; 10 mutants killed |
+| Worker run stamps + `{"job": "musicbrainz_alias_fill"}` | worker #116 (`545d8b3`) | 726 unit + 8 test-branch integration; 10 mutants killed |
+| `POST /api/admin/automation/runs` + snapshot `run` block | backend #188 (`c6cbc45`) | 1152 unit, 273 integration (zero skips enforced); 8 mutants killed, incl. a deterministic two-connection race; security-review: no findings |
+| Contract, JWT route, invoke grant, smoke probes | ws #1075 | full plan 2 add / 0 change / 0 destroy, **applied with owner approval in session**; re-plan clean; live grant = one action on the unqualified ARN |
+| "지금 실행" buttons | front #467 (`0021dd3`) | 30 new tests, 9 mutants killed; real-browser clickthrough (below); live chunk carries the new strings |
+
+- **Clickthrough** ran against a local backend (`ENV=local`, so the invoker is off) on the Neon test branch, with worker-style
+  stamps written by hand. It covered confirm → `invoke_failed` → invoked/started ("실행 중", button replaced by the cooldown
+  line) → finished `ok` ("완료") → pause (run control blocked; a direct POST got 409 `job_paused`) → resume. It found one
+  defect, fixed in front #467: an earlier request's note stayed beside a newer run's status. The test branch was left with
+  0 run rows and 0 paused jobs.
+- **Production.** `smoke.sh prod` 32/0, including member → 403 on both automation POSTs. The probes name no real job, so a
+  leaked gate would answer 404 instead of acting (reviewer). Runs without a token get 401.
+- **Not verified:** a real owner run-now in production. Claude cannot sign in as the owner, so the owner's first click is the
+  end-to-end check (요청됨 → 실행 중 → 완료). 3b's first owner pause/resume click is still pending too.
+- **Noted by security-review, not a finding:** IAM has no condition key for `InvocationType` or the payload. "Event only,
+  constant input" is therefore guaranteed by backend code, and the grant is what revokes it.
+
 ## Open questions
 
 1. **Coverage and tooling** — *Answered by Step 1 (2026-10-12):* the catalog is tables A–F, and the
@@ -840,3 +864,4 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
 | 2026-10-13 | Owner approved Step 3, split by control (retry / pause-resume / run now). A prod read the same session showed retry would change 0 rows today, so the owner moved **3b (pause/resume + audit base) first**; 3a is deferred behind OQ3's retry-limit policy. Audit history is kept indefinitely. Status stays draft. | Step 3 |
 | 2026-10-16 | Owner chose to finish 3b in session (GPT worker merge + reinstall, then the front buttons). 3b shipped. Status stays draft; 3c (run now) is next and needs its own session. | Step 3 (3b) |
 | 2026-10-16 | Owner chose 3c's four open design points as recommended: all 16 worker crons, a flat 10-minute cooldown, executor completion stamps (V62), and a separate `POST /api/admin/automation/runs`. Status stays draft. | Step 3 (3c) |
+| 2026-10-16 | Owner approved the 3c `terraform apply` in session (route + invoke grant, 2 add). 3c shipped the same day (shared_db #91, worker #116, backend #188, ws #1075, front #467); prod smoke 32/0. Status stays draft; 3a (retry) stays deferred behind OQ3. | Step 3 (3c) |
