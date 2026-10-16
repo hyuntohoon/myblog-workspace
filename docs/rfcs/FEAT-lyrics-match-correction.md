@@ -460,6 +460,37 @@ The panel is the core of this step and the report is its entry, so the step ship
   the lock keys, sets the basis to `unlocked` (strength 0) and enqueues a re-check, so the row
   is automatic again.
 
+**Step 3a result (2026-10-16).**
+
+- Shipped: schema V63 (ws #1080, shared_db #92 `b5d0670`, applied to test and prod), backend #189
+  (`9fb1071`), worker #117 (`505ab4b`), front #469 (`f896fee`), ws #1082 (`8957a44`: the three
+  JWT routes, applied with `3 to add, 0 to change, 0 to destroy`; batch tools filter rejections;
+  SQS contract rows), music #81 (`c9e7e2e`, SQS timeout sweep).
+- Review changed the design in two places:
+  - The lock **and** the owner's rejections are re-read **at write time**, inside the writer's
+    upsert, and on the first insert as well. A decision can be a 90 s LRCLIB batch old by the time
+    it is written, and the owner may reject the very candidate in between. The pick re-checks
+    the rejection under the row lock after its fetch.
+  - A refused write counts as `guard_kept` and is touched for rotating callers. The demand
+    selection projects `existing_locked`. Without both, a locked row pinned the demand job's
+    ladder at the head of its queue.
+- The single-track re-check now `LEFT JOIN`s `track_lyrics`, so the panel can refresh a track
+  that has never been evaluated. A transient LRCLIB error on it raises, so SQS redelivers.
+- Sweep: every SQS client in backend, worker and music now has explicit timeouts (connect 3 s,
+  read 5 s, 2 attempts). Other boto3 clients (Cognito, KMS, SSM settings loaders) still use the
+  defaults; they predate this step and are not swept here.
+- Verification:
+  - Tests: worker 771 unit + real-DB, backend 1189 unit + 11 real-DB, front 1515. Mutants
+    killed: 10/10 worker, 6/6 backend, 2/2 migration.
+  - Real-browser clickthrough against a local backend on the test branch: render, reject the
+    served lyric, no lyrics, unlock, the pick's 503 path, and the non-owner control.
+  - Prod smoke 32/32. The three routes answer 401 with no token and 403 for a member.
+  - A prod refresh of Bad Habit stored 20 candidates. The served 34738767 is `same_body`
+    (cluster 11), the body md5 and the `manual_fix` lock are unchanged, and the verdict is
+    `locked`. Numbers are in the backend #189, worker #117 and front #469 comments.
+- **Not verified on prod:** the owner's own pick through the panel. No owner token in the
+  session.
+
 **3b — Member reports**
 
 - **Schema:** `track_lyrics_reports(id, track_id, user_sub, created_at, status, resolved_at,
@@ -528,6 +559,8 @@ They describe what the commits say they did. Effects are filled in only where a 
 | `step4-v1` | 2026-10-16 | worker #112 | Content consensus ranks right after version agreement; ≥ 2 same-stance bodies that all disagree park as `review_required` / `content_disagreement`. `ver` is a rendition marker; language names count inside segments. Best-of never promotes a `content_disagreement`, ranks tier 1 by consensus, writes top-level `lrclib_id`. Evidence gains `content_cluster_size`, `plausible_count` | Bad Habit (RC1), Go Go `(Japanese Ver.)` (RC2). **Pre-ship replay** (see Step 1 result): 167 / 168 sampled prod tracks unchanged, 0 parked for content, 1 same-song transcription swap. Production effect on stored rows: none until the Step 2 sweep |
 | `step4-v1` (unchanged) | 2026-10-16 | worker #114, #115 | Step 2 re-sweep. Resolved rows from older versions are re-judged once per version (`evidence.resweep` stamp). The lateral rule lets the same basis be replaced by a strictly larger content cluster. A hand-fixed row (`manual_fix`) is locked against every producer. Shadow mode came first (#114), then the real pass (#115) | Shadow drain over 18,166 rows: 16,779 unchanged, 1,330 parked (no rewrite), 42 would-rewrite (plus 10 best-of rows superseded for real, 5 kept, and Bad Habit locked). Of those 42: 18 corrections, 8 transcription-only, 8 regressions, 8 unclear. The 16 regression / unclear rows were hand-locked. Real pass: 26 rewrites (20 replaced, 6 superseded), all inside the audited list, 0 locked rows touched |
 
+| `step4-v1` (unchanged) | 2026-10-16 | worker #117 | Step 3a. The writer refuses a locked row (`manual_fix` / basis `manual`) and any outcome attaching a candidate the owner rejected for that track, re-read at write time (first insert included). `run_eval_batch` drops rejected candidates before `decide_match` / `promote_best`. `manual` tops the basis ladder. New owner-only `lyrics_pick` writes a re-fetched body locked. Version string unchanged: the decision core is unchanged for any track without an owner decision. *Entry added after merge in the docs PR, not in #117 itself.* | No row changed by the deploy. Rows the owner rejects or picks change one at a time through the panel |
+
 ## Open questions
 
 1. **Daily report limit per member** — proposal 20/day. Blocks Step 3.
@@ -566,3 +599,4 @@ They describe what the commits say they did. Effects are filled in only where a 
 | 2026-10-16 | Real pass after the audit: the 8 regression and 8 unclear rows are hand-locked (`manual_fix`), then shadow is turned off (owner) | 2 |
 | 2026-10-16 | Real pass drained to empty: 26 rewrites, all inside the audited 42. Step 2 closed | 2 |
 | 2026-10-16 | 3a: candidate set stored by explicit re-check only; rejecting the attached candidate demotes the row at once; translation re-queued on owner pick only; pick limited to the stored set; lock enforced in the shared writer (owner) | 3a |
+| 2026-10-16 | 3a shipped. Review moved the lock and rejection check to write time (first insert included); refused writes rotate like guard-kept rows | 3a |
