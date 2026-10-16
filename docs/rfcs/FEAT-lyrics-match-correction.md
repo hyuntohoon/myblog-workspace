@@ -65,7 +65,7 @@ Verified against `origin/main` on 2026-10-15.
 | Job | Selects | Trigger |
 |---|---|---|
 | `lyrics_incremental` | tracks with no `track_lyrics` row | 15-min EventBridge + self-chain after album sync |
-| `lyrics_reassessment` | unresolved rows + `best-of-*` matched rows; optional `album_id` scope | EventBridge + manual SQS |
+| `lyrics_reassessment` | unresolved rows + `best-of-*` matched rows; optional `album_id` scope. *Since Step 2 (worker #114): also a re-sweep arm over resolved rows from older matcher versions (`sweep_limit`), and a single-row `track_id` scope* | EventBridge + manual SQS |
 | `lyrics_demand_source` | album-demand tracks (V57/V58) | EventBridge + manual SQS |
 | `tools/lyrics_*.py` (workspace) | batch / dump / backfill | manual; **twin** of the worker selection SQL |
 
@@ -307,6 +307,84 @@ confirm the test fails. Worker `test` check green.
 
 **Verification:** Bad Habit served with the Steve Lacy lyric on production. Its translation reads
 `stale`. Sweep metrics are quoted in the PR.
+*Amended 2026-10-16 (owner):* Bad Habit had already been fixed by hand (`evidence.manual_fix`)
+before Step 2 shipped, and the owner kept the lock. So the check became: the `{track_id}` run on
+Bad Habit reports `locked`, and its body stays unchanged.
+
+**Step 2 result (2026-10-16).**
+
+- Shipped in worker #114 (`2fedef3`). The lateral rule (`assess_lateral` / `should_replace`): same
+  basis, older matcher, content differs, new cluster strictly larger. The re-sweep arm is
+  `_fetch_stale_version_tracks`. It orders by numeric `stepN-vM`, excludes rows already stamped under
+  the running version, and excludes `manual_fix` / `basis='manual'` / `excluded_by`. Each judged row
+  gets an `evidence.resweep` stamp with a verdict (`replaced` / `superseded` / `unchanged` / `kept` /
+  `parked` / `locked`). The `track_id` scope runs through `reassess_track`. The lock is checked
+  first: a hand-fixed row is never rewritten by any producer.
+- **Shadow mode first** (owner). `LYRICS_RESWEEP_SHADOW` shipped on. Shadow mode stamps
+  `evidence.resweep_shadow`, and its `would_replace` / `would_supersede` verdicts mark a would-be
+  rewrite without writing it. The only write allowed in shadow is the pre-Step-2 best-of
+  supersession.
+- Bad Habit via `{"job":"lyrics_reassessment","track_id":…}` gave `resweep_locked=1`, verdict
+  `locked`, `same_content=true` (cluster 11 / 11), and the body unchanged.
+- Shadow drain: 18,166 eligible rows (`step2-v2` 9,099 · `step3-v1` 9,067). 70 sequential
+  slices, about 2 h, and 0 eligible rows left at the end. Verdicts per row:
+
+  | verdict | matched | no_lyrics |
+  |---|---:|---:|
+  | unchanged | 16,779 | – |
+  | parked | 167 | 1,163 |
+  | would_replace | 32 | 1 |
+  | would_supersede | – | 9 |
+  | superseded (real write: best-of → exact-title) | 10 | – |
+  | kept | 5 | – |
+  | locked | 1 | – |
+
+- **Audit of the 42 would-rewrite rows.** Each old/new pair was fetched from LRCLIB and read by
+  hand:
+  - **18 corrections.** The old body was another song, a translation, romanised, or a different
+    language. Examples: Camila Cabello `In the Dark`, Snow Patrol `It's Beginning To Get To Me`
+    (which held `You Could Be Happy`), Kendrick Lamar `Savior` (which held the interlude), Elvis
+    Presley `Slicin' Sand` (French text), and ヨルシカ `火星人` (with Vietnamese lines interleaved).
+    The no_lyrics → matched corrections include `rockstar`, `Fly Me To The Moon` and `プレデター`.
+  - **8 same-song transcription differences.**
+  - **8 regressions.** These are the `Go Go` class the owner flagged. Three swap the language
+    version (LE SSERAFIM `HOT (Japanese ver.)` → the non-Japanese text; BIGBANG `IF YOU` ×2 → the
+    Japanese version). One is a different song (BIGBANG `Bigbang`). Two are junk bodies (BIGBANG
+    `Intro (Big Bang)` at 102 lines for 25 s; ABBA `Arrival`, which is instrumental, given a
+    metadata stub). Two give lyrics to an instrumental or the wrong language (Evan Call `Beyond the
+    Journey's End`; Disney `Happy Ending` → a German fragment).
+  - **8 unclear** without listening.
+- **Real pass** (owner). First the 16 regression / unclear rows were locked with
+  `evidence.manual_fix` (`approved_by: owner`, `kept_lrclib_id`, `rejected_lrclib_id`). Then worker
+  #115 (`e01bd34`) turned shadow off and the sweep was drained again under the `evidence.resweep`
+  stamp. The drain was emptied 03:11–06:56Z: two
+  runs of sequential `sweep_limit=280` slices, 60 s apart because LRCLIB answered 429 / 503. Rows
+  skipped on a transient error were simply selected again by a later slice. The end was confirmed
+  with the selection's own predicates, which return 0 rows on prod. The script stopped on
+  `NO SUMMARY LOG` rather than an empty-queue line: the summary is logged only for a non-empty
+  sweep, and `nothing to process` is INFO, which prod drops. Final `evidence.resweep` verdicts:
+
+  | verdict | rows |
+  |---|---:|
+  | unchanged | 16,618 |
+  | parked (no rewrite) | 1,315 |
+  | kept | 4 |
+  | **replaced** | **20** |
+  | **superseded** (no_lyrics / best-of → exact-title) | **6** |
+
+  The 26 rewrites are exactly the 26 unlocked audited rows (18 corrections + 8 transcription-only).
+  None was outside the audited 42, and none of the 16 hand-locked rows was stamped or rewritten.
+  The CloudWatch summaries sum to the same 20 + 6. Bad Habit is still locked: `manual_fix`, Steve
+  Lacy body, last written by the hand fix. Result posted on worker #115.
+  *Not verified:* a real write replaces `evidence` wholesale. So the DB cannot show that each real
+  outcome is the LRCLIB id its shadow pass predicted; only membership in the audited list was
+  checked.
+- **Step 2 closed 2026-10-16.**
+- Not fixed by the lateral rule, as designed. A language-version swap is decided by cluster size
+  alone, so the rule cannot tell a minority-language original from noise. Those rows need the Step 3a
+  panel. A language/script guard in the lateral rule is a candidate for the next matcher bump.
+- Operational note (review Y-b). Rows that raise a consistency error are rotated but never stamped.
+  On a drain, "done" therefore means `resweep_selected == consistency_errors`, not 0.
 
 ### Step 3 — Candidate panel, lock, and member reports (shared_db + backend + worker + front + contract + infra)
 
@@ -406,13 +484,18 @@ They describe what the commits say they did. Effects are filled in only where a 
 | — | 2026-08-03 | worker #93 | Best-of backlog drained ahead of the unresolved queue | Scheduling only |
 | — | 2026-09-09 | worker #104 | Targeted source collection for album demand (V57) | New producer, same decision core |
 | `step4-v1` | 2026-10-16 | worker #112 | Content consensus ranks right after version agreement; ≥ 2 same-stance bodies that all disagree park as `review_required` / `content_disagreement`. `ver` is a rendition marker; language names count inside segments. Best-of never promotes a `content_disagreement`, ranks tier 1 by consensus, writes top-level `lrclib_id`. Evidence gains `content_cluster_size`, `plausible_count` | Bad Habit (RC1), Go Go `(Japanese Ver.)` (RC2). **Pre-ship replay** (see Step 1 result): 167 / 168 sampled prod tracks unchanged, 0 parked for content, 1 same-song transcription swap. Production effect on stored rows: none until the Step 2 sweep |
+| `step4-v1` (unchanged) | 2026-10-16 | worker #114, #115 | Step 2 re-sweep. Resolved rows from older versions are re-judged once per version (`evidence.resweep` stamp). The lateral rule lets the same basis be replaced by a strictly larger content cluster. A hand-fixed row (`manual_fix`) is locked against every producer. Shadow mode came first (#114), then the real pass (#115) | Shadow drain over 18,166 rows: 16,779 unchanged, 1,330 parked (no rewrite), 42 would-rewrite. Of those 42: 18 corrections, 8 transcription-only, 8 regressions, 8 unclear. The 16 regression / unclear rows were hand-locked. Real pass: 26 rewrites (20 replaced, 6 superseded), all inside the audited list, 0 locked rows touched |
 
 ## Open questions
 
 1. **Daily report limit per member** — proposal 20/day. Blocks Step 3.
-2. **Does a stale translation re-queue itself after a replacement?** `attach_translation` shows
-   `stale`. Whether album-demand work re-links to the new fingerprint without a viewer re-request is
-   unverified. Audit at Step 2 kickoff.
+2. ~~**Does a stale translation re-queue itself after a replacement?**~~ — **resolved 2026-10-16:
+   no.** The legacy translation poller queues only tracks that have no translation row. The V57
+   demand path does not re-pick `done` rows. Only the owner's translation-request POST re-queues a
+   stale one. A replaced row keeps serving its old translation marked `stale` until someone requests
+   it again. Potential blast radius: 3,179 poller-origin translations if their rows were replaced. The
+   real pass replaces only the audited rows, so this stays small. Re-queueing on replacement is left
+   to Step 3a.
 3. ~~**Consensus similarity threshold**~~ — **resolved 2026-10-16.** Word 3-shingles over the whole
    body (capped at 2,000 words), LRC timestamps, parenthesised ad-libs and apostrophes removed,
    compared with the overlap coefficient; agree at ≥ 0.4. On the real fixtures the lowest same-song
@@ -436,3 +519,7 @@ They describe what the commits say they did. Effects are filled in only where a 
 | 2026-10-16 | Bad Habit fixed by hand on production ahead of Step 2 (owner) | — |
 | 2026-10-16 | Consensus ranks **after** version agreement, not first: a larger cluster of a different rendition must not outrank the agreeing one. `content_disagreement` is judged among same-stance candidates only, so the Korean original is not parked just because a Japanese version disagrees | 1 |
 | 2026-10-16 | Best-of promotion never promotes a `content_disagreement` park, and ranks its tier 1 by the same consensus before richness. Otherwise the promotion layer would undo the park by picking the richest body | 1 |
+| 2026-10-16 | Shadow drain first: the re-sweep judges and stamps every row without rewriting, and the owner reviews the would-rewrite list before the real pass (owner). Why: the lateral rule can overwrite a correct minority body (Go Go reproduced on real data) | 2 |
+| 2026-10-16 | The `manual_fix` lock is kept before Step 3a, against the earlier "no lock before 3a" text. Hand-fixed rows are never changed automatically (owner) | 2 |
+| 2026-10-16 | Real pass after the audit: the 8 regression and 8 unclear rows are hand-locked (`manual_fix`), then shadow is turned off (owner) | 2 |
+| 2026-10-16 | Real pass drained to empty: 26 rewrites, all inside the audited 42. Step 2 closed | 2 |
