@@ -259,10 +259,12 @@ def _run_member_gate(host: dict[str, str], token: str) -> None:
     check("POST /api/publish as member → 403 (owner-gate)", s == 403, f"status={s}")
 
     # FEAT-automation-admin 3b/3c: the two automation mutations. A member must be
-    # stopped at require_owner, which answers before the body is read — so this
-    # probe can never pause a job or start a worker run. A 404 here would mean the
-    # infra/apigateway.tf JWT route is missing; a 401, that the token never reached it.
-    probe = {"job_key": "album_ingest", "request_id": "00000000-0000-4000-8000-000000000000"}
+    # stopped at require_owner, which answers before the body is read. The body is
+    # schema-valid but names NO real job, so if the gate ever leaked the server would
+    # answer 404 "Unknown" instead of pausing a job or starting a worker run, and the
+    # 403 check still fails loudly. A 401 would mean the token never reached the
+    # Lambda (infra/apigateway.tf JWT route).
+    probe = {"job_key": "smoke-probe-no-such-job", "request_id": "00000000-0000-4000-8000-000000000000"}
     for path, body in (("/api/admin/automation/controls", {**probe, "action": "pause"}),
                        ("/api/admin/automation/runs", probe)):
         s, _ = request_json(host["backend_authed"] + path, method="POST", body=body, token=token)
