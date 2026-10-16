@@ -1,0 +1,5 @@
+You are one of two contributors (GPT-6 Astra and Claude) to a joint acceptance contract for a music-research prompt. In round 3 each of you raised small material objections with exact replacement text. Below are both round-3 responses, then a unified diff from the round-3 release candidate (rc) to rc2, which applies both sets of replacement text verbatim plus the noted wording edits.
+
+Round 4 task — diff check only. Answer: (1) was your replacement text applied verbatim and in the right place; (2) does the other contributor's applied text conflict with yours or create a new material defect (a misleading pass or an arbitrary fail)? Do not reopen settled sections. Reply in English Markdown, under 300 words. First line exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ROUND-3 RESPONSE ===

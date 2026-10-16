@@ -1,0 +1,11 @@
+You are one of two independent contributors (GPT-6 Astra and Claude) to a joint acceptance-criteria design for a prompt that collects pre-review research evidence for a music critic. Both contributors' original proposals have now been preserved, so you receive both, plus a reconciliation draft written by the orchestrating session. The drafter shares a model family with the Claude contributor; treat the draft as a proposal to scrutinise, not as a resolution.
+
+Your task (round 1):
+1. For every row B1–B12 in the draft: ACCEPT, AMEND (give the exact replacement rule) or OBJECT (give the reason and the evidence or argument that would change your mind). Do not defer to the other proposal for being the other proposal; judge the argument.
+2. Flag anything in section A that you do not actually agree with, and anything important that both proposals missed.
+3. For section C: the project has exactly one human critic (the owner). For each option, state what claim it could and could not support, and the minimum you consider necessary before declaring a prompt "passes". Be concrete about calls, albums and human hours.
+4. Do not rank producer models. Do not research any album. Numeric values remain candidates.
+
+Return one Markdown document in English, with a row-by-row verdict table first, then your section-C answer, then at most five objections in priority order.
+
+=== DOCUMENT 1: COMMON BRIEF ===

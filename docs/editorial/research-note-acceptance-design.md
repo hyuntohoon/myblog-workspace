@@ -2,7 +2,7 @@
 
 - Owner direction: 2026-10-15.
 - Parent: `docs/rfcs/CHORE-research-model-evaluation.md` (first planned priority).
-- Status: criteria design pending both proposals and reconciliation; no final pass threshold.
+- Status: **`acceptance-v1` frozen 2026-10-16** — `docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/acceptance-v1.md`. Both contributors confirmed the freeze. Numeric floors are uncalibrated by design (contract §6); no prompt has passed.
 - Historical pilot: `docs/reviews/measurements/2026-10-15-research-model-evaluation/`.
 
 ## Common independent-review brief
@@ -56,8 +56,8 @@ No weights or pass numbers in this document are agreed. A target such as “90/1
 | Contributor / item | State |
 |---|---|
 | Astra proposal | Received independently from GPT-6 Astra; `docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/astra-proposal.md`. Common brief checked; no Claude opinion seen. Candidate numbers/designs are unagreed and no extra generation is dispatched. |
-| Claude proposal | Pending account access; not yet received. |
-| Joint reconciliation / acceptance-v1 | Pending both independent contributions. |
+| Claude proposal | Received 2026-10-16 from `claude-opus-5-5` in a fresh CLI context, with the same brief, prompt and rubric and without the Astra proposal; `criteria/claude-proposal.md`. |
+| Joint reconciliation / acceptance-v1 | Reconciliation draft v0 → round 1 (both, row-by-row) → owner resource decisions → round 2 (both: freeze after fixes) → round 3 (both: small material objections with replacement text, applied verbatim) → round 4 (both: CONFIRM FREEZE). `criteria/acceptance-v1.md` with changelog. |
 | Critic-use observation / held-out validation | Not performed. |
 
 A successful outcome is a tested prompt and its operating conditions with useful evidence at an acceptable total effort. An attractive template, the top model in the pilot, or a long list of further research is insufficient.

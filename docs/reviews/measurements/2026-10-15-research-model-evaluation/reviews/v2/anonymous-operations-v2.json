@@ -1,0 +1,281 @@
+[
+  {
+    "sample": "R01",
+    "wall_s": 171.831,
+    "output_chars": 6471,
+    "unique_urls": 15,
+    "web_tool_calls": 16,
+    "usage_reported": [
+      {
+        "input_tokens": 1403654,
+        "cached_input_tokens": 1288448,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6365,
+        "reasoning_output_tokens": 1401
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R02",
+    "wall_s": 225.306,
+    "output_chars": 10096,
+    "unique_urls": 8,
+    "web_tool_calls": 26,
+    "usage_reported": [
+      {
+        "input_tokens": 81,
+        "cache_read_input_tokens": 230494,
+        "cache_creation_input_tokens": 38882,
+        "output_tokens": 12964
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R03",
+    "wall_s": 136.533,
+    "output_chars": 4995,
+    "unique_urls": 6,
+    "web_tool_calls": 7,
+    "usage_reported": [
+      {
+        "input_tokens": 379051,
+        "cached_input_tokens": 314368,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3588,
+        "reasoning_output_tokens": 533
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R04",
+    "wall_s": 287.947,
+    "output_chars": 6849,
+    "unique_urls": 14,
+    "web_tool_calls": 11,
+    "usage_reported": [
+      {
+        "input_tokens": 878874,
+        "cached_input_tokens": 775296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5591,
+        "reasoning_output_tokens": 294
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R05",
+    "wall_s": 195.468,
+    "output_chars": 7268,
+    "unique_urls": 6,
+    "web_tool_calls": 9,
+    "usage_reported": [
+      {
+        "input_tokens": 12,
+        "cache_read_input_tokens": 75939,
+        "cache_creation_input_tokens": 21786,
+        "output_tokens": 8933
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R06",
+    "wall_s": 210.863,
+    "output_chars": 8365,
+    "unique_urls": 14,
+    "web_tool_calls": 16,
+    "usage_reported": [
+      {
+        "input_tokens": 1522273,
+        "cached_input_tokens": 1374848,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 8027,
+        "reasoning_output_tokens": 2366
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R07",
+    "wall_s": 329.958,
+    "output_chars": 6709,
+    "unique_urls": 8,
+    "web_tool_calls": 22,
+    "usage_reported": [
+      {
+        "input_tokens": 20,
+        "cache_read_input_tokens": 206950,
+        "cache_creation_input_tokens": 29839,
+        "output_tokens": 11235
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R08",
+    "wall_s": 407.398,
+    "output_chars": 9647,
+    "unique_urls": 10,
+    "web_tool_calls": 21,
+    "usage_reported": [
+      {
+        "input_tokens": 10,
+        "cache_read_input_tokens": 184331,
+        "cache_creation_input_tokens": 30702,
+        "output_tokens": 9865
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R09",
+    "wall_s": 82.41,
+    "output_chars": 5865,
+    "unique_urls": 7,
+    "web_tool_calls": 8,
+    "usage_reported": [
+      {
+        "input_tokens": 472939,
+        "cached_input_tokens": 379648,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4333,
+        "reasoning_output_tokens": 740
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R10",
+    "wall_s": 262.169,
+    "output_chars": 5513,
+    "unique_urls": 6,
+    "web_tool_calls": 12,
+    "usage_reported": [
+      {
+        "input_tokens": 12,
+        "cache_read_input_tokens": 95024,
+        "cache_creation_input_tokens": 24317,
+        "output_tokens": 12989
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R11",
+    "wall_s": 164.896,
+    "output_chars": 5972,
+    "unique_urls": 7,
+    "web_tool_calls": 14,
+    "usage_reported": [
+      {
+        "input_tokens": 12,
+        "cache_read_input_tokens": 129683,
+        "cache_creation_input_tokens": 35368,
+        "output_tokens": 9397
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R12",
+    "wall_s": 223.966,
+    "output_chars": 8525,
+    "unique_urls": 15,
+    "web_tool_calls": 19,
+    "usage_reported": [
+      {
+        "input_tokens": 20,
+        "cache_read_input_tokens": 180630,
+        "cache_creation_input_tokens": 29397,
+        "output_tokens": 11360
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R13",
+    "wall_s": 229.803,
+    "output_chars": 8055,
+    "unique_urls": 14,
+    "web_tool_calls": 15,
+    "usage_reported": [
+      {
+        "input_tokens": 1354078,
+        "cached_input_tokens": 1212672,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6487,
+        "reasoning_output_tokens": 819
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  },
+  {
+    "sample": "R14",
+    "wall_s": 391.913,
+    "output_chars": 8027,
+    "unique_urls": 5,
+    "web_tool_calls": 8,
+    "usage_reported": [
+      {
+        "input_tokens": 8,
+        "cache_read_input_tokens": 62203,
+        "cache_creation_input_tokens": 28551,
+        "output_tokens": 8722
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R15",
+    "wall_s": 309.707,
+    "output_chars": 7136,
+    "unique_urls": 12,
+    "web_tool_calls": 36,
+    "usage_reported": [
+      {
+        "input_tokens": 34,
+        "cache_read_input_tokens": 489051,
+        "cache_creation_input_tokens": 46620,
+        "output_tokens": 16841
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R16",
+    "wall_s": 224.044,
+    "output_chars": 6301,
+    "unique_urls": 4,
+    "web_tool_calls": 12,
+    "usage_reported": [
+      {
+        "input_tokens": 7,
+        "cache_read_input_tokens": 100077,
+        "cache_creation_input_tokens": 26755,
+        "output_tokens": 8563
+      }
+    ],
+    "resolution_note": "requested model fixed; CLI events also list a page-summarisation helper model for web fetches; no orchestration fallback"
+  },
+  {
+    "sample": "R17",
+    "wall_s": 66.939,
+    "output_chars": 5098,
+    "unique_urls": 10,
+    "web_tool_calls": 8,
+    "usage_reported": [
+      {
+        "input_tokens": 478849,
+        "cached_input_tokens": 397056,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4952,
+        "reasoning_output_tokens": 1585
+      }
+    ],
+    "resolution_note": "requested model fixed, resolved identity not exposed by CLI; no orchestration fallback"
+  }
+]

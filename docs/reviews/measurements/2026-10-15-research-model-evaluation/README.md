@@ -17,9 +17,15 @@ User-facing Korean result: `RESULTS.ko.md`.
 
 ## Execution
 
+**2026-10-16 resume:** Claude 10/10 success in `runs-claude-resume-2026-10-16/` (separate directory; the 10-15 `runs/` records are unchanged), same combined input hash, guard source shared_db `471200a`, Claude CLI 2.1.301. Summary: `execution-summary-claude-resume-2026-10-16.json`.
+
+
 GPT generation complete: 7/7 successful, one dispatch each. Claude: first call returned HTTP 429 session usage limit with zero tokens; remaining 9 included models not-run, next announced reset 2026-10-16 02:40 KST. See `interim-results.md`. The runner preserves one-attempt markers, raw events, returned note, requested/resolved-model evidence, wall time and failure class. No retries, fallback models or production queue use. Provider-specific search/tool scaffolding differs, so this is a model-plus-harness comparison. Medium effort where supported; Haiku 4.5 has no thinking-effort setting.
 
 ## Review
+
+**2026-10-16 completion:** blind packet v2 (`reviews/v2/review-packet-v2.txt`, 17 samples; v1 packet unchanged) built by `reviews/build_review_inputs_v2.py`. Astra audited the 10 new samples; `claude-opus-5-5` audited all 17; each reviewer then ran one comparative calibration over its own reports. Unblinded results and the harness confound: `pilot-final-results.md`. Acceptance criteria: `criteria/acceptance-v1.md` (frozen).
+
 
 All 7 successful notes have opaque labels and completed independent per-sample `gpt-6-astra` audits (two isolated instances under the same frozen rubric); final comparative calibration is complete; all original scores retained. `claude-opus-5-5` review is blocked by account quota. `reviews/review-packet.txt` is frozen for the final common input; anonymous native web traces are separate hashed support. No Claude verdict or overall winner is claimed.
 

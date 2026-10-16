@@ -1,0 +1,10 @@
+You are one of two contributors (GPT-6 Astra and Claude) to a joint acceptance contract for a prompt that collects pre-review research evidence for a music critic. Round 1 is complete. Below are, in order: the round-1 responses from both contributors, then the acceptance-v1 DRAFT that incorporates them together with the owner's resource decisions. The drafter shares a model family with the Claude contributor; scrutinise it accordingly.
+
+Round 2 task — sign-off, not redesign:
+1. For each numbered section 1–8 of the draft, answer SIGN or MATERIAL OBJECTION. A material objection is one that would make a pass under this contract misleading or a fail arbitrary. Give the exact replacement text. Wording preferences are not material objections; list them separately and briefly.
+2. Answer each row of section 9 explicitly.
+3. Check that the draft does not misrepresent your round-1 position. Quote any misrepresentation.
+4. The owner's decisions (panel size, two environments, owner's usual research as the baseline, separate time-saving and quality claims) are fixed inputs. You may say what claim they cannot support, but do not re-argue them.
+Do not rank producer models and do not research any album. Return one Markdown document in English; start with a one-line overall verdict: FREEZE, or FREEZE AFTER LISTED FIXES, or DO NOT FREEZE.
+
+=== DOCUMENT 1: ASTRA ROUND-1 RESPONSE ===

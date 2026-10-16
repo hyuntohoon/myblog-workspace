@@ -1,0 +1,59 @@
+{
+  "id": "astra-review-R12",
+  "provider": "gpt",
+  "requested_model": "gpt-6-astra",
+  "model_config": {
+    "id": "astra-review-R12",
+    "provider": "gpt",
+    "model": "gpt-6-astra",
+    "availability": "available",
+    "reasoning_effort": "medium"
+  },
+  "prompt_sha256": "1f0acb930094adf2b0a8d0ca1be00816f98a0131577e3e479b45b69f65d58fbf",
+  "started_at": "2026-10-16T04:40:57.858504+00:00",
+  "status": "success",
+  "dispatch_count": 1,
+  "orchestration_retry_policy": "none",
+  "orchestration_fallback_policy": "none",
+  "isolated_cwd": "/private/tmp/research-benchmark-v8l3ci3h",
+  "argv": [
+    "codex",
+    "--search",
+    "--ask-for-approval",
+    "never",
+    "exec",
+    "--model",
+    "gpt-6-astra",
+    "--sandbox",
+    "read-only",
+    "--json",
+    "--ephemeral",
+    "--skip-git-repo-check",
+    "--output-last-message",
+    "/private/tmp/myblog-research-eval-r2/docs/reviews/measurements/2026-10-15-research-model-evaluation/reviews/v2/runs/astra-review-R12/output.md",
+    "-c",
+    "model_reasoning_effort=\"medium\"",
+    "-"
+  ],
+  "resolved_models": [],
+  "resolution_evidence": "not_exposed_by_cli",
+  "cli_errors": [],
+  "usage_reported": [
+    {
+      "input_tokens": 285308,
+      "cached_input_tokens": 224000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 4531,
+      "reasoning_output_tokens": 212
+    }
+  ],
+  "tool_counts": {
+    "web_search": 4
+  },
+  "event_count": 14,
+  "non_json_line_count": 0,
+  "returncode": 0,
+  "process_wall_s": 159.914,
+  "finished_at": "2026-10-16T04:43:37.779413+00:00",
+  "wall_s": 159.923
+}

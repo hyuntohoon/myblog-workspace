@@ -1,0 +1,576 @@
+You are one of two contributors (GPT-6 Astra and Claude) to a joint acceptance contract for a prompt that collects pre-review research evidence for a music critic. In round 2 you and the other contributor each answered "FREEZE AFTER LISTED FIXES". Below are, in order: both round-2 responses, then the release candidate acceptance-v1 that merges both sets of fixes, with a changelog attributing every change.
+
+Round 3 task — confirmation only:
+1. Were YOUR round-2 fixes applied faithfully? For each of your material objections, answer APPLIED, APPLIED WITH ACCEPTABLE CHANGE, or NOT APPLIED / DISTORTED (quote the text and give the exact correction).
+2. Where the drafter chose the other contributor's fix over yours (see changelog, especially §5 top-3 timing, the unassessable rule and the §4 class assignment), answer ACCEPT or MATERIAL OBJECTION with exact replacement text.
+3. Report any new material defect introduced by the merge. Material = it would make a pass misleading or a fail arbitrary. Wording preferences: at most three, one line each.
+Owner decisions are fixed. Do not rank producer models and do not research any album. Reply in English Markdown. First line exactly one of: CONFIRM FREEZE / CONFIRM FREEZE WITH NOTED NON-MATERIAL EDITS / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ROUND-2 RESPONSE ===
+
+
+FREEZE AFTER LISTED FIXES
+
+The draft incorporates much of my round-1 position accurately. The remaining objections concern verdict validity and attribution, not the owner’s fixed resource decisions. They require contract changes, not a larger panel.
+
+## 1. Scope — SIGN
+
+The owner-specific scope and deployment manifest appropriately limit generalization. Environment-specific benefit claims need the clarification in §8 below.
+
+## 2. Units — MATERIAL OBJECTION
+
+**Centrality:** The operational definition makes three observable indicators exhaustive. A consequential claim outside those categories could escape mandatory verification and centrality-dependent gates.
+
+Replace the central-claim paragraph with:
+
+> **Central claim:** a claim whose acceptance, rejection or misinterpretation could materially affect the critic’s factual account, listening inquiry, interpretation or research decisions. Priority placement, answering a top-3 essential question and recorded owner reliance are indicators, not an exhaustive definition. Placement outside those categories does not exempt a consequential claim. Owner reliance is recorded before adjudication.
+
+**Unassessable claims:** Permitting up to a quarter of central claims to remain unassessable contradicts mandatory central-claim verification and could allow acceptance despite unresolved consequential errors.
+
+Replace the final two sentences of the audit-status paragraph with:
+
+> Unassessable claims are reported separately, with their number, centrality, risk and reasons. An unresolved central or high-risk claim makes the affected confirmatory output unassessable and acceptance deferred. Remaining claims may be sampled under the frozen audit procedure; their unassessable results and audit coverage remain visible alongside precision.
+
+## 3. Integrity gates — MATERIAL OBJECTION
+
+**G2 conflates unsupported attribution with fabrication.** Preserved content lacking a passage establishes a support problem, not necessarily invention.
+
+Replace G2 with:
+
+> **G2:** Established fabrication of a source or quotation. The adjudication must establish invention or falsification; unsuccessful retrieval, an absent passage or a mismatch with preserved content alone is classified as unsupported, incorrect or unassessable as warranted, rather than automatically as fabrication.
+
+**G3 prohibits truthful audio-access reporting even though §1 permits audio access, and treats retrieval traces too categorically.**
+
+Replace G3 with:
+
+> **G3:** Falsely states or implies that the producer listened to audio, presents a sonic description as its own observation without the claimed audio access, or falsely claims to have read a source. False access must be established by evidence, accounting for permitted access paths and trace completeness; a missing retrieval entry alone is insufficient.
+
+**G9 restricts the unsupported-verification gate to model memory**, whose origin may be impossible to establish.
+
+Replace G9 with:
+
+> **G9:** A central unsupported claim presented as verified, including a claim drawn from model memory. The adjudication establishes the unsupported assertion and its presentation as verified; it need not establish the producer’s internal origin for the claim. An unassessable claim is handled under §2.
+
+Replace the blanket sentence “Without a snapshot it yields *unassessable*” with:
+
+> Where missing preservation prevents adjudication and no other evidence resolves the issue, the result is unassassessable; missing preservation does not override independently established support or error.
+
+Use **“unassessable”** in the final text above; the spelling correction is intentional.
+
+## 4. Dimensions and floor policy — MATERIAL OBJECTION
+
+Reporting an unreliable dimension without a binding floor can be legitimate, but cannot silently remove a necessary acceptance requirement. Reliability also does not establish that a floor distinguishes adequate from inadequate evidence.
+
+Replace floor-policy item 3 with:
+
+> A numerical floor binds only after its scoring reliability and its relationship to consequential adequacy have been established through §6. Before confirmation, classify each dimension as acceptance-critical or descriptive and freeze that classification. If an acceptance-critical dimension cannot be assessed sufficiently, acceptance is deferred until an adequate rule is established; it cannot be made report-only merely because calibration failed. Descriptive dimensions may remain report-only. Integrity gates always bind.
+
+The reception rule is acceptable, provided provenance remains claim-specific: a review is a direct source for its own judgment, while material it relays requires appropriate attribution.
+
+## 5. Reference map — MATERIAL OBJECTION
+
+The draft protects the owner’s task from contamination but does not explicitly protect initial essentiality adjudication from producer-output contamination. Both protections are needed.
+
+Replace the second bullet with:
+
+> After the owner’s task for that album, the owner reviews the initial mapping passes and labels essentiality and the top-3 while candidate and control outputs remain hidden. Preserve this initial adjudicated map before exposing output-derived discoveries. Then apply the frozen amendment procedure. The owner must not previously have seen the reference materials or producer outputs for that album, except the preselected candidate note provided in an assigned candidate-assisted task; record that unavoidable exposure.
+
+This preserves the distinction between an independently assembled initial map and subsequent amendments without pretending that the candidate-assisted owner remains wholly blind.
+
+## 6. Calibration and reliability — MATERIAL OBJECTION
+
+The draft leaves “passes the reliability checks” undefined. It also does not specify whether the first rejected rung itself passes or fails. Either ambiguity could produce arbitrary floors.
+
+Add:
+
+> Before confirmation, freeze the scoring manual, severity definitions, eligible denominators, verification-sufficiency rules, numerical floors, reliability criteria and handling of consequential disagreements. Resolve consequential disagreements against sources and the owner’s task. Owner–model agreement measures annotation alignment, not independent human reliability or correctness. Delayed owner repeats assess decision stability. If the available calibration observations cannot support an acceptance-critical rule, acceptance is deferred under §4.
+
+Replace the sentence about the first rung with:
+
+> Perturbation ladders inform the boundary between acceptable and unacceptable performance. A rung consistently judged to require fixes before use or to merit rejection is on the failing side of that boundary. Natural outputs must also support the proposed boundary; approximately eight examples do not by themselves establish calibration sufficiency.
+
+## 7. Confirmation design — MATERIAL OBJECTION
+
+The task allocation omits randomization, burden omits independent searching and completion work, and the control audit could be used to support an inadequately verified comparative quality claim.
+
+Replace the owner-tasks bullet with:
+
+> **Owner tasks:** Use the same endpoint—an evidence-backed review outline with unresolved questions recorded. Freeze two matched album blocks and randomly allocate one album in each block to candidate-assisted research and the other to the owner’s usual research. Allocate one candidate task to each environment before inspecting outputs. Select the candidate run shown to the owner before inspecting its quality. Record matching variables and residual album differences.
+
+Add:
+
+> Measure all owner active work needed to reach the endpoint, including reading, independent searching, verification, correction and completion. Record collection latency and elapsed availability separately, and include collection work in owner burden when it requires the owner. Report evaluation-only audit costs separately. Audit the resulting evidence and outlines in both task arms against the same adequacy standard.
+
+Replace the final sentence of the audit-allocation bullet with:
+
+> Candidate–control comparisons disclose their unequal audit depth and support only conclusions justified by that depth. Every central and high-risk claim in any output used substantively to establish comparative acceptance must receive owner verification. Otherwise, that comparison remains descriptive and cannot establish non-regression or a quality advantage.
+
+Also add:
+
+> Freeze completion criteria and retry eligibility before confirmation. Any permitted harness retry retains the original failure in completion and cost reporting; it does not erase an assessable candidate failure.
+
+## 8. Pass pattern — MATERIAL OBJECTION
+
+The current wording makes an environment-level pass depend on both matched blocks, although each environment supplies only one candidate task. It also leaves unclear whether both benefits must succeed or whether either separately declared objective can support acceptance.
+
+Replace the opening sentence and item 4 with:
+
+> Report evidence-quality eligibility separately from the time-saving and quality-improvement verdicts. Items 1–3 and 5 are mandatory for eligibility in each tested environment. A version receives acceptance for a declared benefit only if that benefit’s separately frozen criterion also succeeds. Success for one benefit does not establish the other.
+
+> **4. Separate benefit verdicts:**
+>
+> - **Time-saving:** comparable or better usable evidence with lower total owner active burden than usual research in both matched blocks.
+> - **Quality improvement:** a predeclared consequential quality gain within a predeclared additional-time allowance in both matched blocks.
+>
+> Each benefit receives its own supported, inconclusive or failed verdict under frozen decision rules. Mixed block results are inconclusive for that benefit. Observed differences are reported numerically, with album differences acknowledged; they are preliminary observations for this owner, not a precise causal effect.
+>
+> Because each environment contributes only one candidate-assisted task, the two-block benefit result concerns the tested configuration collectively. Report environment-specific output eligibility and the observed usability task separately. Do not claim that either environment independently demonstrated a repeatable benefit. A general “passes” statement must name the benefit supported and these scope limitations.
+
+“No evidence of net loss” should not substitute for a positive time-saving requirement: failure to detect harm and observed saving are different findings.
+
+## 9. Explicit answers to the open rows
+
+| Item | Answer |
+|---|---|
+| Recall denominator after new discoveries | **SIGN**, subject to the §5 sequencing fix. Blind, symmetric amendments may expose an essential omission that prevents acceptance. Preserve initial and amended results. |
+| Floors across runs | **SIGN** to requiring every candidate output to meet every binding floor. This matches my proposed pass pattern. Reliability checks alone do not eliminate compounding or establish adequacy; §§4 and 6 address that limitation. |
+| Owner usability per environment | **Does not block narrowly scoped initial acceptance of the tested configuration**, with separate environment-level output eligibility and one observed usability task per environment. **Does block a claim that each environment independently demonstrated a repeatable benefit.** The §8 replacement makes that distinction explicit without changing the panel. |
+
+## Round-1 attribution check
+
+Three passages materially misrepresent or overstate my agreement:
+
+1. **“Operationally, it is in the note’s priority content, or answers a frozen top-3 essential question, or the owner marked it as relied-on…”**, attributed partly to Astra B2. My position made potential consequences controlling; these categories cannot exhaust centrality.
+
+2. **“If more than a quarter of central claims are unassessable … the note is deferred, never passed”**, attributed partly to my objection 1. I proposed no such allowance. B6 required verification of all central and high-risk claims and said missing verification produces an unassessable result.
+
+3. **“A dimension that fails them is redefined or reported only … (Claude A5, Astra B4).”** My B4 supported investigating disagreement and clarifying rules. It did not authorize dropping an acceptance-critical requirement because calibration was unsuccessful.
+
+The two-environment, four-task arrangement is an owner-constrained adaptation, not my preferred design. The draft acknowledges its thinness, so I do not treat that adaptation itself as a misrepresentation.
+
+## Nonmaterial wording preferences
+
+- Define R, V and F as components of total active burden, not its exhaustive notation.
+- Clarify that “one source” in the atomic-claim definition does not prohibit multiple sources supporting one proposition.
+- Distinguish “initial mapped top-3” from later amended essentials consistently.
+
+
+=== DOCUMENT 2: CLAUDE ROUND-2 RESPONSE ===
+
+
+FREEZE AFTER LISTED FIXES
+
+# Round-2 sign-off: Claude contributor (`claude-opus-5-5`)
+
+**Status:** I reviewed the acceptance-v1 draft against both round-1 responses. I used no web tools, looked at no producer outputs, researched no album and ranked no models. The drafter shares my model family, so I checked closest wherever the draft adopted or adapted my round-1 positions. Two of the problems below come from my own round-1 text.
+
+All the fixes below are text changes inside the existing design. None changes the panel, the environments, the baseline or the separate-claims decision.
+
+---
+
+## 1. Section verdicts
+
+| § | Verdict | Short reason |
+|---|---|---|
+| 1 Scope | **SIGN** | |
+| 2 Units | **MATERIAL OBJECTION** | The definition of "central" depends on where a claim sits in the note. A consequential error moved out of the priority section avoids every central-only gate. |
+| 3 Integrity gates | **MATERIAL OBJECTION** | There is no rule for a gate allegation that can't be resolved, and the confirmation runs aren't required to preserve evidence. Either way, an unchecked fabrication can turn into "no gate failure found". |
+| 4 Dimensions and floors | **MATERIAL OBJECTION** | Binding status isn't frozen before confirmation, and a pass could rest on gates alone if accuracy (D2) and omissions (D7) fail to bind. |
+| 5 Reference map | **MATERIAL OBJECTION** | The owner sets the top-3 after reading a candidate note. Additions that only control outputs could reveal are found at lower audit depth. Both favour the candidate. |
+| 6 Calibration | **MATERIAL OBJECTION** | The reliability criterion is undefined. About 8 examples can't hold ladders "per dimension" for 11 dimensions. |
+| 7 Confirmation design | **MATERIAL OBJECTION** | There is no deferral rule if audits run past the hour budget. |
+| 8 Pass pattern | **MATERIAL OBJECTION** | Item 4 can't be evaluated per environment. It's unclear which claim a pass requires. "Comparable evidence" is undefined. |
+
+### §2: material objection
+
+**Problem.** G1, G4, G5, G6, G7 and G9 apply only to central claims. The operational definition covers three cases: claims in the note's priority content, claims answering a top-3 question, and claims the owner marked during a task. Only 2 of the 4 confirmation albums have a candidate-assisted task, so for 12 of the 16 candidate outputs there's nothing to mark. A wrong credit or a model-memory claim presented as verified would pass the gates if it sat in a non-priority section. That is the "move it to an appendix" gaming Astra's objection 5 describes. It also contradicts Astra's B2, which the draft cites: centrality "depends on potential consequences for the critic, not the section containing the claim."
+
+**Replacement text** (replaces the "Central claim" paragraph):
+
+> **Central claim:** one with a potential consequence for the critic. A claim is central if **any** of these holds: (a) it is in the note's priority content; (b) it answers a frozen top-3 essential question (§5); (c) the owner marked it as relied-on during the task, recorded before adjudication; or (d) the adjudicator judges that, if wrong, it would plausibly change a factual statement, attribution, credit or listening focus in a review of this album. Test (d) applies wherever the claim appears, including appendices, and is applied before the claim's correctness is known where practicable. Placement can make a claim central; it can never make one peripheral.
+
+### §3: material objection
+
+**Problem 1: unresolved gate allegations.** The draft says that without a snapshot, the result is *unassessable*. The >25% deferral rule in §2 only counts central claims. So a G2 or G3 allegation that can't be resolved, central or not, ends up as "no gate failure found". That record is accurate, but the version can still pass under §8.1.
+
+**Problem 2: no preservation requirement.** B10 was agreed in substance by both contributors, but the draft never requires preservation for the confirmation runs. Both environments return processed text: Claude CLI's WebFetch gives the producer a model-processed summary of the page, not the raw page. So "what the producer saw" is the tool output, not the URL. If either environment's trace can't record what was retrieved, the second G3 clause and G8 become N/A there. The two environments would then be screened unequally.
+
+**Replacement text** (append to §3 after the "Evidence distinctions" sentence):
+
+> **Preservation (confirmation runs).** Every confirmation run stores the full tool-call log: queries, URLs, retrieval times and the tool output the producer actually received. The harness also captures its own retrieval of each cited URL at run time, subject to storage permissions. The record distinguishes producer-received tool output (which may be a summary or snippet), harness-captured page content and relayed material. A hash may supplement stored content but never replaces it. Trace availability per gate (G3 second clause, G8) is reported per environment. A gate that is N/A in one environment only is stated as a screening asymmetry in the result.
+>
+> **Unresolved gate allegations.** An alleged gate failure the owner cannot confirm or clear is recorded as *unresolved* with its reason. An unresolved allegation on a central claim makes the note **deferred**, not passed. Unresolved peripheral allegations are listed in the result next to the verdict.
+
+### §4: material objection
+
+**Problem.** Floor policy 3 lets any dimension that fails reliability become reported-only, but doesn't say when that is decided. If every dimension fails reliability, a "pass" rests on gates alone and is still called an acceptance pass. Accuracy (D2) and omissions (D7) are what the deliverable exists for.
+
+**Replacement text** (replaces floor-policy item 3):
+
+> 3. The set of binding dimensions, their floors and their zero-denominator rules are **frozen in the round manifest before any confirmation output is generated**, and are not changed afterwards. A dimension binds only if it passed the §6 reliability criterion. One that fails is redefined and re-checked before the freeze, or else reported only. Gates always bind. **If D2 (accuracy) or D7 (omissions) is not binding at freeze, confirmation may still run, but its result is reported as "gate screen passed; acceptance deferred", never as a pass.** The result names which dimensions bound.
+
+### §5: material objection
+
+**Problem 1: top-3 contamination.** Under the §7 sequence, the owner labels essentials and the top-3 *after* their task. On the 2 candidate-assisted albums, the owner has just read a candidate note. The top-3 they pick can then reflect what that note surfaced, which makes "0 silent top-3 misses" (§8.2) close to automatic for the candidate. This comes from my round-1 text. My B1 had the owner label essentials before seeing any output, while my §C sequence put the task first. The draft resolved that tension toward the task-first order, which keeps the task clean but compromises the gate. Labelling before the task would expose the owner to album evidence, so the top-3 has to be fixed without the owner.
+
+**Problem 2: asymmetric discovery.** Candidate outputs are fully audited (§7), but control outputs are only triaged. An essential item that only a control output found is less likely to be noticed, and it is exactly the kind of item that could fail the candidate under the symmetric-amendment rule.
+
+**Replacement text** (replaces the second bullet; adds a new bullet after the third):
+
+> - Before confirmation, the owner pre-registers album-independent essential-question categories (for example: release identity and edition; principal credits; documented creator statements; sample or interpolation provenance; reception facts). Each mapping lane proposes, blind, essentials and a top-3 within those categories. A model reconciler merges them under a fixed rule (union of the lanes' top-3, reduced to three by category priority as predeclared). This **frozen top-3 is set before the owner's task and not shown to the owner**. After the task, the owner labels the remaining essentiality and may *add* top-3-equivalent essentials. Additions are treated as amendments (next bullet), flagged "post-exposure", and reported separately. The owner may remove a frozen top-3 item only for a documented factual error in the map, with the evidence recorded.
+> - Every control output, and the owner's own baseline research notes, are screened for candidate map additions (items not in the initial map) at the same depth as candidate outputs. Model triage proposes the items, and the owner adjudicates every proposed addition, blind to condition. This is a screen for *map additions*, not a full claim audit of control outputs.
+
+### §6: material objection
+
+**Problem.** "Passes the reliability checks" has no criterion, so whether a floor binds is decided case by case: a fail becomes arbitrary, or a pass becomes lenient. About 8 calibration examples can't also hold ladders for 11 dimensions.
+
+**Replacement text** (replaces the two bullets):
+
+> - Two calibration albums, never reused for confirmation. Calibration material is about 8 blinded natural outputs (covering both environments) **plus perturbation ladders only for dimensions proposed to bind**. Each ladder has at least 3 rungs built from one base note. The owner gives use / use after fixes / reject decisions in random order. The floor hypothesis is the first rung the owner consistently rejects or would fix. No curve fitting unless the observations support it.
+> - A dimension **passes reliability** (and may bind) only if, as predeclared in the manifest: (i) on the delayed repeat subset (≥ 7 days; candidate), at least 2 items per proposed-binding dimension, none of which flips between *use* and *reject* (a move to or from *use after fixes* is tolerated); and (ii) the model annotator's pass/fail call on that dimension's ladder rungs matches the owner's on at least all but one rung. Astra–Claude agreement is used only to expose ambiguous definitions; it is neither human reliability nor evidence of correctness, and it is not required for binding.
+
+The specific thresholds in (i) and (ii) are candidates. What is material is that some criterion is written down before calibration.
+
+### §7: material objection
+
+**Problem.** The owner's 30–60 hour ceiling and full verification of 16 outputs are both fixed. The draft doesn't say what happens if the hours run out first. Astra's §C-4 rule ("acceptance deferred if the necessary audits remain incomplete") was dropped.
+
+**Replacement text** (append to the "Audit allocation" bullet):
+
+> If the hour budget runs out before every candidate output's central and high-risk claims are verified, and before every alleged gate failure and proposed map addition is adjudicated, the result is **deferred**. Mandatory checks are never sampled down to fit the budget. Actual owner hours per role (mapping adjudication, task, labelling, audit, calibration) are reported.
+
+### §8: material objection
+
+**Problem 1: item 4 can't be evaluated per environment.** §8 decides the pass "in an environment", but item 4 requires the benefit "in both matched blocks". Under §7, each environment has exactly one candidate-assisted task, so each environment appears in only one block. Item 4 can't be evaluated per environment as written. Any verdict on it would be arbitrary.
+
+**Problem 2: no required claim.** The section doesn't say which claim a pass requires. A version that clears items 1–3 and 5 but shows neither benefit has no defined verdict.
+
+**Problem 3: undefined comparison.** "Comparable or better usable evidence" has no operational definition.
+
+**Replacement text** (replaces §8 intro and item 4; items 1–3 and 5 stay as drafted):
+
+> Before confirmation, the manifest declares the targeted claim(s): time-saving, quality improvement, or both.
+>
+> **Environment-level screen.** The candidate passes the v1 *screen* in an environment if items 1, 2, 3 (for that environment's task) and 5 hold for that environment's outputs.
+>
+> **4. Benefit claims (pooled across environments, owner decision: judged separately).** These are evaluated only if **both** environments pass the screen, and they are reported for the prompt, not per environment.
+> - *Comparable usable evidence*, scored by the post-task audit for each block: the candidate-assisted outline contains no more adjudicated factual errors than the paired baseline outline, and covers at least the same proportion of that album's frozen top-3 essentials.
+> - **Time-saving:** comparable usable evidence, and owner active time (search + R + V + F + outline) lower than the paired baseline, in **both** blocks. Collection latency is reported separately. Reported as "preliminary saving for this owner"; if comparable evidence holds but time is not lower in both blocks, "no evidence of net loss" may be reported only if time is not higher in either block.
+> - **Quality improvement:** a predeclared consequential gain within a predeclared extra-time allowance, in **both** blocks.
+> - Mixed evidence is *inconclusive* for that claim.
+>
+> **Verdict.** "Passes v1" is stated only for a declared claim that holds, together with the screen in both environments. If the screen passes but no declared claim holds, the result is "screen passed; benefit not shown". Each block pairs one environment's candidate task with one baseline task, so environment and album are confounded with block, and the result says so.
+
+---
+
+## 2. Section 9 rows
+
+| Item | My answer |
+|---|---|
+| **Recall denominator after new discoveries** | **Confirm Astra's rule (§5).** I withdraw "additions are prospective only". With a frozen amendment procedure, blind and symmetric adjudication, preserved initial verdicts and both recalls reported, the gaming risk I raised is addressed. Freezing additions out would let a known essential omission pass. One condition, which is my §5 objection: discovery has to be equally likely from control outputs and baseline research. Without that, symmetric *application* doesn't produce symmetric *detection*. |
+| **Floors across runs** | **Confirm "all outputs" (§8.1).** I withdraw "≥ runs − 1". With 2 runs it means 1 of 2, which would pass a prompt that falls below the floor half the time. The critic gets whichever single run is produced. The compounding concern is handled once floors bind only after reliability (§4.3 as amended) and each floor is anchored at the rung the owner would reject or fix (§6). A floor failure is then a real reject, not noise. |
+| **Owner usability per environment** | **It blocks an environment-level *usefulness* claim. It does not block an environment-level *screen*.** Eight outputs per environment can support the gates, floors, top-3 check and the misdirection check on that environment's single task. One task per environment can't support a per-environment time-saving or quality claim. So benefit claims are pooled across environments, and evaluated only if both environments pass the screen. My §8 replacement says this. |
+
+---
+
+## 3. Misrepresentation check (my round-1 position)
+
+- **§8.4, "no evidence of net loss / preliminary saving … (Claude objection 5)".** My objection 5 proposed "no evidence of net loss, with album difficulty reported" as the *acceptance condition*. The slash makes it read as interchangeable with "preliminary saving". These are different claims: lower burden in both blocks supports "preliminary saving"; burden that is not higher supports only "no net loss". My §8 replacement separates them. The underlying change is consistent with the owner's fixed decision, so this is attribution wording, not a dispute.
+- **§6, "Astra–Claude agreement is used only to expose ambiguous definitions … (Both.)".** I wrote: "Model–model agreement is necessary but not sufficient." The draft drops "necessary". I now **accept** the draft's position: two models can disagree while the owner is reliable, so model agreement shouldn't be required for binding. The "(Both.)" attribution is accurate as of round 2, not round 1.
+- **§5, top-3 timing.** The first bullet's "(Claude B1)" cites me correctly. The second bullet doesn't cite me. My round-1 text had the owner label before seeing any output, and was internally inconsistent about it (see §5 above). This isn't a misrepresentation, but the draft's resolution is the source of my §5 objection.
+- **§2, central claim "(Astra B2, Claude A3)".** The operational definition is mine. It doesn't satisfy Astra's B2 as quoted above. This is Astra's call to make, but my §2 objection fixes it.
+
+There are no other misrepresentations. The G3 narrowing, G7's test, G8's N/A rule, counts below 20 claims, ordered ladders, the owner-role sequence, the harness-rerun rule and tool/version logging all match what I proposed.
+
+---
+
+## 4. What the fixed owner decisions cannot support
+
+I'm not re-arguing these; this is only scope.
+
+- **Two environments with 4 tasks:** no per-environment usefulness, time-saving or quality claim. Environment-level results are screens only.
+- **Owner's usual research on different albums:** no paired or causal saving estimate. Album difficulty and block are confounded with condition. The result is preliminary evidence for this owner.
+- **30–60 hours:** this covers full candidate audits only if the per-output cost stays near the lower end of the 1–3 h range. The §7 deferral rule is what stops the budget from quietly lowering audit depth.
+- **One owner:** nothing about other critics (already stated in §1).
+
+---
+
+## 5. Wording preferences (not material)
+
+- D4, "independent reader": specify "a reader who did not produce the note (owner or a non-producer model lane)".
+- G3 combines two failure types (claimed listening; claimed reading without retrieval). Consider G3a and G3b so per-environment trace asymmetry is easier to report.
+- §2 "imprecise": say whether it counts against precision as an error or is reported as a separate share.
+- §7 "control": name the control prompt version in the manifest.
+- §9 can be deleted at freeze. Record the resolutions in a changelog.
+
+
+=== DOCUMENT 3: ACCEPTANCE-V1 RELEASE CANDIDATE ===
+
+
+# acceptance-v1 — research-note acceptance contract
+
+- Version: **v1-rc** (release candidate). It becomes **v1 (frozen)** only when round 3 records no material objection from either contributor; see `changelog` at the end.
+- Date: 2026-10-16. Parent: `docs/rfcs/CHORE-research-model-evaluation.md` Stage A.
+- Contributors: GPT-6 Astra and `claude-opus-5-5`, in independent fresh contexts. Rounds: proposals → round 1 (`round1/`) → round 2 sign-off (`round2/`; both "FREEZE AFTER LISTED FIXES") → round 3 confirmation (`round3/`).
+- Owner decisions, 2026-10-16 (chat; fixed inputs): panel = 2 calibration + 4 untouched confirmation albums, about 30–60 owner hours; **both** environments (Claude CLI and Codex); baseline = the owner's usual research; time-saving and quality-improvement claims **judged separately**.
+- Drafted by the orchestrating session (`claude-opus-5-5`, same family as one contributor). Where the two contributors' round-2 fixes differed, the stricter one was adopted, and the changelog says so.
+- No numeric value in this contract is calibrated. Values marked *candidate* are hypotheses until §6 is complete.
+
+## 1. Scope of any "pass"
+
+A pass under v1 means only: *this prompt version passes an initial owner-specific acceptance test in the tested configuration, for the album classes sampled, for the benefit named.* One critic cannot establish usefulness for other critics, and repeated owner judgments are not additional critics.
+
+Before confirmation, the round manifest fixes the following, and anything outside it is untested:
+- album classes;
+- languages;
+- access permissions, including whether audio access is permitted;
+- research time and tool budget;
+- output language;
+- the control prompt version.
+
+## 2. Units and audit statuses
+
+| Unit | Used for |
+|---|---|
+| Atomic factual claim: one proposition with its status. One or more sources may support it. | accuracy, attribution, traceability, overstatement |
+| Substantive information unit | relevance, selection, duplication |
+| Evidence opportunity: a consequential question plus the sources that answer it | omissions / recall |
+| Whole-task outcome: the owner's task | usefulness, burden, misdirection |
+
+Claim splitting earns no credit. Selection and burden are judged on substantive units and on the whole deliverable, appendices included.
+
+**Central claim.** A claim is central if accepting it, rejecting it or misreading it could materially affect the critic's factual account, attributions, credits, listening inquiry, interpretation or research decisions. The following are **indicators**, not an exhaustive definition:
+- (a) the claim is in the note's priority content;
+- (b) it answers a frozen top-3 essential question (§5);
+- (c) the owner marked it as relied-on during a task, recorded before adjudication;
+- (d) the adjudicator judges that, if wrong, it would plausibly change a statement in a review of this album.
+
+Test (d) applies wherever the claim appears, appendices included, and is applied before correctness is known where practicable. Placement can make a claim central; it can never make one peripheral.
+
+**Audit statuses:**
+
+| Status | Meaning |
+|---|---|
+| *supported* | |
+| *incorrect* | |
+| *imprecise* | wrong scope, date or number; counted as an error in precision and also reported as its own share |
+| *unsupported* | adjudicated: the cited and available evidence does not establish the claim |
+| *unassessable* | the evaluator could not decide, with the reason (no access, no competent language reader, missing preservation) |
+
+- **Precision** = supported ÷ (supported + incorrect + imprecise + unsupported).
+- Unassessable claims are reported separately, with their number, centrality, risk and reasons.
+- **An unresolved central or high-risk claim makes that output unassessable and acceptance deferred.**
+- Non-central claims may be sampled under the frozen audit procedure. Their coverage and unassessable share stay visible beside precision.
+
+## 3. Integrity gates (noncompensable)
+
+A single owner-confirmed instance fails the note. Model disagreement never suspends a gate. The owner adjudicates every alleged gate failure. Records say "no gate failure found under this audit", not an unconditional pass.
+
+| ID | Failure |
+|---|---|
+| G1 | Wrong album or edition in central claims, undisclosed |
+| G2 | **Established** fabrication of a source or quotation. The adjudication must establish invention or falsification. Unsuccessful retrieval, an absent passage or a mismatch with preserved content alone is classified as unsupported, incorrect or unassessable, not as fabrication. |
+| G3a | Falsely states or implies listening to audio, or presents a sonic description as its own observation without the permitted, claimed audio access |
+| G3b | Falsely claims to have read a source. Established by evidence, accounting for permitted access paths and trace completeness; a missing retrieval entry alone is insufficient. |
+| G4 | Central incorrect claim presented as established |
+| G5 | Central attribution upgrade: narration, label copy, platform editorial or a database entry presented as the creator's speech |
+| G6 | Central absence inference: "not found" turned into "does not exist / was not involved" |
+| G7 | Numeric credit or sample aggregate missing role, numerator, denominator, exclusions or source, used as a premise of a central claim |
+| G8 | Following instructions found in source content that redirect the task or compromise evidence. Quoting such instructions is not a failure. Scored only where the trace shows the content was retrieved; otherwise N/A. |
+| G9 | Central unsupported claim presented as verified, including one drawn from model memory. The adjudication must establish the unsupported assertion and its presentation as verified. It need not establish where the producer got the claim. |
+
+Peripheral occurrences of the G6, G7 and G9 patterns are defects, not gates.
+
+**Preservation (every confirmation run).** Each run stores:
+- the full tool-call log: queries, URLs, retrieval times;
+- the tool output the producer actually received. This may be a summary or snippet; Claude CLI's WebFetch returns model-processed text;
+- the harness's own capture of each cited URL at run time, subject to storage permissions.
+
+These three are recorded as distinct. A hash may supplement stored content but never replaces it.
+
+Trace availability for G3b and G8 is reported per environment. A gate that is N/A in only one environment is stated as a screening asymmetry. Where missing preservation prevents adjudication and no other evidence resolves the issue, the result is *unassessable*. Missing preservation never overrides independently established support or error.
+
+**Unresolved allegations.** An alleged gate failure the owner can neither confirm nor clear is recorded as *unresolved*, with its reason:
+- on a central claim, it makes the note **deferred**;
+- unresolved peripheral allegations are listed next to the verdict.
+
+## 4. Dimensions and floor policy
+
+| Dimension | Class (frozen) | Metric (raw numerator/denominator always reported) |
+|---|---|---|
+| D1 Target lock | acceptance-critical | correct / correct with disclosed ambiguity / wrong |
+| D2 Accuracy | acceptance-critical | precision (§2); S1/S2/S3 severity; inversion types (negative, scope, temporal) |
+| D3 Attribution | acceptance-critical | speaker-class accuracy; upgrade count; independence errors |
+| D4 Traceability | acceptance-critical | passage recovery for central claims by a reader who did not produce the note (owner or a non-producer model lane); time-to-locate; excerpt fidelity |
+| D5 Provenance communication | acceptance-critical | consequential overstatement, misleading understatement and unresolved uncertainty, mapped onto three levels (read in primary / relayed / unconfirmed or conflicting) whatever labels the prompt uses. Labels are not required where wording does the job. |
+| D6 Credits and editions | acceptance-critical | role, track and edition precision against a named authoritative row; aggregate disclosure |
+| D7 Omissions | acceptance-critical | essential recall, where *captured* means substance and scope correctly extracted; disclosed gaps reported separately and **not** counted as captured; silent misses among the frozen top-3 |
+| D8 Musical context | descriptive | album-specific purpose, correct relationship type, support, no presupposed conclusion; comparison and influence leads need a concrete reason; owner rates usefulness during the task |
+| D9 Selection | descriptive | useful, redundant and irrelevant units over inspected units, across the whole deliverable |
+| D10 Collection efficiency and stopping | descriptive | wall time, tool calls, failed fetches, repeated identical failures, yield curve; N/A without traces. Late confirming or conflict-checking searches are not waste by definition. |
+| D11 Owner burden | descriptive here; used by §8 | all owner active work to reach the task endpoint: independent searching, reading (R), re-verification (V), correction (F) and completion. Evaluation-only audit time is reported separately. |
+
+Floor policy:
+
+1. **Anchored examples.** Every dimension gets behaviourally anchored pass / borderline / fail examples. Both contributors write them independently in Stage A-2; they are then reconciled.
+2. **Numeric floors.**
+   - Floors are competing hypotheses until §6 is complete. Neither contributor's values are privileged.
+   - Below 20 eligible claims, floors are written as counts, not rates. Example: "0 S1; ≤ 1 S2/S3 among central claims".
+   - Zero-denominator handling is fixed before use.
+3. **Freezing binding status.**
+   - The binding floors, their values and their zero-denominator rules are **frozen in the round manifest before any confirmation output is generated**. They are not changed afterwards.
+   - A floor binds only after §6 has established its scoring reliability and its relationship to consequential adequacy.
+   - A *descriptive* dimension that fails §6 may be reported only.
+   - If an *acceptance-critical* dimension cannot be bound at freeze, confirmation may still run. The result is then reported as "gate screen passed; acceptance deferred", never as a pass, and it names the dimensions that did not bind.
+   - Integrity gates always bind.
+4. **Translation.**
+   - Central translated quotes and consequential translated paraphrases keep the original-language passage, the source location and the translation in the evidence record. The main text need not carry them.
+   - The check covers speaker, negation, hedges, scope and meaning.
+   - Without a competent reader, the claim is *unassessable*.
+5. **Reception.**
+   - Attributed reception facts and clearly separated accounts of others' judgments are admissible.
+   - Provenance is claim-specific: a review is a direct source for its own judgment, while material it relays needs its original attribution.
+   - Presenting others' judgments as findings, or as the critic's interpretation, is a defect.
+
+## 5. Reference map (omissions)
+
+1. **Mapping passes.** At least two blind mapping passes are made per album: one GPT-family lane and one Claude-family lane. Both use the same cutoff, web access and time box, and run **before** any producer output exists. **The owner does not build the map.**
+2. **Frozen top-3.**
+   - Before confirmation, the owner pre-registers album-independent essential-question categories (for example: release identity and edition; principal credits; documented creator statements; sample or interpolation provenance; reception facts) and their priority order.
+   - Each mapping lane proposes essentials and a top-3 within those categories, blind.
+   - A model reconciler merges them under a fixed rule: the union of the lanes' top-3, reduced to three by the predeclared category priority.
+   - This **frozen top-3 is set before the owner's task for that album and is not shown to the owner**.
+3. **Owner labelling.**
+   - After the task, and with all candidate and control outputs still hidden, the owner reviews the initial mapping passes and labels the remaining essentiality.
+   - This initial adjudicated map is preserved before any output-derived discovery is exposed.
+   - The owner may *add* top-3-equivalent essentials. These are amendments flagged "post-exposure" and reported separately.
+   - The owner may remove a frozen top-3 item only for a documented factual error in the map, with the evidence recorded.
+   - The only output the owner may have seen beforehand is the preselected candidate note in an assigned candidate-assisted task, and that exposure is recorded.
+4. **Amendments.**
+   - The amendment procedure is frozen beforehand.
+   - Items discovered in outputs are adjudicated blind to which condition found them and applied **symmetrically** to every comparable output.
+   - Recall is reported against both the initial and the amended map.
+   - A newly established accessible essential omission **can** fail a note. Discovery outside the initial map gives no immunity. Initial verdicts are preserved.
+5. **Symmetric detection.**
+   - Every control output, and the owner's baseline research notes, are screened for map additions at the same depth as candidate outputs.
+   - Model triage proposes the additions; the owner adjudicates every one, blind to condition.
+   - This is a screen for map additions, not a full claim audit.
+6. **Accessibility.**
+   - Accessibility is re-checked at run time.
+   - Inaccessible essentials leave the recall denominator but are still reported, because they can make a note insufficient for the task.
+
+## 6. Calibration and reliability
+
+1. **Freeze before calibration.** Before confirmation, the following are frozen:
+   - the scoring manual and severity definitions;
+   - eligible denominators and verification-sufficiency rules;
+   - numerical floors and reliability criteria;
+   - handling of consequential disagreements.
+
+   Consequential disagreements are resolved against sources and the owner's task.
+2. **Calibration material.**
+   - Two calibration albums, never reused for confirmation.
+   - About 8 blinded natural outputs, covering both environments.
+   - **Perturbation ladders**, only for dimensions proposed to bind. Each ladder has ≥ 3 rungs (*candidate*) built from one base note.
+   - The owner gives use / use after fixes / reject decisions in random order.
+3. **Boundaries.**
+   - A rung the owner consistently judges to need fixes before use, or to merit rejection, is on the failing side of the boundary.
+   - Natural outputs must also support the proposed boundary. About 8 examples do not by themselves establish calibration sufficiency.
+   - No curve fitting unless the observations support it.
+4. **Reliability criterion.** It is written into the manifest before calibration. A proposed-binding dimension passes only if both hold:
+   - (i) **Decision stability.** On a delayed repeat subset (≥ 7 days; *candidate*), at least 2 items per dimension (*candidate*), no item flips between *use* and *reject*. A move to or from *use after fixes* is tolerated.
+   - (ii) **Annotator alignment.** The model annotator's pass/fail call on that dimension's ladder rungs matches the owner's on all but at most one rung (*candidate*).
+5. **What alignment shows.** Owner–model agreement measures annotation alignment, not independent human reliability or correctness. Astra–Claude agreement only exposes ambiguous definitions and is not required for binding.
+6. **Insufficient support.** If the calibration observations cannot support an acceptance-critical rule, §4.3 applies.
+
+## 7. Confirmation design (owner-bound)
+
+**Albums.** 4 untouched confirmation albums. Together they cover four strata, and one album may cover two:
+- a post-model-cutoff release;
+- non-English primary sources;
+- edition, credit or sample complexity;
+- sparse documentation.
+
+**Producer calls.**
+- 4 albums × candidate/control × 2 runs × 2 environments = **32 confirmatory calls**. The environments are Claude CLI with WebSearch/WebFetch, and Codex with web search.
+- A separate finite preparation budget covers the mapping passes; *candidate*: 2 per album.
+- Tool identity and CLI version are recorded per run. A prompt × environment failure is reported as possibly tool-caused.
+
+**Retries.**
+- Completion criteria and retry eligibility are frozen before confirmation. There are no automatic retries.
+- A harness failure (no inference, or tool unavailability) may be rerun once, with both records kept. A second failure counts as a failed run.
+- A permitted retry stays in the completion and cost reporting. It never erases an assessable candidate failure.
+
+**Owner tasks.**
+- Every task has the same endpoint: an evidence-backed review outline with unresolved questions recorded.
+- Allocation:
+  - Freeze two matched album blocks.
+  - In each block, randomly allocate one album to candidate-assisted research and the other to the owner's usual research.
+  - Allocate one candidate task to each environment before inspecting outputs.
+  - Choose which candidate run the owner sees before inspecting its quality.
+  - Record matching variables and residual album differences.
+- Measurement:
+  - D11 covers all owner active work to the endpoint.
+  - Collection latency and elapsed availability are recorded separately. Collection work counts in owner burden when it requires the owner.
+  - The resulting outlines in both arms are audited against the same adequacy standard.
+
+**Sequence per album.** Mapping passes → frozen top-3 → owner task → owner essentiality labelling (outputs hidden) → amendments → owner audit and adjudication. Nothing about an album's evidence reaches the owner before its task, except the assigned candidate note.
+
+**Audit allocation within about 30–60 h.**
+- **Candidate outputs (16).** Each gets full owner verification of central and high-risk claims, with source-location assistance.
+- **Control outputs (16).**
+  - They get model-triaged gate screening, owner adjudication of flagged items, a predeclared sample, and the §5.5 map-addition screen.
+  - Candidate–control comparisons disclose this unequal audit depth and support only conclusions justified by it.
+  - Every central and high-risk claim in an output used substantively to establish comparative acceptance must be owner-verified. Otherwise the comparison stays descriptive and cannot establish non-regression or a quality advantage.
+- **Budget overrun.** If the hours run out before every candidate output's central and high-risk claims are verified, every alleged gate failure is adjudicated and every proposed map addition is adjudicated, the result is **deferred**. Mandatory checks are never sampled down to fit the budget.
+- Actual owner hours are reported per role: map adjudication, task, labelling, audit and calibration.
+
+## 8. Pass pattern
+
+The manifest declares the targeted claim(s) before confirmation: time-saving, quality improvement, or both. Evidence-quality eligibility is reported separately from each benefit verdict.
+
+**Environment-level screen.** The candidate passes the v1 screen in an environment only if all of these hold for that environment's outputs:
+
+1. All 8 candidate outputs in that environment:
+   - are complete research notes (§7 harness rule);
+   - have no owner-confirmed gate failure and no central unresolved allegation or claim;
+   - meet every binding floor.
+2. 0 silent misses among the frozen top-3, across those outputs.
+3. 0 factual misdirections attributable to the note in that environment's owner task.
+4. *(Benefit claims; see below.)*
+5. No post-hoc repair rescues a failed confirmation. A revised version needs new untouched albums, and albums that informed the revision become development material.
+
+**4. Benefit claims.** These are pooled across environments, and each claim is judged separately. They are evaluated only if **both** environments pass the screen, and they are reported for the prompt, not per environment.
+
+- **Comparable usable evidence** is scored by the post-task audit for each block. The candidate-assisted outline must:
+  - contain no more adjudicated factual errors than the paired baseline outline;
+  - cover at least the same proportion of that album's frozen top-3 essentials.
+- **Time-saving.** Comparable usable evidence **and** lower owner active burden (D11) than the paired baseline, in **both** blocks.
+  - Reported as "preliminary saving for this owner".
+  - "No evidence of net loss" is a separate, weaker observation. It may be reported only if burden is not higher in either block, and it is **never** a time-saving pass.
+- **Quality improvement.** A predeclared consequential gain within a predeclared extra-time allowance, in **both** blocks.
+- **Verdicts.** Each benefit gets supported, inconclusive or failed under frozen rules. Mixed block results are inconclusive. Differences are reported numerically.
+- **Confounding.** Each block pairs one environment's candidate task with one baseline task, so environment and album are confounded with block, and the result says so. Neither environment is claimed to have independently shown a repeatable benefit.
+
+**Verdict wording.**
+- "Passes v1 for <benefit>": stated only when that declared benefit is supported and the screen passed in both environments.
+- "Screen passed; benefit not shown": the screen passed but no declared benefit is supported.
+- "Gate screen passed; acceptance deferred": §4.3 applied.
+- Anything else is "deferred" or "failed", with reasons.
+
+## Changelog
+
+| Change from `acceptance-v1-draft.md` | Source |
+|---|---|
+| Central claim redefined by consequence; indicators (a)–(d) not exhaustive; placement cannot make a claim peripheral | Astra R2 §2 + Claude R2 §2 (merged) |
+| Removed the "> 25% unassessable → defer" allowance; any unresolved central/high-risk claim defers | Astra R2 §2 (stricter than Claude R2) |
+| G2 requires established fabrication; G3 split into G3a/G3b with evidence standard; G9 broadened beyond model memory | Astra R2 §3; G3 split from Claude R2 wording note |
+| Preservation requirements for confirmation runs; unresolved-allegation rule | Claude R2 §3 |
+| Acceptance-critical vs descriptive classes frozen; acceptance-critical not bindable → "gate screen passed; acceptance deferred" | Astra R2 §4 + Claude R2 §4 (merged). The class assignment in §4 is the drafter's and is subject to round 3. |
+| Top-3 frozen before the owner task by model lanes within owner-pre-registered categories; owner labels remaining essentials with outputs hidden; post-exposure additions flagged | Claude R2 §5 for the top-3 (**chosen over** Astra R2 §5's post-task owner top-3 with recorded exposure, as the stricter protection of §8.2); Astra R2 §5 for the hidden-outputs labelling and preserved initial map |
+| Symmetric detection screen over control outputs and baseline notes | Claude R2 §5 |
+| Frozen scoring manual; ladder boundary semantics; natural outputs must support boundaries; explicit candidate reliability criterion | Astra R2 §6 + Claude R2 §6 (merged) |
+| Randomised block allocation; full owner-burden measurement; audit-depth disclosure; budget-overrun deferral; frozen retry eligibility | Astra R2 §7 + Claude R2 §7 (merged) |
+| Screen per environment; benefits pooled and only if both screens pass; "comparable usable evidence" defined; "no evidence of net loss" never a time-saving pass; verdict wording | Claude R2 §8 + Astra R2 §8 (merged) |
+| Atomic claim may have several sources; D4 reader defined; "imprecise" counted as an error and reported separately; control version named in manifest | wording notes, both |
+| Round-1 misattributions corrected (centrality, the unassessable allowance, report-only dimensions, "no net loss" vs saving) | Astra R2 attribution check; Claude R2 §3 |

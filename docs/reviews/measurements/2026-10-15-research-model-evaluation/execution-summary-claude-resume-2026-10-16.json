@@ -1,0 +1,161 @@
+[
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 225.306,
+    "resolved_models": [
+      "claude-haiku-4-5-20251001",
+      "claude-haiku-5-5"
+    ],
+    "tool_counts": {
+      "WebSearch": 21,
+      "WebFetch": 5
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 10096
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 262.169,
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "tool_counts": {
+      "WebSearch": 7,
+      "WebFetch": 5
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 5513
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 407.398,
+    "resolved_models": [
+      "claude-haiku-5-5",
+      "claude-opus-4-6"
+    ],
+    "tool_counts": {
+      "WebSearch": 11,
+      "WebFetch": 10
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 9647
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 391.913,
+    "resolved_models": [
+      "claude-haiku-5-5",
+      "claude-opus-4-7"
+    ],
+    "tool_counts": {
+      "WebSearch": 3,
+      "WebFetch": 5
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 8027
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 195.468,
+    "resolved_models": [
+      "claude-haiku-5-5",
+      "claude-opus-4-8"
+    ],
+    "tool_counts": {
+      "WebSearch": 5,
+      "WebFetch": 4
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 7268
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 309.707,
+    "resolved_models": [
+      "claude-haiku-5-5",
+      "claude-opus-5-5"
+    ],
+    "tool_counts": {
+      "WebSearch": 16,
+      "WebFetch": 20
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 7136
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 223.966,
+    "resolved_models": [
+      "claude-haiku-5-5",
+      "claude-opus-5"
+    ],
+    "tool_counts": {
+      "WebSearch": 10,
+      "WebFetch": 9
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 8525
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 224.044,
+    "resolved_models": [
+      "claude-haiku-5-5",
+      "claude-sonnet-4-6"
+    ],
+    "tool_counts": {
+      "WebSearch": 7,
+      "WebFetch": 5
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 6301
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 329.958,
+    "resolved_models": [
+      "claude-haiku-5-5",
+      "claude-sonnet-5-5"
+    ],
+    "tool_counts": {
+      "WebSearch": 7,
+      "WebFetch": 15
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 6709
+  },
+  {
+    "model": null,
+    "status": "success",
+    "dispatch_count": 1,
+    "wall_s": 164.896,
+    "resolved_models": [
+      "claude-haiku-5-5",
+      "claude-sonnet-5"
+    ],
+    "tool_counts": {
+      "WebSearch": 9,
+      "WebFetch": 5
+    },
+    "resolution_evidence": "cli_event",
+    "output_chars": 5972
+  }
+]

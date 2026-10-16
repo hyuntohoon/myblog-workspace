@@ -1,0 +1,1 @@
+2026-10-16T04:36:25.792194Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 500 Internal Server Error, url: wss://chatgpt.com/backend-api/codex/responses

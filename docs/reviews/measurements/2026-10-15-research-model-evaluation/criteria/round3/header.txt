@@ -1,0 +1,9 @@
+You are one of two contributors (GPT-6 Astra and Claude) to a joint acceptance contract for a prompt that collects pre-review research evidence for a music critic. In round 2 you and the other contributor each answered "FREEZE AFTER LISTED FIXES". Below are, in order: both round-2 responses, then the release candidate acceptance-v1 that merges both sets of fixes, with a changelog attributing every change.
+
+Round 3 task — confirmation only:
+1. Were YOUR round-2 fixes applied faithfully? For each of your material objections, answer APPLIED, APPLIED WITH ACCEPTABLE CHANGE, or NOT APPLIED / DISTORTED (quote the text and give the exact correction).
+2. Where the drafter chose the other contributor's fix over yours (see changelog, especially §5 top-3 timing, the unassessable rule and the §4 class assignment), answer ACCEPT or MATERIAL OBJECTION with exact replacement text.
+3. Report any new material defect introduced by the merge. Material = it would make a pass misleading or a fail arbitrary. Wording preferences: at most three, one line each.
+Owner decisions are fixed. Do not rank producer models and do not research any album. Reply in English Markdown. First line exactly one of: CONFIRM FREEZE / CONFIRM FREEZE WITH NOTED NON-MATERIAL EDITS / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ROUND-2 RESPONSE ===
