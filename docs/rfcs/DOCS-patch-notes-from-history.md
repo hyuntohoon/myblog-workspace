@@ -1,7 +1,7 @@
 # DOCS-patch-notes-from-history: Monthly patch notes on the site, written from merge history
 
-- **Status**: draft
-- **Owner**: TBD
+- **Status**: accepted (owner approval 2026-10-16)
+- **Owner**: site owner
 - **Created**: 2026-10-16
 - **Plan row**: `plan.md` → DOCS-patch-notes-from-history
 
@@ -159,3 +159,4 @@ Each has a recommendation, and work proceeds on it unless the owner says otherwi
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-10-16 | RFC drafted. Fable review cut it from four steps to two. Dropped: the classifier script, the miss-rate gate (circular: the drafter defines a miss) and the three-month backfill (one condensed entry instead). Owner approval is a verification item, not a rule-9 exception | — |
+| 2026-10-16 | RFC accepted (owner). OQ1–3 taken on the recommendations: public audience, a small footer base link `업데이트`, monthly | 1 |
