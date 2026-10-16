@@ -65,7 +65,7 @@ Verified against `origin/main` on 2026-10-15.
 | Job | Selects | Trigger |
 |---|---|---|
 | `lyrics_incremental` | tracks with no `track_lyrics` row | 15-min EventBridge + self-chain after album sync |
-| `lyrics_reassessment` | unresolved rows + `best-of-*` matched rows; optional `album_id` scope. *Since Step 2 (worker #114): also a re-sweep arm over resolved rows from older matcher versions (`sweep_limit`), and a single-row `track_id` scope* | EventBridge + manual SQS |
+| `lyrics_reassessment` | unresolved rows + `best-of-*` matched rows; optional `album_id` scope. *Since Step 2 (worker #114): also a re-sweep arm over resolved rows from any other matcher version (`sweep_limit`), and a single-row `track_id` scope* | EventBridge + manual SQS |
 | `lyrics_demand_source` | album-demand tracks (V57/V58) | EventBridge + manual SQS |
 | `tools/lyrics_*.py` (workspace) | batch / dump / backfill | manual; **twin** of the worker selection SQL |
 
@@ -337,7 +337,10 @@ Bad Habit reports `locked`, and its body stays unchanged.
   | would_supersede | – | 9 |
   | superseded (real write: best-of → exact-title) | 10 | – |
   | kept | 5 | – |
-  | locked | 1 | – |
+  | locked¹ | 1 | – |
+
+  ¹ Bad Habit, from the `track_id` run. The sweep itself excludes `manual_fix`, so this row is not one
+  of the 18,166, and the table sums to 18,167.
 
 - **Audit of the 42 would-rewrite rows.** Each old/new pair was fetched from LRCLIB and read by
   hand:
@@ -366,11 +369,16 @@ Bad Habit reports `locked`, and its body stays unchanged.
 
   | verdict | rows |
   |---|---:|
-  | unchanged | 16,618 |
-  | parked (no rewrite) | 1,315 |
-  | kept | 4 |
+  | unchanged | 16,779 |
+  | parked (no rewrite) | 1,330 |
+  | kept | 5 |
   | **replaced** | **20** |
   | **superseded** (no_lyrics / best-of → exact-title) | **6** |
+  | total | 18,140 |
+
+  The total is the shadow population, 18,166, minus the 10 best-of rows already superseded for real
+  in shadow (re-versioned to `step4-v1`), minus the 16 hand-locked rows. Nothing is missing, so the
+  drain left no unstamped consistency-error rows behind.
 
   The 26 rewrites are exactly the 26 unlocked audited rows (18 corrections + 8 transcription-only).
   None was outside the audited 42, and none of the 16 hand-locked rows was stamped or rewritten.
@@ -484,7 +492,7 @@ They describe what the commits say they did. Effects are filled in only where a 
 | — | 2026-08-03 | worker #93 | Best-of backlog drained ahead of the unresolved queue | Scheduling only |
 | — | 2026-09-09 | worker #104 | Targeted source collection for album demand (V57) | New producer, same decision core |
 | `step4-v1` | 2026-10-16 | worker #112 | Content consensus ranks right after version agreement; ≥ 2 same-stance bodies that all disagree park as `review_required` / `content_disagreement`. `ver` is a rendition marker; language names count inside segments. Best-of never promotes a `content_disagreement`, ranks tier 1 by consensus, writes top-level `lrclib_id`. Evidence gains `content_cluster_size`, `plausible_count` | Bad Habit (RC1), Go Go `(Japanese Ver.)` (RC2). **Pre-ship replay** (see Step 1 result): 167 / 168 sampled prod tracks unchanged, 0 parked for content, 1 same-song transcription swap. Production effect on stored rows: none until the Step 2 sweep |
-| `step4-v1` (unchanged) | 2026-10-16 | worker #114, #115 | Step 2 re-sweep. Resolved rows from older versions are re-judged once per version (`evidence.resweep` stamp). The lateral rule lets the same basis be replaced by a strictly larger content cluster. A hand-fixed row (`manual_fix`) is locked against every producer. Shadow mode came first (#114), then the real pass (#115) | Shadow drain over 18,166 rows: 16,779 unchanged, 1,330 parked (no rewrite), 42 would-rewrite. Of those 42: 18 corrections, 8 transcription-only, 8 regressions, 8 unclear. The 16 regression / unclear rows were hand-locked. Real pass: 26 rewrites (20 replaced, 6 superseded), all inside the audited list, 0 locked rows touched |
+| `step4-v1` (unchanged) | 2026-10-16 | worker #114, #115 | Step 2 re-sweep. Resolved rows from older versions are re-judged once per version (`evidence.resweep` stamp). The lateral rule lets the same basis be replaced by a strictly larger content cluster. A hand-fixed row (`manual_fix`) is locked against every producer. Shadow mode came first (#114), then the real pass (#115) | Shadow drain over 18,166 rows: 16,779 unchanged, 1,330 parked (no rewrite), 42 would-rewrite (plus 10 best-of rows superseded for real, 5 kept, and Bad Habit locked). Of those 42: 18 corrections, 8 transcription-only, 8 regressions, 8 unclear. The 16 regression / unclear rows were hand-locked. Real pass: 26 rewrites (20 replaced, 6 superseded), all inside the audited list, 0 locked rows touched |
 
 ## Open questions
 
