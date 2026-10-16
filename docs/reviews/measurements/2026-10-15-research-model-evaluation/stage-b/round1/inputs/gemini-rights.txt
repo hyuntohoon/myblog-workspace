@@ -1,0 +1,70 @@
+## 앨범 (조사 대상)
+- 아티스트: Steve Lacy
+- 제목: Gemini Rights
+- 구분(album_type): album
+- 발매일: 2022-07-15
+- 레이블: L-M Records/RCA Records
+- 트랙 수: 10
+- Spotify ID: 3Ks0eeH0GWpY4AU20D5HPD
+
+## Genius 확인 사실 (파이프라인 제공 — 조사 대상 앨범)
+- 커버리지: 매칭 9/10트랙 (모호 1 · Genius 미등재 0 · 미조회 0)
+- 사실 확인 불가 트랙: 9 Sunshine (feat. Fousheé) [모호] — 이 트랙들에 대해서는 크레딧·관계의 유무를 어느 쪽으로도 주장하지 말 것
+- 출처: Genius API 공식 크레딧·관계 데이터, 수집 2026-10-15. 아래 항목은 트랙 단위로 `[확인: Genius]`로 인용 가능(⚠︎ 표시 트랙 제외 — 아래 매칭 근거 참조); 웹 출처와 상충하면 상충으로 기록할 것.
+### 매칭 근거 (트랙별 — Genius가 이 트랙이라고 본 곡)
+- 1 Static → Genius “Static” (신뢰도 1.00) https://genius.com/Steve-lacy-static-lyrics
+- 2 Helmet → Genius “Helmet” (신뢰도 1.00) https://genius.com/Steve-lacy-helmet-lyrics
+- 3 Mercury → Genius “Mercury” (신뢰도 1.00) https://genius.com/Steve-lacy-mercury-lyrics
+- 4 Buttons → Genius “Buttons” (신뢰도 1.00) https://genius.com/Steve-lacy-buttons-lyrics
+- 5 Bad Habit → Genius “Bad Habit” (신뢰도 1.00) https://genius.com/Steve-lacy-bad-habit-lyrics
+- 6 2Gether (Enterlude) → Genius “2Gether (Enterlude)” (신뢰도 1.00) https://genius.com/Steve-lacy-and-matt-martians-2gether-enterlude-lyrics
+- 7 Cody Freestyle → Genius “Cody Freestyle” (신뢰도 1.00) https://genius.com/Steve-lacy-cody-freestyle-lyrics
+- 8 Amber → Genius “Amber” (신뢰도 1.00) https://genius.com/Steve-lacy-amber-lyrics
+- 10 Give You the World → Genius “Give You the World” (신뢰도 1.00) https://genius.com/Steve-lacy-give-you-the-world-lyrics
+### 크레딧 (9개 매칭 트랙 집계 — 소수 트랙 크레딧은 출처 트랙 병기)
+- 프로듀서: Steve Lacy (8/9트랙) · John Carroll Kirby (6/9트랙) · Ely Rise (5/9트랙) · Dahi (3/9트랙 — 3 Mercury · 4 Buttons · 10 Give You the World) · Matt Martians (1/9트랙 — 6 2Gether (Enterlude))
+- 작곡·작사: Steve Lacy (9/9트랙) · John Carroll Kirby (6/9트랙) · Ely Rise (5/9트랙) · Dahi (3/9트랙 — 3 Mercury · 4 Buttons · 10 Give You the World) · Fousheé (3/9트랙 — 3 Mercury · 5 Bad Habit · 7 Cody Freestyle) · Diana Gordon (2/9트랙 — 2 Helmet · 5 Bad Habit) · Matt Martians (1/9트랙 — 6 2Gether (Enterlude)) · Matthew Castellanos (1/9트랙 — 5 Bad Habit) · Yuli (1/9트랙 — 10 Give You the World)
+- 세션·스태프(반복 크레딧 위주): Composer — Steve Lacy (9/9트랙) · Engineer — Karl Wingate (9/9트랙) · Lyricist — Steve Lacy (9/9트랙) · Mastering Engineer — Mike Bozzi (9/9트랙) · Mixing Engineer — Neal Pogue (9/9트랙) · Synthesizer — John Carroll Kirby (5/9트랙) · Background Vocals — Asia Lacy (3/9트랙 — 2 Helmet · 8 Amber · 10 Give You the World) · Background Vocals — Vage Webb (3/9트랙 — 2 Helmet · 8 Amber · 10 Give You the World) · Background Vocals — Valerie Lacy (3/9트랙 — 2 Helmet · 8 Amber · 10 Give You the World) · Background Vocals — Valyn Spottsville (3/9트랙 — 2 Helmet · 8 Amber · 10 Give You the World)
+### 샘플·인터폴레이션 / 파생 관계
+- ※ 이 목록은 Genius에 **등재된** 관계이고 **1홉**이다. 등재는 클리어된 관계 위주라 무크레딧 샘플은 구조상 담기지 않으며, 원곡이 다시 무엇에서 왔는지도 여기 없다. 부재는 'Genius에 등재되지 않음'이지 '샘플이 없음'이 아니다.
+- 1 Static: 이후 리믹스됨: Rx Papi — Aunty U Got Sum On Ya Arm (Steve Lacey Remix) / 이후 이 곡을 샘플: Gomi — 清浦klips; Lil Pete — Million Times; Kadgz — Billboard 10 (soundcloud version)
+- 3 Mercury: 샘플: Eddie Kendricks — Just Memories / 이후 이 곡을 샘플: Lil Yachty — running out of time
+- 4 Buttons: 이후 리믹스됨: ikimasu — nunca voy a dejarte de amar
+- 5 Bad Habit: 이후 커버됨: Wet Leg — Bad Habit; Bright Campa — Life Of The Party; KIDZ BOP Kids — Bad Habit; Sylvee — Ender Dragon 외 6건 / 이후 리믹스됨: Steve Lacy — Bad Habit (Sped Up); Shanye West — Bad Crew Mate; DJ Earworm — United State of Pop 2022 (I Want Music); Khary — Bad Habit Freestyle 외 6건 / 이후 이 곡을 샘플: Joseph James (DJ) — Everything: 2022 Megamix; Kanii — isolated; DopeVvs — Grrah Flow; Xanman — Wish I Knew 외 18건 / 이후 이 곡을 인터폴레이션: Tony Shhnow — BAD HABBIT FREESTYLE; Smino — Wyoming (Freestyle); Chris Donalding — If You Only Knew; Dope Life — Bad Habit (Stoner Remix) 외 5건
+- 6 2Gether (Enterlude): 샘플: C418 — Mellohi
+- 10 Give You the World: 이후 커버됨: Dyma — Give You the world (Cover)
+- 관계 없음(확인): 3/9트랙 — 매칭된 트랙에 등재된 샘플·인터폴레이션·파생 관계가 없음을 확인. (미매칭 트랙의 관계 유무는 확인 불가로 남음)
+
+## 카탈로그 (파이프라인 제공 — 우리 DB에서 파생)
+- ※ 이 블록은 **오너의 라이브러리**에서 나온 것이지 디스코그래피가 아니다. 전작이 여기 없다는 것은 **우리가 안 갖고 있다**는 뜻이지 존재하지 않는다는 뜻이 아니다. **이 블록의 부재를 근거로 삼지 말 것.**
+### 같은 아티스트의 다른 앨범 — 우리 카탈로그 보유분 (11장)
+- Oh yeah? (2026 · album · L-M Records/RCA Records · 버킷에 담김)
+- pure colour (feat. Erykah Badu) (2026 · single · L-M Records/RCA Records)
+- lovesexdrugbomb (feat. Cecile Believe) (2026 · single · L-M Records/RCA Records)
+- is it cool? (feat. SZA) (2026 · single · L-M Records/RCA Records)
+- the feeling (2026 · single · L-M Records/RCA Records)
+- Nice Shoes (2025 · single · L-M Records/RCA Records)
+- The Lo-Fis (2020 · album · L-M Records)
+- Apollo XXI (2019 · album · 3qtr)
+- Dark Red (2017 · single · Three Quarter)
+- Some (2016 · single · L-M Records)
+- C U Girl (2015 · single · L-M Records)
+### 카탈로그 내부 크레딧 교차 (이 앨범 ↔ 우리가 가진 다른 앨범)
+- Dahi: 다른 3장에도 참여 — Hollywood's Bleeding · Swimming · The Divine Feminine
+- Steve Lacy: 다른 2장에도 참여 — Oh yeah? · Swimming
+- Yuli: 다른 2장에도 참여 — SOS · The Forever Story (Extended Version)
+- Fousheé: 다른 1장에도 참여 — Oh yeah?
+- Matt Martians: 다른 1장에도 참여 — Oh yeah?
+- Matthew Castellanos: 다른 1장에도 참여 — Oh yeah?
+  ※ 교차는 **매칭된 Genius 크레딧을 가진 앨범들 사이에서만** 계산된다. 수집 안 된 앨범은 교차에 나타나지 않는다.
+### 같은 레이블의 다른 아티스트 — 보유분
+- Steve Lacy — Oh yeah? (2026)
+- Erykah Badu — pure colour (feat. Erykah Badu) (2026)
+- Steve Lacy — pure colour (feat. Erykah Badu) (2026)
+- Cecile Believe — lovesexdrugbomb (feat. Cecile Believe) (2026)
+- Steve Lacy — lovesexdrugbomb (feat. Cecile Believe) (2026)
+- SZA — is it cool? (feat. SZA) (2026)
+- Steve Lacy — is it cool? (feat. SZA) (2026)
+- Steve Lacy — the feeling (2026)
+- Steve Lacy — Nice Shoes (2025)
+### 오너 컬렉션 신호: [redacted: owner bucket names] — 이미 담아둔 것이므로, 오너가 아는 맥락은 다시 설명하지 말 것.

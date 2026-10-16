@@ -1,0 +1,14 @@
+{
+  "artifact_dir": "../runs",
+  "shared_db_src": "/private/tmp/claude-502/-Users-park-hyun-myblog-workspace/d3325964-1e58-48ce-b608-d08f7ff9fb77/scratchpad/shared-db-guard/src",
+  "timeout_s": 1500,
+  "models": [
+    {
+      "id": "astra-review-S02",
+      "provider": "gpt",
+      "model": "gpt-6-astra",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

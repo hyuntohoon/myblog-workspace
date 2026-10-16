@@ -1,0 +1,9 @@
+You are one of two reviewers (GPT-6 Astra and Claude) of the pilot research prompt (P0) for a music-critic pre-review research assistant. In the pilot, both reviewers independently proposed prompt amendments; the two sets were reconciled into seven converged amendments, listed in DOCUMENT 1 together with each reviewer's original amendment table (DOCUMENTS 2 and 3). DOCUMENT 4 is a unified diff from P0 to the candidate P1, which is meant to apply exactly those seven amendments and nothing else. Both reviewers explicitly rejected turning the pilot album's own facts (named outlets, services, specific statements) into prompt rules.
+
+Task — fidelity check before P1 is frozen for a bounded development round. Answer:
+(1) For each of the seven converged amendments: applied faithfully / applied with a material distortion / missing. Quote the diff line for any distortion or omission.
+(2) Does the diff introduce anything that is NOT one of the seven (scope creep), or name an album-specific outlet, service or fact?
+(3) Does any edit create a new material defect — a contradiction with an unchanged P0 rule, an instruction a producer cannot follow in a headless web-search run, or a rule likely to cause a known pilot defect (status inflation, quota-filling, spurious conflicts)?
+For every objection give exact replacement text in Korean. Do not propose amendments beyond the seven; note them in one line at the end as "out of scope" if you must. Do not browse the web; everything you need is below. Reply in English Markdown, under 400 words. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: CONVERGED AMENDMENTS (pilot-final-results.md) ===

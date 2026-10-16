@@ -1,0 +1,14 @@
+## Prompt amendments proposed for the next bounded round
+
+The two reviewers converge on **consolidating and defining rather than adding rules**:
+
+1. **Tie provenance labels to what was actually received in this run.** "Source-verified" requires retrieved body text plus a minimal original-language excerpt. Search snippets and summarised fetches are named as such. *Untried* is a separate status. (Astra A1/A2, Claude A-1/A-5/A-10.)
+2. **Label the speaker per sentence, not per source.** Numbers, dates and durations always carry their speaker. (Astra A1, Claude A-2.)
+3. **Re-read retrieved sources before declaring a gap,** with a second extraction by track and person. (Astra A3, Claude A-8.)
+4. **Preserve the original role string and edition.** By default, record one distributor's per-track rows when no booklet exists. "Conflict" requires the same object, role, time and scope. (Astra A4, Claude A-3/A-4/A-15.)
+5. **Define the coverage numerator** as a list of track IDs. (Astra A5, Claude A-9.)
+6. **Scope the length target to the core prose only,** and remove ritual repetition. (Astra A6, Claude A-12.)
+7. **Make the creator's title/concept explanation a general question,** and make the signed statement and engineer interviews path types rather than named outlets. (Claude A-6/A-7.)
+
+Both reviewers explicitly reject turning this album's facts (Apple statement, AnOther title answer, GRAMMY family-vocal answer, Mercury, C418, named services) into prompt rules. Those facts are regression checks only.
+

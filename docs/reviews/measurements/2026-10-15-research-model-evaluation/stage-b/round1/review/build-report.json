@@ -1,0 +1,23 @@
+{
+  "skipped": [],
+  "identity_hits": {},
+  "trace_identity_hits": {
+    "S04": [
+      "codex"
+    ]
+  },
+  "note_redactions": {
+    "S03": 1
+  },
+  "input_sha256": {
+    "S01": "8679288c0397b01afcb7b752520d9b13089d701feea37686d163186cee752b3e",
+    "S02": "0cd40b1b0aa8ca25bfc053dbe1a5af93bbff151e30c8fa1b2dbab7e08f1711e0",
+    "S03": "a123eaa0b34d113bd529091a24924118f69b737b8a7fa2ca1fb2f55ef8788957",
+    "S04": "452a65aab638457bb262122d0dd7f9b40ef9b6a0c666518347c75dc3704c2db1",
+    "S05": "2fae766ca51df5d41aa8ae4eb3a3b91121da46afc308b49b3976b35bd6614ae9",
+    "S06": "92f5bc70c76a95cac4678224b1344420b3c29c53e4a9513f10dd7225c7fc334d",
+    "S07": "2def08b7311af650c348017d559e756af5401eb03f415618bd22aaa08ffff705",
+    "S08": "4b473787ef978901633c55868bb43444c1c06bf04ddd49243ccd7da114a3a632"
+  },
+  "blinding_limit": "Trace structure differs by harness (Claude WebSearch/WebFetch vs Codex web_search), so a reviewer can infer the producer family from a trace. The prompt condition is not included, but P1-specific labels such as [요약 경유] can reveal it."
+}

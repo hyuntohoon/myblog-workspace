@@ -1,0 +1,14 @@
+{
+  "drawn_at": "2026-10-16T09:23:13.189683+00:00",
+  "method": "secrets.SystemRandom().shuffle",
+  "key": {
+    "S01": "gx-P0-2000-tape",
+    "S02": "cl-P0-2000-tape",
+    "S03": "cl-P1-gemini-rights",
+    "S04": "cl-P0-gemini-rights",
+    "S05": "gx-P1-gemini-rights",
+    "S06": "cl-P1-2000-tape",
+    "S07": "gx-P0-gemini-rights",
+    "S08": "gx-P1-2000-tape"
+  }
+}
