@@ -1594,3 +1594,40 @@ CREATE TABLE spotify_library_sync_runs (
 	FOREIGN KEY (bucket_id) REFERENCES review_buckets (id) ON DELETE CASCADE,
 	CONSTRAINT ck_spotify_library_sync_outcome CHECK (last_outcome IS NULL OR length(last_outcome) <= 200)
 );
+
+-- V63: FEAT-lyrics-match-correction Step 3a — owner candidate panel + pick-and-lock.
+-- Additive. track_lyrics_candidates is the LRCLIB candidate set one explicit single-track
+-- re-check judged (replaced wholesale per re-check; metadata + a short preview only, never
+-- a full body). track_lyrics_rejections holds candidates the owner rejected for a track;
+-- every producer drops them before deciding. The lock itself is evidence.match_basis =
+-- 'manual' on track_lyrics (no schema). Owner-only, track_lyrics' never-public bar.
+CREATE TABLE track_lyrics_candidates (
+	track_id UUID NOT NULL,
+	lrclib_id BIGINT NOT NULL,
+	title TEXT NOT NULL,
+	artist TEXT NOT NULL,
+	album TEXT,
+	duration_sec FLOAT,
+	has_synced BOOLEAN DEFAULT false NOT NULL,
+	has_plain BOOLEAN DEFAULT false NOT NULL,
+	instrumental BOOLEAN DEFAULT false NOT NULL,
+	preview TEXT,
+	cluster_size INTEGER,
+	verdict TEXT NOT NULL,
+	matcher_version TEXT NOT NULL,
+	fetched_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	PRIMARY KEY (track_id, lrclib_id),
+	FOREIGN KEY (track_id) REFERENCES tracks (id) ON DELETE CASCADE,
+	CONSTRAINT ck_track_lyrics_candidates_preview CHECK (preview IS NULL OR length(preview) <= 300),
+	CONSTRAINT ck_track_lyrics_candidates_verdict CHECK (length(verdict) BETWEEN 1 AND 64)
+);
+
+CREATE TABLE track_lyrics_rejections (
+	track_id UUID NOT NULL,
+	lrclib_id BIGINT NOT NULL,
+	rejected_by TEXT NOT NULL,
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	PRIMARY KEY (track_id, lrclib_id),
+	FOREIGN KEY (track_id) REFERENCES tracks (id) ON DELETE CASCADE,
+	CONSTRAINT ck_track_lyrics_rejections_actor CHECK (length(btrim(rejected_by)) BETWEEN 1 AND 128)
+);
