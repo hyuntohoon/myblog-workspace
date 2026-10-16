@@ -258,6 +258,18 @@ def _run_member_gate(host: dict[str, str], token: str) -> None:
     s, _ = request_json(host["backend_authed"] + "/api/publish", method="POST", body={}, token=token)
     check("POST /api/publish as member → 403 (owner-gate)", s == 403, f"status={s}")
 
+    # FEAT-automation-admin 3b/3c: the two automation mutations. A member must be
+    # stopped at require_owner, which answers before the body is read. The body is
+    # schema-valid but names NO real job, so if the gate ever leaked the server would
+    # answer 404 "Unknown" instead of pausing a job or starting a worker run, and the
+    # 403 check still fails loudly. A 401 would mean the token never reached the
+    # Lambda (infra/apigateway.tf JWT route).
+    probe = {"job_key": "smoke-probe-no-such-job", "request_id": "00000000-0000-4000-8000-000000000000"}
+    for path, body in (("/api/admin/automation/controls", {**probe, "action": "pause"}),
+                       ("/api/admin/automation/runs", probe)):
+        s, _ = request_json(host["backend_authed"] + path, method="POST", body=body, token=token)
+        check(f"POST {path} as member → 403 (owner-gate)", s == 403, f"status={s}")
+
     # SEC-member-listening-data-boundary Step 1. These nine reads were
     # edge_guard-only and returned the OWNER's listening history to any signed-in
     # member — verified live before the fix: nine for nine, 200, with the owner's
