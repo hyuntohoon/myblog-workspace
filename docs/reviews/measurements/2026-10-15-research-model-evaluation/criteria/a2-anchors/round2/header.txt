@@ -1,0 +1,10 @@
+You are one of two contributors (GPT-6 Astra and Claude) who independently wrote behaviourally anchored pass / borderline / fail examples for acceptance-v1 (Stage A-2). Both sets are now frozen and shown below, followed by the orchestrator's reconciliation, "anchors-v1-rc". The rc keeps both exemplar files verbatim and adds a reconciled boundary table (§2), reconciliation decisions R1–R5 (§3) and proposed scoring-manual rules M1–M5 (§4). The contract itself (acceptance-v1) is frozen and is not reopened.
+
+Round 2 task — check only. Answer:
+1. Does §2 or §3 misrepresent your anchors, or move one of them to a level you would reject? Cite the anchor ID (for example A-D6-FAIL or C-D1-PASS).
+2. Does any §2 boundary create a material defect: a misleading pass, an arbitrary fail, or a dimension FAIL that is really a gate (or a gate that is really a dimension FAIL)?
+3. For each of M1 and M2: ACCEPT, or AMEND with exact replacement text. Do not propose new criteria.
+
+Reply in English Markdown, under 400 words. For any objection, give exact replacement text. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ANCHORS (A) ===

@@ -29,6 +29,12 @@ GPT generation complete: 7/7 successful, one dispatch each. Claude: first call r
 
 All 7 successful notes have opaque labels and completed independent per-sample `gpt-6-astra` audits (two isolated instances under the same frozen rubric); final comparative calibration is complete; all original scores retained. `claude-opus-5-5` review is blocked by account quota. `reviews/review-packet.txt` is frozen for the final common input; anonymous native web traces are separate hashed support. No Claude verdict or overall winner is claimed.
 
+## Criteria (Stage A and A-2)
+
+- `criteria/acceptance-v1.md`: the joint Astra + Claude acceptance contract, frozen 2026-10-16 after four rounds.
+- `criteria/a2-anchors/anchors-v1-rc.md`: anchors-v1, the behavioural anchors per dimension. Frozen 2026-10-16 after four rounds; both contributors' exemplar files are under `a2-anchors/runs/`, and each round's inputs, diff and replies are under `a2-anchors/round2/`–`round4/`.
+- `criteria/round-manifest-v1.md`: albums, blocks, categories, environments, control and allocation draw, frozen at A-2. The §6 scoring manual and §7 binding floors are still open and freeze later, as the contract requires.
+
 ## Interpretation
 
 Single album, single generation: exploratory selection only. Quality and operational cost are separate. No stable superiority, production-readiness or human usefulness is inferred from the weighted score alone.

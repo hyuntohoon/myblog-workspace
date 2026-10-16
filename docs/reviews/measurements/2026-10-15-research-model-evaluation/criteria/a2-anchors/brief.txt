@@ -1,0 +1,30 @@
+You are one of two independent contributors (GPT-6 Astra and Claude) to Stage A-2 of a music-research prompt evaluation. In Stage A you jointly froze an acceptance contract, "acceptance-v1", reproduced verbatim as DOCUMENT 1 below. Its §4 "Floor policy" item 1 says: "Every dimension gets behaviourally anchored pass / borderline / fail examples. Both contributors write them independently in Stage A-2; they are then reconciled." This is that task. You have not seen the other contributor's anchors and will not see them before yours are frozen.
+
+Context you need:
+- The producer is an LLM given a research prompt and one album. It returns a research note: evidence for a music critic who will later write their own review. The note must not write the critic's argument or verdict, and must not claim to have listened.
+- The owner (a single critic) will use your anchors in §6 calibration and in confirmation audits. A model annotator will also use them. They must therefore be applicable by someone holding only the note, its trace and the sources, without your reasoning.
+- DOCUMENT 2 is the diagnostic pilot summary (17 notes on one album, *Gemini Rights* by Steve Lacy). Its "Recurring defects" are real observed behaviour. You may draw anchors from them. That album is development material, so using it is allowed. Do not use any other real album as an anchor, because confirmation and calibration albums are not chosen yet and must stay untouched. You may invent fictional albums, artists and sources. Mark invented material as fictional.
+
+Task. For each dimension D1–D11 in acceptance-v1 §4, write three anchors: PASS, BORDERLINE and FAIL. Each anchor has:
+1. **Observable behaviour**: a short concrete excerpt or description of what the note (or, for D10, the trace; for D11, the owner's task record) contains. Prefer a quoted note fragment, 1–4 lines.
+2. **Verdict reason**: tied to that dimension's metric wording in §4, and to the §2 units and statuses where relevant.
+3. **Boundary move**: the smallest change that would move this example to the adjacent level.
+
+Also write, per dimension:
+- **Not this dimension**: one behaviour that looks relevant but belongs to another dimension or to an integrity gate (§3). Name where it belongs.
+- **Annotator note** (optional, at most 2 lines): an ambiguity an annotator is likely to hit, and how your anchors resolve it.
+
+Rules:
+- Do not change, reinterpret or extend acceptance-v1. Anchors illustrate it; they are not new criteria. If a dimension cannot be anchored without changing the contract, write that under "Contract friction" at the end. Do not work around it.
+- Integrity gates (§3) are noncompensable and binary. A dimension FAIL anchor must not be a gate failure in disguise. Where a FAIL sits next to a gate (for example D3 next to G5, D7 next to G6, D6 next to G7), say why the example is the dimension failure and not the gate. Also say what would make it the gate.
+- No numeric floors. §6 calibrates floors with the owner, and your anchors must not pre-empt that. Counts may appear only inside an illustrative example ("2 of 3 central role claims ...") and never as a threshold.
+- Descriptive dimensions (D8–D11) are reported, not bound, unless §6 later binds them. Their anchors still use pass / borderline / fail, read as "good / mixed / poor practice".
+- BORDERLINE means a reasonable owner could decide either "use after fixes" or "use" (or either "use after fixes" or "reject"). Say which pair it straddles.
+- Anchors must be album-independent behaviour. Do not turn any fact about the pilot album into a rule. DOCUMENT 2's amendment section explicitly rejects that.
+- Do not use tools or the web. This is a writing task from the documents given.
+
+Output: English Markdown, at most 4,500 words. Structure:
+- `# A2 anchors — <your name>`;
+- then one `## D<n> <name>` section per dimension, containing the three anchors as `### PASS`, `### BORDERLINE`, `### FAIL`, then "Not this dimension" and the optional "Annotator note";
+- then `## Contract friction` (write "None." if there is none);
+- then `## Self-check`: list any anchor you are least confident in, and why.

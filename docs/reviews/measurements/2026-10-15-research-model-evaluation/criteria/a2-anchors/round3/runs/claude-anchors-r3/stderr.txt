@@ -1,0 +1,1 @@
+SessionEnd hook [/Users/park_hyun/.config/iterm2/cc-status] failed: Hook cancelled

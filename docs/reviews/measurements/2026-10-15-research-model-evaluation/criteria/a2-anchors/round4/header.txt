@@ -1,0 +1,8 @@
+You are one of two contributors (GPT-6 Astra and Claude) to the Stage A-2 anchor set for acceptance-v1. In round 3 (a diff check of rc -> rc2), Astra answered CONFIRM FREEZE and Claude answered MATERIAL OBJECTION with exact replacement text for three cells: §2 D2 FAIL, §2 D11 PASS, and §3 R5. Below are both round-3 responses, then a unified diff from rc2 to rc3, which applies Claude's replacement text verbatim. Nothing else changed apart from the status line.
+
+Round 4 task — diff check only. Answer:
+(1) If you are Claude: was your replacement text applied faithfully and in the right place? If you are Astra: do Claude's three replacements conflict with your accepted text (in particular your D11 route (A) and your R5 deferral text, both of which they narrow) or create a new material defect (a misleading pass, an arbitrary fail, or a gate/dimension inversion)?
+(2) Either contributor: does rc3 introduce any other new material defect?
+Do not reopen settled items. Reply in English Markdown, under 300 words. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ROUND-3 RESPONSE ===
