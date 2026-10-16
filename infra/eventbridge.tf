@@ -206,12 +206,19 @@ locals {
     # UNRESOLVED corpus pool (not_found / ambiguous / review_required, stalest
     # first) against current LRCLIB coverage: promotes a track to
     # matched/no_lyrics when evidence now supports it, refreshes a
-    # still-unresolved row (bumps updated_at so the queue rotates), and NEVER
-    # overwrites a good match (replacement guard — only strictly-stronger
-    # evidence replaces). Bounded per run (settings.LYRICS_REASSESS_BATCH_LIMIT
-    # + wall-clock budget). Daily cadence: coverage changes slowly; daily ×
-    # batch-limit cycles the ~12.5k unresolved pool in ~2-3 months. The manual
-    # blogSQS {"job":"lyrics_reassessment"} message still works either way.
+    # still-unresolved row (bumps updated_at so the queue rotates).
+    # Since FEAT-lyrics-match-correction Step 2 (worker #115, shadow off) the same
+    # run ALSO re-sweeps resolved rows another matcher version wrote
+    # (settings.LYRICS_RESWEEP_BATCH_LIMIT, default 100) and WRITES: a good match
+    # can be replaced laterally when a strictly larger content cluster disagrees
+    # with it. Idle until the next matcher version bump re-opens the sweep. Rows
+    # the owner locked (evidence.manual_fix / basis 'manual', Step 3a panel) are
+    # never rewritten — the worker's writer refuses them. The "promote-only"
+    # description below predates Step 2; it is left as is to keep this a
+    # comment-only change. Bounded per run (LYRICS_REASSESS_BATCH_LIMIT +
+    # wall-clock budget). The manual blogSQS {"job":"lyrics_reassessment"}
+    # message still works either way; with "track_id" it re-checks one track
+    # and stores the panel's candidate set.
     lyrics_reassessment = {
       name         = "worker-lyrics-reassessment"
       description  = "Periodic LRCLIB re-check of unresolved lyrics rows (promote-only, guarded)"

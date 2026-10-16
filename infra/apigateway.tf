@@ -670,6 +670,38 @@ resource "aws_apigatewayv2_route" "lyrics_translation_request_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Lyrics candidate panel (FEAT-lyrics-match-correction Step 3a) ---
+# The owner's panel: GET the stored LRCLIB candidate set, POST a re-check, POST a decision
+# (pick / no_lyrics / reject / unlock). Owner-gated in-Lambda by require_owner; the
+# authorizer alone only proves "a valid pool token", which self-signup members also hold.
+# The GET carries lyric previews, so like lyrics_get it is its OWN Cognito-JWT route and
+# does not ride the GET /api/{proxy+} edge_guard catch-all. The POSTs need a route anyway:
+# there is no mutation catch-all, so without one they 404 at the edge.
+# No LRCLIB call in any of them: refresh and pick enqueue worker jobs on blogSQS.
+resource "aws_apigatewayv2_route" "admin_lyrics_candidates_get" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "GET /api/admin/lyrics/{spotify_track_id}/candidates"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "admin_lyrics_candidates_refresh_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/admin/lyrics/{spotify_track_id}/candidates/refresh"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "admin_lyrics_decision_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/admin/lyrics/{spotify_track_id}/decision"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- YouTube mapping writes (FEAT-youtube-playback-provider Step A3) ---
 # PUT/DELETE /api/playback/track/{track_id}/youtube-mapping confirm or clear the
 # member-picked YouTube video for one catalog track.
