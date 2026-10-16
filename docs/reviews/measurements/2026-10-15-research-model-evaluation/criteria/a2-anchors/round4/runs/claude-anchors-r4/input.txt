@@ -1,0 +1,86 @@
+You are one of two contributors (GPT-6 Astra and Claude) to the Stage A-2 anchor set for acceptance-v1. In round 3 (a diff check of rc -> rc2), Astra answered CONFIRM FREEZE and Claude answered MATERIAL OBJECTION with exact replacement text for three cells: §2 D2 FAIL, §2 D11 PASS, and §3 R5. Below are both round-3 responses, then a unified diff from rc2 to rc3, which applies Claude's replacement text verbatim. Nothing else changed apart from the status line.
+
+Round 4 task — diff check only. Answer:
+(1) If you are Claude: was your replacement text applied faithfully and in the right place? If you are Astra: do Claude's three replacements conflict with your accepted text (in particular your D11 route (A) and your R5 deferral text, both of which they narrow) or create a new material defect (a misleading pass, an arbitrary fail, or a gate/dimension inversion)?
+(2) Either contributor: does rc3 introduce any other new material defect?
+Do not reopen settled items. Reply in English Markdown, under 300 words. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ROUND-3 RESPONSE ===
+
+
+CONFIRM FREEZE
+
+1. **My replacements were applied faithfully and in the right places.** The diff incorporates Astra’s amendments to D2 PASS, D4 FAIL, D6’s G4 boundary, D9 PASS, D11 PASS, R2, R4 and R5. R2 also removes the superseded assertion that baseline comparisons are merely context, keeping it consistent with the replacement.
+
+2. **The other contributor’s changes and the merges introduce no new material defect.**
+   - **D2/R4:** The merged text preserves the stricter treatment of incidental date errors, incorporates the denominator-based precision distinction, and leaves the BORDERLINE/FAIL cut to calibration. The reconciled exemplar placements remain explicit.
+   - **M1:** The merge preserves the distinction between producer access and evaluator verification. Direct inspection of a preserved capture supports primary access only for inspected material; later verification cannot retroactively upgrade relayed access.
+   - **D1, D4 and M2:** The additions cover the peripheral wrong-edition case, meaning-changing excerpts and unresolved central claims consistently with my amendments. M2’s deferral fallback aligns with R5.
+
+No misleading pass, arbitrary fail or gate/dimension inversion is introduced by this diff.
+
+
+=== DOCUMENT 2: CLAUDE ROUND-3 RESPONSE ===
+
+
+MATERIAL OBJECTION
+
+## (1) My text: applied faithfully, in the right places
+
+- D1 FAIL, D2 BORDERLINE/FAIL, the R4 decision cell, the D4 meaning-change clause and the M2 append are all verbatim and in the right cells.
+- **M1 merge:** this is sound. Astra's "preserved capture it inspected directly, only for the material inspected" narrows primary access. It doesn't widen it, and my D5/D2–D4 separation is kept. No conflict.
+
+## (2) New defects
+
+**a. D2 gap. My own round-2 text causes this, and the merge exposes it.** FAIL now requires *low precision*, and BORDERLINE covers only *non-central* errors. A single hedged central incorrect claim among otherwise accurate claims fits no cell. Yet R4 keeps C-D2-FAIL at FAIL, and my "not by where the errors sit" sentence argues against that. Replacement D2 FAIL:
+> Low precision on the assessable-claim denominator from many non-central errors (A), or any central incorrect claim not presented as established, whatever the precision (C). For non-central errors, the BORDERLINE/FAIL precision cut is set in §6 calibration.
+
+**b. D11 PASS. Astra's text creates an inversion and an overlap.** Under route (A), a deliverable passes on "lower burden than baseline" alone. Its work could still be dominated by reconstruction, which also meets FAIL. That brings the §8 comparison into a descriptive dimension, against R2's "C's framing". Replacement D11 PASS:
+> Active work is mainly reading and light verification, with small correction and completion work. Observed lower burden against the paired baseline (A) is §8 context, not the level criterion.
+
+**c. R5. Astra's text makes the anchor's status ambiguous.** The cell no longer says "Stands", so an annotator could defer C-D4-FAIL instead of failing it. But non-recovery is itself the D4 fact being measured; it is not something left unassessable. Prefix R5:
+> **Stands.** Non-recovery is a D4 traceability fact and is scored FAIL. Deferral below applies to the D2 support or gate adjudication only.
+
+The D4, D6 and D9 changes and Astra's R4 addition introduce no defects.
+
+
+=== DOCUMENT 3: DIFF rc2 -> rc3 ===
+
+
+--- anchors-v1-rc.md (rc2)
++++ anchors-v1-rc.md (rc3)
+@@ -1,6 +1,6 @@
+ # Anchors v1 — release candidate (Stage A-2, acceptance-v1 §4.1)
+ 
+-- Status: **release candidate 2**. Round 2 (`round2/`): both contributors MATERIAL OBJECTION with replacement text, applied (diff `round3/rc-to-rc2.diff`). It is frozen only after both answer CONFIRM FREEZE in round 3 (`round3/`).
++- Status: **release candidate 3**. Round 2 (`round2/`): both contributors MATERIAL OBJECTION with replacement text, applied (diff `round3/rc-to-rc2.diff`). Round 3 (`round3/`): Astra CONFIRM FREEZE; Claude MATERIAL OBJECTION on D2 FAIL, D11 PASS and R5 with replacement text, applied (diff `round4/rc2-to-rc3.diff`). It is frozen only after both answer CONFIRM FREEZE in round 4 (`round4/`).
+ - Date: 2026-10-16. Contract: `../acceptance-v1.md` (sha256 `605b72a0…`). Nothing here changes it.
+ - Inputs: two anchor sets written independently in fresh contexts from the same brief (`brief.txt`; combined prompt sha256 `6c6f8528…`). Neither contributor saw the other's set.
+   - `runs/astra-anchors/output.md`: GPT-6 Astra, Codex CLI 0.162.0-alpha.17.2, 198 s.
+@@ -20,7 +20,7 @@
+ | Dim | PASS | BORDERLINE | FAIL | Adjacent gate (what turns the FAIL into the gate) |
+ |---|---|---|---|---|
+ | D1 Target lock | Every central claim is attributable to the target object. Any other edition's material is marked at claim level, and the edition wording is unambiguous. | The target is correct, but either the disclosure is at note level only (C), or claims are attached to the target while its labels remain unclear (A). | A disclosed wrong target (A, C), or undisclosed other-edition material in non-central claims only (C). | G1: the wrong object is used in central claims and not disclosed. |
+-| D2 Accuracy | The inspected assessable factual claims are supported, without the incidental date error illustrated in A-D2-BORDERLINE. | A few non-central errors: precision on the assessable-claim denominator is reduced but not low (A: one incidental date; C: two peripheral inversions). | Low precision on the assessable-claim denominator, whether from many non-central errors (A) or including a central incorrect claim not presented as established (C). The BORDERLINE/FAIL precision cut is set in §6 calibration, not by where the errors sit. | G4: a central incorrect claim presented as established. |
++| D2 Accuracy | The inspected assessable factual claims are supported, without the incidental date error illustrated in A-D2-BORDERLINE. | A few non-central errors: precision on the assessable-claim denominator is reduced but not low (A: one incidental date; C: two peripheral inversions). | Low precision on the assessable-claim denominator from many non-central errors (A), or any central incorrect claim not presented as established, whatever the precision (C). For non-central errors, the BORDERLINE/FAIL precision cut is set in §6 calibration. *(Round 3: C's replacement text.)* | G4: a central incorrect claim presented as established. |
+ | D3 Attribution | Speaker class is correct per sentence, and relays of one source are counted as one. | No upgrade, but a speaker class cannot be recovered from the note (C), or source independence is left unclear (A). | A peripheral narration→speech upgrade, or a claim of independent corroboration from relays (A, C). | G5: the upgrade carries a central claim. |
+ | D4 Traceability | A non-producer reader recovers each central passage quickly, and the excerpt is faithful. | Recovery succeeds only after scanning a long source, or fidelity is imperfect but meaning is kept. | Central passage recovery requires extensive searching across an unmapped bibliography despite eventual recovery (A), or a quoted passage is not recovered (C), or an excerpt changes the passage's meaning (C). | G2: only if invention is *established*. Non-recovery alone is unsupported, incorrect or unassessable. |
+ | D5 Provenance communication | Wording makes primary / relayed / unconfirmed or conflicting clear per claim. | An access route is overstated without consequence (C: snippet read as primary), or a status is unexplained (A). | A consequential overstatement or understatement, or an uncertainty silently resolved (A, C). | G9 if a central *unsupported* claim is shown as verified; G3b if the note falsely says it read a source. |
+@@ -29,7 +29,7 @@
+ | D8 Musical context *(descriptive)* | Album-specific, supported, with the correct relationship type, a concrete reason, and the conclusion left to the critic. | Support is sound but the comparison lacks a reason (A), or the relationship type is overstated or the wording leans toward a conclusion (C). | The critic's conclusion is presupposed, or the context is unsupported (A, C). | G3a: a sonic description given as the note's own observation. |
+ | D9 Selection *(descriptive)* | Each substantive unit serves research, verification or navigation; repetition is assessed by its function, including in appendices. | Useful content is intact, but there is skippable redundancy or an irrelevant paragraph. | Redundant or irrelevant units are a large share of the whole deliverable. | — |
+ | D10 Collection and stopping *(descriptive, trace)* | Yield rises, failures are switched away from, and late checks resolve conflicts. | Some identical retries or a flat tail, but collection progresses. | Repeated identical failures and no stopping point once yield is flat. | G8: following instructions found in retrieved content. |
+-| D11 Owner burden *(descriptive, task record)* | The complete task record demonstrates lower total active burden against the paired baseline (A), or mainly reading and light verification with small correction and completion work (C). | Work saved in searching is spent on locating and repair (A), or some sections need re-derivation (C). | Active work is dominated by reconstruction, independent research and correction. | — (a factual misdirection is §8.3) |
++| D11 Owner burden *(descriptive, task record)* | Active work is mainly reading and light verification, with small correction and completion work. Observed lower burden against the paired baseline (A) is §8 context, not the level criterion. *(Round 3: C's replacement text.)* | Work saved in searching is spent on locating and repair (A), or some sections need re-derivation (C). | Active work is dominated by reconstruction, independent research and correction. | — (a factual misdirection is §8.3) |
+ 
+ ## 3. Reconciliation decisions
+ 
+@@ -39,7 +39,7 @@
+ | R2 | D11 and the paired baseline | Levels are phrased against the baseline (`A-D11-PASS`, `-FAIL`) | Levels describe the composition of the work; the comparison is §8 (`C-D11` note) | **C's framing.** The contract makes D11 descriptive here and used by §8. A's exemplars describe observed comparative burden; C's describe work composition. Both remain illustrations, but composition alone does not establish A's levels, and neither establishes the §8 benefit verdict. |
+ | R3 | D6 FAIL scope | Only unverified credit guesses with accessible rows (`A-D6-FAIL`) | Single encyclopedia, role narrowing, deluxe track counted (`C-D6-FAIL`) | **Both stand** as two FAIL routes. A's is the narrower one, and A flags it as one to test in calibration. |
+ | R4 | D2 FAIL | Peripheral errors only | Includes a hedged central incorrect claim | **Both stand** as FAIL under the amended §2 D2 row; C's is adjacent to G4. C-D2-PASS's incidental date error receives BORDERLINE under the stricter reconciled placement; this is illustrative, not a calibrated floor. *(Round 2: replacement text from C, with A's addition.)* |
+-| R5 | D4 FAIL with an unrecoverable quote (`C-D4-FAIL`) | — | Traceability fail; not G2 | Non-recovery alone does not establish invention. Audit support separately under D2. Where evidence prevents adjudication of a central/high-risk claim or gate allegation, apply the contract's deferral rules; do not substitute a dimension FAIL. *(Round 2: A's replacement text.)* |
++| R5 | D4 FAIL with an unrecoverable quote (`C-D4-FAIL`) | — | Traceability fail; not G2 | **Stands.** Non-recovery is a D4 traceability fact and is scored FAIL. Deferral below applies to the D2 support or gate adjudication only. Non-recovery alone does not establish invention. Audit support separately under D2. Where evidence prevents adjudication of a central/high-risk claim or gate allegation, apply the contract's deferral rules; do not substitute a dimension FAIL. *(Round 2: A's replacement text.)* |
+ 
+ ## 4. Open items for the scoring manual (§6.1)
+ 

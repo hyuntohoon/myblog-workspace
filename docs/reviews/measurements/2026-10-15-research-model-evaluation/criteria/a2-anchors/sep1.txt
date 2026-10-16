@@ -1,0 +1,1 @@
+=== DOCUMENT 1: acceptance-v1 (frozen, sha256 605b72a0…) ===

@@ -1,0 +1,2 @@
+
+=== DOCUMENT 3: DIFF rc2 -> rc3 ===

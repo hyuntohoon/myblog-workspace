@@ -1,0 +1,129 @@
+You are one of two contributors (GPT-6 Astra and Claude) to the Stage A-2 anchor set for acceptance-v1. In round 2 each of you raised material objections to anchors-v1-rc with exact replacement text. Below are both round-2 responses, then a unified diff from the rc to rc2, which applies both sets of replacement text. Where both of you amended the same item (§2 D2 and M1), the two texts were merged; check that merge with particular care.
+
+Round 3 task — diff check only. Answer:
+(1) Was your replacement text applied faithfully and in the right place?
+(2) Does the other contributor's applied text, or the merge, conflict with yours or create a new material defect (a misleading pass, an arbitrary fail, or a gate/dimension inversion)?
+Do not reopen settled items. Reply in English Markdown, under 300 words. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ROUND-2 RESPONSE ===
+
+
+MATERIAL OBJECTION
+
+1. **Misrepresentation or rejected placement**
+
+- **A-D4-FAIL:** Recovery eventually succeeds; §2 incorrectly describes impossibility. Replace D4 FAIL with: “Central passage recovery requires extensive searching across an unmapped bibliography despite eventual recovery (A), or a quoted passage is not recovered (C).”
+- **A-D11-PASS / FAIL; R2:** A’s PASS does not establish that correction and completion work are small. Composition alone cannot preserve its level. Replace R2’s final sentence with: “A’s exemplars describe observed comparative burden; C’s describe work composition. Both remain illustrations, but composition alone does not establish A’s levels, and neither establishes the §8 benefit verdict.” Replace D11 PASS with: “The complete task record demonstrates lower total active burden against the paired baseline (A), or mainly reading and light verification with small correction and completion work (C).”
+- **A-D2-BORDERLINE:** §2 simultaneously permits incidental imprecision at PASS and BORDERLINE without recording the promised stricter reconciliation. Replace D2 PASS with: “The inspected assessable factual claims are supported, without the incidental date error illustrated in A-D2-BORDERLINE.” Add to R4: “C-D2-PASS’s incidental date error receives BORDERLINE under the stricter reconciled placement; this is illustrative, not a calibrated floor.”
+
+2. **Material boundary defects**
+
+- **A-D9-PASS / annotator note:** §2’s categorical appendix prohibition could penalize useful verification repetition. Replace D9 PASS with: “Each substantive unit serves research, verification or navigation; repetition is assessed by its function, including in appendices.”
+- **R5:** Unassessability cannot become an ordinary dimension failure when central evidence requires deferral. Replace R5 with: “Non-recovery alone does not establish invention. Audit support separately under D2. Where evidence prevents adjudication of a central/high-risk claim or gate allegation, apply the contract’s deferral rules; do not substitute a dimension FAIL.”
+- **D6 adjacent G4:** The boundary omits centrality. Replace its G4 sentence with: “G4: a central role claim adjudicated incorrect is presented as established.”
+
+3. **Scoring-manual proposals**
+
+- **M1 — AMEND:** “Search snippets and model-processed fetch summaries are relayed access. Direct inspection of the underlying source or its preserved capture supports ‘read in primary’ only for the material inspected. Later evaluator verification establishes support or fidelity; it does not retroactively change the producer’s access route.”
+- **M2 — ACCEPT.**
+
+
+=== DOCUMENT 2: CLAUDE ROUND-2 RESPONSE ===
+
+
+MATERIAL OBJECTION
+
+## 1. Misrepresentation of my anchors
+
+**C-D1-BORDERLINE (boundary move to FAIL) is dropped from §2.** My anchor puts undisclosed, peripheral-only wrong-edition material at D1 FAIL. That is the non-gate FAIL route described in my friction note 1. §2 D1 FAIL covers only a disclosed wrong target, so this case fits no §2 cell. An annotator could place it at BORDERLINE because "the target is correct".
+
+Replacement text for §2 D1 FAIL:
+> A disclosed wrong target (A, C), or undisclosed other-edition material in non-central claims only (C).
+
+None of my other anchors is misplaced. R1, R2 and R5 represent C correctly.
+
+## 2. Material boundary defect
+
+**D2: §2 contradicts R4.** A-D2-FAIL has only peripheral errors, so it meets the §2 BORDERLINE text ("Errors are confined to non-central claims"). Because §2 overrides the exemplars, §2 silently moves A-D2-FAIL to BORDERLINE, while R4 says it is FAIL. C-D2-BORDERLINE (two peripheral errors) and A-D2-FAIL ("several") are then separated only by an undefined count. That makes the boundary arbitrary.
+
+Replacement text for §2 D2:
+> **BORDERLINE:** A few non-central errors; precision on the assessable-claim denominator is reduced but not low (A: one incidental date; C: two peripheral inversions).
+> **FAIL:** Low precision on the assessable-claim denominator, whether from many non-central errors (A) or including a central incorrect claim not presented as established (C). The BORDERLINE/FAIL precision cut is set in §6 calibration, not by where the errors sit.
+
+Replacement for the R4 decision cell:
+> **Both stand** as FAIL under the amended §2 D2 row; C's is adjacent to G4.
+
+Lesser gap, which I am not counting as a material objection: §2 D4 FAIL does not cover my boundary move to a *meaning-changing* excerpt. Suggested addition to D4 FAIL: "…, or an excerpt changes the passage's meaning (C)."
+
+I found no gate/dimension inversions in §2.
+
+## 3. M1 and M2
+
+**M1: AMEND.** The proposed rule ties the producer's access route to whether the evaluator checked the excerpt against the harness capture. That mixes D5 (how the producer got the evidence) with D2 and D4 (whether the evidence is true and where it is). Replacement:
+> A search snippet or model-processed fetch summary is **relayed** for D5, whatever the harness capture later shows. Presenting such a claim as read in primary is an overstatement. Agreement with the harness capture is scored under D2/D4 and does not change the D5 level. Only text the producer received unprocessed from the page counts as read in primary.
+
+**M2: AMEND.** The rule says nothing about the case where the owner cannot decide. Without a fallback, those claims would default to *imprecise*, which is a misleading pass. Replacement: keep the proposed text and append:
+> If the owner cannot decide from the evidence, the claim is an unresolved central claim and is deferred under the contract's unassessable rules; it is not defaulted to *imprecise*.
+
+
+=== DOCUMENT 3: DIFF rc -> rc2 ===
+
+
+--- round2/anchors-v1-rc.md	2026-10-16 14:48:29
++++ anchors-v1-rc.md	2026-10-16 14:49:29
+@@ -1,6 +1,6 @@
+ # Anchors v1 — release candidate (Stage A-2, acceptance-v1 §4.1)
+ 
+-- Status: **release candidate**. It is frozen only after both contributors' diff check (`round2/`).
++- Status: **release candidate 2**. Round 2 (`round2/`): both contributors MATERIAL OBJECTION with replacement text, applied (diff `round3/rc-to-rc2.diff`). It is frozen only after both answer CONFIRM FREEZE in round 3 (`round3/`).
+ - Date: 2026-10-16. Contract: `../acceptance-v1.md` (sha256 `605b72a0…`). Nothing here changes it.
+ - Inputs: two anchor sets written independently in fresh contexts from the same brief (`brief.txt`; combined prompt sha256 `6c6f8528…`). Neither contributor saw the other's set.
+   - `runs/astra-anchors/output.md`: GPT-6 Astra, Codex CLI 0.162.0-alpha.17.2, 198 s.
+@@ -19,27 +19,27 @@
+ 
+ | Dim | PASS | BORDERLINE | FAIL | Adjacent gate (what turns the FAIL into the gate) |
+ |---|---|---|---|---|
+-| D1 Target lock | Every central claim is attributable to the target object. Any other edition's material is marked at claim level, and the edition wording is unambiguous. | The target is correct, but either the disclosure is at note level only (C), or claims are attached to the target while its labels remain unclear (A). | A disclosed wrong target (A, C). | G1: the wrong object is used in central claims and not disclosed. |
+-| D2 Accuracy | The audit supports the central claims. At most incidental imprecision remains, reported in the imprecise share. | Errors are confined to non-central claims: an incidental imprecise date (A), or peripheral temporal or scope inversions (C). | Several peripheral errors (A), or a central incorrect claim that is hedged rather than presented as established (C). | G4: a central incorrect claim presented as established. |
++| D1 Target lock | Every central claim is attributable to the target object. Any other edition's material is marked at claim level, and the edition wording is unambiguous. | The target is correct, but either the disclosure is at note level only (C), or claims are attached to the target while its labels remain unclear (A). | A disclosed wrong target (A, C), or undisclosed other-edition material in non-central claims only (C). | G1: the wrong object is used in central claims and not disclosed. |
++| D2 Accuracy | The inspected assessable factual claims are supported, without the incidental date error illustrated in A-D2-BORDERLINE. | A few non-central errors: precision on the assessable-claim denominator is reduced but not low (A: one incidental date; C: two peripheral inversions). | Low precision on the assessable-claim denominator, whether from many non-central errors (A) or including a central incorrect claim not presented as established (C). The BORDERLINE/FAIL precision cut is set in §6 calibration, not by where the errors sit. | G4: a central incorrect claim presented as established. |
+ | D3 Attribution | Speaker class is correct per sentence, and relays of one source are counted as one. | No upgrade, but a speaker class cannot be recovered from the note (C), or source independence is left unclear (A). | A peripheral narration→speech upgrade, or a claim of independent corroboration from relays (A, C). | G5: the upgrade carries a central claim. |
+-| D4 Traceability | A non-producer reader recovers each central passage quickly, and the excerpt is faithful. | Recovery succeeds only after scanning a long source, or fidelity is imperfect but meaning is kept. | Central claims cannot be mapped to a passage (A: bibliography only), or a quoted passage cannot be recovered (C). | G2: only if invention is *established*. Non-recovery alone is unsupported, incorrect or unassessable. |
++| D4 Traceability | A non-producer reader recovers each central passage quickly, and the excerpt is faithful. | Recovery succeeds only after scanning a long source, or fidelity is imperfect but meaning is kept. | Central passage recovery requires extensive searching across an unmapped bibliography despite eventual recovery (A), or a quoted passage is not recovered (C), or an excerpt changes the passage's meaning (C). | G2: only if invention is *established*. Non-recovery alone is unsupported, incorrect or unassessable. |
+ | D5 Provenance communication | Wording makes primary / relayed / unconfirmed or conflicting clear per claim. | An access route is overstated without consequence (C: snippet read as primary), or a status is unexplained (A). | A consequential overstatement or understatement, or an uncertainty silently resolved (A, C). | G9 if a central *unsupported* claim is shown as verified; G3b if the note falsely says it read a source. |
+-| D6 Credits and editions | Original role strings, tracks and edition are given against a named authoritative row, and every aggregate discloses role, numerator, denominator, exclusions and source. | Exact rows are available, but a summary normalises a role (A, C) or an aggregate is incompletely disclosed while not being a central premise (C). | Credits are not anchored to an accessible authoritative row: role narrowing, wrong-edition tracks (C), or only unverified guesses (A). | G7: an undisclosed aggregate is a premise of a central claim. G4: a role adjudicated *incorrect* is presented as established. |
++| D6 Credits and editions | Original role strings, tracks and edition are given against a named authoritative row, and every aggregate discloses role, numerator, denominator, exclusions and source. | Exact rows are available, but a summary normalises a role (A, C) or an aggregate is incompletely disclosed while not being a central premise (C). | Credits are not anchored to an accessible authoritative row: role narrowing, wrong-edition tracks (C), or only unverified guesses (A). | G7: an undisclosed aggregate is a premise of a central claim. G4: a central role claim adjudicated incorrect is presented as established. |
+ | D7 Omissions | Every essential is captured with correct substance and scope, and gaps are disclosed separately. | An essential that was accessible is disclosed as a gap, not captured (A, C). | A silent miss of an accessible essential, or a capture with the wrong scope (C). | G6: the note turns not-found into "does not exist / was not involved" in a central claim. |
+ | D8 Musical context *(descriptive)* | Album-specific, supported, with the correct relationship type, a concrete reason, and the conclusion left to the critic. | Support is sound but the comparison lacks a reason (A), or the relationship type is overstated or the wording leans toward a conclusion (C). | The critic's conclusion is presupposed, or the context is unsupported (A, C). | G3a: a sonic description given as the note's own observation. |
+-| D9 Selection *(descriptive)* | Each substantive unit serves research or verification. The appendix does not restate the body. | Useful content is intact, but there is skippable redundancy or an irrelevant paragraph. | Redundant or irrelevant units are a large share of the whole deliverable. | — |
++| D9 Selection *(descriptive)* | Each substantive unit serves research, verification or navigation; repetition is assessed by its function, including in appendices. | Useful content is intact, but there is skippable redundancy or an irrelevant paragraph. | Redundant or irrelevant units are a large share of the whole deliverable. | — |
+ | D10 Collection and stopping *(descriptive, trace)* | Yield rises, failures are switched away from, and late checks resolve conflicts. | Some identical retries or a flat tail, but collection progresses. | Repeated identical failures and no stopping point once yield is flat. | G8: following instructions found in retrieved content. |
+-| D11 Owner burden *(descriptive, task record)* | Active work is mainly reading and light verification, with small correction and completion work. | Work saved in searching is spent on locating and repair (A), or some sections need re-derivation (C). | Active work is dominated by reconstruction, independent research and correction. | — (a factual misdirection is §8.3) |
++| D11 Owner burden *(descriptive, task record)* | The complete task record demonstrates lower total active burden against the paired baseline (A), or mainly reading and light verification with small correction and completion work (C). | Work saved in searching is spent on locating and repair (A), or some sections need re-derivation (C). | Active work is dominated by reconstruction, independent research and correction. | — (a factual misdirection is §8.3) |
+ 
+ ## 3. Reconciliation decisions
+ 
+ | # | Point | A | C | Decision |
+ |---|---|---|---|---|
+ | R1 | D1: where "correct with disclosed ambiguity" falls | Terminology left unclear, with claims attached to the target → BORDERLINE (`A-D1-BORDERLINE`) | Ambiguity resolved per claim → PASS (`C-D1-PASS`) | **Both stand.** The rule is §2: PASS needs claim-level attribution *and* unambiguous edition wording. This is the stricter of the two readings, so Astra's terminology case stays BORDERLINE. |
+-| R2 | D11 and the paired baseline | Levels are phrased against the baseline (`A-D11-PASS`, `-FAIL`) | Levels describe the composition of the work; the comparison is §8 (`C-D11` note) | **C's framing.** The contract makes D11 descriptive here and used by §8. The baseline clauses in `A-D11-PASS` and `A-D11-FAIL` are read as context, not as the level criterion. The A exemplars keep their levels on composition alone, because both describe the same composition pattern. |
++| R2 | D11 and the paired baseline | Levels are phrased against the baseline (`A-D11-PASS`, `-FAIL`) | Levels describe the composition of the work; the comparison is §8 (`C-D11` note) | **C's framing.** The contract makes D11 descriptive here and used by §8. A's exemplars describe observed comparative burden; C's describe work composition. Both remain illustrations, but composition alone does not establish A's levels, and neither establishes the §8 benefit verdict. |
+ | R3 | D6 FAIL scope | Only unverified credit guesses with accessible rows (`A-D6-FAIL`) | Single encyclopedia, role narrowing, deluxe track counted (`C-D6-FAIL`) | **Both stand** as two FAIL routes. A's is the narrower one, and A flags it as one to test in calibration. |
+-| R4 | D2 FAIL | Peripheral errors only | Includes a hedged central incorrect claim | **Both stand.** Both are FAIL under §2. C's is the one next to G4. |
+-| R5 | D4 FAIL with an unrecoverable quote (`C-D4-FAIL`) | — | Traceability fail; not G2 | **Stands, with a note.** The same quote is also audited under D2 as *unsupported* or *unassessable*. Scoring it in both is allowed, because the dimensions measure different things. |
++| R4 | D2 FAIL | Peripheral errors only | Includes a hedged central incorrect claim | **Both stand** as FAIL under the amended §2 D2 row; C's is adjacent to G4. C-D2-PASS's incidental date error receives BORDERLINE under the stricter reconciled placement; this is illustrative, not a calibrated floor. *(Round 2: replacement text from C, with A's addition.)* |
++| R5 | D4 FAIL with an unrecoverable quote (`C-D4-FAIL`) | — | Traceability fail; not G2 | Non-recovery alone does not establish invention. Audit support separately under D2. Where evidence prevents adjudication of a central/high-risk claim or gate allegation, apply the contract's deferral rules; do not substitute a dimension FAIL. *(Round 2: A's replacement text.)* |
+ 
+ ## 4. Open items for the scoring manual (§6.1)
+ 
+@@ -47,8 +47,8 @@
+ 
+ | # | Raised by | Item | Proposed scoring-manual rule |
+ |---|---|---|---|
+-| M1 | C friction 2 | D5: which of the three levels a search snippet or a model-processed fetch summary belongs to | **Relayed**, unless the excerpt is checked against the harness capture of that URL. It follows the stricter reading, and it matches the pilot evidence that summarised fetches reversed attributions. |
+-| M2 | C friction 3 | G4 versus a central *imprecise* claim presented as established | The owner decides whether the imprecision changes the truth of the proposition *as it is used* in the central claim. If it does, the claim is adjudicated *incorrect* and G4 applies. If it does not, the claim stays *imprecise* under D2 or D6. The ruling is recorded per claim. |
++| M1 | C friction 2 | D5: which of the three levels a search snippet or a model-processed fetch summary belongs to | A search snippet or model-processed fetch summary is **relayed** for D5, whatever the harness capture later shows. Only text the producer received unprocessed from the page, or a preserved capture it inspected directly, counts as read in primary, and only for the material inspected. Presenting relayed material as read in primary is an overstatement. Later evaluator verification establishes support or fidelity under D2/D4; it does not retroactively change the producer's access route. *(Round 2: A and C both AMEND; texts merged, no conflict.)* |
++| M2 | C friction 3 | G4 versus a central *imprecise* claim presented as established | The owner decides whether the imprecision changes the truth of the proposition *as it is used* in the central claim. If it does, the claim is adjudicated *incorrect* and G4 applies. If it does not, the claim stays *imprecise* under D2 or D6. The ruling is recorded per claim. If the owner cannot decide from the evidence, the claim is an unresolved central claim and is deferred under the contract's unassessable rules; it is not defaulted to *imprecise*. *(Round 2: A ACCEPT; C AMEND, appended.)* |
+ | M3 | C friction 4; A friction 3 | S1/S2/S3 definitions | Written in the scoring manual. The anchors deliberately assign no severity. |
+ | M4 | A friction 1–2; C D8 and D11 notes | Applicability preconditions | D7 needs the preserved initial and amended maps and the frozen top-3. D8 usefulness needs the owner's in-task rating. D11 needs the full task record. D10 without traces is N/A. Without its precondition a dimension is reported as *not assessable*, never as FAIL. |
+ | M5 | C friction 1 | D1 levels | Resolved by R1 and §2. Listed here only so the manual states it. |

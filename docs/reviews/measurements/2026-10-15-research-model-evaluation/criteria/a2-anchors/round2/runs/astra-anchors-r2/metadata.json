@@ -1,0 +1,57 @@
+{
+  "id": "astra-anchors-r2",
+  "provider": "gpt",
+  "requested_model": "gpt-6-astra",
+  "model_config": {
+    "id": "astra-anchors-r2",
+    "provider": "gpt",
+    "model": "gpt-6-astra",
+    "availability": "available",
+    "reasoning_effort": "medium"
+  },
+  "prompt_sha256": "152d5897ae1a28f56a5445360a60c97c0896dafdf27fa2ed1d8dd2d4b1310ea4",
+  "started_at": "2026-10-16T05:45:45.581148+00:00",
+  "status": "success",
+  "dispatch_count": 1,
+  "orchestration_retry_policy": "none",
+  "orchestration_fallback_policy": "none",
+  "isolated_cwd": "/private/tmp/research-benchmark-zj83hxlz",
+  "argv": [
+    "codex",
+    "--search",
+    "--ask-for-approval",
+    "never",
+    "exec",
+    "--model",
+    "gpt-6-astra",
+    "--sandbox",
+    "read-only",
+    "--json",
+    "--ephemeral",
+    "--skip-git-repo-check",
+    "--output-last-message",
+    "/Users/park_hyun/myblog-workspace/.worktrees/chore-research-a2/docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/a2-anchors/round2/runs/astra-anchors-r2/output.md",
+    "-c",
+    "model_reasoning_effort=\"medium\"",
+    "-"
+  ],
+  "resolved_models": [],
+  "resolution_evidence": "not_exposed_by_cli",
+  "cli_errors": [],
+  "usage_reported": [
+    {
+      "input_tokens": 31027,
+      "cached_input_tokens": 17152,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 685,
+      "reasoning_output_tokens": 143
+    }
+  ],
+  "tool_counts": {},
+  "event_count": 4,
+  "non_json_line_count": 0,
+  "returncode": 0,
+  "process_wall_s": 34.291,
+  "finished_at": "2026-10-16T05:46:19.876210+00:00",
+  "wall_s": 34.293
+}

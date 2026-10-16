@@ -1,0 +1,414 @@
+You are one of two independent contributors (GPT-6 Astra and Claude) to Stage A-2 of a music-research prompt evaluation. In Stage A you jointly froze an acceptance contract, "acceptance-v1", reproduced verbatim as DOCUMENT 1 below. Its §4 "Floor policy" item 1 says: "Every dimension gets behaviourally anchored pass / borderline / fail examples. Both contributors write them independently in Stage A-2; they are then reconciled." This is that task. You have not seen the other contributor's anchors and will not see them before yours are frozen.
+
+Context you need:
+- The producer is an LLM given a research prompt and one album. It returns a research note: evidence for a music critic who will later write their own review. The note must not write the critic's argument or verdict, and must not claim to have listened.
+- The owner (a single critic) will use your anchors in §6 calibration and in confirmation audits. A model annotator will also use them. They must therefore be applicable by someone holding only the note, its trace and the sources, without your reasoning.
+- DOCUMENT 2 is the diagnostic pilot summary (17 notes on one album, *Gemini Rights* by Steve Lacy). Its "Recurring defects" are real observed behaviour. You may draw anchors from them. That album is development material, so using it is allowed. Do not use any other real album as an anchor, because confirmation and calibration albums are not chosen yet and must stay untouched. You may invent fictional albums, artists and sources. Mark invented material as fictional.
+
+Task. For each dimension D1–D11 in acceptance-v1 §4, write three anchors: PASS, BORDERLINE and FAIL. Each anchor has:
+1. **Observable behaviour**: a short concrete excerpt or description of what the note (or, for D10, the trace; for D11, the owner's task record) contains. Prefer a quoted note fragment, 1–4 lines.
+2. **Verdict reason**: tied to that dimension's metric wording in §4, and to the §2 units and statuses where relevant.
+3. **Boundary move**: the smallest change that would move this example to the adjacent level.
+
+Also write, per dimension:
+- **Not this dimension**: one behaviour that looks relevant but belongs to another dimension or to an integrity gate (§3). Name where it belongs.
+- **Annotator note** (optional, at most 2 lines): an ambiguity an annotator is likely to hit, and how your anchors resolve it.
+
+Rules:
+- Do not change, reinterpret or extend acceptance-v1. Anchors illustrate it; they are not new criteria. If a dimension cannot be anchored without changing the contract, write that under "Contract friction" at the end. Do not work around it.
+- Integrity gates (§3) are noncompensable and binary. A dimension FAIL anchor must not be a gate failure in disguise. Where a FAIL sits next to a gate (for example D3 next to G5, D7 next to G6, D6 next to G7), say why the example is the dimension failure and not the gate. Also say what would make it the gate.
+- No numeric floors. §6 calibrates floors with the owner, and your anchors must not pre-empt that. Counts may appear only inside an illustrative example ("2 of 3 central role claims ...") and never as a threshold.
+- Descriptive dimensions (D8–D11) are reported, not bound, unless §6 later binds them. Their anchors still use pass / borderline / fail, read as "good / mixed / poor practice".
+- BORDERLINE means a reasonable owner could decide either "use after fixes" or "use" (or either "use after fixes" or "reject"). Say which pair it straddles.
+- Anchors must be album-independent behaviour. Do not turn any fact about the pilot album into a rule. DOCUMENT 2's amendment section explicitly rejects that.
+- Do not use tools or the web. This is a writing task from the documents given.
+
+Output: English Markdown, at most 4,500 words. Structure:
+- `# A2 anchors — <your name>`;
+- then one `## D<n> <name>` section per dimension, containing the three anchors as `### PASS`, `### BORDERLINE`, `### FAIL`, then "Not this dimension" and the optional "Annotator note";
+- then `## Contract friction` (write "None." if there is none);
+- then `## Self-check`: list any anchor you are least confident in, and why.
+
+
+=== DOCUMENT 1: acceptance-v1 (frozen, sha256 605b72a0…) ===
+
+
+# acceptance-v1 — research-note acceptance contract
+
+- Version: **v1 (frozen 2026-10-16)**. Round 4 (diff check of the round-3 fixes): GPT-6 Astra and `claude-opus-5-5` both answered **CONFIRM FREEZE** (`round4/runs/`). Any later change creates v2 and a new test; results under v1 stay labelled v1.
+- Date: 2026-10-16. Parent: `docs/rfcs/CHORE-research-model-evaluation.md` Stage A.
+- Contributors: GPT-6 Astra and `claude-opus-5-5`, in independent fresh contexts. Rounds: proposals → round 1 (`round1/`) → round 2 sign-off (`round2/`; both "FREEZE AFTER LISTED FIXES") → round 3 confirmation (`round3/`; both small material objections with replacement text) → round 4 diff check (`round4/`; both CONFIRM FREEZE).
+- Owner decisions, 2026-10-16 (chat; fixed inputs): panel = 2 calibration + 4 untouched confirmation albums, about 30–60 owner hours; **both** environments (Claude CLI and Codex); baseline = the owner's usual research; time-saving and quality-improvement claims **judged separately**.
+- Drafted by the orchestrating session (`claude-opus-5-5`, same family as one contributor). Where the two contributors' round-2 fixes differed, the stricter one was adopted, and the changelog says so.
+- No numeric value in this contract is calibrated. Values marked *candidate* are hypotheses until §6 is complete.
+
+## 1. Scope of any "pass"
+
+A pass under v1 means only: *this prompt version passes an initial owner-specific acceptance test in the tested configuration, for the album classes sampled, for the benefit named.* One critic cannot establish usefulness for other critics, and repeated owner judgments are not additional critics.
+
+Before confirmation, the round manifest fixes the following, and anything outside it is untested:
+- album classes;
+- languages;
+- access permissions, including whether audio access is permitted;
+- research time and tool budget;
+- output language;
+- the control prompt version.
+
+## 2. Units and audit statuses
+
+| Unit | Used for |
+|---|---|
+| Atomic factual claim: one proposition with its status. One or more sources may support it. | accuracy, attribution, traceability, overstatement |
+| Substantive information unit | relevance, selection, duplication |
+| Evidence opportunity: a consequential question plus the sources that answer it | omissions / recall |
+| Whole-task outcome: the owner's task | usefulness, burden, misdirection |
+
+Claim splitting earns no credit. Selection and burden are judged on substantive units and on the whole deliverable, appendices included.
+
+**Central claim.** A claim is central if accepting it, rejecting it or misreading it could materially affect the critic's factual account, attributions, credits, listening inquiry, interpretation or research decisions. The following are **indicators**, not an exhaustive definition:
+- (a) the claim is in the note's priority content;
+- (b) it answers a frozen top-3 essential question (§5);
+- (c) the owner marked it as relied-on during a task, recorded before adjudication;
+- (d) the adjudicator judges that, if wrong, it would plausibly change a statement in a review of this album.
+
+Test (d) applies wherever the claim appears, appendices included, and is applied before correctness is known where practicable. Placement can make a claim central; it can never make one peripheral.
+
+**Audit statuses:**
+
+| Status | Meaning |
+|---|---|
+| *supported* | |
+| *incorrect* | |
+| *imprecise* | wrong scope, date or number; counted as an error in precision and also reported as its own share |
+| *unsupported* | adjudicated: the cited and available evidence does not establish the claim |
+| *unassessable* | the evaluator could not decide, with the reason (no access, no competent language reader, missing preservation) |
+
+- **Precision** = supported ÷ (supported + incorrect + imprecise + unsupported).
+- Unassessable claims are reported separately, with their number, centrality, risk and reasons.
+- **An unresolved central or high-risk claim makes that output unassessable and acceptance deferred.**
+- Non-central claims may be sampled under the frozen audit procedure. Their coverage and unassessable share stay visible beside precision.
+
+**High-risk claim:** central or not, a claim that (i) is the subject of an alleged gate failure; (ii) is a direct quotation, a creator-statement attribution, a translated quote or consequential paraphrase, or a credit, edition or sample claim; or (iii) the adjudicator judges would be S1 if wrong. The classes are frozen in the scoring manual (§6.1).
+
+## 3. Integrity gates (noncompensable)
+
+A single owner-confirmed instance fails the note. Model disagreement never suspends a gate. The owner adjudicates every alleged gate failure. Records say "no gate failure found under this audit", not an unconditional pass.
+
+| ID | Failure |
+|---|---|
+| G1 | Wrong album or edition in central claims, undisclosed |
+| G2 | **Established** fabrication of a source or quotation. The adjudication must establish invention or falsification. Unsuccessful retrieval, an absent passage or a mismatch with preserved content alone is classified as unsupported, incorrect or unassessable, not as fabrication. |
+| G3a | Falsely states or implies listening to audio, or presents a sonic description as its own observation without the permitted, claimed audio access |
+| G3b | Falsely claims to have read a source. Established by evidence, accounting for permitted access paths and trace completeness; a missing retrieval entry alone is insufficient. |
+| G4 | Central incorrect claim presented as established |
+| G5 | Central attribution upgrade: narration, label copy, platform editorial or a database entry presented as the creator's speech |
+| G6 | Central absence inference: "not found" turned into "does not exist / was not involved" |
+| G7 | Numeric credit or sample aggregate missing role, numerator, denominator, exclusions or source, used as a premise of a central claim |
+| G8 | Following instructions found in source content that redirect the task or compromise evidence. Quoting such instructions is not a failure. Scored only where the trace shows the content was retrieved; otherwise N/A. |
+| G9 | Central unsupported claim presented as verified, including one drawn from model memory. The adjudication must establish the unsupported assertion and its presentation as verified. It need not establish where the producer got the claim. |
+
+Peripheral occurrences of the G6, G7 and G9 patterns are defects, not gates.
+
+**Preservation (every confirmation run).** Each run stores:
+- the full tool-call log: queries, URLs, retrieval times;
+- the tool output the producer actually received. This may be a summary or snippet; Claude CLI's WebFetch returns model-processed text;
+- the harness's own capture of each cited URL at run time, subject to storage permissions.
+
+These three are recorded as distinct. A hash may supplement stored content but never replaces it.
+
+Trace availability for G3b and G8 is reported per environment. A gate that is N/A in only one environment is stated as a screening asymmetry. Where missing preservation prevents adjudication and no other evidence resolves the issue, the result is *unassessable*. Missing preservation never overrides independently established support or error.
+
+**Unresolved allegations.** An alleged gate failure the owner can neither confirm nor clear is recorded as *unresolved*, with its reason:
+- any unresolved allegation makes the note **deferred**, whatever the claim's centrality;
+- every unresolved allegation is listed next to the verdict with its reason.
+
+## 4. Dimensions and floor policy
+
+| Dimension | Class (frozen) | Metric (raw numerator/denominator always reported) |
+|---|---|---|
+| D1 Target lock | acceptance-critical | correct / correct with disclosed ambiguity / wrong |
+| D2 Accuracy | acceptance-critical | precision (§2); S1/S2/S3 severity; inversion types (negative, scope, temporal) |
+| D3 Attribution | acceptance-critical | speaker-class accuracy; upgrade count; independence errors |
+| D4 Traceability | acceptance-critical | passage recovery for central claims by a reader who did not produce the note (owner or a non-producer model lane); time-to-locate; excerpt fidelity |
+| D5 Provenance communication | acceptance-critical | consequential overstatement, misleading understatement and unresolved uncertainty, mapped onto three levels (read in primary / relayed / unconfirmed or conflicting) whatever labels the prompt uses. Labels are not required where wording does the job. |
+| D6 Credits and editions | acceptance-critical | role, track and edition precision against a named authoritative row; aggregate disclosure |
+| D7 Omissions | acceptance-critical | essential recall, where *captured* means substance and scope correctly extracted; disclosed gaps reported separately and **not** counted as captured; silent misses among the frozen top-3 |
+| D8 Musical context | descriptive | album-specific purpose, correct relationship type, support, no presupposed conclusion; comparison and influence leads need a concrete reason; owner rates usefulness during the task |
+| D9 Selection | descriptive | useful, redundant and irrelevant units over inspected units, across the whole deliverable |
+| D10 Collection efficiency and stopping | descriptive | wall time, tool calls, failed fetches, repeated identical failures, yield curve; N/A without traces. Late confirming or conflict-checking searches are not waste by definition. |
+| D11 Owner burden | descriptive here; used by §8 | all owner active work to reach the task endpoint: independent searching, reading (R), re-verification (V), correction (F) and completion. Evaluation-only audit time is reported separately. |
+
+Floor policy:
+
+1. **Anchored examples.** Every dimension gets behaviourally anchored pass / borderline / fail examples. Both contributors write them independently in Stage A-2; they are then reconciled.
+2. **Numeric floors.**
+   - Floors are competing hypotheses until §6 is complete. Neither contributor's values are privileged.
+   - Below 20 eligible claims, floors are written as counts, not rates. Example: "0 S1; ≤ 1 S2/S3 among central claims".
+   - Zero-denominator handling is fixed before use.
+3. **Freezing binding status.**
+   - The binding floors, their values and their zero-denominator rules are **frozen in the round manifest before any confirmation output is generated**. They are not changed afterwards.
+   - A floor binds only after §6 has established its scoring reliability and its relationship to consequential adequacy.
+   - A *descriptive* dimension that fails §6 may be reported only.
+   - If an *acceptance-critical* dimension cannot be bound at freeze, confirmation may still run. The result is then reported as "gate screen passed; acceptance deferred", never as a pass, and it names the dimensions that did not bind.
+   - Integrity gates always bind.
+4. **Translation.**
+   - Central translated quotes and consequential translated paraphrases keep the original-language passage, the source location and the translation in the evidence record. The main text need not carry them.
+   - The check covers speaker, negation, hedges, scope and meaning.
+   - Without a competent reader, the claim is *unassessable*.
+5. **Reception.**
+   - Attributed reception facts and clearly separated accounts of others' judgments are admissible.
+   - Provenance is claim-specific: a review is a direct source for its own judgment, while material it relays needs its original attribution.
+   - Presenting others' judgments as findings, or as the critic's interpretation, is a defect.
+
+## 5. Reference map (omissions)
+
+1. **Mapping passes.** At least two blind mapping passes are made per album: one GPT-family lane and one Claude-family lane. Both use the same cutoff, web access and time box, and run **before** any producer output exists. **The owner does not build the map.**
+2. **Frozen top-3.**
+   - Before confirmation, the owner pre-registers album-independent essential-question categories (for example: release identity and edition; principal credits; documented creator statements; sample or interpolation provenance; reception facts) and their priority order.
+   - Each mapping lane proposes essentials and a top-3 within those categories, blind.
+   - A model reconciler merges them under a fixed rule: the union of the lanes' top-3, reduced to three by the predeclared category priority. Ties within a category go first to items proposed by both lanes, then to a recorded random draw. If the union has fewer than three items, the top-3 has that many and the manifest says so.
+   - This **frozen top-3 is set before the owner's task for that album and is not shown to the owner**.
+3. **Owner labelling.**
+   - After the task, and with all candidate and control outputs still hidden, the owner reviews the initial mapping passes and labels the remaining essentiality.
+   - This initial adjudicated map is preserved before any output-derived discovery is exposed.
+   - The owner may *add* top-3-equivalent essentials. These are amendments flagged "post-exposure" and reported separately. They count under §5.4 and the D7 floor, not under the frozen-top-3 check in §8.2.
+   - The owner may remove a frozen top-3 item only for a documented factual error in the map, with the evidence recorded.
+   - The only output the owner may have seen beforehand is the preselected candidate note in an assigned candidate-assisted task, and that exposure is recorded.
+4. **Amendments.**
+   - The amendment procedure is frozen beforehand.
+   - Items discovered in outputs are adjudicated blind to which condition found them and applied **symmetrically** to every comparable output.
+   - Recall is reported against both the initial and the amended map.
+   - A newly established accessible essential omission **can** fail a note. Discovery outside the initial map gives no immunity. Initial verdicts are preserved.
+5. **Symmetric detection.**
+   - Every control output, and the owner's baseline research notes, are screened for map additions at the same depth as candidate outputs.
+   - Model triage proposes the additions; the owner adjudicates every one, blind to condition.
+   - This is a screen for map additions, not a full claim audit.
+6. **Accessibility.**
+   - Accessibility is re-checked at run time.
+   - Inaccessible essentials leave the recall denominator but are still reported, because they can make a note insufficient for the task.
+
+## 6. Calibration and reliability
+
+1. **Freeze before confirmation.** The scoring manual, severity definitions and reliability criteria are frozen before calibration. Before confirmation, the following are frozen:
+   - eligible denominators and verification-sufficiency rules;
+   - numerical floors;
+   - handling of consequential disagreements.
+
+   Consequential disagreements are resolved against sources and the owner's task.
+2. **Calibration material.**
+   - Two calibration albums, never reused for confirmation.
+   - About 8 blinded natural outputs, covering both environments.
+   - **Perturbation ladders**, only for dimensions proposed to bind. Each ladder has ≥ 3 rungs (*candidate*) built from one base note.
+   - The owner gives use / use after fixes / reject decisions in random order.
+3. **Boundaries.**
+   - A rung the owner consistently judges to need fixes before use, or to merit rejection, is on the failing side of the boundary.
+   - Natural outputs must also support the proposed boundary. About 8 examples do not by themselves establish calibration sufficiency.
+   - No curve fitting unless the observations support it.
+4. **Reliability criterion.** It is written into the manifest before calibration. A proposed-binding dimension passes only if both hold:
+   - (i) **Decision stability.** On a delayed repeat subset (≥ 7 days; *candidate*), at least 2 items per dimension (*candidate*), no item flips between *use* and *reject*. A move to or from *use after fixes* is tolerated.
+   - (ii) **Annotator alignment.** The model annotator's pass/fail call on that dimension's ladder rungs matches the owner's on all but at most one rung (*candidate*).
+5. **What alignment shows.** Owner–model agreement measures annotation alignment, not independent human reliability or correctness. Astra–Claude agreement only exposes ambiguous definitions and is not required for binding.
+6. **Insufficient support.** If the calibration observations cannot support an acceptance-critical rule, §4.3 applies.
+
+## 7. Confirmation design (owner-bound)
+
+**Albums.** 4 untouched confirmation albums. Together they cover four strata, and one album may cover two:
+- a post-model-cutoff release;
+- non-English primary sources;
+- edition, credit or sample complexity;
+- sparse documentation.
+
+**Producer calls.**
+- 4 albums × candidate/control × 2 runs × 2 environments = **32 confirmatory calls**. The environments are Claude CLI with WebSearch/WebFetch, and Codex with web search.
+- A separate finite preparation budget covers the mapping passes; *candidate*: 2 per album.
+- Tool identity and CLI version are recorded per run. A prompt × environment failure is reported as possibly tool-caused.
+
+**Retries.**
+- Completion criteria and retry eligibility are frozen before confirmation. There are no automatic retries.
+- A harness failure (no inference, or tool unavailability) may be rerun once, with both records kept. A second failure counts as a failed run.
+- A permitted retry stays in the completion and cost reporting. It never erases an assessable candidate failure.
+
+**Owner tasks.**
+- Every task has the same endpoint: an evidence-backed review outline with unresolved questions recorded.
+- Allocation:
+  - Freeze two matched album blocks.
+  - In each block, randomly allocate one album to candidate-assisted research and the other to the owner's usual research.
+  - Allocate one candidate task to each environment before inspecting outputs.
+  - Choose which candidate run the owner sees before inspecting its quality.
+  - Record matching variables and residual album differences.
+- Measurement:
+  - D11 covers all owner active work to the endpoint.
+  - Collection latency and elapsed availability are recorded separately. Collection work counts in owner burden when it requires the owner.
+  - The resulting outlines in both arms are audited against the same adequacy standard.
+
+**Sequence per album.** Mapping passes → frozen top-3 → owner task → owner essentiality labelling (outputs hidden) → amendments → owner audit and adjudication. Nothing about an album's evidence reaches the owner before its task, except the assigned candidate note.
+
+**Audit allocation within about 30–60 h.**
+- **Candidate outputs (16).** Each gets full owner verification of central and high-risk claims, with source-location assistance.
+- **Control outputs (16).**
+  - They get model-triaged gate screening, owner adjudication of flagged items, a predeclared sample, and the §5.5 map-addition screen.
+  - Candidate–control comparisons disclose this unequal audit depth and support only conclusions justified by it.
+  - Every central and high-risk claim in an output used substantively to establish comparative acceptance must be owner-verified. Otherwise the comparison stays descriptive and cannot establish non-regression or a quality advantage.
+- **Budget overrun.** If the hours run out before every candidate output's central and high-risk claims are verified, every alleged gate failure is adjudicated and every proposed map addition is adjudicated, the result is **deferred**. Mandatory checks are never sampled down to fit the budget.
+- Actual owner hours are reported per role: map adjudication, task, labelling, audit and calibration.
+
+## 8. Pass pattern
+
+The manifest declares the targeted claim(s) before confirmation: time-saving, quality improvement, or both. Evidence-quality eligibility is reported separately from each benefit verdict.
+
+**Environment-level screen.** The candidate passes the v1 screen in an environment only if all of these hold for that environment's outputs:
+
+1. All 8 candidate outputs in that environment:
+   - are complete research notes (§7 harness rule);
+   - have no owner-confirmed gate failure, no unresolved gate allegation (§3) and no unresolved central or high-risk claim (§2);
+   - meet every binding floor.
+2. 0 silent misses among the frozen top-3, across those outputs.
+3. 0 factual misdirections attributable to the note in that environment's owner task.
+4. *(Benefit claims; see below.)*
+5. No post-hoc repair rescues a failed confirmation. A revised version needs new untouched albums, and albums that informed the revision become development material.
+
+**4. Benefit claims.** These are pooled across environments, and each claim is judged separately. They are evaluated only if **both** environments pass the screen, and they are reported for the prompt, not per environment.
+
+- **Comparable usable evidence** is scored by the post-task audit for each block against the same adequacy standard in both arms. The candidate-assisted outline must contain no more adjudicated factual errors overall, and no more errors at or above each frozen severity level, than the paired baseline outline. It must cover at least the same proportion of its album's frozen top-3 essentials and achieve at least the baseline's essential-recall proportion against each album's initial and amended maps. The audit must also establish no consequential loss of usable evidence under comparison rules frozen before confirmation. If the required comparison cannot be assessed sufficiently, the time-saving verdict is deferred.
+- **Time-saving.** Comparable usable evidence **and** lower owner active burden (D11) than the paired baseline, in **both** blocks.
+  - Reported as "preliminary saving for this owner".
+  - "No evidence of net loss" is a separate, weaker observation. It may be reported only if comparable usable evidence holds in **both** blocks and burden is not higher in either block, and it is **never** a time-saving pass.
+- **Quality improvement.** A predeclared consequential gain within a predeclared extra-time allowance, in **both** blocks.
+- **Verdicts.** Each benefit gets supported, inconclusive, failed, or deferred (when comparable usable evidence cannot be assessed) under frozen rules. Mixed block results are inconclusive. Differences are reported numerically.
+- **Confounding.** Each block pairs one environment's candidate task with one baseline task, so environment and album are confounded with block, and the result says so. Neither environment is claimed to have independently shown a repeatable benefit.
+
+**Verdict wording.**
+- "Passes v1 for <benefit>": stated only when that declared benefit is supported and the screen passed in both environments.
+- "Screen passed; benefit not shown": the screen passed but no declared benefit is supported.
+- "Gate screen passed; acceptance deferred": §4.3 applied.
+- Anything else is "deferred" or "failed", with reasons.
+
+## Changelog
+
+| Change from `acceptance-v1-draft.md` | Source |
+|---|---|
+| Central claim redefined by consequence; indicators (a)–(d) not exhaustive; placement cannot make a claim peripheral | Astra R2 §2 + Claude R2 §2 (merged) |
+| Removed the "> 25% unassessable → defer" allowance; any unresolved central/high-risk claim defers | Astra R2 §2 (stricter than Claude R2) |
+| G2 requires established fabrication; G3 split into G3a/G3b with evidence standard; G9 broadened beyond model memory | Astra R2 §3; G3 split from Claude R2 wording note |
+| Preservation requirements for confirmation runs; unresolved-allegation rule | Claude R2 §3 |
+| Acceptance-critical vs descriptive classes frozen; acceptance-critical not bindable → "gate screen passed; acceptance deferred" | Astra R2 §4 + Claude R2 §4 (merged). The class assignment in §4 is the drafter's and is subject to round 3. |
+| Top-3 frozen before the owner task by model lanes within owner-pre-registered categories; owner labels remaining essentials with outputs hidden; post-exposure additions flagged | Claude R2 §5 for the top-3 (**chosen over** Astra R2 §5's post-task owner top-3 with recorded exposure, as the stricter protection of §8.2); Astra R2 §5 for the hidden-outputs labelling and preserved initial map |
+| Symmetric detection screen over control outputs and baseline notes | Claude R2 §5 |
+| Frozen scoring manual; ladder boundary semantics; natural outputs must support boundaries; explicit candidate reliability criterion | Astra R2 §6 + Claude R2 §6 (merged) |
+| Randomised block allocation; full owner-burden measurement; audit-depth disclosure; budget-overrun deferral; frozen retry eligibility | Astra R2 §7 + Claude R2 §7 (merged) |
+| Screen per environment; benefits pooled and only if both screens pass; "comparable usable evidence" defined; "no evidence of net loss" never a time-saving pass; verdict wording | Claude R2 §8 + Astra R2 §8 (merged) |
+| Atomic claim may have several sources; D4 reader defined; "imprecise" counted as an error and reported separately; control version named in manifest | wording notes, both |
+| Round-1 misattributions corrected (centrality, the unassessable allowance, report-only dimensions, "no net loss" vs saving) | Astra R2 attribution check; Claude R2 §3 |
+| Round 3: "high-risk" defined; any unresolved gate allegation defers regardless of centrality; §8.1 aligned with §2; "no evidence of net loss" requires comparable evidence in both blocks | Claude R3 defects A, B and §8.4 distortion (verbatim) |
+| Round 3: "comparable usable evidence" strengthened to severity levels, recall against both maps, no consequential loss, deferral if unassessable | Astra R3 (verbatim) |
+| Round 3 non-material: §6.1 retitled; §5.2 tie-break and short-union rule; §5.3 post-exposure additions excluded from §8.2 | Astra R3 + Claude R3 wording |
+| Round 4 non-material: "deferred" added to benefit verdicts; §6.1 duplicate list items removed | Claude R4 notes |
+
+
+=== DOCUMENT 2: diagnostic pilot final results (development material) ===
+
+
+# Diagnostic pilot — final results (2026-10-16)
+
+Parent: `docs/rfcs/CHORE-research-model-evaluation.md`, pilot Steps 2–4. This completes the historical pilot. It is diagnostic material for Stage B. It is **not** an acceptance test: `criteria/acceptance-v1.md` was frozen after these notes existed, and a pilot album is development material by definition. Scores below are under the frozen pilot `rubric.md`, not acceptance-v1.
+
+## What ran
+
+| Part | Result |
+|---|---|
+| GPT generation (2026-10-15) | 7/7 success, one dispatch each (`runs/`) |
+| Claude generation, first attempt (2026-10-15) | `claude-opus-5-5` HTTP 429, zero tokens; 9 not run (`runs/`, unchanged) |
+| Claude generation, resume (2026-10-16) | 10/10 success, one dispatch each, same input sha256 `9acd15eb…` (`runs-claude-resume-2026-10-16/`, manifest `manifest-claude-resume-2026-10-16.json`) |
+| Astra per-sample audits | 7 GPT samples (2026-10-15, unchanged) + 10 Claude samples (2026-10-16, `reviews/v2/runs/astra-review-R??/`) |
+| Claude (`claude-opus-5-5`) per-sample audits | all 17 (`reviews/v2/runs/claude-review-R??/`) |
+| Comparative calibration | one per reviewer over its own 17 reports (`reviews/v2/runs/{astra,claude}-comparative/`) |
+
+Neither reviewer saw the other's reports, scores or the identity key before both comparatives were frozen. The table below is the first unblinded view.
+
+## Scores (single album, single generation per model)
+
+Astra made 0 score changes in calibration. Claude made 9, each aligning the same defect with the same score, with the evidence recorded. "Astra verdict" and "Claude tier" are the reviewers' own groupings: Claude's tiers A–D overlap by ±5; *excl* = gate-level defects.
+
+| Label | Model | Astra | Claude per-sample → calibrated | Astra verdict | Claude tier | Wall s | Web calls | Chars |
+|---|---|---:|---:|---|---|---:|---:|---:|
+| R04 | `gpt-6-astra` | 85.5 | 80 → 80 | use-after-fix | A | 288 | 11 | 6,849 |
+| R13 | `gpt-6.1-sol` | 82 | 83 → 83 | use-after-fix | A | 230 | 15 | 8,055 |
+| R01 | `gpt-6-sol` | 78.5 | 71.5 → 69 | use-after-fix | B | 172 | 16 | 6,471 |
+| R06 | `gpt-5.6-sol` | 72.5 | 73.5 → 71 | rework | B | 211 | 16 | 8,365 |
+| R15 | `claude-opus-5-5` | 68 | 74 → 71.5 | rework | B | 310 | 36 | 7,136 |
+| R09 | `gpt-6-luna` | 69.5 | 66 → 65.5 | rework | C | 82 | 8 | 5,865 |
+| R17 | `gpt-5.6-luna` | 65.5 | 67 → 66 | rework | C | 67 | 8 | 5,098 |
+| R12 | `claude-opus-5` | 61 | 67.5 → 65 | rework (partial) | C | 224 | 19 | 8,525 |
+| R07 | `claude-sonnet-5-5` | 61 | 64.5 → 62 | rework (partial) | C | 330 | 22 | 6,709 |
+| R10 | `claude-haiku-5-5` | 57 | 63.5 → 64.5 | rework (partial) | C | 262 | 12 | 5,513 |
+| R03 | `gpt-5.6-terra` | 56 | 63 → 63 | rework (partial) | C | 137 | 7 | 4,995 |
+| R16 | `claude-sonnet-4-6` | 58.5 | 58 → 58 | rework (partial) | D | 224 | 12 | 6,301 |
+| R14 | `claude-opus-4-7` | 56.5 | 59.5 → 59.5 | rework (partial) | D | 392 | 8 | 8,027 |
+| R08 | `claude-opus-4-6` | 58 | 49.5 → 49.5 | rework (partial) | excl | 407 | 21 | 9,647 |
+| R11 | `claude-sonnet-5` | 44.5 | 49.5 → 49.5 | re-research list | excl | 165 | 14 | 5,972 |
+| R05 | `claude-opus-4-8` | 44 | 50.5 → 48 | re-research list | excl | 195 | 9 | 7,268 |
+| R02 | `claude-haiku-4-5-20251001` | 34 | 31.5 → 31.5 | re-research list | excl | 225 | 26 | 10,096 |
+
+**Agreement:**
+- Spearman ρ between the two reviewers' per-sample totals is **0.90** (n = 17).
+- Both put R04 and R13 in a tied top group.
+- Both exclude or demote R02, R05 and R11.
+- They disagree most on R08: Astra 58, Claude 49.5 and excluded. Claude records a location-less quote and a fabricated failure history for an untried fetch.
+
+**Family pattern:**
+- GPT samples averaged 72.8 (Astra) and 72.0 (Claude, per-sample).
+- Claude samples averaged 54.2 (Astra) and 56.8 (Claude).
+- The Claude reviewer did not rate the Claude family higher. The small family-wise offset, Claude − Astra (GPT −0.8, Claude +2.5), is within either reviewer's stated uncertainty.
+
+This is a **model-plus-harness** observation, not a model ranking. See the confound below.
+
+## Harness confound (material for Stage B)
+
+The two lanes did not see the web the same way.
+
+**Claude CLI lane.**
+- `WebFetch` returns text produced by a page-summarisation helper model (`claude-haiku-5-5` appears in every Claude run's model list), not the page itself.
+- Both reviewers trace several defects to this layer: attribution reversed in a summary (R15), context and quantities lost (R08, R16), and summary sentences labelled as verified source text.
+
+**Codex lane.**
+- Codex `web_search` returns search results and snippets.
+
+**Consequence.**
+- Recurring defects 2 and 5 below cannot be split cleanly into model versus harness failures.
+- The Claude reviewer recommends unifying or at least recording the retrieval mode in the next round. acceptance-v1 §3 already requires per-run preservation of what the producer actually received.
+
+## Recurring defects (both reviewers, independently)
+
+| Defect | Classification (Astra / Claude) |
+|---|---|
+| Journalist narration promoted to direct speech (AnOther's "two years / 300+ songs"; "hit a wall") | (b) model / mostly (b), prompt contributes: source-level labels, no required original excerpt |
+| Search or summary text labelled as source-verified, or attributed to a specific outlet | (b) with prompt as secondary factor / (c) model + harness mixed |
+| Already-retrieved interviews under-read (family vocals per track, the unused Mercury recording, editing principle), then declared absent | (b) / (b) with harness contribution |
+| Role fields narrowed or substituted; a single encyclopedia used for credits | (b) / (a): §6 "do not re-survey reference credits" reads as a signal to skip distributor rows |
+| Spurious conflicts between statements of different scope; exclusive statements ("only feature", "90%") not checked against metadata | (b) with prompt as secondary factor / (a) leaning (c) |
+| Table, aggregate and coverage numerators inconsistent | (b) / (a) leaning (c): "substantive evidence" undefined |
+| Reviews or ratings used as factual evidence despite the explicit ban | (b) / (b) |
+| Length target exceeded without a stated reason; tables' inclusion in the count unclear | (a) / (c) |
+
+Neither reviewer found a repeated, established fabrication of sources or quotes, or a false listening claim.
+
+## Prompt amendments proposed for the next bounded round
+
+The two reviewers converge on **consolidating and defining rather than adding rules**:
+
+1. **Tie provenance labels to what was actually received in this run.** "Source-verified" requires retrieved body text plus a minimal original-language excerpt. Search snippets and summarised fetches are named as such. *Untried* is a separate status. (Astra A1/A2, Claude A-1/A-5/A-10.)
+2. **Label the speaker per sentence, not per source.** Numbers, dates and durations always carry their speaker. (Astra A1, Claude A-2.)
+3. **Re-read retrieved sources before declaring a gap,** with a second extraction by track and person. (Astra A3, Claude A-8.)
+4. **Preserve the original role string and edition.** By default, record one distributor's per-track rows when no booklet exists. "Conflict" requires the same object, role, time and scope. (Astra A4, Claude A-3/A-4/A-15.)
+5. **Define the coverage numerator** as a list of track IDs. (Astra A5, Claude A-9.)
+6. **Scope the length target to the core prose only,** and remove ritual repetition. (Astra A6, Claude A-12.)
+7. **Make the creator's title/concept explanation a general question,** and make the signed statement and engineer interviews path types rather than named outlets. (Claude A-6/A-7.)
+
+Both reviewers explicitly reject turning this album's facts (Apple statement, AnOther title answer, GRAMMY family-vocal answer, Mercury, C418, named services) into prompt rules. Those facts are regression checks only.
+
+## Limits
+
+- One album, one generation per model. Claude CLI 2.1.301 for the resume, versus 2.1.300 in the first attempt. Source availability drifted by one day between lanes.
+- Both reviewers fetched through tools that summarise pages. Per-sample precision denominators are not comparable across samples.
+- Blinding to producer family is limited: trace structure differs by harness. Notes carried no identity strings, and harness error strings in traces were redacted (`reviews/v2/build-report.json`).
+- The production research poller uses the Claude CLI with a different prompt (`album_research_v2`). Nothing here measures production quality or authorises a change. Production adoption remains separate work.

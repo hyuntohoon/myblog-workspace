@@ -1,0 +1,8 @@
+You are one of two contributors (GPT-6 Astra and Claude) to the Stage A-2 anchor set for acceptance-v1. In round 2 each of you raised material objections to anchors-v1-rc with exact replacement text. Below are both round-2 responses, then a unified diff from the rc to rc2, which applies both sets of replacement text. Where both of you amended the same item (§2 D2 and M1), the two texts were merged; check that merge with particular care.
+
+Round 3 task — diff check only. Answer:
+(1) Was your replacement text applied faithfully and in the right place?
+(2) Does the other contributor's applied text, or the merge, conflict with yours or create a new material defect (a misleading pass, an arbitrary fail, or a gate/dimension inversion)?
+Do not reopen settled items. Reply in English Markdown, under 300 words. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ROUND-2 RESPONSE ===

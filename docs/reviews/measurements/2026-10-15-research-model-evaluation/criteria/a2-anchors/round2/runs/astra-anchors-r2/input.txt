@@ -1,0 +1,797 @@
+You are one of two contributors (GPT-6 Astra and Claude) who independently wrote behaviourally anchored pass / borderline / fail examples for acceptance-v1 (Stage A-2). Both sets are now frozen and shown below, followed by the orchestrator's reconciliation, "anchors-v1-rc". The rc keeps both exemplar files verbatim and adds a reconciled boundary table (§2), reconciliation decisions R1–R5 (§3) and proposed scoring-manual rules M1–M5 (§4). The contract itself (acceptance-v1) is frozen and is not reopened.
+
+Round 2 task — check only. Answer:
+1. Does §2 or §3 misrepresent your anchors, or move one of them to a level you would reject? Cite the anchor ID (for example A-D6-FAIL or C-D1-PASS).
+2. Does any §2 boundary create a material defect: a misleading pass, an arbitrary fail, or a dimension FAIL that is really a gate (or a gate that is really a dimension FAIL)?
+3. For each of M1 and M2: ACCEPT, or AMEND with exact replacement text. Do not propose new criteria.
+
+Reply in English Markdown, under 400 words. For any objection, give exact replacement text. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+=== DOCUMENT 1: ASTRA ANCHORS (A) ===
+
+
+# A2 anchors — GPT-6 Astra
+
+All albums, artists, sources, quotations and task records below are **fictional**. The recurring example concerns Mara Vale’s *Glass Orchard*, whose assigned target is the standard digital edition. Source and audit descriptions accompanying excerpts are part of each example’s observable evidence.
+
+These are dimension-specific anchors, not whole-note acceptance verdicts or calibrated floors. D8–D11 use PASS / BORDERLINE / FAIL to mean good / mixed / poor practice. A boundary move changes the illustrated dimension; it does not rescue a failed confirmation output. Counts, where present, describe examples only.
+
+## D1 Target lock
+
+### PASS
+
+**Observable behaviour**
+> Target: Mara Vale, *Glass Orchard*, standard digital edition, catalogue GO-01.  
+> The expanded edition GO-02 is discussed only in the separately identified edition comparison.
+
+The note’s claims and source rows consistently identify their edition.
+
+**Verdict reason:** Target lock is correct. The presence of another edition does not itself create ambiguity when claims remain attached to the correct objects.
+
+**Boundary move:** Remove the catalogue distinction from a passage whose source uses the same title for both editions, while explicitly flagging the resulting ambiguity.
+
+### BORDERLINE
+
+**Observable behaviour**
+> Target: standard digital edition GO-01. The archive calls this “original version”; its catalogue identifier matches GO-01. I retain both labels because the archive’s edition terminology is unclear.
+
+All consequential claims are tied to GO-01; the uncertainty concerns the naming convention.
+
+**Verdict reason:** Correct with disclosed ambiguity. It straddles **use / use after fixes**: an owner could accept the identifier-based distinction or request clearer terminology. No central factual claim remains unresolved in this example.
+
+**Boundary move:** Explain that “original version” is the archive’s label for the identified target, without implying a separately established edition.
+
+### FAIL
+
+**Observable behaviour**
+> Requested target: standard digital edition GO-01.  
+> This note instead covers expanded edition GO-02. Its bonus-track credits and sequencing are presented below.
+
+The substitution is explicit throughout; the statements about GO-02 are supported.
+
+**Verdict reason:** The researched target is wrong. This is not G1 because the substitution is disclosed, and not G4 because the note does not falsely identify GO-02 as GO-01.
+
+**Boundary move:** Replace the substituted research with target-edition material, retaining an explicit ambiguity notice wherever edition terminology still needs clarification.
+
+**Not this dimension:** Correctly targeting GO-01 but substituting “producer” for its row’s “additional production” belongs to D6.
+
+**Annotator note:** “Correct with disclosed ambiguity” is not automatically inadequate. Consequential unresolved identity questions additionally invoke §2 deferral.
+
+## D2 Accuracy
+
+### PASS
+
+**Observable behaviour**
+> The interview was published on 14 May. Vale describes revising the lyrics after the initial recording sessions, not before them.
+
+The preserved page supports both propositions, including temporal order.
+
+**Verdict reason:** The atomic factual claims are supported; no temporal or negative inversion appears. Precision uses the §2 assessable-claim denominator.
+
+**Boundary move:** Change the incidental publication date to 15 May while leaving the account of the recording sequence correct.
+
+### BORDERLINE
+
+**Observable behaviour**
+> Interview published 15 May; lyrics revised after the initial recording sessions.
+
+The page says 14 May. The publication date is incidental: it does not establish release chronology or affect any research decision.
+
+**Verdict reason:** The date is *imprecise*, counts as an error in precision, and is separately reported. This straddles **use / use after fixes**, depending on whether the owner requires correction before using the otherwise supported material.
+
+**Boundary move:** Correct the date to 14 May.
+
+### FAIL
+
+**Observable behaviour**
+
+An optional source-background paragraph misstates several incidental publication dates and reverses which of two publications changed its website name first. The album evidence itself remains supported. Inspection establishes that these details do not affect the critic’s account, interpretation or research decisions.
+
+**Verdict reason:** The assessable claims include imprecise dates and an incorrect temporal ordering, producing poor accuracy in the inspected material. Severity is assigned using the frozen manual, not invented here. This is not G4 because the incorrect claims are non-central by consequence, not merely by placement.
+
+**Boundary move:** Correct the paragraph’s errors except for one incidental date slip, yielding the borderline pattern.
+
+**Not this dimension:** A recoverable, accurate claim whose supporting passage takes excessive effort to locate belongs to D4.
+
+**Annotator note:** Unassessable claims are not errors in the precision denominator. An unresolved central or high-risk claim requires deferral, not an inferred accuracy FAIL.
+
+## D3 Attribution
+
+### PASS
+
+**Observable behaviour**
+> The profile writer describes the sessions as hurried. Vale’s quoted statement concerns revising lyrics; she does not call the sessions hurried.  
+> The syndicated version reproduces this profile and supplies no independent corroboration.
+
+**Verdict reason:** Speaker classes are accurate, narration is separated from creator speech, and the source relationship is correctly identified.
+
+**Boundary move:** Keep the speaker distinction but list the syndicated copy without identifying its dependence.
+
+### BORDERLINE
+
+**Observable behaviour**
+> Sources: *Studio Ledger* profile; *Evening Arts* profile.  
+> The profile writer describes the sessions as hurried.
+
+The two entries are the same syndicated article. The note does not explicitly claim independent corroboration.
+
+**Verdict reason:** Speaker attribution is sound, but the source presentation leaves independence unclear. This straddles **use / use after fixes**.
+
+**Boundary move:** Identify the second entry as a syndicated copy of the first.
+
+### FAIL
+
+**Observable behaviour**
+> The publication-date detail is independently corroborated by *Studio Ledger*, *Evening Arts* and the label’s press archive.
+
+All three reproduce the same dated article. The publication date is genuinely incidental and is itself correct.
+
+**Verdict reason:** This is an independence error: repeated publication is represented as independent evidence. It is not G5 because no material is upgraded to creator speech. The peripheral support claim also does not trigger central G9.
+
+**Boundary move:** Remove “independently corroborated,” leaving the entries to be clarified as in the borderline example.
+
+**Not this dimension:** A central passage of journalist narration presented as Vale’s own statement is G5, not merely a low D3 score.
+
+**Annotator note:** An accurately attributed review is direct evidence of that reviewer’s judgment. Its relayed biographical information needs separate attribution.
+
+## D4 Traceability
+
+### PASS
+
+**Observable behaviour**
+> Vale on lyric revision: *Studio Ledger*, “Making Glass Orchard,” section “Second drafts,” paragraph beginning “After the sessions…”  
+> Excerpt: “I rewrote the words after we had recorded the backing tracks.”
+
+A non-producer reader recovers the passage directly; the excerpt is faithful.
+
+**Verdict reason:** Central passage recovery succeeds with little locating work, and excerpt fidelity is established.
+
+**Boundary move:** Remove the section and paragraph locator, retaining the article title and source link.
+
+### BORDERLINE
+
+**Observable behaviour**
+> Vale says she revised lyrics after recording the backing tracks. [*Studio Ledger*: “Making Glass Orchard”]
+
+The source is a long, accessible interview. A non-producer reader finds the supporting passage by searching several plausible terms.
+
+**Verdict reason:** Recovery succeeds, but the note transfers avoidable locating work to the reader. This straddles **use / use after fixes**.
+
+**Boundary move:** Add the passage locator or a faithful searchable excerpt.
+
+### FAIL
+
+**Observable behaviour**
+> Recording process: lyrics were revised after backing tracks were recorded. Sources: bibliography.
+
+The bibliography contains long interviews and recordings without claim-to-source mapping, timestamps or passage locators. A non-producer recovery attempt requires reading across the collection; eventual recovery establishes support.
+
+**Verdict reason:** Passage recovery and time-to-locate are poor despite supported claims. This is not G2 or G9: the sources exist and establish the claims. Established invented quotations would instead trigger G2.
+
+**Boundary move:** Attach each central claim to its particular source, leaving only within-source locating work.
+
+**Not this dimension:** A perfectly located passage that does not establish the asserted proposition belongs to D2 and potentially G9.
+
+**Annotator note:** If missing preservation prevents adjudication, apply the contract’s unassessable rules. Do not treat unavailable evidence as merely inconvenient navigation.
+
+## D5 Provenance communication
+
+### PASS
+
+**Observable behaviour**
+> Vale’s signed statement, read in the preserved original, describes revising the lyrics.  
+> A profile relays the engineer’s account of the recording order; the original engineer interview was not retrieved.
+
+**Verdict reason:** Wording communicates primary and relayed access claim by claim, without requiring formal labels.
+
+**Boundary move:** Replace “the original engineer interview was not retrieved” with an unexplained uncertainty marker that leaves the relay’s status unclear.
+
+### BORDERLINE
+
+**Observable behaviour**
+> The profile reports the engineer’s account of the recording order. Status: uncertain.
+
+The profile is preserved and explicit, but the note does not explain whether “uncertain” concerns the relay, the underlying account or a conflicting source.
+
+**Verdict reason:** Provenance communication is partly adequate but unresolved uncertainty is poorly specified. This straddles **use / use after fixes**.
+
+**Boundary move:** State that the relay was read and the original interview was not retrieved; identify any actual conflict separately.
+
+### FAIL
+
+**Observable behaviour**
+> Whether Vale discussed lyric revision remains unconfirmed; treat this as a speculative lead.
+
+The note’s evidence record contains a directly retrieved, signed statement explicitly discussing the revision, and the attribution has been adjudicated as supported.
+
+**Verdict reason:** This consequentially understates available evidence and leaves an answered research question apparently unresolved. It is not G9: no unsupported positive claim is presented as verified. There is no false claim of reading.
+
+**Boundary move:** Acknowledge the signed statement while retaining a vague status marker, producing the narrower ambiguity in the borderline example.
+
+**Not this dimension:** Saying “I read the original interview” when evidence establishes that this is false is G3b.
+
+**Annotator note:** Primary access is not a guarantee that every statement is true. Classify the evidence route for the particular claim.
+
+## D6 Credits and editions
+
+### PASS
+
+**Observable behaviour**
+> GO-01, track “Window”: Ivo Chen — “additional production.”  
+> Authority: label booklet, GO-01, track-credit row “Window.”  
+> Chen has this role on “Window” and “Steps”: 2 of the edition’s 8 tracks; bonus tracks excluded.
+
+The rows and aggregate agree.
+
+**Verdict reason:** Role, track and edition are precise against named authoritative rows; the aggregate supplies role, numerator, denominator, exclusions and source.
+
+**Boundary move:** Retain the exact row but introduce an unexplained shorthand, “production,” in the summary.
+
+### BORDERLINE
+
+**Observable behaviour**
+> Summary: Chen — production on “Window.”  
+> Exact row: “additional production,” GO-01 booklet, “Window.”
+
+**Verdict reason:** The evidence is available, but the summary can be read as substituting a broader role. This straddles **use / use after fixes**. The source does not establish that Chen lacked other production involvement, so the example does not establish a central incorrect claim.
+
+**Boundary move:** Use “additional production” consistently.
+
+### FAIL
+
+**Observable behaviour**
+> Credit worksheet — unverified possibilities, not established credits:  
+> “Window”: Chen may be producer; “Steps”: Chen may be mixer. Edition match not checked.
+
+The available, named GO-01 booklet rows instead specify “additional production” and “recording engineer.” The worksheet never extracts them correctly.
+
+**Verdict reason:** The note fails to deliver role, track and edition precision against accessible authoritative rows. The suggestions are explicitly unverified, so this is not G4 or G9. No numeric aggregate is used, so G7 is absent. An incomplete aggregate used as a central premise would trigger G7.
+
+**Boundary move:** Replace the worksheet with the correct edition-specific rows, leaving only the summary shorthand illustrated above.
+
+**Not this dimension:** An undisclosed switch to GO-02 in central claims is G1.
+
+**Annotator note:** An unverified label does not make a credit usable. Here the authoritative rows resolve the audit; this is not an unresolved high-risk claim.
+
+## D7 Omissions
+
+### PASS
+
+**Observable behaviour**
+> Vale identifies “Window” as the track carrying the family vocals; she describes them as backing vocals, not a featured lead.
+
+The frozen reference-map opportunity asks which track and which vocal role. The accessible interview supports both.
+
+**Verdict reason:** The opportunity is captured because substance and scope are correctly extracted. Relevant initial and amended map accounting remains separate.
+
+**Boundary move:** Omit the track identification while expressly recording it as a gap.
+
+### BORDERLINE
+
+**Observable behaviour**
+> Vale discusses family backing vocals. Track identification remains a gap in this note.
+
+The available interview identifies “Window”; the note captures the role but not the question’s full scope.
+
+**Verdict reason:** This is a disclosed gap, not a captured opportunity. It straddles **use / use after fixes** when the owner could use the remaining material while resolving the named gap.
+
+**Boundary move:** Extract the track identification from the interview and attach it to the vocal-role statement.
+
+### FAIL
+
+**Observable behaviour**
+
+The note supplies general biography but says nothing about the family-vocal question. That question belongs to the frozen top-3, and its answer is present in an accessible, retrieved interview.
+
+**Verdict reason:** This is a silent essential miss; substance and scope are not captured. It is not G6 because the note makes no claim that the vocals or participation do not exist. Turning failed discovery into a central assertion of non-involvement would trigger G6.
+
+**Boundary move:** Explicitly disclose the missing answer, reaching the borderline pattern without improving recall.
+
+**Not this dimension:** “No family member participated,” inferred centrally from an unsuccessful search, is G6.
+
+**Annotator note:** A disclosed gap is still uncaptured. Inaccessible essentials leave the recall denominator but remain reported for task sufficiency.
+
+## D8 Musical context
+
+### PASS
+
+**Observable behaviour**
+> In her signed statement, Vale names fictional artist Neri Sol’s use of overlapping refrains as an influence on “Window.”  
+> Listening inquiry: compare how refrain overlap functions; the source does not establish that the recordings achieve the same effect.
+
+The owner records that this helped plan a listening question.
+
+**Verdict reason:** The lead has album-specific purpose, supported influence status and a concrete comparison reason without prescribing a conclusion.
+
+**Boundary move:** Retain the supported influence attribution but remove the specific refrain-based listening inquiry.
+
+### BORDERLINE
+
+**Observable behaviour**
+> Vale names Neri Sol as an influence on “Window.” Compare their work.
+
+The source supports the influence; the owner finds the lead potentially useful but must formulate its musical purpose.
+
+**Verdict reason:** Relationship type and support are sound, but the comparison lacks a concrete reason. This straddles **use / use after fixes** as descriptive practice.
+
+**Boundary move:** Add the source-grounded refrain relationship and an open listening question.
+
+### FAIL
+
+**Observable behaviour**
+> Possible critic’s thesis: this album proves Vale has surpassed her influences. Build the review around that verdict.
+
+This is proposed argumentation, with no claimed listening experience or assertion that a source established the judgment.
+
+**Verdict reason:** The note presupposes the critic’s conclusion rather than supplying a supported contextual lead. This is poor D8 practice, not G3a: it makes no own-observation or listening claim.
+
+**Boundary move:** Replace the verdict with the documented influence and a still-general comparison invitation.
+
+**Not this dimension:** “On listening, I heard overlapping refrains,” without the permitted, claimed audio access, is G3a.
+
+**Annotator note:** An attributed critic’s judgment is admissible reception evidence; endorsing it as the note’s finding is different.
+
+## D9 Selection
+
+### PASS
+
+**Observable behaviour**
+
+The main note contains distinct evidence units addressing release identity, credits and creator statements. The appendix adds source passages needed for verification. It does not restate each claim as fresh content.
+
+**Verdict reason:** Inspected substantive units serve research or verification purposes; selection is assessed across the entire deliverable.
+
+**Boundary move:** Add a closing recap that repeats the same claims without adding navigation or evidence value.
+
+### BORDERLINE
+
+**Observable behaviour**
+
+The core is useful, but a closing recap repeats its evidence nearly verbatim. The owner can skip it easily; the appendix remains useful.
+
+**Verdict reason:** Useful and redundant units coexist. This straddles **use / use after fixes**; the decision depends on the recap’s actual reading cost and value, not a word limit.
+
+**Boundary move:** Delete the redundant recap.
+
+### FAIL
+
+**Observable behaviour**
+
+The same creator statement appears in the overview, evidence table, track notes, checklist and appendix without distinct functions. A long unrelated childhood chronology surrounds the album evidence.
+
+**Verdict reason:** The whole deliverable repeatedly spends substantive units on duplication and irrelevant material. Claim splitting and appendix placement earn no selection credit.
+
+**Boundary move:** Consolidate the repeated statement and remove the unrelated chronology, leaving the smaller redundant recap illustrated above.
+
+**Not this dimension:** A short note that silently omits an accessible essential belongs to D7.
+
+**Annotator note:** Repetition serving passage verification or navigation is not automatically redundant. Judge the function of each occurrence.
+
+## D10 Collection efficiency and stopping
+
+### PASS
+
+**Observable behaviour**
+
+The trace retrieves a booklet and interview, identifies an apparent edition conflict, then performs a late comparison against the label catalogue. That search resolves the conflict; collection stops after addressing the remaining research questions.
+
+**Verdict reason:** The yield curve shows useful initial collection and consequential late checking. Wall time, calls and failures are reported; lateness alone is not waste.
+
+**Boundary move:** Add an unchanged retry of a failed endpoint after its required evidence has already been obtained elsewhere, with no remaining question attached.
+
+### BORDERLINE
+
+**Observable behaviour**
+
+The trace otherwise follows the PASS pattern but includes an unchanged failed retry after an adequate alternative source was recovered. It then stops.
+
+**Verdict reason:** There is avoidable collection work alongside productive research. This straddles **use / use after fixes**, with “fixes” concerning collection practice rather than necessarily the delivered prose.
+
+**Boundary move:** Remove the purposeless retry.
+
+### FAIL
+
+**Observable behaviour**
+
+The trace repeatedly issues the same request to an endpoint returning the same permanent-denial response. It then repeats equivalent searches returning already-preserved passages, with no unresolved conflict or question identified. The yield record stays flat through this sequence.
+
+**Verdict reason:** Repeated identical failures and sustained non-yielding collection demonstrate poor efficiency and stopping. No deception is alleged: the trace accurately records the attempts.
+
+**Boundary move:** Stop the non-yielding sequence after the isolated unnecessary retry illustrated above.
+
+**Not this dimension:** Following retrieved page instructions to abandon the album task is G8.
+
+**Annotator note:** Without traces, D10 is N/A, not FAIL. Confirming searches can yield confidence or conflict resolution without adding a new claim.
+
+## D11 Owner burden
+
+### PASS
+
+**Observable behaviour**
+
+The owner’s task record includes reading, a targeted source check, independent completion work and production of the evidence-backed outline with unresolved questions recorded. All active work is counted. Evaluation-only audit work is separately logged. The paired baseline required more active work.
+
+**Verdict reason:** The observed task reaches the common endpoint with lower total active burden. This is good D11 performance, not by itself a time-saving benefit verdict under §8.
+
+**Boundary move:** Add enough avoidable source-location and correction work that the task’s apparent saving is substantially eroded, yielding the mixed pattern below.
+
+### BORDERLINE
+
+**Observable behaviour**
+
+The note reduces independent searching, but the owner spends that saved effort locating passages and repairing a confusing credit summary. The complete record shows little overall difference from the paired baseline; the endpoint is reached.
+
+**Verdict reason:** Burden is redistributed rather than clearly reduced. This straddles **use / use after fixes** as descriptive practice; useful evidence may justify use despite the repair cost.
+
+**Boundary move:** Remove the recorded locating and correction work by making the relevant passages and credit distinctions usable at first reading.
+
+### FAIL
+
+**Observable behaviour**
+
+The owner reads the note, reconstructs its evidence links, corrects its worksheets and independently fills its gaps before reaching the endpoint. The complete task record shows greater active work than the paired baseline, attributable to these note-related tasks.
+
+**Verdict reason:** The deliverable imposes substantial R, V, F and completion work instead of reducing total owner burden. This does not require a gate failure.
+
+**Boundary move:** Eliminate the reconstruction and correction work until the remaining completion work produces the mixed burden pattern above.
+
+**Not this dimension:** Unattended producer collection latency belongs to D10 and elapsed-availability reporting; it enters D11 only when it requires owner work.
+
+**Annotator note:** Necessary re-verification during the task counts. Evaluation-only auditing is separate even when it examines the same sources.
+
+## Contract friction
+
+- **D7 requires the reference map.** Note, trace and sources alone cannot establish essential recall or frozen-top-3 misses. These anchors require the preserved initial and amended maps, frozen-top-3 designation and run-time accessibility findings specified by §5. Inferring essentials afresh would change the contract.
+- **D8 and D11 require owner records.** D8’s usefulness component cannot be inferred solely from textual quality. D11 requires the complete task record; comparative burden additionally needs the paired baseline. The examples supply those observations rather than treating model opinion as owner judgment.
+- **The anchors cannot supply calibrated boundaries.** D1’s categorical statuses do not mechanically map to use decisions, and D2 severity definitions remain for the scoring manual. D8–D11 remain descriptive unless subsequently bound. The boundary moves illustrate neighbouring behaviours, not numeric or universally binding cutoffs.
+- **Unassessable is not a fourth performance rung to disguise.** Where evidence cannot resolve central/high-risk claims or gate allegations, the specified deferral rules apply. These examples cannot convert that procedural outcome into a dimension FAIL.
+
+## Self-check
+
+- **D1 BORDERLINE:** Least confident because disclosed ambiguity can coexist with fully adequate target lock. The example limits uncertainty to terminology so it does not conceal a central unresolved identity claim.
+- **D6 FAIL:** Explicitly provisional wrong credit candidates isolate poor credit extraction from G4/G9, but this is a narrower failure pattern than confident role substitution. Calibration should test whether owners distinguish it reliably.
+- **D10 BORDERLINE:** Collection defects may leave a fully usable note. Its use/use-after-fixes pair concerns descriptive process practice and must not become an output-rejection rule without §6 calibration.
+- **D11 PASS:** Lower observed burden is clear, but matched albums remain different. The anchor describes the recorded outcome and does not establish causation or the separate §8 benefit verdict.
+
+
+=== DOCUMENT 2: CLAUDE ANCHORS (C) ===
+
+
+# A2 anchors — Claude (`claude-opus-5-5`)
+
+**Fictional fixtures** (all invented, used only here): album *Tidewater Ledger* by Mara Quell (Northlight Records). It has a standard edition (2025, 10 tracks) and a deluxe edition (2026, 14 tracks). Juno Quell is a relative who contributes vocals. Ines Darrow is an engineer and co-producer. *Low Signal* (2021) is an earlier EP by Quell. Ada Brenn is another artist. The sources are *Fieldnote Weekly* (an interview), *The Quarter Review* (a review), the Northlight bio, Northlight liner notes, and the "Distributor row", meaning a per-track credit page. Where I mention pilot behaviour, it is described as behaviour, not as facts about the pilot album.
+
+---
+
+## D1 Target lock
+
+### PASS
+- **Observable:** "Target: *Tidewater Ledger*, standard edition (Northlight, 2025, 10 tracks). A 2026 deluxe adds tracks 11–14. Those tracks appear only in §Editions, each marked 'deluxe only'."
+- **Verdict reason:** The lock is correct. The one real ambiguity (two editions) is disclosed, and the disclosure carries down to each claim. This is "correct" or "correct with disclosed ambiguity".
+- **Boundary move:** Remove the per-track "deluxe only" markers but keep the header. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** The header is correct and says "a deluxe edition exists". The tracklist section lists 14 tracks without marking which are deluxe-only, and the credits for T12 come from the deluxe row.
+- **Verdict reason:** The target is correct and the ambiguity is disclosed at note level. At claim level, a reader cannot tell which edition some claims describe.
+- **Boundary move:** Mark T11–T14 to reach PASS. Remove the header disclosure, so that deluxe material reads as the target, to reach FAIL. If that undisclosed material is central, the result is G1.
+
+### FAIL
+- **Observable:** "Target taken as the 2026 deluxe (14 tracks); the standard edition could not be located." The request named the standard edition, and it was accessible.
+- **Verdict reason:** The lock is wrong. It is **not G1** because the note discloses it, and G1 requires "undisclosed". It would be G1 if the note presented deluxe credits or tracks as the standard edition's without saying so, in central claims.
+- **Boundary move:** Lock onto the standard edition and keep the deluxe material flagged. That gives BORDERLINE or PASS.
+
+**Not this dimension:** A wrong release date for the correct edition belongs to D2, as imprecise (temporal).
+
+**Annotator note:** Use D1 when the note confuses one album or edition with another. Use D2 when a fact about the correct target is wrong.
+
+---
+
+## D2 Accuracy
+
+### PASS
+- **Observable:** "Tracked at Harbour Room between Oct 2023 and Feb 2024 (*Fieldnote Weekly*, ¶6)." The audit finds every central claim supported. One peripheral tour date is off by a day and is recorded as imprecise.
+- **Verdict reason:** Precision is high. There is no central error, and the only error is a low-severity peripheral imprecision, which is reported in the imprecise share.
+- **Boundary move:** Add a peripheral inversion of background chronology. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** Central claims are supported. In "Background", the note says "the lead single followed the album announcement", but the sources show the reverse (a temporal inversion). It also says "the only feature on the record is Juno Quell", but the Distributor row lists a second featured artist on T9 (a scope inversion, adjudicated peripheral).
+- **Verdict reason:** Precision drops because of two peripheral errors. The inversion types are recorded, and no central claim is affected.
+- **Boundary move:** Remove both errors to reach PASS. Make one of them a central claim (still hedged) to reach FAIL.
+
+### FAIL
+- **Observable:** "Reportedly mixed by the band's drummer." The sources name an external engineer, so the claim is central and incorrect. The note also contains several peripheral errors, including the negative inversion "no remix EP was issued" when one was.
+- **Verdict reason:** Low precision, plus a central incorrect claim. It is **not G4** because the central claim is hedged ("reportedly") and not presented as established. It is also not G6: the remix claim is peripheral, and peripheral G6 patterns are defects. It would be G4 if the note said "Mixed by the band's drummer" as fact.
+- **Boundary move:** Correct the central claim. That gives BORDERLINE.
+
+**Not this dimension:** A correct claim that the note labels "confirmed" when it was only relayed belongs to D5 (overstatement).
+
+**Annotator note:** S1/S2/S3 labels come from the frozen scoring manual (§6.1). These anchors deliberately do not assign them.
+
+---
+
+## D3 Attribution
+
+### PASS
+- **Observable:** "*Fieldnote*'s interviewer writes that sessions 'stretched over two winters' (narration). Quell, quoted in the same piece: 'I kept the first takes.' *Quarter Review* and *Fieldnote* both repeat the Northlight bio's 'recorded in a lighthouse'. This is treated as one source (label bio)."
+- **Verdict reason:** Each sentence has the correct speaker class, there are no upgrades, and relayed copies of the same source are not counted as independent.
+- **Boundary move:** Leave one narrated number without a speaker. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** "Forty demos were cut to ten." This sits in Background with no speaker named. It is interviewer narration, and the claim is peripheral.
+- **Verdict reason:** There is no upgrade, but the speaker class cannot be recovered from the note. This matches the pilot pattern of numbers losing their speaker.
+- **Boundary move:** Add "(interviewer)" to reach PASS. Add "Quell says" to reach FAIL.
+
+### FAIL
+- **Observable:** "Quell says she wrote most lyrics 'on the night bus'." The phrase is interviewer narration, and the claim was adjudicated peripheral. The note also says: "Three outlets independently confirm the lighthouse recording." All three relay the label bio.
+- **Verdict reason:** There is one upgrade and one independence error. It is **not G5** because the upgraded claim is non-central under test (d), and the independence error is not a gate pattern. It would be G5 if the same narration-to-speech upgrade carried a central claim, for example about the album's concept or recording method. The pilot's narration-promoted-to-speech defect is the same mechanism.
+- **Boundary move:** Restore "interviewer writes" and say that the three outlets share the bio as their source. That gives PASS.
+
+**Not this dimension:** A correctly attributed quote cited to the wrong URL or paragraph belongs to D4.
+
+**Annotator note:** An independence error counts even when the claim turns out to be true. What D3 judges is the claimed corroboration.
+
+---
+
+## D4 Traceability
+
+### PASS
+- **Observable:** "[S3] *Fieldnote Weekly*, 2025-03-02, ¶6: 'we tracked live, no click, over eleven days'." A non-producer reader finds this in the preserved capture almost immediately, and the excerpt is verbatim.
+- **Verdict reason:** The passage is recovered, time-to-locate is short, and excerpt fidelity is exact.
+- **Boundary move:** Drop the paragraph locator and paraphrase inside the quotation marks. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** A central claim is cited to a 6,000-word interview URL with no locator. The text reads: "'no click track; eleven days live'". The reader finds the passage after scanning, and the meaning is preserved but the wording is not verbatim.
+- **Verdict reason:** The passage is recovered, but time-to-locate is long and fidelity is imperfect. The meaning holds.
+- **Boundary move:** Add ¶6 and the verbatim words to reach PASS. Make the passage unrecoverable or meaning-changing to reach FAIL.
+
+### FAIL
+- **Observable:** Central claims are cited as a block, "[S1–S5]". One quoted line is not present in the preserved capture or on the live page, and no locator is given. The pilot's location-less quote is this pattern.
+- **Verdict reason:** Passage recovery fails for central claims. It is **not G2**: non-recovery alone is classified as unsupported, incorrect or unassessable (§3, G2). It would be G2 only if adjudication established invention, for example by showing that the quoted article never existed.
+- **Boundary move:** Give each central claim its own source and locator, with an excerpt the reader can recover. That gives BORDERLINE.
+
+**Not this dimension:** If the passage is found but says less than the claim, that belongs to D2 (unsupported) or D5 (overstatement).
+
+**Annotator note:** Check fidelity against the harness capture of the cited URL, and record the producer's received text separately (§3 preservation). Sometimes an excerpt matches the summary the producer received but not the page. Record that as a fidelity miss, and as a D5 issue if the excerpt was presented as source text.
+
+---
+
+## D5 Provenance communication
+
+### PASS
+- **Observable:** "Read in primary: Northlight liner notes PDF, engineer Ines Darrow. Relayed: *Quarter Review* says 'recorded in a lighthouse', citing the label bio (bio not retrieved). Conflicting: release month March (label) vs April (*Fieldnote*); unresolved."
+- **Verdict reason:** All three levels are clear from the wording. There is no overstatement or understatement, and the uncertainty is stated.
+- **Boundary move:** Present one search-snippet claim as "per *Fieldnote*" without saying it was a snippet. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** "Per *Fieldnote Weekly*, the record was cut in eleven days." The trace shows that only a search snippet was received. The claim is later found supported.
+- **Verdict reason:** This is a mild overstatement: the claim reads as read in primary but was relayed. It is not consequential to accuracy, but the critic would believe the claim was verified when it was not.
+- **Boundary move:** Add "(search snippet only)" to reach PASS. Add "Confirmed" and drop a known conflict to reach FAIL.
+
+### FAIL
+- **Observable:** "Confirmed: recorded in a lighthouse." Only relaying sources were retrieved. The note also says "Credits unverified; recheck" for credits that were read in the primary liner notes. A conflict between release months is silently resolved to one month.
+- **Verdict reason:** This shows consequential overstatement, misleading understatement and hidden uncertainty together. It is **not G9**: the lighthouse claim was adjudicated supported, and G9 requires an unsupported claim. It is **not G3b**: the note does not state that it read the bio. It would be G9 if a central claim were unsupported and presented as verified. It would be G3b if the note said "read in the Northlight bio" and the evidence established that it was not read.
+- **Boundary move:** Reword to "relayed", mark the credits as read in primary, and state the conflict. That gives PASS.
+
+**Not this dimension:** A relayed claim attributed to the wrong speaker class (for example, label bio presented as an interview) belongs to D3, or to G5 if central.
+
+**Annotator note:** If a source was received only as a model-processed fetch summary, flag where it sits among the three levels for the owner. See Contract friction 2.
+
+---
+
+## D6 Credits and editions
+
+### PASS
+- **Observable:** "Distributor row, standard edition (accessed 2026-…): T4 'Background Vocals – Juno Quell'; T7 'Co-Producer – Ines Darrow'. Darrow holds a producer-class role on 3 of 10 standard tracks (counted: Producer, Co-Producer; excluded: Additional Production; source above)."
+- **Verdict reason:** Role strings, tracks and edition match a named authoritative row. The aggregate states its role, numerator, denominator, exclusions and source.
+- **Boundary move:** Normalise one role string and drop the exclusions line. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** "T4 vocals – Juno Quell" (the row says "Background Vocals"). The aggregate reads "Darrow: producer-class on 3/10", with no exclusions stated. It is used only descriptively.
+- **Verdict reason:** Role precision is slightly degraded and the aggregate is incompletely disclosed. The aggregate is not a premise of a central claim.
+- **Boundary move:** Restore the original strings and add the exclusions to reach PASS. Substitute roles and remove the edition to reach FAIL.
+
+### FAIL
+- **Observable:** Credits come from a single encyclopedia entry with no edition named. It says "T7 producer: Darrow", but the row says "Additional Production". T12 (deluxe only) is credited as part of the album. This is the pilot's role-narrowing and single-encyclopedia pattern.
+- **Verdict reason:** Role, track and edition precision all fail, and the credits are not anchored to a named authoritative row. It is **not G7**: no aggregate is used as a premise of a central claim. It would be G7 if the note said "Darrow produced most of the album" without role, denominator or source and used that as the premise for a central claim. If the T7 role were adjudicated *incorrect* rather than *imprecise* and presented as established, the owner would assess it under G4.
+- **Boundary move:** Use the Distributor row for the standard edition with its original strings. That gives BORDERLINE or PASS.
+
+**Not this dimension:** Locking the whole note onto the wrong edition belongs to D1, or G1 if undisclosed.
+
+**Annotator note:** These anchors do not decide which row is authoritative. Record the row the note used, and apply the scoring manual's rule.
+
+---
+
+## D7 Omissions
+
+### PASS
+- **Observable:** The fictional frozen top-3 is: (1) release identity and edition, (2) principal credits, (3) the creator's statement on the title. All three are captured with the correct substance and scope. The note also says: "T3 sample provenance: not found (searched Distributor row, liner notes, two interviews); unresolved."
+- **Verdict reason:** Essential recall is complete. The gap is disclosed, reported separately, and not counted as captured.
+- **Boundary move:** Turn one captured essential into a disclosed gap despite an accessible source. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** "No creator explanation of the title found (searched: *Fieldnote* interview, Northlight bio)." The retrieved *Fieldnote* interview does contain it. This is the pilot's under-read-then-declared-absent pattern, worded as not found.
+- **Verdict reason:** One top-3 item is a disclosed gap, so it is not captured and not silent. The note points the critic to where it is.
+- **Boundary move:** Extract the statement with its scope to reach PASS. Omit any mention of the title question to reach FAIL (a silent miss).
+
+### FAIL
+- **Observable:** The note never addresses the title question. The statement is in a retrieved interview. Separately, a credit summary covers only T1–T5 but is presented as the album's credits, so its scope is wrong and it is not captured.
+- **Verdict reason:** There is one silent top-3 miss and one essential that is not captured because of scope. It is **not G6**: the note makes no absence claim. It would be G6 if the note said "Quell has never explained the title."
+- **Boundary move:** Disclose the gap with the search path. That gives BORDERLINE.
+
+**Not this dimension:** An essential that is captured correctly but buried in an appendix belongs to D9 and D11.
+
+**Annotator note:** A paraphrase counts as captured only if its scope matches. Post-exposure essentials are reported separately from the frozen top-3 (§5.3).
+
+---
+
+## D8 Musical context
+
+### PASS
+- **Observable:** "Lead: *Low Signal* (2021). Same co-producer (Distributor row). Quell calls *Ledger* 'the answer to *Low Signal*' (*Fieldnote* ¶9). Relationship: creator-stated continuity. Whether the records sound continuous is a listening question for the critic."
+- **Verdict reason:** The context is specific to this album, the relationship type is correct, there is a concrete supported reason, and no conclusion is presupposed.
+- **Boundary move:** Loosen the relationship type or add an evaluative adjective. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** "Influenced by Ada Brenn (they toured together, *Quarter Review*); a clear maturation from *Low Signal*."
+- **Verdict reason:** The reason (touring together) is concrete and supported. But "influenced" overstates the relationship type, and "clear maturation" leans toward a conclusion.
+- **Boundary move:** Change the wording to "toured with" and remove "clear maturation" to reach PASS. Remove the touring reason to reach FAIL.
+
+### FAIL
+- **Observable:** "*Ledger* is best understood as Quell's reckoning with her folk roots, in the line of Ada Brenn's *Coastline*: a mature step beyond her debut."
+- **Verdict reason:** No reason is given for the comparison, there is no support, the relationship type is unstated, and it presupposes the critic's interpretation and verdict. It is **not G3a**: it contains no sonic description. It would be G3a if it said "the fingerpicked guitars clearly echo Brenn" as the note's own observation without permitted audio access.
+- **Boundary move:** Give a documented reason and a neutral relationship type. That gives BORDERLINE.
+
+**Not this dimension:** Sonic description presented as the producer's own observation belongs to G3a.
+
+**Annotator note:** Usefulness is rated by the owner during the task. Annotators score only purpose, relationship type, support and presupposition.
+
+---
+
+## D9 Selection
+
+### PASS
+- **Observable:** The core prose holds identity, credits, statements, context leads and gaps, each stated once. The appendix holds the source list and credit table, and the prose does not repeat them.
+- **Verdict reason:** Across the whole deliverable, almost all inspected units are useful, with little redundancy or irrelevance.
+- **Boundary move:** Add a "Key takeaways" block that restates the body. That gives BORDERLINE.
+
+### BORDERLINE (use / use after fixes)
+- **Observable:** The release facts appear in the summary, the body and the closing takeaways. One paragraph covers Quell's unrelated podcast.
+- **Verdict reason:** There are some redundant and irrelevant units, but the useful content is intact and easy to find.
+- **Boundary move:** Cut the restatements to reach PASS. Add large irrelevant blocks and repeated caveat paragraphs to reach FAIL.
+
+### FAIL
+- **Observable:** There are paragraphs on Northlight's corporate history and other artists' chart runs. The same caveat appears in each section, the release date is stated four times, and *Quarter Review*'s score is listed with no stated purpose. The note is far beyond length with no stated reason, which matches pilot behaviour.
+- **Verdict reason:** Redundant and irrelevant units make up a large share of inspected units, including the appendices.
+- **Boundary move:** Remove the irrelevant blocks and ritual repetition. That gives BORDERLINE.
+
+**Not this dimension:** A review's judgment presented as a finding is a §4.5 reception defect, and belongs to D3 if the speaker class is mislabelled.
+
+**Annotator note:** Count substantive units, not sentences. Splitting a claim into parts earns no credit. Appendices count.
+
+---
+
+## D10 Collection efficiency and stopping (trace)
+
+### PASS
+- **Observable:** The trace moves from identity to credits to interviews to a conflict check. One fetch fails with a 403, and the next call retrieves an archived copy. The last two searches check the release-month conflict.
+- **Verdict reason:** There are no repeated identical failures, and each step adds yield. The late searches are conflict-checking, which §4 says is not waste.
+- **Boundary move:** Retry the 403 URL twice more before switching. That gives BORDERLINE.
+
+### BORDERLINE (mixed practice)
+- **Observable:** The same 403 URL is retried three times. There are several near-duplicate queries. The yield curve is flat across the last third, apart from one conflict check.
+- **Verdict reason:** There is some repeated identical failure and a flat tail, but collection still progresses.
+- **Boundary move:** Remove the retries to reach PASS. Turn the retries into a loop to reach FAIL.
+
+### FAIL
+- **Observable:** One failing URL is retried throughout the run. Queries cycle through the same terms, and most of the wall time comes after the last new source was retrieved.
+- **Verdict reason:** Repeated identical failures, a flat yield curve and no clear stopping point.
+- **Boundary move:** Switch after the first failure and stop once yield is exhausted. That gives BORDERLINE.
+
+**Not this dimension:** A note that calls a source "unavailable" when the trace shows it was never requested belongs to D5 (provenance and understatement). It belongs to D7 if it hides an accessible essential. This was the pilot's fabricated failure history.
+
+**Annotator note:** Without traces, D10 is N/A, not FAIL.
+
+---
+
+## D11 Owner burden (task record)
+
+### PASS
+- **Observable:** The owner reads the note (R) and spot-checks central claims through the excerpts, locating them quickly (V). They make one small correction (F), run one independent search on a listening-inquiry question, and reach the outline.
+- **Verdict reason:** Most active work is reading and light verification. Correction and independent searching are small.
+- **Boundary move:** Make the owner re-derive one section from the sources. That gives BORDERLINE.
+
+### BORDERLINE (mixed practice)
+- **Observable:** The owner re-derives credits from the Distributor row because role strings were normalised, and re-reads two interviews to settle unclear speakers. They reach the outline.
+- **Verdict reason:** Some sections save work. Others need re-verification and correction comparable to doing the research.
+- **Boundary move:** Preserve roles and speakers to reach PASS. Add a correction to an attribution already drafted into the outline, plus redoing the essentials, to reach FAIL.
+
+### FAIL
+- **Observable:** The owner discards the note's credits and attributions, researches most essentials independently, and goes back to fix a misattribution already in the outline.
+- **Verdict reason:** Active work is dominated by independent searching and correction.
+- **Boundary move:** Make credits and attributions usable with light verification. That gives BORDERLINE.
+
+**Not this dimension:** Evaluation-only audit time is reported separately. A factual misdirection is counted under §8.3. Comparison with the baseline arm happens in §8, not here.
+
+**Annotator note:** These anchors describe what the work was made of, not totals. Whether burden is lower than baseline is decided in §8.
+
+---
+
+## Contract friction
+
+1. **D1 level mapping and gate overlap.** §4 gives the metric levels correct / correct with disclosed ambiguity / wrong, but does not map them onto pass / borderline / fail. My anchors use the wording "correct or correct with disclosed ambiguity" at PASS, and place incomplete claim-level disclosure at BORDERLINE. That is my reading; §6 should confirm it. A central, undisclosed "wrong" lock is already G1, so a non-gate D1 FAIL only exists for disclosed wrong locks or wrong-edition material that is peripheral only.
+2. **D5 levels and processed retrieval.** §4 D5 does not say where a model-processed fetch summary or a search snippet of a primary page sits among "read in primary / relayed / unconfirmed". The pilot shows this matters, but the pilot's amendment 1 is a prompt proposal, not contract. My anchors flag the case to the owner and do not resolve it.
+3. **G4 and *imprecise*.** G4 names "incorrect". §2 treats *imprecise* as a separate status. Whether a central imprecise claim presented as established falls under G4 is not stated. My anchors keep imprecision under D2 and D6 and refer adjudication to the owner.
+4. **Severity.** S1–S3 are defined only in the scoring manual, so the D2 anchors cannot use severity labels.
+
+## Self-check
+
+The anchors I'm least sure of:
+- **D1 FAIL:** it depends on friction 1, and the non-gate space is narrow.
+- **D5 BORDERLINE:** it uses a snippet case whose level is not settled (friction 2).
+- **D6 FAIL:** whether it is a dimension failure or G4 depends on the imprecise-vs-incorrect adjudication (friction 3).
+- **D3 FAIL and D2 BORDERLINE:** both depend on a centrality call under test (d), which another adjudicator could make differently.
+- **D11 overall:** without a baseline, "poor practice" is hard to judge on its own.
+
+
+=== DOCUMENT 3: anchors-v1-rc ===
+
+
+# Anchors v1 — release candidate (Stage A-2, acceptance-v1 §4.1)
+
+- Status: **release candidate**. It is frozen only after both contributors' diff check (`round2/`).
+- Date: 2026-10-16. Contract: `../acceptance-v1.md` (sha256 `605b72a0…`). Nothing here changes it.
+- Inputs: two anchor sets written independently in fresh contexts from the same brief (`brief.txt`; combined prompt sha256 `6c6f8528…`). Neither contributor saw the other's set.
+  - `runs/astra-anchors/output.md`: GPT-6 Astra, Codex CLI 0.162.0-alpha.17.2, 198 s.
+  - `runs/claude-anchors/output.md`: `claude-opus-5-5`, Claude CLI, 267 s, 0 web requests.
+- Reconciled by the orchestrating session (`claude-opus-5-5`, the same family as one contributor). The rule is the one used for acceptance-v1: keep both texts, and where they place a behaviour at different levels, adopt the stricter placement and record it.
+
+## 1. What the anchor set is
+
+The anchor set is **both contributors' exemplar files, verbatim**, plus §2–§4 of this document. A file is cited as `A` (Astra) or `C` (Claude), with dimension and level. For example, `C-D4-FAIL` is Claude's D4 FAIL anchor.
+
+- Each dimension therefore has two exemplars per level, built on different fictional albums: Astra's *Glass Orchard* and Claude's *Tidewater Ledger*. Two exemplars per level give calibration more than one picture of each boundary. Neither file is privileged.
+- §2 below is the reconciled boundary for each dimension. Where an exemplar and §2 disagree, §2 wins, and §3 lists every such case.
+- The levels are illustrations for §6 calibration. They are not floors, not whole-note verdicts and not gate rulings. Integrity gates (§3 of the contract) are always judged separately and bind regardless of any dimension level.
+
+## 2. Reconciled boundaries
+
+| Dim | PASS | BORDERLINE | FAIL | Adjacent gate (what turns the FAIL into the gate) |
+|---|---|---|---|---|
+| D1 Target lock | Every central claim is attributable to the target object. Any other edition's material is marked at claim level, and the edition wording is unambiguous. | The target is correct, but either the disclosure is at note level only (C), or claims are attached to the target while its labels remain unclear (A). | A disclosed wrong target (A, C). | G1: the wrong object is used in central claims and not disclosed. |
+| D2 Accuracy | The audit supports the central claims. At most incidental imprecision remains, reported in the imprecise share. | Errors are confined to non-central claims: an incidental imprecise date (A), or peripheral temporal or scope inversions (C). | Several peripheral errors (A), or a central incorrect claim that is hedged rather than presented as established (C). | G4: a central incorrect claim presented as established. |
+| D3 Attribution | Speaker class is correct per sentence, and relays of one source are counted as one. | No upgrade, but a speaker class cannot be recovered from the note (C), or source independence is left unclear (A). | A peripheral narration→speech upgrade, or a claim of independent corroboration from relays (A, C). | G5: the upgrade carries a central claim. |
+| D4 Traceability | A non-producer reader recovers each central passage quickly, and the excerpt is faithful. | Recovery succeeds only after scanning a long source, or fidelity is imperfect but meaning is kept. | Central claims cannot be mapped to a passage (A: bibliography only), or a quoted passage cannot be recovered (C). | G2: only if invention is *established*. Non-recovery alone is unsupported, incorrect or unassessable. |
+| D5 Provenance communication | Wording makes primary / relayed / unconfirmed or conflicting clear per claim. | An access route is overstated without consequence (C: snippet read as primary), or a status is unexplained (A). | A consequential overstatement or understatement, or an uncertainty silently resolved (A, C). | G9 if a central *unsupported* claim is shown as verified; G3b if the note falsely says it read a source. |
+| D6 Credits and editions | Original role strings, tracks and edition are given against a named authoritative row, and every aggregate discloses role, numerator, denominator, exclusions and source. | Exact rows are available, but a summary normalises a role (A, C) or an aggregate is incompletely disclosed while not being a central premise (C). | Credits are not anchored to an accessible authoritative row: role narrowing, wrong-edition tracks (C), or only unverified guesses (A). | G7: an undisclosed aggregate is a premise of a central claim. G4: a role adjudicated *incorrect* is presented as established. |
+| D7 Omissions | Every essential is captured with correct substance and scope, and gaps are disclosed separately. | An essential that was accessible is disclosed as a gap, not captured (A, C). | A silent miss of an accessible essential, or a capture with the wrong scope (C). | G6: the note turns not-found into "does not exist / was not involved" in a central claim. |
+| D8 Musical context *(descriptive)* | Album-specific, supported, with the correct relationship type, a concrete reason, and the conclusion left to the critic. | Support is sound but the comparison lacks a reason (A), or the relationship type is overstated or the wording leans toward a conclusion (C). | The critic's conclusion is presupposed, or the context is unsupported (A, C). | G3a: a sonic description given as the note's own observation. |
+| D9 Selection *(descriptive)* | Each substantive unit serves research or verification. The appendix does not restate the body. | Useful content is intact, but there is skippable redundancy or an irrelevant paragraph. | Redundant or irrelevant units are a large share of the whole deliverable. | — |
+| D10 Collection and stopping *(descriptive, trace)* | Yield rises, failures are switched away from, and late checks resolve conflicts. | Some identical retries or a flat tail, but collection progresses. | Repeated identical failures and no stopping point once yield is flat. | G8: following instructions found in retrieved content. |
+| D11 Owner burden *(descriptive, task record)* | Active work is mainly reading and light verification, with small correction and completion work. | Work saved in searching is spent on locating and repair (A), or some sections need re-derivation (C). | Active work is dominated by reconstruction, independent research and correction. | — (a factual misdirection is §8.3) |
+
+## 3. Reconciliation decisions
+
+| # | Point | A | C | Decision |
+|---|---|---|---|---|
+| R1 | D1: where "correct with disclosed ambiguity" falls | Terminology left unclear, with claims attached to the target → BORDERLINE (`A-D1-BORDERLINE`) | Ambiguity resolved per claim → PASS (`C-D1-PASS`) | **Both stand.** The rule is §2: PASS needs claim-level attribution *and* unambiguous edition wording. This is the stricter of the two readings, so Astra's terminology case stays BORDERLINE. |
+| R2 | D11 and the paired baseline | Levels are phrased against the baseline (`A-D11-PASS`, `-FAIL`) | Levels describe the composition of the work; the comparison is §8 (`C-D11` note) | **C's framing.** The contract makes D11 descriptive here and used by §8. The baseline clauses in `A-D11-PASS` and `A-D11-FAIL` are read as context, not as the level criterion. The A exemplars keep their levels on composition alone, because both describe the same composition pattern. |
+| R3 | D6 FAIL scope | Only unverified credit guesses with accessible rows (`A-D6-FAIL`) | Single encyclopedia, role narrowing, deluxe track counted (`C-D6-FAIL`) | **Both stand** as two FAIL routes. A's is the narrower one, and A flags it as one to test in calibration. |
+| R4 | D2 FAIL | Peripheral errors only | Includes a hedged central incorrect claim | **Both stand.** Both are FAIL under §2. C's is the one next to G4. |
+| R5 | D4 FAIL with an unrecoverable quote (`C-D4-FAIL`) | — | Traceability fail; not G2 | **Stands, with a note.** The same quote is also audited under D2 as *unsupported* or *unassessable*. Scoring it in both is allowed, because the dimensions measure different things. |
+
+## 4. Open items for the scoring manual (§6.1)
+
+The contributors raised these as contract friction. They are **not contract changes**. The scoring manual is frozen before calibration (contract §6.1), and each item needs a frozen rule there. The proposals are the orchestrator's, offered for the diff check.
+
+| # | Raised by | Item | Proposed scoring-manual rule |
+|---|---|---|---|
+| M1 | C friction 2 | D5: which of the three levels a search snippet or a model-processed fetch summary belongs to | **Relayed**, unless the excerpt is checked against the harness capture of that URL. It follows the stricter reading, and it matches the pilot evidence that summarised fetches reversed attributions. |
+| M2 | C friction 3 | G4 versus a central *imprecise* claim presented as established | The owner decides whether the imprecision changes the truth of the proposition *as it is used* in the central claim. If it does, the claim is adjudicated *incorrect* and G4 applies. If it does not, the claim stays *imprecise* under D2 or D6. The ruling is recorded per claim. |
+| M3 | C friction 4; A friction 3 | S1/S2/S3 definitions | Written in the scoring manual. The anchors deliberately assign no severity. |
+| M4 | A friction 1–2; C D8 and D11 notes | Applicability preconditions | D7 needs the preserved initial and amended maps and the frozen top-3. D8 usefulness needs the owner's in-task rating. D11 needs the full task record. D10 without traces is N/A. Without its precondition a dimension is reported as *not assessable*, never as FAIL. |
+| M5 | C friction 1 | D1 levels | Resolved by R1 and §2. Listed here only so the manual states it. |
+
+## 5. Not part of this document
+
+- Numeric floors and zero-denominator rules: they are frozen in the round manifest after §6 calibration (contract §4.3).
+- The round manifest: `../round-manifest-v1.md`.
