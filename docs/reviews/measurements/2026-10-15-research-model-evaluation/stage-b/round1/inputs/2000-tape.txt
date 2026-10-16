@@ -1,0 +1,54 @@
+## 앨범 (조사 대상)
+- 아티스트: JMIN, KC, NOWIMYOUNG, 김하온
+- 제목: 2000 TAPE
+- 구분(album_type): album
+- 발매일: 2026-07-20
+- 레이블: KC
+- 트랙 수: 20
+- Spotify ID: 0HhoqCRYpuH5sc9mlgCgrF
+
+## Genius 확인 사실 (파이프라인 제공 — 조사 대상 앨범)
+- 커버리지: 매칭 0/20트랙 (모호 0 · Genius 미등재 0 · 미조회 20)
+- 사실 확인 불가 트랙: 1 MILLENNIUM BUG [미조회] · 2 RHYMES N FLOWS [미조회] · 3 HIGH TOP [미조회] · 4 Nuptse North Face [미조회] · 5 SUDDEN ATTACK FX [미조회] · 6 NY DRIP SO COLD [미조회] · 7 한국노래 [미조회] · 8 YANKEE CANDLE [미조회] · 9 SIP N SLOW [미조회] · 10 R.I.P [미조회] · 11 TURN UP THAT MUSIC [미조회] · 12 새천년 [미조회] · 13 Where 2 go [미조회] · 14 2000 to TOP [미조회] · 15 I ♡ KC [미조회] · 16 WINDOW SHOPPING [미조회] · 17 RICH RICH [미조회] · 18 UP [미조회] · 19 GREEN LIGHT [미조회] · 20 XYZ [미조회] — 이 트랙들에 대해서는 크레딧·관계의 유무를 어느 쪽으로도 주장하지 말 것
+- Genius 미매칭 (0/20 트랙) — 사실의 부재가 아니라 조회의 부재다. 이 앨범의 크레딧·샘플 관계는 Genius로 확인 불가. [확인: Genius] 표기를 사용하지 말고, 미확인은 통상 규칙대로 처리할 것.
+
+## 카탈로그 (파이프라인 제공 — 우리 DB에서 파생)
+- ※ 이 블록은 **오너의 라이브러리**에서 나온 것이지 디스코그래피가 아니다. 전작이 여기 없다는 것은 **우리가 안 갖고 있다**는 뜻이지 존재하지 않는다는 뜻이 아니다. **이 블록의 부재를 근거로 삼지 말 것.**
+### 아티스트 장르 태그 (Spotify 유래)
+- 김하온: 한국 랩
+- JMIN: 한국 랩
+- KC: 한국 랩
+- NOWIMYOUNG: 한국 랩
+### 같은 아티스트의 다른 앨범 — 우리 카탈로그 보유분 (21장)
+- FOREVER KIDS (2026 · single · KC)
+- 천국 (2026 · single · KC)
+- Yarrr (2026 · single · KC (20) / ADA)
+- KC3 (2025 · album · KC)
+- BOYCOLD 3 (2025 · single · KC, AT AREA)
+- LUXURY TAPE (2025 · album · KC)
+- KC2.5 (2025 · album · KC)
+- YIN & YANG (2025 · single · KC)
+- iPhone (2025 · single · KC)
+- APGU essential (2025 · single · KC)
+- APGU (2024 · single · BLUESEED)
+- Skrr (feat. GISELLE) (2024 · single · KC)
+- AH (2024 · single · BLUESEED)
+- KCTAPE, Vol. 2 (2024 · album · KC)
+- KCTAPE, Vol. 1 (2024 · album · KC)
+- HAONOAH (2024 · album · ADA Korea)
+- 3=1 (2024 · single · Genie Music Corporation, Stone Music Entertainment)
+- ALBUM ON THE WAY! (2023 · album · KC)
+- Homecoming (2021 · single · Genie Music Corporation, Stone Music Entertainment)
+- 꽃 (2019 · single · Genie Music Corporation, Stone Music Entertainment)
+- TRAVEL: NOAH (2018 · single · H1GHR MUSIC)
+### 같은 레이블의 다른 아티스트 — 보유분
+- JMIN — FOREVER KIDS (2026)
+- NOWIMYOUNG — 천국 (2026)
+- 식케이 — 6SEOUL (2026)
+- 식케이 — STAY on FIRE (feat. DEAN) (2026)
+- 식케이 — STAY on FIRE (feat. DEAN) (2026)
+- 식케이 — NAMSAN TOWER (feat. LEY) (2026)
+- JMIN — KC3 (2025)
+- KC — KC3 (2025)
+- 김하온 — KC3 (2025)
+- 식케이 — KC3 (2025)

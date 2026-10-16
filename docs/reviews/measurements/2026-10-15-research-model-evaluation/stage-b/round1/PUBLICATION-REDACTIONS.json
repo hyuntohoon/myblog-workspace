@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-16",
+  "decision": "owner, chat 2026-10-16: publish with the owner's personal collection signal removed",
+  "replaced": "the bucket-name list in the poller catalog block's owner-collection line (Gemini Rights only; 2000 TAPE has no such line)",
+  "with": "### 오너 컬렉션 신호: [redacted: owner bucket names] —",
+  "files": {
+    "inputs/gemini-rights.txt": {
+      "original_sha256": "fcdea93c639aced81c157d9e071c3ec3ccb415cb37704957a817262718b3f94b",
+      "occurrences": 1
+    },
+    "review/inputs/S03.txt": {
+      "original_sha256": "a123eaa0b34d113bd529091a24924118f69b737b8a7fa2ca1fb2f55ef8788957",
+      "occurrences": 1
+    },
+    "review/inputs/S04.txt": {
+      "original_sha256": "452a65aab638457bb262122d0dd7f9b40ef9b6a0c666518347c75dc3704c2db1",
+      "occurrences": 1
+    },
+    "review/inputs/S05.txt": {
+      "original_sha256": "2fae766ca51df5d41aa8ae4eb3a3b91121da46afc308b49b3976b35bd6614ae9",
+      "occurrences": 1
+    },
+    "review/inputs/S07.txt": {
+      "original_sha256": "2def08b7311af650c348017d559e756af5401eb03f415618bd22aaa08ffff705",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S03/input.txt": {
+      "original_sha256": "a123eaa0b34d113bd529091a24924118f69b737b8a7fa2ca1fb2f55ef8788957",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S04/input.txt": {
+      "original_sha256": "452a65aab638457bb262122d0dd7f9b40ef9b6a0c666518347c75dc3704c2db1",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S05/input.txt": {
+      "original_sha256": "2fae766ca51df5d41aa8ae4eb3a3b91121da46afc308b49b3976b35bd6614ae9",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S07/input.txt": {
+      "original_sha256": "2def08b7311af650c348017d559e756af5401eb03f415618bd22aaa08ffff705",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S03/input.txt": {
+      "original_sha256": "a123eaa0b34d113bd529091a24924118f69b737b8a7fa2ca1fb2f55ef8788957",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S04/input.txt": {
+      "original_sha256": "452a65aab638457bb262122d0dd7f9b40ef9b6a0c666518347c75dc3704c2db1",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S05/input.txt": {
+      "original_sha256": "2fae766ca51df5d41aa8ae4eb3a3b91121da46afc308b49b3976b35bd6614ae9",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S07/input.txt": {
+      "original_sha256": "2def08b7311af650c348017d559e756af5401eb03f415618bd22aaa08ffff705",
+      "occurrences": 1
+    },
+    "runs/cl-P0-gemini-rights/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": 1
+    },
+    "runs/cl-P1-gemini-rights/input.txt": {
+      "original_sha256": "3b3c779245047865ad437d282b5cffaf5ffa6612d3fcafc43c3bd21fc1305f31",
+      "occurrences": 1
+    },
+    "runs/gx-P0-gemini-rights/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": 1
+    },
+    "runs/gx-P1-gemini-rights/input.txt": {
+      "original_sha256": "3b3c779245047865ad437d282b5cffaf5ffa6612d3fcafc43c3bd21fc1305f31",
+      "occurrences": 1
+    }
+  },
+  "note": "Published bytes of these files differ from the dispatched bytes in that one line only. original_sha256 is the dispatched file's hash; ROUND.md input hashes, manifests' expected_prompt_sha256 and metadata prompt_sha256 refer to the dispatched bytes. Originals are kept outside the repository."
+}
