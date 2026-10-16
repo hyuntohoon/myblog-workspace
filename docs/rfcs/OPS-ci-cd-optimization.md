@@ -413,7 +413,7 @@ to keep using. Loses nothing.
 for i in $(seq 20); do pnpm test --run >/dev/null 2>&1 && echo ok || echo FAIL; done | sort | uniq -c   # before and after
 ```
 
-### Step 6 — dormant cleanup (OQ4: delete both)
+### Step 6 — dormant cleanup (OQ4: delete both) — **delivered 2026-10-16** (ws #1088, worker #118)
 
 **Workspace PR.** Delete `.github/workflows/merge-contract.yml`; change `AGENTS.md` § cross-repo
 and `docs/architecture.md` (the paragraph that still describes the `repository_dispatch` auto-PR)
@@ -435,7 +435,13 @@ artifact nobody reads.
 `grep -rn allure` in the worker tree returns only `.gitignore`; worker `test` green on the PR with
 the zero-skip step passing.
 
-### Step 7 — music integration job on local Postgres (OQ3: yes)
+### Step 7 — music integration job on local Postgres (OQ3: yes) — **delivered 2026-10-16** (music #82)
+
+> **Delivered.** PR run: `Integration suite: 11 test(s), zero skips` — the same 11 as the last Neon run
+> (38885485217). Mutants (draft music #83, closed): dropping `albums.popularity` after the schema load →
+> red (1 failed, 9 skipped); a skip-only test with an arbitrary reason, schema restored → pytest green and
+> the zero-skip step red (`1 integration test(s) skipped; expected zero`) — a skip the old grep would have
+> passed. Local run not possible (no Postgres server or Docker on the host); CI was the execution.
 
 Rewrite the `integration` job in `myblog_music/.github/workflows/deploy.yml` after backend's: a
 `postgres:16` service, `tests/canonical_schema.sql` checked out from `myblog_shared_db` **at music's
@@ -466,7 +472,12 @@ URL, supplied locally.
 the same test count as the last Neon run; a mutant that drops a column the tests probe from the
 loaded schema makes those tests `pytest.skip`, and the zero-skip step turns the job red.
 
-### Step 8 — `pnpm build` in front `check` (OQ5: yes, dummy API URLs)
+### Step 8 — `pnpm build` in front `check` (OQ5: yes, dummy API URLs) — **delivered 2026-10-16** (front #470)
+
+> **Delivered.** `Build (API-free)` took 15 s in CI. Local: no env → `EnvInvalidVariables` (exit 1); dummy
+> URLs → 23 pages, exit 0; a render-time `throw` in `privacy.astro` passed `astro check` and failed the
+> build. Observation, not acted on: four build-time fetches (`review/[slug]`, `artist/[id]`,
+> `members/[handle]`, `lib/artistNames.ts`) have no explicit timeout — pre-existing, outside this RFC.
 
 Add a `pnpm build` step to the front `check` job with **dummy** `PUBLIC_API_URL` /
 `PUBLIC_BACKEND_API_URL` (a refused local port, e.g. `http://127.0.0.1:9`) and no Cognito/Spotify
@@ -537,6 +548,7 @@ step (a missing-module import would not prove the step: `astro check` already ca
 | 2026-10-16 | OQ3 answered **yes**: music's CI integration job moves to local Postgres + canonical schema at music's own shared_db pin, JUnit zero-skip; recall gate stays deselected. Supersedes this RFC's Non-goal and OPS-integration-db-locality's music carve-out. | 7 |
 | 2026-10-16 | OQ4 answered **delete both**: `merge-contract.yml` (with `AGENTS.md` and `docs/architecture.md`) and every worker Allure trace; JUnit upload kept. | 6 |
 | 2026-10-16 | OQ5 answered **yes, dummy API URLs**: `pnpm build` in front `check` with refused-port API URLs and no secrets, so no PR build loads production; divergence from the deploy build recorded in Step 8. | 8 |
+| 2026-10-16 | Steps 6, 7, 8 delivered (ws #1088, worker #118, music #82, front #470); deploys green, prod smoke 33/33 (FAILED: 0). Every step is delivered or declined and every OQ answered; closing the RFC is the owner's call. | 6, 7, 8 |
 
 ## Appendix — reproducing the numbers
 
