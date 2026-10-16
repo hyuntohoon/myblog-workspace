@@ -426,6 +426,36 @@ The panel is the core of this step and the report is its entry, so the step ship
 - **Front:** "다른 가사 보기" in the lyrics viewer, owner only. It opens the panel: candidates sorted
   by verdict, each with source, preview and the reason it lost; the current pick and its lock state.
 
+**3a design decisions (2026-10-16, owner; recommendations taken).** Checked against
+`origin/main` before building:
+
+- *Already there.* The `{track_id}` scope of `lyrics_reassessment` (Step 2) **is** the
+  `lyrics_recheck` job; 3a reuses it rather than adding one. The guard and the re-sweep
+  selection already treat `manual_fix` / `basis='manual'` as locked.
+- *Gap.* The shared writer (`TrackLyricsWriter.write_outcomes`) had no lock, the demand-source
+  selection projects no `existing_locked`, and `manual` was missing from the basis ladder
+  (strength 0). So a `manual` "no lyrics" row could be superseded by an `exact-title` from the
+  demand job. 3a puts the lock **in the writer's upsert** (`ON CONFLICT … WHERE NOT locked`),
+  which every producer and the `tools/lyrics_*` twin go through. `manual` also gets the top
+  rung of the ladder.
+- **Candidate set: stored only by an explicit single-track re-check** (the panel's refresh),
+  not by every evaluation. The scheduled jobs would otherwise rewrite up to 20 rows per track
+  on every pass. The panel says when nothing is stored and offers the refresh. It shows every
+  candidate LRCLIB returned, including the ones a metadata gate dropped, each with its reason.
+- **Rejecting the attached candidate takes it down at once.** The row goes to
+  `review_required` (`reason='owner_rejected'`) and a re-check is enqueued. If the re-check
+  fails (429), the unresolved queue picks the row up anyway. Rejecting any other candidate only
+  records it. A rejection never locks.
+- **Translation re-queue (OQ2): on an owner pick only,** when the body changed and a
+  non-manual translation existed (`done` / `failed` → `requested`). Automatic replacements do
+  not re-queue, so a matcher bump cannot flood the poller.
+- **A pick is limited to the stored candidate set** (409 otherwise). The worker re-fetches the
+  body by id.
+- Writes: "no lyrics", reject and unlock are DB-only, so the backend writes them directly.
+  Pick and refresh need LRCLIB, so the backend enqueues them for the worker. Unlock removes
+  the lock keys, sets the basis to `unlocked` (strength 0) and enqueues a re-check, so the row
+  is automatic again.
+
 **3b — Member reports**
 
 - **Schema:** `track_lyrics_reports(id, track_id, user_sub, created_at, status, resolved_at,
@@ -531,3 +561,4 @@ They describe what the commits say they did. Effects are filled in only where a 
 | 2026-10-16 | The `manual_fix` lock is kept before Step 3a, against the earlier "no lock before 3a" text. Hand-fixed rows are never changed automatically (owner) | 2 |
 | 2026-10-16 | Real pass after the audit: the 8 regression and 8 unclear rows are hand-locked (`manual_fix`), then shadow is turned off (owner) | 2 |
 | 2026-10-16 | Real pass drained to empty: 26 rewrites, all inside the audited 42. Step 2 closed | 2 |
+| 2026-10-16 | 3a: candidate set stored by explicit re-check only; rejecting the attached candidate demotes the row at once; translation re-queued on owner pick only; pick limited to the stored set; lock enforced in the shared writer (owner) | 3a |
