@@ -482,8 +482,9 @@ those templates still surfaces only in `deploy`; the build still reaches Google 
 API-free, not network-free. The deploy job's build is unchanged.
 
 **Verification**: locally, `pnpm build` with only the two dummy URLs set succeeds; on the PR,
-`check` green with the build step present and its duration recorded; a mutant (a deliberate import
-of a missing module in a page) turns `check` red.
+`check` green with the build step present and its duration recorded; a mutant that `astro check`
+cannot see — a render-time `throw` in a page's frontmatter — passes `astro check` and fails the build
+step (a missing-module import would not prove the step: `astro check` already catches it).
 
 ---
 
