@@ -1,9 +1,11 @@
 # DOCS-patch-notes-from-history: Monthly patch notes on the site, written from merge history
 
-- **Status**: accepted (owner approval 2026-10-16)
+- **Status**: **done** (2026-10-16 — Steps 1–2 shipped; archived). Owner approved the Status change
+  in-session under CLAUDE.md rule #7. Last shipment: Step 1, `myblog_front#468` (`94bde96`, deploy run
+  38883906906, prod `/updates/` 200 with 2 `<article>`).
 - **Owner**: site owner
 - **Created**: 2026-10-16
-- **Plan row**: `plan.md` → DOCS-patch-notes-from-history
+- **Plan row**: removed at close (Step 2). Monthly entries are routine work under `myblog_front/README.md` § 패치 노트.
 
 ---
 
@@ -154,9 +156,47 @@ Each has a recommendation, and work proceeds on it unless the owner says otherwi
 3. **Cadence.** Recommendation: **monthly**, written in the first days of the next month. The site
    deploys continuously, so there is no release unit. Not blocking.
 
+## Execution record
+
+**Step 1 — shipped 2026-10-16**, `myblog_front#468` (squash `94bde96`, deploy run 38883906906).
+`updates` collection, `/updates/` page, footer base link `업데이트`, `content/updates/2026-10.md`
+(Oct 1–16, 4 items), `content/updates/2026-07-09.md` (July–September condensed, 7 items), README
+§ 패치 노트. lint / `astro check` / `pnpm test` (1509) green; chrome-devtools clickthrough; all 37 PR
+links resolve to merged PRs; owner approved the wording in-session. Prod smoke quoted on #468:
+`/updates/` 200, `<article>` 2.
+
+Deviations from the plan above, as recorded in the #468 body:
+
+- The footer link went in as the **first** base link, not appended. For a signed-in member the fixed
+  Pocket pill covers the right end of that row.
+- The README procedure gained one rule: if the month's file already exists, extend it.
+- Excluded beyond the Non-goals: Spotify library autosync (the library bucket is owner-only) and
+  YouTube playback (front #444; its CSP change ws #984 was recorded as merged but not applied, so
+  member availability was not shown).
+
+**Step 2 — this close, 2026-10-16.** Re-checked before archiving: `curl -s
+https://www.ratemymusic.blog/updates/ | grep -c '<article'` → `2`.
+
+**Correction to *Current state* (Front).** The RFC says `content/blog/` is machine-written on front
+`main`. The publish path is still configured for it (`myblog_backend/app/core/config.py` on
+`origin/main`: `GITHUB_REPO_BRANCH = "main"`, `CONTENT_DIR = "content/blog"`), but front `origin/main`
+(`94bde96`) tracks **no** files under `content/blog/`; the only tracked files under `content/` are the
+two `content/updates/` entries. The directory was emptied by STAB-5 Step 6 (2026-06-06). The
+separation `content/updates/` relies on holds either way. No code change.
+
+**Left open, outside this RFC:**
+
+- The October entry covers Oct 1–16 only. Oct 17–31 is appended in early November under the README
+  procedure. Not an RFC step.
+- Pre-existing defect seen during the Step 1 hit-test: for a signed-in member the Pocket pill covers
+  the footer's `RSS` base link (RSS stays reachable from the 구독 column). Not fixed here; the owner
+  decides whether to track it.
+
 ## Decisions log
 
 | Date | Decision | Step |
 |------|----------|------|
 | 2026-10-16 | RFC drafted. Fable review cut it from four steps to two. Dropped: the classifier script, the miss-rate gate (circular: the drafter defines a miss) and the three-month backfill (one condensed entry instead). Owner approval is a verification item, not a rule-9 exception | — |
 | 2026-10-16 | RFC accepted (owner). OQ1–3 taken on the recommendations: public audience, a small footer base link `업데이트`, monthly | 1 |
+| 2026-10-16 | Step 1 shipped (front #468) and prod-verified | 1 |
+| 2026-10-16 | Closed: plan row removed, RFC archived; Status → done with owner approval in-session | 2 |
