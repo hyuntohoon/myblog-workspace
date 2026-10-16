@@ -1,6 +1,6 @@
 # OPS-ci-cd-optimization: measure the six repos' CI/CD and trim only what the measurement supports
 
-- **Status**: accepted (owner approval 2026-10-16; scope Steps 1, 2, 3, 5)
+- **Status**: accepted (owner approval 2026-10-16; scope Steps 1, 2, 3, 5; Steps 6, 7, 8 added by the owner's OQ3–OQ5 answers the same day)
 - **Owner**: site owner
 - **Created**: 2026-10-16
 - **Plan row**: `docs/plan.md` → OPS-ci-cd-optimization
@@ -65,8 +65,10 @@ Where the cost actually sits is not minutes but **round trips and one slow step*
 - **No change to deploy mechanics** — OIDC roles, `update-function-code`, S3 layout, CloudFront
   invalidation, post-deploy smokes — other than the S3 sync's concurrency setting.
 - **No reinstatement of a review bot.** Deleting the dead workflow is not a decision to add another.
-- **No move of `myblog_music`'s integration suite off Neon.** OPS-integration-db-locality decided
-  that; the premise has since shifted and is restated as an open question, not a step.
+- ~~**No move of `myblog_music`'s integration suite off Neon.**~~ **Superseded 2026-10-16 by the
+  owner (OQ3 → Step 7).** OPS-integration-db-locality kept music on Neon while its job was advisory;
+  the job has gated `deploy` since 2026-08-28. The recall gate stays on a real catalog and stays
+  deselected in CI; only the CI integration job moves.
 - **No cost claim beyond the public-repo rule and the measured minutes.** The Actions billing API
   needs the `user` OAuth scope this session's `gh` token does not carry; it was not queried.
 
@@ -220,7 +222,7 @@ lock step), so each costs one full gate run plus a fix commit plus a second full
 
 - **Front `check` never builds.** `pnpm build` runs only in `deploy`, after merge. In 90 days no
   push failed at the build step (the failures were tests, `api.gen.ts` sync, lint), so this is a
-  latent gap, not a measured one. Closing it costs ≈ 30 s on every front PR.
+  latent gap, not a measured one. Closing it costs ≈ 25–30 s on every front PR (Step 8).
 - **`workspace-check` is advisory.** 6 red runs on 5 PRs in 30 days, 2 of which merged red. Open item from
   SEC-system-hardening Step 6, restated with numbers in OQ1.
 - **Music's integration gate is the odd one out**: Neon test branch + `TEST_DB_URL` secret +
@@ -267,8 +269,10 @@ lock step), so each costs one full gate run plus a fix commit plus a second full
 ## Steps
 
 Steps 1–3 and 5 are independent and additive (one PR each, any order, may share a session). Step 4
-is optional and waits on OQ2. Step 6 waits on OQ4. None touches a required-check name, a ruleset,
-Terraform, a contract, an auth guard or a migration. Steps 2, 4 and 6 edit deploy or CI workflows,
+is optional and waits on OQ2 (declined). Steps 6, 7 and 8 were added or unblocked by the owner's
+OQ3/OQ4/OQ5 answers on 2026-10-16; they are likewise independent and additive (one PR per repo,
+any order, may share a session). None touches a required-check name, a ruleset,
+Terraform, a contract, an auth guard or a migration. Steps 2, 4, 6, 7 and 8 edit deploy or CI workflows,
 which `CLAUDE.md` § Subagents counts as an infra touch: `reviewer` is mandatory there, and hard rule
 11 means Claude implements them directly, not through a subagent or Codex.
 
@@ -409,15 +413,78 @@ to keep using. Loses nothing.
 for i in $(seq 20); do pnpm test --run >/dev/null 2>&1 && echo ok || echo FAIL; done | sort | uniq -c   # before and after
 ```
 
-### Step 6 — dormant cleanup (blocked on OQ4)
+### Step 6 — dormant cleanup (OQ4: delete both)
 
-Delete `myblog-workspace/.github/workflows/merge-contract.yml` and change `AGENTS.md` § cross-repo
-to say the manual `tools/merge_openapi.py` path is the only path; delete the worker Allure upload
-step (keep the JUnit upload). Loses: a manual `workflow_dispatch` that opens a merged-spec PR — not
-used since 2026-06-25 — and an artifact nobody reads.
+**Workspace PR.** Delete `.github/workflows/merge-contract.yml`; change `AGENTS.md` § cross-repo
+and `docs/architecture.md` (the paragraph that still describes the `repository_dispatch` auto-PR)
+to say the manual `tools/merge_openapi.py` path is the only path. The workspace repo's
+`WORKSPACE_GITHUB_TOKEN` secret is then unreferenced there; the same-named secret is still read by
+`myblog_front/.github/workflows/main.yml` (contracts checkout), so this removes one secret copy, not
+the PAT. Deleting the workspace copy is a repo-settings action for the owner, after merge.
 
-**Verification**: `gh workflow list` on each repo no longer shows the item; `workspace-check` and
-worker `test` green on the PRs.
+**Worker PR.** Remove all three traces together — the `Upload Allure results` step and
+`--alluredir` in `deploy.yml`, `--alluredir=allure-results` in `tests/pytest.ini` `addopts`, and
+`allure-pytest` in `requirements-test.txt` (dropping only the dependency would make every pytest
+invocation fail on an unrecognised argument). Keep `--junitxml` and the JUnit upload: the zero-skip
+step reads that file. The `.gitignore` lines are left (harmless).
+
+Loses: a manual `workflow_dispatch` that opens a merged-spec PR — not used since 2026-06-25 — and an
+artifact nobody reads.
+
+**Verification**: `gh workflow list` on the workspace no longer shows `Merge OpenAPI contracts`;
+`grep -rn allure` in the worker tree returns only `.gitignore`; worker `test` green on the PR with
+the zero-skip step passing.
+
+### Step 7 — music integration job on local Postgres (OQ3: yes)
+
+Rewrite the `integration` job in `myblog_music/.github/workflows/deploy.yml` after backend's: a
+`postgres:16` service, `tests/canonical_schema.sql` checked out from `myblog_shared_db` **at music's
+own model pin**, read from `requirements.lock` by a step in the job (`8319a56` on 2026-10-16, not
+backend's `b5d0670`; copying another service's ref is the ORM-vs-schema drift class, and a literal SHA
+in the workflow would be a second copy of the pin that drifts on the next bump — the class behind
+the worker's 2026-10 `UndefinedTable` failure in § 5), and
+`TEST_DB_URL` pointing at the service container. The localstack service stays. The grep-based
+"Fail on DB-reason skips" step becomes backend's JUnit zero-skip check, which fails on any skip
+regardless of reason text. The job id stays `integration`, so the required context is unchanged.
+`-m "integration and not recall_gate"` stays: `test_search_recall_gate.py` also reads `TEST_DB_URL`
+and would silently run against an empty local DB if the deselect were dropped — the step comment
+says so.
+
+Why it is safe: the three DB-bound tests (`test_album_edition_collapse.py`,
+`test_artist_top_tracks.py`, `test_unified_search_expansion.py`) insert their own rows in a
+rolled-back transaction and probe only `information_schema`; `test_candidates_localstack.py` uses
+no DB. The canonical schema creates `pgcrypto` and `pg_trgm`.
+
+Gains: no Neon test-branch migration lag for music (the manual-apply step in the
+`reference-neon-test-branch-migration-drift` procedure no longer applies to music CI), a stricter
+skip check, no CI dependency on an external DB. Loses: nothing the job asserted — no test reads
+Neon-specific data. The `TEST_DB_URL` repo secret on music (and the unused copies on backend and
+worker) can then be deleted by the owner; the recall gate, run by hand, still needs a real catalog
+URL, supplied locally.
+
+**Verification**: on the PR, `integration` green with the zero-skip step reporting zero skips and
+the same test count as the last Neon run; a mutant that drops a column the tests probe from the
+loaded schema makes those tests `pytest.skip`, and the zero-skip step turns the job red.
+
+### Step 8 — `pnpm build` in front `check` (OQ5: yes, dummy API URLs)
+
+Add a `pnpm build` step to the front `check` job with **dummy** `PUBLIC_API_URL` /
+`PUBLIC_BACKEND_API_URL` (a refused local port, e.g. `http://127.0.0.1:9`) and no Cognito/Spotify
+secrets. An env-less build fails: `astro.config.ts` declares both URLs as required `envField.string`,
+which `astro check` does not enforce (sync mode) but `astro build` does. With refused URLs every
+build-time fetch (`index.astro`, `review/[slug].astro`, `members/[handle].astro`,
+`artist/[id].astro`) takes its existing fallback, so the PR build loads no production API.
+
+Gains: compile, bundle, content-collection and PWA-glob breakage is caught before merge (+≈ 25 s per
+front PR, measured: `Build Astro` 25 s on run 38886655030). Stated divergence from the deploy build:
+member pages and catalog-only artist pages are not rendered in the PR build, so a runtime error in
+those templates still surfaces only in `deploy`; the build still reaches Google Fonts, so it is
+API-free, not network-free. The deploy job's build is unchanged.
+
+**Verification**: locally, `pnpm build` with only the two dummy URLs set succeeds; on the PR,
+`check` green with the build step present and its duration recorded; a mutant that `astro check`
+cannot see — a render-time `throw` in a page's frontmatter — passes `astro check` and fails the build
+step (a missing-module import would not prove the step: `astro check` already catches it).
 
 ---
 
@@ -440,11 +507,13 @@ worker `test` green on the PRs.
 3. **Should `myblog_music`'s integration job move to local Postgres** like backend and worker, now
    that it gates `deploy`? Keeps the recall gate on a real catalog either way (it is deselected in
    CI already). Would remove the `TEST_DB_URL` secret and the Neon-lag false-green class from
-   music. Blocks nothing here; needs its own small RFC or a row.
+   music. Blocks nothing here; needs its own small RFC or a row. **Answered 2026-10-16: yes, as
+   Step 7 of this RFC.**
 4. **Step 6 deletions** — keep `merge-contract.yml` as a manual tool, or the Allure upload as
-   evidence? Blocks Step 6.
-5. **Should `pnpm build` join front `check`** (+≈ 30 s per PR) to close the latent build gap (§ 7)?
-   Blocks nothing; a one-line addition if yes.
+   evidence? Blocks Step 6. **Answered 2026-10-16: delete both (Step 6).**
+5. **Should `pnpm build` join front `check`** (+≈ 25 s per PR, measured in Step 8) to close the latent build gap (§ 7)?
+   Blocks nothing; a one-line addition if yes. **Answered 2026-10-16: yes, with dummy API URLs
+   (Step 8).**
 6. **Skip-by-tree on push** (§ 4 (d)): a push-time step that skips the test steps when a green
    `pull_request` run already exists for the identical tree, inside a job that still reports. Removes
    the duplicate run in ≈ 39 of 40 merges (0.8–2.6 min of deploy latency each) without losing the
@@ -465,6 +534,9 @@ worker `test` green on the PRs.
 | 2026-10-16 | OQ6 answered **no** by the owner: no skip-by-tree on push; the push-to-`main` re-run stays as decided above. | — |
 | 2026-10-16 | Steps 1, 2, 3, 5 delivered (backend #187, music #80, worker #113, front #464, #465, #466); prod smoke 30/30 after each deploy. Remaining: OQ3, OQ4 (→ Step 6), OQ5. | 1, 2, 3, 5 |
 | 2026-10-16 | Owner approved enabling the hook: `core.hooksPath=scripts/githooks` set in the backend, music and worker clones; live refusal verified. | 1 |
+| 2026-10-16 | OQ3 answered **yes**: music's CI integration job moves to local Postgres + canonical schema at music's own shared_db pin, JUnit zero-skip; recall gate stays deselected. Supersedes this RFC's Non-goal and OPS-integration-db-locality's music carve-out. | 7 |
+| 2026-10-16 | OQ4 answered **delete both**: `merge-contract.yml` (with `AGENTS.md` and `docs/architecture.md`) and every worker Allure trace; JUnit upload kept. | 6 |
+| 2026-10-16 | OQ5 answered **yes, dummy API URLs**: `pnpm build` in front `check` with refused-port API URLs and no secrets, so no PR build loads production; divergence from the deploy build recorded in Step 8. | 8 |
 
 ## Appendix — reproducing the numbers
 

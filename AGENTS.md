@@ -90,7 +90,7 @@ Plan/spec markdown — `docs/plan.md`, `docs/rfcs/`, `docs/contracts/`, `docs/ar
 
 **Commit**: Conventional Commits, lowercase imperative subject ≤72 chars. `Co-Authored-By: Codex` trailer when AI-authored.
 
-**Cross-repo (≥2 repos)**: update `docs/plan.md` before code. API contract change → export `openapi.json` in service repo, commit in same PR; then run `tools/merge_openapi.py` manually and commit the regenerated `docs/contracts/openapi.json` in workspace (the service→workspace notify-contract dispatch 401s — auto-merge is dead); frontend types derived from merged spec (CI fails on drift).
+**Cross-repo (≥2 repos)**: update `docs/plan.md` before code. API contract change → export `openapi.json` in service repo, commit in same PR; then run `tools/merge_openapi.py` manually and commit the regenerated `docs/contracts/openapi.json` in workspace (this manual path is the only path: no service sends the dispatch any more, and the workspace `merge-contract.yml` workflow was removed in OPS-ci-cd-optimization Step 6); frontend types derived from merged spec (CI fails on drift).
 
 **Multi-step migration**: write RFC in `docs/rfcs/`; plan.md row is one-line pointer.
 
