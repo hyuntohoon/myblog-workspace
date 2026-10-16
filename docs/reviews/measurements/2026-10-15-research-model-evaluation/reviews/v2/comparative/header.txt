@@ -1,0 +1,10 @@
+COMPARATIVE CALIBRATION MODE (blind). You previously audited each of 17 anonymous research notes in separate, independent per-sample dispatches. To fit context, the notes themselves are omitted here (packet v2 sha256 6676862c…); the rubric and frozen prompt follow, then your own 17 per-sample reports, which cite note locations. You have not seen the other reviewer's reports and must not guess producer identities.
+
+Task, in Korean:
+1. Calibrate: re-read your 17 reports side by side under the frozen rubric. Keep every original score visible; for any score you would now change, give original → calibrated and the specific evidence. Zero changes is an acceptable result.
+2. Provisional comparison of usable notes, with ties and uncertainty; no claim of stable superiority (one album, one generation each).
+3. Severe defects across samples: list which recur. Classify each recurring defect as (a) prompt-induced — the frozen prompt asks for, permits or fails to prevent it; (b) model or harness failure — the prompt is clear and the note still fails; or (c) uncertain. Cite sample IDs and prompt locations.
+4. Concrete prompt amendments for the next bounded round, each tied to the defects it targets. Map each amendment to the acceptance-v1 dimension(s) it serves (D1 target lock, D2 accuracy, D3 attribution, D4 traceability, D5 provenance communication, D6 credits/editions, D7 omissions, D8 musical context, D9 selection, D10 collection efficiency, D11 owner burden). Prefer removals and generalisations over new rules; flag any amendment that fits only this album.
+5. Operations: comment on time/tool effort versus quality using the anonymous operations record, without treating speed or length as quality.
+Return one Markdown document.
+

@@ -1,0 +1,7 @@
+You are the Claude contributor to a joint acceptance-criteria design. Work independently: you are not given, and must not infer, the other contributor's proposal, any producer-model outputs, scores or rankings.
+
+Below are, in order: (1) the common independent-review brief — your task; (2) HISTORICAL FROZEN PROMPT — the revised research prompt used in a diagnostic pilot, which you may inspect for design weaknesses; (3) HISTORICAL PILOT RUBRIC — an earlier GPT-side proposal, not authority and not a joint agreement.
+
+Answer in English, as a single Markdown document. Web tools are available if you need to check a factual premise about music research sources; you are not asked to research any album. State any access limitations you hit.
+
+=== (1) COMMON BRIEF ===

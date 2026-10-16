@@ -1,0 +1,14 @@
+{
+  "artifact_dir": "../runs",
+  "shared_db_src": "/private/tmp/shared-db-guard-r2/src",
+  "timeout_s": 1500,
+  "models": [
+    {
+      "id": "claude-review-R16",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

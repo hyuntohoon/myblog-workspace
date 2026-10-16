@@ -1,0 +1,85 @@
+--- /private/tmp/myblog-research-eval-r2/docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/round3/acceptance-v1-rc.md	2026-10-16 13:15:43
++++ /private/tmp/myblog-research-eval-r2/docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/acceptance-v1.md	2026-10-16 13:15:44
+@@ -1,6 +1,6 @@
+ # acceptance-v1 — research-note acceptance contract
+ 
+-- Version: **v1-rc** (release candidate). It becomes **v1 (frozen)** only when round 3 records no material objection from either contributor; see `changelog` at the end.
++- Version: **v1-rc2**. Round 3 returned two small material objections with exact replacement text; both are applied verbatim here. It becomes **v1 (frozen)** when round 4 (diff check) records no material objection.
+ - Date: 2026-10-16. Parent: `docs/rfcs/CHORE-research-model-evaluation.md` Stage A.
+ - Contributors: GPT-6 Astra and `claude-opus-5-5`, in independent fresh contexts. Rounds: proposals → round 1 (`round1/`) → round 2 sign-off (`round2/`; both "FREEZE AFTER LISTED FIXES") → round 3 confirmation (`round3/`).
+ - Owner decisions, 2026-10-16 (chat; fixed inputs): panel = 2 calibration + 4 untouched confirmation albums, about 30–60 owner hours; **both** environments (Claude CLI and Codex); baseline = the owner's usual research; time-saving and quality-improvement claims **judged separately**.
+@@ -53,6 +53,8 @@
+ - **An unresolved central or high-risk claim makes that output unassessable and acceptance deferred.**
+ - Non-central claims may be sampled under the frozen audit procedure. Their coverage and unassessable share stay visible beside precision.
+ 
++**High-risk claim:** central or not, a claim that (i) is the subject of an alleged gate failure; (ii) is a direct quotation, a creator-statement attribution, a translated quote or consequential paraphrase, or a credit, edition or sample claim; or (iii) the adjudicator judges would be S1 if wrong. The classes are frozen in the scoring manual (§6.1).
++
+ ## 3. Integrity gates (noncompensable)
+ 
+ A single owner-confirmed instance fails the note. Model disagreement never suspends a gate. The owner adjudicates every alleged gate failure. Records say "no gate failure found under this audit", not an unconditional pass.
+@@ -82,8 +84,8 @@
+ Trace availability for G3b and G8 is reported per environment. A gate that is N/A in only one environment is stated as a screening asymmetry. Where missing preservation prevents adjudication and no other evidence resolves the issue, the result is *unassessable*. Missing preservation never overrides independently established support or error.
+ 
+ **Unresolved allegations.** An alleged gate failure the owner can neither confirm nor clear is recorded as *unresolved*, with its reason:
+-- on a central claim, it makes the note **deferred**;
+-- unresolved peripheral allegations are listed next to the verdict.
++- any unresolved allegation makes the note **deferred**, whatever the claim's centrality;
++- every unresolved allegation is listed next to the verdict with its reason.
+ 
+ ## 4. Dimensions and floor policy
+ 
+@@ -129,12 +131,12 @@
+ 2. **Frozen top-3.**
+    - Before confirmation, the owner pre-registers album-independent essential-question categories (for example: release identity and edition; principal credits; documented creator statements; sample or interpolation provenance; reception facts) and their priority order.
+    - Each mapping lane proposes essentials and a top-3 within those categories, blind.
+-   - A model reconciler merges them under a fixed rule: the union of the lanes' top-3, reduced to three by the predeclared category priority.
++   - A model reconciler merges them under a fixed rule: the union of the lanes' top-3, reduced to three by the predeclared category priority. Ties within a category go first to items proposed by both lanes, then to a recorded random draw. If the union has fewer than three items, the top-3 has that many and the manifest says so.
+    - This **frozen top-3 is set before the owner's task for that album and is not shown to the owner**.
+ 3. **Owner labelling.**
+    - After the task, and with all candidate and control outputs still hidden, the owner reviews the initial mapping passes and labels the remaining essentiality.
+    - This initial adjudicated map is preserved before any output-derived discovery is exposed.
+-   - The owner may *add* top-3-equivalent essentials. These are amendments flagged "post-exposure" and reported separately.
++   - The owner may *add* top-3-equivalent essentials. These are amendments flagged "post-exposure" and reported separately. They count under §5.4 and the D7 floor, not under the frozen-top-3 check in §8.2.
+    - The owner may remove a frozen top-3 item only for a documented factual error in the map, with the evidence recorded.
+    - The only output the owner may have seen beforehand is the preselected candidate note in an assigned candidate-assisted task, and that exposure is recorded.
+ 4. **Amendments.**
+@@ -152,7 +154,7 @@
+ 
+ ## 6. Calibration and reliability
+ 
+-1. **Freeze before calibration.** Before confirmation, the following are frozen:
++1. **Freeze before confirmation.** The scoring manual, severity definitions and reliability criteria are frozen before calibration. Before confirmation, the following are frozen:
+    - the scoring manual and severity definitions;
+    - eligible denominators and verification-sufficiency rules;
+    - numerical floors and reliability criteria;
+@@ -224,7 +226,7 @@
+ 
+ 1. All 8 candidate outputs in that environment:
+    - are complete research notes (§7 harness rule);
+-   - have no owner-confirmed gate failure and no central unresolved allegation or claim;
++   - have no owner-confirmed gate failure, no unresolved gate allegation (§3) and no unresolved central or high-risk claim (§2);
+    - meet every binding floor.
+ 2. 0 silent misses among the frozen top-3, across those outputs.
+ 3. 0 factual misdirections attributable to the note in that environment's owner task.
+@@ -233,12 +235,10 @@
+ 
+ **4. Benefit claims.** These are pooled across environments, and each claim is judged separately. They are evaluated only if **both** environments pass the screen, and they are reported for the prompt, not per environment.
+ 
+-- **Comparable usable evidence** is scored by the post-task audit for each block. The candidate-assisted outline must:
+-  - contain no more adjudicated factual errors than the paired baseline outline;
+-  - cover at least the same proportion of that album's frozen top-3 essentials.
++- **Comparable usable evidence** is scored by the post-task audit for each block against the same adequacy standard in both arms. The candidate-assisted outline must contain no more adjudicated factual errors overall, and no more errors at or above each frozen severity level, than the paired baseline outline. It must cover at least the same proportion of its album's frozen top-3 essentials and achieve at least the baseline's essential-recall proportion against each album's initial and amended maps. The audit must also establish no consequential loss of usable evidence under comparison rules frozen before confirmation. If the required comparison cannot be assessed sufficiently, the time-saving verdict is deferred.
+ - **Time-saving.** Comparable usable evidence **and** lower owner active burden (D11) than the paired baseline, in **both** blocks.
+   - Reported as "preliminary saving for this owner".
+-  - "No evidence of net loss" is a separate, weaker observation. It may be reported only if burden is not higher in either block, and it is **never** a time-saving pass.
++  - "No evidence of net loss" is a separate, weaker observation. It may be reported only if comparable usable evidence holds in **both** blocks and burden is not higher in either block, and it is **never** a time-saving pass.
+ - **Quality improvement.** A predeclared consequential gain within a predeclared extra-time allowance, in **both** blocks.
+ - **Verdicts.** Each benefit gets supported, inconclusive or failed under frozen rules. Mixed block results are inconclusive. Differences are reported numerically.
+ - **Confounding.** Each block pairs one environment's candidate task with one baseline task, so environment and album are confounded with block, and the result says so. Neither environment is claimed to have independently shown a repeatable benefit.
+@@ -265,3 +265,6 @@
+ | Screen per environment; benefits pooled and only if both screens pass; "comparable usable evidence" defined; "no evidence of net loss" never a time-saving pass; verdict wording | Claude R2 §8 + Astra R2 §8 (merged) |
+ | Atomic claim may have several sources; D4 reader defined; "imprecise" counted as an error and reported separately; control version named in manifest | wording notes, both |
+ | Round-1 misattributions corrected (centrality, the unassessable allowance, report-only dimensions, "no net loss" vs saving) | Astra R2 attribution check; Claude R2 §3 |
++| Round 3: "high-risk" defined; any unresolved gate allegation defers regardless of centrality; §8.1 aligned with §2; "no evidence of net loss" requires comparable evidence in both blocks | Claude R3 defects A, B and §8.4 distortion (verbatim) |
++| Round 3: "comparable usable evidence" strengthened to severity levels, recall against both maps, no consequential loss, deferral if unassessable | Astra R3 (verbatim) |
++| Round 3 non-material: §6.1 retitled; §5.2 tie-break and short-union rule; §5.3 post-exposure additions excluded from §8.2 | Astra R3 + Claude R3 wording |

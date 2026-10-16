@@ -1,14 +1,52 @@
 {
-  "status": "independent GPT proposal only; joint criteria and thresholds pending",
+  "status": "acceptance-v1 frozen 2026-10-16: both contributors CONFIRM FREEZE in round 4; numeric floors uncalibrated by design (contract §6)",
   "gpt_model_requested": "gpt-6-astra",
   "gpt_context": "fresh isolated agent; no producer ranking or Claude proposal supplied; historical prompt and pilot rubric allowed; common brief checked before final proposal",
   "claude_model_planned": "claude-opus-5-5",
-  "claude_status": "pending recorded subscription session limit",
+  "claude_status": "received 2026-10-16 (claude-opus-5-5, fresh CLI context, 0 web requests); see claude-run/",
   "generation_dispatched_for_new_criteria": 0,
   "hashes": {
     "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/common-brief.txt": "7a6c7cc302101c5e1c825bfa639bdbf3ad312bc4baf4cabc681d2b90d47182c4",
     "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/astra-proposal.md": "55a39c2906482f64f527e90347d04d0773b50d5eb7d0a9bd6b21e4a9f2241e39",
     "docs/reviews/measurements/2026-10-15-research-model-evaluation/prompt-revised-ko.md": "f6c3a6277f4d6e4a5b7a1a978820e5c592e2a24151bc022c87d2f9cb290a8d2f",
-    "docs/reviews/measurements/2026-10-15-research-model-evaluation/rubric.md": "468c9e84bd3d06f30103e9bec78af3b566ddd209b3825cd28fc72bbe840acb00"
-  }
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/rubric.md": "468c9e84bd3d06f30103e9bec78af3b566ddd209b3825cd28fc72bbe840acb00",
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/claude-proposal.md": "e20589618e12eccb96b8cc552f5ab61df4c2fd03656ed5dd5258d7dee48dfe4e",
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/reconciliation-draft-v0.md": "dd3e68da80e436b8e8a8389fef1b1a6a8b49c6af9c6e215632b34fa3ee70d1b3",
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/acceptance-v1-draft.md": "e2ec82bc31fb6607f6604b23d67f45ddf12e92614cb5795ec4fffda6bf5da46c",
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/acceptance-v1.md": "605b72a066b9a7eb94c45cf6ef2d460a9ae325b7fb375dcddc5c7866e8351c02",
+    "docs/reviews/measurements/2026-10-15-research-model-evaluation/criteria/round3/acceptance-v1-rc.md": "ab3e0721711378da06bd996409a689bf7af862907ec44c7e1b057ec4d2d0da45"
+  },
+  "rounds": {
+    "claude_proposal": {
+      "run": "claude-run/claude-opus-5-5-criteria",
+      "input_sha256": "21c2bcf3efb08ea57baac53d459ca8c07591642e7404f87b695b429f7a719a4f",
+      "wall_s": 426.846
+    },
+    "round1": {
+      "astra": "round1/runs/astra-round1-codex0162 (success); round1/runs/astra-round1 = harness failure, Codex CLI 0.147.0 HTTP 400, zero inference",
+      "claude": "round1/runs/claude-round1",
+      "verdicts": "row-by-row ACCEPT/AMEND/OBJECT"
+    },
+    "owner_decisions_2026-10-16": {
+      "panel": "2 calibration + 4 untouched confirmation albums, ~30-60 owner hours",
+      "environments": "Claude CLI and Codex",
+      "baseline": "owner's usual research",
+      "claims": "time-saving and quality-improvement judged separately"
+    },
+    "round2": {
+      "astra": "FREEZE AFTER LISTED FIXES",
+      "claude": "FREEZE AFTER LISTED FIXES"
+    },
+    "round3": {
+      "astra": "MATERIAL OBJECTION (comparator)",
+      "claude": "MATERIAL OBJECTION (high-risk definition, unresolved allegations, §8.1, §8.4)",
+      "resolution": "replacement text applied verbatim; diff round3/rc-to-rc2.diff"
+    },
+    "round4": {
+      "astra": "CONFIRM FREEZE",
+      "claude": "CONFIRM FREEZE"
+    }
+  },
+  "codex_cli_for_astra": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex 0.162.0-alpha.17.2",
+  "claude_cli": "2.1.301"
 }

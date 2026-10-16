@@ -1,0 +1,22 @@
+{
+  "description": "Criteria round 2 sign-off on acceptance-v1-draft. Astra via ChatGPT.app codex-cli 0.162.0-alpha.17.2 (PATH prefix). One dispatch each; no retry.",
+  "artifact_dir": "runs",
+  "shared_db_src": "/private/tmp/shared-db-guard-r2/src",
+  "timeout_s": 1500,
+  "models": [
+    {
+      "id": "astra-round2",
+      "provider": "gpt",
+      "model": "gpt-6-astra",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-round2",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

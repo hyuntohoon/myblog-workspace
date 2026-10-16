@@ -1,0 +1,15 @@
+{
+  "description": "Independent Claude acceptance-criteria proposal (Stage A). One dispatch; same harness as the pilot Claude lane; guard-serialized.",
+  "artifact_dir": "claude-run",
+  "shared_db_src": "/private/tmp/shared-db-guard-r2/src",
+  "timeout_s": 1500,
+  "models": [
+    {
+      "id": "claude-opus-5-5-criteria",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

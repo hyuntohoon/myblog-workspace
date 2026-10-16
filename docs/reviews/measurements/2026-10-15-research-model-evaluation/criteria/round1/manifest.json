@@ -1,0 +1,22 @@
+{
+  "description": "Criteria round 1: each contributor responds to reconciliation-draft-v0 with both proposals visible. One dispatch each; no retry.",
+  "artifact_dir": "runs",
+  "shared_db_src": "/private/tmp/shared-db-guard-r2/src",
+  "timeout_s": 1500,
+  "models": [
+    {
+      "id": "astra-round1",
+      "provider": "gpt",
+      "model": "gpt-6-astra",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-round1",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "artifact_dir": "../runs",
+  "shared_db_src": "/private/tmp/shared-db-guard-r2/src",
+  "timeout_s": 1500,
+  "models": [
+    {
+      "id": "astra-review-R08",
+      "provider": "gpt",
+      "model": "gpt-6-astra",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

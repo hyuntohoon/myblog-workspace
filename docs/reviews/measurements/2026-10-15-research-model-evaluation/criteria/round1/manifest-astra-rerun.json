@@ -1,0 +1,14 @@
+{
+  "description": "Astra round-1 harness rerun. astra-round1 failed with HTTP 400 'requires a newer version of Codex' (PATH codex = standalone 0.147.0, zero inference). This rerun prepends the ChatGPT.app codex-cli 0.162.0-alpha.17.2 \u2014 the version recorded in runner-provenance.json for the pilot. Identical input bytes.",
+  "artifact_dir": "runs",
+  "timeout_s": 1500,
+  "models": [
+    {
+      "id": "astra-round1-codex0162",
+      "provider": "gpt",
+      "model": "gpt-6-astra",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

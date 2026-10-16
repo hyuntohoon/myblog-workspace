@@ -1,0 +1,78 @@
+{
+  "description": "Claude-lane resume after the 2026-10-16 02:40 KST subscription reset. Same frozen combined input; separate artifact_dir so the 2026-10-15 rate_limited/not_run records in runs/ stay unchanged. One dispatch per id; no retry/fallback. Guard source = shared_db origin/main 471200a (includes #87 blank-exit fix) instead of the stale shared checkout e4e98b9.",
+  "artifact_dir": "runs-claude-resume-2026-10-16",
+  "shared_db_src": "/private/tmp/shared-db-guard-r2/src",
+  "timeout_s": 1500,
+  "expected_prompt_sha256": "9acd15ebffebbd6aa6f3facc97935b3b4ccfb6b8c6129df28da791c88e18eb2a",
+  "models": [
+    {
+      "id": "claude-opus-5-5",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "provider": "claude",
+      "model": "claude-sonnet-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-haiku-5-5",
+      "provider": "claude",
+      "model": "claude-haiku-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-haiku-4-5-20251001",
+      "provider": "claude",
+      "model": "claude-haiku-4-5-20251001",
+      "availability": "available"
+    },
+    {
+      "id": "claude-sonnet-5",
+      "provider": "claude",
+      "model": "claude-sonnet-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-opus-5",
+      "provider": "claude",
+      "model": "claude-opus-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-opus-4-8",
+      "provider": "claude",
+      "model": "claude-opus-4-8",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-opus-4-7",
+      "provider": "claude",
+      "model": "claude-opus-4-7",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-opus-4-6",
+      "provider": "claude",
+      "model": "claude-opus-4-6",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "provider": "claude",
+      "model": "claude-sonnet-4-6",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

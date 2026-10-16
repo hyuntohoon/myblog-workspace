@@ -99,11 +99,13 @@ Report per-model quality, severe errors, omissions, evidence support, density, r
 
 These are research stages under the owner's expanded goal, not production releases. Freeze the next finite round before execution; no unlimited retries or automatic full-matrix reruns. Existing subscription-only and no-fallback boundaries apply throughout.
 
-### A — Joint acceptance design (current)
+### A — Joint acceptance design (criteria frozen 2026-10-16; pilot review completion in progress)
 
 Collect Astra and Claude proposals under the same brief. Reconcile criteria, record objections and freeze a measurable acceptance contract before evaluating a new candidate for passage. Complete the historical pilot review independently; keep its scores separate from criteria design.
 
 **Gate**: both named reviewers' contributions preserved; each criterion and threshold has a rationale, metric/evidence definition and resolution record. Missing Claude input leaves this gate open.
+
+**State (2026-10-16):** criteria part met. `criteria/acceptance-v1.md` is frozen after four rounds, and both contributors answered CONFIRM FREEZE. Numeric floors are deliberately uncalibrated: the contract's §6 calibrates them with the owner before confirmation, and an acceptance-critical floor that cannot be calibrated defers acceptance. The remaining A-2 inputs before Stage B/C are behaviourally anchored examples per dimension from both contributors, and the round manifest (album strata, top-3 categories, control version). The historical pilot review is tracked under Execution record.
 
 ### B — Bounded prompt development
 
@@ -123,8 +125,8 @@ Provide exact version/hash, tested model/tool conditions, prompt diff, sample no
 
 ## Open questions / pending evidence
 
-- Claude criteria proposal and pilot review: blocked by the recorded account limit; no agreement is inferred.
-- Joint numerical thresholds, dimension floors, held-out panel and finite round budget: to be frozen after both proposals, before confirmatory generation.
+- Claude criteria proposal: received 2026-10-16; acceptance-v1 frozen. Pilot review: see Execution record.
+- Numerical floors: uncalibrated by design; calibrated under acceptance-v1 §6 with the owner before confirmation. Panel and budget: fixed by the owner on 2026-10-16 (see Decisions log); exact album IDs and top-3 categories go in the round manifest.
 - Actual critic-use tasks and observed outcomes: not yet measured.
 
 ## Decisions log
@@ -136,6 +138,7 @@ Provide exact version/hash, tested model/tool conditions, prompt diff, sample no
 | 2026-10-15 | Owner clarification: subscription-included models only; exclude separately billed Fable models. | 1–2 |
 | 2026-10-15 | Owner: final goal is a prompt passing jointly designed GPT/Claude criteria for efficient research useful to a critic; structure and wording are free. Model selection is supporting evidence, not the endpoint. | A–D |
 | 2026-10-15 | RFC Status remains draft; direct chat authorizes the bounded experiment, no production/status promotion inferred. | All |
+| 2026-10-16 | Owner (chat): confirmation panel = 2 calibration + 4 untouched albums, about 30–60 owner hours; run **both** Claude CLI and Codex environments (32 confirmatory calls); baseline = the owner's usual research; time-saving and quality-improvement claims judged separately. | A, C |
 
 ## Protocol disclosure
 
@@ -154,3 +157,12 @@ The account-level Claude limit prevents completion of the originally planned two
 - Goal extension recorded: the pilot remains diagnostic. Independent Astra acceptance-criteria proposal received and preserved under `criteria/`; common criteria brief checked with no Claude opinion supplied. Any proposed round size is unagreed, not dispatched. Claude contribution and a jointly frozen acceptance contract are pending. No final prompt or acceptance pass is claimed.
 
 - 2026-10-16 publication scope: owner explicitly approved push and merge of the RFC, priority plan, prompts and experiment results, excluding the original attachment. This publishes the research record, not a completed acceptance result or production prompt change.
+
+- **2026-10-16 Stage A session.**
+  - **Claude generations.** Resumed after the reset in a separate run directory: 10/10 success, one dispatch each, identical input hash. The 10-15 zero-token 429 record is preserved.
+  - **Criteria.** The Claude criteria proposal was received from a fresh `claude-opus-5-5` CLI context with the identical brief. Reconciliation then went through four rounds with both contributors in fresh contexts, ending with both answering CONFIRM FREEZE.
+  - **acceptance-v1.** Frozen, including the owner's resource decisions (Decisions log).
+  - **Astra harness note.** The Astra round-1 dispatch failed first because the PATH Codex CLI 0.147.0 rejects `gpt-6-astra` (HTTP 400, zero inference). It was rerun once with the ChatGPT.app-bundled 0.162.0-alpha.17.2, the pilot's recorded version, and both records are kept.
+  - **Pilot review.** Completed: Astra audited the 10 new samples, Claude audited all 17, and each reviewer ran one comparative calibration. Reviewer agreement is ρ = 0.90.
+  - **Pilot results.** Both reviewers put `gpt-6-astra` and `gpt-6.1-sol` in a tied top group. Claude CLI WebFetch returns helper-model summaries, which both reviewers link to recurring provenance and extraction defects. The result is therefore a model-plus-harness observation (`pilot-final-results.md`).
+  - **Gates.** Pilot Steps 1–4 are complete. The Stage A criteria gate is met. Stage A-2 remains open: anchored examples per dimension and the round manifest. No prompt has passed, and production is unchanged.
