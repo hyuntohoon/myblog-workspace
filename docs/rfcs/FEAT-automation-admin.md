@@ -741,6 +741,69 @@ Then remove the route and the button. The flags and the audit trail stay.
   as the owner), and therefore a real executor's `honored_at` stamp in production. Both are the owner's
   first use of the button.
 
+#### 3c design (owner-approved 2026-10-16)
+
+The owner chose all four recommendations on 2026-10-16. **Run now** means *start one run of this cron's own
+job, right now, through the same entry point EventBridge uses*. It adds nothing a cron run does not already do.
+
+- **Eligible jobs.** The 16 worker crons, which are `WORKER_CRON_KEYS` (the two warm pings and the GPT worker are
+  excluded, as in 3b). `musicbrainz_alias_fill` is the one cron without a `job` field: EventBridge sends its default
+  event with `source = aws.events`. The backend does not forge that event. The worker gains a
+  `{"job": "musicbrainz_alias_fill"}` branch that does the same thing.
+- **The payloads live in one place.** `myblog_shared_db.automation.WORKER_CRON_PAYLOADS` maps each key to the
+  constant input the backend sends. The worker tests that its `control_key()` maps every payload back to its own key.
+  So a run-now on a paused job is also skipped by the worker's own 3b check. The backend tests that the catalog's
+  `run` rows equal the map's keys.
+- **Asynchronous invoke only.** `lambda:InvokeFunction` with `InvocationType=Event`, on `blogWorkerLambda` only.
+  The request never waits for a worker run. A run-now then has the same failure handling as a cron run: the
+  `worker_async` config gives 2 async retries and then `worker-cron-dlq`. The boto3 client sets explicit
+  connect/read timeouts and **does not retry**, because a retried `Event` call whose first attempt was accepted
+  would start two runs.
+- **Gates, checked under the control-row lock (the 3b lock order).**
+  - A paused job returns **409 `job_paused`**. This is the 3b interaction.
+  - The per-job cooldown is **10 minutes** for every job. It returns **409 `cooldown`** with the seconds left.
+    The cooldown counts from the last run row that was accepted or that its executor started; a failed invoke does
+    not count. Ten minutes covers one 120 s run plus Lambda's async retries.
+  - Lambda's concurrency limit is not gated here. A throttled `Event` invoke waits in Lambda's own async queue.
+    It is not lost, and it is not the page's error.
+  - The cron's own schedule is not gated either. A run-now that lands while that cron is already running gives
+    two overlapping runs of one job. Overlap already happens today when an SQS message of the same job meets
+    its cron, so 3c relies on the same idempotent writes rather than adding a lock.
+- **Idempotency.** This is 3b's `request_id`, and it uses the same table. A resent `request_id` for the same job
+  replays the stored row and **never invokes again**. A resent `request_id` for another job or action is a 409.
+- **Transaction shape** (the recurring bug class: no DB transaction is held across an external call):
+  1. One short write transaction: lock the control row, then run the replay, paused and cooldown checks, then
+     insert the event as `requested`, then commit.
+  2. Session closed: `lambda.invoke(Event)`.
+  3. A fresh short write sets `invoked` (+ `invoked_at`) or `invoke_failed`, guarded by `outcome = 'requested'`.
+
+  A crash between steps 1 and 3 leaves a `requested` row. It blocks this job for one cooldown, and a resend with
+  the same `request_id` replays that row without invoking.
+- **Completion is the executor's stamp.** The payload carries `automation_run_id` (the `request_id`). The worker
+  stamps the event row's `started_at` when the run begins (a retry restamps it and clears `finished_at`). It stamps
+  `finished_at` and `run_outcome` when the run ends:
+  - `ok`: the handler returned.
+  - `error`: the handler raised. The worker re-raises, so retry and DLQ still apply.
+  - `skipped_paused`: the 3b check skipped the run.
+
+  A stamp that fails is logged at `ERROR` and never blocks the run: this is fail-open, as in 3b. The page then shows
+  an invoked run with no start, which is the truthful reading.
+- **Audit (V62, additive).** `automation_control_events` gains `invoked_at`, `started_at`, `finished_at` and
+  `run_outcome`.
+  - The action CHECK widens to `run`. The outcome CHECK widens to `requested`, `invoked` and `invoke_failed`.
+  - A pairing CHECK keeps run outcomes on run rows only, and keeps the run columns NULL on pause/resume rows.
+  - Rejections (409 paused/cooldown) write no row. Like 3b's conflicts, they change nothing.
+- **Endpoint.** `POST /api/admin/automation/runs` with `{job_key, request_id}`, gated by `require_owner`, with its
+  own JWT route.
+  - Errors: 404 for a job that has no `run` control, 409 as above, 502 `invoke_failed`, and 503 when the DB is
+    unavailable (resend the same `request_id`).
+  - The snapshot's per-job `run` block carries the last run row and `cooldown_until`.
+- **Rollout order: consumers before the producer**, as in 3b. Workspace `schema.sql`, then shared_db V62 (prod and
+  test branch before merge), then the worker (`automation_run_id` stamps, the alias branch and the pin), then the
+  backend and its pin, then the workspace contract with the route and the IAM grant (`apply`), then the front.
+- **Rollback.** Remove the front button and the route. Revoke the grant to stop all invokes at once, even from a
+  stale tab. The audit rows stay. Nothing is left running: each run is one bounded worker invocation.
+
 ## Open questions
 
 1. **Coverage and tooling** — *Answered by Step 1 (2026-10-12):* the catalog is tables A–F, and the
@@ -766,3 +829,4 @@ Then remove the route and the button. The flags and the audit trail stay.
 | 2026-10-13 | Owner authorized Claude to run the 2d `terraform apply` in session; applied from a full plan (1 add). Step 2 complete. Status stays draft; Step 3 needs separate approval. | Step 2 (2d) |
 | 2026-10-13 | Owner approved Step 3, split by control (retry / pause-resume / run now). A prod read the same session showed retry would change 0 rows today, so the owner moved **3b (pause/resume + audit base) first**; 3a is deferred behind OQ3's retry-limit policy. Audit history is kept indefinitely. Status stays draft. | Step 3 |
 | 2026-10-16 | Owner chose to finish 3b in session (GPT worker merge + reinstall, then the front buttons). 3b shipped. Status stays draft; 3c (run now) is next and needs its own session. | Step 3 (3b) |
+| 2026-10-16 | Owner chose 3c's four open design points as recommended: all 16 worker crons, a flat 10-minute cooldown, executor completion stamps (V62), and a separate `POST /api/admin/automation/runs`. Status stays draft. | Step 3 (3c) |
