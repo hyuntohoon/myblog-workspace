@@ -354,17 +354,18 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
 
-- **DOCS-patch-notes-from-history** (**goal set by the owner 2026-10-15; needs an RFC**) — write
+- **DOCS-patch-notes-from-history** (**goal set by the owner 2026-10-15; RFC drafted 2026-10-16, draft**) — write
   update patch notes for the site from commit history across the six repos, so that what changed
   for users, and why, can be read without going through PRs.
-  <!-- rfc: none -->
+  <!-- rfc: docs/rfcs/DOCS-patch-notes-from-history.md | status: draft -->
   **What exists to build on:** squash-merged PR subjects with `(#N)` in every repo, RFC decision
   logs, and from 2026-10-15 the first curated per-feature log, the **Matcher patch notes** in
   `docs/rfcs/FEAT-lyrics-match-correction.md`. That table is the convention to copy: version, date,
   PR, behaviour change, why, measured effect.
-  **Open when an RFC is written:** audience (members vs owner), cadence, where the notes are
-  published, and how a commit is marked user-visible vs internal. Commit subjects alone do not
-  carry the "why" or the effect.
+  **RFC draft 2026-10-16 (Fable-reviewed, cut to 2 steps):** one front PR adds a Korean `/updates/`
+  page with October in full plus one condensed July–September entry and a monthly procedure in the
+  front README; owner approval of the wording is a verification item. No per-PR marker, no
+  classifier script. Step 2 closes the RFC. → `docs/rfcs/DOCS-patch-notes-from-history.md`.
 
 - **FEAT-automation-admin** — **draft; Step 1 recorded 2026-10-12; Step 2 owner-approved as sub-steps 2a–2e; 2a (V59 heartbeat table), 2b (`GET /api/admin/automation`), 2c (owner page, B+C rework in front #457) and 2f (queue detail: reason codes, 24 h flow, oldest waiting — backend #182, front #458) shipped 2026-10-12; 2e (heartbeat writers, ws #1052; GPT worker reports fresh on prod, the 4 Claude-CLI agents wait on OPS 2D) shipped 2026-10-13; 2d (AWS adapter + `aws` panel + `failing` liveness — backend #183, front #459) shipped 2026-10-13, read-only IAM (`backend_automation_read`) applied 2026-10-13 (ws #1054 comment) and the owner's prod page shows the AWS panel read; Step 2 complete; Step 3 owner-approved 2026-10-13, split by control; **3b (pause/resume + audit base) shipped 2026-10-16** — V60, worker #109, GPT worker ws #1057 (reinstalled), backend #184, route ws #1058, buttons front #463; prod smoke 30/0, owner's first prod click pending; **3c (run now) shipped 2026-10-16** — V62, worker #116, backend #188, route + invoke grant ws #1075 (applied), front #467; prod smoke 32/0, owner's first run-now click pending; next: 3a retry, deferred behind OQ3 (a prod read showed retry would change 0 rows)**: inventory all queued/scheduled/background jobs and add an owner-only management page to the existing site, covering status, schedules, execution history and supported controls; evaluate existing tools before selecting an implementation. Coordinate with `FEAT-durable-job-status` and `FEAT-lyrics-chat`. → `docs/rfcs/FEAT-automation-admin.md`. <!-- rfc: docs/rfcs/FEAT-automation-admin.md | status: draft -->
 
