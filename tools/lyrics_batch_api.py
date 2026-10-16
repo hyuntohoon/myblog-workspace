@@ -39,6 +39,7 @@ from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_worker"))
 
+from worker.service.lyrics_candidates import drop_rejected, load_rejections  # noqa: E402
 from worker.service.lyrics_eval_core import PRIMARY_ARTIST_NAMES_LATERAL  # noqa: E402
 from worker.service.lyrics_matcher import (  # noqa: E402
     STATUS_MATCHED,
@@ -155,6 +156,11 @@ def main():
     read_session = sessionmaker(bind=read_engine)()
     try:
         tracks = fetch_catalog_tracks(read_session, limit=args.limit, skip_existing=skip_existing)
+        # FEAT-lyrics-match-correction Step 3a twin: the owner's rejected candidates are
+        # dropped before decide_match, exactly as the worker's run_eval_batch does. Only a
+        # --no-resume run re-judges rows that can carry rejections; the lock itself is
+        # enforced by TrackLyricsWriter, which this tool writes through.
+        rejections = load_rejections(read_session, [r[0] for r in tracks])
     finally:
         read_session.close()
         read_engine.dispose()
@@ -207,7 +213,7 @@ def main():
                     artist_names=list(artist_names or []),
                     aliases=list(aliases or []),
                     duration_sec=duration_sec,
-                    candidates=candidates,
+                    candidates=drop_rejected(candidates, rejections.get(str(track_id))),
                 )
                 # Inline consistency gate: matched must always agree on version. A
                 # violation is a matcher bug — abort rather than write a bad row.

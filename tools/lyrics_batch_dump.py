@@ -34,10 +34,12 @@ from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "myblog_worker"))
 
+from worker.service.lyrics_candidates import drop_rejected, load_rejections  # noqa: E402
 from worker.service.lyrics_eval_core import PRIMARY_ARTIST_NAMES_LATERAL  # noqa: E402
 from worker.service.lyrics_matcher import (  # noqa: E402
     LRCLIBDumpMatcher,
     TrackLyricsWriter,
+    decide_match,
 )
 
 logger = logging.getLogger(__name__)
@@ -162,17 +164,18 @@ def main():
         if args.limit:
             tracks = tracks[: args.limit]
         logger.info("evaluating %d catalog tracks", len(tracks))
+        # FEAT-lyrics-match-correction Step 3a twin: the owner's rejected candidates never
+        # enter the decision (the writer also refuses one at write time).
+        rejections = load_rejections(session, [r[0] for r in tracks])
 
         for i, row in enumerate(tracks):
             track_id, title, duration_sec, artist_names, aliases = row
             if (i + 1) % 500 == 0:
                 logger.info("progress: %d/%d", i + 1, len(tracks))
-            outcome = matcher.match_track(
-                track_id=track_id,
-                title=title,
-                artist_names=artist_names or [],
-                duration_sec=duration_sec or 0,
-                aliases=aliases or [],
+            candidates = matcher.search_candidates(title, artist_names or [], duration_sec or 0)
+            outcome = decide_match(
+                track_id, title, artist_names or [], aliases or [], duration_sec or 0,
+                drop_rejected(candidates, rejections.get(str(track_id))),
             )
             metrics.record(outcome)
             outcomes.append(outcome)
