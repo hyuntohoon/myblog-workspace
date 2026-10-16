@@ -1,9 +1,11 @@
 # OPS-ci-cd-optimization: measure the six repos' CI/CD and trim only what the measurement supports
 
-- **Status**: accepted (owner approval 2026-10-16; scope Steps 1, 2, 3, 5; Steps 6, 7, 8 added by the owner's OQ3–OQ5 answers the same day)
+- **Status**: **done** (2026-10-17 — Steps 1–3 and 5–8 delivered, Step 4 declined, OQ1–OQ6 answered;
+  archived). Owner approved the Status change in-session under CLAUDE.md rule #7. Originally accepted
+  2026-10-16 for Steps 1, 2, 3, 5; Steps 6, 7, 8 added by the owner's OQ3–OQ5 answers the same day.
 - **Owner**: site owner
 - **Created**: 2026-10-16
-- **Plan row**: `docs/plan.md` → OPS-ci-cd-optimization
+- **Plan row**: removed at close (2026-10-17).
 - **Authorization**: the owner asked on 2026-10-15 for a diagnosis of whether the test process is
   excessive and for an optimization based on it ("지금 테스트 과정이 과하진 않는지 진단해보고 분석해서
   cicd를 최적화해보자"). This document is the diagnosis plus the proposal. **No workflow file and no
@@ -549,6 +551,7 @@ step (a missing-module import would not prove the step: `astro check` already ca
 | 2026-10-16 | OQ4 answered **delete both**: `merge-contract.yml` (with `AGENTS.md` and `docs/architecture.md`) and every worker Allure trace; JUnit upload kept. | 6 |
 | 2026-10-16 | OQ5 answered **yes, dummy API URLs**: `pnpm build` in front `check` with refused-port API URLs and no secrets, so no PR build loads production; divergence from the deploy build recorded in Step 8. | 8 |
 | 2026-10-16 | Steps 6, 7, 8 delivered (ws #1088, worker #118, music #82, front #470); deploys green, prod smoke 33/33 (FAILED: 0). Every step is delivered or declined and every OQ answered; closing the RFC is the owner's call. | 6, 7, 8 |
+| 2026-10-17 | **Closed**: owner approved Status → done in-session; RFC archived to `docs/archive/done/rfcs/`, `docs/plan.md` row removed. Owner-side follow-up outside the repo: delete the now-unread secrets workspace `WORKSPACE_GITHUB_TOKEN` and music/backend/worker `TEST_DB_URL` (front keeps its own `WORKSPACE_GITHUB_TOKEN`, still read). Watch item: the first real music PR after #82 is the first unverified run of the local-Postgres `integration` job — it must report ≥ 11 tests, zero skips. | all |
 
 ## Appendix — reproducing the numbers
 
