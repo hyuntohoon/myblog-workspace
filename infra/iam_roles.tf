@@ -187,6 +187,28 @@ resource "aws_iam_role_policy" "backend_automation_read" {
   })
 }
 
+# FEAT-automation-admin 3c: the owner's run-now. The ONE mutating AWS action the
+# backend role holds for automation: lambda:InvokeFunction on blogWorkerLambda's
+# unqualified ARN only (no `:*`, so no version or alias), which is also the only
+# function the backend ever names (RUN_FUNCTION_NAME). The backend sends
+# InvocationType=Event with a cron's own constant input; revoking this statement
+# stops every run-now at once, even from a stale tab.
+resource "aws_iam_role_policy" "backend_automation_run" {
+  name = "automation-admin-run"
+  role = aws_iam_role.backend.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "InvokeWorkerForRunNow"
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
+        Resource = aws_lambda_function.worker.arn
+      },
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "worker_sqs_produce" {
   name = "sqs-produce-blogSQS"
   role = aws_iam_role.worker.id

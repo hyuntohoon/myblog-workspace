@@ -433,6 +433,17 @@ resource "aws_apigatewayv2_route" "admin_automation_controls_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# FEAT-automation-admin 3c: owner run-now — starts one worker cron run through an
+# async invoke of blogWorkerLambda (iam_roles.tf backend_automation_run). Same
+# posture as the controls route above: JWT here, require_owner in-Lambda.
+resource "aws_apigatewayv2_route" "admin_automation_runs_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/admin/automation/runs"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # FEAT-spotify-library-sync: manual "동기화" enqueues an async Spotify-Library sync
 # job; the worker does the Spotify reads/diffs/writes (rule #9 — never sync here).
 # Declared before the {id} routes is unnecessary for API Gateway (it matches the
