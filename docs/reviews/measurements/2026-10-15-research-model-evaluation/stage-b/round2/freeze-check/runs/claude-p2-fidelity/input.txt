@@ -1,0 +1,123 @@
+You are one of two reviewers (GPT-6 Astra and Claude) of a music-critic pre-review research prompt. In Stage B round 1, a candidate P1 (P0 plus seven amendments) failed: it lengthened every note by 27-79 % and added exclusive-scope and credit-transcription failures. After round 1 each reviewer proposed prompt changes (DOCUMENTS 2 and 3). DOCUMENT 1 records the round-1 findings and the four points on which both proposals overlap, each meant to be a definition or deletion, not an added duty. DOCUMENT 4 is a unified diff from the control P0 to the round-2 candidate P2, which is meant to implement exactly those four points and nothing else. Recording duties were deliberately scoped narrowly (credit-row completeness only for rows copied into the checklist or appendix; gap justification only for gaps raised to section 4, already capped at 3), because added recording duties caused round 1's length failure.
+
+Task — fidelity check before P2 is frozen for a bounded development round. Answer:
+(1) For each of the four overlapping points: applied faithfully / applied with a material distortion / missing. Quote the diff line for any distortion or omission.
+(2) Does the diff introduce anything that is NOT one of the four (scope creep), or name an album-specific outlet, service or fact?
+(3) Does any edit create a new material defect: a contradiction with an unchanged P0 rule, an instruction a producer cannot follow in a headless web-search run, or a duty likely to lengthen notes or cause a known defect (status inflation, quota-filling, spurious conflicts, ritual repetition)?
+For every objection give exact replacement text in Korean. Do not propose changes beyond the four; note them in one line at the end as "out of scope" if you must. Do not browse the web; everything you need is below. Reply in English Markdown, under 400 words. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+
+=== DOCUMENT 1: ROUND-1 FINDINGS AND THE OVERLAPPING PROPOSALS (round1/RESULTS.md) ===
+## What the round shows
+
+1. **P1 made the notes longer in every cell:** +27 % to +79 % characters. Defect 8 is present in all four P1 outputs. The amendment restricting the length target to core prose (#6) did not offset the added recording duties (#1, #3, #5). Both reviewers name ritual repetition: identical checklist rows, repeated gap statements and access limits.
+2. **P1 reduced provenance defects in the Claude lane only partly.** Defect 2 persists in Claude · Gemini P1. Both reviewers attribute it mainly to the harness: WebFetch returns model-processed text, and the producer still labels it `[원문 확인]`. Neither Codex output shows defect 2 under either prompt.
+3. **The new failures are exclusive-scope and credit-transcription errors on the sparse Korean album.** They are "the only route" claims, ambiguous role sentences and incomplete transcription of a named credit row. Claude's calibration names incomplete credit-row transcription as the most frequent D6 defect across all eight notes.
+4. **Codex · P0 had no FAIL in either album.** Within this one-run-per-cell design, the strongest observed configuration is the control prompt in the Codex lane. One run per cell cannot separate a prompt effect from run-to-run variance. That limit applies to every comparison in this table.
+
+
+## Proposed direction for round 2 (not predeclared, needs owner confirmation)
+
+The two reviewers' calibration proposals overlap on four points, each a definition or deletion, not an added rule:
+1. **Access labels.** `[원문 확인]` applies only to unprocessed page text the tool returned. A model-processed fetch is always a relayed source.
+2. **Credit transcription.** Copy a named row completely for the target track, or declare a selective copy and what it omits. Preserve joint roles. Apply the scope test to "only", "none" and "no conflict" claims, including claims about research paths.
+3. **Gaps.** Before recording a gap, name the received material checked and why it does not answer; a relayed lead is recorded as a lead, not a gap.
+4. **Compression.** A checklist column that is identical for every track becomes a one-line legend. A gap or access limit is recorded once and referenced elsewhere.
+
+Round 2 should also fix the Claude-lane harness and use **two runs per cell** for any contrast whose effect is expected to be smaller than run-to-run variance. Albums, budget and decision rule need a fresh predeclaration.
+
+
+
+=== DOCUMENT 2: CLAUDE ROUND-1 CALIBRATION, §3-§4 ===
+## 3. 여러 노트에 반복되는 결함
+
+1. **크레딧 행 불완전 전사, 역할 축소·정규화** (S01, S02, S04, S05, S06, S07): 원래 역할 문자열은 지키지만, 행 안의 인물이나 역할 일부가 빠집니다. D6의 BORDERLINE·FAIL 대부분이 여기서 나옵니다. **혼합**으로 봅니다. 규칙에 "완전성"이 정의되어 있지 않고, 모델이 행을 덜 읽는 경향이 겹칩니다.
+2. **접근 가능한 필수 항목을 공백으로만 남김** (8건 모두, 그림자 D7): 이미 받은 스니펫이나 페이지에 단서가 있는데도 "공백"으로 처리합니다. **프롬프트 유도 쪽이 강합니다.** 공백을 공시하는 것이 안전한 출구로 기능합니다.
+3. **모델 요약에 [원문 확인] 라벨을 붙임** (S02, S03, S04): 하네스가 행 단위 원문을 돌려준 노트에서는 이 문제가 나타나지 않았습니다. **하네스 유도가 주된 원인이고, 라벨 정의의 공백이 더해진 혼합**입니다.
+4. **수치·범위 불일치와 가짜 상충 또는 상충 축소** (S02, S03, S04, S06): 주로 **모델 유도**입니다. 상충 기록 칸을 반드시 채우게 하는 형식이 일부 거들었을 수 있습니다.
+5. **의례적 반복 행과 제3자가 쓸 수 없는 위치 정보** (S01, S08, S06은 경계 / S01, S07): 트랙별 점검표의 동일 행이 반복되고, 생산자 도구 기준의 행 번호가 위치로 쓰입니다. **프롬프트 유도**로 봅니다.
+
+## 4. 다음 라운드 프롬프트 변경 (5건)
+
+1. **[정의] 접근 경로 라벨:** [원문 확인]은 도구가 가공 없이 돌려준 페이지 텍스트에만 붙입니다. 모델이 처리한 fetch 출력과 검색 스니펫은 항상 경유 자료로 표기합니다. M1을 생산자 쪽 규칙으로 옮긴 것입니다.
+2. **[일반화] 크레딧 전사:** 명명한 행에서 옮길 때는 대상 트랙에 대해 그 행의 모든 인물과 역할을 옮깁니다. 일부만 옮기면 "선별 전사"라고 밝히고 무엇을 뺐는지 적습니다. 집계에는 빠진 인물도 공시합니다. 접근 가능한 유통사나 판매처 행을 먼저 찾고, DB 집계는 보조 자료로만 씁니다.
+3. **[정의] 위치 정보:** 위치는 제3자가 쓸 수 있는 형태로 줍니다. URL, 절 제목이나 필드명, 그리고 **원어** 축자 발췌를 함께 적습니다. 도구 고유의 행 번호를 위치로 쓰는 것은 삭제합니다.
+4. **[일반화] 공백 기재:** 공백으로 적기 전에 이미 받은 자료를 다시 확인합니다. 공백 항목에는 확인한 수신 자료와 그 자료가 답이 되지 않는 이유를 적습니다. 경유 단서가 있으면 공백으로 처리하지 않고 "경유·미확인 단서"로 기재합니다.
+5. **[삭제·압축] 점검표:** 모든 트랙이 같은 값을 갖는 열은 한 줄 범례로 줄이고, 차이가 있는 트랙만 행으로 남깁니다. 노트 내부 라벨이 게이트 명칭(G1 등)과 겹치지 않게 합니다.
+
+**프롬프트 밖의 채점 매뉴얼 항목:** D2 비중심 오류의 정밀도 컷(S04 0.79가 경계 사례), D4에서 원문 열람으로 찾지 못한 경우와 요약 경유로 찾지 못한 경우의 구분, D6의 "accessible authoritative row" 정의는 §6.1에서 따로 동결해야 합니다.
+
+
+
+
+=== DOCUMENT 3: ASTRA ROUND-1 CALIBRATION, §3-§4 ===
+### 3. 지속되는 결함과 원인 분류
+
+실제 생성 프롬프트와 생산자 조건이 없으므로 아래 분류는 **관찰된 발생 지점에 대한 잠정 분류**다.
+
+| 반복 결함 | 관찰 범위 | 분류·근거 |
+|---|---|---|
+| 평가 불가를 BORDERLINE으로 대체 | S02 외 7건 | **프롬프트 유발 가능성.** 보고서들이 세 수준 출력 요구를 직접 이유로 든다. 다만 그 요구의 원문은 미제공이다. |
+| 요약 경유 자료를 원문 확인으로 승격 | S02·S03·S04 | **혼합.** 가공된 수신물과 작성자의 상태 표시가 함께 작용한다. |
+| 성급한 상충 판정·불일치 종결·배타적 경로 단정 | S02·S03·S04·S06 | **모델/하네스 유발 중 모델 판단 문제.** 범위·시점·역할 차이를 과도하게 해석했다. 이를 요구한 프롬프트 증거는 없다. |
+| 크레딧 역할 축소 또는 권위 행 연결 부족 | S03·S04·S08 | **혼합.** 자료 접근·보존의 공백과 역할을 변환하는 추론이 함께 나타난다. |
+| 접근 제한·빈 상태표·실행 메타데이터 반복 | S04 외 7건 | **혼합 가능성.** 출력 구성과 작성 습관이 모두 후보지만 원인은 분리할 수 없다. 길이 목표 초과는 입증되지 않았다. |
+| 필수 지도·수신 본문 보존 부족 | D7 전부, 접근 경로 검증 다수 | **모델/하네스 유발 중 감사 패키지 문제.** 노트의 실제 누락이나 허위 열람과 구별해야 한다. |
+
+### 4. 다음 제한 라운드의 프롬프트 변경안
+
+1. **평가 가능성 규칙 정의:** 기존 세 수준 출력 규칙에 N/A를 허용하고, M4 전제가 없으면 잠정 등급을 금지한다. 필수 질문은 작성 후 재구성하지 않는다.
+2. **접근 상태 규칙 일반화:** 원문 직접 확인·검색 경유·가공 요약 경유·미확인을 주장별로 표시한다. 사후 검증은 생산 당시 접근 상태를 바꾸지 않는다.
+3. **크레딧 요약 규칙 일반화:** 원래 역할 문자열·공동 담당·판본·트랙 범위를 보존하고, 집계에는 역할·분자·분모·제외·권위 행을 연결한다. 본문 요약도 같은 범위를 유지한다.
+4. **상충 판정 규칙 정의:** 대상·시점·역할·분모가 비교 가능할 때만 상충으로 판정한다. “유일”, “없음”, “상충 아님”에도 같은 범위 검사를 적용한다.
+5. **중복 허용 규칙 축소:** 동일 공백과 접근 한계는 한곳에 기록하고 다른 절에서는 참조한다. 연구·검증·탐색 기능이 없는 실행 메타데이터는 본문에서 삭제한다.
+
+
+
+=== DOCUMENT 4: UNIFIED DIFF P0 -> P2 ===
+--- P0.md	2026-10-16 18:59:46
++++ P2.md	2026-10-16 19:04:23
+@@ -101,12 +101,14 @@
+ 필요한 유형과 상태를 함께 사용한다.
+ 예: [직접 발언·원문 확인], [DB등재·상충].
+ 
++‘원문 확인’은 도구가 가공하지 않고 돌려준 페이지 텍스트에서 해당 문장을 직접 읽었다는 뜻이다. 도구가 요약·가공해 돌려준 내용과 검색 스니펫은 ‘검색 결과 경유’다. 가공 여부를 알 수 없으면 가공된 것으로 본다.
+ ‘원문 확인’은 해당 출처가 그렇게 말한다는 뜻이다. 모든 현실적 사실이 독립 검증됐다는 뜻으로 확대하지 않는다.
+ 같은 원문을 옮긴 기사나 같은 메타데이터를 공유하는 서비스는 독립 근거로 세지 않는다.
+ 
+ 검색 스니펫만 있는 주장을 확인된 사실로 올리지 않는다.
+ 여러 스니펫도 독립성을 확인하지 못하면 검증 수준이 올라가지 않는다.
+ “이번 조사에서 찾지 못했다”를 “존재하지 않는다”로 바꾸지 않는다.
++‘유일하다’, ‘없다’, ‘상충 없음’도 같다. 비교한 자료의 범위를 확인하고 그 밖을 단정하지 않는다. 자료나 조사 경로에 관한 주장(“확인할 수 있는 경로는 이것뿐”)에도 적용한다.
+ 
+ 6. 크레딧은 역할과 판본을 검증한다
+ 
+@@ -114,6 +116,7 @@
+ API가 공식 경로라는 사실과 등재 내용의 정확성을 구분한다.
+ 
+ 트랙 식별, 판본, 수집 시각, 원래 역할 필드를 보존한다.
++점검표나 근거 부록에 이름이 있는 크레딧 행(부클릿·유통사·판매처 페이지 등)을 옮길 때는 대상 트랙에 대해 그 행의 인물과 역할을 모두 옮긴다. 일부만 옮기면 선별 전사라고 밝히고 빠진 역할의 종류를 적는다. 여러 사람이 함께 맡은 역할은 함께 맡은 것으로 옮긴다.
+ 작사·작곡·프로듀싱·연주·엔지니어링을 합치지 않는다.
+ 동명이인과 예명은 근거를 확인한 뒤 통합한다.
+ 
+@@ -179,6 +182,7 @@
+ 
+ 새 원문이나 중요한 수정이 나오지 않는 검색이 두 차례 연속되면 해당 가지를 중단한다.
+ 접근 실패 출처는 같은 방식으로 반복 요청하지 않는다.
++공백으로 적기 전에 이미 받은 자료(입력 블록, 열람한 페이지, 검색 결과)를 다시 확인한다. ④에 올리는 공백에는 확인한 자료와 그 자료가 답이 되지 않는 이유를 적는다. 경유 단서가 있으면 공백이 아니라 미확인 단서로 적는다.
+ 핵심 공백은 접근 가능한 다른 원문 경로를 한 차례 점검한 후, 실패 이유와 인계 방법을 남긴다.
+ 중요한 공백이 남아 있어도 주변 정보로 분량을 채우지 않는다.
+ 
+@@ -186,10 +190,12 @@
+ 이는 채워야 할 할당량이 아니다. 자료가 적으면 짧게 끝낸다.
+ 상한을 넘길 때는 핵심 근거가 왜 추가로 필요한지 설명한다.
+ 부록에도 중복과 저가치 자료를 쌓지 않는다.
++같은 공백과 접근 제한은 한 곳에만 적고 다른 절에서는 그곳을 참조한다.
+ 
+ 9. 전곡 편중을 점검한다
+ 
+ 표준판의 모든 트랙을 점검표에 올린다.
++모든 트랙의 값이 같은 열은 표 위 한 줄 범례로 대신하고 표에서 뺀다.
+ 각 트랙의 크레딧 확인 상태, 제작·인터뷰 근거, 참조 관계, 공백을 구분한다.
+ 
+ 기본 메타데이터 확인률과 실질적인 제작·맥락 근거 확보율을 따로 보고한다.

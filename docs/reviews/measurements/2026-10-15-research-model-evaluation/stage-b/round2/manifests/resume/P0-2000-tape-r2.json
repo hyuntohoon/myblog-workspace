@@ -1,0 +1,16 @@
+{
+  "description": "Stage B round 2: prompt P0 on 2000-tape, run r2. One dispatch per environment, no retry except one rerun for a harness failure (new id, both records kept). Codex via ChatGPT.app codex-cli 0.162.0-alpha.17.2; Claude CLI with --safe-mode. RESUME after the 2026-10-16 Codex usage limit (ROUND.md §10); Codex lane only.",
+  "artifact_dir": "../../runs",
+  "shared_db_src": "/Users/park_hyun/.local/share/myblog-research/shared-db-guard/src",
+  "timeout_s": 1500,
+  "expected_prompt_sha256": "dee800346c268e1b5b50e2f223995e3eba89fcbc1edb635374fa313fd7f2d4b0",
+  "models": [
+    {
+      "id": "gx-P0-2000-tape-r2-resume",
+      "provider": "gpt",
+      "model": "gpt-6-astra",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

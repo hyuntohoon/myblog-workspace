@@ -1,0 +1,60 @@
+{
+  "id": "astra-p2-fidelity",
+  "provider": "gpt",
+  "requested_model": "gpt-6-astra",
+  "model_config": {
+    "id": "astra-p2-fidelity",
+    "provider": "gpt",
+    "model": "gpt-6-astra",
+    "availability": "available",
+    "reasoning_effort": "medium"
+  },
+  "prompt_sha256": "ef1a9bb951938cffaadcc7209024ed703e51ac75a001caa5b3201b9da725d665",
+  "started_at": "2026-10-16T10:07:40.615520+00:00",
+  "status": "success",
+  "dispatch_count": 1,
+  "orchestration_retry_policy": "none",
+  "orchestration_fallback_policy": "none",
+  "isolated_cwd": "/private/tmp/research-benchmark-dsyyqhro",
+  "argv": [
+    "codex",
+    "--search",
+    "--ask-for-approval",
+    "never",
+    "exec",
+    "--model",
+    "gpt-6-astra",
+    "--sandbox",
+    "read-only",
+    "--json",
+    "--ephemeral",
+    "--skip-git-repo-check",
+    "--output-last-message",
+    "/Users/park_hyun/myblog-workspace/.worktrees/research-r2/docs/reviews/measurements/2026-10-15-research-model-evaluation/stage-b/round2/freeze-check/runs/astra-p2-fidelity/output.md",
+    "-c",
+    "model_reasoning_effort=\"medium\"",
+    "-"
+  ],
+  "resolved_models": [],
+  "resolution_evidence": "not_exposed_by_cli",
+  "cli_errors": [],
+  "usage_reported": [
+    {
+      "input_tokens": 22788,
+      "cached_input_tokens": 13184,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 535,
+      "reasoning_output_tokens": 51
+    }
+  ],
+  "tool_counts": {},
+  "event_count": 4,
+  "hook_event_count": 0,
+  "memory_paths": {},
+  "cli_init": null,
+  "non_json_line_count": 0,
+  "returncode": 0,
+  "process_wall_s": 29.117,
+  "finished_at": "2026-10-16T10:08:09.736551+00:00",
+  "wall_s": 29.12
+}
