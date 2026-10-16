@@ -2,7 +2,7 @@
 
 - **Scope:** production `https://www.ratemymusic.blog` (desktop 1440, mobile 390), logged out and as the smoke member; front code at `myblog_front` `origin/main` `e73cbad` (#466).
 - **Not covered:** owner-account screens, playback bar / lyrics with Spotify connected, `/write`, `/admin`.
-- **No code changed.** Proposals only; owner decisions pending (see last section).
+- **No code changed.** Proposals only; owner decisions recorded 2026-10-17 (see last section).
 - Shareable version with screenshots: claude.ai artifact (private to the owner) — https://claude.ai/artifact/NgnYVw2XuNpS5kRYrqRFC4
 
 **One line:** the card composition contract (`ARCH-album-card-contract-and-composition`) holds at its core but is leaking outside its boundary; the bigger user-facing problem is that the public site is organised around reviews that do not exist yet (0 published).
@@ -70,7 +70,7 @@ Also seen: English uppercase LOGIN/LOGOUT; faux-italic Korean headings; inconsis
 4. S1 + S2 starting with ArtistHub discography (#7, #8).
 5. Small visual batch: keep-all, ＋ contrast, floating overlap (#11–13).
 
-## 4. Owner decisions pending
-- While 0 reviews exist: re-centre public pages on owner ratings, or publish reviews first?
-- Revisit the earlier "no album URL" decision given Back / share behaviour? (Existing decision — not pushed.)
-- Which of 1–5 first? Multi-step work needs an RFC before starting.
+## 4. Owner decisions (decided 2026-10-17)
+- **D1 — while 0 평론 exist:** keep the existing line (`FEAT-album-review-authoring` 2026-07-31: 평가 is not an editorial surface; `FEAT-home-redesign` 2026-06-14 #4: 0 평론 → cold-start hero, the owner publishes first). Hide nav items built from 평론 while there are none, and add a **separately labelled** home rail of the owner's 평가. Canon, the hero and `/reviews` stay 평론-only. (The audit's "Canon/hero from owner ratings ≥4.0" proposal in §3.1 is therefore declined.)
+- **D2 — Back / album URL:** the album-route decision (2026-07-08, closed again 2026-08-04) is **not** reopened. Opening the overlay pushes a history entry with no URL change, so Back closes it; no share/bookmark. A `?album=` open-on-load parameter would be an album URL in substance and was not chosen. The member `AlbumDetail` modal is a separate host and out of that change.
+- **D3 — order:** §3 step 1 first, as an RFC → `docs/rfcs/FEAT-public-surfaces-before-first-review.md`. Finding #9 needs only the owner setting a display name in `/settings` (handle unchanged, so `OWNER_HANDLE` and the member URL are untouched).
