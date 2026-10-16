@@ -125,7 +125,10 @@ class BenchmarkTest(unittest.TestCase):
             self.assertEqual(argv[argv.index("--tools") + 1], "WebSearch,WebFetch")
             self.assertIn("--permission-prompts", argv)
             self.assertNotIn("--dangerously-skip-permissions", argv)
-            return {"stdout": json.dumps({"type": "result", "result": "note",
+            self.assertIn("--safe-mode", argv)
+            self.assertNotIn("--bare", argv)
+            init = {"type": "system", "subtype": "init", "tools": ["WebFetch", "WebSearch"]}
+            return {"stdout": json.dumps(init) + "\n" + json.dumps({"type": "result", "result": "note",
                 "modelUsage": {"claude-example-resolved": {"inputTokens": 12}}}),
                 "stderr": "", "returncode": 0, "timed_out": False, "process_wall_s": 1}
 
@@ -133,6 +136,34 @@ class BenchmarkTest(unittest.TestCase):
         self.assertEqual(guard.calls, 1)
         self.assertEqual(metadata["status"], "success")
         self.assertEqual(metadata["resolved_models"], ["claude-example-resolved"])
+
+    def test_claude_trace_that_is_not_instruction_clean_fails_the_run(self):
+        class Guard:
+            class LLMTransientError(Exception):
+                pass
+
+            class LLMSubscriptionCooldown(Exception):
+                pass
+
+            def coordinated_call(self, operation, *, feature):
+                return operation()
+
+        tools = ["WebFetch", "WebSearch"]
+        hook = {"type": "system", "subtype": "hook_started", "hook_name": "SessionStart:startup"}
+        clean = {"type": "system", "subtype": "init", "tools": tools, "skills": ["x"]}
+        memory = {**clean, "memory_paths": {"auto": "/x/memory/"}}
+        extra_tool = {**clean, "tools": [*tools, "Skill"]}
+        note = {"type": "assistant", "message": {"content": [{"type": "text", "text": "note"}]}}
+        cases = {"hook": [hook, clean, note], "memory": [memory, note],
+                 "tool": [extra_tool, note], "no-init": [note], "clean": [clean, note]}
+        model = {**self.model, "provider": "claude", "model": "claude-example"}
+        for name, events in cases.items():
+            stdout = "\n".join(json.dumps(e) for e in events) + "\n"
+            fake = lambda *a, s=stdout: {"stdout": s, "stderr": "", "returncode": 0,
+                                         "timed_out": False, "process_wall_s": 1}
+            metadata = runner.execute_one({**model, "id": f"run-{name}"}, "input",
+                                          self.root, 1, Guard(), fake)
+            self.assertEqual(metadata["status"], "success" if name == "clean" else "failed", name)
 
     def test_empty_output_fails_and_duplicate_manifest_rejected(self):
         metadata = runner.execute_one(self.model, "input", self.root, 1,

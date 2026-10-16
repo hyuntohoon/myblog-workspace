@@ -1,0 +1,19 @@
+=== DOCUMENT 1: ROUND-1 FINDINGS AND THE OVERLAPPING PROPOSALS (round1/RESULTS.md) ===
+## What the round shows
+
+1. **P1 made the notes longer in every cell:** +27 % to +79 % characters. Defect 8 is present in all four P1 outputs. The amendment restricting the length target to core prose (#6) did not offset the added recording duties (#1, #3, #5). Both reviewers name ritual repetition: identical checklist rows, repeated gap statements and access limits.
+2. **P1 reduced provenance defects in the Claude lane only partly.** Defect 2 persists in Claude · Gemini P1. Both reviewers attribute it mainly to the harness: WebFetch returns model-processed text, and the producer still labels it `[원문 확인]`. Neither Codex output shows defect 2 under either prompt.
+3. **The new failures are exclusive-scope and credit-transcription errors on the sparse Korean album.** They are "the only route" claims, ambiguous role sentences and incomplete transcription of a named credit row. Claude's calibration names incomplete credit-row transcription as the most frequent D6 defect across all eight notes.
+4. **Codex · P0 had no FAIL in either album.** Within this one-run-per-cell design, the strongest observed configuration is the control prompt in the Codex lane. One run per cell cannot separate a prompt effect from run-to-run variance. That limit applies to every comparison in this table.
+
+
+## Proposed direction for round 2 (not predeclared, needs owner confirmation)
+
+The two reviewers' calibration proposals overlap on four points, each a definition or deletion, not an added rule:
+1. **Access labels.** `[원문 확인]` applies only to unprocessed page text the tool returned. A model-processed fetch is always a relayed source.
+2. **Credit transcription.** Copy a named row completely for the target track, or declare a selective copy and what it omits. Preserve joint roles. Apply the scope test to "only", "none" and "no conflict" claims, including claims about research paths.
+3. **Gaps.** Before recording a gap, name the received material checked and why it does not answer; a relayed lead is recorded as a lead, not a gap.
+4. **Compression.** A checklist column that is identical for every track becomes a one-line legend. A gap or access limit is recorded once and referenced elsewhere.
+
+Round 2 should also fix the Claude-lane harness and use **two runs per cell** for any contrast whose effect is expected to be smaller than run-to-run variance. Albums, budget and decision rule need a fresh predeclaration.
+

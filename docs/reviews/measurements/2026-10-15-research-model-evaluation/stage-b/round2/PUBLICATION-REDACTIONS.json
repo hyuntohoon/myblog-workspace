@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-16",
+  "decision": "owner, chat 2026-10-16 (round 1): publish with the owner's personal collection signal removed; applied identically to round 2",
+  "replaced": "the bucket-name list in the poller catalog block's owner-collection line (Gemini Rights only)",
+  "with": "### 오너 컬렉션 신호: [redacted: owner bucket names] — 이미 담아둔 것이므로, 오너가 아는 맥락은 다시 설명하지 말 것.",
+  "dispatched_input": {
+    "inputs/gemini-rights.txt (not stored here; round-1 published copy is ../round1/inputs/gemini-rights.txt)": {
+      "original_sha256": "fcdea93c639aced81c157d9e071c3ec3ccb415cb37704957a817262718b3f94b"
+    }
+  },
+  "files": {
+    "runs/cl-P0-gemini-rights-r1/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": 1
+    },
+    "runs/cl-P0-gemini-rights-r2/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": 1
+    },
+    "runs/cl-P2-gemini-rights-r1/input.txt": {
+      "original_sha256": "cadc42b4ee8aca7d42539ee0a1228febd0890709f2ff6b4e4fd599728315180e",
+      "occurrences": 1
+    },
+    "runs/cl-P2-gemini-rights-r2/input.txt": {
+      "original_sha256": "cadc42b4ee8aca7d42539ee0a1228febd0890709f2ff6b4e4fd599728315180e",
+      "occurrences": 1
+    },
+    "runs/gx-P0-gemini-rights-r1/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": 1
+    },
+    "runs/gx-P0-gemini-rights-r2/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": 1
+    },
+    "runs/gx-P2-gemini-rights-r1/input.txt": {
+      "original_sha256": "cadc42b4ee8aca7d42539ee0a1228febd0890709f2ff6b4e4fd599728315180e",
+      "occurrences": 1
+    }
+  }
+}

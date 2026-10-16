@@ -77,6 +77,10 @@ def command(model: dict[str, Any], output: Path, mcp_config: Path) -> list[str]:
             "--permission-mode", "dontAsk", "--permission-prompts", "none",
             "--no-chrome", "--no-session-persistence", "--strict-mcp-config",
             "--mcp-config", str(mcp_config),
+            # Without it the lane fires the operator's SessionStart hooks and loads
+            # the global CLAUDE.md and auto-memory despite the isolated cwd. --bare
+            # would also do it but refuses subscription (OAuth) auth.
+            "--safe-mode",
         ]
         if effort:
             argv.extend(["--effort", effort])
@@ -148,7 +152,15 @@ def parse_events(stdout: str, provider: str) -> dict[str, Any]:
     resolved: set[str] = set()
     errors, text_parts, tool_counts = [], [], {}
     usage = []
+    hook_events, memory_paths, init = 0, {}, None
     for event in events:
+        if event.get("type") == "system" and str(event.get("subtype", "")).startswith("hook_"):
+            hook_events += 1
+        if event.get("type") == "system" and event.get("subtype") == "init":
+            memory_paths = event.get("memory_paths") or {}
+            init = {"tools": sorted(event.get("tools") or []),
+                    **{f"{k}_count": len(event.get(k) or []) for k in
+                       ("skills", "plugins", "agents", "slash_commands", "mcp_servers")}}
         if event.get("model"):
             resolved.add(str(event["model"]))
         if isinstance(event.get("modelUsage"), dict):
@@ -183,6 +195,7 @@ def parse_events(stdout: str, provider: str) -> dict[str, Any]:
             "cli_event" if resolved else "not_exposed_by_cli",
             "cli_errors": errors, "usage_reported": usage,
             "tool_counts": tool_counts, "event_count": len(events),
+            "hook_event_count": hook_events, "memory_paths": memory_paths, "cli_init": init,
             "non_json_line_count": non_json_lines, "text": "\n\n".join(text_parts)}
 
 
@@ -280,6 +293,14 @@ def execute_one(model: dict[str, Any], prompt: str, artifact_root: Path,
                             status=failure_status(result, parsed))
             if guard_throttle_detected and metadata["status"] == "failed":
                 metadata["status"] = "rate_limited"
+            if metadata["status"] == "success" and model["provider"] == "claude":
+                # Safe mode still lists plugins/skills in init; they are unreachable only
+                # because the tool set is exactly the requested one (no Skill/Agent tool).
+                init = parsed["cli_init"] or {}
+                if (parsed["hook_event_count"] or parsed["memory_paths"]
+                        or init.get("tools") != ["WebFetch", "WebSearch"]):
+                    metadata.update(status="failed", error="Claude CLI run is not instruction-clean "
+                                    "(hook events, memory paths, or a tool set other than WebSearch+WebFetch)")
             output_path = run_dir / "output.md"
             if not output_path.exists() or not output_path.read_text(encoding="utf-8").strip():
                 output_path.write_text(parsed["text"], encoding="utf-8")
