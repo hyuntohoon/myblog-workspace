@@ -1547,6 +1547,9 @@ CREATE TABLE automation_heartbeats (
 -- executors skip new runs while paused and stamp honored_at when they do.
 -- automation_control_events is the audit trail, kept indefinitely; request_id is the
 -- client-minted idempotency key, so a replayed request cannot act twice.
+-- V62: FEAT-automation-admin Step 3c — owner run-now. The audit trail gains action 'run',
+-- its outcomes (requested → invoked | invoke_failed, written by the backend) and the
+-- executor's stamps (started_at / finished_at / run_outcome, written by the worker).
 CREATE TABLE automation_controls (
 	job_key TEXT NOT NULL,
 	paused BOOLEAN DEFAULT false NOT NULL,
@@ -1563,11 +1566,18 @@ CREATE TABLE automation_control_events (
 	outcome TEXT NOT NULL,
 	actor_sub TEXT NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	invoked_at TIMESTAMP WITH TIME ZONE,
+	started_at TIMESTAMP WITH TIME ZONE,
+	finished_at TIMESTAMP WITH TIME ZONE,
+	run_outcome TEXT,
 	PRIMARY KEY (request_id),
 	CONSTRAINT ck_automation_control_event_key CHECK (job_key ~ '^[a-z0-9][a-z0-9_-]{0,63}$'),
-	CONSTRAINT ck_automation_control_event_action CHECK (action IN ('pause', 'resume')),
-	CONSTRAINT ck_automation_control_event_outcome CHECK (outcome IN ('applied', 'no_change')),
-	CONSTRAINT ck_automation_control_event_actor CHECK (length(btrim(actor_sub)) BETWEEN 1 AND 128)
+	CONSTRAINT ck_automation_control_event_action CHECK (action IN ('pause', 'resume', 'run')),
+	CONSTRAINT ck_automation_control_event_outcome CHECK (outcome IN ('applied', 'no_change', 'requested', 'invoked', 'invoke_failed')),
+	CONSTRAINT ck_automation_control_event_actor CHECK (length(btrim(actor_sub)) BETWEEN 1 AND 128),
+	CONSTRAINT ck_automation_control_event_kind CHECK ((action = 'run') = (outcome IN ('requested', 'invoked', 'invoke_failed'))),
+	CONSTRAINT ck_automation_control_event_run_fields CHECK (action = 'run' OR (invoked_at IS NULL AND started_at IS NULL AND finished_at IS NULL AND run_outcome IS NULL)),
+	CONSTRAINT ck_automation_control_event_run_outcome CHECK (run_outcome IS NULL OR run_outcome IN ('ok', 'error', 'skipped_paused'))
 );
 
 -- V61: FEAT-spotify-library-autosync Step 2 — library sync run state. Additive; one row
