@@ -1631,3 +1631,43 @@ CREATE TABLE track_lyrics_rejections (
 	FOREIGN KEY (track_id) REFERENCES tracks (id) ON DELETE CASCADE,
 	CONSTRAINT ck_track_lyrics_rejections_actor CHECK (length(btrim(rejected_by)) BETWEEN 1 AND 128)
 );
+
+-- V64: FEAT-lyrics-match-correction Step 3b — member lyrics reports.
+-- Additive. "가사가 틀려요" from a signed-in member (user_id = users.id = Cognito sub), or a
+-- Step 4 system signal (user_id NULL, reason = the signal). A report never changes
+-- track_lyrics: it enqueues a re-check and puts the track on the owner's queue, which opens
+-- the 3a panel. reported_* snapshot what was served when reported, so the queue can show
+-- that a re-check changed it. One open report per (track, member) and per (track, reason).
+-- The owner's panel decision closes the track's open reports (resolution = the action).
+CREATE TABLE track_lyrics_reports (
+	id UUID DEFAULT gen_random_uuid() NOT NULL,
+	track_id UUID NOT NULL,
+	user_id UUID,
+	reason TEXT DEFAULT 'member' NOT NULL,
+	reported_status TEXT,
+	reported_lrclib_id BIGINT,
+	reported_body_sha TEXT,
+	status TEXT DEFAULT 'open' NOT NULL,
+	resolution TEXT,
+	resolved_by TEXT,
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	resolved_at TIMESTAMP WITH TIME ZONE,
+	PRIMARY KEY (id),
+	FOREIGN KEY (track_id) REFERENCES tracks (id) ON DELETE CASCADE,
+	FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+	CONSTRAINT ck_track_lyrics_reports_author CHECK ((user_id IS NULL) <> (reason = 'member')),
+	CONSTRAINT ck_track_lyrics_reports_reason CHECK (length(reason) BETWEEN 1 AND 64),
+	CONSTRAINT ck_track_lyrics_reports_status CHECK (status IN ('open', 'resolved')),
+	CONSTRAINT ck_track_lyrics_reports_resolved CHECK ((status = 'open') = (resolved_at IS NULL) AND (status = 'open') = (resolution IS NULL)),
+	CONSTRAINT ck_track_lyrics_reports_resolution CHECK (resolution IS NULL OR resolution IN ('pick', 'no_lyrics', 'reject', 'keep')),
+	CONSTRAINT ck_track_lyrics_reports_resolver CHECK (resolved_by IS NULL OR length(btrim(resolved_by)) BETWEEN 1 AND 128),
+	CONSTRAINT ck_track_lyrics_reports_body_sha CHECK (reported_body_sha IS NULL OR reported_body_sha ~ '^[0-9a-f]{64}$')
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_track_lyrics_reports_open_member
+  ON track_lyrics_reports (track_id, user_id) WHERE status = 'open' AND user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_track_lyrics_reports_open_system
+  ON track_lyrics_reports (track_id, reason) WHERE status = 'open' AND user_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_track_lyrics_reports_open
+  ON track_lyrics_reports (track_id) WHERE status = 'open';
+CREATE INDEX IF NOT EXISTS idx_track_lyrics_reports_user_created
+  ON track_lyrics_reports (user_id, created_at) WHERE user_id IS NOT NULL;

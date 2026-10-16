@@ -505,6 +505,39 @@ The panel is the core of this step and the report is its entry, so the step ship
 - **Front:** a one-tap "가사가 틀려요" in the viewer for every member, with a confirmation line. It
   shows no candidates.
 
+**3b design decisions (2026-10-16, owner; recommendations taken after a Fable review).**
+Checked against `origin/main` before building:
+
+- **Daily limit (OQ1): 20 reports per member per rolling 24 h**, a setting
+  (`LYRICS_REPORT_DAILY_CAP`) like `REVIEW_DAILY_CAP`. Every report created in the window
+  counts, resolved ones included, so an owner decision does not refund the budget. A repeat
+  on a track the member already has open returns `already_reported` and costs nothing.
+- **Re-check only on the track's first open report.** Later reporters only add a row. The
+  insert locks the `tracks` row, so two first reporters cannot both enqueue. The member
+  re-check carries `cooldown_sec: 3600`: a track re-checked in the last hour is a no-op at
+  the worker. The owner's refresh keeps `cooldown_sec: 0`. A member's re-check is
+  best effort; the owner queue holds the report either way.
+- **What can be reported:** the viewer's own verdicts, `availability` `ok` (lyrics shown) or
+  `no_lyrics` (a wrong "가사 없음" is a class the automatic queue never revisits). Anything
+  else is 409 `not_reportable`. The first front ships the button on shown lyrics only.
+- **Schema amended:** `user_sub` → `user_id` (FK `users.id`, which is the Cognito sub, like
+  every member table; the route provisions the row). `reason` (`'member'`, or the Step 4
+  signal), a snapshot of what was served (`reported_status`, `reported_lrclib_id`,
+  `reported_body_sha`), and `resolution` / `resolved_by`. A second partial unique serves
+  Step 4: one open report per (track, signal). A Step 4 open report counts as "another
+  open report" and so suppresses a member re-check.
+- **Owner queue state is derived, never stored:** `auto_resolved` when the served status or
+  body hash differs from the snapshot. Most report-triggered re-checks change nothing on a
+  `matched` row (the replacement guard refuses lateral swaps), so the common effect is a
+  fresh candidate set for the panel.
+- **Closing a report is a panel decision.** New action `keep` ("what it serves is right"):
+  resolves the track's open reports and leaves `track_lyrics` and its lock untouched.
+  `no_lyrics` and rejecting the served candidate resolve them in the same transaction;
+  `pick` resolves them after its send succeeds; rejecting another candidate and `unlock`
+  resolve nothing.
+- The member response carries no `recheck_enqueued`: it would tell a member that someone
+  else reported the track first. The owner queue shows counts, never reporters.
+
 **Mandatory second passes:** `reviewer` (contract + infra) on 3a and on 3b; the `security-review`
 skill on 3b (member input).
 
@@ -563,7 +596,8 @@ They describe what the commits say they did. Effects are filled in only where a 
 
 ## Open questions
 
-1. **Daily report limit per member** — proposal 20/day. Blocks Step 3.
+1. ~~**Daily report limit per member**~~ — **resolved 2026-10-16: 20 per rolling 24 h** (owner, the
+   proposal), a setting. See "3b design decisions".
 2. ~~**Does a stale translation re-queue itself after a replacement?**~~ — **resolved 2026-10-16:
    no.** The legacy translation poller queues only tracks that have no translation row. The V57
    demand path does not re-pick `done` rows. Only the owner's translation-request POST re-queues a
@@ -600,3 +634,5 @@ They describe what the commits say they did. Effects are filled in only where a 
 | 2026-10-16 | Real pass drained to empty: 26 rewrites, all inside the audited 42. Step 2 closed | 2 |
 | 2026-10-16 | 3a: candidate set stored by explicit re-check only; rejecting the attached candidate demotes the row at once; translation re-queued on owner pick only; pick limited to the stored set; lock enforced in the shared writer (owner) | 3a |
 | 2026-10-16 | 3a shipped. Review moved the lock and rejection check to write time (first insert included); refused writes rotate like guard-kept rows | 3a |
+| 2026-10-16 | OQ1: 20 reports per member per 24 h. A report enqueues the re-check only when the track had no other open report (owner) | 3b |
+| 2026-10-16 | 3b: `ok` and `no_lyrics` are reportable; member re-check cooldown 3600 s; owner closes reports with panel decisions plus a new `keep`; `auto_resolved` derived from a served snapshot (owner, after Fable review) | 3b |
