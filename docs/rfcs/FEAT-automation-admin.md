@@ -763,7 +763,10 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
   - A paused job returns **409 `job_paused`**. This is the 3b interaction.
   - The per-job cooldown is **10 minutes** for every job. It returns **409 `cooldown`** with the seconds left.
     The cooldown counts from the last run row that was accepted or that its executor started; a failed invoke does
-    not count. Ten minutes covers one 120 s run plus Lambda's async retries.
+    not count. Ten minutes covers one run that starts promptly: three 120 s attempts plus Lambda's 1 + 2 minute retry
+    delays. It does **not** cover a throttled invoke: `worker_async` keeps the default 6 h maximum event age. A run-now
+    queued behind the 10-execution limit can therefore still be waiting when the cooldown ends, and then a second
+    run-now overlaps it (accepted, below).
   - Lambda's concurrency limit is not gated here. A throttled `Event` invoke waits in Lambda's own async queue.
     It is not lost, and it is not the page's error.
   - The cron's own schedule is not gated either. A run-now that lands while that cron is already running gives
@@ -788,6 +791,10 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
 
   A stamp that fails is logged at `ERROR` and never blocks the run: this is fail-open, as in 3b. The page then shows
   an invoked run with no start, which is the truthful reading.
+  - A Lambda **timeout** kills the process, so no end is stamped, and the last retry leaves `started_at` with no
+    `finished_at`. The backend reports such a run as `stalled` once one cooldown (10 min, longer than three attempts
+    and their retry delays) has passed since `started_at`. The page shows "result unknown (timed out?)", never
+    "running".
 - **Audit (V62, additive).** `automation_control_events` gains `invoked_at`, `started_at`, `finished_at` and
   `run_outcome`.
   - The action CHECK widens to `run`. The outcome CHECK widens to `requested`, `invoked` and `invoke_failed`.
@@ -795,8 +802,11 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
   - Rejections (409 paused/cooldown) write no row. Like 3b's conflicts, they change nothing.
 - **Endpoint.** `POST /api/admin/automation/runs` with `{job_key, request_id}`, gated by `require_owner`, with its
   own JWT route.
-  - Errors: 404 for a job that has no `run` control, 409 as above, 502 `invoke_failed`, and 503 when the DB is
+  - Errors: 404 for a job that has no `run` control, 409 as above (`detail.code`), and 503 when the DB is
     unavailable (resend the same `request_id`).
+  - A failed invoke is **not** an HTTP error. It is a 200 whose `outcome` is `invoke_failed`: final for that
+    `request_id`, and it starts no cooldown, so a new confirmation may try again. A 5xx would make the client's
+    "outcome unknown → resend the same id" rule spend a round trip just to learn the same thing.
   - The snapshot's per-job `run` block carries the last run row and `cooldown_until`.
 - **Rollout order: consumers before the producer**, as in 3b. Workspace `schema.sql`, then shared_db V62 (prod and
   test branch before merge), then the worker (`automation_run_id` stamps, the alias branch and the pin), then the
