@@ -228,8 +228,8 @@ owner candidate panel (from the viewer or the queue)                            
    every candidate: source title/artist/album/duration, synced?, preview, cluster size, verdict
    ├─ pick X      → worker fetches X by id → write basis='manual' (locked)
    ├─ no lyrics   → write no_lyrics, basis='manual' (locked)
-   ├─ reject X    → rejection row + recheck (stays unlocked)
-   └─ unlock      → back to automatic
+   ├─ reject X    → rejection row; if X is served: taken down now + recheck (unlocked)
+   └─ unlock      → back to automatic + recheck
 ```
 
 **Why a member report does not edit.** Reporting is open to every member, and the row is global. If
@@ -403,9 +403,11 @@ The panel is the core of this step and the report is its entry, so the step ship
 
 - **Schema (next V):**
   - `track_lyrics_candidates(track_id, lrclib_id, title, artist, album, duration_sec, has_synced,
-    preview, cluster_size, verdict, fetched_at)`, PK (track_id, lrclib_id). Written by every
-    evaluation for the plausible set it judged. It holds metadata and a short preview only, never
-    full lyric text.
+    has_plain, instrumental, preview, cluster_size, verdict, matcher_version, fetched_at)`, PK
+    (track_id, lrclib_id) — V63. ~~Written by every evaluation for the plausible set it judged.~~
+    *Amended (3a decisions below):* written only by an explicit single-track re-check, replaced
+    wholesale, and holding every candidate LRCLIB returned with its verdict. It holds metadata
+    and a short preview only (CHECK ≤ 300 chars), never full lyric text.
   - `track_lyrics_rejections(track_id, lrclib_id, rejected_by, created_at)`, PK (track_id, lrclib_id).
   - Add `'manual'` to the basis ladder above `isrc`. A `manual` row is the lock.
 - **API (owner):**
@@ -422,7 +424,8 @@ The panel is the core of this step and the report is its entry, so the step ship
   - Every selection path drops rejected candidates before `decide_match`, and never selects or
     replaces a `manual` row. That covers incremental, reassessment, demand_source and the
     `tools/lyrics_*` twin.
-  - New single-track jobs: `lyrics_recheck {track_id}` and `lyrics_pick {track_id, lrclib_id}`.
+  - New single-track job: `lyrics_pick {track_id, lrclib_id}`. ~~`lyrics_recheck {track_id}`~~ —
+    *amended:* the existing `lyrics_reassessment {track_id}` scope (Step 2) is the re-check.
 - **Front:** "다른 가사 보기" in the lyrics viewer, owner only. It opens the panel: candidates sorted
   by verdict, each with source, preview and the reason it lost; the current pick and its lock state.
 
@@ -435,9 +438,10 @@ The panel is the core of this step and the report is its entry, so the step ship
 - *Gap.* The shared writer (`TrackLyricsWriter.write_outcomes`) had no lock, the demand-source
   selection projects no `existing_locked`, and `manual` was missing from the basis ladder
   (strength 0). So a `manual` "no lyrics" row could be superseded by an `exact-title` from the
-  demand job. 3a puts the lock **in the writer's upsert** (`ON CONFLICT … WHERE NOT locked`),
-  which every producer and the `tools/lyrics_*` twin go through. `manual` also gets the top
-  rung of the ladder.
+  demand job, and a `manual_fix` row (basis `exact-title`) by an `mb-recording` / `isrc` one. 3a puts the lock **in the writer's upsert** (`ON CONFLICT … WHERE NOT locked`),
+  which every producer and the `tools/lyrics_*` twin go through; it tests both lock keys
+  (`manual_fix`, basis `manual`). `manual` also gets the top rung of the ladder. The owner's
+  own pick goes through a separate writer path that is allowed over a lock.
 - **Candidate set: stored only by an explicit single-track re-check** (the panel's refresh),
   not by every evaluation. The scheduled jobs would otherwise rewrite up to 20 rows per track
   on every pass. The panel says when nothing is stored and offers the refresh. It shows every
