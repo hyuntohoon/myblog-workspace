@@ -157,6 +157,7 @@ class GuardBashTargetTest(unittest.TestCase):
         main = self.root / "onmain"
         for cmd in ['echo "<<EOF"; git commit -m x',                  # no terminator line
                     'echo "<<EOF"\ngit commit -m x\nEOF',             # << inside quotes
+                    'echo "x <<EOF y"\ngit commit -m x\nEOF',
                     "echo '<<EOF'\ngit commit -m x\nEOF",
                     "echo $((1<<X))\ngit commit -m x\nX",             # arithmetic shift
                     "((y = 1<<X))\ngit commit -m x\nX",
@@ -190,6 +191,20 @@ class GuardBashTargetTest(unittest.TestCase):
                     "cd ../feature || exit 1; git commit -m x",
                     "if true; then cd ../feature; git commit -m x; fi"]:
             self.assertDecision("allow", cmd, cwd=main)
+
+    def test_conditional_cd_review_followup(self):
+        main = self.root / "onmain"
+        for cmd in ["false && cd ../feature || git commit -m x",          # cd skipped, || runs
+                    "if false; then git log $(date); cd ../feature; fi; git commit -m x",
+                    "if false; then cd ../feature; git log $(date); fi; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+
+    def test_heredoc_delimiter_must_be_a_plain_word(self):
+        main = self.root / "onmain"
+        for cmd in ["cat <<EOF.x\ngit commit -m x\nEOF\nEOF.x",          # real delimiter is EOF.x
+                    "cat <<EOF-1\ngit commit -m x\nEOF\nEOF-1",
+                    "echo $[a[1] <<X ]\ngit commit -m x\nX"]:
+            self.assertDecision("deny", cmd, cwd=main)
 
     def test_wrapper_options_fail_closed(self):
         for cmd in ["nice -n 5 git commit -m x", "env -C ../onmain git commit -m x",
