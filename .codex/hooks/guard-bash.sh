@@ -23,7 +23,9 @@
 # unknown once its list or block ends. When the target repo of a commit or
 # force-push cannot be named — or GIT_DIR/--git-dir or an unmodelled wrapper
 # option may redirect it — it denies (fail closed). Not covered: git inside
-# `bash -c "…"`, eval, a here-string, functions/aliases, or a script file.
+# `bash -c "…"`, eval, a here-string, functions/aliases, or a script file; and
+# `cd <existing dir> || git commit` (the commit runs only if that cd fails).
+# Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
 # covers the Bash path: a command that names a secret file as a bare argument
@@ -134,8 +136,11 @@ def strip_heredocs(c):
             if m:
                 pending.append((m.group(1) == "-", m.group(3)))
                 k = m.end()
-                if m.group(2) in ("\"", SQ) and c[k:k + 1] == m.group(2):
-                    k += 1                    # the closing quote of <<"EOF"
+                if m.group(2) in ("\"", SQ):
+                    if c[k:k + 1] == m.group(2):
+                        k += 1                # the closing quote of <<"EOF"
+                elif m.group(2) not in ("", "\\"):
+                    return c                  # <<$EOF, <<1EOF …: not an opener we model
                 if k < n and c[k] not in " \t\n;&|<>()":
                     return c                  # <<EOF.x, <<EOF-1 …: not a word we model
                 out.append(c[m.start():k]); continue
@@ -297,7 +302,7 @@ def git_invocations(toks):
     # A cd or assignment that may not have run — after && / || or inside
     # if/while/for/case — leaves the location unknown once that list or block
     # ends: `false && cd x; git commit` still commits where it started.
-    conditional, depth = False, 0
+    conditional, depth, list_has_or = False, 0, False
     chain_cd, chain_vars, block_cd, block_vars = False, set(), False, set()
 
     def forget(cd_flag, names):
@@ -319,10 +324,11 @@ def git_invocations(toks):
                 if t == "||":                 # `a && cd x || cmd`: cmd runs where the cd may not have
                     forget(chain_cd, chain_vars)
                     chain_cd, chain_vars = False, set()
+                    list_has_or = True
                 conditional = True
             elif ";" in t or t == "&" or "(" in t or ")" in t:
                 forget(chain_cd, chain_vars)  # end of an && / || list
-                chain_cd, chain_vars, conditional = False, set(), False
+                chain_cd, chain_vars, conditional, list_has_or = False, set(), False, False
             for ch in t:                      # ( … ) restores the outer directory
                 if ch == "(":
                     stack.append(here)
@@ -375,6 +381,8 @@ def git_invocations(toks):
                 here = None                   # cd -, bare cd, popd: not tracked
             else:
                 here = resolve_dir(arg, here, env)
+            if conditional and list_has_or:
+                here = None                   # `true || cd x && git …`: the cd was skipped
             i += 2 if arg is not None else 1
             expect_cmd = False; continue
         if expect_cmd and is_git(t):
@@ -459,7 +467,10 @@ if punct is not None:
             continue
         if target is None:
             deny("Hard rule #1: " + UNRESOLVED % ("commit", "commit"))
-        if current_branch(target) in ("main", "master"):
+        branch = current_branch(target)
+        if not branch:
+            deny("Hard rule #1: " + UNRESOLVED % ("commit", "commit"))
+        if branch in ("main", "master"):
             deny("Hard rule #1: never commit on main. Create a branch first: "
                  "git checkout -b <type>/<plan-id>-<desc>")
 
@@ -470,6 +481,8 @@ if punct is not None:
     if any(target is None for target in forced):
         deny("Hard rule #7: " + UNRESOLVED % ("push --force", "push"))
     forced_branches = [current_branch(target) for target in forced]
+    if any(not b for b in forced_branches):
+        deny("Hard rule #7: " + UNRESOLVED % ("push --force", "push"))
     if any(b in ("main", "master") for b in forced_branches):
         deny("Refusing force-push to main/master.")
     if forced_branches:
