@@ -199,6 +199,17 @@ class GuardBashTargetTest(unittest.TestCase):
                     "if false; then cd ../feature; git log $(date); fi; git commit -m x"]:
             self.assertDecision("deny", cmd, cwd=main)
 
+    def test_review_round3(self):
+        main = self.root / "onmain"
+        for cmd in ["true || cd ../feature && git commit -m x",       # cd skipped, && runs
+                    # bash ends these bodies before the line we would wait for
+                    "cat <<$EOF\nx\n$EOF\ngit commit -m x\nEOF",
+                    'cat <<"EOF  x"\nEOF  x\ngit commit -m x\nEOF',
+                    "git -C /tmp commit -m x",                           # not a repo: branch unknown
+                    "git -C /tmp push --force origin x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        self.assertDecision("allow", "cd ../feature || exit 1; git commit -m x", cwd=main)
+
     def test_heredoc_delimiter_must_be_a_plain_word(self):
         main = self.root / "onmain"
         for cmd in ["cat <<EOF.x\ngit commit -m x\nEOF\nEOF.x",          # real delimiter is EOF.x
