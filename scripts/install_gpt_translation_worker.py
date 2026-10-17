@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 LABEL = 'com.myblog.gpt-translate-poller'
 FILES = ('gpt_plan_auth.py','gpt_plan_client.py','gpt_translation_store.py','gpt_queue_worker.py',
          'gpt_worker_setup.py','lyrics_translate_poller.py','lyrics_demand_translate.py',
-         'automation_heartbeat.py')
+         'automation_heartbeat.py','claude_fallback_client.py')
 
 
 def revision(path):

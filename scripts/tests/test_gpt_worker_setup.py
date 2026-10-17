@@ -98,7 +98,7 @@ def test_usage_limit_wait_is_shown_and_cleared_by_save(ui):
     server,client=ui
     server.state.write('settings.json',{'enabled':True,'model':'allowed','daily_cap':8,
                                         'resume_at':time.time()+1800,'limit_hits':2})
-    assert '사용량 한도 대기' in client.get('/').text and '(2/3)' in client.get('/').text
+    assert '사용량 한도 대기' in client.get('/').text and '(연속 2회)' in client.get('/').text
     post(ui,'/save',{'model':'allowed','daily_cap':'300'})
     settings=server.state.settings()
     assert 'resume_at' not in settings and 'limit_hits' not in settings

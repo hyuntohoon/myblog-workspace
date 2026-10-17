@@ -82,7 +82,10 @@ class SetupHandler(BaseHTTPRequestHandler):
             status += ' · 중지 사유: ' + pause
         elif settings.get('resume_at', 0) > time.time():
             status += (' · 사용량 한도 대기: ' + time.strftime('%H:%M', time.localtime(settings['resume_at']))
-                       + f"까지 ({settings.get('limit_hits', 0)}/3)")
+                       + f"까지 (연속 {settings.get('limit_hits', 0)}회)")
+            fallback = settings.get('fallback') if isinstance(settings.get('fallback'), dict) else {}
+            if fallback.get('enabled') is True:
+                status += ' · 대기 중 Claude 대체 번역 사용'
         self.send_page(f'''<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>MyBlog GPT 연결</title><style>body{{font-family:system-ui;max-width:650px;margin:70px auto;padding:20px;line-height:1.65}}button,select,input{{font:inherit;padding:8px;margin:6px 0}}button{{cursor:pointer}}aside{{background:#f3f4f6;padding:18px;border-radius:12px}}label{{display:block}}</style>
 <h1>번역 자동 처리 연결</h1><p>{html.escape(status)}</p><p>{html.escape(record.get('email',''))}</p>
@@ -95,7 +98,7 @@ ChatGPT 플랜의 허용량을 사용하며, 다른 연결 앱과 한도를 공�
 <form method="post" action="/save">{hidden}<label>번역 모델 <select name="model" required><option value="">선택</option>{options}</select></label>
 <label>하루 호출 예산 <input type="number" name="daily_cap" value="{int(settings.get('daily_cap',10))}" min="1" max="10000" required></label>
 <p>예산에 도달하면 요청을 남겨 두고 다음 UTC 날짜에 이어서 처리합니다. 같은 원문의 실패는 최대 두 번 시도합니다.
-플랜 사용량 한도에 걸리면 한 시간 뒤 이어서 처리하고, 세 번 연속이면 자동 처리를 끕니다.</p><button>설정 저장 (자동 실행은 꺼짐)</button></form>
+플랜 사용량 한도에 걸리면 한 시간마다 다시 확인하며 자동 처리를 끄지 않습니다. 대체 번역이 켜져 있으면 기다리는 동안 Claude로 이어서 처리합니다.</p><button>설정 저장 (자동 실행은 꺼짐)</button></form>
 <form method="post" action="/pause">{hidden}<button>자동 처리 중지</button></form>
 <p><a href="{USAGE}" target="_blank" rel="noopener noreferrer">ChatGPT 사용량·앱별 권한 설정</a></p>
 <p>저장 후 담당 에이전트가 요청 한 건과 결과 화면을 검증한 다음 자동 실행을 켭니다. 계정 토큰은 이 컴퓨터에만 보관됩니다.</p></html>''')
