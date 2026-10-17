@@ -269,7 +269,7 @@ class QueueWorker:
             try:
                 with Session(self.engine) as db:
                     # A rejected limit request produced no output: its attempt is returned,
-                    # so automatic resumes cannot exhaust a source's two attempts.
+                    # so automatic resumes cannot exhaust a source's attempts.
                     self.store.fail(db, UUID(claim['work_id']), UUID(claim['claim_token']), reason,
                                     refund=getattr(error, 'limit', False))
                     db.commit()
