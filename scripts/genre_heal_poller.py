@@ -40,9 +40,9 @@ from myblog_shared_db.llm.subscription_guard import (  # noqa: E402
 
 log = logging.getLogger("genre-heal-poller")
 
-ROOT = Path(__file__).resolve().parent.parent  # myblog-workspace/
+ROOT = Path(__file__).resolve().parent.parent  # the jobs runtime (or a workspace checkout)
 BACKFILL = ROOT / "myblog_shared_db" / "scripts" / "backfill_genres.py"
-PY = ROOT / "myblog_worker" / ".venv" / "bin" / "python"
+PY = Path(sys.executable)  # the backfill shares this poller's venv
 NW_SHIM = Path(__file__).resolve().parent / "neuralwatt_claude_shim.py"
 
 

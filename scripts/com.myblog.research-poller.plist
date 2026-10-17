@@ -16,8 +16,7 @@
   ~/.local/bin (the `claude` binary). AWS creds come from ~/.aws via boto3.
 
   INSTALL (owner's machine):
-    cp scripts/com.myblog.research-poller.plist ~/Library/LaunchAgents/
-    launchctl load -w ~/Library/LaunchAgents/com.myblog.research-poller.plist
+    python3 scripts/install_local_jobs_runtime.py   # renders all four job plists into ~/Library/LaunchAgents
     launchctl kickstart -k gui/$(id -u)/com.myblog.research-poller   # run now
 
   STATUS / LOGS:
@@ -34,8 +33,8 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/park_hyun/myblog-workspace/myblog_backend/.venv/bin/python</string>
-        <string>/Users/park_hyun/myblog-workspace/scripts/research_poller.py</string>
+        <string>__RUNTIME__/.venv/bin/python</string>
+        <string>__RUNTIME__/scripts/research_poller.py</string>
         <string>--once</string>
     </array>
 
@@ -61,7 +60,7 @@
     <true/>
 
     <key>WorkingDirectory</key>
-    <string>/Users/park_hyun/myblog-workspace</string>
+    <string>__RUNTIME__</string>
 
     <key>StandardOutPath</key>
     <string>/Users/park_hyun/Library/Logs/myblog-research-poller.log</string>

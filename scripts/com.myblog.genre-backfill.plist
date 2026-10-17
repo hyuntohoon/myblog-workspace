@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FEAT-genre-autoheal — daily 04:00 incremental genre backfill (S1 mapping → S2 iTunes → S3 LLM),
+  wrapped in automation_heartbeat so the admin automation page sees each run.
+  genre-heal-poller runs the same backfill on demand from the /profile button.
+
+  INSTALL (owner's machine):
+    python3 scripts/install_local_jobs_runtime.py   # renders all four job plists into ~/Library/LaunchAgents
+
+  STATUS / LOGS:
+    launchctl list | grep genre-backfill
+    tail -f ~/Library/Logs/myblog-genre-backfill.log
+
+  STOP (kill switch — the next on-demand request still runs through genre-heal-poller):
+    launchctl unload -w ~/Library/LaunchAgents/com.myblog.genre-backfill.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.myblog.genre-backfill</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__RUNTIME__/.venv/bin/python</string>
+        <string>__RUNTIME__/scripts/automation_heartbeat.py</string>
+        <string>exec</string>
+        <string>genre-backfill</string>
+        <string>--</string>
+        <string>__RUNTIME__/.venv/bin/python</string>
+        <string>__RUNTIME__/myblog_shared_db/scripts/backfill_genres.py</string>
+        <string>--incremental</string>
+        <string>--label</string>
+        <string>--execute</string>
+    </array>
+
+    <!-- HOME for ~/.claude and ~/.aws; PATH for `claude` (~/.local/bin) and `aws` (/opt/homebrew/bin). -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/park_hyun</string>
+        <key>PATH</key>
+        <string>/Users/park_hyun/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>__RUNTIME__/myblog_shared_db</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-genre-backfill.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/park_hyun/Library/Logs/myblog-genre-backfill.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>
