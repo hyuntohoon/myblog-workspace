@@ -538,6 +538,34 @@ Checked against `origin/main` before building:
 - The member response carries no `recheck_enqueued`: it would tell a member that someone
   else reported the track first. The owner queue shows counts, never reporters.
 
+**Step 3b result (2026-10-17).**
+
+- Shipped: schema V64 (ws #1092, shared_db #93 `3b57706`, applied to test and prod), backend #190
+  (`a1f104a`), ws #1096 (`2855761`: the two JWT routes, applied with `2 to add, 0 to change,
+  0 to destroy`; merged contract; the SQS contract row records `cooldown_sec: 3600`), front #474
+  (`c8e0cb7`). The worker needed no change: the track scope of `lyrics_reassessment` already
+  honours `cooldown_sec`.
+- Review changed the design in one place. A member's reports are serialised by a **per-member**
+  advisory lock taken before the per-track one (fixed order, so no deadlock). With the track lock
+  alone, parallel reports on different tracks each read the 24 h count before any of them
+  committed, so the cap could be overshot, with one LRCLIB re-check per overshoot. The RFC text
+  says "the insert locks the `tracks` row"; the code uses an advisory lock keyed on the track,
+  which is equivalent. **Step 4's system-report writer must take the same ("track", track_id)
+  key** (`_advisory_key` in `lyrics_report_service.py`), or a member's and a signal's first
+  reports could both enqueue a re-check.
+- Verification:
+  - Tests: backend 1203 unit + 305 real-DB (zero skips in CI), front 1548, shared_db 190 in CI.
+    Mutants killed: 2/2 migration (member partial unique, author CHECK), 2/2 backend (member
+    lock, closing reports before the pick's send).
+  - Local smoke and a real-browser clickthrough against a local backend on the test branch:
+    member report → confirmation line; owner queue → `auto_resolved` after a simulated re-check →
+    panel opens → `keep` closes it; the non-owner control is bounced to `/`.
+  - Prod smoke 32/32 after both deploys. On prod: both routes 401 without a token; the queue and
+    `keep` 403 for a member; report 404 on an unknown id and 409 `not_reportable` on a track with
+    no lyrics row. No report row was written on prod.
+- **Not verified on prod:** the owner's view of the queue, and a member report that reaches it
+  (no owner token in the session, and no prod write was made from the smoke member).
+
 **Mandatory second passes:** `reviewer` (contract + infra) on 3a and on 3b; the `security-review`
 skill on 3b (member input).
 
@@ -636,3 +664,4 @@ They describe what the commits say they did. Effects are filled in only where a 
 | 2026-10-16 | 3a shipped. Review moved the lock and rejection check to write time (first insert included); refused writes rotate like guard-kept rows | 3a |
 | 2026-10-16 | OQ1: 20 reports per member per 24 h. A report enqueues the re-check only when the track had no other open report (owner) | 3b |
 | 2026-10-16 | 3b: `ok` and `no_lyrics` are reportable; member re-check cooldown 3600 s; owner closes reports with panel decisions plus a new `keep`; `auto_resolved` derived from a served snapshot (owner, after Fable review) | 3b |
+| 2026-10-17 | 3b shipped. Review added a per-member advisory lock ahead of the per-track one, so the daily cap holds under parallel reports; Step 4 must reuse the track key | 3b |
