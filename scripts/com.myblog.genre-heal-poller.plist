@@ -17,8 +17,7 @@
   (PATH must include /opt/homebrew/bin); the `claude` binary is in ~/.local/bin.
 
   INSTALL (owner's machine):
-    cp scripts/com.myblog.genre-heal-poller.plist ~/Library/LaunchAgents/
-    launchctl load -w ~/Library/LaunchAgents/com.myblog.genre-heal-poller.plist
+    python3 scripts/install_local_jobs_runtime.py   # renders all four job plists into ~/Library/LaunchAgents
 
   STATUS / LOGS:
     launchctl list | grep genre-heal-poller
@@ -34,8 +33,8 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/park_hyun/myblog-workspace/myblog_worker/.venv/bin/python</string>
-        <string>/Users/park_hyun/myblog-workspace/scripts/genre_heal_poller.py</string>
+        <string>__RUNTIME__/.venv/bin/python</string>
+        <string>__RUNTIME__/scripts/genre_heal_poller.py</string>
     </array>
 
     <key>EnvironmentVariables</key>
@@ -54,7 +53,7 @@
     <true/>
 
     <key>WorkingDirectory</key>
-    <string>/Users/park_hyun/myblog-workspace</string>
+    <string>__RUNTIME__</string>
 
     <key>StandardOutPath</key>
     <string>/Users/park_hyun/Library/Logs/myblog-genre-heal-poller.log</string>

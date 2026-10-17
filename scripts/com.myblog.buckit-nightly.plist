@@ -19,14 +19,13 @@
   03:00, launchd runs the missed fire once at the next wake (it does NOT stack multiple catch-ups).
 
   INSTALL (owner's machine — flips the nightly schedule ON):
-    cp scripts/com.myblog.buckit-nightly.plist ~/Library/LaunchAgents/
-    launchctl load -w ~/Library/LaunchAgents/com.myblog.buckit-nightly.plist
+    python3 scripts/install_local_jobs_runtime.py   # renders all four job plists into ~/Library/LaunchAgents
     launchctl kickstart -k gui/$(id -u)/com.myblog.buckit-nightly   # optional: run once now to test
 
   STATUS / LOGS:
     launchctl list | grep buckit-nightly
     tail -f ~/Library/Logs/myblog-buckit-nightly.log
-    ls ~/myblog-workspace/docs/buckit/                              # the morning output (gitignored)
+    ls ~/.local/share/myblog-jobs/buckit/                            # the morning backup copy (drafts also land in the /write inbox)
 
   STOP (kill switch — nothing happens until reloaded; checked memos simply wait):
     launchctl unload -w ~/Library/LaunchAgents/com.myblog.buckit-nightly.plist
@@ -40,8 +39,8 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/park_hyun/myblog-workspace/myblog_backend/.venv/bin/python</string>
-        <string>/Users/park_hyun/myblog-workspace/scripts/buckit_nightly.py</string>
+        <string>__RUNTIME__/.venv/bin/python</string>
+        <string>__RUNTIME__/scripts/buckit_nightly.py</string>
     </array>
 
     <!-- HOME so claude finds ~/.claude/.credentials.json and boto3 finds ~/.aws;
@@ -70,7 +69,7 @@
     <false/>
 
     <key>WorkingDirectory</key>
-    <string>/Users/park_hyun/myblog-workspace</string>
+    <string>__RUNTIME__</string>
 
     <key>StandardOutPath</key>
     <string>/Users/park_hyun/Library/Logs/myblog-buckit-nightly.log</string>
