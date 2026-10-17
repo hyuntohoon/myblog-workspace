@@ -38,6 +38,9 @@ class GuardBashTargetTest(unittest.TestCase):
         cls.root = Path(cls._tmp.name).resolve()
         _repo(cls.root / "onmain", "main")
         _repo(cls.root / "feature", "feat/x")
+        # feature/lnk -> onmain/sub: `-C feature/lnk/..` is onmain to git (physical path)
+        (cls.root / "onmain" / "sub").mkdir()
+        os.symlink(cls.root / "onmain" / "sub", cls.root / "feature" / "lnk")
 
     @classmethod
     def tearDownClass(cls):
@@ -137,6 +140,65 @@ class GuardBashTargetTest(unittest.TestCase):
                                  text=True, check=True).stdout
             got = "deny" if '"permissionDecision": "deny"' in out else "allow"
             self.assertEqual(expected, got, repo)
+
+    def test_heredoc_body_is_data_not_commands(self):
+        feat, main = self.root / "feature", self.root / "onmain"
+        body = 'cd onmain && git commit -m x\ngit -C "$WT" commit -m x\n'
+        self.assertDecision("allow", f"gh pr create --body-file - <<'EOF'\n{body}EOF", cwd=feat)
+        self.assertDecision("allow", f"git commit -F - <<-EOF\n{body}\tEOF", cwd=feat)
+        self.assertDecision("allow", f'cat <<"EOF" > f\n{body}EOF', cwd=feat)
+        self.assertDecision("allow", f"cat <<\\EOF\n{body}EOF", cwd=feat)
+        self.assertDecision("allow", f"x=a#b; cat <<EOF\n{body}EOF", cwd=feat)   # # inside a word
+        # the command after the terminator is still checked
+        self.assertDecision("deny", f"cat <<EOF\n{body}EOF\ngit commit -m x", cwd=main)
+        self.assertDecision("deny", "cat <<< 'x'; git commit -m x", cwd=main)
+
+    def test_heredoc_lookalikes_do_not_hide_commands(self):
+        main = self.root / "onmain"
+        for cmd in ['echo "<<EOF"; git commit -m x',                  # no terminator line
+                    'echo "<<EOF"\ngit commit -m x\nEOF',             # << inside quotes
+                    "echo '<<EOF'\ngit commit -m x\nEOF",
+                    "echo $((1<<X))\ngit commit -m x\nX",             # arithmetic shift
+                    "((y = 1<<X))\ngit commit -m x\nX",
+                    "echo $[1<<X]\ngit commit -m x\nX",
+                    "true # <<EOF\ngit commit -m x\nEOF",               # comment
+                    "cat <<EOF\nno terminator\ngit commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+
+    def test_worktree_add_onto_an_existing_dir_does_not_vouch_for_it(self):
+        self.assertDecision("deny", "git -C feature worktree add -b feat/zz ../onmain "
+                                    "&& git -C onmain commit -m x")
+
+    def test_newline_separates_commands(self):
+        main = self.root / "onmain"
+        self.assertDecision("deny", "echo hi\ngit commit -m x", cwd=main)
+        self.assertDecision("deny", "echo hi # a note\ngit commit -m x", cwd=main)
+        self.assertDecision("deny", "echo a#b; git commit -m x", cwd=main)  # not a comment
+        self.assertDecision("deny", "git \\\n  commit -m x", cwd=main)
+        self.assertDecision("allow", "cd ../feature \\\n  && git commit -m x", cwd=main)
+        self.assertDecision("allow", 'git commit -m "line one\nline two"', cwd=self.root / "feature")
+
+    def test_conditional_cd_and_assignment_make_the_location_unknown(self):
+        main = self.root / "onmain"
+        for cmd in ["false && cd ../feature; git commit -m x",
+                    "true || cd ../feature; git commit -m x",
+                    "if false; then cd ../feature; fi; git commit -m x",
+                    "while false; do cd ../feature; done; git commit -m x",
+                    f"true || WT={self.root / 'feature'}; git -C \"$WT\" commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["cd ../feature && git commit -m x",            # same chain: runs only after cd
+                    "cd ../feature || exit 1; git commit -m x",
+                    "if true; then cd ../feature; git commit -m x; fi"]:
+            self.assertDecision("allow", cmd, cwd=main)
+
+    def test_wrapper_options_fail_closed(self):
+        for cmd in ["nice -n 5 git commit -m x", "env -C ../onmain git commit -m x",
+                    "sudo -u me git commit -m x", "time -p git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=self.root / "feature")
+        self.assertDecision("allow", "env git commit -m x", cwd=self.root / "feature")
+
+    def test_dash_c_uses_the_physical_path(self):
+        self.assertDecision("deny", "git -C feature/lnk/.. commit -m x")
 
     def test_force_push(self):
         self.assertDecision("deny", "git -C onmain push --force origin main")
