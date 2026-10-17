@@ -5,6 +5,10 @@ myblog_music/
 myblog_worker/
 myblog_shared_db/
 
+# Per-task isolated worktrees (.worktrees/<task>/<repo>) — local only. Ignored so
+# `git add -A` / `git clean -fd` in the shared checkout never touch other sessions' work.
+.worktrees/
+
 # Terraform
 infra/tfplan
 infra/*.tfplan

@@ -56,6 +56,9 @@ jobs:
       - name: Test invariant parser
         run: python -m unittest discover -s scripts/tests -p 'test_workspace_invariants.py' -v
 
+      - name: Test Bash guard hook
+        run: python -m unittest discover -s scripts/tests -p 'test_guard_bash_hook.py' -v
+
       - name: Check workspace invariants
         run: >-
           python scripts/check_workspace_invariants.py
