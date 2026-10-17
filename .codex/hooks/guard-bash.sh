@@ -61,11 +61,21 @@ try:
 except ValueError:
     plain = None
 
+SEP = re.compile(r"^[;&|()<>]+$")
+
 def tok_punct(c):
     lex = shlex.shlex(c, posix=True, punctuation_chars=True)
     lex.whitespace_split = True
     lex.commenters = ""                       # comments are removed by strip_heredocs
-    return list(lex)
+    # shlex glues adjacent punctuation (`);`, `((`): give each paren its own token
+    # so `$( … )` skipping and subshell tracking never swallow a `;` or `&&`
+    out = []
+    for t in lex:
+        if SEP.match(t) and len(t) > 1 and ("(" in t or ")" in t):
+            out.extend(re.findall(r"[()]|[^()]+", t))
+        else:
+            out.append(t)
+    return out
 
 # <<WORD, <<-WORD, <<"WORD", <<\WORD and the single-quoted form (any one
 # non-word char before WORD, so this script needs no single quote); not <<<.
@@ -103,7 +113,7 @@ def strip_heredocs(c):
             continue
         if ch == "\\":
             out.append(c[k:k + 2]); k += 2; continue
-        word_start = k == 0 or c[k - 1].isspace() or c[k - 1] in ";&|()"
+        word_start = k == 0 or c[k - 1] in " \t\n;&|()"
         if ch == "#" and word_start:          # comment: dropped up to end of line
             nl = c.find("\n", k)
             k = n if nl < 0 else nl; continue
@@ -116,8 +126,8 @@ def strip_heredocs(c):
             arith -= 1; out.append("))"); k += 2; continue
         elif c.startswith("$[", k):
             brack += 1; out.append("$["); k += 2; continue
-        elif brack and ch == "]":
-            brack -= 1
+        elif brack and ch in "[]":
+            brack += 1 if ch == "[" else -1
         elif not arith and not brack and c.startswith("<<", k) and not c.startswith("<<<", k) \
                 and (k == 0 or c[k - 1] != "<"):
             m = HEREDOC_OP.match(c, k)
@@ -126,6 +136,8 @@ def strip_heredocs(c):
                 k = m.end()
                 if m.group(2) in ("\"", SQ) and c[k:k + 1] == m.group(2):
                     k += 1                    # the closing quote of <<"EOF"
+                if k < n and c[k] not in " \t\n;&|<>()":
+                    return c                  # <<EOF.x, <<EOF-1 …: not a word we model
                 out.append(c[m.start():k]); continue
         out.append(ch); k += 1
     return "".join(out)
@@ -213,7 +225,6 @@ if plain is not None:
 # =========================================================================
 # Checks 4+5 — git invocation state machine (Hard Rules #1, #7)
 # =========================================================================
-SEP = re.compile(r"^[;&|()<>]+$")
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 VALUE_FLAGS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix"}
 
@@ -305,6 +316,9 @@ def git_invocations(toks):
             if t[0] not in "<>":
                 undo = None
             if t in ("&&", "||"):
+                if t == "||":                 # `a && cd x || cmd`: cmd runs where the cd may not have
+                    forget(chain_cd, chain_vars)
+                    chain_cd, chain_vars = False, set()
                 conditional = True
             elif ";" in t or t == "&" or "(" in t or ")" in t:
                 forget(chain_cd, chain_vars)  # end of an && / || list
@@ -370,12 +384,12 @@ def git_invocations(toks):
             while j < n:
                 tj = toks[j]
                 if tj.startswith("(") and toks[j - 1].endswith("$"):
-                    depth = 0                 # $( … ) is one opaque argument
+                    paren = 0                 # $( … ) is one opaque argument
                     while j < n:
                         if SEP.match(toks[j]):
-                            depth += toks[j].count("(") - toks[j].count(")")
+                            paren += toks[j].count("(") - toks[j].count(")")
                         j += 1
-                        if depth <= 0:
+                        if paren <= 0:
                             break
                     continue
                 if SEP.match(tj):
