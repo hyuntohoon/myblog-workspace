@@ -1,6 +1,6 @@
 # FEAT-public-surfaces-before-first-review: Honest public pages while 0 평론 exist
 
-- **Status**: draft
+- **Status**: accepted
 - **Owner**: owner
 - **Created**: 2026-10-17
 - **Plan row**: `plan.md` → FEAT-public-surfaces-before-first-review
@@ -86,3 +86,4 @@ New home module fed by `GET /api/members/{OWNER_HANDLE}` (public, existing): bui
 | 2026-10-17 | Owner (audit §4 D1): keep the 07-31 / 06-14 line; hide empty 평론 nav, add a separately labelled home 평가 rail; Canon/hero stay 평론-only | all |
 | 2026-10-17 | Owner (audit §4 D3): audit step 1 first, RFC first | — |
 | 2026-10-17 | #9 is fixed by `display_name` alone, not a handle change (verified: `isPlaceholderIdentity` keys on `display_name === handle`) | 0 |
+| 2026-10-17 | Owner accepted (dispatch session): Status draft → accepted; Step 1 started | all |
