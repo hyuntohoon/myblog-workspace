@@ -74,9 +74,9 @@ Put only one task at the top. When an owner decision is required, do not create 
 
 For an automatic RFC chain, the starting rule must require the new thread to:
 
-1. Run .agents/skills/wrap/scripts/session-claim.sh before touching git.
-2. Compare the recorded baseline when using the shared checkout.
-3. Use isolated worktrees from origin/main when the shared checkout is busy.
+1. Run .agents/skills/wrap/scripts/session-claim.sh before touching git (lists live peers).
+2. Fetch, then compare origin/main of each repo against the recorded baseline; a mismatch is reported before work starts.
+3. Never edit or commit in the shared checkout; use isolated worktrees from origin/main for every change.
 4. Complete one RFC step only.
 5. Run the full pre-merge and post-merge Definition of Done.
 6. Stop on any owner-only decision.

@@ -14,7 +14,7 @@
 
 🔒 = deterministically denied by PreToolUse hooks in `.claude/hooks/`. The rest depend on Claude following them and carry the same weight.
 
-1. **Claim the session before any git op** — `bash ~/.claude/skills/wrap/session-claim.sh`. `OK` → shared checkout. `BUSY` → isolated worktrees from `origin/main`. Same RFC step already live elsewhere → stop and ask.
+1. **Work only in isolated worktrees** — run `bash ~/.claude/skills/wrap/session-claim.sh` before any git op: it fast-forwards the shared checkout to `origin/main` and lists live peers. The shared checkout (`/Users/park_hyun/myblog-workspace` and its 5 nested repos) is the launch pad — never edit or commit there; every change goes in a per-repo worktree from `origin/main` (recipe: memory `reference-nested-repo-worktree-recipe`). Same RFC step already live in a listed peer → stop and ask.
 2. **🔒 Never work on or commit from `main`.** Branch: `<type>/<plan-id>-<desc>`.
 3. **🔒 Never commit secrets.** AWS SSM `SecureString` + GitHub Actions Secrets only; no Secrets Manager. Never commit or log `GITHUB_TOKEN`, `DATABASE_URL`, `EDGE_SECRET`, `GENIUS_ACCESS_TOKEN`, Spotify credentials.
 4. **Never run rollback or destructive migrations against production** without explicit human approval — including during an incident.
