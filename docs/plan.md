@@ -327,8 +327,6 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 - **FEAT-automation-model-controls** (**backlogged 2026-10-17, split from FEAT-automation-admin OQ2; needs owner go + an RFC**) — expose model selection on the owner's automation page only where an executor supports it, distinguishing the requested model, the saved automation setting and the observed execution model (never inferred from the Work chat composer). No executor supports it today; the trigger is Work Cloud (#1022) merging and deploying. Origin: `docs/archive/done/rfcs/FEAT-automation-admin.md` (Target state, OQ2). <!-- rfc: none -->
 
-- **CHORE-automation-inventory-cleanup** (**backlogged 2026-10-17, from FEAT-automation-admin Step 1 findings 3–5; needs owner go**) — fix the stale `infra/eventbridge.tf` comment about manual `blogSQS` messages, the stale `researchWorkerLambda` reference in `scripts/research_poller.py`, and remove the console-made `StartBlogDB` / `StopBlogDB` Scheduler schedules that still invoke a deleted Lambda every weekday (deletion is a console action outside Terraform — owner approval). Detail: `docs/archive/done/rfcs/FEAT-automation-admin.md` §Step 1 (F, findings). <!-- rfc: none -->
-
 - **FEAT-durable-job-status** (**backlogged 2026-09-02; needs owner go + an RFC**) — a durable,
   readable status for the async jobs a user can start from the UI: the Spotify album sync
   (`POST /api/music/sync-requests`) and the Release Radar's Spotify follow import
