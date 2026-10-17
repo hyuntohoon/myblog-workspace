@@ -87,3 +87,4 @@ New home module fed by `GET /api/members/{OWNER_HANDLE}` (public, existing): bui
 | 2026-10-17 | Owner (audit §4 D3): audit step 1 first, RFC first | — |
 | 2026-10-17 | #9 is fixed by `display_name` alone, not a handle change (verified: `isPlaceholderIdentity` keys on `display_name === handle`) | 0 |
 | 2026-10-17 | Owner accepted (dispatch session): Status draft → accepted; Step 1 started | all |
+| 2026-10-17 | Step 1 deployed: front #472 (0658383) — nav/footer hide 평론-built links at 0 평론, "0개 장르" cell dropped; prod smoke 30/0 | 1 |
