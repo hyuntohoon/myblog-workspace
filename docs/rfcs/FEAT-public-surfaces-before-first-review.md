@@ -76,7 +76,7 @@ New home module fed by `GET /api/members/{OWNER_HANDLE}` (public, existing): bui
 
 ## Open questions
 
-1. **Rail size and placement** (N, above or below the 새 앨범 strip) — default: N = 8, directly under the cold-start card. Blocks Step 2 only; decided on the real screen.
+1. ~~**Rail size and placement**~~ — **decided 2026-10-17 by the owner on the real screen: N = 8, directly under the cold-start card (above 새 앨범).**
 2. **Does the rail stay after the first 평론?** Default: yes — it is a 평가 surface, independent of 평론 count. Blocks nothing now.
 
 ## Decisions log
@@ -88,3 +88,5 @@ New home module fed by `GET /api/members/{OWNER_HANDLE}` (public, existing): bui
 | 2026-10-17 | #9 is fixed by `display_name` alone, not a handle change (verified: `isPlaceholderIdentity` keys on `display_name === handle`) | 0 |
 | 2026-10-17 | Owner accepted (dispatch session): Status draft → accepted; Step 1 started | all |
 | 2026-10-17 | Step 1 deployed: front #472 (0658383) — nav/footer hide 평론-built links at 0 평론, "0개 장르" cell dropped; prod smoke 30/0 | 1 |
+| 2026-10-17 | OQ1 (owner, on 1440/390 screenshots of both placements): N = 8, under the cold-start card | 2 |
+| 2026-10-17 | Step 2 deployed: front #473 (1bb869f) — `OwnerRatingsRail` (build seed + client refresh, AlbumCard adapter), prod smoke 32/0, live DOM 1440/390 | 2 |
