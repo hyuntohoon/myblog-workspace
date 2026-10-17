@@ -265,25 +265,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   supplied, never add outside facts/evaluations/metaphors, the result stays editable, and publishing
   is always an explicit user action.
 
-- **Settings-loader required-key sweep (music + worker)** — **DEFERRED by the owner 2026-08-29.**
-  <!-- rfc: none -->
-  Tracked here because it is a *known, reproduced* defect whose only other record is a merged PR body.
-  `myblog_backend` #172 made its SSM loader fail closed on a missing required key and fixed the
-  *formulation* as well: it inspects the SSM **payload** and rejects whitespace-only, non-string and
-  non-object values. `myblog_music/app/core/config.py` and `myblog_worker/worker/core/config.py` still
-  check the **resolved settings** (`if not v`), which is weaker in two ways. Reproduced against music's
-  own loader, not inferred: `{"DATABASE_URL": "   "}` boots with a whitespace DSN, and
-  `{"SPOTIFY_CLIENT_ID": 12345}` boots storing an `int` in a `str` field (neither model sets
-  `validate_assignment`). Second, latent: their check can be satisfied by a Lambda **env var** standing
-  in for a key the parameter is missing — dormant today (neither `musicApi` nor `blogWorkerLambda`
-  carries those variables) but it is the hole backend now has a test against.
-  *Scope*: `myblog_music`, `myblog_worker` — port `_present` + payload-based validation. Their required
-  **sets** are already correct (`DATABASE_URL`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`; worker's
-  `LASTFM_API_KEY` / `GENIUS_ACCESS_TOKEN` correctly optional) — do not change them. *Order*:
-  independent, either first. *Verification*: each repo's `test` gate + a boot simulation per the backend
-  PR. *Rollback*: revert the per-repo PR. *Status*: not started, deferred — **do not re-prompt the owner
-  on this without a new trigger.**
-
 ---
 
 ## Owner-only (nothing here is Claude's to do)
