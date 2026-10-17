@@ -27,7 +27,9 @@ A wrong lyric attached to a track stops being permanent. Three things are true a
   Storing user-authored lyric text is a different licensing and moderation question.
 - **Genius song mismatches** (`track_genius_songs`: 175 `ambiguous`, 214 `matched` below 0.8
   confidence on 2026-10-15). Same shape of problem; it gets its own step once this one has shipped.
-- **Sync-offset correction** (right words, wrong timing). Not a matching error.
+- **Sync-offset correction** (right words, timestamps shifted). Not a matching error. *Amended
+  2026-10-17 (Step 4):* attaching another upload whose sync does not fit the recording, while a
+  same-words upload whose sync fits exists, **is** a candidate-selection error and is in scope.
 - **A second lyrics source.** LRCLIB stays the only source.
 
 ## Incident that started this
@@ -580,10 +582,101 @@ skill on 3b (member input).
 
 ### Step 4 — Suspicion sweep feeds the same queue
 
-- A periodic read-only job opens system-authored reports (`user_sub = NULL`, `reason = signal`) for
-  the measured signals: duration overrun, early end, shared `lrclib_id` across different base titles.
+- ~~A periodic read-only job opens system-authored reports (`user_sub = NULL`, `reason = signal`) for
+  the measured signals: duration overrun, early end, shared `lrclib_id` across different base titles.~~
+  *Amended below:* fix what the signals can fix, report only the rest, one manual job.
 - Sample 20 per signal first. Keep only signals whose measured precision justifies the owner's time;
   record the numbers here.
+
+**Step 4 measurement (2026-10-17, prod read-only).** Rule declared before judging: 20 random rows per
+signal (seed 20261017) plus a 20-row control that trips no signal. Each row was judged in code, not by
+a model: today's LRCLIB search (primary artist, sequential, backoff), the matcher's own
+`plausible_candidates`, then version-agreeing candidates clustered by `content_similarity >= 0.4`.
+Verdicts: `content_wrong` (the served body disagrees with the reference cluster), `truncated` /
+`stub_sync` (under half its words / timed lines), `better_timing` (same words; the served sync does not
+fit the track; a same-words, non-stub upload whose sync fits exists), `ok`, or `undeterminable` (fewer
+than 2 other plausible bodies). Ship rule: actionable ≥ 25 % of determinable, determinable ≥ 10,
+above the control. Known-answer controls in the same pass, all as expected: Bad Habit's Ed Sheeran body
+(8996695) → `content_wrong`; the served body → `ok`; the served body shifted +80 s → `better_timing`;
+its first three lines → `truncated`. The first run left 3 LRCLIB errors after retries and was
+discarded; a review (Fable) then found the fit rule one-sided and stub-blind, so the judge was fixed
+and the run repeated: 75 calls, 0 errors.
+
+| Signal | Population (matched 17,091) | Actionable / determinable | Content wrong |
+|---|---|---|---|
+| Last LRC timestamp > duration + 5 s (`duration_overrun`) | 83 | 4 / 13 (all `better_timing`) | 0 / 13 |
+| Last LRC timestamp < 40 % of duration (`early_end`) | 47 | 5 / 13 (all `better_timing`) | 0 / 13 |
+| Served `lrclib_id` shared by different base titles (`shared_lrclib_id`) | 1 group, 2 tracks (BTS `Go Go` ↔ `Go Go - Japanese ver.`, 13611969) | not measurable: consensus follows LRCLIB's Japanese majority (class B′) | — |
+| Control (no signal) | — | 0 / 19 | 0 / 19 |
+
+No timing signal found a wrong lyric: 0 / 26 determinable, a 95 % upper bound of about 11 %. Every
+actionable hit was the right words with a sync from another upload: *What Do You Mean?* (208 s) served a
+sync running 0:56 → 4:45 while 14 of 14 same-words uploads fit; *Pretty Please* served one line at
+0:02. The `ok` rows share their timing with every same-words upload (interludes, live medleys, long
+outros): that is the recording's timing. The cause is `_representative`, which never reads a timestamp.
+
+**Step 4 decisions (2026-10-17, owner; recommendations taken after a Fable review).**
+
+- **Fix in the matcher, report only the residue.** Among candidates with the same content support,
+  one whose sync fits the track (last timestamp within [0.4 × duration, duration + 5 s]) and that is
+  not a stub of its body (≥ half the words and timed lines of the fullest same-body upload) ranks
+  next, in `decide_match`'s representative and in best-of promotion. **No `MATCHER_VERSION` bump**:
+  a bump re-opens the 18k re-sweep with the content lateral rule (8 regressions in 42 last time), and
+  the key only reorders bodies with the same words.
+- **Stored rows are reached by the sweep job only**, through one lateral path that lives in the job,
+  not in the shared guard (`timing_upgrade`): same basis rung, same words, the stored sync trips a
+  signal and the new one fits, not a stub of the stored body. It is monotone, so it cannot churn.
+  A row with a `done` translation is **held**, not fixed: another upload's line breaks would turn the
+  translation `stale` (the fingerprint covers segment texts), and only the owner's pick re-queues one
+  (Step 3a). Held rows go to the queue instead.
+- **Report what stays suspicious**: a row that still trips a timing signal opens a system report unless
+  today's candidates vouch for its timing (≥ 2 same-version, same-words synced uploads, none fits).
+  `shared_lrclib_id` is **kept as a tripwire**, not rejected: its population is the one known class-B′
+  leak, which the rule could not measure; each row is reported without a re-check.
+- **One manual job, not a schedule** (`lyrics_suspicion_sweep` on blogSQS, shadow by default). New
+  matches already prefer a fitting sync, so the backlog is the target; no EventBridge rule and no
+  `terraform apply`. A schedule can follow if the queue shows the signals recurring.
+- A report is never reopened for the same signal and served body (an owner's `keep` stays kept). It
+  takes the backend's per-track advisory key and body hash. It enqueues no re-check, so while one is
+  open a member's report on that track is not the "first" and does not enqueue one either (3b rule);
+  the owner queue holds both.
+- *Found while building, left for a follow-up:* two copies read an older best-of row's served id at
+  `evidence.promotion.lrclib_id`, a key `lyrics_promote` never wrote (it writes
+  `promotion.chosen.lrclib_id`): worker `_EXISTING_ROW_COLUMNS` (`lyrics_reassessment_service.py`) and
+  backend `_current_lrclib_id` (`lyrics_admin_service.py`). Both return NULL for the ~760 pre-Step-1
+  best-of rows. The sweep reads all three keys itself; fixing the two copies changes other jobs'
+  inputs and belongs in its own change.
+
+**Pre-ship replay (2026-10-17, prod read-only, the branch's own selection and gate).** 130 timing rows
+selected (overrun 83, early end 47), 0 LRCLIB errors:
+
+| Action | Overrun | Early end | Total |
+|---|---|---|---|
+| Fixed automatically (same words, fitting sync) | 19 | 12 | 31 |
+| Not reported: candidates vouch for the timing | 35 | 17 | 52 |
+| Reported (incl. 3 fixes held for a `done` translation) | 29 | 17 | 46 |
+
+Plus 2 `shared_lrclib_id` reports (the `Go Go` pair), so about 48 queue entries. Regression control:
+the new key changed the pick on **0 / 98** random synced matched rows (old and new ranking
+over the same candidates; the run was stopped at 98 of 200 under LRCLIB throttling, 0 errors; 95 %
+upper bound ≈ 3 %).
+
+**Step 4 result (2026-10-17).**
+
+- Shipped: worker #121 (`e8c1247`, Deploy Worker Lambda green), ws #1109 (this RFC section and the SQS
+  contract row). No schema, route, or infra change; no `terraform apply`.
+- Prod smoke `scripts/smoke.sh prod`: 30 passed, 0 failed.
+- Prod shadow pass: 61 of 130 rows judged, the other 69 skipped on LRCLIB 429. Every judged verdict
+  matched the pre-ship replay (11/11 fixes, 18/18 reports, the `Go Go` pair).
+- Real passes: 9 messages, `limit: 40`, 3 minutes apart. **31 rows fixed** and **48 system reports
+  opened** (46 timing + 2 `shared_lrclib_id`), both exactly the replay's numbers. `consistency_errors` 0,
+  `write_refused` 0. Example: *What Do You Mean?* (208 s) now syncs 0:14 → 3:20, and *Pretty Please*
+  now serves the full lyric instead of one line at 0:02. Passes 7–9 fixed and reported nothing. They
+  only re-checked vouched rows; about 17 rows per pass still drew LRCLIB 429 from the worker's IP.
+  The daily reassessment draws 429s too (95 in the preceding 24 h).
+- **Not verified on prod:** the owner's view of the 48 queue entries (no owner token in the session).
+- Follow-ups, not started: the served-id key in the two older copies (above); a schedule for the sweep
+  if new signal rows keep appearing.
 
 ---
 
@@ -621,6 +714,7 @@ They describe what the commits say they did. Effects are filled in only where a 
 | `step4-v1` (unchanged) | 2026-10-16 | worker #114, #115 | Step 2 re-sweep. Resolved rows from older versions are re-judged once per version (`evidence.resweep` stamp). The lateral rule lets the same basis be replaced by a strictly larger content cluster. A hand-fixed row (`manual_fix`) is locked against every producer. Shadow mode came first (#114), then the real pass (#115) | Shadow drain over 18,166 rows: 16,779 unchanged, 1,330 parked (no rewrite), 42 would-rewrite (plus 10 best-of rows superseded for real, 5 kept, and Bad Habit locked). Of those 42: 18 corrections, 8 transcription-only, 8 regressions, 8 unclear. The 16 regression / unclear rows were hand-locked. Real pass: 26 rewrites (20 replaced, 6 superseded), all inside the audited list, 0 locked rows touched |
 
 | `step4-v1` (unchanged) | 2026-10-16 | worker #117 | Step 3a. The writer refuses a locked row (`manual_fix` / basis `manual`) and any outcome attaching a candidate the owner rejected for that track, re-read at write time (first insert included). `run_eval_batch` drops rejected candidates before `decide_match` / `promote_best`. `manual` tops the basis ladder. New owner-only `lyrics_pick` writes a re-fetched body locked. Version string unchanged: the decision core is unchanged for any track without an owner decision. *Entry added after merge in the docs PR, not in #117 itself.* | No row changed by the deploy. Rows the owner rejects or picks change one at a time through the panel |
+| `step4-v1` (unchanged) | 2026-10-17 | worker #121 | Step 4. Among same-support bodies a sync that fits the track and is not a stub ranks next, in `decide_match`'s representative and in best-of `_rank`. Version string unchanged: the key only reorders candidates with the same words, and the guard still refuses same-version lateral swaps, so the deploy moves no stored row. Stored rows change only through the manual `lyrics_suspicion_sweep` and its sweep-only timing path | Pre-ship replay: the key changed the pick on 0 / 98 random synced matched rows; on the 130 signal rows the sweep would fix 31. Effect of the sweep's real pass: recorded in Step 4 result |
 
 ## Open questions
 
@@ -665,3 +759,4 @@ They describe what the commits say they did. Effects are filled in only where a 
 | 2026-10-16 | OQ1: 20 reports per member per 24 h. A report enqueues the re-check only when the track had no other open report (owner) | 3b |
 | 2026-10-16 | 3b: `ok` and `no_lyrics` are reportable; member re-check cooldown 3600 s; owner closes reports with panel decisions plus a new `keep`; `auto_resolved` derived from a served snapshot (owner, after Fable review) | 3b |
 | 2026-10-17 | 3b shipped. Review added a per-member advisory lock ahead of the per-track one, so the daily cap holds under parallel reports; Step 4 must reuse the track key | 3b |
+| 2026-10-17 | Step 4 measured: timing signals find 0/26 wrong lyrics but ~⅓ misfit syncs with a fitting same-words upload. Non-goal amended; fix in the matcher + sweep-only lateral path, report only the residue; `shared_lrclib_id` kept as a tripwire; one manual job, no schedule, no version bump (owner, after Fable review) | 4 |
