@@ -85,7 +85,11 @@ resource "aws_cognito_user_pool_client" "spa_client" {
 
   access_token_validity  = 60
   id_token_validity      = 60
-  refresh_token_validity = 5
+  # Cognito counts this from the FIRST sign-in and never extends it — not on
+  # refresh, not with rotation — so it is the hard re-login interval for an
+  # active user. 5 days (console import, #8) forced a weekly re-login.
+  # admin_client is unused by any caller and deliberately left at 5.
+  refresh_token_validity = 90
 
   token_validity_units {
     access_token  = "minutes"
