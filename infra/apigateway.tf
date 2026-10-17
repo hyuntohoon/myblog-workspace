@@ -702,6 +702,29 @@ resource "aws_apigatewayv2_route" "admin_lyrics_decision_post" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# --- Lyrics reports (FEAT-lyrics-match-correction Step 3b) ---
+# POST /api/lyrics/{spotify_track_id}/report — "가사가 틀려요" from any signed-in member
+# (require_cognito_token in-Lambda, per-member daily cap). It records the report and may
+# enqueue a worker re-check on blogSQS; it never changes lyrics and calls no LRCLIB.
+# GET /api/admin/lyrics/reports — the owner's queue (require_owner in-Lambda). Same
+# never-public bar as the panel, so its OWN JWT route, not the GET edge_guard catch-all.
+# The owner closes reports through the existing decision route (action keep et al.).
+resource "aws_apigatewayv2_route" "lyrics_report_post" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "POST /api/lyrics/{spotify_track_id}/report"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "admin_lyrics_reports_get" {
+  api_id             = aws_apigatewayv2_api.lambda_api.id
+  route_key          = "GET /api/admin/lyrics/reports"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- YouTube mapping writes (FEAT-youtube-playback-provider Step A3) ---
 # PUT/DELETE /api/playback/track/{track_id}/youtube-mapping confirm or clear the
 # member-picked YouTube video for one catalog track.
