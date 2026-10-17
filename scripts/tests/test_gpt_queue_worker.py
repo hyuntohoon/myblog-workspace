@@ -244,7 +244,7 @@ def test_album_canceled_during_inference_cannot_complete(queue):
     assert len(client.calls) == 1
 
 
-def test_queue_temporary_failure_has_delayed_two_attempt_cap(queue):
+def test_queue_temporary_failure_has_delayed_four_attempt_cap(queue):
     request(queue)
     client = FakeClient(error=PlanInferenceError('temporary_error'))
     w = worker(queue, client)
@@ -252,14 +252,15 @@ def test_queue_temporary_failure_has_delayed_two_attempt_cap(queue):
     assert w.tick(MODEL) == 'scan_wrap'
     assert w.tick(MODEL) == 'scanned'
     assert len(client.calls) == 1
-    execute(queue, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:id", id=queue['tracks'][0])
-    assert w.tick(MODEL) == 'scan_wrap'
-    assert w.tick(MODEL) == 'temporary_error'
+    for _ in range(3):
+        execute(queue, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:id", id=queue['tracks'][0])
+        assert w.tick(MODEL) == 'scan_wrap'
+        assert w.tick(MODEL) == 'temporary_error'
     execute(queue, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:id", id=queue['tracks'][0])
     assert w.tick(MODEL) == 'scan_wrap'
     assert w.tick(MODEL) == 'scanned'
-    assert len(client.calls) == 2
-    assert row(queue, 'SELECT attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0])['attempts'] == 2
+    assert len(client.calls) == 4
+    assert row(queue, 'SELECT attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0])['attempts'] == 4
 
 
 def limit_error():

@@ -35,8 +35,10 @@ Do not repeat a failed smoke blindly; review the persisted stop reason.
 Never change `model`, `active`, token files or budget while the worker holds
 `worker.lock`; use setup controls. Credentials/host ID/settings are private
 0600 files in a 0700 application directory and are never committed. Refusal
-stops the source/version; temporary failure waits ten minutes with a total
-two-attempt ceiling. An exhausted admission budget preserves the queue and
+stops the source/version. Any other failure has a total two-attempt ceiling,
+except a temporary failure (5xx, dropped stream, deadline): it waits 10 min,
+1 h, then 6 h, with a four-attempt ceiling (FEAT-automation-admin OQ3,
+2026-10-17). The ceiling follows the latest failure's reason. An exhausted admission budget preserves the queue and
 continues on the next UTC day. Plan/auth/usage rejection persists a global pause
 even if DB cleanup fails. A new login and explicit settings save can clear the
 pause, but do not reset a source's exhausted attempts.

@@ -609,7 +609,7 @@ Each executor offers a different control point, so Step 3 is split by control, o
 |---|---|---|---|
 | **3b** (first) | Pause / resume, plus the audit + idempotency base every later control reuses | the 16 worker crons (table A minus the two warm pings) and `gpt-translate-poller` | V60, worker, GPT worker reinstall, backend, contract, one `infra/apigateway.tf` route (`apply`), front |
 | **3c** | Run now | the worker crons, through `lambda:InvokeFunction` on `blogWorkerLambda` only | a mutating IAM grant + `apply`; a per-job cooldown; it competes with the account's 10 concurrent Lambda executions |
-| **3a** (deferred) | Retry | DB queues | a retry-limit policy first (OQ3) — see below |
+| **3a** (closed 2026-10-17, no button) | Retry | DB queues | OQ3 answered as a policy change instead — see _3a outcome_ below |
 
 **Why retry was demoted from first (measured 2026-10-13, prod, `BEGIN READ ONLY … ROLLBACK`).**
 
@@ -624,6 +624,38 @@ Each executor offers a different control point, so Step 3 is split by control, o
   repeat the same result. For tracks it would also mean a mass re-query of LRCLIB (~2.5 req/s).
 - Pause is the control the owner set as a design constraint on 2026-10-06 ("continuous monitoring with
   manual stopping"). Today stopping requires the Mac's setup screen (GPT) or the console/Terraform (crons).
+
+#### 3a outcome — OQ3 retry limits (owner decision 2026-10-17)
+
+**Measured 2026-10-17 08:36 UTC (prod, `BEGIN READ ONLY … ROLLBACK`), against 2026-10-13.**
+
+| Queue | Rows | Reading |
+|---|---|---|
+| GPT, capped at `attempts = 2` | **17** (10-13: 7) — lyrics `temporary_error` 4 · `output_limit` 3; genius `invalid_output` 10 | the only rows a retry control could act on |
+| GPT, not capped | genius `invalid_output` at 1 attempt 116 · usage-limit refunds 9 · lyrics `ready` 14 | waiting only because the worker is stopped on the ChatGPT usage limit (heartbeat `enabled = false`, reset 2026-10-22); they retry on their own |
+| `lyrics_album_jobs` pending | 852 (10-13: 856) — `album_not_in_catalog` 846 (808 backing off, ≤ 23 h) | no `attempts` column; backoff only |
+| `lyrics_album_tracks` `source_pending` | 2,492 — `not_found` 2,431 (10-13: 2,409; all backing off, ≤ 30 days) | LRCLIB via the Lambda cron, structural |
+
+**Why no button.** The cap lives in one place (`gpt_translation_store.prepare`). Per reason:
+`output_limit` is a deterministic size check (`gpt_plan_client._events`), so a third try returns the same.
+`invalid_output` twice is fixed by a prompt or validator change plus a `translator_version` bump, which
+creates fresh rows at 0 attempts. That leaves `temporary_error`: the same 4 rows as on 10-13. A full button stack
+(migration, Mac reinstall, route, contract, front) is not worth that. A grant that keeps `attempts` would
+also charge the day's budget for the old attempts again, because admission sums the lifetime `attempts` of
+every row touched today.
+
+**Decision.** No retry control. The album queues are out of scope. `temporary_error` gets its own cap:
+
+- **4 attempts** (others stay at `MAX_ATTEMPTS = 2`). The cap follows the row's latest `last_reason`, so a
+  transient first try does not lift the cap for a later `invalid_output`.
+- **Backoff 10 min → 1 h → 6 h** (`10 min × 6^(attempts − 1)`, capped at the third step).
+- **Not refunded.** A deadline `temporary_error` can follow a full inference, so a refund would let one
+  source spend real plan usage forever. The owner chose a bounded cap over "refund only when nothing was
+  received". The budget is charged as before.
+- The 4 rows capped today need no data fix: their `last_reason` is `temporary_error` at 2 attempts, so the
+  reinstalled worker picks them up again.
+
+Delivered in the GPT worker (store-only change, worker reinstall); `docs/contracts/lyrics-chat.md` updated.
 
 #### 3b design
 
@@ -848,6 +880,8 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
    site can observe or change. Blocks that control, not the read-only page.
 3. **Operational policy** — Decide history retention, stale thresholds, optional budgets
    and retry limits before the affected implementation. No daily ten-run cap is assumed.
+   *Retry limits answered 2026-10-17:* no owner retry control; `temporary_error` gets a 4-attempt cap with
+   growing backoff, everything else keeps 2 (see _3a outcome_). Retention and staleness were answered earlier.
 
 ## Decisions log
 
@@ -865,3 +899,4 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
 | 2026-10-16 | Owner chose to finish 3b in session (GPT worker merge + reinstall, then the front buttons). 3b shipped. Status stays draft; 3c (run now) is next and needs its own session. | Step 3 (3b) |
 | 2026-10-16 | Owner chose 3c's four open design points as recommended: all 16 worker crons, a flat 10-minute cooldown, executor completion stamps (V62), and a separate `POST /api/admin/automation/runs`. Status stays draft. | Step 3 (3c) |
 | 2026-10-16 | Owner approved the 3c `terraform apply` in session (route + invoke grant, 2 add). 3c shipped the same day (shared_db #91, worker #116, backend #188, ws #1075, front #467); prod smoke 32/0. Status stays draft; 3a (retry) stays deferred behind OQ3. | Step 3 (3c) |
+| 2026-10-17 | OQ3 retry limits: owner chose **no retry button** (policy only) and, for `temporary_error`, a **4-attempt cap with 10 min / 1 h / 6 h backoff, not refunded**, over a refund for responses that received nothing. Album queues out of scope. 3a closes without a control. Status stays draft. | Step 3 (3a) |

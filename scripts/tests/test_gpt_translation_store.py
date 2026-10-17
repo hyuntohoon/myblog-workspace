@@ -160,7 +160,7 @@ def test_newer_manual_edit_or_request_wins(catalog, newer):
             assert connection.execute(text("SELECT status FROM track_lyrics_translations WHERE track_id=:track"), {"track": catalog[1][0]}).scalar_one() == "done"
 
 
-def test_refusal_stops_and_temporary_failure_has_two_attempt_cap(catalog):
+def test_refusal_stops_and_temporary_failure_has_four_attempt_cap(catalog):
     claim = prepare(catalog)
     with Session(catalog[0]) as db:
         SERVICE.fail(db, UUID(claim["work_id"]), UUID(claim["claim_token"]), "refused")
@@ -168,7 +168,7 @@ def test_refusal_stops_and_temporary_failure_has_two_attempt_cap(catalog):
     with pytest.raises(HTTPException) as error:
         prepare(catalog)
     assert error.value.status_code == 409
-    for _ in range(2):
+    for _ in range(4):
         edit(catalog, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:track", track=catalog[1][1])
         transient = prepare(catalog, index=1)
         with Session(catalog[0]) as db:
@@ -299,6 +299,31 @@ def test_temporary_retry_is_not_due_until_backoff(catalog):
         assert row.attempts == 1
         assert row.delayed
 
+
+
+def test_temporary_backoff_grows_and_other_reasons_keep_two_attempts(catalog):
+    waits = []
+    for _ in range(3):
+        edit(catalog, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:track", track=catalog[1][0])
+        claim = prepare(catalog)
+        with Session(catalog[0]) as db:
+            SERVICE.fail(db, UUID(claim["work_id"]), UUID(claim["claim_token"]), "temporary_error")
+            db.commit()
+        with catalog[0].connect() as c:
+            waits.append(round(c.execute(text(
+                "SELECT extract(epoch FROM next_attempt_at-now())/60 FROM lyrics_translation_work WHERE id=:id"),
+                {"id": UUID(claim["work_id"])}).scalar_one()))
+    assert waits == [10, 60, 360]
+    # A transient first attempt does not lift the cap for a later non-transient failure.
+    for reason in ("temporary_error", "invalid_output"):
+        edit(catalog, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:track", track=catalog[1][1])
+        claim = prepare(catalog, index=1)
+        with Session(catalog[0]) as db:
+            SERVICE.fail(db, UUID(claim["work_id"]), UUID(claim["claim_token"]), reason)
+            db.commit()
+    with pytest.raises(HTTPException) as error:
+        prepare(catalog, index=1)
+    assert error.value.status_code == 409
 
 
 def test_cache_republication_retains_actual_model_and_hides_internal_metadata(catalog):
