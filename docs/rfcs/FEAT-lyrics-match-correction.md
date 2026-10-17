@@ -661,6 +661,23 @@ the new key changed the pick on **0 / 98** random synced matched rows (old and n
 over the same candidates; the run was stopped at 98 of 200 under LRCLIB throttling, 0 errors; 95 %
 upper bound ≈ 3 %).
 
+**Step 4 result (2026-10-17).**
+
+- Shipped: worker #121 (`e8c1247`, Deploy Worker Lambda green), ws #1109 (this RFC section and the SQS
+  contract row). No schema, route, or infra change; no `terraform apply`.
+- Prod smoke `scripts/smoke.sh prod`: 30 passed, 0 failed.
+- Prod shadow pass: 61 of 130 rows judged, the other 69 skipped on LRCLIB 429. Every judged verdict
+  matched the pre-ship replay (11/11 fixes, 18/18 reports, the `Go Go` pair).
+- Real passes: 9 messages, `limit: 40`, 3 minutes apart. **31 rows fixed** and **48 system reports
+  opened** (46 timing + 2 `shared_lrclib_id`), both exactly the replay's numbers. `consistency_errors` 0,
+  `write_refused` 0. Example: *What Do You Mean?* (208 s) now syncs 0:14 → 3:20, and *Pretty Please*
+  now serves the full lyric instead of one line at 0:02. Passes 7–9 fixed and reported nothing. They
+  only re-checked vouched rows; about 17 rows per pass still drew LRCLIB 429 from the worker's IP.
+  The daily reassessment draws 429s too (95 in the preceding 24 h).
+- **Not verified on prod:** the owner's view of the 48 queue entries (no owner token in the session).
+- Follow-ups, not started: the served-id key in the two older copies (above); a schedule for the sweep
+  if new signal rows keep appearing.
+
 ---
 
 ## Matcher patch notes
