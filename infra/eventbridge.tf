@@ -281,8 +281,11 @@ locals {
     # 500 rows = 4.9s, 3,000 = 41s against the 90s budget, so ~6,000/invocation
     # is the practical ceiling. 21:00 UTC Sunday keeps it one hour clear of the
     # Spotify sequence (saved-tracks 18:00 daily / 19:00 SUN, artist-photo
-    # 20:00 SUN) so the four never contend for the same quota window. The
-    # manual blogSQS {"job":"isrc_backfill"} message still works either way.
+    # 20:00 SUN) so the four never contend for the same quota window. A manual
+    # run is a direct Lambda invoke with {"job":"isrc_backfill"} (the admin
+    # "run now" sends the same job key). A blogSQS message does NOT work: the worker's
+    # Records loop has no isrc_backfill branch, so it is logged as "Unknown
+    # message format" and deleted unrun (FEAT-automation-admin Step 1, finding 3).
     #
     # This was audit OPS-1's missing-alarm instance: scheduled 2026-07-26,
     # never added to the hand-maintained alarm map — the regression that
