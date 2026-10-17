@@ -326,6 +326,25 @@ def test_temporary_backoff_grows_and_other_reasons_keep_two_attempts(catalog):
     assert error.value.status_code == 409
 
 
+def test_refunded_release_after_temporary_failures_keeps_the_four_attempt_cap(catalog):
+    for _ in range(2):
+        edit(catalog, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:track", track=catalog[1][0])
+        claim = prepare(catalog)
+        with Session(catalog[0]) as db:
+            SERVICE.fail(db, UUID(claim["work_id"]), UUID(claim["claim_token"]), "temporary_error")
+            db.commit()
+    edit(catalog, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:track", track=catalog[1][0])
+    claim = prepare(catalog)
+    with Session(catalog[0]) as db:
+        SERVICE.fail(db, UUID(claim["work_id"]), UUID(claim["claim_token"]), "claim_released", refund=True)
+        db.commit()
+    with catalog[0].connect() as c:
+        row = c.execute(text("SELECT attempts,last_reason FROM lyrics_translation_work WHERE id=:id"),
+                        {"id": UUID(claim["work_id"])}).one()
+    assert (row.attempts, row.last_reason) == (2, "temporary_error")
+    assert prepare(catalog)["status"] == "ready"
+
+
 def test_cache_republication_retains_actual_model_and_hides_internal_metadata(catalog):
     claim = prepare(catalog)
     edit(catalog, """INSERT INTO track_lyrics_translations(track_id,status,updated_at)

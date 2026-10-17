@@ -651,9 +651,18 @@ every row touched today.
 - **Backoff 10 min → 1 h → 6 h** (`10 min × 6^(attempts − 1)`, capped at the third step).
 - **Not refunded.** A deadline `temporary_error` can follow a full inference, so a refund would let one
   source spend real plan usage forever. The owner chose a bounded cap over "refund only when nothing was
-  received". The budget is charged as before.
+  received".
+- **A refunded release keeps the reason.** A `claim_released` or plan-limit refund that lands after a
+  `temporary_error` keeps `last_reason = temporary_error`. Otherwise a source at 2–3 attempts would fall back
+  under the two-attempt cap and stop for good after an inference that never ran (found in review).
+- **Budget cost.** The budget is charged as before, but admission sums the *lifetime* `attempts` of every
+  row touched today, so a transient row now costs up to 4 units on the day of its last tries instead of 2,
+  and a 6 h step that crosses UTC midnight charges its old attempts again the next day. At the prod budget
+  of 300 and 4 such rows today this is immaterial. Counting today's admissions instead would fix it and is a
+  separate change.
 - The 4 rows capped today need no data fix: their `last_reason` is `temporary_error` at 2 attempts, so the
-  reinstalled worker picks them up again.
+  reinstalled worker picks them up again. Their next temporary failure is attempt 3, so they skip the 1 h
+  step and wait 6 h.
 
 Delivered in the GPT worker (store-only change, worker reinstall); `docs/contracts/lyrics-chat.md` updated.
 

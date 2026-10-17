@@ -38,7 +38,8 @@ Never change `model`, `active`, token files or budget while the worker holds
 stops the source/version. Any other failure has a total two-attempt ceiling,
 except a temporary failure (5xx, dropped stream, deadline): it waits 10 min,
 1 h, then 6 h, with a four-attempt ceiling (FEAT-automation-admin OQ3,
-2026-10-17). The ceiling follows the latest failure's reason. An exhausted admission budget preserves the queue and
+2026-10-17). The ceiling follows the latest failure's reason; a refunded
+release keeps a previous temporary reason. An exhausted admission budget preserves the queue and
 continues on the next UTC day. Plan/auth/usage rejection persists a global pause
 even if DB cleanup fails. A new login and explicit settings save can clear the
 pause, but do not reset a source's exhausted attempts.
