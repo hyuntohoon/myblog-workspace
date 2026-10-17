@@ -8,9 +8,10 @@ opus-4.8 quality (the 2026-06-11 bench winner). The DB writeback is done by
 THIS script, not the model; the model only gets `--allowed-tools
 WebSearch,WebFetch` (no Bash/Edit) so a headless run can't touch the repo.
 
-This is a standalone operator script. It is NOT deployed anywhere and shares no
-code with the dormant `researchWorkerLambda` (the paid cloud path, kept inert in
-$0 mode). RFC: docs/rfcs/FEAT-album-research-notes.md (Execution backend, Step 3).
+This is a standalone operator script. It is NOT deployed anywhere. The paid cloud
+path (`researchWorkerLambda` + `researchSQS`) was torn down in FIX-bug-audit-2026-07
+WS-G, so this poller is the only research executor. RFC:
+docs/archive/done/rfcs/FEAT-album-research-notes.md (Execution backend, Step 3).
 
 REQUIRES a Python with `psycopg` (v3) + `boto3`, and the `claude` CLI logged in
 to the Max subscription. The repo's backend venv already has the Python deps:
