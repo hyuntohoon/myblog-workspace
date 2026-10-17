@@ -1,9 +1,11 @@
 # FEAT-automation-admin: Unified background-job management
 
-- **Status**: draft
+- **Status**: **done** (2026-10-17 — Steps 1–3 delivered, 3a closed as a policy without a control;
+  OQ1 and OQ3 answered, OQ2 split to backlog; archived). Owner approved the Status change in-session
+  under CLAUDE.md rule #7. The RFC was never moved past `draft`; each step carried its own owner approval.
 - **Owner**: Project owner
 - **Created**: 2026-10-06
-- **Plan row**: `plan.md` → Backlog → FEAT-automation-admin
+- **Plan row**: removed at close (2026-10-17); two backlog rows carry the leftovers (see _Close-out_).
 
 ## Goal
 
@@ -887,6 +889,8 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
    approved as sub-steps 2a–2e (2f added after 2c).
 2. **Cloud model controls** — Verify event-run model selection/persistence and what the
    site can observe or change. Blocks that control, not the read-only page.
+   *Split to backlog at close (2026-10-17):* no executor supports event-run model selection today, and
+   the only candidate (Work Cloud, #1022) is unmerged → `plan.md` Backlog → `FEAT-automation-model-controls`.
 3. **Operational policy** — Decide history retention, stale thresholds, optional budgets
    and retry limits before the affected implementation. No daily ten-run cap is assumed.
    *Retry limits answered 2026-10-17:* no owner retry control; `temporary_error` gets a 4-attempt cap with
@@ -909,3 +913,21 @@ job, right now, through the same entry point EventBridge uses*. It adds nothing 
 | 2026-10-16 | Owner chose 3c's four open design points as recommended: all 16 worker crons, a flat 10-minute cooldown, executor completion stamps (V62), and a separate `POST /api/admin/automation/runs`. Status stays draft. | Step 3 (3c) |
 | 2026-10-16 | Owner approved the 3c `terraform apply` in session (route + invoke grant, 2 add). 3c shipped the same day (shared_db #91, worker #116, backend #188, ws #1075, front #467); prod smoke 32/0. Status stays draft; 3a (retry) stays deferred behind OQ3. | Step 3 (3c) |
 | 2026-10-17 | OQ3 retry limits: owner chose **no retry button** (policy only) and, for `temporary_error`, a **4-attempt cap with 10 min / 1 h / 6 h backoff, not refunded**, over a refund for responses that received nothing. Album queues out of scope. 3a closes without a control. Status stays draft. | Step 3 (3a) |
+| 2026-10-17 | Owner approved closing the RFC (draft → done) and archiving it. OQ2 split to a backlog row; the Step 1 cleanup findings 3–5 moved to a backlog row; the owner's first prod pause/resume and run-now clicks stay as first-use checks, not close blockers (prod smoke 30/0 and 32/0 already passed). | Close |
+
+## Close-out (2026-10-17)
+
+- **Delivered:** Step 1 (inventory, site-native aggregation), Step 2 (2a–2f: heartbeats, `GET
+  /api/admin/automation`, owner page, AWS panel, queue detail), Step 3 (3b pause/resume + audit, 3c run now,
+  3a as the OQ3 retry policy). The GPT worker runtime on the owner's Mac was reinstalled with the 3a policy
+  on 2026-10-17 (installed `gpt_translation_store.py` carries `TEMPORARY_MAX_ATTEMPTS = 4`).
+- **Dropped from the target state:** cancelling in-flight work. 3b pauses consumption only (_3b design_:
+  "Nothing is cancelled"); no executor offers a safe cancel point today.
+- **Owned elsewhere:** SQS message outcomes and per-request job records → `FEAT-durable-job-status`.
+- **Moved to backlog:** OQ2 → `FEAT-automation-model-controls`; Step 1 findings 3–5 (stale
+  `infra/eventbridge.tf` comment, stale `research_poller.py` header, console-made `StartBlogDB` /
+  `StopBlogDB` schedules invoking a deleted Lambda) → `CHORE-automation-inventory-cleanup`.
+- **First-use checks (not blockers):** the owner's first prod pause/resume should leave an executor
+  `honored_at` stamp; the first run-now should leave a completion stamp; after the GPT plan reset
+  (2026-10-22 20:08 KST) the 4 capped lyrics `temporary_error` rows should be claimed again as attempt 3 and
+  wait 6 h on a further temporary failure.
