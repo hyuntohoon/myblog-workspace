@@ -83,8 +83,8 @@ resource "aws_cognito_user_pool_client" "spa_client" {
   allowed_oauth_scopes                 = ["email", "openid", "profile"]
   allowed_oauth_flows_user_pool_client = true
 
-  access_token_validity  = 60
-  id_token_validity      = 60
+  access_token_validity = 60
+  id_token_validity     = 60
   # Cognito counts this from the FIRST sign-in and never extends it — not on
   # refresh, not with rotation — so it is the hard re-login interval for an
   # active user. 5 days (console import, #8) forced a weekly re-login.
