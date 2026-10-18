@@ -284,6 +284,13 @@ class GuardBashTargetTest(unittest.TestCase):
             f"WT={feat} && true & git -C \"$WT\" commit -m x",
             # the else branch runs only when the then branch did not
             "if false; then cd ../feature; else git commit -m x; fi",
+            # glued operators and fd numbers do not hide the next command
+            "true;>/dev/null git commit -m x",
+            "true|>/dev/null git commit -m x",
+            "true; 2>/dev/null git commit -m x",
+            # a function body on the next line, or after `function`
+            "f()\n{ cd ../feature; }\ngit commit -m x",
+            "function f\n{ cd ../feature; }\ngit commit -m x",
         ]:
             self.assertDecision("deny", cmd, cwd=main)
         for cmd in ["cd ../feature && git status & wait",               # no commit at all

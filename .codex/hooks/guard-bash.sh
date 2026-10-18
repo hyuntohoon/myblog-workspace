@@ -28,7 +28,11 @@
 # option or unmatched block syntax may redirect it — it denies (fail closed).
 # Not covered: git inside `bash -c "…"`, eval, a here-string, a function call
 # or alias, or a script file; a quoted `"}"`/`"fi"` read as the reserved word;
-# and `cd <existing dir> || git commit` (the commit runs only if that cd fails).
+# `cd <existing dir> || git commit` (the commit runs only if that cd fails); a
+# redirection between git and its subcommand (`git >/dev/null commit`); `X+=…`;
+# a wrapper given by path or with arguments (`/usr/bin/env git`, `timeout 60
+# git`); quoted operators (`echo ";"`); a loop body's second pass; zsh's
+# two-argument `cd old new`.
 # Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
@@ -68,17 +72,19 @@ except ValueError:
     plain = None
 
 SEP = re.compile(r"^[;&|()<>]+$")
+OPERATOR = re.compile(r"\|\||&&|;;&|;;|;&|;|\|&|&>>|&>|>>|>&|>\||<<<|<<|<&|<>|>|<|\||&|\(|\)")
 
 def tok_punct(c):
     lex = shlex.shlex(c, posix=True, punctuation_chars=True)
     lex.whitespace_split = True
     lex.commenters = ""                       # comments are removed by strip_heredocs
-    # shlex glues adjacent punctuation (`);`, `((`): give each paren its own token
-    # so `$( … )` skipping and subshell tracking never swallow a `;` or `&&`
+    # shlex glues adjacent punctuation (`);`, `((`, `;>`, `|>`): split it into
+    # single operators so `$( … )` skipping, subshell tracking and redirections
+    # never swallow a `;`, `|` or `&&`
     out = []
     for t in lex:
-        if SEP.match(t) and len(t) > 1 and ("(" in t or ")" in t):
-            out.extend(re.findall(r"[()]|[^()]+", t))
+        if SEP.match(t) and len(t) > 1:
+            out.extend(OPERATOR.findall(t))
         else:
             out.append(t)
     return out
@@ -374,6 +380,10 @@ def git_invocations(toks):
             if i + 1 < n and not SEP.match(toks[i + 1]):
                 i += 1
             i += 1; continue
+        if expect_cmd and t.isdigit() and i + 1 < n and re.match(r"^[<>]", toks[i + 1]):
+            i += 1; continue                  # `2>/dev/null git …`: the fd of a redirection
+        if expect_cmd and t == "function":
+            broken = True; i += 1; continue   # `function f …`: a body we do not model
         if SEP.match(t):
             for ch in re.findall(r"\|\||&&|;+&?|\|&?|&|\(|\)", t):
                 if ch == "(":
@@ -421,7 +431,10 @@ def git_invocations(toks):
             i = j; continue
         if expect_cmd and t == "{":
             # `a && { …; }` may not run at all; nor does a function body `f() { … }`
-            fn = i >= 2 and toks[i - 2] == "(" and toks[i - 1] == ")"
+            k = i - 1
+            while k >= 0 and toks[k] == ";":   # newlines between `f()` and its body
+                k -= 1
+            fn = k >= 1 and toks[k - 1] == "(" and toks[k] == ")"
             open_block("{", ctx["conditional"] or fn)
             i += 1; continue
         if expect_cmd and t == "}":
