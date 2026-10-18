@@ -31,8 +31,12 @@
 # `cd <existing dir> || git commit` (the commit runs only if that cd fails);
 # `X+=…`; a wrapper given by path or with arguments (`/usr/bin/env git`,
 # `timeout 60 git`); quoted operators (`echo ";"`); a loop body's second pass;
-# zsh's two-argument `cd old new`. A redirection inside a git command
-# (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file.
+# zsh's two-argument `cd old new`; a substitution inside double quotes
+# (`git log "$(git commit)"`) or backticks. A `case` inside a substitution of a
+# git argument is not parsed and denies. A redirection inside a git command
+# (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file; the
+# body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
+# command list of its own.
 # Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
@@ -300,12 +304,15 @@ def worktree_add_branch(rest):
         branch = positional[1] if len(positional) > 1 else os.path.basename(positional[0].rstrip("/"))
     return positional[0], branch
 
-def git_invocations(toks):
+def git_invocations(toks, start=False, env0=None, depth=0):
     """Yield (subcmd, target_repo, args_after_subcmd) per git invocation.
-    target_repo is None when it cannot be resolved statically."""
+    target_repo is None when it cannot be resolved statically. start / env0:
+    the directory and variables of the command a substitution body runs inside."""
+    if depth > 16:
+        return [("commit", None, [])]         # nesting this deep is not parsed: deny, never crash open
     out = []
-    env = {"HOME": os.path.expanduser("~")}
-    here = cwd or os.getcwd()                 # directory the next command runs in
+    env = dict(env0) if env0 is not None else {"HOME": os.path.expanduser("~")}
+    here = (cwd or os.getcwd()) if start is False else start  # directory the next command runs in
     prefix = {}                               # VAR=… prefixes of the current simple command
     exporting = False
     opaque = False                            # wrapper options we do not model (nice -n 5, env -C …)
@@ -372,6 +379,25 @@ def git_invocations(toks):
             ctx["chain_vars"] |= names
         ctx["list_vars"] |= names
         ctx["pipe_vars"] |= names
+
+    def substitution(j):
+        """Index past the balanced ( … ) at toks[j]. Its body is a command list of
+        its own, run where the git command runs: `git status <(git commit -m x)`."""
+        a, paren = j, 0
+        while j < n:
+            if SEP.match(toks[j]):
+                paren += toks[j].count("(") - toks[j].count(")")
+            j += 1
+            if paren <= 0:
+                break
+        body = toks[a + 1:j - 1]
+        if "case" in body:
+            # a case pattern `a)` would end the count early: `<(case x in a) git commit;; esac)`
+            out.append(("commit", None, []))
+            return j
+        inner = git_invocations(body, here, env, depth + 1)
+        out.extend((s, None if broken or opaque else t, r) for s, t, r in inner)
+        return j
 
     i, n, expect_cmd = 0, len(toks), True
     while i < n:
@@ -484,26 +510,14 @@ def git_invocations(toks):
             while j < n:
                 tj = toks[j]
                 if tj.startswith("(") and toks[j - 1].endswith("$"):
-                    paren = 0                 # $( … ) is one opaque argument
-                    while j < n:
-                        if SEP.match(toks[j]):
-                            paren += toks[j].count("(") - toks[j].count(")")
-                        j += 1
-                        if paren <= 0:
-                            break
+                    j = substitution(j)       # $( … ) is one argument
                     continue
                 if SEP.match(tj) and ("<" in tj or ">" in tj):
                     # `git >/dev/null commit`, `git push 2>&1 -f`: a redirection and its
                     # file, not the end of the command
                     j += 1
                     if j < n and toks[j] == "(":
-                        paren = 0             # `2> >(cat)`, `<(true)`: one balanced ( … )
-                        while j < n:
-                            if SEP.match(toks[j]):
-                                paren += toks[j].count("(") - toks[j].count(")")
-                            j += 1
-                            if paren <= 0:
-                                break
+                        j = substitution(j)   # `2> >(cat)`, `<(true)`
                     elif j < n and not SEP.match(toks[j]):
                         j += 1
                     continue
