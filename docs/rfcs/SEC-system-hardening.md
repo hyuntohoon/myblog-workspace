@@ -544,8 +544,26 @@ an item already fixed elsewhere is recorded and skipped rather than rebuilt.
    `rev-parse`) because uv re-resolves a git ref on every run, so a repointed tag would silently
    rewrite the lock while the recorded source digest stayed byte-identical. That is a mutability fix,
    not the pin-invariant work in item 4.
-4. **Per-service shared_db pin invariants** — intentional cross-service skew remains allowed, but
-   duplicated pins inside one service must fail CI when they drift.
+4. **Per-service shared_db pin invariants — DONE 2026-10-18** (backend #192 `4d34dc1`, music #85
+   `f5238d5`, worker #123 `ce14e2a`). One byte-identical `tests/test_shared_db_pin.py` per service,
+   run by the existing required `test` job — no new job, no workflow edit, no required-check change,
+   no pin moved. It requires `requirements.txt` to pin exactly one 40-hex commit, `requirements.lock`
+   to carry the same one, and every tracked non-Markdown line naming `hyuntohoon/myblog_shared_db`
+   to be a recognised form using it: a pip direct-URL pin, or a workflow checkout whose sibling
+   `ref:` is the literal pin or music's `${{ steps.shared_db_pin.outputs.ref }}`, accepted only when
+   that step's extraction line reads `requirements.lock`. A missing `ref:` is drift, and an
+   unrecognised form fails until the test is taught it. Cross-service skew is not checked (music
+   pins `8319a56`, backend and worker `3b57706` at merge).
+
+   The recheck against `main` found backend already had a narrower test
+   (`test_ci_schema_ref_matches_the_shared_db_pin`, txt vs `deploy.yml` only, never the lock); it
+   was removed as subsumed. Copies found: backend and worker = txt + lock + a literal schema-checkout
+   `ref:`; music = txt + lock, its checkout ref already derived from the lock. An 11-shape mutation
+   matrix (lock pin edited, txt pin → tag, literal ref edited / removed / → `main`, derived ref →
+   literal, derivation reads another file, derivation step renamed, new tracked file with an `@main`
+   URL, unknown reference form, second checkout without `ref:`) went red in every repo it applies
+   to; the first draft let "derivation reads another file" pass because the step's error message
+   also names the lock.
 5. **Frontend Playwright golden E2E** — only after items 1–4; start with 3–5 stable, mocked-boundary
    journeys and keep the check non-required until repeated PR evidence shows it is stable.
 
