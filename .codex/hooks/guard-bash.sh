@@ -35,7 +35,8 @@
 # in an unquoted here-document body (`<<EOF` … `$(git commit)`); a CDPATH the
 # Bash tool shell sets without this hook seeing it in its own environment;
 # zsh/bash autocd (`../repo` as a command — off in the Bash tool shell); the
-# body of a zsh `foreach … end` (its loop names are unknown, its block is not tracked). A
+# body of a zsh `foreach … end` (its loop names are unknown, its block is not
+# tracked); a command name spelled by ANSI-C escapes (`$'\x67it'`). A
 # `case` inside a substitution of a git argument is not parsed and denies.
 # A newline after `&&`, `||`, `|` or `|&` continues the list. An array
 # `X=(…)`/`X+=(…)` and any name set by declare/typeset/local/readonly/read/
@@ -248,15 +249,37 @@ def quoted_bodies(c, prose=None):
                 nl = c.find("\n", k); k = n if nl < 0 else nl; continue
             if ch == "\n" and pending:        # here-document bodies: prose, not syntax
                 k += 1
+                spans = []
                 while pending and k < n:
                     nl = c.find("\n", k)
                     line = c[k:] if nl < 0 else c[k:nl]
                     dash, word = pending[0]
                     if (line.lstrip("\t") if dash else line) == word:
                         pending.pop(0)
-                    elif prose is not None:
-                        prose.append((k, n if nl < 0 else nl + 1))
+                    else:
+                        spans.append((k, n if nl < 0 else nl + 1))
                     k = n if nl < 0 else nl + 1
+                if prose is not None and not pending:
+                    prose.extend(spans)       # never drop text up to the end for a body with no terminator
+                continue
+            if c.startswith("$((", k) or c.startswith("$[", k) or c.startswith("${", k) \
+                    or (c.startswith("((", k) and c[k - 1] in " \t\n;&|()"):
+                # arithmetic and ${ … }: a << in them is a shift or a pattern, not a here-document
+                close = "]" if c[k + 1] == "[" else "}" if c[k + 1] == "{" else ")"
+                opener = {"]": "[", "}": "{", ")": "("}[close]
+                k += 1 if ch == "$" else 0    # at the first opener: the count takes both of (( ))
+                nest = 0
+                while k < n:
+                    if c[k] == "\\":
+                        k += 2; continue
+                    if c[k] == opener:
+                        nest += 1
+                    elif c[k] == close:
+                        nest -= 1
+                        if nest == 0:
+                            break
+                    k += 1
+                k += 1
                 continue
             if c.startswith("<<", k) and not c.startswith("<<<", k):
                 m = HEREDOC_OP.match(c, k)
@@ -847,12 +870,15 @@ def current_branch(target):
         return ""
 
 warn = None
-GIT_WRITE = re.search(r"\bgit\b", stripped) and re.search(r"\b(commit|push)\b", stripped)
+# On the raw text with quotes and backslashes removed: `g\x27\x27it com""mit` is git commit,
+# and a desynced parse may have dropped lines from stripped
+_bare = re.sub(r"[\x27\"\\]", "", cmd)
+GIT_WRITE = re.search(r"\bgit\b", _bare) and re.search(r"\b(commit|push)\b", _bare)
 if punct is None and GIT_WRITE:
     deny("Hard rule #1/#7: this command does not tokenize (unbalanced quotes to "
          "shlex), so a git commit/push in it cannot be judged. Run the git command "
          "in its own call.")
-if ANSI_C_ESCAPED_QUOTE.search(stripped) and GIT_WRITE:
+if ANSI_C_ESCAPED_QUOTE.search(cmd) and GIT_WRITE:
     # shlex ends a $-quoted string at its escaped quote, so every word after it is read
     # on the wrong side of a quote (or the command does not parse at all): deny
     deny("Hard rule #1/#7: a $-quoted string with an escaped quote hides which words are "

@@ -616,7 +616,8 @@ class GuardBashTargetTest(unittest.TestCase):
         # shlex ends $'…' at the escaped quote and reads the rest inside out
         for cmd in ["echo $'\\'' ; git -C ../onmain commit -m x ; echo $'\\'' 'y'",
                     "echo $'\\''; git -C ../onmain commit -m x",        # unbalanced to shlex
-                    "echo $'a\\'b'; git push -f"]:
+                    "echo $'a\\'b'; git push -f",
+                    "echo $'\\'' ; g''it -C ../onmain com''mit -m x ; echo $'\\'' 'y'"]:
             self.assertDecision("deny", cmd, cwd=feat)
         for cmd in ["echo $'a\\\\' ; git commit -m x",                   # an escaped backslash
                     "echo $'tab\\there'; git commit -m x",
@@ -631,6 +632,14 @@ class GuardBashTargetTest(unittest.TestCase):
         self.assertDecision("allow", body, cwd=feat)
         self.assertDecision("allow", "gh pr create --body \"$(cat <<'EOF'\na \"b\nEOF\n)\"; "
                             "git push -u origin HEAD", cwd=feat)
+        # a << that is a shift or a ${ … } pattern, or a body with no terminator, is no
+        # here-document: dropping lines for it would hide the commit after it
+        for cmd in ["echo \"$(echo $((1<<X))\n)\"\ngit -C ../onmain commit -m x\nX",
+                    "echo \"$(x=ab; echo ${x/<<X/y}\n)\"\ngit -C ../onmain commit -m x\nX",
+                    "echo \"$(cat <<X\nnever closed\n)\"\ngit -C ../onmain commit -m x",
+                    # the quote after X keeps what is left tokenizable once the lines are dropped
+                    "echo \"$(echo $((1<<X))\n)\"\ngit -C ../onmain commit -m x\nX\n\""]:
+            self.assertDecision("deny", cmd, cwd=feat)
         # what still does not tokenize fails closed when it holds a commit or push
         self.assertDecision("deny", "echo \"unclosed; git commit -m x", cwd=feat)
         self.assertDecision("allow", "echo \"unclosed; git status", cwd=feat)
