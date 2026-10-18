@@ -16,11 +16,13 @@
 # separators, env-var prefixes (VAR=val git …), subshells and `git -C` can't
 # smuggle a commit/push past the guard. The state machine also follows
 # `cd`/`pushd` (logical) and `-C` (physical), subshells, newlines, `&`/`|`
-# (a cd there does not move the shell), same-command `VAR=…` assignments,
+# (a cd there does not move the shell, nor one in a `{ … } |` group or after a
+# `|`), same-command `VAR=…` assignments,
 # wrappers (env/command/time/sudo…) and worktrees created earlier in the same
 # command; here-document bodies are data and skipped. A cd or assignment that
 # may not have run (after && / ||, inside if/while/for/case or an `a && { … }`
-# group) makes the location unknown once its list or block ends. When the target repo of a commit or
+# group, each nested block on its own) makes the location — or the variable,
+# GIT_DIR included — unknown once its list or block ends. When the target repo of a commit or
 # force-push cannot be named — or GIT_DIR/--git-dir or an unmodelled wrapper
 # option may redirect it — it denies (fail closed). Not covered: git inside
 # `bash -c "…"`, eval, a here-string, functions/aliases, or a script file; and
@@ -302,16 +304,18 @@ def git_invocations(toks):
     # A cd or assignment that may not have run — after && / || or inside
     # if/while/for/case — leaves the location unknown once that list or block
     # ends: `false && cd x; git commit` still commits where it started.
-    conditional, depth, list_has_or = False, 0, False
-    chain_cd, chain_vars, block_cd, block_vars = False, set(), False, set()
-    braces = []                               # per open { … }: whether it may not run
+    conditional, list_has_or = False, False
+    chain_cd, chain_vars = False, set()
+    blocks = []                               # [cd_flag, vars] per open block, innermost last
+    braces = []                               # per open { … }: (may not run, `here` at its start)
+    piped = False                             # after a `|`: this pipeline stage runs in a subshell
 
     def forget(cd_flag, names):
         nonlocal here
         if cd_flag:
             here = None
-        for name in names:
-            env.pop(name, None)
+        for name in names:                    # unknown, not unset: GIT_DIR may still be set
+            env[name] = "$" + name
     i, n, expect_cmd = 0, len(toks), True
     while i < n:
         t = toks[i]
@@ -321,6 +325,8 @@ def git_invocations(toks):
                 here = undo[0]
             if t[0] not in "<>":
                 undo = None
+            if t[0] not in "<>":
+                piped = t.startswith("|") and not t.startswith("||")
             if t in ("&&", "||"):
                 if t == "||":                 # `a && cd x || cmd`: cmd runs where the cd may not have
                     forget(chain_cd, chain_vars)
@@ -346,13 +352,13 @@ def git_invocations(toks):
                 name, _, value = toks[j].partition("=")
                 assigns[name] = value; j += 1
             if exporting or j >= n or SEP.match(toks[j]):
-                if conditional and list_has_or:
+                if (conditional and list_has_or) or piped:
                     forget(False, assigns)    # `true || X=… && git -C "$X"`: may have been skipped
                 else:
                     env.update(assigns)       # standalone: lasts for the rest of the line
-                if depth:
-                    block_vars |= set(assigns)
-                elif conditional:
+                if blocks:
+                    blocks[-1][1] |= set(assigns)
+                if conditional:
                     chain_vars |= set(assigns)
             else:
                 prefix.update(assigns)        # prefix: applies to its own command only
@@ -360,27 +366,32 @@ def git_invocations(toks):
         if expect_cmd and t == "{":
             # `a && { …; }` may not run at all: a block, like if/while, whose
             # inner list starts fresh
-            braces.append(conditional)
-            if conditional:
-                depth += 1
-                conditional, list_has_or = False, False
+            braces.append((conditional, here))
+            blocks.append([False, set()])
+            conditional, list_has_or = False, False
             i += 1; continue
         if expect_cmd and t == "}" and braces:
-            if braces.pop():
-                depth = max(depth - 1, 0)
-                if depth == 0:
-                    forget(block_cd, block_vars)
-                    block_cd, block_vars = False, set()
+            may_skip, start = braces.pop()
+            cd_flag, names = blocks.pop() if blocks else (False, set())
+            nxt = toks[i + 1] if i + 1 < n else ""
+            if nxt == "&" or (nxt.startswith("|") and not nxt.startswith("||")):
+                here = start                  # `{ cd x; } | cat`: the group ran in a subshell
+                forget(False, names)
+            elif may_skip:
+                forget(cd_flag, names)
+            elif blocks:                      # a plain group belongs to the block around it
+                blocks[-1][0] |= cd_flag
+                blocks[-1][1] |= names
             expect_cmd = False; i += 1; continue
+        # each block forgets its own cd / assignments when it closes, nested or not:
+        # `if true; then if false; then cd x; fi; git commit; fi`
         if expect_cmd and t in CLOSE_CTL:
-            depth = max(depth - 1, 0)
-            if depth == 0:
-                forget(block_cd, block_vars)
-                block_cd, block_vars = False, set()
+            if blocks:
+                forget(*blocks.pop())
             expect_cmd = False; i += 1; continue
         if expect_cmd and (t in WRAPPERS or t in KEYWORDS):
             if t in OPEN_CTL:
-                depth += 1
+                blocks.append([False, set()])
             i += 1
             if t in WRAPPERS and i < n and toks[i].startswith("-"):
                 # options may take arguments (nice -n 5, sudo -u x, env -C dir):
@@ -392,16 +403,17 @@ def git_invocations(toks):
         if expect_cmd and t in ("cd", "pushd", "popd"):
             arg = toks[i + 1] if i + 1 < n and not SEP.match(toks[i + 1]) else None
             undo = (here,)
-            if depth:
-                block_cd = True
-            elif conditional:
+            if blocks:
+                blocks[-1][0] = True
+            if conditional:
                 chain_cd = True
             if t == "popd" or arg is None or arg.startswith("-"):
                 here = None                   # cd -, bare cd, popd: not tracked
             else:
                 here = resolve_dir(arg, here, env)
-            if conditional and list_has_or:
-                here = None                   # `true || cd x && git …`: the cd was skipped
+            if (conditional and list_has_or) or piped:
+                here = None                   # `true || cd x && git …`: the cd was skipped;
+                                              # `true | cd x`: bash runs it in a subshell
             i += 2 if arg is not None else 1
             expect_cmd = False; continue
         if expect_cmd and is_git(t):

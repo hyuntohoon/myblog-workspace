@@ -231,6 +231,36 @@ class GuardBashTargetTest(unittest.TestCase):
                     f"WT={feat} && git -C \"$WT\" commit -m x"]:
             self.assertDecision("allow", cmd, cwd=main)
 
+    def test_review_round4_nested_blocks_and_forgotten_git_dir(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [
+            # an inner block forgets its cd even while an outer one is open
+            "if true; then if false; then cd ../feature; fi; git commit -m x; fi",
+            "if true; then false && { cd ../feature; }; git commit -m x; fi",
+            "true && { false && { cd ../feature; }; git commit -m x; }",
+            # a chain inside a block still ends at its `;`
+            "if true; then false && cd ../feature; git commit -m x; fi",
+            "true && { false && cd ../feature; git commit -m x; }",
+            f"if true; then false && WT={feat}; git -C \"$WT\" commit -m x; fi",
+            "if true; then true || { cd ../feature; } && git commit -m x; fi",
+            "if false; then { cd ../feature; }; fi; git commit -m x",
+            # a group or a stage after | runs in a subshell
+            "{ cd ../feature; } | cat; git commit -m x",
+            "{ cd ../feature; } & wait; git commit -m x",
+            f"{{ WT={feat}; }} | cat; git -C \"$WT\" commit -m x",
+            "true | cd ../feature; git commit -m x",
+            f"true | WT={feat}; git -C \"$WT\" commit -m x",
+        ]:
+            self.assertDecision("deny", cmd, cwd=main)
+        # a GIT_DIR that may have been exported is unknown, not unset
+        for cmd in ["false || export GIT_DIR=../onmain/.git && git commit -m x",
+                    "true && export GIT_DIR=../onmain/.git; git commit -m x",
+                    "if true; then export GIT_DIR=../onmain/.git; fi; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        for cmd in ["if true; then cd ../feature; if true; then true; fi; git commit -m x; fi",
+                    "true && { cd ../feature; if true; then true; fi; git commit -m x; }"]:
+            self.assertDecision("allow", cmd, cwd=main)
+
     def test_heredoc_delimiter_must_be_a_plain_word(self):
         main = self.root / "onmain"
         for cmd in ["cat <<EOF.x\ngit commit -m x\nEOF\nEOF.x",          # real delimiter is EOF.x
