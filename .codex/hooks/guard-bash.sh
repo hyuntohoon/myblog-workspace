@@ -184,13 +184,17 @@ def strip_heredocs(c):
 # hid every git call after the first line); a backslash-newline joins lines,
 # and so do newlines (blank lines too) after && / || / | / |&: the list goes on
 # (`false &&` then `cd x` on the next line is one list, not two commands).
-CONTINUED = re.compile(r"(?<!\\)(&&|\|\||\|&|\|)[ \t]*\n(?:[ \t]*\n)*")
+# An odd run of backslashes escapes the operator (`\\|` is a word), an even one does not.
+CONTINUED = re.compile(r"(?<!\\)((?:\\\\)*)(&&|\|\||\|&|\|)[ \t]*\n(?:[ \t]*\n)*")
 
 def lines_as_commands(c):
-    c = CONTINUED.sub(lambda m: m.group(1) + " ", c.replace("\\\n", " "))
+    c = CONTINUED.sub(lambda m: m.group(1) + m.group(2) + " ", c.replace("\\\n", " "))
     return c.replace("\n", " ; ")
 
-def quoted_bodies(c):
+# A $\x27…\x27 string with an escaped quote in it (bash and zsh ANSI-C quoting)
+ANSI_C_ESCAPED_QUOTE = re.compile(r"\$\x27(?:[^\x27\\]|\\[^\x27])*\\\x27")
+
+def quoted_bodies(c, prose=None):
     """Bodies of each $( … ) inside double quotes and of each `…`, outside single
     quotes and here-document bodies. They run, but tok_punct keeps them inside one
     word (`echo "$(git commit)"`) or splits them into plain words (backticks)."""
@@ -200,7 +204,11 @@ def quoted_bodies(c):
         a = k
         while k < n and c[k] != "`":
             k += 2 if c[k] == "\\" else 1
-        bodies.append(c[a:k])
+        # inside backticks \` \$ \\ stand for the plain character: the body can hold
+        # its own backticks and quoted substitutions, so it is scanned again
+        body = re.sub(r"\\([\\`$])", r"\1", c[a:k])
+        bodies.append(body)
+        bodies.extend(quoted_bodies(body))
         return k + 1
 
     def dquote(k):                            # k: just past the opening quote
@@ -236,10 +244,12 @@ def quoted_bodies(c):
                 while pending and k < n:
                     nl = c.find("\n", k)
                     line = c[k:] if nl < 0 else c[k:nl]
-                    k = n if nl < 0 else nl + 1
                     dash, word = pending[0]
                     if (line.lstrip("\t") if dash else line) == word:
                         pending.pop(0)
+                    elif prose is not None:
+                        prose.append((k, n if nl < 0 else nl + 1))
+                    k = n if nl < 0 else nl + 1
                 continue
             if c.startswith("<<", k) and not c.startswith("<<<", k):
                 m = HEREDOC_OP.match(c, k)
@@ -273,11 +283,24 @@ def quoted_bodies(c):
             k += 1
     return bodies
 
-stripped = strip_heredocs(cmd)
+def strip_prose(c):
+    """Drop the here-document bodies inside a quoted $( … ) (`--body "$(cat <<EOF`):
+    strip_heredocs keeps them, being inside quotes, and their quotes and
+    apostrophes would end the string for shlex."""
+    spans = []
+    quoted_bodies(c, spans)
+    for a, b in reversed(spans):
+        c = c[:a] + c[b:]
+    return c
+
+stripped = strip_prose(strip_heredocs(cmd))
 try:
     punct = tok_punct(lines_as_commands(stripped))
 except ValueError:
     punct = None
+# Names a `${D:=x}` / `${D=x}` / zsh `${D::=x}` expansion may set, anywhere in the
+# command: unknown wherever they are used
+EXPANDED = set(re.findall(r"\$\{([A-Za-z_][A-Za-z0-9_]*):{0,2}=", stripped))
 
 # =========================================================================
 # Check 1 — secret file named as a bare argument (Hard Rule #2)
@@ -385,7 +408,8 @@ CLOSE_CTL = set(CLOSERS)
 GIT_DIR_VARS = {"GIT_DIR", "GIT_WORK_TREE"}
 # Builtins that set the variables they name (bash and zsh)
 SETTERS = {"declare", "typeset", "local", "readonly", "read", "unset", "printf", "print",
-           "mapfile", "readarray", "getopts", "let", "integer", "float", "vared"}
+           "mapfile", "readarray", "getopts", "let", "integer", "float", "vared",
+           "foreach"}                         # zsh `foreach D (x y)`: its body is not tracked
 NAME_WORD = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\+?=|$)")
 created = {}                                  # dirs made by `git worktree add` in this command → branch
 
@@ -395,7 +419,8 @@ def expand_path(path, base, env, physical=False):
     (bash default); `git -C` is physical — `-C link/..` is the parent of the link target."""
     if base is None:
         return None
-    p = VAR_REF.sub(lambda m: env.get(m.group(1), m.group(0)), path)
+    p = VAR_REF.sub(lambda m: m.group(0) if m.group(1) in EXPANDED
+                    else env.get(m.group(1), m.group(0)), path)
     if p == "~" or p.startswith("~/"):
         p = os.path.expanduser(p)
     if "$" in p or "`" in p or p.startswith("~"):
@@ -713,7 +738,9 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             before = here
             if not external:
                 touched(True, set())
-            cdpath = prefix.get("CDPATH", env.get("CDPATH", ""))
+            # zsh ties the cdpath array to CDPATH; `.` in it can come after another entry
+            cdpath = prefix.get("CDPATH", env.get("CDPATH", "")) or prefix.get("cdpath", env.get("cdpath", "")) \
+                or {"CDPATH", "cdpath"} & EXPANDED
             if t == "popd" or arg is None or arg.startswith("-"):
                 here = None                   # cd -, bare cd, popd: not tracked
             elif cdpath and not (arg.startswith(("/", "~", "./", "../")) or arg in (".", "..")):
@@ -733,7 +760,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         if expect_cmd and is_git(t):
             target, subcmd, rest, j = here, None, [], i + 1
             unknown = False                   # `git -C <f x commit`: the value is past a redirection
-            if opaque or broken or GIT_DIR_VARS & (set(prefix) | set(env)):
+            if opaque or broken or GIT_DIR_VARS & (set(prefix) | set(env) | EXPANDED):
                 target = None                 # GIT_DIR / GIT_WORK_TREE redirect the repo
             while j < n:
                 tj = toks[j]
@@ -813,6 +840,17 @@ def current_branch(target):
         return ""
 
 warn = None
+GIT_WRITE = re.search(r"\bgit\b", stripped) and re.search(r"\b(commit|push)\b", stripped)
+if punct is None and GIT_WRITE:
+    deny("Hard rule #1/#7: this command does not tokenize (unbalanced quotes to "
+         "shlex), so a git commit/push in it cannot be judged. Run the git command "
+         "in its own call.")
+if ANSI_C_ESCAPED_QUOTE.search(stripped) and GIT_WRITE:
+    # shlex ends a $-quoted string at its escaped quote, so every word after it is read
+    # on the wrong side of a quote (or the command does not parse at all): deny
+    deny("Hard rule #1/#7: a $-quoted string with an escaped quote hides which words are "
+         "commands, so this git commit/push cannot be judged. Run the git command in its "
+         "own call without that quoting.")
 if punct is not None:
     invocations = git_invocations(punct)
     # A substitution inside double quotes or backticks runs too. Where it runs is
