@@ -145,17 +145,24 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   correction (Debussy excluded), and worker #107's fence are recorded in the RFC under
   *Step 5 delivery*. **The 2026-09-30 audit in the same place is what this row now tracks.**
   **Open — owner decisions (spend):**
-  - **Back-catalogue albums outside the catalog are never ingested.** 686 of 1,061 follow jobs (28
-    artists) have waited on `album_not_in_catalog` since 09-19. The Step 5 enumerator never sends a
+  - **Back-catalogue albums outside the catalog are never ingested.** 846 of 1,234 follow jobs wait on
+    `album_not_in_catalog` (2026-10-18; 686 of 1,061 at the 09-30 audit, and none of those 686 has
+    resolved since). The Step 5 enumerator never sends a
     missing album to album sync, so a follow translates only what the catalog already held (≈35%).
     The fix is to enqueue album sync for those albums: one Spotify catalog read per album, plus the
     translations that follow.
   - **The 24 h discography refresh has never run.** It is unreachable in steady state because the
-    nudge fires only on `due_count > 0`. All 34 registrations are still at `last_complete_at` 09-19.
+    nudge fires only on `due_count > 0`. It has run only when a new follow broke the cycle (10-03, 10-10),
+    picking up 9 new releases each time. All 36 registrations have been at `last_complete_at` 10-10
+    since then, and two 10-16 releases by followed artists are already missed.
     Fixing it costs ~42 provider pages per 24 h.
   **Open — no decision needed, not yet done:**
-  - **Step 5 verification is not met.** The post-deploy member/follow/back-catalogue smoke was never
-    run. The "production-verified" claim for Step 5 is withdrawn until it has been.
+  - **Step 5 verification is not met — smoke run 2026-10-18, read-only.** Unfollow, exclusion,
+    multi-page discography and the origin union pass. Complete coverage and steady-state new-release
+    pickup fail, for the two reasons above. Multi-page follows, missing scope, re-import and
+    enumeration retry need owner action and were not run. "Production-verified" stays withdrawn.
+    Worker INFO logs never reach CloudWatch, so the follow metrics are not observable there.
+    → RFC *Step 5 smoke (2026-10-18)*.
   - **`infra/lambda.tf` kill switches are unapplied.** The live Lambda has only the console-set
     `LYRICS_FOLLOW_DEMAND_ENABLED=true`, so `terraform plan` shows 1 change. Needs a human apply.
   - **The subscription guard hides an expired login.** It reads a blank `claude exit 1:` as throttling,

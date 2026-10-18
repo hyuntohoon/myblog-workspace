@@ -1210,6 +1210,81 @@ member/follow/back-catalogue smoke. The recorded evidence is:
 Neither shows complete eligible coverage, and item 1 shows that coverage is not complete.
 The plan row's "production-verified" is withdrawn for Step 5.
 
+#### Step 5 smoke (2026-10-18): run read-only — the step is still not verified
+
+This is audit item 8's smoke. It was run against production on 2026-10-18 06:42–07:10Z with no
+writes and no code change. Every SQL statement ran inside `BEGIN READ ONLY … ROLLBACK`. Of the eight
+cases on the verification list, four could be checked from production state and four could not.
+Those four are listed below with what each needs. The population is unchanged: one connected
+member (the owner), whose stored grant includes `user-follow-read`.
+
+**Result: Step 5 verification is still not met.** Each check that can be read from production
+works mechanically. The two coverage claims fail in the way the 2026-09-30 audit predicted:
+back-catalogue albums outside the catalog never resolve, and new releases are picked up only
+when an unrelated new follow happens to break the steady state. Neither is a new defect. Both
+are the open spend decisions, now measured again.
+
+**Control.** The authenticated production suite ran in the same window: **PASSED: 32,
+FAILED: 0, elapsed: 6.9s** (the suite has grown from 30 to 32 checks). The known-answer rows act
+as controls for the SQL. The excluded artist (Debussy) must show zero follow demand. The 13
+enumerated pairs with no demand must all belong to the one unconsumed registration (Rude John).
+Both hold. The job-state split below also sums to its own total, as the 09-30 split did.
+
+| Case | Checkable read-only? | Production evidence | Verdict |
+|---|---|---|---|
+| Multi-page discography | yes | 8 registrations have `album_total` > 50 (largest 164). All 8 are `complete`, and 7 of 8 enumerated exactly `album_total` rows; Michael Korstick has 53 of 54. Across all 36 registrations: 1,268 rows for Σ`album_total` 1,269. | pass |
+| Multi-page follows (`/me/following` > 50) | no | The only member follows about 11 artists on Spotify, so `/me/following` is a single page. Only the worker suite covers this. | not exercisable — **not attempted**, not "not reproducible" |
+| Already-known artists | yes | 7 edges are `manual+spotify_follow`. The follow added an origin row to an edge that already existed. There is no duplicate edge (`uq_user_artist_tracks_user_artist`), and all 7 artists carry follow demand. | pass |
+| Joint manual/Spotify origins | partly | The union holds: 26 `manual`, 7 joint, 3 `spotify_follow`-only, and 0 edges without an origin. The *removal* half, "unfollowing a joint artist keeps the manual edge", has not happened in production. | union pass; removal not observed |
+| Unfollow | observed once | Rude John (uncatalogued at follow time) was registered on 2026-10-10 05:09Z and got follow demand at 05:24Z. At **06:09:00Z the follow demand was removed in one statement.** That cancelled the 8 jobs no other origin held and left the 5 held by `recent` demand untouched (OQ6). Today Rude John has no edge, no follow demand and a completed registration that `_CONSUMED` fences, so the refresh will not re-read it. Inferred from state; there is no event log (see the logging note below). | pass (one case) |
+| Exclusion / re-import | half | The exclusion fence holds. Debussy (excluded 09-19, still followed on Spotify, manual edge kept by owner decision) has 0 follow demand and has not been re-registered in 29 days of 15-minute polls. *Re-import* (an explicit add lifting the exclusion) needs a production write. | exclusion pass; re-import not exercised |
+| Missing scope | no | The only grant includes `user-follow-read`. There have been 0 `member follow read failed` warnings in 14 days. Front #446's re-consent prompt has never been clicked through in a browser (audit item 3). Exercising either needs a grant without the scope. | not exercisable without owner action |
+| Partial enumeration retry | no | 0 registrations carry `last_reason`, and there have been 0 `discography page failed` warnings since 2026-10-04 (log retention is 14 days). A deferral only happens on a provider failure. | not observed; suite-only |
+| New release arrival | yes | **Works only when the cycle is broken.** The refreshes of 10-03 (David Bowie registered) and 10-10 (Rude John registered) found 9 new releases (released 09-24 to 10-07) across 8 followed artists. All 9 got follow demand and resolved. Since 10-10 nothing has run: 36/36 `complete`, `last_complete_at` 10-10 05:09–05:10Z. The catalog already holds two releases of 10-16 by followed artists (스카이민혁 *2MC*, Olivia Rodrigo *expectations*) that are not enumerated. | **fail in steady state** — the 24 h refresh defect |
+| Complete eligible coverage | yes | Enumeration covers the discography, and every enumerated pair of a consumed artist has demand. **Demand does not reach the catalog:** see the next table. | **fail** — the back-catalogue gap |
+
+**Coverage, beside the 2026-09-30 numbers** (follow scope, one member):
+
+| Measure | 2026-09-29 | 2026-10-18 |
+|---|---|---|
+| Registrations | 34 | 36 (+ David Bowie 10-03, + Rude John 10-10) |
+| `lyrics_artist_albums` rows | 1,082 | 1,268 |
+| Follow demands / jobs | 1,082 / 1,061 | 1,255 / 1,234 |
+| Jobs resolved (`album_id` set) | 372 | **387 (31%)** |
+| Jobs waiting on `album_not_in_catalog` | 686 | **846 (69%)**. 160 more: David Bowie's registration alone created 167 jobs, of which 7 resolved. |
+| Jobs in other states | 3 | 1 (`album_has_no_tracks`) |
+| Exclusions | 1 | 2. The second is the **smoke user's** (스카이민혁, 2026-10-17 09:30Z), residue from a site add/remove test. That account has no Spotify connection, so it affects nothing. |
+| Track origins | 33 manual / 8 spotify_follow | 33 manual / 10 spotify_follow |
+
+None of the 686 jobs waiting on 09-29 has resolved since. The 15 newly resolved jobs are new
+releases and single albums that some other path brought into the catalog.
+
+**What the resolved jobs yielded** (3,186 tracks in the 387 resolved follow jobs):
+
+| Outcome | Tracks |
+|---|---|
+| translated (`already_translated`); 286 of these predate Step 5 | 954 (30%) |
+| Korean source, no translation needed | 114 |
+| `no_lyrics` | 42 |
+| `source_pending`: LRCLIB `not_found`, on the retry ladder | 2,075 (65%) |
+| `review_required` | 1 |
+
+The 65% `not_found` share is recorded but **not interpreted** here. This smoke did not split it by
+artist or by language, and a pooled rate over this catalogue has misled this RFC twice already.
+
+**Logging note: Step 5's INFO-level metrics never reach CloudWatch.** Over 14 days
+`/aws/lambda/blogWorkerLambda` holds 20,936 `[WARNING]` lines and **no `[INFO]` line at all**. That
+includes the 15-minute `spotify member sync: … follow(artists=…, +/-…, no-grant=…)` summary, the
+`discography refresh re-opened` line and the enumeration metrics. Their absence therefore
+proves nothing either way. It is also why the unfollow above had to be inferred from row
+timestamps. Not fixed here.
+
+**Needs the owner to run, not run here.** The cases below need a real Spotify account action or a
+production write outside the smoke user, so they wait for the owner:
+- unfollow a joint (`manual+spotify_follow`) artist on Spotify, and expect the manual edge to survive;
+- lift an exclusion by an explicit site add (re-import), and expect the artist to re-enter the universe at zero provider cost;
+- reconnect with a grant lacking `user-follow-read`, and expect the follow origin to be left untouched and the #446 prompt to appear.
+
 #### The cost is roughly 7x what the pre-measurement projected, and the projection's error is instructive
 
 > **Superseded 2026-09-19 — kept as written, do not act on it.** Both the 7x figure and the
@@ -1274,3 +1349,4 @@ are **not** claimed here. The step is deployed and paused pending that decision.
 | 2026-09-19 | Owner decision: add Debussy to `user_artist_follow_exclusions` rather than change code; follow producer re-enabled. Front #446 shipped the `user-follow-read` consent and the scope-generation ladder fix. | Step 5 |
 | 2026-09-21 | Owner decision: fence unconsumed discography registrations on the read paths (worker #107) rather than delete them, so a recoverable `invalid_grant` does not cost a re-enumeration. The unreachable 24 h refresh was reported, not fixed: it is a spend decision. | Step 5 |
 | 2026-09-30 | Post-delivery audit: Step 5 is running but not complete. 686 of 1,061 follow jobs wait on albums nothing ingests, the refresh has never run, the Step 5 smoke was never run, and translation was stopped from 09-27 by an expired CLI login that was reported as throttling. The plan row's "production-verified" was withdrawn for Step 5. No Status promotion. | Step 5 audit |
+| 2026-10-18 | Step 5 smoke run read-only against production (*Step 5 delivery → Step 5 smoke*). Unfollow, exclusion, multi-page discography and the origin union pass. Complete coverage fails: 846 of 1,234 follow jobs wait on `album_not_in_catalog`, up from 686 of 1,061. New-release pickup fails in steady state: no refresh since 10-10. Multi-page follows, missing scope, re-import and enumeration retry are not exercisable without owner action. Step 5 verification remains unmet. No Status promotion. | Step 5 smoke |
