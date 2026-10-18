@@ -624,14 +624,18 @@ class GuardBashTargetTest(unittest.TestCase):
                     "echo $'\\''; git status"]:
             self.assertDecision("allow", cmd, cwd=feat)
 
-    def test_here_document_prose_inside_a_quoted_substitution(self):
+    def test_here_document_quote_inside_a_quoted_substitution(self):
         main, feat = self.root / "onmain", self.root / "feature"
-        # an odd quote in the body made the whole command fail to tokenize: unchecked
+        # an odd quote in the body makes the command fail to tokenize; it used to go
+        # unchecked. Now a git commit/push in it denies even off main (the price)
         body = "git commit -m \"$(cat <<'EOF'\nsay \"hi, it's\nEOF\n)\""
         self.assertDecision("deny", body, cwd=main)
-        self.assertDecision("allow", body, cwd=feat)
-        self.assertDecision("allow", "gh pr create --body \"$(cat <<'EOF'\na \"b\nEOF\n)\"; "
+        self.assertDecision("deny", body, cwd=feat)
+        self.assertDecision("deny", "gh pr create --body \"$(cat <<'EOF'\na \"b\nEOF\n)\"; "
                             "git push -u origin HEAD", cwd=feat)
+        # balanced quotes in the body tokenize and are judged as usual
+        self.assertDecision("allow", "git commit -m \"$(cat <<'EOF'\nsay (hi) `x`\nEOF\n)\"",
+                            cwd=feat)
         # a << that is a shift or a ${ … } pattern, or a body with no terminator, is no
         # here-document: dropping lines for it would hide the commit after it
         for cmd in ["echo \"$(echo $((1<<X))\n)\"\ngit -C ../onmain commit -m x\nX",

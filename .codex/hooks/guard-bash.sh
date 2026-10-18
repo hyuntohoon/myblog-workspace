@@ -46,8 +46,7 @@
 # there first. A `$( … )` inside double quotes or a backtick substitution runs
 # where the shell is, which is not tracked: each git in it targets an unknown
 # repo (`echo "$(git commit)"` denies even off main); backtick bodies are
-# scanned again for nested ones, and here-document bodies inside a quoted
-# `$( … )` (`--body "$(cat <<EOF …`) are dropped before tokenizing. A name set
+# scanned again for nested ones. A name set
 # by `${D:=x}`/`${D=x}`/`${D::=x}` anywhere in the command is unknown everywhere.
 # A git commit/push in a command that still does not tokenize, or next to a
 # `$'…'` string holding an escaped quote (shlex reads it inside out), denies. A redirection inside a git command
@@ -202,7 +201,7 @@ def lines_as_commands(c):
 # A $\x27…\x27 string with an escaped quote in it (bash and zsh ANSI-C quoting)
 ANSI_C_ESCAPED_QUOTE = re.compile(r"\$\x27(?:[^\x27\\]|\\[^\x27])*\\\x27")
 
-def quoted_bodies(c, prose=None):
+def quoted_bodies(c):
     """Bodies of each $( … ) inside double quotes and of each `…`, outside single
     quotes and here-document bodies. They run, but tok_punct keeps them inside one
     word (`echo "$(git commit)"`) or splits them into plain words (backticks)."""
@@ -249,21 +248,15 @@ def quoted_bodies(c, prose=None):
                 nl = c.find("\n", k); k = n if nl < 0 else nl; continue
             if ch == "\n" and pending:        # here-document bodies: prose, not syntax
                 k += 1
-                spans = []
                 while pending and k < n:
                     nl = c.find("\n", k)
                     line = c[k:] if nl < 0 else c[k:nl]
                     dash, word = pending[0]
                     if (line.lstrip("\t") if dash else line) == word:
                         pending.pop(0)
-                    else:
-                        spans.append((k, n if nl < 0 else nl + 1))
                     k = n if nl < 0 else nl + 1
-                if prose is not None and not pending:
-                    prose.extend(spans)       # never drop text up to the end for a body with no terminator
                 continue
-            if c.startswith("$((", k) or c.startswith("$[", k) or c.startswith("${", k) \
-                    or (c.startswith("((", k) and c[k - 1] in " \t\n;&|()"):
+            if c.startswith(("$((", "$[", "${", "(("), k):
                 # arithmetic and ${ … }: a << in them is a shift or a pattern, not a here-document
                 close = "]" if c[k + 1] == "[" else "}" if c[k + 1] == "{" else ")"
                 opener = {"]": "[", "}": "{", ")": "("}[close]
@@ -272,6 +265,12 @@ def quoted_bodies(c, prose=None):
                 while k < n:
                     if c[k] == "\\":
                         k += 2; continue
+                    if c[k] == SQ:            # `${x:-"}"}`: a quoted closer does not close
+                        e = c.find(SQ, k + 1); k = n if e < 0 else e + 1; continue
+                    if c[k] == "\"":
+                        k = dquote(k + 1); continue
+                    if c[k] == "`":
+                        k = backtick(k + 1); continue
                     if c[k] == opener:
                         nest += 1
                     elif c[k] == close:
@@ -313,17 +312,7 @@ def quoted_bodies(c, prose=None):
             k += 1
     return bodies
 
-def strip_prose(c):
-    """Drop the here-document bodies inside a quoted $( … ) (`--body "$(cat <<EOF`):
-    strip_heredocs keeps them, being inside quotes, and their quotes and
-    apostrophes would end the string for shlex."""
-    spans = []
-    quoted_bodies(c, spans)
-    for a, b in reversed(spans):
-        c = c[:a] + c[b:]
-    return c
-
-stripped = strip_prose(strip_heredocs(cmd))
+stripped = strip_heredocs(cmd)
 try:
     punct = tok_punct(lines_as_commands(stripped))
 except ValueError:
@@ -875,9 +864,11 @@ warn = None
 _bare = re.sub(r"[\x27\"\\]", "", cmd)
 GIT_WRITE = re.search(r"\bgit\b", _bare) and re.search(r"\b(commit|push)\b", _bare)
 if punct is None and GIT_WRITE:
+    # (a here-document with an odd quote inside "$( … )" is the usual cause)
     deny("Hard rule #1/#7: this command does not tokenize (unbalanced quotes to "
-         "shlex), so a git commit/push in it cannot be judged. Run the git command "
-         "in its own call.")
+         "shlex, often a quote in a here-document inside \"$( … )\"), so a git "
+         "commit/push in it cannot be judged. Run the git command in its own call, "
+         "or pass the text with -F/--body-file.")
 if ANSI_C_ESCAPED_QUOTE.search(cmd) and GIT_WRITE:
     # shlex ends a $-quoted string at its escaped quote, so every word after it is read
     # on the wrong side of a quote (or the command does not parse at all): deny
