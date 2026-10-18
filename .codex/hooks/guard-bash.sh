@@ -55,11 +55,13 @@
 # not <<'EOF') run and are judged like quoted ones. A block still open at the end
 # (zsh `for x () cmd`, `if c { … }`, `foreach … end`) leaves every target unknown.
 # A command name that is not a literal word (`$G`, `$(…)`, `$'\x67it'`) is read
-# from values set earlier in the command (split into words as bash does) or from
-# the name after its last /; else the location is unknown after it, and it is a
-# commit of an unknown repo when one of its words is, or may be, commit or push.
-# A git subcommand that is not a literal word is a commit unless its value is
-# known. After a `$( … )` inside a word the word goes on (`echo $(x) cd y` runs
+# from values set earlier in the command (only $NAME/${NAME}, split into words as
+# bash does) or from the name after its last /; else the location is unknown
+# after it, and it is a commit of an unknown repo when one of its words is, or
+# may be, commit or push — or, unless it is a variable never set in the command,
+# when commit/push appears anywhere. A `$` word in a git command whose value is
+# known is judged as its words (`git $S`, `git push $F`); one that is not, as
+# the subcommand, is a commit. After a `$( … )` inside a word the word goes on (`echo $(x) cd y` runs
 # no cd). A redirection inside a git command
 # (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file; the
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
@@ -491,6 +493,9 @@ def wrapper(t):
     name = t.rsplit("/", 1)[-1]
     return name if name in WRAPPERS else None
 KEYWORDS = {"if", "while", "until", "for", "select", "case", "!"}
+# Words that are syntax only when spelled out: a value naming one runs a command of that name
+RESERVED = KEYWORDS | {"then", "do", "else", "elif", "fi", "done", "esac", "{", "}", "function",
+                       "foreach", "end", "repeat", "coproc", "time", "[[", "]]", "in"}
 OPEN_CTL = {"if", "while", "until", "for", "select", "case"}
 CLOSERS = {"fi": {"if"}, "done": {"while", "until", "for", "select"}, "esac": {"case"}}
 CLOSE_CTL = set(CLOSERS)
@@ -529,10 +534,14 @@ def resolve_dir(path, base, env, physical=False):
 
 def literal(word, env):
     """The plain words an expansion like $G names, from values set earlier in the
-    command; None when unknown, empty, or holding a quote or glob character."""
+    command; None when unknown, empty, or holding a quote or glob character. Only
+    $NAME and ${NAME} are read: `${X:+git}`, `${X/a/git}`, zsh `${=X}` are unknown."""
+    if re.search(r"\$\{(?![A-Za-z_][A-Za-z0-9_]*\})", word) or re.search(r"\bIFS\b", cmd):
+        return None                           # (with IFS set, bash splits elsewhere)
     w = VAR_REF.sub(lambda m: m.group(0) if m.group(1) in EXPANDED
                     else env.get(m.group(1), m.group(0)), word)
-    return w.split() if re.fullmatch(r"\s*[^\s$`*?\[\x27\"\\]+(\s+[^\s$`*?\[\x27\"\\]+)*\s*", w) else None
+    # an expansion is never parsed again: `X="true ; cd y"` holds no ; to the shell
+    return w.split() if re.fullmatch(r"\s*[^\s$`*?\[\x27\"\\;&|()<>]+(\s+[^\s$`*?\[\x27\"\\;&|()<>]+)*\s*", w) else None
 
 def maybe_words(word, env):
     """Words a git argument may be: itself, the words it names, or commit and push
@@ -850,12 +859,12 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                     i += 1; k += 1            # `timeout 60 git …`: 60 is not the command
             continue
         if expect_cmd and ("$" in t or "`" in t) and toks[i - 1:i] != ["case"] \
-                and toks[max(i - 2, 0):i] != ["(", "("]:   # `case $x in`, `(( $x ))`: no command
+                and not (toks[max(i - 2, 0):i] == ["(", "("] and ARITH):   # `case $x in`, `(( $x ))`
             words = literal(t, env)
             tail = t.rsplit("/", 1)[-1]
-            if words:
-                toks[i:i + 1] = words         # `G=git; $G commit`: judged as the words it names
-                n = len(toks); continue       # (split as bash does; zsh runs one word, which fails)
+            if words and len(words) == 1 and "=" not in words[0] and words[0] not in RESERVED:
+                toks[i] = words[0]; continue  # `G=git; $G commit`: judged as the word it names
+            # (several words: bash splits them, zsh runs one name — neither is modelled)
             if "/" in t and re.fullmatch(r"[A-Za-z0-9._+-]+", tail):
                 toks[i] = "/" + tail; continue    # `$S/run.sh`, `"$D"/git`: a path ends in its name
             # any other name made by an expansion or by $\x27\\x67it\x27 escapes may be git or cd,
@@ -864,6 +873,14 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             if not external:
                 touched(True, set())
                 here = None
+            # unless it is a variable never set in this command (empty, or from the
+            # environment), its value may itself hold several words: `$(echo git commit)`,
+            # `${=X}`, `for X in "git commit"; do $X` — a commit when commit/push is anywhere
+            bare = re.fullmatch(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?", t)
+            # (a word with blanks starting with a backtick is prose a desynced parse put here)
+            if WRITE_WORD and (not bare or bare.group(1) in env or bare.group(1) in EXPANDED) \
+                    and (t.startswith("$") or not re.search(r"\s", t)):
+                out.append(("commit", None, []))
             k = i + 1
             if t == "$" and k < n and toks[k] == "(":
                 k = substitution(k)           # `$(echo git) commit`
@@ -871,7 +888,12 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 if toks[k] == "(" and toks[k - 1].endswith("$"):
                     k = substitution(k); continue
                 if SEP.match(toks[k]) and ("<" in toks[k] or ">" in toks[k]):
-                    k += 2; continue
+                    k += 1
+                    if k < n and toks[k] == "(":
+                        k = substitution(k)   # `<( … )`: its body is a command list
+                    elif k < n and not SEP.match(toks[k]):
+                        k += 1
+                    continue
                 if SEP.match(toks[k]):
                     break
                 if {"commit", "push"} & set(maybe_words(toks[k], env)):
@@ -913,6 +935,9 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 if tj.startswith("(") and toks[j - 1].endswith("$"):
                     j = substitution(j)       # $( … ) is one argument
                     continue
+                if ("$" in tj or "`" in tj) and not SEP.match(tj) and literal(tj, env):
+                    # `S="-C x commit"; git $S`, `F=-f; git push $F`: the words it names, split as bash does
+                    toks[j:j + 1] = literal(tj, env); n = len(toks); continue
                 if SEP.match(tj) and ("<" in tj or ">" in tj):
                     # `git >/dev/null commit`, `git push 2>&1 -f`: a redirection and its
                     # file, not the end of the command
@@ -945,7 +970,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                     j += 1; continue
                 if subcmd is None:
                     # `git $S`, `git $\x27\\x63ommit\x27`: a subcommand we cannot read is a commit
-                    subcmd = tj if "$" not in tj and "`" not in tj else (literal(tj, env) or ["commit"])[0]
+                    subcmd = tj if "$" not in tj and "`" not in tj else "commit"
                     j += 1; continue
                 rest.append(tj); j += 1
             if subcmd == "worktree" and rest[:1] == ["add"]:
@@ -1003,7 +1028,10 @@ def ansi_c(m):
 # backslashes removed: `g\x27\x27it com""mit` is git commit, and a desynced parse may
 # have dropped lines from stripped
 _bare = re.sub(r"[\x27\"\\]", "", re.sub(r"\$\x27((?:[^\x27\\]|\\.)*)\x27", ansi_c, cmd))
-GIT_WRITE = re.search(r"\bgit\b", _bare) and re.search(r"\b(commit|push)\b", _bare)
+WRITE_WORD = re.search(r"\b(commit|push)\b", _bare)
+# `( (` tokens are $(( / (( arithmetic unless the text has a ( ( with a blank between
+ARITH = not re.search(r"\(\s+\(", cmd)
+GIT_WRITE = re.search(r"\bgit\b", _bare) and WRITE_WORD
 if punct is None and GIT_WRITE:
     # (a here-document with an odd quote inside "$( … )" is the usual cause)
     deny("Hard rule #1/#7: this command does not tokenize (unbalanced quotes to "

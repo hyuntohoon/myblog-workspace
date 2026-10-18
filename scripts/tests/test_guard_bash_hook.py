@@ -723,22 +723,37 @@ class GuardBashTargetTest(unittest.TestCase):
                     "$(echo git) commit -m x", "`echo git` commit -m x", "${:-git} commit -m x",
                     "\"$(echo git)\" \"$(echo commit)\" -m x", "A=$(true) $\x27\\x67it\x27 commit -m x",
                     "case a in a) $\x27\\x67it\x27 commit -m x;; esac",
-                    "$\x27\\x67it\x27 $\x27\\x63ommit\x27 -m x"]:
+                    "$\x27\\x67it\x27 $\x27\\x63ommit\x27 -m x",
+                    # only $NAME / ${NAME} are read; a value is one word to zsh and is
+                    # never parsed again; IFS changes how bash splits
+                    "X=true; ${X:+git} commit -m x", "( ( $\x27\\x67it\x27 commit -m x ) )",
+                    "$(echo git commit) -m x", "for X in \x27git commit\x27; do $X -m x; done",
+                    "X=\"cd ../feature\"; $X; git commit -m x", "X=\"true ; cd ../feature\"; $X; git commit -m x",
+                    "IFS=:; X=git:commit:-m:x; $X",
+                    "case a in a) env $PWD <(true; cd ../feature) ; git commit -m x ;; esac",
+                    "for Y in commit; do $U git $Y -m x; done"]:
             self.assertDecision("deny", cmd, cwd=main)
         for cmd in ["$\x27\\x63d\x27 ../onmain; git commit -m x", "X=cd; $X ../onmain; git commit -m x",
-                    "X=c; ${X}d ../onmain; git commit -m x"]:
+                    "X=c; ${X}d ../onmain; git commit -m x",
+                    "$U cd ../onmain; git commit -m x"]:   # an unset name is empty: cd is the command
             self.assertDecision("deny", cmd, cwd=feat)
         # a known value, or a path whose last name is literal, is judged as that word
         for cmd in ["X=git; $X commit -m x", "S=/tmp; $S/run.sh; git commit -m x",
                     "\"$(dirname x)\"/run.sh; git commit -m x",
                     "ST=ok; case \"$ST\" in ok) :;; esac; x=1; (( $x > 0 )) && git commit -m x",
-                    "printf %s $(git rev-parse HEAD) $(date); git commit -m x"]:
+                    "printf %s $(git rev-parse HEAD) $(date); git commit -m x",
+                    # arithmetic, when no ( ( with a blank is in the text
+                    "[ $(( $(date +%s) - 1 )) -gt 0 ] && git commit -m x",
+                    # quoted prose a desynced parse puts first is no command name
+                    "git commit -m x; \"see `true` now\""]:
             self.assertDecision("allow", cmd, cwd=feat)
 
     def test_a_git_subcommand_that_is_not_a_literal_word(self):
         main = self.root / "onmain"
         for cmd in ["git $\x27\\x63ommit\x27 -m x", "S=commit; git $S -m x", "git ${S:-commit} -m x"]:
             self.assertDecision("deny", cmd, cwd=main)
+        self.assertDecision("deny", "S=\x27-C ../onmain commit\x27; git $S -m x", cwd=self.root / "feature")
+        self.assertDecision("deny", "S=\x27status ; cd ../feature\x27; git $S; git commit -m x", cwd=main)
         self.assertDecision("allow", "S=status; git $S", cwd=main)
 
     def test_words_after_a_substitution_inside_a_word_are_arguments(self):
