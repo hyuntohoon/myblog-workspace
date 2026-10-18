@@ -192,7 +192,7 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   music with a daily drift workflow). No AWS credential secret exists in any of the six repositories and
   `github-actions-deploy` has zero access keys. Full per-step record → the RFC and `git log`.
 
-  **What is still open — one P0 and one question, both the owner's, plus two ordered follow-ups:**
+  **What is still open — one P0 and two questions, all the owner's (Step 5 follow-ups 1–5 are done):**
   - **The AWS root account access keys.** Deleting the `myblog_front` repo secret did not retire the key.
     `AccountAccessKeysPresent = 1` **re-verified 2026-09-03**; the per-key reading from 2026-08-29 is
     `access_key_1` (rotated 2025-11-13, last used 2025-12-10, ap-northeast-2/cloudformation) and
@@ -202,10 +202,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   - **Should `workspace-check` become a required check?** The workspace repo gained a `pull_request`
     workflow in ws #948 and it has passed on eleven PRs; its ruleset still carries only `main-protection`.
     Making it required is an open item, not a decision already taken.
-  - **Step 5 follow-up 5 — not started**: frontend Playwright golden E2E, 3–5 mocked-boundary
-    journeys, non-required until repeated PR evidence shows it stable. Follow-ups 1–4 are done
-    (3 = the lockfiles; 4 = per-service shared_db pin invariants, 2026-10-18). → the RFC,
-    *Step 5 follow-ups*.
+  - **Should the front `e2e` check become required?** Step 5 follow-up 5 shipped it advisory on
+    2026-10-18 (front #478): 7 Playwright tests over 5 mocked-boundary journeys, `pull_request` only,
+    `retries: 0` so a flake shows red. Evidence so far: green on 2 PR pushes. Promote only on repeated
+    PR evidence; the decision is the owner's. → the RFC, *Step 5 follow-ups*, item 5.
 
 - **FEAT-album-review-authoring** (`docs/rfcs/FEAT-album-review-authoring.md`, accepted) — album
   <!-- rfc: docs/rfcs/FEAT-album-review-authoring.md | status: accepted -->

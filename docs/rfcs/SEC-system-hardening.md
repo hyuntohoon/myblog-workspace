@@ -564,8 +564,21 @@ an item already fixed elsewhere is recorded and skipped rather than rebuilt.
    URL, unknown reference form, second checkout without `ref:`) went red in every repo it applies
    to; the first draft let "derivation reads another file" pass because the step's error message
    also names the lock.
-5. **Frontend Playwright golden E2E** — only after items 1–4; start with 3–5 stable, mocked-boundary
-   journeys and keep the check non-required until repeated PR evidence shows it is stable.
+5. **Frontend Playwright golden E2E — DONE 2026-10-18** (front #478 `327036f`). Five journeys (7
+   tests) in real Chromium against the same API-free build `check` makes: header search → `/search`,
+   result filters, failed search is not "no results" + 다시 시도, album overlay open/close, and the
+   `/write` owner guard (non-owner and `/api/me` failure redirect; owner positive control stays).
+   `e2e/fixtures.ts` is the boundary: off-origin `/api/*` is answered by per-test mocks (503 when
+   unregistered), every other off-origin request is aborted, service workers are blocked, and an
+   uncaught page exception fails the test. The new `e2e` job runs on `pull_request` only, in
+   parallel with `check` (~70 s, of which the uncached Chromium + apt install is 17 s). It is **not**
+   in `main-required-checks`, and `deploy` still needs only `check`. `@playwright/test` 1.63.0 is
+   a new exact-pinned devDependency (an additive lockfile diff, not an upgrade). Each test went red
+   under its own mutant (fail-open guard, owner-handle mismatch, failed flag forced false, filter
+   no-op, close no-op, header search dropping `q`, injected throw); 140/140 locally at
+   `--repeat-each 20`. Prod smoke 32/0 after deploy. **Promotion to required is still open and is
+   the owner's call**, on repeated PR evidence. Known gap: the logged-out `/write` → Cognito branch
+   is not exercised, because `isLocalEnv()` treats `127.0.0.1` as signed in.
 
 Rollback is per PR: revert the individual workflow/contract/build/E2E PR. No item authorizes a
 production migration, Terraform apply, dependency upgrade, or required-check promotion by itself.
