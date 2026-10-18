@@ -687,6 +687,64 @@ class GuardBashTargetTest(unittest.TestCase):
         self.assertDecision("allow", "echo ${x:-a}; cat <<X\ngit -C ../onmain commit\nX\ngit commit -m x",
                             cwd=feat)
 
+    def test_an_operator_inside_a_parameter_expansion(self):
+        feat = self.root / "feature"
+        # one word to the shell; to the tokenizer `(` opened a subshell that `)` closed,
+        # so the cd between them was undone and the commit judged in feature (bash 3.2)
+        self.assertDecision("deny", "echo ${x:-(a}; cd ../onmain; echo ${x:-)a}; git commit -m x", cwd=feat)
+        self.assertDecision("deny", "echo ${x:-;cd ../feature;}; git commit -m x", cwd=self.root / "onmain")
+        self.assertDecision("allow", "echo \"${x:-a;b}\"; echo ${x:-$(date)}; git commit -m x", cwd=feat)
+
+    def test_substitutions_in_an_unquoted_here_document_run(self):
+        feat = self.root / "feature"
+        for cmd in ["cat <<EOF\n$(git -C ../onmain commit -m x)\nEOF",
+                    "cat <<EOF\n`cd ../onmain && git commit -m x`\nEOF",
+                    "cat <<-EOF\n\tit\x27s $(git -C ../onmain commit -m x)\n\tEOF",
+                    "cat <<A\n$(cat <<B\n$(git -C ../onmain commit -m x)\nB\n)\nA",
+                    "git commit -m \"$(cat <<EOF\n${x:-$(git -C ../onmain commit -m y)}\nEOF\n)\""]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        # a quoted delimiter keeps the body plain text; a substitution without git is fine
+        self.assertDecision("allow", "git commit -m \"$(cat <<\x27EOF\x27\n$(git -C ../onmain commit)\nEOF\n)\"",
+                            cwd=feat)
+        self.assertDecision("allow", "cat <<EOF\n$(git log -1 --format=%s)\nEOF\ngit commit -m x", cwd=feat)
+
+    def test_a_block_left_open_by_a_zsh_short_form(self):
+        main = self.root / "onmain"
+        for cmd in ["for x () cd ../feature; git commit -m x",
+                    "foreach x ()\n cd ../feature\nend\ngit commit -m x",
+                    "if false; { cd ../feature }; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        self.assertDecision("allow", "for x in a; do echo; done; git commit -m x", cwd=self.root / "feature")
+
+    def test_a_command_name_that_is_not_a_literal_word(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in ["$\x27\\x67it\x27 commit -m x", "$\x27g\\151t\x27 commit -m x",
+                    "X=git; $X commit -m x", "X=; $X git commit -m x", "X=\"git commit\"; $X -m x",
+                    "$(echo git) commit -m x", "`echo git` commit -m x", "${:-git} commit -m x",
+                    "\"$(echo git)\" \"$(echo commit)\" -m x", "A=$(true) $\x27\\x67it\x27 commit -m x",
+                    "case a in a) $\x27\\x67it\x27 commit -m x;; esac",
+                    "$\x27\\x67it\x27 $\x27\\x63ommit\x27 -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["$\x27\\x63d\x27 ../onmain; git commit -m x", "X=cd; $X ../onmain; git commit -m x",
+                    "X=c; ${X}d ../onmain; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        # a known value, or a path whose last name is literal, is judged as that word
+        for cmd in ["X=git; $X commit -m x", "S=/tmp; $S/run.sh; git commit -m x",
+                    "\"$(dirname x)\"/run.sh; git commit -m x",
+                    "ST=ok; case \"$ST\" in ok) :;; esac; x=1; (( $x > 0 )) && git commit -m x",
+                    "printf %s $(git rev-parse HEAD) $(date); git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=feat)
+
+    def test_a_git_subcommand_that_is_not_a_literal_word(self):
+        main = self.root / "onmain"
+        for cmd in ["git $\x27\\x63ommit\x27 -m x", "S=commit; git $S -m x", "git ${S:-commit} -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        self.assertDecision("allow", "S=status; git $S", cwd=main)
+
+    def test_words_after_a_substitution_inside_a_word_are_arguments(self):
+        # `echo $(x) cd y` echoes; reading cd as a command moved the location (old bypass)
+        self.assertDecision("deny", "echo $(true) cd ../feature; git commit -m x", cwd=self.root / "onmain")
+
     def test_force_push(self):
         self.assertDecision("deny", "git -C onmain push --force origin main")
         self.assertDecision("deny", "cd onmain && git push -f")

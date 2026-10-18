@@ -31,13 +31,12 @@
 # `cd <existing dir> || git commit` (the commit runs only if that cd fails);
 # a wrapper outside the modelled list (`caffeinate git`, `arch -arm64 git`,
 # zsh `- git`); quoted operators (`echo ";"`); a loop body's second pass;
-# zsh's two-argument `cd old new`; `${x:-)}` and `${ …; }`; a substitution
-# in an unquoted here-document body (`<<EOF` … `$(git commit)`); a CDPATH the
-# Bash tool shell sets without this hook seeing it in its own environment;
-# zsh/bash autocd (`../repo` as a command — off in the Bash tool shell); the
-# body of a zsh `foreach … end` (its loop names are unknown, its block is not
-# tracked); a command name spelled by ANSI-C escapes (`$'\x67it'`). A
-# `case` inside a substitution of a git argument is not parsed and denies.
+# zsh's two-argument `cd old new`; `${ …; }` (bash 5.3 — a syntax error in
+# bash 3.2 and zsh 5.9); a CDPATH from neither this hook's environment nor the
+# command (the Bash tool shell is zsh from a snapshot that exports only PATH,
+# and zsh tries ./dir before cdpath); zsh/bash autocd (`../repo` as a command —
+# off in the Bash tool shell). A `case` inside a substitution of a git argument
+# is not parsed and denies.
 # A newline after `&&`, `||`, `|` or `|&` continues the list. An array
 # `X=(…)`/`X+=(…)` and any name set by declare/typeset/local/readonly/read/
 # unset/printf -v/mapfile/getopts/let/for/select is unknown, and a nameref
@@ -49,7 +48,19 @@
 # scanned again for nested ones. A name set
 # by `${D:=x}`/`${D=x}`/`${D::=x}` anywhere in the command is unknown everywhere.
 # A git commit/push in a command that still does not tokenize, or next to a
-# `$'…'` string holding an escaped quote (shlex reads it inside out), denies. A redirection inside a git command
+# `$'…'` string holding an escaped quote (shlex reads it inside out), denies; so
+# does one next to a ${ … } holding ( ) ; & | < or > outside a $( … ): one word to
+# the shell, commands to shlex (`${x:-(a}` … `${x:-)a}` hid the cd between them).
+# The $( … ) and backtick substitutions in an unquoted here-document body (<<EOF,
+# not <<'EOF') run and are judged like quoted ones. A block still open at the end
+# (zsh `for x () cmd`, `if c { … }`, `foreach … end`) leaves every target unknown.
+# A command name that is not a literal word (`$G`, `$(…)`, `$'\x67it'`) is read
+# from values set earlier in the command (split into words as bash does) or from
+# the name after its last /; else the location is unknown after it, and it is a
+# commit of an unknown repo when one of its words is, or may be, commit or push.
+# A git subcommand that is not a literal word is a commit unless its value is
+# known. After a `$( … )` inside a word the word goes on (`echo $(x) cd y` runs
+# no cd). A redirection inside a git command
 # (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file; the
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
 # command list of its own.
@@ -123,6 +134,9 @@ def tok_punct(c):
 # non-word char before WORD, so this script needs no single quote); not <<<.
 HEREDOC_OP = re.compile(r"<<(-?)\s*([^A-Za-z_\s]?)([A-Za-z_][A-Za-z0-9_]*)")
 SQ = chr(39)
+# Bodies of unquoted here-documents (<<EOF, not <<\x27EOF\x27): data, but their
+# $( … ) and backtick substitutions run, so those are judged like quoted ones
+EXPANDING = []
 
 def strip_heredocs(c):
     """Drop here-document bodies: they are data (a commit message, a PR body),
@@ -143,15 +157,21 @@ def strip_heredocs(c):
             out.append(ch); k += 1; continue
         if ch == "\n" and pending:
             out.append(ch); k += 1
+            body = []
             while pending:                    # consume the bodies, in order
                 if k >= n:
                     return c
                 nl = c.find("\n", k)
                 line = c[k:] if nl < 0 else c[k:nl]
                 k = n if nl < 0 else nl + 1
-                dash, word = pending[0]
+                dash, word, expands = pending[0]
                 if (line.lstrip("\t") if dash else line) == word:
                     pending.pop(0)
+                    if expands:
+                        EXPANDING.append("\n".join(body))
+                    body = []
+                elif expands:
+                    body.append(line)
             continue
         if ch == "\\":
             out.append(c[k:k + 2]); k += 2; continue
@@ -180,7 +200,7 @@ def strip_heredocs(c):
                 and (k == 0 or c[k - 1] != "<"):
             m = HEREDOC_OP.match(c, k)
             if m:
-                pending.append((m.group(1) == "-", m.group(3)))
+                pending.append((m.group(1) == "-", m.group(3), m.group(2) == ""))
                 k = m.end()
                 if m.group(2) in ("\"", SQ):
                     if c[k:k + 1] == m.group(2):
@@ -207,10 +227,12 @@ def lines_as_commands(c):
 # A $\x27…\x27 string with an escaped quote in it (bash and zsh ANSI-C quoting)
 ANSI_C_ESCAPED_QUOTE = re.compile(r"\$\x27(?:[^\x27\\]|\\[^\x27])*\\\x27")
 
-def quoted_bodies(c):
+def quoted_bodies(c, heredoc=False):
     """Bodies of each $( … ) inside double quotes and of each `…`, outside single
     quotes and here-document bodies. They run, but tok_punct keeps them inside one
-    word (`echo "$(git commit)"`) or splits them into plain words (backticks)."""
+    word (`echo "$(git commit)"`) or splits them into plain words (backticks).
+    heredoc: c is the body of an unquoted here-document, read like the inside of
+    double quotes whose quote characters are plain text."""
     bodies, n = [], len(c)
 
     def backtick(k):                          # k: just past the opening backtick
@@ -224,8 +246,8 @@ def quoted_bodies(c):
         bodies.extend(quoted_bodies(body))
         return k + 1
 
-    def dquote(k):                            # k: just past the opening quote
-        while k < n and c[k] != "\"":
+    def dquote(k, closer="\""):              # k: just past the opening quote
+        while k < n and c[k] != closer:
             if c[k] == "\\":
                 k += 2
             elif c.startswith("$(", k) and not c.startswith("$((", k):
@@ -303,6 +325,9 @@ def quoted_bodies(c):
             k += 1
         return n + 1
 
+    if heredoc:
+        dquote(0, None)
+        return bodies
     k = 0
     while k < n:
         ch = c[k]
@@ -317,6 +342,45 @@ def quoted_bodies(c):
         else:
             k += 1
     return bodies
+
+def expansion_operators(c):
+    """True when an unquoted ${ … } holds ( ) ; & | < or > outside a $( … ) or
+    quotes. The shell keeps them in one word; tok_punct splits there, so `${x:-(a}`
+    opened a subshell that a later `${x:-)a}` closed, undoing the cd between them.
+    Quoted text stays one word; the substitutions in it are scanned as bodies."""
+    k, n = 0, len(c)
+    while k < n:
+        ch = c[k]
+        if ch == "\\":
+            k += 2; continue
+        if ch == SQ:
+            e = c.find(SQ, k + 1); k = n if e < 0 else e + 1; continue
+        if ch in ("\"", "`"):
+            k += 1
+            while k < n and c[k] != ch:
+                k += 2 if c[k] == "\\" else 1
+            k += 1; continue
+        if not c.startswith("${", k):
+            k += 1; continue
+        k, depth, paren = k + 2, 1, 0
+        while k < n and depth:
+            ch = c[k]
+            if ch == "\\":
+                k += 2; continue
+            if ch in (SQ, "\"", "`"):
+                e = c.find(ch, k + 1); k = n if e < 0 else e + 1; continue
+            if c.startswith("$(", k):
+                paren += 1; k += 2; continue
+            if c.startswith("${", k):
+                depth += 1; k += 2; continue
+            if paren:
+                paren += 1 if ch == "(" else -1 if ch == ")" else 0
+            elif ch in "()<>;&|":
+                return True
+            elif ch == "}":
+                depth -= 1
+            k += 1
+    return False
 
 stripped = strip_heredocs(cmd)
 try:
@@ -434,7 +498,7 @@ GIT_DIR_VARS = {"GIT_DIR", "GIT_WORK_TREE"}
 # Builtins that set the variables they name (bash and zsh)
 SETTERS = {"declare", "typeset", "local", "readonly", "read", "unset", "printf", "print",
            "mapfile", "readarray", "getopts", "let", "integer", "float", "vared",
-           "foreach"}                         # zsh `foreach D (x y)`: its body is not tracked
+           "foreach"}                         # zsh `foreach D (x y)`: also opens a block that never closes
 NAME_WORD = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\+?=|$)")
 created = {}                                  # dirs made by `git worktree add` in this command → branch
 
@@ -462,6 +526,26 @@ def resolve_dir(path, base, env, physical=False):
     if p is None:
         return None
     return p if os.path.isdir(p) or os.path.realpath(p) in created else None
+
+def literal(word, env):
+    """The plain words an expansion like $G names, from values set earlier in the
+    command; None when unknown, empty, or holding a quote or glob character."""
+    w = VAR_REF.sub(lambda m: m.group(0) if m.group(1) in EXPANDED
+                    else env.get(m.group(1), m.group(0)), word)
+    return w.split() if re.fullmatch(r"\s*[^\s$`*?\[\x27\"\\]+(\s+[^\s$`*?\[\x27\"\\]+)*\s*", w) else None
+
+def maybe_words(word, env):
+    """Words a git argument may be: itself, the words it names, or commit and push
+    when it holds an expansion we cannot read whose literal text fits around them
+    (`$Y`, `"$(echo commit)"`, `c${X}`, `$\x27\\x63ommit\x27` — not `$D/x` or `--m=$V`)."""
+    if "$" not in word and "`" not in word:
+        return [word]
+    words = literal(word, env)
+    if words is not None:
+        return words
+    plain = re.sub(r"\$\([^()]*\)|`[^`]*`|\$\{[^{}]*\}|\$[A-Za-z_0-9@*#?!$-]*", "", word)
+    # a backslash left by shlex in $\x27\\x63ommit\x27 is an escape we do not decode
+    return ["commit", "push"] if re.fullmatch(r"[A-Za-z0-9\\]*", plain) else []
 
 def worktree_add_branch(rest):
     """(path, branch) a `git worktree add …` will create, from its arguments."""
@@ -604,10 +688,15 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         if expect_cmd and t == "function":
             broken = True; i += 1; continue   # `function f …`: a body we do not model
         if SEP.match(t):
+            resume = True
             for ch in re.findall(r"\|\||&&|;+&?|\|&?|&|\(|\)", t):
                 if ch == "(":
                     open_block("(", False)
+                    # `echo $(x) $y`: after the ) the word goes on, so $y is no command name
+                    stack[-1]["resume"] = expect_cmd if i and toks[i - 1].endswith("$") else True
                 elif ch == ")":
+                    if stack and stack[-1]["kind"] == "(":
+                        resume = stack[-1]["resume"]
                     end_list()
                     if not (stack and stack[-1]["kind"] == "case"):
                         close_block({"("})    # else `case x in a) …`: a pattern, not a subshell
@@ -631,7 +720,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                     end_list()
             prefix, exporting, opaque, fd_word, external, wrapped = {}, False, False, False, False, False
             unsure = piped_args = False
-            expect_cmd = True; i += 1; continue
+            expect_cmd = resume; i += 1; continue
         if expect_cmd and t == "export":
             exporting = True; i += 1; continue
         if expect_cmd and t in SETTERS:
@@ -655,6 +744,8 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 broken = True                 # a nameref: a later `D=x` may set GIT_DIR
             forget(False, names)
             touched(False, names)
+            if t == "foreach":
+                open_block("foreach", True)   # closed by `end`, which is not modelled: never closes
             expect_cmd = False; i += 1; continue
         if (expect_cmd or exporting) and ASSIGN.match(t):
             j = i
@@ -758,6 +849,36 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                         break
                     i += 1; k += 1            # `timeout 60 git …`: 60 is not the command
             continue
+        if expect_cmd and ("$" in t or "`" in t) and toks[i - 1:i] != ["case"] \
+                and toks[max(i - 2, 0):i] != ["(", "("]:   # `case $x in`, `(( $x ))`: no command
+            words = literal(t, env)
+            tail = t.rsplit("/", 1)[-1]
+            if words:
+                toks[i:i + 1] = words         # `G=git; $G commit`: judged as the words it names
+                n = len(toks); continue       # (split as bash does; zsh runs one word, which fails)
+            if "/" in t and re.fullmatch(r"[A-Za-z0-9._+-]+", tail):
+                toks[i] = "/" + tail; continue    # `$S/run.sh`, `"$D"/git`: a path ends in its name
+            # any other name made by an expansion or by $\x27\\x67it\x27 escapes may be git or cd,
+            # or empty (`$UNSET git commit`): the location is unknown from here on, and a
+            # commit/push word, or one we cannot read, among its words makes it a commit
+            if not external:
+                touched(True, set())
+                here = None
+            k = i + 1
+            if t == "$" and k < n and toks[k] == "(":
+                k = substitution(k)           # `$(echo git) commit`
+            while k < n:
+                if toks[k] == "(" and toks[k - 1].endswith("$"):
+                    k = substitution(k); continue
+                if SEP.match(toks[k]) and ("<" in toks[k] or ">" in toks[k]):
+                    k += 2; continue
+                if SEP.match(toks[k]):
+                    break
+                if {"commit", "push"} & set(maybe_words(toks[k], env)):
+                    out.append(("commit", None, []))  # `$X commit`, `$X $Y`: maybe git commit
+                    break
+                k += 1
+            expect_cmd = False; i = k; continue
         if expect_cmd and t in ("cd", "pushd", "popd"):
             arg = toks[i + 1] if i + 1 < n and not SEP.match(toks[i + 1]) else None
             before = here
@@ -823,7 +944,9 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 if subcmd is None and tj.startswith("-"):
                     j += 1; continue
                 if subcmd is None:
-                    subcmd = tj; j += 1; continue
+                    # `git $S`, `git $\x27\\x63ommit\x27`: a subcommand we cannot read is a commit
+                    subcmd = tj if "$" not in tj and "`" not in tj else (literal(tj, env) or ["commit"])[0]
+                    j += 1; continue
                 rest.append(tj); j += 1
             if subcmd == "worktree" and rest[:1] == ["add"]:
                 path, branch = worktree_add_branch(rest)
@@ -835,6 +958,10 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             out.append((subcmd, target, rest))
             i = j; expect_cmd = False; continue
         expect_cmd = False; i += 1
+    if stack:
+        # a block never closed: zsh short forms (`for x () cd y`, `if c { … }`) and
+        # `foreach … end` end where this does not model, so no target is known
+        return [(s, None, r) for s, _t, r in out]
     return out
 
 FORCE_EXACT = {"--force", "--force-with-lease", "-f"}
@@ -865,9 +992,17 @@ def current_branch(target):
         return ""
 
 warn = None
-# On the raw text with quotes and backslashes removed: `g\x27\x27it com""mit` is git commit,
-# and a desynced parse may have dropped lines from stripped
-_bare = re.sub(r"[\x27\"\\]", "", cmd)
+
+def ansi_c(m):
+    try:
+        return m.group(1).encode("latin-1", "backslashreplace").decode("unicode_escape")
+    except Exception:
+        return m.group(1)
+
+# On the raw text with $\x27…\x27 escapes decoded ($\x27\\x67it\x27 is git) and quotes and
+# backslashes removed: `g\x27\x27it com""mit` is git commit, and a desynced parse may
+# have dropped lines from stripped
+_bare = re.sub(r"[\x27\"\\]", "", re.sub(r"\$\x27((?:[^\x27\\]|\\.)*)\x27", ansi_c, cmd))
 GIT_WRITE = re.search(r"\bgit\b", _bare) and re.search(r"\b(commit|push)\b", _bare)
 if punct is None and GIT_WRITE:
     # (a here-document with an odd quote inside "$( … )" is the usual cause)
@@ -885,14 +1020,24 @@ if ANSI_C_ESCAPED_QUOTE.search(stripped) and GIT_WRITE:
          "own call without that quoting.")
 if punct is not None:
     invocations = git_invocations(punct)
-    # A substitution inside double quotes or backticks runs too. Where it runs is
-    # not tracked: each git in it is judged with an unknown repo
-    for body in quoted_bodies(stripped):
+    # A substitution inside double quotes or backticks, or in an unquoted here-document
+    # body, runs too. Where it runs is not tracked: each git in it is judged with an
+    # unknown repo. Parsing a body may find more here-documents
+    bodies, done, suspect = quoted_bodies(stripped), 0, expansion_operators(stripped)
+    while bodies or done < len(EXPANDING):
+        if done < len(EXPANDING):
+            bodies.extend(quoted_bodies(EXPANDING[done], True)); done += 1; continue
+        body = bodies.pop(0)
+        suspect = suspect or expansion_operators(body)
         try:
             inner = git_invocations(tok_punct(lines_as_commands(strip_heredocs(body))), None)
         except ValueError:
             inner = [("commit", None, [])] if re.search(r"\bgit\b", body) and re.search(r"\b(commit|push)\b", body) else []
         invocations.extend((s, None, r) for s, _t, r in inner)
+    if suspect and GIT_WRITE:
+        deny("Hard rule #1/#7: a ${ … } holding ( ) ; & | < or > is one word to the shell "
+             "but splits into commands here, so this git commit/push cannot be judged. "
+             "Run the git command in its own call.")
 
     UNRESOLVED = ("cannot tell which repo this `git %s` targets (shell variable, "
                   "command substitution, `cd -`/`popd`, GIT_DIR/--git-dir, or a path "
