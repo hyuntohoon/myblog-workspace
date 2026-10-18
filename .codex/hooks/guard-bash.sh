@@ -168,6 +168,8 @@ def strip_heredocs(c):
             arith -= 1; out.append("))"); k += 2; continue
         elif c.startswith("$[", k):
             brack += 1; out.append("$["); k += 2; continue
+        elif brace and (ch == "`" or c.startswith("$(", k)):
+            return c                          # `${x:-`echo }` <<X }`: a } in it would end the count early
         elif c.startswith("${", k) or (brace and ch == "{"):
             brace += 1; out.append(c[k:k + 2] if ch == "$" else ch); k += 2 if ch == "$" else 1; continue
         elif brace and ch == "}":
