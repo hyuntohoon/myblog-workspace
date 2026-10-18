@@ -32,7 +32,8 @@
 # `X+=…`; a wrapper given by path or with arguments (`/usr/bin/env git`,
 # `timeout 60 git`); quoted operators (`echo ";"`); a loop body's second pass;
 # zsh's two-argument `cd old new`; a substitution inside double quotes
-# (`git log "$(git commit)"`). A redirection inside a git command
+# (`git log "$(git commit)"`) or backticks. A `case` inside a substitution of a
+# git argument is not parsed and denies. A redirection inside a git command
 # (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file; the
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
 # command list of its own.
@@ -389,7 +390,12 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             j += 1
             if paren <= 0:
                 break
-        inner = git_invocations(toks[a + 1:j - 1], here, env, depth + 1)
+        body = toks[a + 1:j - 1]
+        if "case" in body:
+            # a case pattern `a)` would end the count early: `<(case x in a) git commit;; esac)`
+            out.append(("commit", None, []))
+            return j
+        inner = git_invocations(body, here, env, depth + 1)
         out.extend((s, None if broken or opaque else t, r) for s, t, r in inner)
         return j
 

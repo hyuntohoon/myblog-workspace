@@ -350,7 +350,9 @@ class GuardBashTargetTest(unittest.TestCase):
         for cmd in ["git status <(git commit -m x)",          # #1113 skipped the body unread
                     "git status >(git commit -m x)",
                     "git status 2> >(git commit -m x)",
-                    "git status $(git commit -m x)"]:          # never parsed before
+                    "git status $(git commit -m x)",           # never parsed before
+                    "git status <(case x in a) git commit -m x;; esac)",  # a pattern `)` is not the end
+                    "git status $(case x in a|b) git commit -m x;; esac)"]:
             self.assertDecision("deny", cmd, cwd=main)
         for cmd in ["git status $(cd ../onmain && git commit -m x)",  # runs where the shell is
                     "GIT_DIR=x; git status $(git commit -m x)",       # and sees its variables
