@@ -675,6 +675,15 @@ class GuardBashTargetTest(unittest.TestCase):
         self.assertDecision("deny", f"cdpath=({main} .); cd sub && git commit -m x", cwd=feat)
         self.assertDecision("deny", f"cdpath+=({main}); cd sub && git commit -m x", cwd=feat)
 
+    def test_a_here_document_operator_inside_a_parameter_expansion(self):
+        feat = self.root / "feature"
+        # `${x:-<<X }` opens nothing: dropping the lines up to X hid the commit
+        self.assertDecision("deny", "echo ${x:-<<X }\ngit -C ../onmain commit -m x\nX", cwd=feat)
+        self.assertDecision("deny", "echo ${x:-${y:-<<X }}\ngit -C ../onmain commit -m x\nX", cwd=feat)
+        # a here-document after a closed expansion is still one
+        self.assertDecision("allow", "echo ${x:-a}; cat <<X\ngit -C ../onmain commit\nX\ngit commit -m x",
+                            cwd=feat)
+
     def test_force_push(self):
         self.assertDecision("deny", "git -C onmain push --force origin main")
         self.assertDecision("deny", "cd onmain && git push -f")

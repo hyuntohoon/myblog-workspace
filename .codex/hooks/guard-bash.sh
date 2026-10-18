@@ -132,7 +132,7 @@ def strip_heredocs(c):
     terminator line the raw text is judged instead — a lookalike must not be
     able to hide the commands after it."""
     out, pending, k, n = [], [], 0, len(c)
-    quote, arith, brack = None, 0, 0
+    quote, arith, brack, brace = None, 0, 0, 0
     while k < n:
         ch = c[k]
         if quote:
@@ -168,9 +168,13 @@ def strip_heredocs(c):
             arith -= 1; out.append("))"); k += 2; continue
         elif c.startswith("$[", k):
             brack += 1; out.append("$["); k += 2; continue
+        elif c.startswith("${", k) or (brace and ch == "{"):
+            brace += 1; out.append(c[k:k + 2] if ch == "$" else ch); k += 2 if ch == "$" else 1; continue
+        elif brace and ch == "}":
+            brace -= 1                        # `${x:-<<X }`: a word in the expansion, not an opener
         elif brack and ch in "[]":
             brack += 1 if ch == "[" else -1
-        elif not arith and not brack and c.startswith("<<", k) and not c.startswith("<<<", k) \
+        elif not arith and not brack and not brace and c.startswith("<<", k) and not c.startswith("<<<", k) \
                 and (k == 0 or c[k - 1] != "<"):
             m = HEREDOC_OP.match(c, k)
             if m:
