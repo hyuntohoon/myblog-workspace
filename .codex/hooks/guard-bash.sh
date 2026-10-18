@@ -29,9 +29,9 @@
 # Not covered: git inside `bash -c "…"`, eval, a here-string, a function call
 # or alias, or a script file; a quoted `"}"`/`"fi"` read as the reserved word;
 # `cd <existing dir> || git commit` (the commit runs only if that cd fails);
-# `X+=…`; a wrapper outside the modelled list (`xargs git`, `stdbuf -o0 git`,
-# zsh `noglob cd x`); a second time/builtin making the cd a program
-# (`time time cd x`);
+# a wrapper outside the modelled list (`caffeinate git`, `arch -arm64 git`,
+# zsh `- git`); an array `X=(…)`/`X+=(…)`; declare/typeset/read/for setting a
+# variable; CDPATH (bash); a newline after `||` or `|` (read as a `;`);
 # quoted operators (`echo ";"`); a loop body's second pass;
 # zsh's two-argument `cd old new`; a substitution inside double quotes
 # (`git log "$(git commit)"`) or backticks. A `case` inside a substitution of a
@@ -40,9 +40,14 @@
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
 # command list of its own.
 # A cd after a wrapper that starts a program (`env cd x`, `timeout 9 cd x`)
-# does not move the shell; after a bare builtin/time it does; after `command`
-# or a wrapper option the location is unknown (bash and zsh differ). An assignment
-# after any wrapper (`env D=x;`) makes the variable unknown.
+# does not move the shell, nor after a time that follows another wrapper
+# (`time time cd x`: /usr/bin/time in both shells); after a bare builtin it
+# does; after `command`, zsh noglob/nocorrect, a first time (the reserved word
+# or /usr/bin/time depending on position, quoting and the shell: `if time cd
+# x` is a program in bash 3.2) or a wrapper option the location is unknown.
+# A git after xargs takes its subcommand and -C from stdin: unknown, denies.
+# An assignment after any wrapper (`env D=x;`) makes the variable unknown;
+# `D+=x` appends to D.
 # Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
@@ -250,7 +255,7 @@ if plain is not None:
 # =========================================================================
 # Checks 4+5 — git invocation state machine (Hard Rules #1, #7)
 # =========================================================================
-ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?=")
 VALUE_FLAGS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix"}
 
 def is_git(t):
@@ -259,13 +264,18 @@ def is_git(t):
 VAR_REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
 # Words that put the next word back in command position.
 WRAPPERS = {"env", "command", "builtin", "exec", "time", "nice", "nohup", "sudo",
-            "timeout", "gtimeout"}
+            "timeout", "gtimeout", "xargs", "stdbuf", "noglob", "nocorrect"}
 # Wrappers whose first operand is not the command (timeout DURATION cmd …).
 OPERANDS = {"timeout": 1, "gtimeout": 1}
 # Wrappers that run a cd in the shell itself, in bash and zsh alike. After
-# `command` it depends on the shell (zsh runs /usr/bin/cd); the rest start a
-# program, so a cd after them (`env cd x`, `timeout 9 cd x`) moves nothing.
+# `command` it depends on the shell (zsh runs /usr/bin/cd), as after the zsh
+# modifiers noglob/nocorrect (no such command in bash) and a first `time` (the
+# reserved word only at some positions, and unquoted: bash 3.2 runs
+# /usr/bin/time after if/while/!, `\time` is always the program); after another
+# wrapper `time` is /usr/bin/time in both shells. The rest start a program, so
+# a cd after them (`env cd x`, `timeout 9 cd x`) moves nothing.
 IN_SHELL = {"builtin", "time"}
+UNSURE = {"command", "noglob", "nocorrect", "time"}
 
 def wrapper(t):
     """Wrapper name t runs as — /usr/bin/env is env — else None."""
@@ -337,6 +347,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
     external = False                          # the command runs as a program, not in this shell
     unsure = False                            # `command cd x`: moves the shell in bash, not in zsh
     wrapped = False                           # a wrapper came first: `env D=x` is no shell assignment
+    piped_args = False                        # after xargs: git takes more arguments from stdin
     fd_word = False                           # a bare number was skipped as the fd of a redirection
     broken = False                            # unmatched or unmodelled block syntax: nothing after it is trusted
     # The and-or list / pipeline being parsed. A cd or assignment that may not
@@ -461,18 +472,24 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 else:                         # ; ;; ;& ;;&
                     end_list()
             prefix, exporting, opaque, fd_word, external, wrapped = {}, False, False, False, False, False
-            unsure = False
+            unsure = piped_args = False
             expect_cmd = True; i += 1; continue
         if expect_cmd and t == "export":
             exporting = True; i += 1; continue
         if (expect_cmd or exporting) and ASSIGN.match(t):
             j = i
             assigns = {}
+            appended = False
             while j < n and ASSIGN.match(toks[j]):
                 name, _, value = toks[j].partition("=")
+                if name.endswith("+"):        # `D+=/sub` appends to D; unknown D stays unknown
+                    name = name[:-1]
+                    value = assigns.get(name, env.get(name, "$" + name)) + value
+                    appended = True
                 assigns[name] = value; j += 1
             if exporting or j >= n or SEP.match(toks[j]):
-                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word or wrapped:
+                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word or wrapped \
+                        or (exporting and appended):  # `export D+=x`: an error in zsh
                     forget(False, assigns)    # `true || X=… && git -C "$X"`: may have been skipped;
                                               # `env X=…;`: a program named X=…, X stays as it was
                 else:
@@ -502,16 +519,26 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 b = stack[-1]                 # `if false; then cd x; else git …`: the then-branch did not run
                 forget(b["cd"], b["vars"])
             i += 1; continue
+        if expect_cmd and t == "!" and i and (ASSIGN.match(toks[i - 1]) or (
+                i > 1 and not SEP.match(toks[i - 1]) and SEP.match(toks[i - 2])
+                and ("<" in toks[i - 2] or ">" in toks[i - 2]))):
+            # right after an assignment or a redirection (`D=1 ! cd x`, `>f ! cd x`): a
+            # command named ! in bash, a parse error in zsh. After `>f {` it is the keyword
+            expect_cmd = False; i += 1; continue
         if expect_cmd and (wrapper(t) or t in KEYWORDS):
             if t in OPEN_CTL:
                 open_block(t, True)
-            i += 1
             w = wrapper(t)
-            wrapped = wrapped or bool(w)
-            if w == "command" and "/" not in t:
-                unsure = True
-            elif w and (w not in IN_SHELL or "/" in t):
+            bare = "/" not in t
+            i += 1
+            if w == "time" and bare and wrapped:
                 external = True
+            elif bare and w in UNSURE:
+                unsure = True
+            elif w and (w not in IN_SHELL or not bare):
+                external = True
+            wrapped = wrapped or bool(w)
+            piped_args = piped_args or w == "xargs"
             if w and i < n and toks[i].startswith("-"):
                 # options may take arguments (nice -n 5, sudo -u x, env -C dir):
                 # skip to the git word, if any, and treat its repo as unknown
@@ -560,6 +587,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             expect_cmd = False; continue
         if expect_cmd and is_git(t):
             target, subcmd, rest, j = here, None, [], i + 1
+            unknown = False                   # `git -C <f x commit`: the value is past a redirection
             if opaque or broken or GIT_DIR_VARS & (set(prefix) | set(env)):
                 target = None                 # GIT_DIR / GIT_WORK_TREE redirect the repo
             while j < n:
@@ -582,11 +610,18 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                     break
                 if subcmd is None and tj.split("=", 1)[0] in ("--git-dir", "--work-tree"):
                     target = None
-                if tj == "-C" and j + 1 < n:
-                    target = resolve_dir(toks[j + 1], target, env, True); j += 2; continue
+                value = j + 1 < n and not SEP.match(toks[j + 1])   # `git -C; git commit`: no value
+                if (tj == "-C" or (subcmd is None and tj in VALUE_FLAGS)) and j + 1 < n and (
+                        (not value and ("<" in toks[j + 1] or ">" in toks[j + 1]))
+                        or (re.fullmatch(r"[0-9]+", toks[j + 1]) and j + 2 < n
+                            and re.match(r"^[<>]", toks[j + 2]))):   # `-C 2>/dev/null x`, or `-c 2 >f`
+                    unknown = True
+                if tj == "-C":
+                    target = resolve_dir(toks[j + 1], target, env, True) if value else None
+                    j += 2 if value else 1; continue
                 if tj.startswith("-C") and len(tj) > 2:
                     target = resolve_dir(tj[2:], target, env, True); j += 1; continue
-                if subcmd is None and tj in VALUE_FLAGS and j + 1 < n:
+                if subcmd is None and tj in VALUE_FLAGS and value:
                     j += 2; continue
                 if subcmd is None and tj.startswith("-"):
                     j += 1; continue
@@ -598,6 +633,8 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 new_dir = expand_path(path, target, env, True) if path else None
                 if new_dir is not None:
                     created[new_dir] = branch
+            if piped_args or unknown:
+                subcmd, target = "commit", None   # `echo commit | xargs git`: unknown, deny
             out.append((subcmd, target, rest))
             i = j; expect_cmd = False; continue
         expect_cmd = False; i += 1
