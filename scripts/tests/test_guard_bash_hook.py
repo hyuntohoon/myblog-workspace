@@ -320,6 +320,75 @@ class GuardBashTargetTest(unittest.TestCase):
             self.assertDecision("deny", cmd, cwd=self.root / "feature")
         self.assertDecision("allow", "env git commit -m x", cwd=self.root / "feature")
 
+    def test_wrapper_by_path_or_with_a_positional_argument(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in ["/usr/bin/env git commit -m x",            # used to read `/usr/bin/env` as the command
+                    "/usr/bin/time git commit -m x",
+                    "/usr/bin/env GIT_DIR=x git status; git commit -m x",
+                    "timeout 60 git commit -m x",               # `60` used to end command position
+                    "gtimeout 5m git push --force origin main",
+                    "timeout 60 env git commit -m x",
+                    "/usr/bin/timeout 60 git commit -m x",
+                    "timeout -s KILL 60 git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["/usr/bin/env git commit -m x",
+                    "timeout 60 git commit -m x",
+                    "/usr/bin/env GIT_DIR=x true; git commit -m x"]:  # a prefix stays on its command
+            self.assertDecision("allow", cmd, cwd=feat)
+        for cmd in ["/usr/bin/env GIT_DIR=../onmain/.git git commit -m x",
+                    "timeout 60 /usr/bin/env -C ../onmain git commit -m x",
+                    "timeout -s KILL 60 git commit -m x"]:      # options: repo unknown, as for nice -n
+            self.assertDecision("deny", cmd, cwd=feat)
+
+    def test_cd_after_a_program_wrapper_does_not_move_the_shell(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in ["env cd ../feature && git commit -m x",   # used to follow the cd and allow
+                    "nohup cd ../feature; git commit -m x",
+                    "timeout 60 cd ../feature && git commit -m x",
+                    "/usr/bin/time cd ../feature && git commit -m x",
+                    "true && env cd ../feature; git commit -m x",
+                    "command cd ../feature && git commit -m x"]:  # zsh runs /usr/bin/cd
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["builtin cd ../feature && git commit -m x",  # these run cd in the shell
+                    "time cd ../feature && git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=main)
+        self.assertDecision("allow", "env cd ../onmain && git commit -m x", cwd=feat)
+
+    def test_review_round6(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [# after a wrapper, D=… is a program name: D stays unset, -C "" is here
+                    "env D=../feature; git -C \"$D\" commit -m x",
+                    "timeout 5 D=../feature; git -C \"$D\" commit -m x",
+                    "/usr/bin/env export D=../feature; cd $D && git commit -m x",
+                    # a redirection before the duration is not the duration
+                    "timeout 2>/dev/null 60 git commit -m x",
+                    "timeout >/dev/null 60 git commit -m x",
+                    "timeout 2> >(cat) 60 git commit -m x",
+                    "timeout 2 >/dev/null git commit -m x",   # 2 is the duration here
+                    # -v / -V only print what cd is: the shell stays put
+                    "command -v cd ../feature && git commit -m x",
+                    "command -V cd ../feature; git commit -m x",
+                    "command -pv cd ../feature; git commit -m x",
+                    "command -v pushd ../feature; git commit -m x",
+                    # after an option the cd may not run (bash time takes one -p, no --;
+                    # zsh time takes none, zsh command runs /usr/bin/cd): unknown
+                    "time -- cd ../feature; git commit -m x",
+                    "time -p -- cd ../feature; git commit -m x",
+                    "time -p -p cd ../feature; git commit -m x",
+                    "time -p cd ../feature; git commit -m x",
+                    "command -p cd ../feature; git commit -m x",
+                    "command -- cd ../feature; git commit -m x",
+                    "command -p -- cd ../feature; git commit -m x",
+                    "builtin -- cd ../feature; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["command -p cd ../onmain; git commit -m x",   # options do not hide a real cd
+                    "command -- cd ../onmain; git commit -m x",
+                    "time -p cd ../onmain; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        for cmd in ["timeout 2>/dev/null 60 git commit -m x",
+                    "timeout 60 >/dev/null git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=feat)
+
     def test_dash_c_uses_the_physical_path(self):
         self.assertDecision("deny", "git -C feature/lnk/.. commit -m x")
 

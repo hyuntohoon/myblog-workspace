@@ -16,8 +16,8 @@
 # separators, env-var prefixes (VAR=val git …), subshells and `git -C` can't
 # smuggle a commit/push past the guard. The state machine also follows
 # `cd`/`pushd` (logical) and `-C` (physical), same-command `VAR=…` assignments,
-# wrappers (env/command/time/sudo…) and worktrees created earlier in the same
-# command, through newlines, ( … ), { … } and if/while/until/for/select/case;
+# wrappers (env/command/time/sudo/timeout…, also by path: /usr/bin/env) and
+# worktrees created earlier in the same command, through newlines, ( … ), { … } and if/while/until/for/select/case;
 # here-document bodies are data and skipped. A pipeline stage, a list ended by
 # `&` and a ( … ) run in a subshell: their cd and assignments do not move the
 # shell. A cd or assignment that may not have run (after && / ||, in a block
@@ -29,14 +29,20 @@
 # Not covered: git inside `bash -c "…"`, eval, a here-string, a function call
 # or alias, or a script file; a quoted `"}"`/`"fi"` read as the reserved word;
 # `cd <existing dir> || git commit` (the commit runs only if that cd fails);
-# `X+=…`; a wrapper given by path or with arguments (`/usr/bin/env git`,
-# `timeout 60 git`); quoted operators (`echo ";"`); a loop body's second pass;
+# `X+=…`; a wrapper outside the modelled list (`xargs git`, `stdbuf -o0 git`,
+# zsh `noglob cd x`); a second time/builtin making the cd a program
+# (`time time cd x`);
+# quoted operators (`echo ";"`); a loop body's second pass;
 # zsh's two-argument `cd old new`; a substitution inside double quotes
 # (`git log "$(git commit)"`) or backticks. A `case` inside a substitution of a
 # git argument is not parsed and denies. A redirection inside a git command
 # (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file; the
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
 # command list of its own.
+# A cd after a wrapper that starts a program (`env cd x`, `timeout 9 cd x`)
+# does not move the shell; after a bare builtin/time it does; after `command`
+# or a wrapper option the location is unknown (bash and zsh differ). An assignment
+# after any wrapper (`env D=x;`) makes the variable unknown.
 # Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
@@ -252,7 +258,19 @@ def is_git(t):
 
 VAR_REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
 # Words that put the next word back in command position.
-WRAPPERS = {"env", "command", "builtin", "exec", "time", "nice", "nohup", "sudo"}
+WRAPPERS = {"env", "command", "builtin", "exec", "time", "nice", "nohup", "sudo",
+            "timeout", "gtimeout"}
+# Wrappers whose first operand is not the command (timeout DURATION cmd …).
+OPERANDS = {"timeout": 1, "gtimeout": 1}
+# Wrappers that run a cd in the shell itself, in bash and zsh alike. After
+# `command` it depends on the shell (zsh runs /usr/bin/cd); the rest start a
+# program, so a cd after them (`env cd x`, `timeout 9 cd x`) moves nothing.
+IN_SHELL = {"builtin", "time"}
+
+def wrapper(t):
+    """Wrapper name t runs as — /usr/bin/env is env — else None."""
+    name = t.rsplit("/", 1)[-1]
+    return name if name in WRAPPERS else None
 KEYWORDS = {"if", "while", "until", "for", "select", "case", "!"}
 OPEN_CTL = {"if", "while", "until", "for", "select", "case"}
 CLOSERS = {"fi": {"if"}, "done": {"while", "until", "for", "select"}, "esac": {"case"}}
@@ -316,6 +334,9 @@ def git_invocations(toks, start=False, env0=None, depth=0):
     prefix = {}                               # VAR=… prefixes of the current simple command
     exporting = False
     opaque = False                            # wrapper options we do not model (nice -n 5, env -C …)
+    external = False                          # the command runs as a program, not in this shell
+    unsure = False                            # `command cd x`: moves the shell in bash, not in zsh
+    wrapped = False                           # a wrapper came first: `env D=x` is no shell assignment
     fd_word = False                           # a bare number was skipped as the fd of a redirection
     broken = False                            # unmatched or unmodelled block syntax: nothing after it is trusted
     # The and-or list / pipeline being parsed. A cd or assignment that may not
@@ -439,7 +460,8 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                     ctx["piped"], ctx["pipe_start"], ctx["pipe_vars"] = False, here, set()
                 else:                         # ; ;; ;& ;;&
                     end_list()
-            prefix, exporting, opaque, fd_word = {}, False, False, False
+            prefix, exporting, opaque, fd_word, external, wrapped = {}, False, False, False, False, False
+            unsure = False
             expect_cmd = True; i += 1; continue
         if expect_cmd and t == "export":
             exporting = True; i += 1; continue
@@ -450,8 +472,9 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 name, _, value = toks[j].partition("=")
                 assigns[name] = value; j += 1
             if exporting or j >= n or SEP.match(toks[j]):
-                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word:
-                    forget(False, assigns)    # `true || X=… && git -C "$X"`: may have been skipped
+                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word or wrapped:
+                    forget(False, assigns)    # `true || X=… && git -C "$X"`: may have been skipped;
+                                              # `env X=…;`: a program named X=…, X stays as it was
                 else:
                     env.update(assigns)       # standalone: lasts for the rest of the line
                 touched(False, set(assigns))
@@ -479,25 +502,57 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 b = stack[-1]                 # `if false; then cd x; else git …`: the then-branch did not run
                 forget(b["cd"], b["vars"])
             i += 1; continue
-        if expect_cmd and (t in WRAPPERS or t in KEYWORDS):
+        if expect_cmd and (wrapper(t) or t in KEYWORDS):
             if t in OPEN_CTL:
                 open_block(t, True)
             i += 1
-            if t in WRAPPERS and i < n and toks[i].startswith("-"):
+            w = wrapper(t)
+            wrapped = wrapped or bool(w)
+            if w == "command" and "/" not in t:
+                unsure = True
+            elif w and (w not in IN_SHELL or "/" in t):
+                external = True
+            if w and i < n and toks[i].startswith("-"):
                 # options may take arguments (nice -n 5, sudo -u x, env -C dir):
                 # skip to the git word, if any, and treat its repo as unknown
                 opaque = True
                 while i < n and not SEP.match(toks[i]) and not is_git(toks[i]):
+                    if not external and toks[i] in ("cd", "pushd", "popd"):
+                        here = None           # `command -p cd x` moves in bash, `command -v cd x`
+                        touched(True, set())  # and `time -- cd x` do not, nor anything in zsh
                     i += 1
+            elif w in OPERANDS:
+                k = 0
+                while k < OPERANDS[w] and i < n and not is_git(toks[i]):
+                    if re.fullmatch(r"[0-9]+", toks[i]) and i + 1 < n and re.match(r"^[<>]", toks[i + 1]):
+                        # `timeout 2>f 60 git` or `timeout 2 >f git`: the tokens cannot tell an
+                        # fd from a duration, but either way git runs here; the loop stops at git
+                        i += 1; continue
+                    if SEP.match(toks[i]) and ("<" in toks[i] or ">" in toks[i]):
+                        i += 1                # `timeout >/dev/null 60 git`: a file, not the duration
+                        if i < n and toks[i] == "(":
+                            i = substitution(i)   # `2> >(cat)`
+                        elif i < n and not SEP.match(toks[i]):
+                            i += 1
+                        continue
+                    if SEP.match(toks[i]):
+                        break
+                    i += 1; k += 1            # `timeout 60 git …`: 60 is not the command
             continue
         if expect_cmd and t in ("cd", "pushd", "popd"):
             arg = toks[i + 1] if i + 1 < n and not SEP.match(toks[i + 1]) else None
-            touched(True, set())
+            before = here
+            if not external:
+                touched(True, set())
             if t == "popd" or arg is None or arg.startswith("-"):
                 here = None                   # cd -, bare cd, popd: not tracked
             else:
                 here = resolve_dir(arg, here, env)
-            if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word:
+            if external:
+                here = before                 # `env cd x`: a program, the shell stays put
+            elif unsure:
+                here = None
+            elif (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word:
                 here = None                   # `true || cd x && git …`: the cd was skipped;
                                               # `true | cd x`: a subshell in bash, not in zsh;
                                               # `2 >f cd x`: maybe not a cd at all
