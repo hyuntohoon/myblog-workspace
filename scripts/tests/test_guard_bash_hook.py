@@ -345,6 +345,23 @@ class GuardBashTargetTest(unittest.TestCase):
         # the redirection ends nothing: the next command after ; still counts
         self.assertDecision("deny", "git status >/dev/null; git commit -m x", cwd=main)
 
+    def test_substitution_body_inside_a_git_command(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in ["git status <(git commit -m x)",          # #1113 skipped the body unread
+                    "git status >(git commit -m x)",
+                    "git status 2> >(git commit -m x)",
+                    "git status $(git commit -m x)"]:          # never parsed before
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["git status $(cd ../onmain && git commit -m x)",  # runs where the shell is
+                    "GIT_DIR=x; git status $(git commit -m x)",       # and sees its variables
+                    "cd ../onmain; git status $(git commit -m x)"]:   # after an earlier cd
+            self.assertDecision("deny", cmd, cwd=feat)
+        self.assertDecision("allow", "cd ../feature; git status $(git commit -m x)", cwd=main)
+        for cmd in ["git status <(git log -1)",
+                    "git commit -m $(date +%s)",
+                    "git status $(cd ../onmain); git commit -m x"]:   # a cd in the body stays there
+            self.assertDecision("allow", cmd, cwd=feat)
+
     def test_force_push(self):
         self.assertDecision("deny", "git -C onmain push --force origin main")
         self.assertDecision("deny", "cd onmain && git push -f")
