@@ -869,7 +869,9 @@ if punct is None and GIT_WRITE:
          "shlex, often a quote in a here-document inside \"$( … )\"), so a git "
          "commit/push in it cannot be judged. Run the git command in its own call, "
          "or pass the text with -F/--body-file.")
-if ANSI_C_ESCAPED_QUOTE.search(cmd) and GIT_WRITE:
+# On stripped: a here-document body is data. The $-quoted string that throws the
+# parse off is shell text before any opener, so stripping never removes it
+if ANSI_C_ESCAPED_QUOTE.search(stripped) and GIT_WRITE:
     # shlex ends a $-quoted string at its escaped quote, so every word after it is read
     # on the wrong side of a quote (or the command does not parse at all): deny
     deny("Hard rule #1/#7: a $-quoted string with an escaped quote hides which words are "

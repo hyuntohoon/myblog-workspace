@@ -623,8 +623,12 @@ class GuardBashTargetTest(unittest.TestCase):
             self.assertDecision("deny", cmd, cwd=feat)
         for cmd in ["echo $'a\\\\' ; git commit -m x",                   # an escaped backslash
                     "echo $'tab\\there'; git commit -m x",
-                    "echo $'\\''; git status"]:
+                    "echo $'\\''; git status",
+                    # a here-document body that quotes such a string is data
+                    "cat >>notes.md <<'EOF'\nuse $'a\\'b' then git commit\nEOF\ngit commit -m x"]:
             self.assertDecision("allow", cmd, cwd=feat)
+        # an opener read inside the misparsed string still leaves the string itself
+        self.assertDecision("deny", "echo $'\\'' '<<X'\ngit -C ../onmain commit -m x\nX", cwd=feat)
 
     def test_here_document_quote_inside_a_quoted_substitution(self):
         main, feat = self.root / "onmain", self.root / "feature"
