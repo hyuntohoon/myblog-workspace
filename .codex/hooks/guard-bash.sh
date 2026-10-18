@@ -309,6 +309,7 @@ def git_invocations(toks):
     prefix = {}                               # VAR=… prefixes of the current simple command
     exporting = False
     opaque = False                            # wrapper options we do not model (nice -n 5, env -C …)
+    fd_word = False                           # a bare number was skipped as the fd of a redirection
     broken = False                            # unmatched or unmodelled block syntax: nothing after it is trusted
     # The and-or list / pipeline being parsed. A cd or assignment that may not
     # have run — after && / || — leaves the location unknown once the list ends:
@@ -380,8 +381,10 @@ def git_invocations(toks):
             if i + 1 < n and not SEP.match(toks[i + 1]):
                 i += 1
             i += 1; continue
-        if expect_cmd and t.isdigit() and i + 1 < n and re.match(r"^[<>]", toks[i + 1]):
-            i += 1; continue                  # `2>/dev/null git …`: the fd of a redirection
+        if expect_cmd and re.fullmatch(r"[0-9]+", t) and i + 1 < n and re.match(r"^[<>]", toks[i + 1]):
+            # `2>/dev/null git …`: the fd of a redirection. The tokens cannot tell
+            # it from `2 >/dev/null cd x`, where 2 is the command and cd its argument
+            fd_word = True; i += 1; continue
         if expect_cmd and t == "function":
             broken = True; i += 1; continue   # `function f …`: a body we do not model
         if SEP.match(t):
@@ -410,7 +413,7 @@ def git_invocations(toks):
                     ctx["piped"], ctx["pipe_start"], ctx["pipe_vars"] = False, here, set()
                 else:                         # ; ;; ;& ;;&
                     end_list()
-            prefix, exporting, opaque = {}, False, False
+            prefix, exporting, opaque, fd_word = {}, False, False, False
             expect_cmd = True; i += 1; continue
         if expect_cmd and t == "export":
             exporting = True; i += 1; continue
@@ -421,7 +424,7 @@ def git_invocations(toks):
                 name, _, value = toks[j].partition("=")
                 assigns[name] = value; j += 1
             if exporting or j >= n or SEP.match(toks[j]):
-                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"]:
+                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word:
                     forget(False, assigns)    # `true || X=… && git -C "$X"`: may have been skipped
                 else:
                     env.update(assigns)       # standalone: lasts for the rest of the line
@@ -468,9 +471,10 @@ def git_invocations(toks):
                 here = None                   # cd -, bare cd, popd: not tracked
             else:
                 here = resolve_dir(arg, here, env)
-            if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"]:
+            if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word:
                 here = None                   # `true || cd x && git …`: the cd was skipped;
-                                              # `true | cd x`: a subshell in bash, not in zsh
+                                              # `true | cd x`: a subshell in bash, not in zsh;
+                                              # `2 >f cd x`: maybe not a cd at all
             i += 2 if arg is not None else 1
             expect_cmd = False; continue
         if expect_cmd and is_git(t):
