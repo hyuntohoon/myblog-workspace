@@ -10,7 +10,7 @@ mkdir -p "$R/review/manifests"
 for L in "$@"; do
   id=$lane-review-$L; m="$R/review/manifests/$id.json"
   if [ ! -e "$R/review/runs/$id" ]; then
-    python3 -c "import json,sys;json.dump({'artifact_dir':'../runs','shared_db_src':'/private/tmp/claude-502/-Users-park-hyun-myblog-workspace/5ad502a5-0cf9-402e-8e1d-6427b4c03a7e/scratchpad/shared-db-guard/src','timeout_s':1500,'models':[{'id':sys.argv[2],'provider':sys.argv[3],'model':sys.argv[4],'availability':'available','reasoning_effort':'medium'}]},open(sys.argv[1],'w'),indent=2)" "$m" "$id" "$prov" "$model"
+    python3 -c "import json,sys;json.dump({'artifact_dir':'../runs','shared_db_src':sys.argv[5],'timeout_s':1500,'models':[{'id':sys.argv[2],'provider':sys.argv[3],'model':sys.argv[4],'availability':'available','reasoning_effort':'medium'}]},open(sys.argv[1],'w'),indent=2)" "$m" "$id" "$prov" "$model" "$HOME/.local/share/myblog-research/shared-db-guard/src"
     python3 "$W/scripts/research_model_benchmark.py" --manifest "$m" --prompt "$R/review/inputs/$L.txt" >> "$R/review/dispatch-$lane.jsonl" 2>&1
   fi
   st=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['status'])" "$R/review/runs/$id/metadata.json" 2>/dev/null || echo missing)
