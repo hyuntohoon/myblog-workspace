@@ -8,11 +8,11 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 > **Owner priority override, 2026-10-15:** CHORE-research-model-evaluation is the first planned task, superseding the earlier planned order below. Existing emergency/security incidents still take precedence. The owner subsequently expanded the goal to joint acceptance criteria and iterative prompt validation; production adoption remains separate.
 
-- **CHORE-research-model-evaluation** — **FIRST PLANNED PRIORITY; draft; research explicitly authorized 2026-10-15.** **2026-10-16: `acceptance-v1` frozen (Astra + Claude, 4 rounds) and the all-model pilot completed (both reviewers; harness confound recorded). Stage A-2 met 2026-10-16: anchors-v1 frozen (4 rounds, both CONFIRM FREEZE) and round manifest v1 frozen except the §6 manual and §7 floors. Stage B round 1 ran 2026-10-16 (P1 = pilot prompt + 7 converged amendments vs P0; 2 albums × 2 environments; 8 generations, 16 blind audits): **P1 does not advance** (FAILs in 3/4 outputs; worse than P0 in 2/4 cells; longer notes everywhere; 3 gate allegations unresolved, adjudication deferred by owner). Claude CLI lane found loading global user settings/hooks. **Round 2 PAUSED 2026-10-16** (owner-confirmed: P2 = P0 + 4 overlapping definition/deletion edits vs P0, same albums, 2 runs/cell, agreed-FAIL rule; Claude lane now `--safe-mode`): Claude 8/8 generated clean; Codex 4/8, then ChatGPT usage limit. Next: **after 2026-10-22 20:08 KST** run `stage-b/round2/run_lane_resume.sh` (4 Codex runs), then blind review per ROUND.md §6/§10.** Complete a prompt that passes jointly designed **GPT-6 Astra + Claude** criteria for efficient evidence collection useful to a music critic; structure/outline/expression may vary. Preserve the revised-prompt all-model pilot, agree measurable thresholds, iterate bounded prompt comparisons, then verify on held-out albums and critic-use tasks. Subscription models only; separately billed Fable excluded. Production adoption remains separate. → `docs/rfcs/CHORE-research-model-evaluation.md`. <!-- rfc: docs/rfcs/CHORE-research-model-evaluation.md | status: draft -->
+- **CHORE-research-model-evaluation** — **FIRST PLANNED PRIORITY; draft; research explicitly authorized 2026-10-15.** **2026-10-16: `acceptance-v1` frozen (Astra + Claude, 4 rounds) and the all-model pilot completed (both reviewers; harness confound recorded). Stage A-2 met 2026-10-16: anchors-v1 frozen (4 rounds, both CONFIRM FREEZE) and round manifest v1 frozen except the §6 manual and §7 floors. Stage B round 1 ran 2026-10-16 (P1 = pilot prompt + 7 converged amendments vs P0; 2 albums × 2 environments; 8 generations, 16 blind audits): **P1 does not advance** (FAILs in 3/4 outputs; worse than P0 in 2/4 cells; longer notes everywhere; 3 gate allegations unresolved, adjudication deferred by owner). Claude CLI lane found loading global user settings/hooks. **Round 2 PAUSED 2026-10-16** (owner-confirmed: P2 = P0 + 4 overlapping definition/deletion edits vs P0, same albums, 2 runs/cell, agreed-FAIL rule; Claude lane now `--safe-mode`): Claude 8/8 generated clean; Codex 4/8, then ChatGPT usage limit. **2026-10-18: limit lifted early; owner approved an early resume (ROUND.md §11, Codex CLI now 0.163) — 4/4 Codex `-resume` runs succeeded, all 16 cells have an outcome.** Next: blind label draw (`build_review_inputs.py`), then the Astra/Claude review lanes per ROUND.md §6/§10.** Complete a prompt that passes jointly designed **GPT-6 Astra + Claude** criteria for efficient evidence collection useful to a music critic; structure/outline/expression may vary. Preserve the revised-prompt all-model pilot, agree measurable thresholds, iterate bounded prompt comparisons, then verify on held-out albums and critic-use tasks. Subscription models only; separately billed Fable excluded. Production adoption remains separate. → `docs/rfcs/CHORE-research-model-evaluation.md`. <!-- rfc: docs/rfcs/CHORE-research-model-evaluation.md | status: draft -->
 
-- **FEAT-public-surfaces-before-first-review** — **accepted 2026-10-17; Steps 1–2 deployed 2026-10-17 (front #472, #473; prod smoke 32/0); remaining: Step 0 owner action (display name), then Status done needs owner approval** (from the 2026-10-16 front UI/UX audit §4, owner decisions D1/D3). While 0 평론 exist: hide nav items built from 평론 (Reviews, Best New Music, Canon) and add a separately labelled home rail of the owner's 평가; Canon/hero stay 평론-only. Step 0 is an owner action (set a display name, handle unchanged). Front-only. Audit step 2 (overlay Back, D2 = history state only) is not started. → `docs/rfcs/FEAT-public-surfaces-before-first-review.md` <!-- rfc: docs/rfcs/FEAT-public-surfaces-before-first-review.md | status: accepted -->
+- **FEAT-public-surfaces-before-first-review** — **accepted 2026-10-17; Steps 1–2 deployed 2026-10-17 (front #472, #473; prod smoke 32/0); remaining: Step 0 owner action (display name), then Status done needs owner approval** (from the 2026-10-16 front UI/UX audit §4, owner decisions D1/D3). While 0 평론 exist: hide nav items built from 평론 (Reviews, Best New Music, Canon) and add a separately labelled home rail of the owner's 평가; Canon/hero stay 평론-only. Step 0 is an owner action (set a display name, handle unchanged). Front-only. Outside this RFC, audit §3 step 2: the overlay Back (D2) shipped in front #477 and the login-intent sheet (S5) in front #479, so that step is complete → `docs/reviews/2026-10-16-front-uiux-audit.md`. → `docs/rfcs/FEAT-public-surfaces-before-first-review.md` <!-- rfc: docs/rfcs/FEAT-public-surfaces-before-first-review.md | status: accepted -->
 
-- **FEAT-lyrics-chat** — **live 2026-10-09**: translation queue runs on a local GPT worker on the owner's Mac (ChatGPT Plus sign-in, `gpt-5.6-sol`, `store=false` — no chat history; launchd every 60 s; since 10-12 budget 300/UTC day, 3 concurrent inferences, plan usage limit → 1 h wait and resume (3rd in a row stops), token usage in `usage.json`). Smoke + first scheduled tick both `saved` and served by `GET /api/lyrics`. Sign-in needed the at_hash fix (ws #1038). First days measured 10-11: **0 refusals in 298 attempts** (structured and prose), budget exhausted ~2.5 h into each UTC day, no pause. **2026-10-18 (owner request):** a plan usage limit no longer stops the worker (hourly GPT probe), and during the wait an owner-enabled Claude fallback (`opus`, 50/day, refunded failures) keeps the queue moving — RFC _Usage-limit fallback_. **Open (observe):** first fallback night (refusal rate, Claude usage); plan usage vs. Plus allowance; first production idle tick once the 211-row backlog drains (~10-13). [Design, architecture, delivery record](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
+- **FEAT-lyrics-chat** — **live 2026-10-09**: translation queue runs on a local GPT worker on the owner's Mac (ChatGPT Plus sign-in, `gpt-5.6-sol`, `store=false`; launchd every 60 s; budget 300/UTC day, 3 concurrent inferences). **2026-10-18 (owner request):** a plan usage limit no longer stops the worker (hourly GPT probe), and during the wait an owner-enabled Claude fallback (`opus`, 50/day, refunded failures) keeps the queue moving — RFC _Usage-limit fallback_. **Open (observe):** first fallback night (refusal rate, Claude usage); plan usage vs. Plus allowance. First-days measurements (0 refusals in 298) → the RFC. [Design, architecture, delivery record](rfcs/FEAT-lyrics-chat.md). <!-- rfc: docs/rfcs/FEAT-lyrics-chat.md | status: draft -->
 
 > Open decisions, gates and observations only. Shipped detail lives in `git log`, in each RFC, and in
 > `docs/archive/done/`. A row that has nothing left but a status promotion is not Active — close it.
@@ -23,168 +23,50 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **OPS-project-stabilization** — **in-progress (Step 2A) since 2026-09-30 (owner); previous first planned priority, superseded by the 2026-10-15 override.**
   <!-- rfc: docs/rfcs/OPS-project-stabilization.md | status: in-progress -->
-  Step 1 (document reconciliation) delivered 2026-09-30; record under Step 1 in the RFC. **Step 2A, first runtime fix:** home
-  playback discovery with direct lyrics, and automatic next-track lyrics (the A → B → A rollback).
-  **2A rollback part deployed 2026-09-30** (front #447, cases 3/4/6/7); real-device evidence still
-  open. **2A home-discovery part deployed 2026-10-01** (front #448, finding A, cases 1/2);
-  real-device evidence open for both parts. **2A external-skip part deployed 2026-10-01** (front
-  #449, case 5): OQ2 resolved by the owner — a conditional 10 s read while the lyrics viewer is
-  open; the exception to the no-polling rule is owned by finding E in the RFC. **2A's Exit still
-  waits on the owner's real-device evidence for all three parts** (and on case 8 beyond what the
-  suites touch); it is not closed by these deploys.
-  Steps 2B–2D: transaction-boundary proof; the catalog refresh and back-catalogue ingestion spend
-  decisions; the subscription guard and residual failures. Their evidence baseline is the lyrics
-  Step 5 audit below. **Step 2D narrowed 2026-10-05 (owner), no service change:** guard fix deferred
-  until a Claude CLI job is loaded again, refusal classification dropped, residual translation work
-  recorded as frozen (Claude translation retired; the queue now runs on the local GPT worker, FEAT-lyrics-chat, live 2026-10-09). Step 3: inspect real user journeys. **Step 2B proved 2026-10-01** with no
-  worker change: the regression test was already on `main`, each `commit()` mutant fails it on its
-  assertion, and the deployed bundle equals `e29b669`; what it does not establish is listed in the
-  RFC record. **Step 2C measured and decided 2026-10-01, not implemented:** the owner approved the
-  24 h refresh (42 provider pages a day) and back-catalogue ingestion for popularity ≥ 20 only (374
-  of the 686 waiting releases, ≈ 1,000 translations) with `MAX_CATALOG_ALBUMS` raised — all 686
-  would put `albums` at 5,474 against a cap of 5,000 and stop the daily new-release sweep. Nothing
-  is activated; the measurement, the three scopes and what the implementation leg inherits are in
-  the RFC record. **Step 2C narrowed 2026-10-05 (owner: as conservative as possible):** only
-  `MAX_CATALOG_ALBUMS` 5000 → 8000 shipped (worker #108) — the catalog hit the cap on 10-05 and
-  the daily sweep had stopped; the refresh fix and the back-catalogue ingest are held on an
-  unpushed branch, held while automatic translation moved off Claude (now the local GPT worker, FEAT-lyrics-chat, live 2026-10-09). **2C's last check
-  closed 2026-10-06:** the tick swept again (`albums` 5,027). **2A real-device gate run
-  2026-10-06/07:** viewer cases pass. The home-entry 503 defect is fixed by front #450 and
-  device-verified. The in-page player's scope failure was found; the token was re-minted and the
-  script fix ws #1026 merged 2026-10-07 after `security-review`. **2026-10-07 follow-up:** the wrong first track is a non-atomic
-  queue replace under Lambda throttling → `ARCH-playback-queue-atomic-replace`, **Steps 1–3 shipped
-  2026-10-07** (front #453: one ▶ = one backend request, zero resolves, prod-verified); ⏭ sending
-  nothing was not reproduced. **Ready timeout and rung-2 failure notices deployed 2026-10-07**
-  (front #451); `autoplay_failed` **not reproduced** on desktop Chrome 154 under the strict autoplay
-  flag (owner heard playback, 2026-10-07); phones untested.
-  **ARCH-playback-queue-atomic-replace closed 2026-10-07** (owner, done, archived).
-  **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency quota (owner), then 2A Exit.
+  Steps 1, 2B and 2D are closed (record per step in the RFC). **2C was re-opened and activated
+  2026-10-18** (worker #124, #125: refresh + gated back-catalogue). It closes after one
+  self-triggered 24 h refresh is observed. **Step 2A** — home playback discovery with
+  direct lyrics, and automatic next-track lyrics — is deployed in all three parts (front #447, #448,
+  #449, follow-ups #450, #451, #453) and the viewer cases passed the 2026-10-06/07 real-device run;
+  phones are untested. **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency
+  quota (owner), then 2A Exit. Step 3: inspect real user journeys.
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
-  **Home-entry and next-track lyrics are open, not fixed** (owner report 2026-09-28). Step 1's
-  historical completion does not establish that these journeys work; correction and acceptance →
-  `OPS-project-stabilization` Step 2A. The open items below are sequenced there as Steps 2B–2D.
-  **Step 4 shipped 2026-09-11: the demand producers are on.** A connected member's saved albums
-  (`GET /me/albums`, fully paginated) and their recently-played albums now create durable V57 demand
-  with no owner involvement — `saved` reconciles as a set, `recent` is append-only because OQ6 says an
-  observation ageing out of Spotify's window is not a removal. The producer rides the existing
-  15-minute member poll and reuses the token that pass already mints; its failures are isolated and
-  counted, never able to break the listening sync. Connect enqueues a bootstrap that runs the
-  *identical* narrowed pass, so a lost message costs one interval and pre-existing members are
-  backfilled by the same cron. Disconnect revokes both discovery scopes in the same transaction as the
-  credential delete (OQ6). No contract, schema, route or Terraform change — the producer rides the
-  already-live `worker-spotify-member-poll` rule (`rate(15 minutes)`, verified ENABLED against AWS
-  before merge). Member isolation — the claim the step is judged on — is proved end-to-end against
-  real Postgres. Worker #105 / backend #177 merged 2026-09-11.
-
-  **The security review found two MEDIUMs and both were about what happens AFTER the stop signal.**
-  The one worth carrying: the OQ6 fence was built for `DELETE /api/integrations/spotify`, but a member
-  who removes the app at `spotify.com/account/apps` never enters that route — it reaches us only as
-  `invalid_grant`. The poll flipped them to `reauth` and stopped, leaving their scopes `active` and
-  every demand row derived from their private library live and served. **The verification list asked to
-  prove "a disconnected member stops producing demand", and the code satisfied that sentence exactly**
-  — but "stops producing new demand" and "stops using the member's library" are different claims, and a
-  fence written against the first leaves the second open. Fixed: `revoke_scopes` now runs in the same
-  transaction as the reauth flip. The second MEDIUM was this plan row and the RFC recording rollback as
-  a plain revert; it is not one, and the corrected procedure is in the RFC.
-
-  **Mutation honesty.** Eighteen probes in the build round, four more in the review round — all killed
-  in the end, but **the review round's first draft killed only one of its four**: the control member sat
-  inside the same poll and repaired her own scope, so a mutant that revoked *every* member's library
-  passed. A control that the code under test can repair is not a control.
-  **OQ1 resolved 2026-09-09 by owner delegation** ("OQ는 추천으로 질문하지 말고 바로 착수"): saved
-  albums only; the liked-track expansion stays out until explicitly requested. OQ2–4 gate Step 5;
-  OQ7 is optional.
-  **Production-verified 2026-09-11 08:53:45 KST (2026-09-10T23:53:45Z), and the volume is now measured rather than estimated.**
-  Both Lambda `CodeSha256` values changed from fingerprints captured before the merge; smoke **30/0**
-  against a pre-deploy baseline of the same 30/0. The falsifiable gate: V57 was **all-zero** with
-  exactly **1 connected Spotify member**, and one poll tick produced **2 scopes** (`saved` + `recent`,
-  both active), **77 demands** (71 saved / 6 recent) and **75 jobs** — 75 < 77 because two albums are
-  demanded by both origins and share one job. `count(distinct user_id)` in scopes = **1**. The Step 3
-  collector picked it up unprompted: `track_lyrics` 31,590 → 31,787 (+197); translations still 644, so
-  the queue is filled and the spend has not landed yet.
-  **That number is the input to Step 5.** One member's saved library alone is 77 albums in one tick,
-  and Step 5 widens scope to complete discographies with no cap (D5). The production population is
-  currently one member — the owner's own account.
-
-  **The pre-measurement Step 4 asked for was read 2026-09-13 15:16 KST, 54.4 h after the first tick,
-  population still one connected member.** 84 demands / 78 jobs / 933 enumerated tracks; 334 translation
-  work rows, **all `done`, zero pending, zero error**; `track_lyrics` 31,787 → 31,997; translations
-  644 → 972. **Split by intent the +328 is 291 member-driven + 37 legacy-path**, against a pre-deploy
-  control of **1–3 rows/day** on the same table and writer. Translate rate **35.8%** of enumerated
-  tracks (`not_required` 37.4%, `source_pending` 26.8% — all `not_found`, all with a *future*
-  `next_attempt_at`, so the OQ5 ladder is holding, not stalled). **LRCLIB is not the constraint**: all
-  334 `linked` tracks resolved against `track_lyrics` rows that predate the deploy, so this step's own
-  provider traffic is its 250 misses; the +210 `track_lyrics` rows are the separate legacy path.
-  **Bootstrap is a burst, not a rate** — 83 of the 84 demands landed on day one and one arrived in the
-  next 44 h, so **cost scales with members joining, not elapsed time**.
-  **The Step 5 multiplier is now measured, not estimated.** Those 78 albums cover **63 artists**, for
-  whom the catalog *already* holds **488 albums / 3,794 tracks** — a **6.3× album / 4.1× track floor**,
-  and a floor twice over because D5 wants Spotify's complete discography and OQ4 has not ruled on
-  compilations/`appears_on`. At the measured rate that projects **~1,358 Claude translations for one
-  member's first Step 5 pass** against Step 4's 334. **Followed artists cannot be sized at all — there
-  is no follows table in production.**
-  **Step 5 shipped 2026-09-18** (shared-db #83/#84, worker #106, backend #178, front #446; V58 applied
-  2026-09-13; OQ2–4 taken as recommended). Delivery, the 7x mis-estimate and its 2026-09-19
-  correction (Debussy excluded), and worker #107's fence are recorded in the RFC under
-  *Step 5 delivery*. **The 2026-09-30 audit in the same place is what this row now tracks.**
-  **Open — owner decisions (spend):**
-  - **Back-catalogue albums outside the catalog are never ingested.** 846 of 1,234 follow jobs wait on
-    `album_not_in_catalog` (2026-10-18; 686 of 1,061 at the 09-30 audit, and none of those 686 has
-    resolved since). The Step 5 enumerator never sends a
-    missing album to album sync, so a follow translates only what the catalog already held (≈35%).
-    The fix is to enqueue album sync for those albums: one Spotify catalog read per album, plus the
-    translations that follow.
-  - **The 24 h discography refresh has never run.** It is unreachable in steady state because the
-    nudge fires only on `due_count > 0`. It has run only when a new follow broke the cycle (10-03, 10-10),
-    picking up 9 new releases each time. All 36 registrations have been at `last_complete_at` 10-10
-    since then, and two 10-16 releases by followed artists are already missed.
-    Fixing it costs ~42 provider pages per 24 h.
-  **Open — no decision needed, not yet done:**
+  Step 4 delivery, its security review, and the measurements that sized Step 5 → the RFC. Step 5
+  shipped 2026-09-18; *Step 5 delivery* and the 2026-09-30 audit in the RFC are what this row tracks.
+  - **Back-catalogue ingest and the 24 h refresh are live** (worker #125, 2026-10-18, owner).
+    Back-catalogue is gated at popularity ≥ 20. The first refresh with no new follow ran at 08:24Z
+    and picked up the two missed 10-16 releases. Follow jobs resolved went 387 → 425 within two
+    ticks; ~770 are still being read at 2 `GET /albums` per 15 min. **Still to observe:** the
+    refresh firing on its own 24 h later (~10-19 08:25Z). Record → `OPS-project-stabilization`
+    *Step 2C execution record (2026-10-18)*.
+  - **Owner decisions, open:** the catalog cap of 8,000 is about six weeks away at ~305
+    albums/week plus the back-catalogue, and reaching it stops the daily new-release sweep.
+    Michael Korstick is 913 of 925 tracks `not_found` (classical, the Debussy shape); an
+    exclusion would stop the LRCLIB retries.
   - **Step 5 verification is not met — smoke run 2026-10-18, read-only.** Unfollow, exclusion,
     multi-page discography and the origin union pass. Complete coverage and steady-state new-release
     pickup fail, for the two reasons above. Multi-page follows, missing scope, re-import and
     enumeration retry need owner action and were not run. "Production-verified" stays withdrawn.
-    Worker INFO logs never reach CloudWatch, so the follow metrics are not observable there.
     → RFC *Step 5 smoke (2026-10-18)*.
+  - **Follow metrics in CloudWatch:** visible since worker #124 (2026-10-18 07:57Z). INFO is
+    raised for `worker.*` only; third-party loggers stay at WARNING.
   - **`infra/lambda.tf` kill switches are unapplied.** The live Lambda has only the console-set
     `LYRICS_FOLLOW_DEMAND_ENABLED=true`, so `terraform plan` shows 1 change. Needs a human apply.
-  - **The subscription guard hides an expired login.** It reads a blank `claude exit 1:` as throttling,
-    which hid an expired CLI login and stopped translation from 09-27 until the owner's `/login` on
-    09-30. Fix it in `subscription_guard`.
-  - **Some translations get a model copyright refusal.** 14 work rows were refusal-looped at the audit
-    and 5 were still `running` on 2026-09-30; `track_lyrics_translations` `failed` rose from 43 to 54.
-    The refusal rate is unmeasured.
   - **One non-follow job is stuck on `album_not_in_catalog`**, left over from the pre-measurement.
-  **Worker transaction boundary (`4d4c181`) — no owner decision pending** (corrected 2026-09-29,
-  re-confirmed 2026-09-30). The fix for the idle-in-transaction shape in
-  `LyricsIncrementalService`/`LyricsReassessmentService` is already on worker `main` via the #104
-  squash (`4ece539`), **and so is its real-DB regression test**
-  (`tests/integration/test_lyrics_transaction_boundary_db.py`; earlier text looked for it under
-  `tests/` and called it missing). Proved 2026-10-01: it runs in CI with zero DB-bound skips, fails
-  on its assertion when any of the four `commit()` calls is removed, and the running Lambda's
-  `worker/` tree is identical to `e29b669` → `OPS-project-stabilization` Step 2B record.
-  (Earlier text also called the commit unmerged and asked the owner to decide on a PR; that was wrong.)
-  Carry the Step 1 cold-start Spotify 404/browser-fallback observation. Delivery evidence, runtime
-  details and exact next scope → `docs/rfcs/FEAT-lyrics-listening-experience.md`.
+  Carry the Step 1 cold-start Spotify 404/browser-fallback observation. → `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, accepted) — main governance, keyless
   <!-- rfc: docs/rfcs/SEC-system-hardening.md | status: accepted -->
-  deploys, one JWT verifier. **Steps 1–6 are all shipped and production-verified** (rulesets on all six
-  repos, front + backend/music/worker OIDC, both Cognito guards hardened with signed-token vectors,
-  polyrepo verdict KEEP POLYREPO, and one canonical byte-identical `app/core/auth.py` across backend and
-  music with a daily drift workflow). No AWS credential secret exists in any of the six repositories and
-  `github-actions-deploy` has zero access keys. Full per-step record → the RFC and `git log`.
+  deploys, one JWT verifier. **Steps 1–6 are all shipped and production-verified.** Full per-step
+  record → the RFC and `git log`.
 
   **What is still open — one P0 and two questions, all the owner's (Step 5 follow-ups 1–5 are done):**
-  - **The AWS root account access keys.** Deleting the `myblog_front` repo secret did not retire the key.
-    `AccountAccessKeysPresent = 1` **re-verified 2026-09-03**; the per-key reading from 2026-08-29 is
-    `access_key_1` (rotated 2025-11-13, last used 2025-12-10, ap-northeast-2/cloudformation) and
-    `access_key_2` (rotated 2025-10-22, last used **2026-08-26**, the last front deploy before the OIDC
-    cutover) — both `Active`. Root keys can only be deleted by signing in as root with MFA, so this is
-    not Claude's to perform. Everything else in Step 3d is done.
+  - **The AWS root account access keys** (`AccountAccessKeysPresent = 1`, re-verified 2026-09-03; both
+    keys `Active`). Root keys can only be deleted by signing in as root with MFA. Per-key reading → the
+    RFC, Step 3d.
   - **Should `workspace-check` become a required check?** The workspace repo gained a `pull_request`
     workflow in ws #948 and it has passed on eleven PRs; its ruleset still carries only `main-protection`.
     Making it required is an open item, not a decision already taken.
@@ -193,70 +75,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
     `retries: 0` so a flake shows red. Evidence so far: green on 2 PR pushes. Promote only on repeated
     PR evidence; the decision is the owner's. → the RFC, *Step 5 follow-ups*, item 5.
 
-- **FEAT-album-review-authoring** (`docs/rfcs/FEAT-album-review-authoring.md`, accepted) — album
-  <!-- rfc: docs/rfcs/FEAT-album-review-authoring.md | status: accepted -->
-  **평가 = rating** (public star rating + one-line comment), **평론 = review** (editor long-form review).
-  Korean UI must not use "리뷰" for either concept. Steps 1 and 2 are shipped and prod-verified, along
-  with the entrance-link/visibility defects found after Step 2.
-
-  **The usage gate is RETIRED (owner 2026-09-03). No longer blocked on a counter.** Prod on
-  2026-09-03: **37 owner ratings** (first 08-10, last 08-19, plus 1 non-owner) against **9** additions
-  since front `2dcabd0` (2026-08-15).
-
-  **This row is where the gate failed, and the failure is worth keeping.** The RFC's gate had *three*
-  branches — pass · **fail** · under-threshold — and the fail branch said exactly what to do here:
-  *"if the rating count leaves 0, this step's premise collapses; re-open what to build with the owner."*
-  **It became true on 2026-08-10 and nobody acted on it for 24 days**, because this row had flattened
-  the three branches into one AND — *"additions ≥10 **while owner ratings stay 0**"* — which drops the
-  fail branch entirely. What survived the summary was only "if additions <10, do not decide", so the
-  single action a reader could take was to wait. Three sessions read the counter and stepped back.
-  **When copying a gate into this file, carry every outcome branch or link to the RFC instead** — the
-  "re-open the decision if this breaks" branch is the first one a summary loses and the one that keeps
-  a gate alive.
-
-  **The measurement it was meant to produce came out anyway, and it inverts the gate's assumption.**
-  The gate read "owner ratings > 0" as evidence the owner rates instead of stockpiling for reviews.
-  In fact **36 of the 37 rated albums were albums already sitting in a bucket** (1 was not; 73
-  bucketed albums remain unrated): the 담기 → 평가 funnel worked. On 08-17 the owner drained 35 of
-  them in one sitting, and additions stopped that same day — the counter stalled at 9 because the
-  backlog was spent, not because the funnel died. Weekly additions: 07-20:3 · 07-27:23 · 08-03:4 ·
-  08-10:4 · 08-17:5 · then 0 for 17 days.
-
-  **Two premises behind the remaining steps were falsified by the same measurement**, and both are
-  recorded in the RFC: **33 of 37 ratings are star-only** (4 carry text, averaging 17 characters), and
-  **C6 평론 후보 표시 has exactly 1 mark ever** (2026-08-10, on a row with no rating; none of the 38
-  rated rows is marked). Published reviews remain **0** (5 drafts, last touched 07-27).
-
-  **Step 4 is SHIPPED and production-verified (2026-09-03, front #442 `a8d9eef`).** OQ9 and OQ14 are
-  closed. One 쓰기 entry in the header for every signed-in account, offering only what the viewer may
-  write; 평가 hands off to the EXISTING album-overlay rating editor rather than a second form, which is
-  also what makes C1's "entered from a card, the album is already chosen" true with no card changes.
-  The 평론 후보 mark moved into that write as an owner-only checkbox saved in the same PUT.
-
-  **Audit E-5 is closed — and it was SIX places, not the one this row and the RFC named.** `/write`
-  and `/drafts` each carried their own `isLoggedIn()` check (never a data hole — every `/api/posts*`
-  mutation is `require_owner` and fails closed — but the client surface was open); the same proxy
-  then turned up in the dashboard 평론 tab, the bucket tile mark, the album rating mark, and, found by
-  `security-review`, the 편집 link on every published 평론 page plus the memo window's editor link.
-  **Do not size a sweep off the count a document gives you.** Verified on production with a real
-  member Cognito session: `/write/` and `/drafts/` both bounce, prod smoke 30/0.
-  *Still unverifiable*: the published-평론 편집 link — prod has **zero** `/review/` pages.
-
-  · **Step 3 (owner-only AI distillation, C3+C4) — DEFERRED, and its deferral evidence has an erratum
-  the owner has not yet seen (2026-09-03).** Its premise is that the owner writes unstructured 자유 감상
-  for the AI to distill. **Do not start it, and do not tune OQ3's default prompt, until the owner sets a
-  new resumption condition** — that has not changed, and an erratum is not a start signal.
-  **What the erratum says**: the "owner writes essentially no text" measurement was taken on
-  `album_reviews.comment`, a field capped at `RATING_COMMENT_MAX = 60` — a number this RFC's own Step 1
-  picked so that *"문단 쓰기는 물리적으로 막는다."* The owner's long-form album text exists in the bucket
-  memo (7 albums, mean 436 chars, max 1,429; 6 of the 7 also carry a rating row), **dormant since
-  2026-08-03**. This does not choose among OQ13's three candidates — it changes the case for each, and
-  the RFC's OQ13 carries that per-candidate breakdown. **The decision is the owner's and is still open.**
-  · **Step 5 (conditional general AI opening) — DEFERRED**, dependent on Step 3.
-  AI behaviour, if Step 3 ever resumes, remains distillation only: use only material the author
-  supplied, never add outside facts/evaluations/metaphors, the result stays editable, and publishing
-  is always an explicit user action.
-
 ---
 
 ## Owner-only (nothing here is Claude's to do)
@@ -264,9 +82,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 Items with no remaining implementation, kept visible because dropping them would lose the only record.
 
 - **Lyrics match correction: two first-use checks.** `FEAT-lyrics-match-correction` closed 2026-10-18
-  (all steps shipped, prod smoke 30/30–32/32). Not yet seen with a live owner session: the owner's first
-  pick-and-lock through the candidate panel, and the owner's first view of the report queue (48 system
-  reports opened by the Step 4 sweep). → `docs/archive/done/rfcs/FEAT-lyrics-match-correction.md`.
+  (all steps shipped, worker #112–#121, backend #189/#190, front #469/#474). Not yet seen with a live owner
+  session: the owner's first pick-and-lock through the candidate panel, and the owner's first look at the
+  report queue. → `docs/archive/done/rfcs/FEAT-lyrics-match-correction.md`
 - **Set the `To Review` bucket back to 비공개** (프로필 → 버킷 탭 → 공개 설정). It is the only public bucket, so
   this empties `/collection`. Carried over from `FEAT-bucket-identity`, closed 2026-10-18 →
   `docs/archive/done/rfcs/FEAT-bucket-identity.md`.
@@ -278,7 +96,17 @@ Items with no remaining implementation, kept visible because dropping them would
   owner-success toggle path was **not** verified, because it needs a live owner Cognito session rather
   than the smoke member account. One click as the owner closes it. Detail →
   `docs/archive/done/2026-09.md`.
-- **SEO-review-structured-data** — trigger is the first production review publication; see *Later*.
+- **FEAT-youtube-playback-provider** — Milestone A shipped and production-verified 2026-09-06 (front
+  #444). Owner-only: rotate and API-restrict SSM `/myblog/youtube` (OQ6), and read the actual daily
+  `search.list` quota in Console. RFC Status stays `in-progress` pending an explicit owner decision.
+  **Milestone B remains closed: no design or code before Phase 0-B GO.** → `docs/rfcs/FEAT-youtube-playback-provider.md`
+- **FEAT-multi-user-accounts** (in-progress since 2026-07-07) — Phases 0–4 and follow-ups shipped and
+  prod-verified; no service calls `ApiEngine` yet (re-verified 2026-09-30). **Every remaining item needs
+  the owner**: launch gates G1/G2 (≥10 reviews by ≥5 non-owner users within 4 weeks of public launch),
+  Google brand verification, Kakao production review, OAuth secret reissue, owner live-login `returnTo`
+  observation, and the canonical member URL decision (`/members/?u=` vs `/members/[handle]`; the owner
+  and smoke user both have prebuilt static pages alongside the runtime `?u=` view). Owner deferred
+  launch work 2026-07-20; **do not re-prompt without a new trigger.** → `docs/rfcs/FEAT-multi-user-accounts.md`
 
 ---
 
@@ -287,40 +115,18 @@ Items with no remaining implementation, kept visible because dropping them would
 > Source: `docs/reviews/2026-07-23-current-state-audit.md`.
 >
 > Only verified/accepted findings remain here. P0/P1 work is complete and archived.
->
-> **Owner decision 2026-07-23:** prioritize safety/quality before discovery; retain the criticism-publication framing; OPS/REFACTOR RFCs accepted; documentation reconciliation approved.
 
 ### P2 — 실사용자 증거 후
 
-- **CHORE-dep-reproducibility** — **Lockfiles done 2026-08-29** as `SEC-system-hardening` Step 5 follow-up 3: `requirements.lock` is the bundle input on backend, music and worker, so the "add lockfiles and pin" half is complete, and the "replace SHA with tag" half is superseded (shared_db tags were abandoned; SHA pins are the convention). **Residual:** `myblog-shared-db` is still built on the runner from an unpinned build backend (needs a hashed wheel), and the wildcard `requirements.txt` inputs (`SQLAlchemy==2.*`, `psycopg[binary]==3.*`, bare `fastapi`/`boto3`) still mislead CVE search. Original 2026-07-23 scope: `myblog_backend` + `myblog_music`, add lockfiles and pin `fastapi`/`boto3`/`SQLAlchemy`; replace backend non-tag SHA dependency with a tag. Trigger: another deployment 500 caused by dependency drift. Current additive convention remains accepted until then. Additional 2026-07-26 evidence: `SQLAlchemy==2.*` and `psycopg[binary]==3.*` re-resolve on deploy and wildcard strings create misleading CVE-search results. Dependency *notification* is separate → `OPS-safety-net-drift` Step 4.
+- **CHORE-dep-reproducibility** — Lockfiles done 2026-08-29 (`SEC-system-hardening` Step 5 follow-up 3: `requirements.lock` is the bundle input on backend, music and worker); the SHA-to-tag half is superseded (SHA pins are the convention). **Residual:** `myblog-shared-db` is still built on the runner from an unpinned build backend (needs a hashed wheel), and the wildcard `requirements.txt` inputs (`SQLAlchemy==2.*`, `psycopg[binary]==3.*`, bare `fastapi`/`boto3`) still mislead CVE search. Trigger: another deployment 500 caused by dependency drift.
 
 - **DISCOVERY-flow** (**hypothesis; rejected for now**) — potential `signup → import → Buckit → publish → discovery` investment. Current evidence remains insufficient: published content, other-user activity, and public collections are too sparse for discovery investment to be meaningful. Re-evaluate only after real-user + content evidence. What the product's core flow should be remains an owner strategy decision.
-
----
-
-## 2026-07-26 감사 파생 작업 (전부 종료 — 열린 항목 없음)
-
-> Source: `docs/reviews/AUDIT-2026-07-26-system-audit.md` (ws #704, squash `9d4711c`). The report contains the evidence; these rows are pointers.
->
-> **E-2/E-4/E-6/DEP-2 fixed + deployed + prod-smoked 2026-08-09** (front #389, ws #871). E-2/E-6/DEP-2 shipped code, verified live against the deployed bundle (`_astro/CollectionView.*.js` calls `publicMemberLabel`, `_astro/AlbumDetailView.*.js` carries the scoped `.lf-artist-link` rule, `/rss.xml` parses under 4.0.19). E-4 needed no code — superseded by the front #379–#384 home-card migration (merged 2026-08-06), whose `AlbumCard` open-hit button has no visible text content, so the WCAG 2.5.3 failure it described no longer exists.
-
-### Decided, no action
-
-- **D-2** — closed 2026-08-16 with no action (owner decision). `LLMTransientError` engine-level retry; every caller was found to have its own defence, so the fix was defence-in-depth and did not justify a cross-repo `myblog_shared_db` change + three re-pins. Evidence and reasoning → `docs/archive/done/2026-08.md`.
-
-- **PUB-1** — workspace and four service repos are public; owner chose to merge the audit as-is on 2026-07-26. The report overstated dependency-version disclosure because manifests were already public. A-3 is fixed; the remaining E-5 surfaces are tracked under `FEAT-album-review-authoring` Step 4.
-
-### Audit coverage boundary
-
-The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface, all CI workflows, all tools/non-buckit scripts, frontend server-side code, PWA/service-worker config, all member-content escaping sites, load/concurrency testing, DB-level data quality, Terraform state, or complete Python-CVE call-path tracing. Do not read its clean findings as broader guarantees.
 
 ---
 
 ## Backlog
 
 > Scope-ready drafts/deferred work. Each still needs an owner go (+ RFC accept where draft) before promotion to Active.
-
-- **FEAT-automation-model-controls** (**backlogged 2026-10-17, split from FEAT-automation-admin OQ2; needs owner go + an RFC**) — expose model selection on the owner's automation page only where an executor supports it, distinguishing the requested model, the saved automation setting and the observed execution model (never inferred from the Work chat composer). No executor supports it today; the trigger is Work Cloud (#1022) merging and deploying. Origin: `docs/archive/done/rfcs/FEAT-automation-admin.md` (Target state, OQ2). <!-- rfc: none -->
 
 - **FEAT-durable-job-status** (**backlogged 2026-09-02; needs owner go + an RFC**) — a durable,
   readable status for the async jobs a user can start from the UI: the Spotify album sync
@@ -420,18 +226,16 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
   rejects an Active row that references `docs/archive/done/`.
   Background → `docs/archive/done/rfcs/ARCH-playback-authority-convergence.md` (OQ3, OQ4).
 
-- **CHORE-research-prompt-port-not-swap** (**legs 1–6 SHIPPED 2026-07-30; measurements remain; the owner-prioritized revised-prompt/model experiment is now tracked in `CHORE-research-model-evaluation`**) — do **not** replace `album_research_v2` with v4 wholesale. Controlled RENAISSANCE comparison scored **v2 12/22, v4 12/22**, with complementary rather than strictly better coverage. v4 improved biography/primary-statement pressure but lost v2's explicit "do not import others' critical verdicts" protection and costs more tokens/wall time. The shipped approach ports the useful v4 pressure into v2, retains the no-verdict rule, adds liner-notes and sample-chain-depth requirements, injects catalog context, and intentionally keeps `PROMPT_VERSION=v2` so stored notes remain visible.
-
-  Remaining measurements only:
+- **CHORE-research-prompt-port-not-swap** (**legs 1–6 SHIPPED 2026-07-30; measurements remain**) — `album_research_v2` keeps the useful v4 pressure ported in, retains the no-verdict rule, and keeps `PROMPT_VERSION=v2`. The owner-prioritized revised-prompt/model experiment is tracked separately in `CHORE-research-model-evaluation`. Remaining measurements only:
   1. Re-run RENAISSANCE against the checked-in 22-item sheet + ONYX with `grep -ci izm = 0`; record score, wall clock, output length and **actual per-hop citation support**. Pass target = recover ≥3 of items 5/6/8/22 at ≤1.3× v2 wall clock.
   2. Generalisation test on one album not used to create the rules.
   3. First `[확인]` precision audit; no false-`[확인]` denominator exists yet.
 
-  Highest-information measurement remains owner writing **one review from one research note** and marking used/unused material; the current prompt metrics are proxies because 80 notes have produced 0 completed reviews. Evidence → `docs/editorial/research-note-requirements.md` + `docs/reviews/measurements/2026-07-30-research-prompt-v2-vs-v4/`.
+  Highest-information measurement remains owner writing **one review from one research note** and marking used/unused material. Evidence → `docs/editorial/research-note-requirements.md` + `docs/reviews/measurements/2026-07-30-research-prompt-v2-vs-v4/`.
 
 - **FEAT-ai-editorial-critique** (**draft; deferred**) — Phase 0 thin slice: backend-only AI editorial critic that runs the existing critique method over a draft + already-linked album DB facts, returning grounded Korean feedback + uncertainty/checklist markers, never rewriting the draft. Step 1 = local implementation + golden eval; Step 2 = infra JWT route + contract. UI, persistence, planner, publish gate and broader fact checking remain non-goals. Needs owner accept before Active.
 
-  Open thread (from `FEAT-editor-buckit`, 2026-06-19) — on promotion: fold in the explicit two-stage editorial pipeline (nightly full-draft → critique pass), re-audit the stale "zero AI/LLM code" Current State, gate via `require_owner` rather than bare `require_cognito_token`, and convert its Secrets Manager references to SSM (`CHORE-secrets-ssm-migration`). → `docs/rfcs/FEAT-ai-editorial-critique.md`.
+  Open thread (from `FEAT-editor-buckit`, 2026-06-19) — on promotion: fold in the explicit two-stage editorial pipeline (nightly full-draft → critique pass), re-audit the RFC's stale Current State (written 2026-06-06), and gate via `require_owner` rather than bare `require_cognito_token`. → `docs/rfcs/FEAT-ai-editorial-critique.md`.
 
 - **FEAT-genre-recommendation** (**Frozen; gated on review volume**) — related-review recommendation on `/review/{slug}` based on shared sub-genres + linked genre edges. Substrate is live, but there is not enough published review volume to rank meaningfully. Re-open after sufficient review/tag volume exists. Owner edge-authoring API remains lowest priority. → `docs/rfcs/FEAT-genre-recommendation.md`.
 
@@ -441,9 +245,16 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 ## Later (트리거 대기)
 
-- **FEAT-youtube-playback-provider** (**Milestone A shipped and production-verified 2026-09-06; owner actions / Phase 0-B remain**) — A3 selection UI and A4 frontend shipped in [front #444](https://github.com/hyuntohoon/myblog_front/pull/444), `9aea4d7`; deployed smoke **30/0**, real Spotify and YouTube play/pause/seek verified, test mapping deleted. Verification record → `docs/rfcs/FEAT-youtube-playback-provider.md` Step A4. RFC Status stays `in-progress` pending an explicit owner decision. Owner-only: rotate and API-restrict SSM `/myblog/youtube` (OQ6), and read the actual daily `search.list` quota in Console (operational follow-up, not a release gate). **Milestone B remains closed: no design or code before Phase 0-B GO.**
-
-- **FEAT-multi-user-accounts** (**in-progress since 2026-07-07; all remaining work is owner-only**) — multi-user platform: Google+Kakao signup, public album ratings, per-user buckets, Last.fm/Spotify member listening, `LLMEngine`. Phases 0–4 + P3b/3c + library user-scope + 07-14 surface-audit remediation + profile-merge PR1–3 are SHIPPED & prod-verified. Read "Phase 4 SHIPPED" narrowly: the owner-central `LLMEngine` interface/CLI/API skeleton + usage metering exists, but **no caller is wired to the API engine yet**; the first user-facing AI call belongs to `FEAT-album-review-authoring`. Existing rating behavior remains unchanged. **Every remaining item needs the owner, not Claude**: launch gates G1/G2 (≥10 reviews by ≥5 non-owner users within 4 weeks of public launch), Google brand verification, Kakao production review, OAuth secret reissue, owner live-login `returnTo` observation, and the canonical member URL decision (`/members/?u=` vs `/members/[handle]`). **Corrected 2026-09-30:** that decision was deferred on the premise that prod `/api/members` is empty, so no duplicate URLs exist; it is not — the owner (37 ratings) and the smoke user (1) both have prebuilt static pages in the sitemap, alongside the runtime `?u=` view, which canonicalizes to `/members/`. The decision itself stays deferred and owner-only. Re-verified 2026-09-30: no service calls `ApiEngine`. Owner deferred launch work 2026-07-20; **do not re-prompt without a new trigger.** → `docs/rfcs/FEAT-multi-user-accounts.md`.
+- **FEAT-album-review-authoring** (accepted) — **평가 = rating** (public star rating + one-line
+  comment), **평론 = review** (editor long-form review); Korean UI must not use "리뷰" for either.
+  Steps 1, 2 and 4 are shipped and prod-verified; the usage gate is retired (owner 2026-09-03). The
+  gate retrospective, the rating/memo measurements and the E-5 sweep are recorded in the RFC.
+  **Step 3 (owner-only AI distillation) — DEFERRED. Do not start it, and do not tune OQ3's default
+  prompt, until the owner sets a new resumption condition.** Its deferral evidence has an erratum
+  (the "owner writes no text" measurement was taken on a field capped at 60 chars; the long-form text
+  lives in the bucket memo) recorded under OQ13 in the RFC; the decision is the owner's.
+  **Step 5 (conditional general AI opening) — DEFERRED**, dependent on Step 3. AI behaviour, if
+  Step 3 ever resumes, remains distillation only. → `docs/rfcs/FEAT-album-review-authoring.md`
 
 - **SEO-review-structured-data 첫 발행 검증** — implementation DONE 2026-07-19 and RFC archived. `Review` + `MusicAlbum` JSON-LD is already generated and locally validated. **Trigger = first production review publication** → run Rich Results Test once against the real published URL. → `docs/archive/done/rfcs/SEO-review-structured-data.md`.
 
@@ -456,6 +267,8 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 ## Frozen (아이디어만, RFC 없음)
 
 확장 기능 후보. 의향이 생기면 그때 RFC를 시작하며 지금은 작업하지 않는다.
+
+- **FEAT-automation-model-controls** — expose model selection on the owner's automation page only where an executor supports it, distinguishing the requested model, the saved automation setting and the observed execution model (never inferred from the Work chat composer). Split from FEAT-automation-admin OQ2 (2026-10-17). No executor supports it, and the trigger it was backlogged on (Work Cloud, ws #1022) was closed unmerged on 2026-10-16. Origin: `docs/archive/done/rfcs/FEAT-automation-admin.md` (Target state, OQ2).
 
 - **FEAT-genre-autoheal — cloud heal** — only the cloud iTunes-only variant remains deferred. Local daily genre-heal and the on-demand request queue are already live. Blocker: the richer local S3 pass shells `claude -p` using subscription auth unavailable in Lambda, so any cloud-only baseline pass would need a distinct partial marker and must not suppress the later local LLM pass.
 

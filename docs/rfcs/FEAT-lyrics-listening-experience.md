@@ -1175,7 +1175,9 @@ post-deploy browser clickthrough of #446 is recorded anywhere in the workspace.
 - The drop on 09-23 to 09-26 is **not** attributed. The poller logged few claims and
   mostly "no pending translation request" on those days.
 - Follow-up, not fixed here: a blank `exit 1` should not count as a throttle unless the
-  JSON envelope says so.
+  JSON envelope says so. *Fixed 2026-10-15 in shared_db #87 (`08b2ee7`, `OPS-project-stabilization`
+  Step 2D): `CliEngine` appends the stdout envelope and `is_throttle_error` no longer reads a blank
+  exit as a throttle.*
 
 **5. Some lyrics get a model refusal.** 14 `running` work rows have leases that expired
 2026-09-24/25, with up to 5 attempts each. Their `last_reason` is
@@ -1277,7 +1279,9 @@ artist or by language, and a pooled rate over this catalogue has misled this RFC
 includes the 15-minute `spotify member sync: … follow(artists=…, +/-…, no-grant=…)` summary, the
 `discography refresh re-opened` line and the enumeration metrics. Their absence therefore
 proves nothing either way. It is also why the unfollow above had to be inferred from row
-timestamps. Not fixed here.
+timestamps. Not fixed here. *Worker #124 (merged and deployed 2026-10-18 07:54Z, after this smoke)
+emits the worker's own INFO lines; whether the follow summary now reaches CloudWatch has not been
+checked yet.*
 
 **Needs the owner to run, not run here.** The cases below need a real Spotify account action or a
 production write outside the smoke user, so they wait for the owner:

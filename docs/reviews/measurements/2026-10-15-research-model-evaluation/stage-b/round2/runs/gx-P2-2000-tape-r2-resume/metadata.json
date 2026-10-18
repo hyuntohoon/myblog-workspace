@@ -1,0 +1,62 @@
+{
+  "id": "gx-P2-2000-tape-r2-resume",
+  "provider": "gpt",
+  "requested_model": "gpt-6-astra",
+  "model_config": {
+    "id": "gx-P2-2000-tape-r2-resume",
+    "provider": "gpt",
+    "model": "gpt-6-astra",
+    "availability": "available",
+    "reasoning_effort": "medium"
+  },
+  "prompt_sha256": "6cb551484e8b5f5d76714337f6260db95a4370df8ff5bc4d5fedaf0c4af6cf47",
+  "started_at": "2026-10-18T08:38:32.741703+00:00",
+  "status": "success",
+  "dispatch_count": 1,
+  "orchestration_retry_policy": "none",
+  "orchestration_fallback_policy": "none",
+  "isolated_cwd": "/private/tmp/research-benchmark-g4pymta5",
+  "argv": [
+    "codex",
+    "--search",
+    "--ask-for-approval",
+    "never",
+    "exec",
+    "--model",
+    "gpt-6-astra",
+    "--sandbox",
+    "read-only",
+    "--json",
+    "--ephemeral",
+    "--skip-git-repo-check",
+    "--output-last-message",
+    "/Users/park_hyun/myblog-workspace/.wt/research-r2-resume/docs/reviews/measurements/2026-10-15-research-model-evaluation/stage-b/round2/runs/gx-P2-2000-tape-r2-resume/output.md",
+    "-c",
+    "model_reasoning_effort=\"medium\"",
+    "-"
+  ],
+  "resolved_models": [],
+  "resolution_evidence": "not_exposed_by_cli",
+  "cli_errors": [],
+  "usage_reported": [
+    {
+      "input_tokens": 517186,
+      "cached_input_tokens": 436864,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 4034,
+      "reasoning_output_tokens": 81
+    }
+  ],
+  "tool_counts": {
+    "web_search": 8
+  },
+  "event_count": 22,
+  "hook_event_count": 0,
+  "memory_paths": {},
+  "cli_init": null,
+  "non_json_line_count": 0,
+  "returncode": 0,
+  "process_wall_s": 130.287,
+  "finished_at": "2026-10-18T08:40:43.041343+00:00",
+  "wall_s": 130.295
+}

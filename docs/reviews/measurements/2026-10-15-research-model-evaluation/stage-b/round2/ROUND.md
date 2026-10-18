@@ -113,3 +113,12 @@ Recorded after dispatch began; nothing above was changed.
 - **Inputs for the resume.** The dispatched bytes (including the unredacted Gemini Rights input, sha256 `fcdea93c…`) are kept outside the repository at `~/.local/share/myblog-research/stage-b-round2-inputs/`, and the subscription guard source at `~/.local/share/myblog-research/shared-db-guard/` (a detached shared_db worktree at origin/main as of 2026-10-16). `run_lane_resume.sh` takes the inputs directory as its argument; the runner refuses on any byte change.
 - **Review waits.** The blind label draw (`build_review_inputs.py`) happens only after all 16 cells have an outcome, so every output enters one draw. No review dispatch has happened. Review packets and every review run's `input.txt` embed the dispatched (unredacted) Gemini Rights input: before any push they are redacted per §9, added to `PUBLICATION-REDACTIONS.json`, and the diff is scanned for the bucket-name tokens (0 hits required).
 - **Confound recorded.** The Codex r2 runs execute about six days after r1 and after the Claude runs. Web content and model serving can drift in that gap; per-cell comparisons report r1 and r2 separately as well as pooled.
+
+## 11. Early resume (amendment, owner-approved 2026-10-18)
+
+Recorded before the resume dispatch; §1–§10 unchanged except as stated here.
+
+- **Observation.** The account limit lifted before the announced reset: the lyrics GPT worker has completed GPT calls since 2026-10-18 16:49 KST, and one read-only Codex probe (`gpt-6-astra`, prompt "Reply with exactly: PROBE_OK", no tools) succeeded at 17:24 KST in 19 s.
+- **Owner decision (chat, 2026-10-18).** Resume now instead of after 2026-10-22 20:08 KST. This replaces only the start time in §10's resume rule; IDs, order, no-retry, one-harness-rerun, throttle-halt and close-incomplete-on-recurrence are unchanged.
+- **CLI confound.** ChatGPT.app auto-updated its bundled Codex CLI to `0.163.0-alpha.10.2`; §2 declares `0.162.0-alpha.17.2`, which is no longer installed. The resume runs use 0.163, so the Codex r1 and r2 cells differ in CLI version as well as in date (about two days rather than six). Per-cell comparisons already report r1 and r2 separately (§10); the version is named alongside that split.
+- **Shared quota.** The lyrics GPT worker keeps running on the same ChatGPT account during the resume (existing jobs are not changed, RFC §Constraints).
