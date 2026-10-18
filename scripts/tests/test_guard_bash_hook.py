@@ -753,6 +753,8 @@ class GuardBashTargetTest(unittest.TestCase):
         for cmd in ["git $\x27\\x63ommit\x27 -m x", "S=commit; git $S -m x", "git ${S:-commit} -m x"]:
             self.assertDecision("deny", cmd, cwd=main)
         self.assertDecision("deny", "S=\x27-C ../onmain commit\x27; git $S -m x", cwd=self.root / "feature")
+        # quoted, a value with a blank stays one word: `-C "$D"` is not `-C feature x`
+        self.assertDecision("deny", "D=\x27feature x\x27; git \"$D\" commit -m x", cwd=self.root)
         self.assertDecision("deny", "S=\x27status ; cd ../feature\x27; git $S; git commit -m x", cwd=main)
         self.assertDecision("allow", "S=status; git $S", cwd=main)
 

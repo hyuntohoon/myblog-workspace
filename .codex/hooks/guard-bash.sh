@@ -60,8 +60,9 @@
 # after it, and it is a commit of an unknown repo when one of its words is, or
 # may be, commit or push — or, unless it is a variable never set in the command,
 # when commit/push appears anywhere. A `$` word in a git command whose value is
-# known is judged as its words (`git $S`, `git push $F`); one that is not, as
-# the subcommand, is a commit. After a `$( … )` inside a word the word goes on (`echo $(x) cd y` runs
+# one known word is judged as that word (`git $S`, `git push $F`); one holding
+# several words (split or not, as quoting decides) makes the command unknown,
+# and one that is not known, as the subcommand, is a commit. After a `$( … )` inside a word the word goes on (`echo $(x) cd y` runs
 # no cd). A redirection inside a git command
 # (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file; the
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
@@ -935,9 +936,13 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 if tj.startswith("(") and toks[j - 1].endswith("$"):
                     j = substitution(j)       # $( … ) is one argument
                     continue
-                if ("$" in tj or "`" in tj) and not SEP.match(tj) and literal(tj, env):
-                    # `S="-C x commit"; git $S`, `F=-f; git push $F`: the words it names, split as bash does
-                    toks[j:j + 1] = literal(tj, env); n = len(toks); continue
+                words = literal(tj, env) if ("$" in tj or "`" in tj) and not SEP.match(tj) else None
+                if words and len(words) == 1:
+                    toks[j] = words[0]; continue  # `S=commit; git $S`, `F=-f; git push $F`
+                if words:
+                    # several words: split unquoted, one word quoted (`git -C "$D"` with a blank
+                    # in D) — the tokens cannot tell, so the command is unknown
+                    unknown = True
                 if SEP.match(tj) and ("<" in tj or ">" in tj):
                     # `git >/dev/null commit`, `git push 2>&1 -f`: a redirection and its
                     # file, not the end of the command
