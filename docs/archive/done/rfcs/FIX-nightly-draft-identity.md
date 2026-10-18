@@ -1,12 +1,9 @@
 # FIX-nightly-draft-identity: give the nightly job an identity that can create drafts
 
-- **Status**: **Phase A done — shipped and live-verified 2026-07-27** (promoted draft → accepted →
-  in-progress → done same day on explicit owner approval; hard rule 5 satisfied). The RFC stays in
-  `docs/rfcs/` **dormant** because Phase B (§4) is planned and trigger-gated, not abandoned.
-  Amendments + the verification record in §6; completion digest in `docs/archive/done/2026-07.md`.
+- **Status**: **done** (Phase A shipped and live-verified 2026-07-27, promoted to done the same day on explicit owner approval). Archived 2026-10-18 on owner approval in the RFC triage: Phase B (§4) stays planned and trigger-gated, and its trigger is tracked by the `plan.md` → Later row *FIX-nightly-draft-identity Phase B*, which now points here. Amendments + the verification record in §6; completion digest in `docs/archive/done/2026-07.md`.
 - **Owner**: the owner
 - **Created**: 2026-07-27
-- **Plan row**: `plan.md` → FIX-nightly-draft-delivery (P0)
+- **Plan row**: `plan.md` → Later → FIX-nightly-draft-identity Phase B (the P0 row FIX-nightly-draft-delivery closed 2026-07-27).
 - **Owner decisions 2026-07-27**: option (b), a dedicated service identity — not the owner's own
   login, not relaxing the gate. And: **fix narrowly now, widen to multi-user later, but write the
   widening plan today.** Phase B below is that plan.
@@ -220,3 +217,11 @@ stays readable as the original design.
    `status='draft'` (The Strokes, post `5886620f…`), zero items still checked. A-S5's residual —
    the launchd *trigger* itself — is unchanged from the weeks it has fired nightly; the next
    naturally-checked memo exercises it end to end. **The P0 is closed.**
+
+## Close-out (2026-10-18)
+
+- **Archived while Phase B is open, on purpose.** Phase A is the whole of what this RFC delivered; Phase B is a
+  plan that starts only when a §4 trigger fires (watch `PHASE-B TRIGGER` in the nightly logs). Its record is the
+  `plan.md` → Later row, which points to this archived path. If a trigger fires, open a new RFC from §4 rather than
+  reviving this file.
+- `scripts/buckit_nightly.py`'s trigger log line was repointed to this path in the same change.

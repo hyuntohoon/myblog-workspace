@@ -1,9 +1,9 @@
 # FEAT-bucket-identity: strengthen the "bucket" as the core workflow unit
 
-- **Status**: in-progress (Direction A DONE 2026-06-16; **Direction B SHIPPED 2026-07-21, front #303** — landing-tab promotion left as an owner-pending proposal; **Direction D AUDITED 2026-08-03 → GATED, no code opened** — 4 of its 5 collection types already shipped as dedicated non-bucket pages, and the remaining ones have zero data. Gates + re-measure recipe below)
+- **Status**: **done** (2026-10-18 — Direction A shipped 2026-06-16, B shipped 2026-07-21 (front #303), C subsumed by `FEAT-pocket-buckit`, D audited 2026-08-03 and left gated; archived). Owner approved the Status change in-session (2026-10-18 RFC triage) under CLAUDE.md rule #7. The owner **declined** the three owner-pending proposals and the open landing-tab question (see _Close-out_).
 - **Owner**: 박지훈
 - **Created**: 2026-06-16
-- **Plan row**: `plan.md` → FEAT-bucket-identity
+- **Plan row**: removed at close (2026-10-18) from `plan.md` → Backlog; the one owner action moved to `plan.md` → Owner-only.
 - **Origin**: 2026-06-16 UX brainstorm (item 14 of the UX sweep). A 10-agent
   read-only inspection mapped the current bucket surface; this RFC records the
   directions so B/C aren't lost.
@@ -209,3 +209,16 @@ the public-collection bucket surfaces are the next concrete step here.
 - Is the lifecycle (담음→조사→작성→완료) the real product spine, or should the board
   stay free-form crates the user names themselves? (If the latter, only A was
   needed and the name-regex `crMeta` is arguably fine.)
+
+## Close-out (2026-10-18)
+
+- **Delivered:** Direction A (2026-06-16) and Direction B (front #303, 2026-07-21). Direction C was subsumed by
+  `FEAT-pocket-buckit` (V30/V31, 2026-06-24).
+- **Declined by the owner (2026-10-18):** (1) board → `/profile` landing tab — this also answers the open question
+  "Direction B prominence", which had waited since 2026-07-21; (2) research-note deep link from the review chip;
+  (3) in-place tab switch for the 버킷 chip.
+- **Direction D:** not built. Its gates (published-review volume, owner curation / public-bucket evidence) are the
+  same trigger as the first production review publication already tracked in `plan.md`; no separate row.
+- **Owner action, moved to `plan.md` → Owner-only:** set `To Review` back to 비공개.
+- **Stale pointers left in place:** `myblog_front/src/components/home/EditorialHome.tsx` header comment still names
+  `docs/rfcs/`.

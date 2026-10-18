@@ -1,6 +1,7 @@
 # ARCH-entity-interaction-domain-audit: cross-domain registry + guardrails for entity-interaction fragmentation
 
-- **Status**: **in-progress — every step is now shipped; the field awaits an owner promotion to `done`
+- **Status**: **done** (2026-10-18 — Steps 0–5 shipped, the last on 2026-09-03; archived). Owner approved the Status change in-session (2026-10-18 RFC triage) under CLAUDE.md rule #7. The field had read `in-progress` since 2026-09-03 waiting only for this decision.
+- **Status before close**: **in-progress — every step is now shipped; the field awaits an owner promotion to `done`
   (하드 룰 7: Claude never self-promotes).** Steps 0–4 (incl. 3a/3b/3c) shipped 2026-08-05/06;
   **Step 5 shipped 2026-09-03** (docs-only) once its trigger — `FEAT-album-review-authoring` Step 4's
   authoring surface — went live the same day. Nothing in this RFC is open. Historical note, kept because
@@ -14,7 +15,7 @@
   look unstarted in every listing.
 - **Owner**: 오너
 - **Created**: 2026-08-05
-- **Plan row**: `plan.md` → ARCH-entity-interaction-domain-audit
+- **Plan row**: removed at close (2026-10-18) from `plan.md` → Owner-only.
 - **Sibling, does not replace**: `docs/archive/done/rfcs/ARCH-entity-interaction-v2.md` (done, archived 2026-08-10; scopes to album/track/artist/
   drag only; this RFC covers the domains its own non-goals explicitly exclude — reviews/memos,
   playback, lyrics host, bucket-add flows, modal/overlay infra, global events)
@@ -494,3 +495,9 @@ against prod (`BEGIN; SET LOCAL default_transaction_read_only = on; … ROLLBACK
 | 2026-08-06 | **BUG-28 resolved** (front #376 `061edfb`, deploy 31077498900, prod smoke 19/0). `applyLive()`'s "playing" branch now skips applying a read whose track disagrees with `playbackSession.currentSpotifyTrackId()`'s already-converged answer, mirroring the idle branch's existing guard. Regression test confirmed to fail without the fix. The single-flight fan-out noted in the row above is unchanged — not attempted by this fix, still open | 3 |
 | 2026-08-06 | **Step 3c shipped** (front #374), closing the RFC's original Step 3 (3a/3b/3c). Owner picked the conservative of two in-session designs: `LyricsViewer` adopts `playbackSession`'s anchor/playing/durationMs additively (new `playbackSession.currentSpotifyTrackId()` confirms the same track first), never replacing the viewer's own `readLivePlayback()`-driven `refresh()`, which stays the fallback whenever session cannot confirm the match — identity/jump/skip/translation logic in `refresh()` untouched. Reused `refresh()`'s own `awaitingTrack`/`awaitingChangeFrom`/`awaitingPlayState` guard refs, since this viewer's own transport bypasses `playbackSession` and would otherwise race the same ack→apply lag those guards exist to survive (this is the same 3-way fan-out the erratum above named). CDP verification (stubbed backend + in-page Spotify fetch stub) proved both the adoption and the guard live, not just unit-tested. vitest 47/47 files·510/510. Prod smoke 19/19 | 3 |
 | 2026-09-03 | **Step 5 shipped (docs-only), and it refuted its own charter on both halves.** (a) *No rename was possible*: `FEAT-album-review-authoring` never named its C3/C4 concept a "memo" — its word is 자유 감상 (원문), and all three "memo" strings in it describe the already-shipped memo window. The real collision is functional: the shipped 버킷 · 앨범 메모 (`review_bucket_items.note`, *"떠오른 대로 던져두는 곳"*) already is the album-attached free-text box C3 proposed to invent, and that RFC mentions it nowhere. Landed as 충돌 #12 there, resolved under G1 rather than by renaming anything. (b) *"One user-album state" is false in five stores, not the two this RFC named* — `album_reviews`, `planned_ratings`, `pending_reratings`, `album_to_listen_items` and the per-bucket-item memo. The decisive one is `planned_ratings` (V52): `FEAT-rating-smart-collections` quoted the invariant, laid Option A against Option B, wrote that B breaks it, and **the owner picked B on 2026-08-13** — so the invariant was consciously retired three weeks before this step read it as a live rule. Landed as 충돌 #13 + a restatement of hard rule 3-1 as a goal with named exceptions. (c) *Unpredicted third finding, outside the charter but the same defect class*: that RFC's Step 3 deferral (2026-09-03, *"증류할 자유 감상 텍스트가 없다"*) was measured on `album_reviews.comment`, a field capped at `RATING_COMMENT_MAX = 60` **precisely so that 문단 쓰기는 물리적으로 막는다**. The owner's long-form album text exists in the bucket memo — 7 albums, 3–1,429 chars, mean 436, six of the seven also carrying an `album_reviews` row — though dormant since 2026-08-03. Recorded as evidence on that RFC's OQ13; **the deferral itself was not touched** (owner's decision, 하드 룰 7 and the standing 보류). **Method lesson, third time in this RFC**: the count a document gives you is a lower bound — this one said one rival state store and there were four | 5, OQ2, `plan.md` |
+| 2026-10-18 | Owner approved closing the RFC (in-progress → done) and archiving it. Nothing was open since Step 5 (2026-09-03). | Close |
+
+## Close-out (2026-10-18)
+
+- **Delivered:** Steps 0–4 (incl. 3a/3b/3c, 2026-08-05/06) and Step 5 (docs-only, 2026-09-03).
+- **Left open:** nothing. Name-only references (front `eslint.config.js`, PR template) stay valid after the move.
