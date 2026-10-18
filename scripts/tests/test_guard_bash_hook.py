@@ -288,12 +288,16 @@ class GuardBashTargetTest(unittest.TestCase):
             "true;>/dev/null git commit -m x",
             "true|>/dev/null git commit -m x",
             "true; 2>/dev/null git commit -m x",
+            # `2 >f cd x`: 2 is the command and cd its argument — same tokens as `2>f cd x`
+            "2 >/dev/null cd ../feature; git commit -m x",
+            f"2 >/dev/null WT={feat}; git -C \"$WT\" commit -m x",
             # a function body on the next line, or after `function`
             "f()\n{ cd ../feature; }\ngit commit -m x",
             "function f\n{ cd ../feature; }\ngit commit -m x",
         ]:
             self.assertDecision("deny", cmd, cwd=main)
-        for cmd in ["cd ../feature && git status & wait",               # no commit at all
+        for cmd in ["2>/dev/null true; cd ../feature; git commit -m x", # the fd doubt ends with its command
+                    "cd ../feature && git status & wait",               # no commit at all
                     "(cd ../feature) && cd ../feature && git commit -m x",
                     "cd ../feature; git log | head -1 > /dev/null; git commit -m x",
                     "cd ../feature && git log | head -1 && git commit -m x",
