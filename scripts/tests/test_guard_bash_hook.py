@@ -389,6 +389,57 @@ class GuardBashTargetTest(unittest.TestCase):
                     "timeout 60 >/dev/null git commit -m x"]:
             self.assertDecision("allow", cmd, cwd=feat)
 
+    def test_append_assignment(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [# `D+=` used to be a command word: D stayed the feature repo
+                    f"D={feat}; D+=/../onmain; git -C \"$D\" commit -m x",
+                    f"D={feat}; D+=/../onmain; cd $D && git commit -m x",
+                    f"D={feat}; export D+=/../onmain; git -C \"$D\" commit -m x",
+                    # zsh rejects `export D+=`: D stays the main repo there
+                    f"D={main}; export D+=/../feature; git -C \"$D\" commit -m x",
+                    "D+=../feature; git -C \"$D\" commit -m x",                  # D was unknown
+                    "GIT_DIR+=x git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in [f"D={self.root}; D+=/feature; git -C \"$D\" commit -m x",
+                    f"D={main}; D+=/../feature E=1; cd \"$D\" && git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=main)
+
+    def test_time_runs_in_the_shell_only_where_a_pipeline_starts(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [# after a wrapper both shells run /usr/bin/time
+                    f"time time cd {feat}; git commit -m x",
+                    f"builtin time cd {feat}; git commit -m x",
+                    # bash 3.2 runs /usr/bin/time here, zsh times in the shell or fails to parse
+                    f"if time cd {feat}; then git commit -m x; fi",
+                    f"until time cd {feat}; do git commit -m x; done",
+                    f"! time cd {feat}; git commit -m x",
+                    f"case x in x) time cd {feat}; git commit -m x;; esac",
+                    f"case x in (x) time cd {feat}; git commit -m x;; esac",
+                    f"D=1 time cd {feat}; git commit -m x",
+                    f"2>/dev/null time cd {feat}; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in [f"time cd {feat}; git commit -m x",
+                    f"if true; then time cd {feat}; git commit -m x; fi",
+                    f"{{ time cd {feat}; git commit -m x; }}",
+                    f"time builtin cd {feat}; git commit -m x",
+                    f"builtin builtin cd {feat}; git commit -m x",
+                    f"if /usr/bin/time cd ../onmain; then git commit -m x; fi",
+                    "time time cd ../onmain; git commit -m x"]:   # a program: the shell stays put
+            self.assertDecision("allow", cmd, cwd=main if "onmain" not in cmd else feat)
+
+    def test_xargs_stdbuf_and_zsh_modifiers_are_wrappers(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in ["xargs git commit -m x", "echo | xargs git commit -m x",
+                    "stdbuf -o0 git commit -m x", "noglob git commit -m x",
+                    "nocorrect git commit -m x",
+                    f"noglob cd {feat}; git commit -m x",       # zsh moves, bash has no noglob
+                    f"nocorrect cd {feat}; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["xargs git commit -m x", "noglob git commit -m x",
+                    "xargs cd ../onmain; git commit -m x"]:     # xargs runs /usr/bin/cd
+            self.assertDecision("allow", cmd, cwd=feat)
+        self.assertDecision("deny", "noglob cd ../onmain; git commit -m x", cwd=feat)
+
     def test_dash_c_uses_the_physical_path(self):
         self.assertDecision("deny", "git -C feature/lnk/.. commit -m x")
 

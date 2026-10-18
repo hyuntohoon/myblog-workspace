@@ -29,9 +29,8 @@
 # Not covered: git inside `bash -c "…"`, eval, a here-string, a function call
 # or alias, or a script file; a quoted `"}"`/`"fi"` read as the reserved word;
 # `cd <existing dir> || git commit` (the commit runs only if that cd fails);
-# `X+=…`; a wrapper outside the modelled list (`xargs git`, `stdbuf -o0 git`,
-# zsh `noglob cd x`); a second time/builtin making the cd a program
-# (`time time cd x`);
+# a wrapper outside the modelled list (`caffeinate git`, `arch -arm64 git`,
+# zsh `- git`); an array append `X+=(…)`;
 # quoted operators (`echo ";"`); a loop body's second pass;
 # zsh's two-argument `cd old new`; a substitution inside double quotes
 # (`git log "$(git commit)"`) or backticks. A `case` inside a substitution of a
@@ -40,9 +39,11 @@
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
 # command list of its own.
 # A cd after a wrapper that starts a program (`env cd x`, `timeout 9 cd x`)
-# does not move the shell; after a bare builtin/time it does; after `command`
-# or a wrapper option the location is unknown (bash and zsh differ). An assignment
-# after any wrapper (`env D=x;`) makes the variable unknown.
+# does not move the shell; after a bare builtin, or a time that starts a
+# pipeline, it does; after `command`, zsh noglob/nocorrect, a time anywhere
+# else (`if time cd x`, `D=1 time cd x`) or a wrapper option the location is
+# unknown (bash and zsh differ). An assignment after any wrapper (`env D=x;`)
+# makes the variable unknown; `D+=x` appends to D.
 # Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
@@ -250,7 +251,7 @@ if plain is not None:
 # =========================================================================
 # Checks 4+5 — git invocation state machine (Hard Rules #1, #7)
 # =========================================================================
-ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?=")
 VALUE_FLAGS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix"}
 
 def is_git(t):
@@ -259,13 +260,21 @@ def is_git(t):
 VAR_REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
 # Words that put the next word back in command position.
 WRAPPERS = {"env", "command", "builtin", "exec", "time", "nice", "nohup", "sudo",
-            "timeout", "gtimeout"}
+            "timeout", "gtimeout", "xargs", "stdbuf", "noglob", "nocorrect"}
 # Wrappers whose first operand is not the command (timeout DURATION cmd …).
 OPERANDS = {"timeout": 1, "gtimeout": 1}
 # Wrappers that run a cd in the shell itself, in bash and zsh alike. After
-# `command` it depends on the shell (zsh runs /usr/bin/cd); the rest start a
+# `command` it depends on the shell (zsh runs /usr/bin/cd), as after the zsh
+# modifiers noglob/nocorrect (no such command in bash); the rest start a
 # program, so a cd after them (`env cd x`, `timeout 9 cd x`) moves nothing.
 IN_SHELL = {"builtin", "time"}
+UNSURE = {"command", "noglob", "nocorrect"}
+# `time` is the reserved word, in bash and zsh alike, only as the first word
+# after one of these. After another wrapper both run /usr/bin/time (`time time
+# cd x`, `builtin time cd x`); anywhere else (after if/while/until/elif/!, a case
+# pattern, an assignment or a redirection) bash 3.2 runs /usr/bin/time and zsh
+# times in the shell or fails to parse.
+TIME_AFTER = {"", ";", "&&", "||", "|", "|&", "&", "(", "{", "then", "do", "else"}
 
 def wrapper(t):
     """Wrapper name t runs as — /usr/bin/env is env — else None."""
@@ -468,11 +477,17 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         if (expect_cmd or exporting) and ASSIGN.match(t):
             j = i
             assigns = {}
+            appended = False
             while j < n and ASSIGN.match(toks[j]):
                 name, _, value = toks[j].partition("=")
+                if name.endswith("+"):        # `D+=/sub` appends to D; unknown D stays unknown
+                    name = name[:-1]
+                    value = assigns.get(name, env.get(name, "$" + name)) + value
+                    appended = True
                 assigns[name] = value; j += 1
             if exporting or j >= n or SEP.match(toks[j]):
-                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word or wrapped:
+                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"] or fd_word or wrapped \
+                        or (exporting and appended):  # `export D+=x`: an error in zsh
                     forget(False, assigns)    # `true || X=… && git -C "$X"`: may have been skipped;
                                               # `env X=…;`: a program named X=…, X stays as it was
                 else:
@@ -505,13 +520,17 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         if expect_cmd and (wrapper(t) or t in KEYWORDS):
             if t in OPEN_CTL:
                 open_block(t, True)
-            i += 1
             w = wrapper(t)
-            wrapped = wrapped or bool(w)
-            if w == "command" and "/" not in t:
-                unsure = True
-            elif w and (w not in IN_SHELL or "/" in t):
+            bare = "/" not in t
+            prev = toks[i - 1] if i else ""
+            i += 1
+            if w == "time" and bare and wrapped:
                 external = True
+            elif bare and (w in UNSURE or (w == "time" and prev not in TIME_AFTER)):
+                unsure = True
+            elif w and (w not in IN_SHELL or not bare):
+                external = True
+            wrapped = wrapped or bool(w)
             if w and i < n and toks[i].startswith("-"):
                 # options may take arguments (nice -n 5, sudo -u x, env -C dir):
                 # skip to the git word, if any, and treat its repo as unknown
