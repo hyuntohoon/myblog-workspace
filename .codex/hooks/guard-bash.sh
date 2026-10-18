@@ -611,8 +611,10 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 if subcmd is None and tj.split("=", 1)[0] in ("--git-dir", "--work-tree"):
                     target = None
                 value = j + 1 < n and not SEP.match(toks[j + 1])   # `git -C; git commit`: no value
-                if (tj == "-C" or (subcmd is None and tj in VALUE_FLAGS)) and j + 1 < n \
-                        and not value and ("<" in toks[j + 1] or ">" in toks[j + 1]):
+                if (tj == "-C" or (subcmd is None and tj in VALUE_FLAGS)) and j + 1 < n and (
+                        (not value and ("<" in toks[j + 1] or ">" in toks[j + 1]))
+                        or (re.fullmatch(r"[0-9]+", toks[j + 1]) and j + 2 < n
+                            and re.match(r"^[<>]", toks[j + 2]))):   # `-C 2>/dev/null x`, or `-c 2 >f`
                     unknown = True
                 if tj == "-C":
                     target = resolve_dir(toks[j + 1], target, env, True) if value else None

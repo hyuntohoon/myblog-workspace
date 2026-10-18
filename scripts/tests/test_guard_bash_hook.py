@@ -457,6 +457,10 @@ class GuardBashTargetTest(unittest.TestCase):
         # the shell drops a redirection between a flag and its value: -C ../onmain still applies
         self.assertDecision("deny", "git -C </dev/null ../onmain commit -m x", cwd=self.root / "feature")
         self.assertDecision("deny", "git -c >/dev/null a.b=c commit -m x", cwd=self.root / "onmain")
+        for cmd in ["git -C 2>/dev/null ../onmain commit -m x",     # 2 is the fd, not the value
+                    "git --namespace 2>/dev/null x -C ../onmain commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=self.root / "feature")
+        self.assertDecision("allow", "git -C ../feature 2>/dev/null commit -m x", cwd=self.root / "onmain")
 
     def test_bang_after_an_assignment_or_redirection_is_a_command(self):
         main, feat = self.root / "onmain", self.root / "feature"
