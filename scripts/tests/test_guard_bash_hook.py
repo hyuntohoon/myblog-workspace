@@ -357,6 +357,10 @@ class GuardBashTargetTest(unittest.TestCase):
                     "cd ../onmain; git status $(git commit -m x)"]:   # after an earlier cd
             self.assertDecision("deny", cmd, cwd=feat)
         self.assertDecision("allow", "cd ../feature; git status $(git commit -m x)", cwd=main)
+        # deep nesting fails closed instead of crashing the hook (a crash lets the call through)
+        deep = "git status " + "$(git status " * 600 + "x" + ")" * 600
+        self.assertDecision("deny", deep, cwd=feat)
+        self.assertDecision("allow", "git status $(git status $(git status x))", cwd=feat)
         for cmd in ["git status <(git log -1)",
                     "git commit -m $(date +%s)",
                     "git status $(cd ../onmain); git commit -m x"]:   # a cd in the body stays there

@@ -303,10 +303,12 @@ def worktree_add_branch(rest):
         branch = positional[1] if len(positional) > 1 else os.path.basename(positional[0].rstrip("/"))
     return positional[0], branch
 
-def git_invocations(toks, start=False, env0=None):
+def git_invocations(toks, start=False, env0=None, depth=0):
     """Yield (subcmd, target_repo, args_after_subcmd) per git invocation.
     target_repo is None when it cannot be resolved statically. start / env0:
     the directory and variables of the command a substitution body runs inside."""
+    if depth > 16:
+        return [("commit", None, [])]         # nesting this deep is not parsed: deny, never crash open
     out = []
     env = dict(env0) if env0 is not None else {"HOME": os.path.expanduser("~")}
     here = (cwd or os.getcwd()) if start is False else start  # directory the next command runs in
@@ -387,7 +389,7 @@ def git_invocations(toks, start=False, env0=None):
             j += 1
             if paren <= 0:
                 break
-        inner = git_invocations(toks[a + 1:j - 1], here, env)
+        inner = git_invocations(toks[a + 1:j - 1], here, env, depth + 1)
         out.extend((s, None if broken or opaque else t, r) for s, t, r in inner)
         return j
 
