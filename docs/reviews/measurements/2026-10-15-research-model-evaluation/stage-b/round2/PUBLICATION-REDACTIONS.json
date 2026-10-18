@@ -36,6 +36,14 @@
     "runs/gx-P2-gemini-rights-r1/input.txt": {
       "original_sha256": "cadc42b4ee8aca7d42539ee0a1228febd0890709f2ff6b4e4fd599728315180e",
       "occurrences": 1
+    },
+    "runs/gx-P0-gemini-rights-r2-resume/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": 1
+    },
+    "runs/gx-P2-gemini-rights-r2-resume/input.txt": {
+      "original_sha256": "cadc42b4ee8aca7d42539ee0a1228febd0890709f2ff6b4e4fd599728315180e",
+      "occurrences": 1
     }
   }
 }
