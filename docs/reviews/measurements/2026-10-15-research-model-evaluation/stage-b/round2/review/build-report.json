@@ -1,0 +1,28 @@
+{
+  "skipped": [],
+  "identity_hits": {},
+  "trace_identity_hits": {},
+  "note_redactions": {
+    "S07": 1
+  },
+  "input_sha256": {
+    "S01": "2793abf796030aed41cd2386a06700f120f942f8d7b48639cd7018a3d4b3dc0e",
+    "S02": "65a3ff1cfb2505a80e5e25db7ea3d0a57a3e91fe2f1b9ac55fa66cc5c28f3c3a",
+    "S03": "f7f8e7467e3c130855532482740b7e2e55169e38ecd4f8d5fd2c714fee357cf7",
+    "S04": "298b1ac82a478f76b655223ea41d7b6fe53f66814ba78d0a7f90a799038cd247",
+    "S05": "13a7426f60c7dc64c5d2e2dd46b7058ca7187782d6290eb88d8bf0a3040c9963",
+    "S06": "3cd2c12db48d9d71d29940abd0378db172334bc0d4ffb93ff7ff92df644655bf",
+    "S07": "ab8b07489185f279cfc1eddbe26e1741512d91382b7488eb62f978eaa966397d",
+    "S08": "bae3f79e941a0a2d9b744eab2526ecf3226f25d9fb4edb3e99d76a40b1db03a1",
+    "S09": "e561492e5ebb919fd33c0365918f47969af1dc5ac4e5e9401af3ea3d862ab998",
+    "S10": "0dced6848a23a9a5157d5eb62876f2c61d3258b63251da3d142f575e98c29d2b",
+    "S11": "1fdc730b5cd05073657f052470e0ab3b2e85ab2c896a20d53127fadd075f5fa5",
+    "S12": "7682b98cda05c6e8f15e0397bddd324abf554c4dad2df70ed11f8a44b22cc3f0",
+    "S13": "78ff6bb870d77894afe1f457f7bb8b438d0e3fa5021383e0e7c240f4297a8c81",
+    "S14": "73c34ee1ede1efdf8028ceebea996ee22a60915c9c6fa144715276da9e1b37ed",
+    "S15": "937cb3bc92f9d366b67c8840275a5537d7ed2ebf05a0bf4fc2ce06a13c85f0d3",
+    "S16": "397da61b781ee623b44a197688f9b281b7079f3e8df33b936f12d5958b3c4614",
+    "S17": "4343012e8ba772857571725150feae73767b47ba56ea64ccdd6db20eb1007cef"
+  },
+  "blinding_limit": "Trace structure differs by harness (Claude WebSearch/WebFetch vs Codex web_search), so a reviewer can infer the producer family from a trace. The prompt condition is not included, but the share of fetch-based [원문 확인] labels in Claude-lane notes can reveal P2."
+}

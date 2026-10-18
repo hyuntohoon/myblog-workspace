@@ -1,0 +1,138 @@
+{
+  "id": "claude-review-S16",
+  "provider": "claude",
+  "requested_model": "claude-opus-5-5",
+  "model_config": {
+    "id": "claude-review-S16",
+    "provider": "claude",
+    "model": "claude-opus-5-5",
+    "availability": "available",
+    "reasoning_effort": "medium"
+  },
+  "prompt_sha256": "397da61b781ee623b44a197688f9b281b7079f3e8df33b936f12d5958b3c4614",
+  "started_at": "2026-10-18T11:24:07.904249+00:00",
+  "status": "success",
+  "dispatch_count": 1,
+  "orchestration_retry_policy": "none",
+  "orchestration_fallback_policy": "none",
+  "isolated_cwd": "/private/tmp/research-benchmark-9zjlm9mo",
+  "argv": [
+    "/Users/park_hyun/.local/bin/claude",
+    "--print",
+    "--verbose",
+    "--output-format",
+    "stream-json",
+    "--model",
+    "claude-opus-5-5",
+    "--tools",
+    "WebSearch,WebFetch",
+    "--allowedTools",
+    "WebSearch,WebFetch",
+    "--permission-mode",
+    "dontAsk",
+    "--permission-prompts",
+    "none",
+    "--no-chrome",
+    "--no-session-persistence",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "/Users/park_hyun/myblog-workspace/.wt/research-r2-review/docs/reviews/measurements/2026-10-15-research-model-evaluation/stage-b/round2/review/runs/claude-review-S16/empty-mcp.json",
+    "--safe-mode",
+    "--effort",
+    "medium"
+  ],
+  "resolved_models": [
+    "claude-haiku-5-5",
+    "claude-opus-5-5"
+  ],
+  "resolution_evidence": "cli_event",
+  "cli_errors": [],
+  "usage_reported": [
+    {
+      "claude-opus-5-5": {
+        "inputTokens": 6,
+        "outputTokens": 7111,
+        "cacheReadInputTokens": 104991,
+        "cacheCreationInputTokens": 52953,
+        "webSearchRequests": 0,
+        "costUSD": 0.5868662,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 2474,
+        "canonicalModel": "claude-opus-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-5-5": {
+        "inputTokens": 113559,
+        "outputTokens": 10029,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.0163704,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 4798,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 52953,
+      "cache_read_input_tokens": 104991,
+      "output_tokens": 7111,
+      "output_tokens_details": {
+        "thinking_tokens": 2474
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 52953,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 4717,
+          "cache_read_input_tokens": 54148,
+          "cache_creation_input_tokens": 1666,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1666
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    }
+  ],
+  "tool_counts": {
+    "WebFetch": 7
+  },
+  "event_count": 41,
+  "hook_event_count": 0,
+  "memory_paths": {},
+  "cli_init": {
+    "tools": [
+      "WebFetch",
+      "WebSearch"
+    ],
+    "skills_count": 17,
+    "plugins_count": 9,
+    "agents_count": 4,
+    "slash_commands_count": 53,
+    "mcp_servers_count": 0
+  },
+  "non_json_line_count": 0,
+  "returncode": 0,
+  "process_wall_s": 89.951,
+  "finished_at": "2026-10-18T11:25:42.738894+00:00",
+  "wall_s": 94.832
+}

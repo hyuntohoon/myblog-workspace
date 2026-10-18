@@ -44,6 +44,114 @@
     "runs/gx-P2-gemini-rights-r2-resume/input.txt": {
       "original_sha256": "cadc42b4ee8aca7d42539ee0a1228febd0890709f2ff6b4e4fd599728315180e",
       "occurrences": 1
+    },
+    "review/inputs/S03.txt": {
+      "original_sha256": "f7f8e7467e3c130855532482740b7e2e55169e38ecd4f8d5fd2c714fee357cf7",
+      "occurrences": 1
+    },
+    "review/inputs/S05.txt": {
+      "original_sha256": "13a7426f60c7dc64c5d2e2dd46b7058ca7187782d6290eb88d8bf0a3040c9963",
+      "occurrences": 1
+    },
+    "review/inputs/S07.txt": {
+      "original_sha256": "ab8b07489185f279cfc1eddbe26e1741512d91382b7488eb62f978eaa966397d",
+      "occurrences": 1
+    },
+    "review/inputs/S08.txt": {
+      "original_sha256": "bae3f79e941a0a2d9b744eab2526ecf3226f25d9fb4edb3e99d76a40b1db03a1",
+      "occurrences": 1
+    },
+    "review/inputs/S09.txt": {
+      "original_sha256": "e561492e5ebb919fd33c0365918f47969af1dc5ac4e5e9401af3ea3d862ab998",
+      "occurrences": 1
+    },
+    "review/inputs/S12.txt": {
+      "original_sha256": "7682b98cda05c6e8f15e0397bddd324abf554c4dad2df70ed11f8a44b22cc3f0",
+      "occurrences": 1
+    },
+    "review/inputs/S14.txt": {
+      "original_sha256": "73c34ee1ede1efdf8028ceebea996ee22a60915c9c6fa144715276da9e1b37ed",
+      "occurrences": 1
+    },
+    "review/inputs/S15.txt": {
+      "original_sha256": "937cb3bc92f9d366b67c8840275a5537d7ed2ebf05a0bf4fc2ce06a13c85f0d3",
+      "occurrences": 1
+    },
+    "review/inputs/S17.txt": {
+      "original_sha256": "4343012e8ba772857571725150feae73767b47ba56ea64ccdd6db20eb1007cef",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S03/input.txt": {
+      "original_sha256": "f7f8e7467e3c130855532482740b7e2e55169e38ecd4f8d5fd2c714fee357cf7",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S05/input.txt": {
+      "original_sha256": "13a7426f60c7dc64c5d2e2dd46b7058ca7187782d6290eb88d8bf0a3040c9963",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S07/input.txt": {
+      "original_sha256": "ab8b07489185f279cfc1eddbe26e1741512d91382b7488eb62f978eaa966397d",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S08/input.txt": {
+      "original_sha256": "bae3f79e941a0a2d9b744eab2526ecf3226f25d9fb4edb3e99d76a40b1db03a1",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S09/input.txt": {
+      "original_sha256": "e561492e5ebb919fd33c0365918f47969af1dc5ac4e5e9401af3ea3d862ab998",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S12/input.txt": {
+      "original_sha256": "7682b98cda05c6e8f15e0397bddd324abf554c4dad2df70ed11f8a44b22cc3f0",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S14/input.txt": {
+      "original_sha256": "73c34ee1ede1efdf8028ceebea996ee22a60915c9c6fa144715276da9e1b37ed",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S15/input.txt": {
+      "original_sha256": "937cb3bc92f9d366b67c8840275a5537d7ed2ebf05a0bf4fc2ce06a13c85f0d3",
+      "occurrences": 1
+    },
+    "review/runs/astra-review-S17/input.txt": {
+      "original_sha256": "4343012e8ba772857571725150feae73767b47ba56ea64ccdd6db20eb1007cef",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S03/input.txt": {
+      "original_sha256": "f7f8e7467e3c130855532482740b7e2e55169e38ecd4f8d5fd2c714fee357cf7",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S05/input.txt": {
+      "original_sha256": "13a7426f60c7dc64c5d2e2dd46b7058ca7187782d6290eb88d8bf0a3040c9963",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S07/input.txt": {
+      "original_sha256": "ab8b07489185f279cfc1eddbe26e1741512d91382b7488eb62f978eaa966397d",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S08/input.txt": {
+      "original_sha256": "bae3f79e941a0a2d9b744eab2526ecf3226f25d9fb4edb3e99d76a40b1db03a1",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S09/input.txt": {
+      "original_sha256": "e561492e5ebb919fd33c0365918f47969af1dc5ac4e5e9401af3ea3d862ab998",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S12/input.txt": {
+      "original_sha256": "7682b98cda05c6e8f15e0397bddd324abf554c4dad2df70ed11f8a44b22cc3f0",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S14/input.txt": {
+      "original_sha256": "73c34ee1ede1efdf8028ceebea996ee22a60915c9c6fa144715276da9e1b37ed",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S15/input.txt": {
+      "original_sha256": "937cb3bc92f9d366b67c8840275a5537d7ed2ebf05a0bf4fc2ce06a13c85f0d3",
+      "occurrences": 1
+    },
+    "review/runs/claude-review-S17/input.txt": {
+      "original_sha256": "4343012e8ba772857571725150feae73767b47ba56ea64ccdd6db20eb1007cef",
+      "occurrences": 1
     }
   }
 }

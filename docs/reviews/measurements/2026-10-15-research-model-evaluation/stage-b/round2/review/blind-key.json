@@ -1,0 +1,23 @@
+{
+  "drawn_at": "2026-10-18T10:48:58.025316+00:00",
+  "method": "secrets.SystemRandom().shuffle",
+  "key": {
+    "S01": "gx-P0-2000-tape-r1",
+    "S02": "gx-P2-2000-tape-r1",
+    "S03": "gx-P0-gemini-rights-r2-resume",
+    "S04": "cl-P0-2000-tape-r2",
+    "S05": "gx-P2-gemini-rights-r1",
+    "S06": "gx-P0-2000-tape-r2-resume",
+    "S07": "sentinel:round1/cl-P1-gemini-rights",
+    "S08": "cl-P0-gemini-rights-r1",
+    "S09": "cl-P2-gemini-rights-r1",
+    "S10": "cl-P2-2000-tape-r2",
+    "S11": "cl-P0-2000-tape-r1",
+    "S12": "gx-P2-gemini-rights-r2-resume",
+    "S13": "cl-P2-2000-tape-r1",
+    "S14": "gx-P0-gemini-rights-r1",
+    "S15": "cl-P2-gemini-rights-r2",
+    "S16": "gx-P2-2000-tape-r2-resume",
+    "S17": "cl-P0-gemini-rights-r2"
+  }
+}
