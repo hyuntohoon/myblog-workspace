@@ -30,7 +30,8 @@
 # or alias, or a script file; a quoted `"}"`/`"fi"` read as the reserved word;
 # `cd <existing dir> || git commit` (the commit runs only if that cd fails);
 # a wrapper outside the modelled list (`caffeinate git`, `arch -arm64 git`,
-# zsh `- git`); an array append `X+=(…)`;
+# zsh `- git`); an array `X=(…)`/`X+=(…)`; declare/typeset/read/for setting a
+# variable; CDPATH (bash); a newline after `||` or `|` (read as a `;`);
 # quoted operators (`echo ";"`); a loop body's second pass;
 # zsh's two-argument `cd old new`; a substitution inside double quotes
 # (`git log "$(git commit)"`) or backticks. A `case` inside a substitution of a
@@ -39,11 +40,14 @@
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
 # command list of its own.
 # A cd after a wrapper that starts a program (`env cd x`, `timeout 9 cd x`)
-# does not move the shell; after a bare builtin, or a time that starts a
-# pipeline, it does; after `command`, zsh noglob/nocorrect, a time anywhere
-# else (`if time cd x`, `D=1 time cd x`) or a wrapper option the location is
-# unknown (bash and zsh differ). An assignment after any wrapper (`env D=x;`)
-# makes the variable unknown; `D+=x` appends to D.
+# does not move the shell, nor after a time that follows another wrapper
+# (`time time cd x`: /usr/bin/time in both shells); after a bare builtin it
+# does; after `command`, zsh noglob/nocorrect, a first time (the reserved word
+# or /usr/bin/time depending on position, quoting and the shell: `if time cd
+# x` is a program in bash 3.2) or a wrapper option the location is unknown.
+# A git after xargs takes its subcommand and -C from stdin: unknown, denies.
+# An assignment after any wrapper (`env D=x;`) makes the variable unknown;
+# `D+=x` appends to D.
 # Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
@@ -265,16 +269,13 @@ WRAPPERS = {"env", "command", "builtin", "exec", "time", "nice", "nohup", "sudo"
 OPERANDS = {"timeout": 1, "gtimeout": 1}
 # Wrappers that run a cd in the shell itself, in bash and zsh alike. After
 # `command` it depends on the shell (zsh runs /usr/bin/cd), as after the zsh
-# modifiers noglob/nocorrect (no such command in bash); the rest start a
-# program, so a cd after them (`env cd x`, `timeout 9 cd x`) moves nothing.
+# modifiers noglob/nocorrect (no such command in bash) and a first `time` (the
+# reserved word only at some positions, and unquoted: bash 3.2 runs
+# /usr/bin/time after if/while/!, `\time` is always the program); after another
+# wrapper `time` is /usr/bin/time in both shells. The rest start a program, so
+# a cd after them (`env cd x`, `timeout 9 cd x`) moves nothing.
 IN_SHELL = {"builtin", "time"}
-UNSURE = {"command", "noglob", "nocorrect"}
-# `time` is the reserved word, in bash and zsh alike, only as the first word
-# after one of these. After another wrapper both run /usr/bin/time (`time time
-# cd x`, `builtin time cd x`); anywhere else (after if/while/until/elif/!, a case
-# pattern, an assignment or a redirection) bash 3.2 runs /usr/bin/time and zsh
-# times in the shell or fails to parse.
-TIME_AFTER = {"", ";", "&&", "||", "|", "|&", "&", "(", "{", "then", "do", "else"}
+UNSURE = {"command", "noglob", "nocorrect", "time"}
 
 def wrapper(t):
     """Wrapper name t runs as — /usr/bin/env is env — else None."""
@@ -346,6 +347,8 @@ def git_invocations(toks, start=False, env0=None, depth=0):
     external = False                          # the command runs as a program, not in this shell
     unsure = False                            # `command cd x`: moves the shell in bash, not in zsh
     wrapped = False                           # a wrapper came first: `env D=x` is no shell assignment
+    piped_args = False                        # after xargs: git takes more arguments from stdin
+    redirected = False                        # a redirection came first: `>f ! cd x` runs a command named !
     fd_word = False                           # a bare number was skipped as the fd of a redirection
     broken = False                            # unmatched or unmodelled block syntax: nothing after it is trusted
     # The and-or list / pipeline being parsed. A cd or assignment that may not
@@ -434,6 +437,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         t = toks[i]
         if SEP.match(t) and ("<" in t or ">" in t):
             # a redirection: its operand is a file, not a command
+            redirected = redirected or expect_cmd
             if i + 1 < n and not SEP.match(toks[i + 1]):
                 i += 1
             i += 1; continue
@@ -470,7 +474,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 else:                         # ; ;; ;& ;;&
                     end_list()
             prefix, exporting, opaque, fd_word, external, wrapped = {}, False, False, False, False, False
-            unsure = False
+            unsure = piped_args = redirected = False
             expect_cmd = True; i += 1; continue
         if expect_cmd and t == "export":
             exporting = True; i += 1; continue
@@ -517,20 +521,22 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 b = stack[-1]                 # `if false; then cd x; else git …`: the then-branch did not run
                 forget(b["cd"], b["vars"])
             i += 1; continue
+        if expect_cmd and t == "!" and (prefix or redirected):
+            expect_cmd = False; i += 1; continue  # `D=1 ! cd x`: a command named ! in bash, an error in zsh
         if expect_cmd and (wrapper(t) or t in KEYWORDS):
             if t in OPEN_CTL:
                 open_block(t, True)
             w = wrapper(t)
             bare = "/" not in t
-            prev = toks[i - 1] if i else ""
             i += 1
             if w == "time" and bare and wrapped:
                 external = True
-            elif bare and (w in UNSURE or (w == "time" and prev not in TIME_AFTER)):
+            elif bare and w in UNSURE:
                 unsure = True
             elif w and (w not in IN_SHELL or not bare):
                 external = True
             wrapped = wrapped or bool(w)
+            piped_args = piped_args or w == "xargs"
             if w and i < n and toks[i].startswith("-"):
                 # options may take arguments (nice -n 5, sudo -u x, env -C dir):
                 # skip to the git word, if any, and treat its repo as unknown
@@ -601,11 +607,13 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                     break
                 if subcmd is None and tj.split("=", 1)[0] in ("--git-dir", "--work-tree"):
                     target = None
-                if tj == "-C" and j + 1 < n:
-                    target = resolve_dir(toks[j + 1], target, env, True); j += 2; continue
+                value = j + 1 < n and not SEP.match(toks[j + 1])   # `git -C; git commit`: no value
+                if tj == "-C":
+                    target = resolve_dir(toks[j + 1], target, env, True) if value else None
+                    j += 2 if value else 1; continue
                 if tj.startswith("-C") and len(tj) > 2:
                     target = resolve_dir(tj[2:], target, env, True); j += 1; continue
-                if subcmd is None and tj in VALUE_FLAGS and j + 1 < n:
+                if subcmd is None and tj in VALUE_FLAGS and value:
                     j += 2; continue
                 if subcmd is None and tj.startswith("-"):
                     j += 1; continue
@@ -617,6 +625,8 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 new_dir = expand_path(path, target, env, True) if path else None
                 if new_dir is not None:
                     created[new_dir] = branch
+            if piped_args:
+                subcmd, target = "commit", None   # `echo commit | xargs git`: unknown, deny
             out.append((subcmd, target, rest))
             i = j; expect_cmd = False; continue
         expect_cmd = False; i += 1

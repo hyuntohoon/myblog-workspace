@@ -349,9 +349,7 @@ class GuardBashTargetTest(unittest.TestCase):
                     "true && env cd ../feature; git commit -m x",
                     "command cd ../feature && git commit -m x"]:  # zsh runs /usr/bin/cd
             self.assertDecision("deny", cmd, cwd=main)
-        for cmd in ["builtin cd ../feature && git commit -m x",  # these run cd in the shell
-                    "time cd ../feature && git commit -m x"]:
-            self.assertDecision("allow", cmd, cwd=main)
+        self.assertDecision("allow", "builtin cd ../feature && git commit -m x", cwd=main)
         self.assertDecision("allow", "env cd ../onmain && git commit -m x", cwd=feat)
 
     def test_review_round6(self):
@@ -404,41 +402,66 @@ class GuardBashTargetTest(unittest.TestCase):
                     f"D={main}; D+=/../feature E=1; cd \"$D\" && git commit -m x"]:
             self.assertDecision("allow", cmd, cwd=main)
 
-    def test_time_runs_in_the_shell_only_where_a_pipeline_starts(self):
+    def test_a_first_time_makes_the_location_unknown(self):
         main, feat = self.root / "onmain", self.root / "feature"
-        for cmd in [# after a wrapper both shells run /usr/bin/time
+        for cmd in [# after a wrapper both shells run /usr/bin/time: the shell stays put
                     f"time time cd {feat}; git commit -m x",
                     f"builtin time cd {feat}; git commit -m x",
-                    # bash 3.2 runs /usr/bin/time here, zsh times in the shell or fails to parse
+                    # the reserved word or /usr/bin/time by position, quoting and shell:
+                    # bash 3.2 runs the program after if/while/!, zsh times in the shell
+                    f"time cd {feat}; git commit -m x",
                     f"if time cd {feat}; then git commit -m x; fi",
                     f"until time cd {feat}; do git commit -m x; done",
                     f"! time cd {feat}; git commit -m x",
                     f"case x in x) time cd {feat}; git commit -m x;; esac",
-                    f"case x in (x) time cd {feat}; git commit -m x;; esac",
                     f"D=1 time cd {feat}; git commit -m x",
-                    f"2>/dev/null time cd {feat}; git commit -m x"]:
+                    f"2>/dev/null time cd {feat}; git commit -m x",
+                    f">then time cd {feat}; git commit -m x",       # then is a file name here
+                    f"\\time cd {feat}; git commit -m x",            # always /usr/bin/time
+                    f"\"time\" cd {feat}; git commit -m x",
+                    f"t\"\"ime cd {feat}; git commit -m x",
+                    f"time builtin cd {feat}; git commit -m x"]:   # `\\time builtin`: a program
             self.assertDecision("deny", cmd, cwd=main)
-        for cmd in [f"time cd {feat}; git commit -m x",
-                    f"if true; then time cd {feat}; git commit -m x; fi",
-                    f"{{ time cd {feat}; git commit -m x; }}",
-                    f"time builtin cd {feat}; git commit -m x",
-                    f"builtin builtin cd {feat}; git commit -m x",
-                    f"if /usr/bin/time cd ../onmain; then git commit -m x; fi",
-                    "time time cd ../onmain; git commit -m x"]:   # a program: the shell stays put
-            self.assertDecision("allow", cmd, cwd=main if "onmain" not in cmd else feat)
+        for cmd in [f"builtin builtin cd {feat}; git commit -m x",
+                    f"time git -C {feat} commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=main)
+        for cmd in ["if /usr/bin/time cd ../onmain; then git commit -m x; fi",
+                    "time time cd ../onmain; git commit -m x",
+                    "command time cd ../onmain; git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=feat)
 
     def test_xargs_stdbuf_and_zsh_modifiers_are_wrappers(self):
         main, feat = self.root / "onmain", self.root / "feature"
         for cmd in ["xargs git commit -m x", "echo | xargs git commit -m x",
                     "stdbuf -o0 git commit -m x", "noglob git commit -m x",
                     "nocorrect git commit -m x",
+                    # xargs appends stdin: the subcommand and -C come from there
+                    "echo commit -m x | xargs git", "echo commit | xargs -n9 git",
+                    "echo commit | xargs -I{} git {} -m x",
                     f"noglob cd {feat}; git commit -m x",       # zsh moves, bash has no noglob
                     f"nocorrect cd {feat}; git commit -m x"]:
             self.assertDecision("deny", cmd, cwd=main)
-        for cmd in ["xargs git commit -m x", "noglob git commit -m x",
-                    "xargs cd ../onmain; git commit -m x"]:     # xargs runs /usr/bin/cd
+        self.assertDecision("deny", "echo -C ../onmain commit -m x | xargs git", cwd=feat)
+        for cmd in ["noglob git commit -m x",
+                    "xargs cd ../onmain; git commit -m x",      # xargs runs /usr/bin/cd
+                    "echo x | xargs echo; git commit -m x"]:
             self.assertDecision("allow", cmd, cwd=feat)
         self.assertDecision("deny", "noglob cd ../onmain; git commit -m x", cwd=feat)
+
+    def test_a_value_flag_does_not_take_a_separator(self):
+        # `-C` used to swallow the `;`, hiding the second git as an argument of the first
+        for cmd in ["git -C; git commit -m x", "git -C || git commit -m x",
+                    "git -c || git commit -m x", "git --git-dir || git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=self.root / "onmain")
+        self.assertDecision("allow", "git -C; git commit -m x", cwd=self.root / "feature")
+
+    def test_bang_after_an_assignment_or_redirection_is_a_command(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        # bash: `!: command not found`, the cd never runs; zsh: a parse error
+        for cmd in [f"D=1 ! cd {feat}; git commit -m x", f"D+=x ! cd {feat}; git commit -m x",
+                    f">/dev/null ! cd {feat}; git commit -m x", f"2>/dev/null ! cd {feat}; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        self.assertDecision("allow", f"! cd {feat}; git commit -m x", cwd=main)
 
     def test_dash_c_uses_the_physical_path(self):
         self.assertDecision("deny", "git -C feature/lnk/.. commit -m x")
