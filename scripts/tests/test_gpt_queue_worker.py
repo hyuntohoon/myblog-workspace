@@ -20,6 +20,7 @@ from myblog_shared_db.lyrics_demand import LyricsDemandStore, StaleDiscovery
 from scripts.gpt_plan_auth import PrivateState
 from scripts.gpt_plan_client import PlanInferenceError
 from scripts import automation_heartbeat
+from scripts.claude_fallback_client import FallbackError
 from scripts.gpt_queue_worker import FINAL, QueueWorker, bind_album, heartbeat_fields, idle_heartbeat
 from scripts.gpt_translation_store import VERSIONS, _source
 
@@ -291,25 +292,35 @@ def test_plan_usage_limit_waits_an_hour_then_resumes(queue):
     assert 'limit_hits' not in settings and 'resume_at' not in settings
 
 
-def test_third_consecutive_usage_limit_stops_the_worker(queue):
+def test_repeated_usage_limits_keep_waiting_and_never_stop_the_worker(queue):
+    # 2026-10-17: the third limit in a row stopped the worker while the weekly limit lasted
+    # five more days, and nothing restarted it. A limit now always waits and probes again.
     request(queue)
     request(queue, index=1)
     request(queue, index=2)
     clock = Clock()
     client = FakeClient(error=limit_error())
     w = worker(queue, client, clock)
-    for hits in (1, 2):
-        assert w.tick(MODEL) == LIMIT
-        assert PrivateState(queue['state'].directory).settings()['limit_hits'] == hits
+    for hits in (1, 2, 3, 4):
+        outcome = w.tick(MODEL)
+        assert (w.tick(MODEL) if outcome == 'scan_wrap' else outcome) == LIMIT
+        settings = PrivateState(queue['state'].directory).settings()
+        assert settings['enabled'] is True and settings.get('pause_reason') is None
+        assert settings['limit_hits'] == hits and settings['resume_at'] == clock.now + 3600
+        assert w.tick(MODEL) == 'usage_limit_wait'
         clock.now += 3601
-    assert w.tick(MODEL) == LIMIT
+    assert len(client.calls) == 4
+
+
+def test_a_late_sibling_limit_does_not_rearm_a_stopped_worker(queue):
+    clock = Clock()
+    w = worker(queue, clock=clock)
+    settings = queue['state'].settings()
+    settings.update(enabled=False, pause_reason='owner_paused')
+    queue['state'].write('settings.json', settings)
+    w.limit_hit(LIMIT)
     settings = PrivateState(queue['state'].directory).settings()
-    assert settings['enabled'] is False
-    assert settings['pause_reason'] == LIMIT
-    assert 'resume_at' not in settings
-    assert w.tick(MODEL) == 'owner_paused'
-    assert len(client.calls) == 3
-    assert 'limit_hits' not in settings  # A re-enable starts a fresh streak.
+    assert 'resume_at' not in settings and 'limit_hits' not in settings
 
 
 def test_repeated_limits_on_one_source_never_exhaust_its_attempts(queue):
@@ -719,3 +730,135 @@ def test_agent_key_is_the_shared_pausable_key():
     from myblog_shared_db.automation import GPT_WORKER_KEY, PAUSABLE_JOB_KEYS
     from scripts.gpt_queue_worker import AGENT_KEY
     assert AGENT_KEY == GPT_WORKER_KEY and AGENT_KEY in PAUSABLE_JOB_KEYS
+
+
+# --- Claude fallback while GPT waits out a plan usage limit (owner request 2026-10-18) ---
+CLAUDE = 'claude-opus-5-5'
+FALLBACK = 'opus'
+
+
+class FakeFallback(FakeClient):
+    def translate(self, claim, model, claimed_at=None):
+        segments, _, usage = super().translate(claim, model)
+        return segments, CLAUDE, usage
+
+
+def fallback_worker(q, client, clock=None, enabled=True, cap=50, waiting=True):
+    clock = clock or Clock()
+    settings = q['state'].settings()
+    settings.update(fallback={'enabled': enabled, 'model': FALLBACK, 'daily_cap': cap})
+    if waiting:
+        settings.update(resume_at=clock.now + 600, limit_hits=1)
+    q['state'].write('settings.json', settings)
+    w = QueueWorker(q['engine'], q['state'], client, daily_cap=1000, clock=clock, mode='fallback')
+    w.site_paused = lambda: False
+    return w
+
+
+def test_fallback_translates_during_the_wait_and_keeps_the_wait(queue):
+    request(queue)
+    client = FakeFallback()
+    w = fallback_worker(queue, client)
+    before = queue['state'].settings()['resume_at']
+    assert w.tick(FALLBACK) == 'saved'
+    assert client.calls[0][1] == FALLBACK
+    saved = row(queue, 'SELECT model,translator_version,status FROM track_lyrics_translations WHERE track_id=:id', id=queue['tracks'][0])
+    assert saved == {'model': CLAUDE, 'translator_version': VERSIONS['lyrics'], 'status': 'done'}
+    # A Claude success is not a GPT success: the GPT wait and its streak stand.
+    settings = queue['state'].settings()
+    assert settings['resume_at'] == before and settings['limit_hits'] == 1
+    day = time.strftime('%Y-%m-%d', time.gmtime(w.clock()))
+    assert queue['state'].read('fallback-usage.json')[day]['requests'] == 1
+    assert queue['state'].read('usage.json', {}) == {}
+
+
+@pytest.mark.parametrize('reason', ['invalid_output', 'temporary_error'])
+def test_fallback_failure_is_refunded_and_skipped_until_gpt_returns(queue, reason):
+    request(queue)
+    client = FakeFallback(error=FallbackError(reason))
+    w = fallback_worker(queue, client)
+    assert w.tick(FALLBACK) == 'fallback_' + reason
+    # GPT keeps both attempts: the failed Claude call is refunded.
+    assert row(queue, 'SELECT status,attempts,last_reason FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0]) == \
+        {'status': 'retryable_error', 'attempts': 0, 'last_reason': 'claim_released'}
+    assert w.tick(FALLBACK) == 'scan_wrap'
+    assert w.tick(FALLBACK) in ('idle', 'scanned')
+    assert len(client.calls) == 1
+    assert w.fallback_used_today() == 1
+    # A GPT completion ends the wait and gives the fallback a fresh try next time.
+    w.clock.now = queue['state'].settings()['resume_at'] + 1
+    w.limit_cleared()
+    assert queue['state'].read('fallback-skip.json') == {}
+
+
+def test_fallback_throttle_ends_the_run_without_skipping_the_source(queue):
+    request(queue)
+    client = FakeFallback(error=FallbackError('claude_throttled', retry=True, throttle=True))
+    w = fallback_worker(queue, client)
+    assert w.tick(FALLBACK) == 'fallback_throttled'
+    assert 'fallback_throttled' in FINAL
+    assert queue['state'].read('fallback-skip.json', {}) == {}
+    assert w.fallback_used_today() == 0
+    assert row(queue, 'SELECT attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0])['attempts'] == 0
+
+
+def test_fallback_holds(queue):
+    request(queue)
+    client = FakeFallback()
+    assert fallback_worker(queue, client, waiting=False).tick(FALLBACK) == 'gpt_available'
+    queue['state'].write('settings.json', {**queue['state'].settings(), 'resume_at': 0})
+    assert fallback_worker(queue, client, enabled=False).tick(FALLBACK) == 'usage_limit_wait'
+    assert fallback_worker(queue, client, cap=0).tick(FALLBACK) == 'fallback_cap'
+    w = fallback_worker(queue, client)
+    w.site_paused = lambda: True  # The owner's page pause still applies to the fallback.
+    assert w.tick(FALLBACK) == 'site_paused'
+    assert client.calls == []
+
+
+def test_fallback_run_uses_one_slot_and_stops_when_gpt_wait_ends(queue):
+    for index in range(3):
+        request(queue, index)
+    clock = Clock()
+    def end_wait_after_first(_):
+        clock.now += 601
+    client = FakeFallback(hook=end_wait_after_first)
+    w = fallback_worker(queue, client, clock=clock)
+    outcomes = w.run(FALLBACK, parallel=1)
+    assert outcomes == {'saved': 1, 'gpt_available': 1}
+
+
+def test_main_runs_the_fallback_during_a_wait_only_when_enabled(queue, monkeypatch, beats):
+    import scripts.gpt_queue_worker as module
+    import scripts.lyrics_translate_poller as poller
+    import scripts.claude_fallback_client as fallback_module
+    settings = queue['state'].settings()
+    settings.update(resume_at=time.time() + 600, limit_hits=1,
+                    fallback={'enabled': True, 'model': FALLBACK, 'daily_cap': 5})
+    queue['state'].write('settings.json', settings)
+    seen = {}
+    class Recorder:
+        def __init__(self, engine, state, client, daily_cap, heartbeat=None, mode='gpt'):
+            seen.update(client=client, mode=mode)
+        def run(self, model, parallel=3):
+            seen.update(model=model, parallel=parallel)
+            return {'idle': 1}
+    monkeypatch.setattr(module, 'QueueWorker', Recorder)
+    monkeypatch.setattr(poller, 'database_url', lambda: TEST_DB_URL)
+    monkeypatch.setattr(automation_heartbeat, 'Heartbeat', lambda *a, **k: type('B', (), {'force': lambda self, f: None, 'maybe': lambda self, f: None})())
+    assert module.main(['--state-dir', str(queue['state'].directory)]) == 0
+    assert seen['mode'] == 'fallback' and seen['model'] == FALLBACK and seen['parallel'] == 1
+    assert isinstance(seen['client'], fallback_module.ClaudeFallbackClient)
+    assert (queue['state'].directory / 'claude-cwd').is_dir()
+
+
+def test_heartbeat_reports_the_engine(queue):
+    clock = Clock()
+    state = queue['state']
+    settings = state.settings()
+    settings.update(resume_at=clock.now + 600, fallback={'enabled': True, 'model': FALLBACK, 'daily_cap': 5})
+    state.write('settings.json', settings)
+    details = heartbeat_fields(state, 'running', clock=clock)['details']
+    assert details['engine'] == 'claude_fallback'
+    assert details['fallback']['model'] == FALLBACK and details['fallback']['daily_cap'] == 5
+    clock.now += 601
+    assert heartbeat_fields(state, 'running', clock=clock)['details']['engine'] == 'gpt'

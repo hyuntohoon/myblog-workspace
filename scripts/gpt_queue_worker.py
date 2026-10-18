@@ -4,7 +4,12 @@
 Each slot repeats one-item ticks until it reaches a FINAL outcome. Claims share one
 scan cursor under a thread lock; the DB admission lock and claim UPDATE remain the
 authority on which work runs. A plan usage limit waits LIMIT_WAIT_SECONDS and
-resumes; LIMIT_STOP_AFTER consecutive limit events stop the worker.
+probes again; it never stops the worker (the ChatGPT weekly limit outlasts any fixed streak).
+Fallback (owner request 2026-10-18): while that wait lasts and `settings.fallback.enabled`,
+a run claims through the Claude CLI instead (scripts/claude_fallback_client.py): one slot, its
+own daily cap, failures refunded so GPT keeps every attempt, and a source the fallback could
+not translate is skipped by the fallback until GPT runs again. When the wait ends the run
+stops, so the next start probes GPT.
 Heartbeats (FEAT-automation-admin 2e, `automation_heartbeats`): a run writes at its end, and
 also every HEARTBEAT_SECONDS while its slots make progress; a start that runs nothing
 (stopped, paused, limit wait) writes at most every IDLE_HEARTBEAT_SECONDS.
@@ -43,9 +48,10 @@ from scripts.gpt_translation_store import GPTTranslationStore, VERSIONS, _source
 log = logging.getLogger(__name__)
 PARALLEL = 3
 LIMIT_WAIT_SECONDS = 3600
-LIMIT_STOP_AFTER = 3
+FALLBACK_DEFAULTS = {'enabled': False, 'model': 'opus', 'daily_cap': 50}
 # A slot stops claiming in this run after any of these.
-FINAL = frozenset({'idle', 'scan_wrap', 'daily_budget', 'owner_paused', 'site_paused', 'usage_limit_wait', 'disabled'})
+FINAL = frozenset({'idle', 'scan_wrap', 'daily_budget', 'owner_paused', 'site_paused', 'usage_limit_wait', 'disabled',
+                   'gpt_available', 'fallback_cap', 'fallback_throttled', 'fallback_unavailable'})
 USAGE_FIELDS = ('input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_tokens')
 AGENT_KEY = 'gpt-translate-poller'
 # The page calls this agent stale after 15 min (2 × 60 s, minimum 15 min). A run beats on
@@ -89,6 +95,21 @@ WITH candidates AS (
 """
 
 
+def fallback_config(settings):
+    """The owner's fallback switch from settings.json, with safe defaults for missing keys."""
+    raw = settings.get('fallback') if isinstance(settings.get('fallback'), dict) else {}
+    config = dict(FALLBACK_DEFAULTS)
+    config.update({k: raw[k] for k in FALLBACK_DEFAULTS if k in raw})
+    if raw.get('binary'):
+        config['binary'] = str(raw['binary'])
+    config['enabled'] = config['enabled'] is True
+    if not isinstance(config['model'], str) or not config['model'].strip():
+        config['enabled'] = False
+    if not isinstance(config['daily_cap'], int) or config['daily_cap'] < 0:
+        config['daily_cap'] = 0
+    return config
+
+
 def bind_album(db, row):
     """Job -> work lock order, committed separately BEFORE inference admission."""
     store = LyricsDemandStore(db.connection())
@@ -118,8 +139,9 @@ def bind_album(db, row):
 
 
 class QueueWorker:
-    def __init__(self, engine, state, client, daily_cap=10, clock=time.time, heartbeat=None):
+    def __init__(self, engine, state, client, daily_cap=10, clock=time.time, heartbeat=None, mode='gpt'):
         self.engine, self.state, self.client, self.clock = engine, state, client, clock
+        self.mode = mode  # 'gpt', or 'fallback' while GPT waits out a plan usage limit
         self.heartbeat = heartbeat
         self.store = GPTTranslationStore(daily_cap)
         self._scan = threading.Lock()
@@ -132,8 +154,17 @@ class QueueWorker:
         settings = settings if settings is not None else self.state.settings()
         if settings.get('pause_reason'):
             return 'owner_paused'
-        if settings.get('resume_at', 0) > self.clock():
+        waiting = settings.get('resume_at', 0) > self.clock()
+        if self.mode == 'gpt' and waiting:
             return 'usage_limit_wait'
+        if self.mode == 'fallback':
+            config = fallback_config(settings)
+            if not waiting:
+                return 'gpt_available'
+            if not config['enabled']:
+                return 'usage_limit_wait'
+            if self.fallback_used_today() >= config['daily_cap']:
+                return 'fallback_cap'
         if self.site_paused():
             return 'site_paused'
         return None
@@ -189,6 +220,8 @@ class QueueWorker:
         claimed = self._claim()
         if isinstance(claimed, str):
             return claimed
+        if self.mode == 'fallback':
+            return self._infer(model, *claimed, claimed_at=time.monotonic())
         return self._infer(model, *claimed)
 
     def _claim(self):
@@ -198,6 +231,7 @@ class QueueWorker:
             if held:
                 return held
             scan = self.state.read('scan.json', {'cursor': ''})
+            skipped = self.state.read('fallback-skip.json', {}) if self.mode == 'fallback' else {}
             with Session(self.engine) as db:
                 rows = list(db.execute(text(CANDIDATES), {'cursor': scan['cursor']}).mappings())
             if not rows and scan['cursor']:
@@ -207,6 +241,8 @@ class QueueWorker:
             for row in rows:
                 scan['cursor'] = row['key']
                 self.state.write('scan.json', scan)
+                if row['key'] in skipped:
+                    continue
                 try:
                     if row['job_id']:
                         with Session(self.engine) as db:
@@ -236,13 +272,14 @@ class QueueWorker:
                 return row, claim
             return 'idle' if not rows else 'scanned'
 
-    def _infer(self, model, row, claim):
+    def _infer(self, model, row, claim, claimed_at=None):
         from scripts.gpt_plan_client import PlanInferenceError
         # A stop from the setup screen takes effect before a new inference starts.
         # Tests call tick directly; installed ticks additionally verify account/model.
         controls = self.state.settings()
         held = self.held(controls)
-        if held or (controls.get('model') and controls['model'] != model):
+        expected = fallback_config(controls)['model'] if self.mode == 'fallback' else controls.get('model')
+        if held or (expected and expected != model):
             # Only the owner's own stop or model change cancels the source. A sibling's plan
             # stop or limit wait releases the claim and returns its attempt: no inference ran.
             owner = controls.get('pause_reason') == 'owner_paused' or not held
@@ -253,6 +290,8 @@ class QueueWorker:
                     self.store.fail(db, UUID(claim['work_id']), UUID(claim['claim_token']), 'claim_released', refund=True)
                 db.commit()
             return held or 'owner_paused'
+        if self.mode == 'fallback':
+            return self._infer_fallback(model, row, claim, claimed_at)
         # No DB connection/transaction remains open at this point.
         try:
             segments, actual_model, usage = self.client.translate(claim, model)
@@ -297,23 +336,88 @@ class QueueWorker:
                     db.rollback()
             return 'superseded_result'
 
+    def _infer_fallback(self, model, row, claim, claimed_at):
+        """One Claude translation. Every failure is refunded: the attempts belong to GPT."""
+        from scripts.claude_fallback_client import FallbackError
+        try:
+            segments, actual_model, usage = self.client.translate(claim, model, claimed_at=claimed_at)
+        except FallbackError as error:
+            if not error.retry:
+                # The model ran and failed on this source (prose refusal, bad shape, timeout).
+                self.fallback_skip(row['key'], error.reason)
+                self.record_fallback(model, None)
+            try:
+                with Session(self.engine) as db:
+                    self.store.fail(db, UUID(claim['work_id']), UUID(claim['claim_token']), 'claim_released', refund=True)
+                    db.commit()
+            except Exception:
+                log.warning('Fallback claim cleanup unavailable; lease will expire')
+            log.warning('Claude fallback failed (%s)', error.reason)
+            if error.throttle:
+                return 'fallback_throttled'
+            if error.reason == 'claude_cli_missing':
+                return 'fallback_unavailable'
+            return 'fallback_' + error.reason
+        # Success does not end the GPT limit wait: only a GPT completion does (limit_cleared).
+        self.record_fallback(actual_model, usage)
+        try:
+            with Session(self.engine) as db:
+                result = self.store.submit(db, UUID(claim['work_id']), UUID(claim['claim_token']),
+                                           segments, row['annotation_id'], model=actual_model)
+                db.commit()
+            return result['status']
+        except HTTPException:
+            with Session(self.engine) as db:
+                try:
+                    self.store.fail(db, UUID(claim['work_id']), UUID(claim['claim_token']), 'superseded_result')
+                    db.commit()
+                except HTTPException:
+                    db.rollback()
+            return 'superseded_result'
+
+    def fallback_skip(self, key, reason):
+        with self.state.lock('control.lock'):
+            skipped = self.state.read('fallback-skip.json', {})
+            skipped[key] = {'reason': reason, 'at': int(self.clock())}
+            self.state.write('fallback-skip.json', skipped)
+
+    def fallback_used_today(self):
+        day = datetime.fromtimestamp(self.clock(), timezone.utc).date().isoformat()
+        totals = self.state.read('fallback-usage.json', {}).get(day, {})
+        return int(totals.get('requests', 0)) + int(totals.get('failures', 0))
+
+    def record_fallback(self, model, usage):
+        """A Claude call that ran counts toward the fallback cap, success (usage) or failure (None)."""
+        try:
+            if usage is not None:
+                log.info('Claude fallback usage model=%s input=%d cached=%d output=%d',
+                         model, usage['input_tokens'], usage['cached_input_tokens'], usage['output_tokens'])
+            day = datetime.fromtimestamp(self.clock(), timezone.utc).date().isoformat()
+            with self.state.lock('usage.lock'):
+                daily = self.state.read('fallback-usage.json', {})
+                totals = daily.setdefault(day, dict.fromkeys(('requests', 'failures') + USAGE_FIELDS, 0))
+                if usage is None:
+                    totals['failures'] += 1
+                else:
+                    totals['requests'] += 1
+                    for key in USAGE_FIELDS:
+                        totals[key] += usage[key]
+                self.state.write('fallback-usage.json', daily)
+        except Exception as error:
+            log.warning('Claude fallback usage record unavailable (%s)', type(error).__name__)
+
     def limit_hit(self, reason):
-        """One limit event waits, then resumes; the LIMIT_STOP_AFTER-th consecutive one stops."""
+        """One limit event waits LIMIT_WAIT_SECONDS, then GPT is probed again. Never a stop."""
         with self.state.lock('control.lock'):
             settings = self.state.settings()
             now = self.clock()
             if settings.get('resume_at', 0) > now:
                 return  # A sibling stream rejected by the same event; already counted.
+            if settings.get('pause_reason') or not settings.get('enabled'):
+                return  # Stopped meanwhile; a late sibling must not re-arm a wait.
             hits = settings.get('limit_hits', 0) + 1
-            if hits >= LIMIT_STOP_AFTER:
-                settings.pop('resume_at', None)
-                settings.pop('limit_hits', None)  # A re-enable starts a fresh streak.
-                settings.update(enabled=False, pause_reason=reason)
-                log.error('GPT plan usage limit %d times in a row; stopped (%s)', hits, reason)
-            else:
-                settings.update(limit_hits=hits, resume_at=now + LIMIT_WAIT_SECONDS)
-                log.warning('GPT plan usage limit (%s); waiting %ds, %d/%d',
-                            reason, LIMIT_WAIT_SECONDS, hits, LIMIT_STOP_AFTER)
+            settings.update(limit_hits=hits, resume_at=now + LIMIT_WAIT_SECONDS)
+            log.warning('GPT plan usage limit (%s); waiting %ds (%d in a row)', reason, LIMIT_WAIT_SECONDS, hits)
             self.state.write('settings.json', settings)
 
     def limit_cleared(self):
@@ -327,6 +431,8 @@ class QueueWorker:
             settings.pop('limit_hits', None)
             settings.pop('resume_at', None)
             self.state.write('settings.json', settings)
+            # GPT is back: the next limit gives the fallback a fresh try at every source.
+            self.state.write('fallback-skip.json', {})
 
     def record_usage(self, model, usage):
         """Per-request log line plus a UTC-daily total in usage.json; never fails the item."""
@@ -366,6 +472,12 @@ def heartbeat_fields(state, phase, outcomes=None, error=None, clock=time.time):
     else:
         last = phase
     resume_at = settings.get('resume_at')
+    waiting = isinstance(resume_at, (int, float)) and resume_at > clock()
+    fallback = fallback_config(settings)
+    try:
+        fallback_today = state.read('fallback-usage.json', {}).get(day, {})
+    except Exception:
+        fallback_today = {}
     details = {
         'phase': phase,
         'model': str(settings.get('model') or '')[:64] or None,
@@ -376,6 +488,10 @@ def heartbeat_fields(state, phase, outcomes=None, error=None, clock=time.time):
         'resume_at': int(resume_at) if isinstance(resume_at, (int, float)) and resume_at > clock() else None,
         'usage_day_utc': day,
         'usage_today': {k: int(usage.get(k, 0)) for k in ('requests',) + USAGE_FIELDS},
+        'engine': 'claude_fallback' if waiting and fallback['enabled'] else 'gpt',
+        'fallback': {'enabled': fallback['enabled'], 'model': str(fallback['model'])[:64],
+                     'daily_cap': fallback['daily_cap'],
+                     'today': {k: int(fallback_today.get(k, 0)) for k in ('requests', 'failures') + USAGE_FIELDS}},
     }
     return dict(enabled=bool(settings.get('enabled')), last_outcome=last, details=details)
 
@@ -408,10 +524,14 @@ def main(argv=None):
             if not settings.get('model') or (not args.smoke and not settings.get('enabled')):
                 idle_heartbeat(state, 'stopped' if settings.get('model') else 'not_configured')
                 return 0
+            fallback = fallback_config(settings)
+            mode = 'gpt'
             if settings.get('resume_at', 0) > time.time():
-                # Plan usage limit wait: no claims; only the throttled heartbeat touches the DB.
-                idle_heartbeat(state, 'usage_limit_wait')
-                return 0
+                if not fallback['enabled']:
+                    # Plan usage limit wait: no claims; only the throttled heartbeat touches the DB.
+                    idle_heartbeat(state, 'usage_limit_wait')
+                    return 0
+                mode = 'fallback'
             from scripts.gpt_plan_client import GPTPlanClient
             from scripts.lyrics_translate_poller import database_url
             url = database_url()
@@ -419,10 +539,17 @@ def main(argv=None):
             engine = create_engine(url.replace('postgresql://', 'postgresql+psycopg://', 1),
                                    pool_pre_ping=True, connect_args={'connect_timeout': 30})
             try:
-                worker = QueueWorker(engine, state, GPTPlanClient(PlanAccount(state)), settings['daily_cap'],
-                                     heartbeat=beat)
+                if mode == 'fallback':
+                    from scripts.claude_fallback_client import DEFAULT_BINARY, ClaudeFallbackClient
+                    workdir = state.directory / 'claude-cwd'  # empty: no project context for the CLI
+                    workdir.mkdir(mode=0o700, exist_ok=True)
+                    client = ClaudeFallbackClient(Path(fallback.get('binary') or DEFAULT_BINARY), workdir)
+                    model, parallel = fallback['model'], 1  # the subscription guard serializes Claude anyway
+                else:
+                    client, model, parallel = GPTPlanClient(PlanAccount(state)), settings['model'], PARALLEL
+                worker = QueueWorker(engine, state, client, settings['daily_cap'], heartbeat=beat, mode=mode)
                 # A smoke stays one owner-authorized item; the schedule runs PARALLEL slots.
-                outcomes = {worker.tick(settings['model']): 1} if args.smoke else worker.run(settings['model'])
+                outcomes = {worker.tick(model): 1} if args.smoke else worker.run(model, parallel)
                 state.write('status.json', {'outcomes': outcomes})
                 log.info('GPT queue run: %s', outcomes)
                 beat.force(lambda: heartbeat_fields(state, 'finished', outcomes))
