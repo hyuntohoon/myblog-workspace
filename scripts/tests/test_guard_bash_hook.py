@@ -210,6 +210,27 @@ class GuardBashTargetTest(unittest.TestCase):
             self.assertDecision("deny", cmd, cwd=main)
         self.assertDecision("allow", "cd ../feature || exit 1; git commit -m x", cwd=main)
 
+    def test_review_round4(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [
+            # a { … } group after && / || may not run at all: its cd / assignment
+            # (after an inner `;`, which ends the inner list) must not outlive it
+            "false && { true; cd ../feature; }; git commit -m x",
+            "true || { true; cd ../feature; }; git commit -m x",
+            f"false && {{ true; WT={feat}; }}; git -C \"$WT\" commit -m x",
+            "false && { if true; then true; fi; cd ../feature; }; git commit -m x",
+            # an assignment after || in the same list may have been skipped
+            f"true || WT={feat} && git -C \"$WT\" commit -m x",
+            f"WT={main}; true || WT={feat} && git -C \"$WT\" commit -m x",
+        ]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["{ cd ../feature; }; git commit -m x",             # unconditional group
+                    "true && { cd ../feature; git commit -m x; }",     # commit inside the group
+                    "false || { cd ../feature && git commit -m x; }",  # the group's list is its own
+                    f"{{ WT={feat}; }}; git -C \"$WT\" commit -m x",
+                    f"WT={feat} && git -C \"$WT\" commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=main)
+
     def test_heredoc_delimiter_must_be_a_plain_word(self):
         main = self.root / "onmain"
         for cmd in ["cat <<EOF.x\ngit commit -m x\nEOF\nEOF.x",          # real delimiter is EOF.x

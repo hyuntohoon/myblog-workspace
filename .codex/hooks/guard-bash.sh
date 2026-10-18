@@ -19,8 +19,8 @@
 # (a cd there does not move the shell), same-command `VAR=…` assignments,
 # wrappers (env/command/time/sudo…) and worktrees created earlier in the same
 # command; here-document bodies are data and skipped. A cd or assignment that
-# may not have run (after && / ||, inside if/while/for/case) makes the location
-# unknown once its list or block ends. When the target repo of a commit or
+# may not have run (after && / ||, inside if/while/for/case or an `a && { … }`
+# group) makes the location unknown once its list or block ends. When the target repo of a commit or
 # force-push cannot be named — or GIT_DIR/--git-dir or an unmodelled wrapper
 # option may redirect it — it denies (fail closed). Not covered: git inside
 # `bash -c "…"`, eval, a here-string, functions/aliases, or a script file; and
@@ -304,6 +304,7 @@ def git_invocations(toks):
     # ends: `false && cd x; git commit` still commits where it started.
     conditional, depth, list_has_or = False, 0, False
     chain_cd, chain_vars, block_cd, block_vars = False, set(), False, set()
+    braces = []                               # per open { … }: whether it may not run
 
     def forget(cd_flag, names):
         nonlocal here
@@ -345,7 +346,10 @@ def git_invocations(toks):
                 name, _, value = toks[j].partition("=")
                 assigns[name] = value; j += 1
             if exporting or j >= n or SEP.match(toks[j]):
-                env.update(assigns)           # standalone: lasts for the rest of the line
+                if conditional and list_has_or:
+                    forget(False, assigns)    # `true || X=… && git -C "$X"`: may have been skipped
+                else:
+                    env.update(assigns)       # standalone: lasts for the rest of the line
                 if depth:
                     block_vars |= set(assigns)
                 elif conditional:
@@ -353,6 +357,21 @@ def git_invocations(toks):
             else:
                 prefix.update(assigns)        # prefix: applies to its own command only
             i = j; continue
+        if expect_cmd and t == "{":
+            # `a && { …; }` may not run at all: a block, like if/while, whose
+            # inner list starts fresh
+            braces.append(conditional)
+            if conditional:
+                depth += 1
+                conditional, list_has_or = False, False
+            i += 1; continue
+        if expect_cmd and t == "}" and braces:
+            if braces.pop():
+                depth = max(depth - 1, 0)
+                if depth == 0:
+                    forget(block_cd, block_vars)
+                    block_cd, block_vars = False, set()
+            expect_cmd = False; i += 1; continue
         if expect_cmd and t in CLOSE_CTL:
             depth = max(depth - 1, 0)
             if depth == 0:
