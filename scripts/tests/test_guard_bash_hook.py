@@ -261,6 +261,41 @@ class GuardBashTargetTest(unittest.TestCase):
                     "true && { cd ../feature; if true; then true; fi; git commit -m x; }"]:
             self.assertDecision("allow", cmd, cwd=main)
 
+    def test_review_round4_subshell_lists_and_block_syntax(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [
+            # a list ended by & runs in the background, whole
+            "cd ../feature && true & git commit -m x",
+            "cd ../feature && (true) & wait; git commit -m x",
+            # redirections do not hide the | after a group
+            "{ cd ../feature; } >/dev/null 2>&1 | cat; git commit -m x",
+            # a group / block that is a later pipeline stage
+            "true | { cd ../feature; }; git commit -m x",
+            "true | while read l; do cd ../feature; done; git commit -m x",
+            # unmodelled or unmatched block syntax fails closed
+            "if false; then select x in a; do true; done; cd ../feature; fi; git commit -m x",
+            "if true; then cd ../feature; done; git commit -m x",
+            "function f { cd ../feature; }; git commit -m x",
+            # a function body does not run where it is defined
+            "f() { cd ../feature; }; git commit -m x",
+            # an assignment inside ( … ) does not leave it
+            f"(WT={feat}); git -C \"$WT\" commit -m x",
+            # nor one in a list sent to the background
+            f"WT={feat} && true & git -C \"$WT\" commit -m x",
+            # the else branch runs only when the then branch did not
+            "if false; then cd ../feature; else git commit -m x; fi",
+        ]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["cd ../feature && git status & wait",               # no commit at all
+                    "(cd ../feature) && cd ../feature && git commit -m x",
+                    "cd ../feature; git log | head -1 > /dev/null; git commit -m x",
+                    "cd ../feature && git log | head -1 && git commit -m x",
+                    ">/dev/null cd ../feature; git commit -m x",        # redirection before the command
+                    "select x in a; do true; done; cd ../feature; git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=main)
+        # a case pattern's `)` is not the end of a subshell
+        self.assertDecision("allow", "case a in a) true;; b) true;; esac; git commit -m x", cwd=feat)
+
     def test_heredoc_delimiter_must_be_a_plain_word(self):
         main = self.root / "onmain"
         for cmd in ["cat <<EOF.x\ngit commit -m x\nEOF\nEOF.x",          # real delimiter is EOF.x
