@@ -323,6 +323,28 @@ class GuardBashTargetTest(unittest.TestCase):
     def test_dash_c_uses_the_physical_path(self):
         self.assertDecision("deny", "git -C feature/lnk/.. commit -m x")
 
+    def test_redirection_inside_a_git_command(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in ["git >/dev/null commit -m x",            # used to read no subcommand at all
+                    "git 2>/dev/null commit -m x",           # nor `2` as the subcommand
+                    "git 2>&1 commit -m x",
+                    "git </dev/null commit -m x",
+                    "git -C ../feature >/dev/null -C ../onmain commit -m x",
+                    "git push >/dev/null --force origin main",  # flags after a redirection
+                    "git push 2>&1 -f",
+                    "git push origin >/dev/null +main",
+                    # a process substitution as the file is one balanced ( … )
+                    "git 2> >(cat) commit -m x",
+                    "git push 2> >(grep -v x >&2) --force origin main",
+                    "git push <(true) -f"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["git >/dev/null commit -m x",
+                    "git 2>&1 commit -m x >/dev/null",
+                    "git 2> >(cat) commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=feat)
+        # the redirection ends nothing: the next command after ; still counts
+        self.assertDecision("deny", "git status >/dev/null; git commit -m x", cwd=main)
+
     def test_force_push(self):
         self.assertDecision("deny", "git -C onmain push --force origin main")
         self.assertDecision("deny", "cd onmain && git push -f")

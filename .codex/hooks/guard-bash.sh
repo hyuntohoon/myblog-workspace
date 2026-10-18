@@ -28,11 +28,11 @@
 # option or unmatched block syntax may redirect it — it denies (fail closed).
 # Not covered: git inside `bash -c "…"`, eval, a here-string, a function call
 # or alias, or a script file; a quoted `"}"`/`"fi"` read as the reserved word;
-# `cd <existing dir> || git commit` (the commit runs only if that cd fails); a
-# redirection between git and its subcommand (`git >/dev/null commit`); `X+=…`;
-# a wrapper given by path or with arguments (`/usr/bin/env git`, `timeout 60
-# git`); quoted operators (`echo ";"`); a loop body's second pass; zsh's
-# two-argument `cd old new`.
+# `cd <existing dir> || git commit` (the commit runs only if that cd fails);
+# `X+=…`; a wrapper given by path or with arguments (`/usr/bin/env git`,
+# `timeout 60 git`); quoted operators (`echo ";"`); a loop body's second pass;
+# zsh's two-argument `cd old new`. A redirection inside a git command
+# (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file.
 # Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
@@ -492,6 +492,23 @@ def git_invocations(toks):
                         if paren <= 0:
                             break
                     continue
+                if SEP.match(tj) and ("<" in tj or ">" in tj):
+                    # `git >/dev/null commit`, `git push 2>&1 -f`: a redirection and its
+                    # file, not the end of the command
+                    j += 1
+                    if j < n and toks[j] == "(":
+                        paren = 0             # `2> >(cat)`, `<(true)`: one balanced ( … )
+                        while j < n:
+                            if SEP.match(toks[j]):
+                                paren += toks[j].count("(") - toks[j].count(")")
+                            j += 1
+                            if paren <= 0:
+                                break
+                    elif j < n and not SEP.match(toks[j]):
+                        j += 1
+                    continue
+                if re.fullmatch(r"[0-9]+", tj) and j + 1 < n and re.match(r"^[<>]", toks[j + 1]):
+                    j += 1; continue                  # the fd of the redirection that follows
                 if SEP.match(tj):
                     break
                 if subcmd is None and tj.split("=", 1)[0] in ("--git-dir", "--work-tree"):
