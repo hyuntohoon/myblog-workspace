@@ -680,6 +680,9 @@ class GuardBashTargetTest(unittest.TestCase):
         # `${x:-<<X }` opens nothing: dropping the lines up to X hid the commit
         self.assertDecision("deny", "echo ${x:-<<X }\ngit -C ../onmain commit -m x\nX", cwd=feat)
         self.assertDecision("deny", "echo ${x:-${y:-<<X }}\ngit -C ../onmain commit -m x\nX", cwd=feat)
+        # a substitution inside the expansion may hold a }: judge the raw text
+        self.assertDecision("deny", "echo ${x:-`echo }` <<X }\ngit -C ../onmain commit -m x\nX", cwd=feat)
+        self.assertDecision("deny", "echo ${x:-$(echo }) <<X }\ngit -C ../onmain commit -m x\nX", cwd=feat)
         # a here-document after a closed expansion is still one
         self.assertDecision("allow", "echo ${x:-a}; cat <<X\ngit -C ../onmain commit\nX\ngit commit -m x",
                             cwd=feat)
