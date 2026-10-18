@@ -202,11 +202,10 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   - **Should `workspace-check` become a required check?** The workspace repo gained a `pull_request`
     workflow in ws #948 and it has passed on eleven PRs; its ruleset still carries only `main-protection`.
     Making it required is an open item, not a decision already taken.
-  - **Step 5 follow-ups 4 and 5 — not started** (restored to this row 2026-09-30; they had dropped out
-    of it). In order, one PR each: **4.** per-service shared_db pin invariants — duplicated pins inside
-    one service fail CI when they drift, cross-service skew stays allowed; **5.** frontend Playwright
-    golden E2E — only after 4, 3–5 mocked-boundary journeys, non-required until repeated PR evidence
-    shows it stable. Follow-ups 1–3 are done (3 = the lockfiles). → the RFC, *Step 5 follow-ups*.
+  - **Step 5 follow-up 5 — not started**: frontend Playwright golden E2E, 3–5 mocked-boundary
+    journeys, non-required until repeated PR evidence shows it stable. Follow-ups 1–4 are done
+    (3 = the lockfiles; 4 = per-service shared_db pin invariants, 2026-10-18). → the RFC,
+    *Step 5 follow-ups*.
 
 - **FEAT-album-review-authoring** (`docs/rfcs/FEAT-album-review-authoring.md`, accepted) — album
   <!-- rfc: docs/rfcs/FEAT-album-review-authoring.md | status: accepted -->
