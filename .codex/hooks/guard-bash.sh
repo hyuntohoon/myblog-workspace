@@ -30,12 +30,26 @@
 # or alias, or a script file; a quoted `"}"`/`"fi"` read as the reserved word;
 # `cd <existing dir> || git commit` (the commit runs only if that cd fails);
 # a wrapper outside the modelled list (`caffeinate git`, `arch -arm64 git`,
-# zsh `- git`); an array `X=(…)`/`X+=(…)`; declare/typeset/read/for setting a
-# variable; CDPATH (bash); a newline after `||` or `|` (read as a `;`);
-# quoted operators (`echo ";"`); a loop body's second pass;
-# zsh's two-argument `cd old new`; a substitution inside double quotes
-# (`git log "$(git commit)"`) or backticks. A `case` inside a substitution of a
-# git argument is not parsed and denies. A redirection inside a git command
+# zsh `- git`); quoted operators (`echo ";"`); a loop body's second pass;
+# zsh's two-argument `cd old new`; `${x:-)}` and `${ …; }`; a substitution
+# in an unquoted here-document body (`<<EOF` … `$(git commit)`); a CDPATH the
+# Bash tool shell sets without this hook seeing it in its own environment;
+# zsh/bash autocd (`../repo` as a command — off in the Bash tool shell); the
+# body of a zsh `foreach … end` (its loop names are unknown, its block is not
+# tracked); a command name spelled by ANSI-C escapes (`$'\x67it'`). A
+# `case` inside a substitution of a git argument is not parsed and denies.
+# A newline after `&&`, `||`, `|` or `|&` continues the list. An array
+# `X=(…)`/`X+=(…)` and any name set by declare/typeset/local/readonly/read/
+# unset/printf -v/mapfile/getopts/let/for/select is unknown, and a nameref
+# (`declare -n`) makes every later target unknown. With CDPATH set (or unknown)
+# a relative `cd x` that does not start with ./ or ../ is unknown: bash looks
+# there first. A `$( … )` inside double quotes or a backtick substitution runs
+# where the shell is, which is not tracked: each git in it targets an unknown
+# repo (`echo "$(git commit)"` denies even off main); backtick bodies are
+# scanned again for nested ones. A name set
+# by `${D:=x}`/`${D=x}`/`${D::=x}` anywhere in the command is unknown everywhere.
+# A git commit/push in a command that still does not tokenize, or next to a
+# `$'…'` string holding an escaped quote (shlex reads it inside out), denies. A redirection inside a git command
 # (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file; the
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
 # command list of its own.
@@ -54,7 +68,8 @@
 # covers the Bash path: a command that names a secret file as a bare argument
 # (cat/grep/base64/curl-data exfil).
 # First deny wins; the non-main force-push warning is emitted only when no
-# check denies. All decisions exit 0 — malformed/unparseable input fails open.
+# check denies. All decisions exit 0 — malformed input fails open, and so does an
+# untokenizable command unless it holds a git commit/push.
 set -euo pipefail
 
 input=$(cat)
@@ -173,14 +188,138 @@ def strip_heredocs(c):
     return "".join(out)
 
 # A newline ends a command just like `;` (shlex treats it as whitespace, which
-# hid every git call after the first line); a backslash-newline joins lines.
-def lines_as_commands(c):
-    return c.replace("\\\n", " ").replace("\n", " ; ")
+# hid every git call after the first line); a backslash-newline joins lines,
+# and so do newlines (blank lines too) after && / || / | / |&: the list goes on
+# (`false &&` then `cd x` on the next line is one list, not two commands).
+# An odd run of backslashes escapes the operator (`\\|` is a word), an even one does not.
+CONTINUED = re.compile(r"(?<!\\)((?:\\\\)*)(&&|\|\||\|&|\|)[ \t]*\n(?:[ \t]*\n)*")
 
+def lines_as_commands(c):
+    c = CONTINUED.sub(lambda m: m.group(1) + m.group(2) + " ", c.replace("\\\n", " "))
+    return c.replace("\n", " ; ")
+
+# A $\x27…\x27 string with an escaped quote in it (bash and zsh ANSI-C quoting)
+ANSI_C_ESCAPED_QUOTE = re.compile(r"\$\x27(?:[^\x27\\]|\\[^\x27])*\\\x27")
+
+def quoted_bodies(c):
+    """Bodies of each $( … ) inside double quotes and of each `…`, outside single
+    quotes and here-document bodies. They run, but tok_punct keeps them inside one
+    word (`echo "$(git commit)"`) or splits them into plain words (backticks)."""
+    bodies, n = [], len(c)
+
+    def backtick(k):                          # k: just past the opening backtick
+        a = k
+        while k < n and c[k] != "`":
+            k += 2 if c[k] == "\\" else 1
+        # inside backticks \` \$ \\ stand for the plain character: the body can hold
+        # its own backticks and quoted substitutions, so it is scanned again
+        body = re.sub(r"\\([\\`$])", r"\1", c[a:k])
+        bodies.append(body)
+        bodies.extend(quoted_bodies(body))
+        return k + 1
+
+    def dquote(k):                            # k: just past the opening quote
+        while k < n and c[k] != "\"":
+            if c[k] == "\\":
+                k += 2
+            elif c.startswith("$(", k) and not c.startswith("$((", k):
+                a = k + 2
+                k = paren(a)
+                bodies.append(c[a:k - 1])
+            elif c[k] == "`":
+                k = backtick(k + 1)
+            else:
+                k += 1
+        return k + 1
+
+    def paren(k):                             # k: just past $( — index past its )
+        depth, pending = 1, []
+        while k < n:
+            ch = c[k]
+            if ch == "\\":
+                k += 2; continue
+            if ch == SQ:
+                e = c.find(SQ, k + 1); k = n if e < 0 else e + 1; continue
+            if ch == "\"":
+                k = dquote(k + 1); continue
+            if ch == "`":
+                k = backtick(k + 1); continue
+            if ch == "#" and c[k - 1] in " \t\n;&|()":
+                nl = c.find("\n", k); k = n if nl < 0 else nl; continue
+            if ch == "\n" and pending:        # here-document bodies: prose, not syntax
+                k += 1
+                while pending and k < n:
+                    nl = c.find("\n", k)
+                    line = c[k:] if nl < 0 else c[k:nl]
+                    dash, word = pending[0]
+                    if (line.lstrip("\t") if dash else line) == word:
+                        pending.pop(0)
+                    k = n if nl < 0 else nl + 1
+                continue
+            if c.startswith(("$((", "$[", "${", "(("), k):
+                # arithmetic and ${ … }: a << in them is a shift or a pattern, not a here-document
+                close = "]" if c[k + 1] == "[" else "}" if c[k + 1] == "{" else ")"
+                opener = {"]": "[", "}": "{", ")": "("}[close]
+                k += 1 if ch == "$" else 0    # at the first opener: the count takes both of (( ))
+                nest = 0
+                while k < n:
+                    if c[k] == "\\":
+                        k += 2; continue
+                    if c[k] == SQ:            # `${x:-"}"}`: a quoted closer does not close
+                        e = c.find(SQ, k + 1); k = n if e < 0 else e + 1; continue
+                    if c[k] == "\"":
+                        k = dquote(k + 1); continue
+                    if c[k] == "`":
+                        k = backtick(k + 1); continue
+                    if c[k] == opener:
+                        nest += 1
+                    elif c[k] == close:
+                        nest -= 1
+                        if nest == 0:
+                            break
+                    k += 1
+                k += 1
+                continue
+            if c.startswith("<<", k) and not c.startswith("<<<", k):
+                m = HEREDOC_OP.match(c, k)
+                if m:
+                    pending.append((m.group(1) == "-", m.group(3)))
+                    k = m.end()
+                    if m.group(2) in ("\"", SQ) and c[k:k + 1] == m.group(2):
+                        k += 1
+                    continue
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    return k + 1
+            k += 1
+        return n + 1
+
+    k = 0
+    while k < n:
+        ch = c[k]
+        if ch == "\\":
+            k += 2
+        elif ch == SQ:
+            e = c.find(SQ, k + 1); k = n if e < 0 else e + 1
+        elif ch == "\"":
+            k = dquote(k + 1)
+        elif ch == "`":
+            k = backtick(k + 1)
+        else:
+            k += 1
+    return bodies
+
+stripped = strip_heredocs(cmd)
 try:
-    punct = tok_punct(lines_as_commands(strip_heredocs(cmd)))
+    punct = tok_punct(lines_as_commands(stripped))
 except ValueError:
     punct = None
+# Names a `${D:=x}` / `${D=x}` / zsh `${D::=x}` expansion may set, anywhere in the
+# command: unknown wherever they are used
+EXPANDED = set(re.findall(r"\$\{([A-Za-z_][A-Za-z0-9_]*):{0,2}=", stripped))
 
 # =========================================================================
 # Check 1 — secret file named as a bare argument (Hard Rule #2)
@@ -286,6 +425,11 @@ OPEN_CTL = {"if", "while", "until", "for", "select", "case"}
 CLOSERS = {"fi": {"if"}, "done": {"while", "until", "for", "select"}, "esac": {"case"}}
 CLOSE_CTL = set(CLOSERS)
 GIT_DIR_VARS = {"GIT_DIR", "GIT_WORK_TREE"}
+# Builtins that set the variables they name (bash and zsh)
+SETTERS = {"declare", "typeset", "local", "readonly", "read", "unset", "printf", "print",
+           "mapfile", "readarray", "getopts", "let", "integer", "float", "vared",
+           "foreach"}                         # zsh `foreach D (x y)`: its body is not tracked
+NAME_WORD = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\+?=|$)")
 created = {}                                  # dirs made by `git worktree add` in this command → branch
 
 def expand_path(path, base, env, physical=False):
@@ -294,7 +438,8 @@ def expand_path(path, base, env, physical=False):
     (bash default); `git -C` is physical — `-C link/..` is the parent of the link target."""
     if base is None:
         return None
-    p = VAR_REF.sub(lambda m: env.get(m.group(1), m.group(0)), path)
+    p = VAR_REF.sub(lambda m: m.group(0) if m.group(1) in EXPANDED
+                    else env.get(m.group(1), m.group(0)), path)
     if p == "~" or p.startswith("~/"):
         p = os.path.expanduser(p)
     if "$" in p or "`" in p or p.startswith("~"):
@@ -340,6 +485,8 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         return [("commit", None, [])]         # nesting this deep is not parsed: deny, never crash open
     out = []
     env = dict(env0) if env0 is not None else {"HOME": os.path.expanduser("~")}
+    if env0 is None and os.environ.get("CDPATH"):
+        env["CDPATH"] = os.environ["CDPATH"]  # best effort: the Bash tool shell may set its own
     here = (cwd or os.getcwd()) if start is False else start  # directory the next command runs in
     prefix = {}                               # VAR=… prefixes of the current simple command
     exporting = False
@@ -412,16 +559,21 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         ctx["list_vars"] |= names
         ctx["pipe_vars"] |= names
 
-    def substitution(j):
-        """Index past the balanced ( … ) at toks[j]. Its body is a command list of
-        its own, run where the git command runs: `git status <(git commit -m x)`."""
-        a, paren = j, 0
+    def substitution_end(j):
+        """Index past the balanced ( … ) at toks[j]."""
+        paren = 0
         while j < n:
             if SEP.match(toks[j]):
                 paren += toks[j].count("(") - toks[j].count(")")
             j += 1
             if paren <= 0:
                 break
+        return j
+
+    def substitution(j):
+        """Index past the balanced ( … ) at toks[j]. Its body is a command list of
+        its own, run where the git command runs: `git status <(git commit -m x)`."""
+        a, j = j, substitution_end(j)
         body = toks[a + 1:j - 1]
         if "case" in body:
             # a case pattern `a)` would end the count early: `<(case x in a) git commit;; esac)`
@@ -476,12 +628,39 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             expect_cmd = True; i += 1; continue
         if expect_cmd and t == "export":
             exporting = True; i += 1; continue
+        if expect_cmd and t in SETTERS:
+            # `declare D=x`, `read D`, `printf -v D …` set variables this does not model:
+            # every name among the words becomes unknown (GIT_DIR included). The words
+            # themselves are parsed as usual, so `declare D=$(git commit)` is still judged
+            k, names = i + 1, set()
+            while k < n:
+                m = NAME_WORD.match(toks[k])
+                if m:
+                    names.add(m.group(1))
+                elif SEP.match(toks[k]) and ("<" in toks[k] or ">" in toks[k]):
+                    k += 1                                # `read <f D`: the file is no name
+                elif SEP.match(toks[k]):
+                    break
+                k += 1
+            if t == "unset":
+                names &= set(env)             # `unset GIT_DIR` when it was never set: no change
+            if t in ("declare", "typeset", "local") and any(
+                    w.startswith("-") and "n" in w for w in toks[i + 1:k]):
+                broken = True                 # a nameref: a later `D=x` may set GIT_DIR
+            forget(False, names)
+            touched(False, names)
+            expect_cmd = False; i += 1; continue
         if (expect_cmd or exporting) and ASSIGN.match(t):
             j = i
             assigns = {}
             appended = False
             while j < n and ASSIGN.match(toks[j]):
                 name, _, value = toks[j].partition("=")
+                if not value and j + 1 < n and toks[j + 1] == "(":
+                    # `D=(x)`, `D+=(x)`: an array, $D is its first word. Unknown; the
+                    # ( … ) that follows is parsed as a subshell, so a substitution in it is judged
+                    assigns[name.rstrip("+")] = "$" + name.rstrip("+"); j += 1
+                    break
                 if name.endswith("+"):        # `D+=/sub` appends to D; unknown D stays unknown
                     name = name[:-1]
                     value = assigns.get(name, env.get(name, "$" + name)) + value
@@ -526,6 +705,13 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             # command named ! in bash, a parse error in zsh. After `>f {` it is the keyword
             expect_cmd = False; i += 1; continue
         if expect_cmd and (wrapper(t) or t in KEYWORDS):
+            if t in ("for", "select"):
+                # `for D in x; do …; done` sets D; zsh takes several names (`for a b in …`)
+                k, names = i + 1, set()
+                while k < n and toks[k] not in ("in", "do") and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", toks[k]):
+                    names.add(toks[k]); k += 1
+                forget(False, names)
+                touched(False, names)
             if t in OPEN_CTL:
                 open_block(t, True)
             w = wrapper(t)
@@ -571,8 +757,13 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             before = here
             if not external:
                 touched(True, set())
+            # zsh ties the cdpath array to CDPATH; `.` in it can come after another entry
+            cdpath = prefix.get("CDPATH", env.get("CDPATH", "")) or prefix.get("cdpath", env.get("cdpath", "")) \
+                or {"CDPATH", "cdpath"} & EXPANDED
             if t == "popd" or arg is None or arg.startswith("-"):
                 here = None                   # cd -, bare cd, popd: not tracked
+            elif cdpath and not (arg.startswith(("/", "~", "./", "../")) or arg in (".", "..")):
+                here = None                   # bash looks in CDPATH first (zsh: the directory first)
             else:
                 here = resolve_dir(arg, here, env)
             if external:
@@ -588,7 +779,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         if expect_cmd and is_git(t):
             target, subcmd, rest, j = here, None, [], i + 1
             unknown = False                   # `git -C <f x commit`: the value is past a redirection
-            if opaque or broken or GIT_DIR_VARS & (set(prefix) | set(env)):
+            if opaque or broken or GIT_DIR_VARS & (set(prefix) | set(env) | EXPANDED):
                 target = None                 # GIT_DIR / GIT_WORK_TREE redirect the repo
             while j < n:
                 tj = toks[j]
@@ -668,8 +859,32 @@ def current_branch(target):
         return ""
 
 warn = None
+# On the raw text with quotes and backslashes removed: `g\x27\x27it com""mit` is git commit,
+# and a desynced parse may have dropped lines from stripped
+_bare = re.sub(r"[\x27\"\\]", "", cmd)
+GIT_WRITE = re.search(r"\bgit\b", _bare) and re.search(r"\b(commit|push)\b", _bare)
+if punct is None and GIT_WRITE:
+    # (a here-document with an odd quote inside "$( … )" is the usual cause)
+    deny("Hard rule #1/#7: this command does not tokenize (unbalanced quotes to "
+         "shlex, often a quote in a here-document inside \"$( … )\"), so a git "
+         "commit/push in it cannot be judged. Run the git command in its own call, "
+         "or pass the text with -F/--body-file.")
+if ANSI_C_ESCAPED_QUOTE.search(cmd) and GIT_WRITE:
+    # shlex ends a $-quoted string at its escaped quote, so every word after it is read
+    # on the wrong side of a quote (or the command does not parse at all): deny
+    deny("Hard rule #1/#7: a $-quoted string with an escaped quote hides which words are "
+         "commands, so this git commit/push cannot be judged. Run the git command in its "
+         "own call without that quoting.")
 if punct is not None:
     invocations = git_invocations(punct)
+    # A substitution inside double quotes or backticks runs too. Where it runs is
+    # not tracked: each git in it is judged with an unknown repo
+    for body in quoted_bodies(stripped):
+        try:
+            inner = git_invocations(tok_punct(lines_as_commands(strip_heredocs(body))), None)
+        except ValueError:
+            inner = [("commit", None, [])] if re.search(r"\bgit\b", body) and re.search(r"\b(commit|push)\b", body) else []
+        invocations.extend((s, None, r) for s, _t, r in inner)
 
     UNRESOLVED = ("cannot tell which repo this `git %s` targets (shell variable, "
                   "command substitution, `cd -`/`popd`, GIT_DIR/--git-dir, or a path "

@@ -41,6 +41,7 @@ class GuardBashTargetTest(unittest.TestCase):
         # feature/lnk -> onmain/sub: `-C feature/lnk/..` is onmain to git (physical path)
         (cls.root / "onmain" / "sub").mkdir()
         os.symlink(cls.root / "onmain" / "sub", cls.root / "feature" / "lnk")
+        (cls.root / "feature" / "sub").mkdir()  # sub exists in both: CDPATH picks one
 
     @classmethod
     def tearDownClass(cls):
@@ -526,6 +527,149 @@ class GuardBashTargetTest(unittest.TestCase):
                     "git commit -m $(date +%s)",
                     "git status $(cd ../onmain); git commit -m x"]:   # a cd in the body stays there
             self.assertDecision("allow", cmd, cwd=feat)
+
+    def test_a_newline_after_and_or_pipe_continues_the_list(self):
+        main = self.root / "onmain"
+        for cmd in ["false &&\ncd ../feature; git commit -m x",   # read as `false; cd …` before
+                    "true ||\ncd ../feature; git commit -m x",
+                    "true ||\n\n  cd ../feature; git commit -m x",    # blank lines too
+                    "true || # why\ncd ../feature; git commit -m x",
+                    "cd ../feature |\ncd ../feature; git commit -m x",
+                    "cat <<EOF |\nx\nEOF\ncd ../feature; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=main)
+        # an even run of backslashes leaves the operator unescaped
+        self.assertDecision("deny", "false \\\\&&\ncd ../feature; git commit -m x", cwd=main)
+        # a line that ends in an escaped pipe ends the command
+        self.assertDecision("allow", "echo \\|\ncd ../feature; git commit -m x", cwd=main)
+
+    def test_array_assignment_is_unknown(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in ["D=(../onmain); git -C \"$D\" commit -m x",       # $D is the first word
+                    "D=../onmain; D=(.); git -C \"$D\" commit -m x",
+                    "D=.; D+=(x); git -C \"$D\" commit -m x",
+                    "D=(x $(git -C ../onmain commit -m y)); git status"]:  # its words still run
+            self.assertDecision("deny", cmd, cwd=feat)
+        self.assertDecision("deny", "D=(cd ../feature); git commit -m x", cwd=main)
+        self.assertDecision("allow", "D=(a b); git commit -m x", cwd=feat)
+
+    def test_builtins_that_set_variables(self):
+        feat = self.root / "feature"
+        for cmd in ["D=.; declare D=../onmain; git -C \"$D\" commit -m x",
+                    "declare -x GIT_DIR=../onmain/.git; git commit -m x",
+                    "typeset -x GIT_DIR=../onmain/.git; git commit -m x",
+                    "readonly GIT_DIR=../onmain/.git; git commit -m x",
+                    "declare D=(a) GIT_DIR=../onmain/.git; git commit -m x",
+                    "read GIT_DIR <<< ../onmain/.git; export GIT_DIR; git commit -m x",
+                    "D=.; read D <<< ../onmain; git -C \"$D\" commit -m x",
+                    "D=.; read <f D; git -C \"$D\" commit -m x",
+                    "D=.; printf -v D ../onmain; git -C \"$D\" commit -m x",
+                    "D=.; mapfile -t D <f; git -C \"$D\" commit -m x",
+                    "D=.; unset D; git -C \"$D\" commit -m x",
+                    "for GIT_DIR in ../onmain/.git; do export GIT_DIR; git commit -m x; done",
+                    "D=.; for D in ../onmain; do :; done; git -C \"$D\" commit -m x",
+                    "for a D in x ../onmain; do :; done; git -C \"$D\" commit -m x",  # zsh
+                    "declare -n R=GIT_DIR; R=../onmain/.git; git commit -m x",       # a nameref
+                    "declare D=$(git -C ../onmain commit -m y)"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        for cmd in ["unset GIT_DIR; git commit -m x",                 # never set: no change
+                    "read -r D </dev/null; git commit -m x",
+                    "printf x | while read -r line; do :; done; git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=feat)
+
+    def test_cdpath_makes_a_relative_cd_unknown(self):
+        feat, main = self.root / "feature", self.root / "onmain"
+        for cmd in [f"CDPATH={main} cd sub && git commit -m x",       # bash: onmain/sub
+                    f"export CDPATH={main}; cd sub && git commit -m x",
+                    "declare CDPATH=x; cd sub && git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        for cmd in [f"CDPATH={main} cd ./sub && git commit -m x",     # ./ skips CDPATH
+                    f"CDPATH={main} cd {feat}/sub && git commit -m x",
+                    "CDPATH= cd sub && git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=feat)
+
+    def test_substitution_inside_quotes_or_backticks(self):
+        feat = self.root / "feature"
+        for cmd in ["echo \"$(git -C ../onmain commit -m x)\"",          # never parsed before
+                    "echo `git -C ../onmain commit -m x`",
+                    "echo \"`git -C ../onmain commit -m x`\"",
+                    "X=\"$(cd ../onmain && git commit -m x)\"",
+                    "echo \"a $(echo \")\" ; git -C ../onmain commit -m x)\"",  # a quoted )
+                    "echo \"$(echo \"$(git commit -m x)\")\"",             # nested
+                    "echo \"$(git push -f)\"",
+                    "echo `echo \\`git -C ../onmain commit -m x\\``",          # nested backticks
+                    "echo `echo \"$(git -C ../onmain commit -m x)\"`"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        # a here-document body is prose: its quote and ) do not end the $( … )
+        self.assertDecision("allow", "git commit -m \"$(cat <<'EOF'\ndon't (x `git commit`\nEOF\n)\"",
+                            cwd=feat)
+        # an escaped quote does not end the string, an escaped $ starts no substitution
+        self.assertDecision("deny", "echo \"a \\\" $(git -C ../onmain commit -m x) \\\"\"", cwd=feat)
+        for cmd in ["echo \"\\$(git -C ../onmain commit -m x)\"; git commit -m x",
+                    "git commit -m \"fix \\`x\\` here\"",                    # escaped
+                    "git commit -m 'm $(git -C ../onmain commit) `git commit`'",  # single quotes
+                    "echo '\"$(git -C ../onmain commit)\"'; git commit -m x",
+                    "echo \"$(( 1 + 2 ))\" \"$(git rev-parse HEAD)\"; git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=feat)
+
+    def test_ansi_c_string_with_an_escaped_quote(self):
+        feat = self.root / "feature"
+        # shlex ends $'…' at the escaped quote and reads the rest inside out
+        for cmd in ["echo $'\\'' ; git -C ../onmain commit -m x ; echo $'\\'' 'y'",
+                    "echo $'\\''; git -C ../onmain commit -m x",        # unbalanced to shlex
+                    "echo $'a\\'b'; git push -f",
+                    "echo $'\\'' ; g''it -C ../onmain com''mit -m x ; echo $'\\'' 'y'",
+                    # tokenizes, but shlex has the commit inside a quote
+                    "echo $'\\'' ; git -C ../onmain commit -m x #'"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        for cmd in ["echo $'a\\\\' ; git commit -m x",                   # an escaped backslash
+                    "echo $'tab\\there'; git commit -m x",
+                    "echo $'\\''; git status"]:
+            self.assertDecision("allow", cmd, cwd=feat)
+
+    def test_here_document_quote_inside_a_quoted_substitution(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        # an odd quote in the body makes the command fail to tokenize; it used to go
+        # unchecked. Now a git commit/push in it denies even off main (the price)
+        body = "git commit -m \"$(cat <<'EOF'\nsay \"hi, it's\nEOF\n)\""
+        self.assertDecision("deny", body, cwd=main)
+        self.assertDecision("deny", body, cwd=feat)
+        self.assertDecision("deny", "gh pr create --body \"$(cat <<'EOF'\na \"b\nEOF\n)\"; "
+                            "git push -u origin HEAD", cwd=feat)
+        # a << in (( )) or a quoted } in ${ } is no here-document: the "$( … )"
+        # after it in the same substitution is still found
+        for cmd in ["echo \"$(if((1<<X)); then :; fi\necho \"$(git -C ../onmain commit -m x)\"\nX\n)\"",
+                    "echo \"$(if((1<<X)); then :; fi\n`git -C ../onmain commit -m x`\nX\n)\"",
+                    "echo \"$(x=; echo ${x:-\"}\"}; echo $((1<<X))\necho \"$(git -C ../onmain commit -m x)\"\nX\n)\""]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        # balanced quotes in the body tokenize and are judged as usual
+        self.assertDecision("allow", "git commit -m \"$(cat <<'EOF'\nsay (hi) `x`\nEOF\n)\"",
+                            cwd=feat)
+        # a << that is a shift or a ${ … } pattern, or a body with no terminator, is no
+        # here-document: dropping lines for it would hide the commit after it
+        for cmd in ["echo \"$(echo $((1<<X))\n)\"\ngit -C ../onmain commit -m x\nX",
+                    "echo \"$(x=ab; echo ${x/<<X/y}\n)\"\ngit -C ../onmain commit -m x\nX",
+                    "echo \"$(cat <<X\nnever closed\n)\"\ngit -C ../onmain commit -m x",
+                    # the quote after X keeps what is left tokenizable once the lines are dropped
+                    "echo \"$(echo $((1<<X))\n)\"\ngit -C ../onmain commit -m x\nX\n\""]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        # what still does not tokenize fails closed when it holds a commit or push
+        self.assertDecision("deny", "echo \"unclosed; git commit -m x", cwd=feat)
+        self.assertDecision("allow", "echo \"unclosed; git status", cwd=feat)
+
+    def test_expansion_that_assigns(self):
+        feat = self.root / "feature"
+        for cmd in ["unset D; : ${D:=../onmain}; git -C \"$D\" commit -m x",
+                    "D=; git status ${D:=../onmain}; git -C \"$D\" commit -m x",
+                    ": ${GIT_DIR:=../onmain/.git}; export GIT_DIR; git commit -m x",
+                    ": ${D::=../onmain}; git -C \"$D\" commit -m x",              # zsh
+                    "D=.; foreach D (../onmain); end; git -C \"$D\" commit -m x"]:  # zsh
+            self.assertDecision("deny", cmd, cwd=feat)
+        self.assertDecision("allow", "D=.; echo ${D:-x}; git -C \"$D\" commit -m x", cwd=feat)
+
+    def test_zsh_cdpath_array(self):
+        feat, main = self.root / "feature", self.root / "onmain"
+        self.assertDecision("deny", f"cdpath=({main} .); cd sub && git commit -m x", cwd=feat)
+        self.assertDecision("deny", f"cdpath+=({main}); cd sub && git commit -m x", cwd=feat)
 
     def test_force_push(self):
         self.assertDecision("deny", "git -C onmain push --force origin main")
