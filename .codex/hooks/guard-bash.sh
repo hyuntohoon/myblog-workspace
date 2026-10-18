@@ -495,7 +495,17 @@ def git_invocations(toks):
                 if SEP.match(tj) and ("<" in tj or ">" in tj):
                     # `git >/dev/null commit`, `git push 2>&1 -f`: a redirection and its
                     # file, not the end of the command
-                    j += 2 if j + 1 < n and not SEP.match(toks[j + 1]) else 1
+                    j += 1
+                    if j < n and toks[j] == "(":
+                        paren = 0             # `2> >(cat)`, `<(true)`: one balanced ( … )
+                        while j < n:
+                            if SEP.match(toks[j]):
+                                paren += toks[j].count("(") - toks[j].count(")")
+                            j += 1
+                            if paren <= 0:
+                                break
+                    elif j < n and not SEP.match(toks[j]):
+                        j += 1
                     continue
                 if re.fullmatch(r"[0-9]+", tj) and j + 1 < n and re.match(r"^[<>]", toks[j + 1]):
                     j += 1; continue                  # the fd of the redirection that follows
