@@ -67,6 +67,7 @@ Also seen: English uppercase LOGIN/LOGOUT; faux-italic Korean headings; inconsis
 1. Wire public surfaces to real data — Canon and home hero from owner ratings ≥4.0; hide or merge empty nav items (#1, #9).
 2. Login-intent sheet + overlay Back handling (#2, #3, S5).
 3. Copy/terminology sweep (#4, #10).
+   - *Shipped 2026-10-18 — front #482:* owner-approved copy list. Settings Spotify standing line without 스코프 세대 / probe (`SpotifyIntegrationTab` now calls the shared `standingLine()`); overview 컴포넌트 → 위젯; genre map containment → 포함 관계; releases calendar/radar without 관측/장부/룩업, source badges spelled out; member-visible 평론 misuse fixed (overview bucket card, search empty heading, 미평론 badge, bucket "이미 들음" dot); header Login/Logout → 로그인/로그아웃. `LikedBoard`'s `평론 쓰기 →` was already owner-only (no change). Prod smoke 32/0.
 4. S1 + S2 starting with ArtistHub discography (#7, #8).
 5. Small visual batch: keep-all, ＋ contrast, floating overlap (#11–13).
 
