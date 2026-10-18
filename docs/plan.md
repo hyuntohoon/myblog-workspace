@@ -23,8 +23,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **OPS-project-stabilization** — **in-progress (Step 2A) since 2026-09-30 (owner); previous first planned priority, superseded by the 2026-10-15 override.**
   <!-- rfc: docs/rfcs/OPS-project-stabilization.md | status: in-progress -->
-  Steps 1, 2B, 2C and 2D are closed (record per step in the RFC; 2C closed 2026-10-05 with only
-  `MAX_CATALOG_ALBUMS` 5000 → 8000 shipped, worker #108). **Step 2A** — home playback discovery with
+  Steps 1, 2B and 2D are closed (record per step in the RFC). **2C was re-opened and activated
+  2026-10-18** (worker #124, #125: refresh + gated back-catalogue). It closes after one
+  self-triggered 24 h refresh is observed. **Step 2A** — home playback discovery with
   direct lyrics, and automatic next-track lyrics — is deployed in all three parts (front #447, #448,
   #449, follow-ups #450, #451, #453) and the viewer cases passed the 2026-10-06/07 real-device run;
   phones are untested. **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency
@@ -35,20 +36,23 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
   Step 4 delivery, its security review, and the measurements that sized Step 5 → the RFC. Step 5
   shipped 2026-09-18; *Step 5 delivery* and the 2026-09-30 audit in the RFC are what this row tracks.
-  - **Back-catalogue ingest and the 24 h discography refresh** are the two causes of the failing
-    Step 5 checks. 846 of 1,234 follow jobs wait on `album_not_in_catalog` (2026-10-18), and the
-    refresh has not run since 10-10 because the nudge fires only on `due_count > 0`. The owner
-    closed this leg on 2026-10-05 (`OPS-project-stabilization` 2C, "as conservative as possible");
-    both fixes sit on an unpushed branch. That decision rested on automatic translation moving off
-    Claude; automatic translation resumed on the local GPT worker on 2026-10-09. Re-opening it is
-    the owner's call.
+  - **Back-catalogue ingest and the 24 h refresh are live** (worker #125, 2026-10-18, owner).
+    Back-catalogue is gated at popularity ≥ 20. The first refresh with no new follow ran at 08:24Z
+    and picked up the two missed 10-16 releases. Follow jobs resolved went 387 → 425 within two
+    ticks; ~770 are still being read at 2 `GET /albums` per 15 min. **Still to observe:** the
+    refresh firing on its own 24 h later (~10-19 08:25Z). Record → `OPS-project-stabilization`
+    *Step 2C execution record (2026-10-18)*.
+  - **Owner decisions, open:** the catalog cap of 8,000 is about six weeks away at ~305
+    albums/week plus the back-catalogue, and reaching it stops the daily new-release sweep.
+    Michael Korstick is 913 of 925 tracks `not_found` (classical, the Debussy shape); an
+    exclusion would stop the LRCLIB retries.
   - **Step 5 verification is not met — smoke run 2026-10-18, read-only.** Unfollow, exclusion,
     multi-page discography and the origin union pass. Complete coverage and steady-state new-release
     pickup fail, for the two reasons above. Multi-page follows, missing scope, re-import and
     enumeration retry need owner action and were not run. "Production-verified" stays withdrawn.
     → RFC *Step 5 smoke (2026-10-18)*.
-  - **Follow metrics in CloudWatch:** the smoke found no worker `[INFO]` line in 14 days; worker #124
-    (deployed 2026-10-18) emits them. Re-check on the next member poll tick.
+  - **Follow metrics in CloudWatch:** visible since worker #124 (2026-10-18 07:57Z). INFO is
+    raised for `worker.*` only; third-party loggers stay at WARNING.
   - **`infra/lambda.tf` kill switches are unapplied.** The live Lambda has only the console-set
     `LYRICS_FOLLOW_DEMAND_ENABLED=true`, so `terraform plan` shows 1 change. Needs a human apply.
   - **One non-follow job is stuck on `album_not_in_catalog`**, left over from the pre-measurement.

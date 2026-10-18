@@ -1084,6 +1084,65 @@ would only pre-fill catalog and lyrics sources out of the irreplaceable Spotify 
 then Step 5's follow coverage stays **partial**, and this step's Verification list is unmet
 except for the cap.
 
+**Execution record (2026-10-18): refresh and back-catalogue activated.**
+
+*Why the hold ended.* The 10-05 hold rested on automatic translation leaving Claude. Automatic
+translation resumed on the local GPT worker on 2026-10-09. The lyrics Step 5 smoke (ws #1115)
+then re-measured both gaps: 846 of 1,234 follow jobs on `album_not_in_catalog`, no refresh since
+10-10, and two 10-16 releases already missed. On 2026-10-18 the owner approved, in-session, doing
+all of the open follow-ups ("모두 다 하자"). The scope stays the 2026-10-01 decision: refresh at
+24 h, back-catalogue gated at `ALBUM_POP_MIN` 20.
+
+*Shipped.*
+- **Worker #124 (`7720114`): INFO logs.** INFO is raised for the `worker.*` loggers only, via
+  `WORKER_LOG_LEVEL`, default `INFO`. Third-party loggers stay at WARNING, because httpx logs
+  `request.url` at INFO and Last.fm's `api_key` travels in the query string. `security-review`
+  found nothing. After deploy, CloudWatch shows INFO lines from 07:57Z and 0 matches for
+  `api_key|HTTP Request|access_token|Bearer`.
+- **Worker #125 (`27253d5`): the held `2ca9b40`, rebased.** It has two changes on top:
+  - The enqueue uses the shared timed SQS client, an invariant that landed after the branch was
+    written.
+  - **Fix for a review finding.** A batch that fails every time used to be re-read on every
+    15-minute tick, for ever, ahead of the rest of the backlog. The cause: claims are
+    oldest-first and the 300 s lease is shorter than the tick. Such a batch now rests 24 h as
+    `album_ingest_failed`. Mutation-checked: removing the rest fails both failure tests.
+  - CI `test`: 1,024 collected, `db_bound_skips: 0`. The backcatalogue suite ran locally against
+    the Neon test branch: 18 passed.
+  - The PR webhook did not fire on the first push. The cause was a merge conflict with #124, not
+    lost delivery. A branch-ref `workflow_dispatch` ran the tests on that head (deploy is
+    guarded to `main`), and the PR was then rebased.
+- Deployed 2026-10-18 08:18:35Z. `scripts/smoke.sh prod` → **PASSED: 32, FAILED: 0**.
+
+*Observed in production, without a manual invoke or a new follow.*
+
+| Tick | Refresh | Back-catalogue |
+|---|---|---|
+| 08:24Z | `0 artist(s) due, 35 refresh(es) due — enqueuing`. 35 re-opened; Rude John stays fenced, unconsumed. Chained runs read 18 + 11 + … pages; all 36 `complete` by 08:25:59Z. 5 new rows, including the two missed 10-16 releases (스카이민혁 *2MC*, Olivia Rodrigo *expectations*). | claimed 40, read 40, **ingested 37**, below gate 3, failed 0. 806 still waiting. |
+| 08:39Z | **No refresh enqueue**: the nudge is quiet once the pass finishes. The member poll gave the 5 new releases follow demand (`follow(+5/-0)`). | claimed 40, read 40, **ingested 23**, below gate 17. 769 still waiting. |
+
+By 08:40Z the resolver had attached 38 newly ingested jobs. Follow jobs resolved went from 387 to
+**425**. Their 99 tracks are `source_pending`, which is the LRCLIB stage. `albums` went from
+5,615 to 5,675.
+
+At 2 calls per 15 minutes the remaining ~770 take about 5 h. Releases under the gate rest for
+30 days, as decided.
+
+*This step's Verification list, as it stands.*
+- **Met:** a refresh starts with everything complete and stale and no new follow; a newly
+  returned release reaches album demand; fresh or unconsumed rows trigger no reads (Rude John;
+  the quiet 08:39Z tick); the switches stop scheduling and consumption (by code and tests,
+  not thrown in production).
+- **Pending:** one *actual interval*, meaning the next refresh at about 2026-10-19 08:25Z,
+  observed without a new follow.
+
+*New, for the owner (not acted on).*
+- **Catalog cap timing.** The catalog grows ~305 albums/week (10-05 to 10-17), up from the ~190
+  measured on 10-01. With roughly 460 back-catalogue albums on top, `albums` reaches 8,000 in
+  about six weeks, around early December. Reaching the cap stops the daily new-release sweep.
+- **Michael Korstick.** 913 of 925 follow tracks are `not_found`, on a 16-day LRCLIB ladder.
+  This is the Debussy shape. An exclusion would stop it with no code change. It was measured
+  2026-10-18; see the lyrics RFC's *Step 5 smoke*.
+
 ---
 
 ### Step 2D — Residual failures
@@ -1241,3 +1300,4 @@ content.
 | 2026-10-05 | **Owner narrowed Step 2D** in-session because automatic Claude translation is being retired (ws #1022, backend #179, draft). Subscription-guard fix deferred until any Claude CLI job is loaded again; refusal classification dropped; residual translation work recorded as frozen. No service change. Record under Step 2D. | 2D |
 | 2026-10-09 | Owner reported a silent ▶ (the bar changed, no sound) and a late bar on cold start. Root cause measured: a running desktop app as the active Connect device accepted `PUT /play` 204 and played nothing; rung 1 trusted the 204. Owner chose the read-back with automatic Buckit fallback, and an immediate "재생 준비 중" bar. Delivered as front #454; record under Step 2A item 5. Item 4 (mobile → app) is still to be reconfirmed. | 2A |
 | 2026-10-11 | Owner follow-ups for 2A. Front #454 confirmed normal by the owner on a real device. Lambda concurrency rechecked read-only: still 10, 0 throttles in the 4 days since front #453, peak 8/10. Owner will request the raise. Item 4 reconfirm: no preference given, so it stays undecided and unimplemented. Record under Step 2A. | 2A |
+| 2026-10-18 | Owner approved, in-session, activating the held Step 2C work at the 2026-10-01 scope (24 h refresh, back-catalogue at popularity ≥ 20), plus worker INFO logs. Shipped as worker #124 and #125, deployed 08:18Z. Observed in production: refresh reachable with no new follow, back-catalogue ingest resolving jobs (387 → 425 follow jobs resolved). The actual 24 h interval is still to be observed. Open for the owner: the catalog-cap timing (~6 weeks) and a Michael Korstick exclusion. Record under Step 2C. | 2C |
