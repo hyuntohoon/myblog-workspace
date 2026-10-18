@@ -348,7 +348,6 @@ def git_invocations(toks, start=False, env0=None, depth=0):
     unsure = False                            # `command cd x`: moves the shell in bash, not in zsh
     wrapped = False                           # a wrapper came first: `env D=x` is no shell assignment
     piped_args = False                        # after xargs: git takes more arguments from stdin
-    redirected = False                        # a redirection came first: `>f ! cd x` runs a command named !
     fd_word = False                           # a bare number was skipped as the fd of a redirection
     broken = False                            # unmatched or unmodelled block syntax: nothing after it is trusted
     # The and-or list / pipeline being parsed. A cd or assignment that may not
@@ -437,7 +436,6 @@ def git_invocations(toks, start=False, env0=None, depth=0):
         t = toks[i]
         if SEP.match(t) and ("<" in t or ">" in t):
             # a redirection: its operand is a file, not a command
-            redirected = redirected or expect_cmd
             if i + 1 < n and not SEP.match(toks[i + 1]):
                 i += 1
             i += 1; continue
@@ -474,7 +472,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 else:                         # ; ;; ;& ;;&
                     end_list()
             prefix, exporting, opaque, fd_word, external, wrapped = {}, False, False, False, False, False
-            unsure = piped_args = redirected = False
+            unsure = piped_args = False
             expect_cmd = True; i += 1; continue
         if expect_cmd and t == "export":
             exporting = True; i += 1; continue
@@ -521,8 +519,12 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 b = stack[-1]                 # `if false; then cd x; else git …`: the then-branch did not run
                 forget(b["cd"], b["vars"])
             i += 1; continue
-        if expect_cmd and t == "!" and (prefix or redirected):
-            expect_cmd = False; i += 1; continue  # `D=1 ! cd x`: a command named ! in bash, an error in zsh
+        if expect_cmd and t == "!" and i and (ASSIGN.match(toks[i - 1]) or (
+                i > 1 and not SEP.match(toks[i - 1]) and SEP.match(toks[i - 2])
+                and ("<" in toks[i - 2] or ">" in toks[i - 2]))):
+            # right after an assignment or a redirection (`D=1 ! cd x`, `>f ! cd x`): a
+            # command named ! in bash, a parse error in zsh. After `>f {` it is the keyword
+            expect_cmd = False; i += 1; continue
         if expect_cmd and (wrapper(t) or t in KEYWORDS):
             if t in OPEN_CTL:
                 open_block(t, True)
@@ -585,6 +587,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
             expect_cmd = False; continue
         if expect_cmd and is_git(t):
             target, subcmd, rest, j = here, None, [], i + 1
+            unknown = False                   # `git -C <f x commit`: the value is past a redirection
             if opaque or broken or GIT_DIR_VARS & (set(prefix) | set(env)):
                 target = None                 # GIT_DIR / GIT_WORK_TREE redirect the repo
             while j < n:
@@ -608,6 +611,9 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 if subcmd is None and tj.split("=", 1)[0] in ("--git-dir", "--work-tree"):
                     target = None
                 value = j + 1 < n and not SEP.match(toks[j + 1])   # `git -C; git commit`: no value
+                if (tj == "-C" or (subcmd is None and tj in VALUE_FLAGS)) and j + 1 < n \
+                        and not value and ("<" in toks[j + 1] or ">" in toks[j + 1]):
+                    unknown = True
                 if tj == "-C":
                     target = resolve_dir(toks[j + 1], target, env, True) if value else None
                     j += 2 if value else 1; continue
@@ -625,7 +631,7 @@ def git_invocations(toks, start=False, env0=None, depth=0):
                 new_dir = expand_path(path, target, env, True) if path else None
                 if new_dir is not None:
                     created[new_dir] = branch
-            if piped_args:
+            if piped_args or unknown:
                 subcmd, target = "commit", None   # `echo commit | xargs git`: unknown, deny
             out.append((subcmd, target, rest))
             i = j; expect_cmd = False; continue

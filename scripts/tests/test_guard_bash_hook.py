@@ -454,6 +454,9 @@ class GuardBashTargetTest(unittest.TestCase):
                     "git -c || git commit -m x", "git --git-dir || git commit -m x"]:
             self.assertDecision("deny", cmd, cwd=self.root / "onmain")
         self.assertDecision("allow", "git -C; git commit -m x", cwd=self.root / "feature")
+        # the shell drops a redirection between a flag and its value: -C ../onmain still applies
+        self.assertDecision("deny", "git -C </dev/null ../onmain commit -m x", cwd=self.root / "feature")
+        self.assertDecision("deny", "git -c >/dev/null a.b=c commit -m x", cwd=self.root / "onmain")
 
     def test_bang_after_an_assignment_or_redirection_is_a_command(self):
         main, feat = self.root / "onmain", self.root / "feature"
@@ -462,6 +465,15 @@ class GuardBashTargetTest(unittest.TestCase):
                     f">/dev/null ! cd {feat}; git commit -m x", f"2>/dev/null ! cd {feat}; git commit -m x"]:
             self.assertDecision("deny", cmd, cwd=main)
         self.assertDecision("allow", f"! cd {feat}; git commit -m x", cwd=main)
+        # zsh runs a redirected block, if/while or time: the ! inside is the keyword
+        for cmd in [">/dev/null { ! cd ../onmain; }; git commit -m x",
+                    ">f if ! cd ../onmain; then :; fi; git commit -m x",
+                    ">f while ! cd ../onmain; do :; done; git commit -m x",
+                    ">f { ! cd ../onmain; git commit -m x; }",
+                    ">f time ! cd ../onmain; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        for cmd in ["D=1 ! cd ../onmain; git commit -m x", ">f ! cd ../onmain; git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=feat)
 
     def test_dash_c_uses_the_physical_path(self):
         self.assertDecision("deny", "git -C feature/lnk/.. commit -m x")
