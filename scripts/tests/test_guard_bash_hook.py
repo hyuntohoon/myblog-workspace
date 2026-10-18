@@ -617,7 +617,9 @@ class GuardBashTargetTest(unittest.TestCase):
         for cmd in ["echo $'\\'' ; git -C ../onmain commit -m x ; echo $'\\'' 'y'",
                     "echo $'\\''; git -C ../onmain commit -m x",        # unbalanced to shlex
                     "echo $'a\\'b'; git push -f",
-                    "echo $'\\'' ; g''it -C ../onmain com''mit -m x ; echo $'\\'' 'y'"]:
+                    "echo $'\\'' ; g''it -C ../onmain com''mit -m x ; echo $'\\'' 'y'",
+                    # tokenizes, but shlex has the commit inside a quote
+                    "echo $'\\'' ; git -C ../onmain commit -m x #'"]:
             self.assertDecision("deny", cmd, cwd=feat)
         for cmd in ["echo $'a\\\\' ; git commit -m x",                   # an escaped backslash
                     "echo $'tab\\there'; git commit -m x",
@@ -633,6 +635,12 @@ class GuardBashTargetTest(unittest.TestCase):
         self.assertDecision("deny", body, cwd=feat)
         self.assertDecision("deny", "gh pr create --body \"$(cat <<'EOF'\na \"b\nEOF\n)\"; "
                             "git push -u origin HEAD", cwd=feat)
+        # a << in (( )) or a quoted } in ${ } is no here-document: the "$( … )"
+        # after it in the same substitution is still found
+        for cmd in ["echo \"$(if((1<<X)); then :; fi\necho \"$(git -C ../onmain commit -m x)\"\nX\n)\"",
+                    "echo \"$(if((1<<X)); then :; fi\n`git -C ../onmain commit -m x`\nX\n)\"",
+                    "echo \"$(x=; echo ${x:-\"}\"}; echo $((1<<X))\necho \"$(git -C ../onmain commit -m x)\"\nX\n)\""]:
+            self.assertDecision("deny", cmd, cwd=feat)
         # balanced quotes in the body tokenize and are judged as usual
         self.assertDecision("allow", "git commit -m \"$(cat <<'EOF'\nsay (hi) `x`\nEOF\n)\"",
                             cwd=feat)
