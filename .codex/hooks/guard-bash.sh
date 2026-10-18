@@ -34,7 +34,8 @@
 # zsh's two-argument `cd old new`; `${x:-)}` and `${ …; }`; a substitution
 # in an unquoted here-document body (`<<EOF` … `$(git commit)`); a CDPATH the
 # Bash tool shell sets without this hook seeing it in its own environment;
-# zsh/bash autocd (`../repo` as a command — off in the Bash tool shell). A
+# zsh/bash autocd (`../repo` as a command — off in the Bash tool shell); the
+# body of a zsh `foreach … end` (its loop names are unknown, its block is not tracked). A
 # `case` inside a substitution of a git argument is not parsed and denies.
 # A newline after `&&`, `||`, `|` or `|&` continues the list. An array
 # `X=(…)`/`X+=(…)` and any name set by declare/typeset/local/readonly/read/
@@ -43,7 +44,12 @@
 # a relative `cd x` that does not start with ./ or ../ is unknown: bash looks
 # there first. A `$( … )` inside double quotes or a backtick substitution runs
 # where the shell is, which is not tracked: each git in it targets an unknown
-# repo (`echo "$(git commit)"` denies even off main). A redirection inside a git command
+# repo (`echo "$(git commit)"` denies even off main); backtick bodies are
+# scanned again for nested ones, and here-document bodies inside a quoted
+# `$( … )` (`--body "$(cat <<EOF …`) are dropped before tokenizing. A name set
+# by `${D:=x}`/`${D=x}`/`${D::=x}` anywhere in the command is unknown everywhere.
+# A git commit/push in a command that still does not tokenize, or next to a
+# `$'…'` string holding an escaped quote (shlex reads it inside out), denies. A redirection inside a git command
 # (`git >/dev/null commit`, `git push 2>&1 -f`) is skipped with its file; the
 # body of an unquoted `$( … )`, `<( … )` or `>( … )` argument is parsed as a
 # command list of its own.
@@ -62,7 +68,8 @@
 # covers the Bash path: a command that names a secret file as a bare argument
 # (cat/grep/base64/curl-data exfil).
 # First deny wins; the non-main force-push warning is emitted only when no
-# check denies. All decisions exit 0 — malformed/unparseable input fails open.
+# check denies. All decisions exit 0 — malformed input fails open, and so does an
+# untokenizable command unless it holds a git commit/push.
 set -euo pipefail
 
 input=$(cat)
