@@ -15,16 +15,24 @@
 # shlex(punctuation_chars=True) + a command-position state machine so shell
 # separators, env-var prefixes (VAR=val git …), subshells and `git -C` can't
 # smuggle a commit/push past the guard. The state machine also follows
-# `cd`/`pushd` (logical) and `-C` (physical), subshells, newlines, `&`/`|`
-# (a cd there does not move the shell), same-command `VAR=…` assignments,
+# `cd`/`pushd` (logical) and `-C` (physical), same-command `VAR=…` assignments,
 # wrappers (env/command/time/sudo…) and worktrees created earlier in the same
-# command; here-document bodies are data and skipped. A cd or assignment that
-# may not have run (after && / ||, inside if/while/for/case) makes the location
+# command, through newlines, ( … ), { … } and if/while/until/for/select/case;
+# here-document bodies are data and skipped. A pipeline stage, a list ended by
+# `&` and a ( … ) run in a subshell: their cd and assignments do not move the
+# shell. A cd or assignment that may not have run (after && / ||, in a block
+# that may not run — if/loops/case, `a && { … }`, a function body — each nested
+# block on its own) makes the location, or the variable (GIT_DIR included),
 # unknown once its list or block ends. When the target repo of a commit or
-# force-push cannot be named — or GIT_DIR/--git-dir or an unmodelled wrapper
-# option may redirect it — it denies (fail closed). Not covered: git inside
-# `bash -c "…"`, eval, a here-string, functions/aliases, or a script file; and
-# `cd <existing dir> || git commit` (the commit runs only if that cd fails).
+# force-push cannot be named — or GIT_DIR/--git-dir, an unmodelled wrapper
+# option or unmatched block syntax may redirect it — it denies (fail closed).
+# Not covered: git inside `bash -c "…"`, eval, a here-string, a function call
+# or alias, or a script file; a quoted `"}"`/`"fi"` read as the reserved word;
+# `cd <existing dir> || git commit` (the commit runs only if that cd fails); a
+# redirection between git and its subcommand (`git >/dev/null commit`); `X+=…`;
+# a wrapper given by path or with arguments (`/usr/bin/env git`, `timeout 60
+# git`); quoted operators (`echo ";"`); a loop body's second pass; zsh's
+# two-argument `cd old new`.
 # Backstop: the main-protection ruleset rejects any push to main regardless.
 #
 # File writes to secret paths are covered by guard-file-edits.sh. This hook
@@ -64,17 +72,19 @@ except ValueError:
     plain = None
 
 SEP = re.compile(r"^[;&|()<>]+$")
+OPERATOR = re.compile(r"\|\||&&|;;&|;;|;&|;|\|&|&>>|&>|>>|>&|>\||<<<|<<|<&|<>|>|<|\||&|\(|\)")
 
 def tok_punct(c):
     lex = shlex.shlex(c, posix=True, punctuation_chars=True)
     lex.whitespace_split = True
     lex.commenters = ""                       # comments are removed by strip_heredocs
-    # shlex glues adjacent punctuation (`);`, `((`): give each paren its own token
-    # so `$( … )` skipping and subshell tracking never swallow a `;` or `&&`
+    # shlex glues adjacent punctuation (`);`, `((`, `;>`, `|>`): split it into
+    # single operators so `$( … )` skipping, subshell tracking and redirections
+    # never swallow a `;`, `|` or `&&`
     out = []
     for t in lex:
-        if SEP.match(t) and len(t) > 1 and ("(" in t or ")" in t):
-            out.extend(re.findall(r"[()]|[^()]+", t))
+        if SEP.match(t) and len(t) > 1:
+            out.extend(OPERATOR.findall(t))
         else:
             out.append(t)
     return out
@@ -239,8 +249,10 @@ def is_git(t):
 VAR_REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
 # Words that put the next word back in command position.
 WRAPPERS = {"env", "command", "builtin", "exec", "time", "nice", "nohup", "sudo"}
-KEYWORDS = {"if", "then", "elif", "else", "while", "until", "for", "case", "do", "{", "!"}
-OPEN_CTL, CLOSE_CTL = {"if", "while", "until", "for", "case"}, {"fi", "done", "esac"}
+KEYWORDS = {"if", "while", "until", "for", "select", "case", "!"}
+OPEN_CTL = {"if", "while", "until", "for", "select", "case"}
+CLOSERS = {"fi": {"if"}, "done": {"while", "until", "for", "select"}, "esac": {"case"}}
+CLOSE_CTL = set(CLOSERS)
 GIT_DIR_VARS = {"GIT_DIR", "GIT_WORK_TREE"}
 created = {}                                  # dirs made by `git worktree add` in this command → branch
 
@@ -294,46 +306,110 @@ def git_invocations(toks):
     out = []
     env = {"HOME": os.path.expanduser("~")}
     here = cwd or os.getcwd()                 # directory the next command runs in
-    stack = []                                # saved `here` per open subshell
-    undo = None                               # `here` before the last cd, until the list continues
     prefix = {}                               # VAR=… prefixes of the current simple command
     exporting = False
     opaque = False                            # wrapper options we do not model (nice -n 5, env -C …)
-    # A cd or assignment that may not have run — after && / || or inside
-    # if/while/for/case — leaves the location unknown once that list or block
-    # ends: `false && cd x; git commit` still commits where it started.
-    conditional, depth, list_has_or = False, 0, False
-    chain_cd, chain_vars, block_cd, block_vars = False, set(), False, set()
+    broken = False                            # unmatched or unmodelled block syntax: nothing after it is trusted
+    # The and-or list / pipeline being parsed. A cd or assignment that may not
+    # have run — after && / || — leaves the location unknown once the list ends:
+    # `false && cd x; git commit` still commits where it started. A pipeline
+    # stage, and a list ended by `&`, runs in a subshell: the shell goes back to
+    # where that pipeline / list started (`cd x | cat`, `cd x && y &`).
+    def fresh():
+        return {"conditional": False, "has_or": False, "chain_cd": False,
+                "chain_vars": set(), "piped": False, "list_start": here,
+                "pipe_start": here, "list_vars": set(), "pipe_vars": set()}
+    ctx = fresh()
+    # Open ( … ), { … } and if/while/until/for/select/case, innermost last. Each
+    # keeps the outer list state and its own cd / assignments: a block that may
+    # not run (if/loops/case, `a && { … }`) forgets them when it closes, nested
+    # or not; a ( … ) or a block that is a later pipeline stage runs in a subshell.
+    stack = []
 
     def forget(cd_flag, names):
         nonlocal here
         if cd_flag:
             here = None
-        for name in names:
-            env.pop(name, None)
+        for name in names:                    # unknown, not unset: GIT_DIR may still be set
+            env[name] = "$" + name
+
+    def end_list():
+        nonlocal ctx
+        forget(ctx["chain_cd"], ctx["chain_vars"])
+        ctx = fresh()
+
+    def open_block(kind, may_skip):
+        nonlocal ctx
+        stack.append({"kind": kind, "outer": ctx, "here": here, "may_skip": may_skip,
+                      "sub": ctx["piped"], "cd": False, "vars": set()})
+        ctx = fresh()
+
+    def close_block(kinds):
+        nonlocal ctx, here, broken
+        if not stack or stack[-1]["kind"] not in kinds:
+            broken = True
+            return
+        b = stack.pop()
+        ctx = b["outer"]
+        if b["kind"] == "(":
+            here = b["here"]                  # ( … ) restores the outer directory
+            forget(False, b["vars"])
+        elif b["sub"]:
+            forget(b["cd"], b["vars"])        # `x | { cd y; }`: a subshell in bash, not in zsh
+        elif b["may_skip"]:
+            forget(b["cd"], b["vars"])
+        else:                                 # a plain { … } is part of the list around it
+            touched(b["cd"], b["vars"])
+
+    def touched(cd_flag, names):
+        """Record a cd / assignment in every open scope that may undo it."""
+        if stack:
+            stack[-1]["cd"] |= cd_flag
+            stack[-1]["vars"] |= names
+        if ctx["conditional"]:
+            ctx["chain_cd"] |= cd_flag
+            ctx["chain_vars"] |= names
+        ctx["list_vars"] |= names
+        ctx["pipe_vars"] |= names
+
     i, n, expect_cmd = 0, len(toks), True
     while i < n:
         t = toks[i]
+        if SEP.match(t) and ("<" in t or ">" in t):
+            # a redirection: its operand is a file, not a command
+            if i + 1 < n and not SEP.match(toks[i + 1]):
+                i += 1
+            i += 1; continue
+        if expect_cmd and t.isdigit() and i + 1 < n and re.match(r"^[<>]", toks[i + 1]):
+            i += 1; continue                  # `2>/dev/null git …`: the fd of a redirection
+        if expect_cmd and t == "function":
+            broken = True; i += 1; continue   # `function f …`: a body we do not model
         if SEP.match(t):
-            # `cd x &` / `cd x | …` run the cd in a subshell: the shell stays put
-            if undo is not None and (t == "&" or (t.startswith("|") and not t.startswith("||"))):
-                here = undo[0]
-            if t[0] not in "<>":
-                undo = None
-            if t in ("&&", "||"):
-                if t == "||":                 # `a && cd x || cmd`: cmd runs where the cd may not have
-                    forget(chain_cd, chain_vars)
-                    chain_cd, chain_vars = False, set()
-                    list_has_or = True
-                conditional = True
-            elif ";" in t or t == "&" or "(" in t or ")" in t:
-                forget(chain_cd, chain_vars)  # end of an && / || list
-                chain_cd, chain_vars, conditional, list_has_or = False, set(), False, False
-            for ch in t:                      # ( … ) restores the outer directory
+            for ch in re.findall(r"\|\||&&|;+&?|\|&?|&|\(|\)", t):
                 if ch == "(":
-                    stack.append(here)
-                elif ch == ")" and stack:
-                    here = stack.pop()
+                    open_block("(", False)
+                elif ch == ")":
+                    end_list()
+                    if not (stack and stack[-1]["kind"] == "case"):
+                        close_block({"("})    # else `case x in a) …`: a pattern, not a subshell
+                elif ch in ("|", "|&"):
+                    here = ctx["pipe_start"]  # the stage before ran in a subshell
+                    forget(False, ctx["pipe_vars"])
+                    ctx["pipe_vars"] = set()
+                    ctx["piped"] = True
+                elif ch == "&":
+                    here = ctx["list_start"]  # the whole list ran in the background
+                    forget(False, ctx["list_vars"])
+                    end_list()
+                elif ch in ("&&", "||"):
+                    if ch == "||":            # `a && cd x || cmd`: cmd runs where the cd may not have
+                        forget(ctx["chain_cd"], ctx["chain_vars"])
+                        ctx["chain_cd"], ctx["chain_vars"] = False, set()
+                        ctx["has_or"] = True
+                    ctx["conditional"] = True
+                    ctx["piped"], ctx["pipe_start"], ctx["pipe_vars"] = False, here, set()
+                else:                         # ; ;; ;& ;;&
+                    end_list()
             prefix, exporting, opaque = {}, False, False
             expect_cmd = True; i += 1; continue
         if expect_cmd and t == "export":
@@ -345,23 +421,38 @@ def git_invocations(toks):
                 name, _, value = toks[j].partition("=")
                 assigns[name] = value; j += 1
             if exporting or j >= n or SEP.match(toks[j]):
-                env.update(assigns)           # standalone: lasts for the rest of the line
-                if depth:
-                    block_vars |= set(assigns)
-                elif conditional:
-                    chain_vars |= set(assigns)
+                if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"]:
+                    forget(False, assigns)    # `true || X=… && git -C "$X"`: may have been skipped
+                else:
+                    env.update(assigns)       # standalone: lasts for the rest of the line
+                touched(False, set(assigns))
             else:
                 prefix.update(assigns)        # prefix: applies to its own command only
             i = j; continue
-        if expect_cmd and t in CLOSE_CTL:
-            depth = max(depth - 1, 0)
-            if depth == 0:
-                forget(block_cd, block_vars)
-                block_cd, block_vars = False, set()
+        if expect_cmd and t == "{":
+            # `a && { …; }` may not run at all; nor does a function body `f() { … }`
+            k = i - 1
+            while k >= 0 and toks[k] == ";":   # newlines between `f()` and its body
+                k -= 1
+            fn = k >= 1 and toks[k - 1] == "(" and toks[k] == ")"
+            open_block("{", ctx["conditional"] or fn)
+            i += 1; continue
+        if expect_cmd and t == "}":
+            end_list()
+            close_block({"{"})
             expect_cmd = False; i += 1; continue
+        if expect_cmd and t in CLOSE_CTL:
+            end_list()
+            close_block(CLOSERS[t])
+            expect_cmd = False; i += 1; continue
+        if expect_cmd and t in ("then", "do", "else", "elif"):
+            if t in ("else", "elif") and stack:
+                b = stack[-1]                 # `if false; then cd x; else git …`: the then-branch did not run
+                forget(b["cd"], b["vars"])
+            i += 1; continue
         if expect_cmd and (t in WRAPPERS or t in KEYWORDS):
             if t in OPEN_CTL:
-                depth += 1
+                open_block(t, True)
             i += 1
             if t in WRAPPERS and i < n and toks[i].startswith("-"):
                 # options may take arguments (nice -n 5, sudo -u x, env -C dir):
@@ -372,22 +463,19 @@ def git_invocations(toks):
             continue
         if expect_cmd and t in ("cd", "pushd", "popd"):
             arg = toks[i + 1] if i + 1 < n and not SEP.match(toks[i + 1]) else None
-            undo = (here,)
-            if depth:
-                block_cd = True
-            elif conditional:
-                chain_cd = True
+            touched(True, set())
             if t == "popd" or arg is None or arg.startswith("-"):
                 here = None                   # cd -, bare cd, popd: not tracked
             else:
                 here = resolve_dir(arg, here, env)
-            if conditional and list_has_or:
-                here = None                   # `true || cd x && git …`: the cd was skipped
+            if (ctx["conditional"] and ctx["has_or"]) or ctx["piped"]:
+                here = None                   # `true || cd x && git …`: the cd was skipped;
+                                              # `true | cd x`: a subshell in bash, not in zsh
             i += 2 if arg is not None else 1
             expect_cmd = False; continue
         if expect_cmd and is_git(t):
             target, subcmd, rest, j = here, None, [], i + 1
-            if opaque or GIT_DIR_VARS & (set(prefix) | set(env)):
+            if opaque or broken or GIT_DIR_VARS & (set(prefix) | set(env)):
                 target = None                 # GIT_DIR / GIT_WORK_TREE redirect the repo
             while j < n:
                 tj = toks[j]

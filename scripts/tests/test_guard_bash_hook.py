@@ -210,6 +210,99 @@ class GuardBashTargetTest(unittest.TestCase):
             self.assertDecision("deny", cmd, cwd=main)
         self.assertDecision("allow", "cd ../feature || exit 1; git commit -m x", cwd=main)
 
+    def test_review_round4(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [
+            # a { … } group after && / || may not run at all: its cd / assignment
+            # (after an inner `;`, which ends the inner list) must not outlive it
+            "false && { true; cd ../feature; }; git commit -m x",
+            "true || { true; cd ../feature; }; git commit -m x",
+            f"false && {{ true; WT={feat}; }}; git -C \"$WT\" commit -m x",
+            "false && { if true; then true; fi; cd ../feature; }; git commit -m x",
+            # an assignment after || in the same list may have been skipped
+            f"true || WT={feat} && git -C \"$WT\" commit -m x",
+            f"WT={main}; true || WT={feat} && git -C \"$WT\" commit -m x",
+        ]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["{ cd ../feature; }; git commit -m x",             # unconditional group
+                    "true && { cd ../feature; git commit -m x; }",     # commit inside the group
+                    "false || { cd ../feature && git commit -m x; }",  # the group's list is its own
+                    f"{{ WT={feat}; }}; git -C \"$WT\" commit -m x",
+                    f"WT={feat} && git -C \"$WT\" commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=main)
+
+    def test_review_round4_nested_blocks_and_forgotten_git_dir(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [
+            # an inner block forgets its cd even while an outer one is open
+            "if true; then if false; then cd ../feature; fi; git commit -m x; fi",
+            "if true; then false && { cd ../feature; }; git commit -m x; fi",
+            "true && { false && { cd ../feature; }; git commit -m x; }",
+            # a chain inside a block still ends at its `;`
+            "if true; then false && cd ../feature; git commit -m x; fi",
+            "true && { false && cd ../feature; git commit -m x; }",
+            f"if true; then false && WT={feat}; git -C \"$WT\" commit -m x; fi",
+            "if true; then true || { cd ../feature; } && git commit -m x; fi",
+            "if false; then { cd ../feature; }; fi; git commit -m x",
+            # a group or a stage after | runs in a subshell
+            "{ cd ../feature; } | cat; git commit -m x",
+            "{ cd ../feature; } & wait; git commit -m x",
+            f"{{ WT={feat}; }} | cat; git -C \"$WT\" commit -m x",
+            "true | cd ../feature; git commit -m x",
+            f"true | WT={feat}; git -C \"$WT\" commit -m x",
+        ]:
+            self.assertDecision("deny", cmd, cwd=main)
+        # a GIT_DIR that may have been exported is unknown, not unset
+        for cmd in ["false || export GIT_DIR=../onmain/.git && git commit -m x",
+                    "true && export GIT_DIR=../onmain/.git; git commit -m x",
+                    "if true; then export GIT_DIR=../onmain/.git; fi; git commit -m x"]:
+            self.assertDecision("deny", cmd, cwd=feat)
+        for cmd in ["if true; then cd ../feature; if true; then true; fi; git commit -m x; fi",
+                    "true && { cd ../feature; if true; then true; fi; git commit -m x; }"]:
+            self.assertDecision("allow", cmd, cwd=main)
+
+    def test_review_round4_subshell_lists_and_block_syntax(self):
+        main, feat = self.root / "onmain", self.root / "feature"
+        for cmd in [
+            # a list ended by & runs in the background, whole
+            "cd ../feature && true & git commit -m x",
+            "cd ../feature && (true) & wait; git commit -m x",
+            # redirections do not hide the | after a group
+            "{ cd ../feature; } >/dev/null 2>&1 | cat; git commit -m x",
+            # a group / block that is a later pipeline stage
+            "true | { cd ../feature; }; git commit -m x",
+            "true | while read l; do cd ../feature; done; git commit -m x",
+            # unmodelled or unmatched block syntax fails closed
+            "if false; then select x in a; do true; done; cd ../feature; fi; git commit -m x",
+            "if true; then cd ../feature; done; git commit -m x",
+            "function f { cd ../feature; }; git commit -m x",
+            # a function body does not run where it is defined
+            "f() { cd ../feature; }; git commit -m x",
+            # an assignment inside ( … ) does not leave it
+            f"(WT={feat}); git -C \"$WT\" commit -m x",
+            # nor one in a list sent to the background
+            f"WT={feat} && true & git -C \"$WT\" commit -m x",
+            # the else branch runs only when the then branch did not
+            "if false; then cd ../feature; else git commit -m x; fi",
+            # glued operators and fd numbers do not hide the next command
+            "true;>/dev/null git commit -m x",
+            "true|>/dev/null git commit -m x",
+            "true; 2>/dev/null git commit -m x",
+            # a function body on the next line, or after `function`
+            "f()\n{ cd ../feature; }\ngit commit -m x",
+            "function f\n{ cd ../feature; }\ngit commit -m x",
+        ]:
+            self.assertDecision("deny", cmd, cwd=main)
+        for cmd in ["cd ../feature && git status & wait",               # no commit at all
+                    "(cd ../feature) && cd ../feature && git commit -m x",
+                    "cd ../feature; git log | head -1 > /dev/null; git commit -m x",
+                    "cd ../feature && git log | head -1 && git commit -m x",
+                    ">/dev/null cd ../feature; git commit -m x",        # redirection before the command
+                    "select x in a; do true; done; cd ../feature; git commit -m x"]:
+            self.assertDecision("allow", cmd, cwd=main)
+        # a case pattern's `)` is not the end of a subshell
+        self.assertDecision("allow", "case a in a) true;; b) true;; esac; git commit -m x", cwd=feat)
+
     def test_heredoc_delimiter_must_be_a_plain_word(self):
         main = self.root / "onmain"
         for cmd in ["cat <<EOF.x\ngit commit -m x\nEOF\nEOF.x",          # real delimiter is EOF.x
