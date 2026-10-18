@@ -112,13 +112,9 @@ each RFC for every gate outcome.
 | [FEAT-youtube-playback-provider](FEAT-youtube-playback-provider.md) | In-progress. Milestone A shipped and production-verified 2026-09-06. Owner credential/quota follow-ups remain; Milestone B requires Phase 0-B GO. |
 | [SEC-system-hardening](SEC-system-hardening.md) | Accepted. Service/governance changes shipped; root-key retirement and the workspace required-check decision remain, plus Step 5 follow-ups 4 (per-service shared_db pin invariants) and 5 (frontend Playwright golden E2E), not started, in that order. |
 | [FEAT-album-review-authoring](FEAT-album-review-authoring.md) | Accepted. Steps 1, 2 and 4 shipped. AI Steps 3/5 deferred; OQ13 resumption decision remains open, including the corrected bucket-memo evidence. |
-| [ARCH-entity-interaction-domain-audit](ARCH-entity-interaction-domain-audit.md) | In-progress Status retained. All steps shipped; only owner closeout remains. |
 | [FEAT-multi-user-accounts](FEAT-multi-user-accounts.md) | Implementation shipped; Phase 4 is owner-central `LLMEngine` scaffolding with no `ApiEngine` caller yet. Owner launch/verification items and the canonical member-URL decision remain deferred (its "`/api/members` is empty" premise is false as of 2026-09-30; the decision is not re-opened). |
-| [FEAT-bucket-identity](FEAT-bucket-identity.md) | A/B shipped, C subsumed. D audited and gated on collection/content evidence. |
-| [FEAT-blog-to-review-migration](FEAT-blog-to-review-migration.md) | Step 1 shipped. Optional HTTP 301 Step 2 waits for meaningful inbound legacy links. |
-| [FIX-nightly-draft-identity](FIX-nightly-draft-identity.md) | Phase A shipped. Phase B waits for the RFC's ownership/scoping triggers. |
 | [FEAT-ai-editorial-critique](FEAT-ai-editorial-critique.md) | Draft and deferred. Requires owner acceptance and the documented stale-body corrections before implementation. |
 | [FEAT-genre-recommendation](FEAT-genre-recommendation.md) | Frozen; requires sufficient published-review/tag volume. |
 
-[The lyrics/Genius investigation notes](NOTES-2026-07-25-lyrics-genius-investigation.md) are evidence,
+[The lyrics/Genius investigation notes](../archive/reviews/NOTES-2026-07-25-lyrics-genius-investigation.md) are evidence,
 not an executable RFC. Use [TEMPLATE.md](TEMPLATE.md) for new proposals.

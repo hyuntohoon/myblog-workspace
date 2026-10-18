@@ -477,7 +477,7 @@ def export_checked_memos(conn) -> tuple[list[dict], str]:
         log.warning(
             "PHASE-B TRIGGER: %d checked memo(s) from %d non-owner user(s) were SKIPPED — "
             "posts have no user column, so drafting them would publish someone else's memo to "
-            "the owner's blog. See docs/rfcs/FIX-nightly-draft-identity.md §4.",
+            "the owner's blog. See docs/archive/done/rfcs/FIX-nightly-draft-identity.md §4.",
             foreign["n"], foreign["users"],
         )
     research = _fetch_all(conn, RESEARCH_SQL, {"owner_sub": OWNER_SUB})

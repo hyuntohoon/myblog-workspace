@@ -61,20 +61,6 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency quota (owner), then 2A Exit.
   → `docs/rfcs/OPS-project-stabilization.md`
 
-- **FEAT-lyrics-match-correction** — accepted 2026-10-16; **Step 1 shipped 2026-10-16 (matcher `step4-v1`, worker #112, prod smoke 30/30), Bad Habit fixed by hand on prod; Step 2 shipped 2026-10-16 (re-sweep by `matcher_version`, worker #114 shadow + #115 real pass; real pass drained to empty: 26 rewrites (20 replaced, 6 superseded), all inside the owner-audited 42, 0 locked rows touched, Bad Habit still locked); Step 3a shipped 2026-10-16 (owner candidate panel + pick-and-lock: V63, backend #189, worker #117, front #469, ws #1082 routes applied; prod smoke 32/32; the owner's own prod pick through the panel is the one check left)**; Step 3b shipped 2026-10-17 (member reports + owner queue: V64, backend #190, front #474, ws #1096 routes applied; prod smoke 32/32; owner's prod view of the queue not yet seen). Step 4 shipped 2026-10-17 (suspicion sweep: matcher prefers a fitting sync, worker #121, ws #1109; prod smoke 30/30; real passes fixed 31 misfit syncs and opened 48 system reports; the owner's view of the queue is not yet seen). **All four steps shipped; RFC Status promotion awaits the owner.** BTS `Go Go` is *not* fixable by consensus (the Japanese body is LRCLIB's majority) → Step 3a panel. Wrong lyrics are permanent today: an
-  `exact-title` match is never re-examined and nothing remembers a rejected candidate. Owner report:
-  Steve Lacy "Bad Habit" serves Ed Sheeran (one LRCLIB upload with correct metadata, wrong body, beat
-  20 correct candidates); BTS "Go Go" serves the Japanese version. Root causes RC1–RC6 recorded:
-  selection is content-blind, the noise strip is a deny-list, bodies are never validated, a match
-  is write-once, `matcher_version` drives no re-evaluation (9,099 rows still `step2-v2`), and
-  consensus only sees LRCLIB's 20 results. Steps: matcher content consensus + rendition markers →
-  re-sweep resolved rows by `matcher_version` → owner candidate panel with pick-and-lock (3a), then
-  one-tap member reports into the owner queue (3b) → suspicion sweep. Model chosen after a
-  prior-art comparison (Spotify/Musixmatch, Genius, Lyrimuse). Every matcher change adds an entry to the RFC's **Matcher patch
-  notes** (history reconstructed back to worker #55).
-  → `docs/rfcs/FEAT-lyrics-match-correction.md`
-  <!-- rfc: docs/rfcs/FEAT-lyrics-match-correction.md | status: accepted -->
-
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
   **Home-entry and next-track lyrics are open, not fixed** (owner report 2026-09-28). Step 1's
@@ -277,10 +263,13 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 Items with no remaining implementation, kept visible because dropping them would lose the only record.
 
-- **ARCH-entity-interaction-domain-audit** — every step shipped and verified; Step 5 closed
-  2026-09-03 (docs only). No implementation remains. The RFC Status is still `in-progress` pending
-  an explicit owner closeout decision; moving this pointer does not promote it. Full findings and
-  corrections remain in `docs/rfcs/ARCH-entity-interaction-domain-audit.md`.
+- **Lyrics match correction: two first-use checks.** `FEAT-lyrics-match-correction` closed 2026-10-18
+  (all steps shipped, prod smoke 30/30–32/32). Not yet seen with a live owner session: the owner's first
+  pick-and-lock through the candidate panel, and the owner's first view of the report queue (48 system
+  reports opened by the Step 4 sweep). → `docs/archive/done/rfcs/FEAT-lyrics-match-correction.md`.
+- **Set the `To Review` bucket back to 비공개** (프로필 → 버킷 탭 → 공개 설정). It is the only public bucket, so
+  this empties `/collection`. Carried over from `FEAT-bucket-identity`, closed 2026-10-18 →
+  `docs/archive/done/rfcs/FEAT-bucket-identity.md`.
 - **AWS root account access keys** — see `SEC-system-hardening` above. Requires a root sign-in with MFA.
 - **BEST NEW ALBUM toggle: one live click-test.** Shipped 2026-08-25 (backend #161 `a75b943`, front #424
   `9e34228`, ws #933 `2784f97`) — owner-only mark/unmark of `albums.best_new` directly from
@@ -446,11 +435,7 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 - **FEAT-genre-recommendation** (**Frozen; gated on review volume**) — related-review recommendation on `/review/{slug}` based on shared sub-genres + linked genre edges. Substrate is live, but there is not enough published review volume to rank meaningfully. Re-open after sufficient review/tag volume exists. Owner edge-authoring API remains lowest priority. → `docs/rfcs/FEAT-genre-recommendation.md`.
 
-- **FEAT-blog-to-review-migration** — Step 1 `/blog → /review` prefix migration DONE + prod-live 2026-06-14. Only optional Step 2 remains: true HTTP 301 via the console-managed CloudFront Function if meaningful inbound `/blog` links accumulate. Static stubs already prevent 404s, so Step 2 is SEO-only. → `docs/rfcs/FEAT-blog-to-review-migration.md`.
-
 - **CHORE-neuralwatt-credit-burn** (**opt-in path SHIPPED; default switch rejected by parity gate**) — NeuralWatt glm-5.2 routing exists for genre-heal, but identical input produced unstable K-Pop/idol classifications on an axis that writes `confidence=high` DB state. Default therefore remains `claude -p`; burn is deferred. Open owner decision: retry with a hardened idol-axis rubric or leave NeuralWatt opt-in only. Key location remains the owner's prior decision and should not be re-raised.
-
-- **FEAT-bucket-identity** (**A DONE; B DONE; C subsumed; D audited + gated**) — Direction D's old "next concrete step" is stale because 4/5 proposed collection types already exist as dedicated non-bucket surfaces; only genre-review collections remain unbuilt. Review-based collections remain gated by published-review volume, and album-based public collections remain gated by owner curation/public-bucket evidence. Re-open only when the RFC's audit gates are met and re-measured. Existing proposals such as `/profile` landing tab, research-note deep link and in-place bucket-tab switch remain proposals, not active work. → `docs/rfcs/FEAT-bucket-identity.md`.
 
 ---
 
@@ -462,7 +447,7 @@ The audit did **not** cover the full infra/IAM/S3/CloudFront/KMS/Cognito surface
 
 - **SEO-review-structured-data 첫 발행 검증** — implementation DONE 2026-07-19 and RFC archived. `Review` + `MusicAlbum` JSON-LD is already generated and locally validated. **Trigger = first production review publication** → run Rich Results Test once against the real published URL. → `docs/archive/done/rfcs/SEO-review-structured-data.md`.
 
-- **FIX-nightly-draft-identity Phase B** (**planned; trigger-gated**) — the P0/Phase A problem was resolved 2026-07-27 with a dedicated nightly Cognito identity, draft-only coercion, owner-pinned grow, counted Phase-B trigger, and live E2E verification. Phase B adds multi-user post ownership, bucket-derived acting user, and read-side scoping only when any RFC §4 trigger fires. Watch `PHASE-B TRIGGER` in nightly logs. → `docs/rfcs/FIX-nightly-draft-identity.md`.
+- **FIX-nightly-draft-identity Phase B** (**planned; trigger-gated**) — the P0/Phase A problem was resolved 2026-07-27 with a dedicated nightly Cognito identity, draft-only coercion, owner-pinned grow, counted Phase-B trigger, and live E2E verification. Phase B adds multi-user post ownership, bucket-derived acting user, and read-side scoping only when any RFC §4 trigger fires. Watch `PHASE-B TRIGGER` in nightly logs. → `docs/archive/done/rfcs/FIX-nightly-draft-identity.md`.
 
 - **DATA-tracked-release-day-ingest** (**decision deferred by the owner 2026-10-17 — measure first; trigger = 2026-11-07**) — question: should tracked artists' new releases bypass `ALBUM_POP_MIN` (20) so they reach the catalog (cover, add-to-bucket, highlights) on release day? Today they arrive 1–3 days late, and front #475 opens them on click. Prod 2026-09-17..10-17: 13 tracked releases were confirmed and 13/13 are in `albums`. Arrival: day 0 1, +1–3 days 9, +4 days or later 3. Two are iTunes-only with no Spotify id, and a bypass cannot help those. That 13/13 is survivorship: never-announced Spotify releases that stay below 20 leave no row. [worker #119](https://github.com/hyuntohoon/myblog_worker/pull/119) adds `tracked_enqueue_gate_skipped` / `tracked_confirm_gate_skipped` plus WARNING logs with id and popularity, with no behaviour change. On the trigger date, read the `album_ingest summary` / `tracked release below` lines in CloudWatch, check each held id against `albums`, and bring the owner the count of releases that never got in. If the owner then approves a bypass, it must be bounded to the confirm window: the enqueue gate has no date window beyond `INGEST_SINCE`, so an unbounded bypass dumps the tracked artists' post-June back-catalogue on the first tick. It also needs its own per-tick cap so it cannot crowd the shared `MAX_ENQUEUE_PER_TICK` 60. Do not change `ALBUM_POP_MIN` / `MAX_CATALOG_ALBUMS` without that decision.
 

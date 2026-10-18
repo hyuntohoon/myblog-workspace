@@ -1,9 +1,9 @@
 # FEAT-spotify-library-autosync: sync on entry, saved-date order, auto-research, cover overlap
 
-- **Status**: draft
+- **Status**: **done** (2026-10-18 — Steps 1–4 shipped 2026-10-15 and verified on the deployed bundle; archived). Owner approved the Status change in-session (2026-10-18 RFC triage) under CLAUDE.md rule #7. The field had never moved past `draft`; each step carried its own owner approval.
 - **Owner**: owner
 - **Created**: 2026-10-15
-- **Plan row**: `plan.md` → FEAT-spotify-library-autosync
+- **Plan row**: removed 2026-10-16 (ws #1069), before this close.
 
 ---
 
@@ -270,3 +270,10 @@ None open. The three that were raised are settled in the decisions log.
 | 2026-10-15 | Auto-research covers every library album: the existing 56 un-noted plus all future PULLs. Dedupe was verified in production before committing (unique constraint + `SKIP LOCKED` claim). (owner) | 2, 3a |
 | 2026-10-15 | Sync on **every** entry, not on a staleness threshold. Duplicates are prevented server-side (in-flight gate + 30 s post-finish debounce), not by skipping entries. (owner) | 3b, 4 |
 | 2026-10-15 | Worker enqueues research with an any-version `NOT EXISTS` guard instead of importing the backend's `PROMPT_VERSION`, so the third copy of the constant cannot cause a duplicate note. | 3a |
+| 2026-10-18 | Owner approved closing the RFC (draft → done) and archiving it. No open questions; the untested two-tab race rests on backend #186's real-engine test, as recorded in Step 4. | Close |
+
+## Close-out (2026-10-18)
+
+- **Delivered:** Step 1 (front #460), Step 2 (V61), Step 3a (worker) and 3b (backend #186, contract ws #1065), Step 4 (front, post-deploy clickthrough 2026-10-15).
+- **Left open:** nothing. The hidden-mount insertion-order flash noted under Step 4 is transient and deliberately unchanged.
+- **Stale pointers left in place:** `myblog_shared_db/migrations/V61__spotify_library_autosync.sql` still names `docs/rfcs/` — migration files are not edited.

@@ -1,9 +1,9 @@
 # FEAT-lyrics-match-correction: detect and correct wrongly attached lyrics
 
-- **Status**: accepted (owner approval 2026-10-16)
+- **Status**: **done** (2026-10-18 — Steps 1, 2, 3a, 3b and 4 shipped 2026-10-16/17; archived). Owner approved the Status change in-session (2026-10-18 RFC triage) under CLAUDE.md rule #7.
 - **Owner**: site owner
 - **Created**: 2026-10-15
-- **Plan row**: `docs/plan.md` → FEAT-lyrics-match-correction
+- **Plan row**: removed at close (2026-10-18); the two owner-only first-use checks moved to `plan.md` → Owner-only.
 - **Execution**: one step per session (3a and 3b are separate sessions). Steps 1 and 2 are worker-only and need no contract change.
 
 ---
@@ -760,3 +760,11 @@ They describe what the commits say they did. Effects are filled in only where a 
 | 2026-10-16 | 3b: `ok` and `no_lyrics` are reportable; member re-check cooldown 3600 s; owner closes reports with panel decisions plus a new `keep`; `auto_resolved` derived from a served snapshot (owner, after Fable review) | 3b |
 | 2026-10-17 | 3b shipped. Review added a per-member advisory lock ahead of the per-track one, so the daily cap holds under parallel reports; Step 4 must reuse the track key | 3b |
 | 2026-10-17 | Step 4 measured: timing signals find 0/26 wrong lyrics but ~⅓ misfit syncs with a fitting same-words upload. Non-goal amended; fix in the matcher + sweep-only lateral path, report only the residue; `shared_lrclib_id` kept as a tripwire; one manual job, no schedule, no version bump (owner, after Fable review) | 4 |
+| 2026-10-18 | Owner approved closing the RFC (accepted → done) and archiving it. The owner's first prod pick through the 3a panel and first look at the 3b/4 report queue are first-use checks, not close blockers. | Close |
+
+## Close-out (2026-10-18)
+
+- **Delivered:** Step 1 (worker #112), Step 2 (worker #114/#115), Step 3a (V63, backend #189, worker #117, front #469, ws #1082), Step 3b (V64, backend #190, front #474, ws #1096), Step 4 (worker #121, ws #1109). Prod smoke 30/30–32/32 at each deploy.
+- **First-use checks (not blockers), now in `plan.md` → Owner-only:** the owner's first prod pick-and-lock through the candidate panel; the owner's first view of the report queue (48 system reports opened by the Step 4 real passes).
+- **Matcher patch notes:** future matcher changes still append to this file's *Matcher patch notes* at its archived path.
+- **Stale pointers left in place:** `myblog_shared_db` V63/V64 headers and three `myblog_worker` test docstrings still name `docs/rfcs/` — migrations are not edited, and a comment-only worker deploy is not worth a cycle.

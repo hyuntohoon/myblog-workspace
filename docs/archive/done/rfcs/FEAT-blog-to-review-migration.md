@@ -1,9 +1,9 @@
 # FEAT-blog-to-review-migration: `/blog/*` → `/review/*` URL migration
 
-- **Status**: in-progress — **Step 1 done + prod-live 2026-06-14** (front #153 / ws #344; zero 404s). Remaining: the **optional Step 2** (true HTTP 301 via the console-managed CloudFront Function, owner-applied) — necessity-gated on inbound `/blog` links accumulating; RFC kept open for it.
+- **Status**: **done** (2026-10-18 — Step 1 shipped and prod-live 2026-06-14; optional Step 2 dropped; archived). Owner approved the Status change in-session (2026-10-18 RFC triage) under CLAUDE.md rule #7.
 - **Owner**: TBD
 - **Created**: 2026-06-14
-- **Plan row**: `plan.md` → FEAT-blog-to-review-migration (Backlog)
+- **Plan row**: removed at close (2026-10-18) from `plan.md` → Backlog.
 - **Extracted from**: `FEAT-home-redesign` **Step 6** (the home-redesign RFC carried this as a
   pending "separate future work" step; per its own note — "consider splitting to its own RFC if
   the redirect mechanism … is non-trivial" — it is hereby split out so home-redesign's own scope
@@ -217,3 +217,10 @@ kept or later pruned). **Not started; requires owner go-ahead (infra change).**
 | 2026-06-14 | Remove `/blog/category` (fold into `/reviews`) | home-redesign site-scope decision |
 | 2026-06-14 | No-404 via **static redirect stubs** (front-only); true 301 via CloudFront Function deferred to optional Step 2 | this RFC — S3-website/static model + overnight no-infra guardrail |
 | 2026-06-14 | Extracted from home-redesign Step 6 into its own RFC | this RFC header |
+| 2026-10-18 | Owner approved closing the RFC (in-progress → done) and archiving it. **Optional Step 2 (true HTTP 301) is dropped, not deferred**: in four months its trigger (inbound `/blog` links accumulating) was never measured or met, and the static stubs already keep every old URL at 200. The CloudFront Function snippet above remains here if it is ever wanted. | Close |
+
+## Close-out (2026-10-18)
+
+- **Delivered:** Step 1 (front #153, ws #344), prod-live 2026-06-14 with zero 404s.
+- **Dropped:** Step 2 (true 301, SEO only). No backlog row.
+- **Stale pointers left in place:** `myblog_front/src/components/redirect-stub.astro` header comment still names `docs/rfcs/`.
