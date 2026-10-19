@@ -40,13 +40,12 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
     Back-catalogue drained 10-18 13:39Z: follow jobs 863 resolved, 372 below the popularity gate
     (resting 30 days), 0 `album_not_in_catalog`. → `OPS-project-stabilization`
     *Step 2C execution record (2026-10-19)*.
-  - **Owner decisions, open:** the catalog cap of 8,000 (`albums` 6,173 on 10-19) is about six
-    weeks away at ~305 albums/week, and reaching it stops the daily new-release sweep.
-    Michael Korstick is 913 of 925 tracks `not_found` (classical, the Debussy shape); an
-    exclusion would stop the LRCLIB retries.
+  - **Owner decisions taken 2026-10-20:** catalog cap 8,000 → 12,000 (worker #126, deployed 10-19; ~4 months at
+    ~320 albums/week), and Michael Korstick excluded from follow discovery (913/925 `not_found`,
+    0 translated; manual edge kept; 53/53 jobs cancelled on the next sync). → RFC *Owner decisions (2026-10-20)*.
   - **Step 5 verification is not met — smoke run 2026-10-18, read-only.** Unfollow, exclusion,
     multi-page discography and the origin union pass. Complete coverage and steady-state new-release
-    pickup fail, for the two reasons above. Multi-page follows, missing scope, re-import and
+    pickup failed on 10-18 (back-catalogue gap, unreachable refresh — both since fixed by worker #125); the step has not been re-smoked. Multi-page follows, missing scope, re-import and
     enumeration retry need owner action and were not run. "Production-verified" stays withdrawn.
     → RFC *Step 5 smoke (2026-10-18)*.
   - **Follow metrics in CloudWatch:** visible since worker #124 (2026-10-18 07:57Z). INFO is

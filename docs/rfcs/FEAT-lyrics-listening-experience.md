@@ -1289,6 +1289,65 @@ production write outside the smoke user, so they wait for the owner:
 - lift an exclusion by an explicit site add (re-import), and expect the artist to re-enter the universe at zero provider cost;
 - reconnect with a grant lacking `user-follow-read`, and expect the follow origin to be left untouched and the #446 prompt to appear.
 
+#### Owner decisions (2026-10-20): catalog cap raised, Michael Korstick excluded
+
+The two open decisions recorded under the 10-18 smoke were settled by the owner on 2026-10-20 from
+a fresh read-only measurement (2026-10-19 17:24Z, `BEGIN READ ONLY … ROLLBACK`). Both follow the
+recommendation, which an independent review checked against the code first.
+
+**Catalog cap: `MAX_CATALOG_ALBUMS` 8,000 → 12,000 (worker #126).**
+
+| Measure | Value |
+|---|---|
+| `albums` | 6,173 (headroom to 8,000: 1,827) |
+| Weekly inserts **outside** any follow discography (`lyrics_artist_albums`) | 343 / 299 / 322 (weeks of 09-28, 10-05, 10-12); 164–212 in September |
+| One-off back-catalogue drain | 478 albums on 10-18, not a rate |
+| Below-gate follow jobs | 372, all due again 2026-11-17 |
+| Storage | DB 178 MB in total; `albums` 4.4 MB, `tracks` 20 MB / 40,951 rows |
+
+At ~320/week the old cap would have been reached around late November. Reaching it stops more than
+the new-release sweep: `run_album_ingest` returns before sweeping, which also stops release-calendar
+confirmation, and `run_backcatalogue_ingest` stops reading as well
+(`lyrics_backcatalogue_service.py`). The 372 jobs due on 11-17 would therefore have stalled
+too. 12,000 is about four months at the current rate. The cap stays a curation checkpoint, not
+a storage limit, and it was not removed: it is the only brake on runaway ingest. Catalog growth
+does carry its own cost apart from demand. `lyrics_incremental` spends one LRCLIB search per new
+catalog track, about 2,000 a week at this rate, and the misses join the daily reassessment pool.
+The Neon project is on the Free tier, so storage headroom should be read from the console rather
+than inferred from the table sizes.
+
+*Backlog, not done:* the only warning today fires *at* the cap. Letting the sweep and the
+confirmation run past it and gating only the enqueue would stop a reached cap from being an outage.
+
+**Michael Korstick: excluded from lyrics follow discovery** (one row in
+`user_artist_follow_exclusions`, written 2026-10-19 18:55:25Z, owner approval in session).
+
+- Before: 925 follow tracks, of which 913 were `source_pending`/`not_found` (16-day rung, 30-day
+  cap) and 12 were `not_required`/`no_lyrics`. **0 translated.** 53 jobs, each held by the follow
+  origin alone. Korstick accounted for 913 of the 2,921 `not_found` demand rows.
+- The mechanism is the same as Debussy's (2026-09-19): an SQL row and no code change. The manual
+  tracking edge is kept for the release radar. The site's remove action is *not* the equivalent,
+  because it deletes the edge too. An explicit site add lifts the exclusion. That is also the
+  smoke's unexercised re-import case.
+- Path, verified in code: the follow universe is `(followed ∪ manual) − excluded` →
+  `_apply_follow` removes the follow demand → `cancelled = NOT EXISTS (live demand)` on each job →
+  the source poller's `LIVE_DEMAND_SQL` skips cancelled jobs. It depends on the next member sync
+  reading `/me/following` successfully.
+- **What it does not stop.** The daily reassessment pass re-checks every `not_found` `track_lyrics`
+  row across the catalog, with no demand predicate. Korstick's rows stay in that pool, so the
+  catalog-wide `not_found` count will not fall. The saving on the demand ladder is small (about 30–57
+  LRCLIB calls a day). The reason to exclude is that these are performer pages of classical
+  recordings with no lyrics, the Debussy shape, not the spend.
+- Observed after the write: the next member sync (2026-10-19 19:09Z) logged `follow(artists=34, +0/-53, no-grant=0, failed=0)`, 35 artists down to 34. All 53 Korstick jobs are `cancelled` with 0 demand rows, and the one manual `user_artist_tracks` edge is intact. No ERROR line.
+
+**Recorded, not decided.** Korean hip-hop artists also have high `not_found` shares in the follow scope
+(비프리 224/227, 식케이 189/203, 키드밀리 161/168, 창모 100/107). That means LRCLIB holds no lyrics for
+them at all. It is unrelated to translation need.
+
+**Step 5 status after these decisions.** Neither decision completes Step 5. Complete coverage is
+now bounded by the popularity gate (372 resting), not by the cap. The cases that need the owner
+are unchanged: a joint unfollow, a re-import and a grant without the scope.
+
 #### The cost is roughly 7x what the pre-measurement projected, and the projection's error is instructive
 
 > **Superseded 2026-09-19 — kept as written, do not act on it.** Both the 7x figure and the
@@ -1354,3 +1413,4 @@ are **not** claimed here. The step is deployed and paused pending that decision.
 | 2026-09-21 | Owner decision: fence unconsumed discography registrations on the read paths (worker #107) rather than delete them, so a recoverable `invalid_grant` does not cost a re-enumeration. The unreachable 24 h refresh was reported, not fixed: it is a spend decision. | Step 5 |
 | 2026-09-30 | Post-delivery audit: Step 5 is running but not complete. 686 of 1,061 follow jobs wait on albums nothing ingests, the refresh has never run, the Step 5 smoke was never run, and translation was stopped from 09-27 by an expired CLI login that was reported as throttling. The plan row's "production-verified" was withdrawn for Step 5. No Status promotion. | Step 5 audit |
 | 2026-10-18 | Step 5 smoke run read-only against production (*Step 5 delivery → Step 5 smoke*). Unfollow, exclusion, multi-page discography and the origin union pass. Complete coverage fails: 846 of 1,234 follow jobs wait on `album_not_in_catalog`, up from 686 of 1,061. New-release pickup fails in steady state: no refresh since 10-10. Multi-page follows, missing scope, re-import and enumeration retry are not exercisable without owner action. Step 5 verification remains unmet. No Status promotion. | Step 5 smoke |
+| 2026-10-20 | Owner decisions on Step 5's two open items, from a fresh read-only measurement: `MAX_CATALOG_ALBUMS` 8,000 → 12,000 (worker #126, deployed 2026-10-19 19:02Z, prod smoke 32/0; ~320 albums/week outside follow back-catalogue, 6,173 on 10-19; the cap also stops back-catalogue ingest), and Michael Korstick added to `user_artist_follow_exclusions` (913/925 `not_found`, 0 translated; manual edge kept, Debussy precedent; next sync `-53`, 53/53 jobs cancelled). Step 5 remains not complete. No Status promotion. | Step 5 |
