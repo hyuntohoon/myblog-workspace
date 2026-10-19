@@ -43,16 +43,17 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   - **Owner decisions taken 2026-10-20:** catalog cap 8,000 → 12,000 (worker #126, deployed 10-19; ~4 months at
     ~320 albums/week), and Michael Korstick excluded from follow discovery (913/925 `not_found`,
     0 translated; manual edge kept; 53/53 jobs cancelled on the next sync). → RFC *Owner decisions (2026-10-20)*.
-  - **Step 5 verification is not met — smoke run 2026-10-18, read-only.** Unfollow, exclusion,
-    multi-page discography and the origin union pass. Complete coverage and steady-state new-release
-    pickup failed on 10-18 (back-catalogue gap, unreachable refresh — both since fixed by worker #125); the step has not been re-smoked. Multi-page follows, missing scope, re-import and
-    enumeration retry need owner action and were not run. "Production-verified" stays withdrawn.
-    → RFC *Step 5 smoke (2026-10-18)*.
-  - **Follow metrics in CloudWatch:** visible since worker #124 (2026-10-18 07:57Z). INFO is
-    raised for `worker.*` only; third-party loggers stay at WARNING.
+  - **Step 5 re-smoked 2026-10-20 (read-only, after worker #125): every case production can show
+    passes.** New-release pickup works in steady state: the refresh re-opened 35 artists at 10-18 08:24Z
+    and again at 10-19 08:39Z with no new follow. Follow jobs: 816 resolved, 369 below the popularity
+    gate, 0 `album_not_in_catalog`. Control: prod smoke 32/0, excluded artists at 0 demand. **Still
+    not verified:** joint unfollow, re-import and a grant without the scope need the owner; multi-page
+    follows and enumeration retry are suite-only. "Production-verified" stays withdrawn until the owner
+    decides. → RFC *Step 5 smoke (2026-10-20)*.
+  - **Follow metrics in CloudWatch:** visible since worker #124 (2026-10-18 07:57Z); confirmed by the
+    10-20 re-smoke (3,106 `[INFO]` lines in 50 h). INFO is raised for `worker.*` only.
   - **`infra/lambda.tf` kill switches are unapplied.** The live Lambda has only the console-set
     `LYRICS_FOLLOW_DEMAND_ENABLED=true`, so `terraform plan` shows 1 change. Needs a human apply.
-  - **One non-follow job is stuck on `album_not_in_catalog`**, left over from the pre-measurement.
   Carry the Step 1 cold-start Spotify 404/browser-fallback observation. → `docs/rfcs/FEAT-lyrics-listening-experience.md`.
 
 - **SEC-system-hardening** (`docs/rfcs/SEC-system-hardening.md`, accepted) — main governance, keyless
