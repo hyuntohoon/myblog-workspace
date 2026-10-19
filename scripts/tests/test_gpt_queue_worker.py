@@ -140,6 +140,29 @@ def worker(q, client=None, clock=time.time):
     return QueueWorker(q['engine'], q['state'], client or FakeClient(), daily_cap=1000, clock=clock)
 
 
+PASSES = ('scanned', 'scan_wrap', 'idle')
+
+
+def lap(w, model=MODEL):
+    """Tick through one full cursor lap; any outcome other than a pass fails the test."""
+    for _ in range(10):
+        outcome = w.tick(model)
+        assert outcome in PASSES
+        if outcome in ('scan_wrap', 'idle'):
+            return
+    raise AssertionError('no wrap within 10 ticks')
+
+
+def advance(w, model=MODEL):
+    """The first outcome that is not a cursor pass. Where the cursor stands after a priority
+    claim is not what these tests are about."""
+    for _ in range(10):
+        outcome = w.tick(model)
+        if outcome not in PASSES:
+            return outcome
+    raise AssertionError('only passes within 10 ticks')
+
+
 def test_idle_tick_never_calls_model(queue):
     client = FakeClient()
     assert worker(queue, client).tick(MODEL) == 'idle'
@@ -250,16 +273,14 @@ def test_queue_temporary_failure_has_delayed_four_attempt_cap(queue):
     client = FakeClient(error=PlanInferenceError('temporary_error'))
     w = worker(queue, client)
     assert w.tick(MODEL) == 'temporary_error'
-    assert w.tick(MODEL) == 'scan_wrap'
-    assert w.tick(MODEL) == 'scanned'
+    lap(w)  # not due yet: a whole lap does not retry it
     assert len(client.calls) == 1
     for _ in range(3):
         execute(queue, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:id", id=queue['tracks'][0])
-        assert w.tick(MODEL) == 'scan_wrap'
-        assert w.tick(MODEL) == 'temporary_error'
+        assert advance(w) == 'temporary_error'
     execute(queue, "UPDATE lyrics_translation_work SET next_attempt_at=now()-interval '1 second' WHERE track_id=:id", id=queue['tracks'][0])
-    assert w.tick(MODEL) == 'scan_wrap'
-    assert w.tick(MODEL) == 'scanned'
+    lap(w)
+    lap(w)  # due, but at its cap
     assert len(client.calls) == 4
     assert row(queue, 'SELECT attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0])['attempts'] == 4
 
@@ -285,8 +306,7 @@ def test_plan_usage_limit_waits_an_hour_then_resumes(queue):
     assert len(client.calls) == 1
     clock.now += 2
     client.error = None
-    assert w.tick(MODEL) == 'scan_wrap'
-    assert w.tick(MODEL) == 'saved'
+    assert advance(w) == 'saved'
     assert len(client.calls) == 2
     settings = PrivateState(queue['state'].directory).settings()
     assert 'limit_hits' not in settings and 'resume_at' not in settings
@@ -329,11 +349,10 @@ def test_repeated_limits_on_one_source_never_exhaust_its_attempts(queue):
     client = FakeClient(error=limit_error())
     w = worker(queue, client, clock)
     for _ in range(2):
-        assert w.tick(MODEL) == LIMIT
+        assert advance(w) == LIMIT
         clock.now += 3601
-        assert w.tick(MODEL) == 'scan_wrap'
     client.error = None
-    assert w.tick(MODEL) == 'saved'
+    assert advance(w) == 'saved'
     assert row(queue, 'SELECT status,attempts FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0]) == {'status': 'done', 'attempts': 1}
 
 
@@ -391,15 +410,70 @@ def test_bounded_cursor_advances_past_poison_and_oversize_rows(queue):
     request(queue)
     client = FakeClient()
     w = worker(queue, client)
-    assert w.tick(MODEL) == 'scanned'
-    assert not client.calls
+    # Each request's one priority attempt: the 31 oversized ones fail, the valid one saves.
     assert w.tick(MODEL) == 'saved'
     assert len(client.calls) == 1
     assert client.calls[0][0]['spotify_track_id'] == queue['spotify'][0]
+    # Spent priority attempts are not repeated: the cursor scan moves past the poison page.
+    prepared, prepare = [], w.store.prepare
+    w.store.prepare = lambda *a, **k: prepared.append(a[1]) or prepare(*a, **k)
+    assert w.tick(MODEL) == 'scanned'
+    assert len(client.calls) == 1
+    assert len(prepared) <= 30  # one cursor page; no second round of the 31 priority attempts
     with queue['engine'].connect() as c:
         assert c.execute(text("SELECT count(*) FROM track_lyrics_translations WHERE track_id=ANY(:ids) AND status='requested'"), {'ids': poison}).scalar_one() == 31
 
 
+
+def request_key(q, index=0):
+    at = row(q, 'SELECT requested_at::text AS at FROM track_lyrics_translations WHERE track_id=:id',
+             id=q['tracks'][index])['at']
+    return 'lyrics:' + str(q['tracks'][index]), at
+
+
+def spend_priority(q, index=0):
+    key, at = request_key(q, index)
+    scan = q['state'].read('scan.json', {'cursor': ''})
+    scan.setdefault('requests', {})[key] = at
+    q['state'].write('scan.json', scan)
+
+
+def test_budget_refusal_keeps_the_cursor_before_the_row(queue):
+    request(queue)
+    key, at = request_key(queue)
+    # Its priority attempt is spent, so only the cursor scan can reach it.
+    queue['state'].write('scan.json', {'cursor': key[:-1], 'requests': {key: at}})
+    spent = QueueWorker(queue['engine'], queue['state'], FakeClient(), daily_cap=0)
+    assert spent.tick(MODEL) == 'daily_budget'
+    assert spent.tick(MODEL) == 'daily_budget'
+    assert queue['state'].read('scan.json')['cursor'] == key[:-1]
+    client = FakeClient()
+    assert worker(queue, client).tick(MODEL) == 'saved'
+    assert client.calls[0][0]['spotify_track_id'] == queue['spotify'][0]
+
+
+def test_request_behind_the_cursor_is_tried_first_and_keeps_its_turn_on_no_budget(queue):
+    request(queue)
+    key, _ = request_key(queue)
+    # The cursor already passed it (the Bad Habit incident, 2026-10-19).
+    queue['state'].write('scan.json', {'cursor': key})
+    spent = QueueWorker(queue['engine'], queue['state'], FakeClient(), daily_cap=0)
+    assert spent.tick(MODEL) == 'daily_budget'
+    assert key not in queue['state'].read('scan.json').get('requests', {})
+    client = FakeClient()
+    assert worker(queue, client).tick(MODEL) == 'saved'
+    assert client.calls[0][0]['spotify_track_id'] == queue['spotify'][0]
+
+
+def test_rerequest_gets_a_new_priority_attempt(queue):
+    request(queue)
+    key, at = request_key(queue)
+    queue['state'].write('scan.json', {'cursor': key, 'requests': {key: at}})
+    execute(queue, "UPDATE track_lyrics_translations SET requested_at=now()+interval '1 second' WHERE track_id=:id",
+            id=queue['tracks'][0])
+    client = FakeClient()
+    assert worker(queue, client).tick(MODEL) == 'saved'
+    assert len(client.calls) == 1
 
 def test_inference_runs_with_all_db_connections_returned(queue):
     request(queue)
@@ -485,8 +559,8 @@ def test_terminal_refusal_does_not_retry_on_later_scan(queue):
     client = FakeClient(error=PlanInferenceError('refused'))
     w = worker(queue, client)
     assert w.tick(MODEL) == 'refused'
-    assert w.tick(MODEL) == 'scan_wrap'
-    assert w.tick(MODEL) == 'scanned'
+    lap(w)
+    lap(w)
     assert len(client.calls) == 1
     assert row(queue, 'SELECT attempts,last_reason FROM lyrics_translation_work WHERE track_id=:id',
                id=queue['tracks'][0])['attempts'] == 1
@@ -590,6 +664,7 @@ def test_disabling_mid_run_stops_new_claims(queue):
 
 def test_one_finished_pass_ends_every_slot(queue):
     request(queue)
+    spend_priority(queue)  # this is about the cursor pass, not the priority attempt
     outcomes = worker(queue).run(MODEL)
     assert outcomes.get('saved') == 1
     # Exactly one slot reaches a final outcome; the others stop on the shared signal.
@@ -681,9 +756,8 @@ def test_site_pause_after_claim_releases_with_refund_never_cancels(queue, site_p
     assert row(queue, 'SELECT status,last_reason,attempts FROM lyrics_translation_work WHERE track_id=:id',
                id=queue['tracks'][0]) == {'status': 'retryable_error', 'last_reason': 'claim_released', 'attempts': 0}
     site_pause(False)
-    # The scan cursor already passed this source: one wrap, then it is claimable again.
-    assert w.tick(MODEL) == 'scan_wrap'
-    assert w.tick(MODEL) == 'saved'
+    # Its priority attempt is spent; the cursor scan reaches it again.
+    assert advance(w) == 'saved'
     assert len(client.calls) == 1
 
 
@@ -781,8 +855,8 @@ def test_fallback_failure_is_refunded_and_skipped_until_gpt_returns(queue, reaso
     # GPT keeps both attempts: the failed Claude call is refunded.
     assert row(queue, 'SELECT status,attempts,last_reason FROM lyrics_translation_work WHERE track_id=:id', id=queue['tracks'][0]) == \
         {'status': 'retryable_error', 'attempts': 0, 'last_reason': 'claim_released'}
-    assert w.tick(FALLBACK) == 'scan_wrap'
-    assert w.tick(FALLBACK) in ('idle', 'scanned')
+    lap(w, FALLBACK)
+    lap(w, FALLBACK)
     assert len(client.calls) == 1
     assert w.fallback_used_today() == 1
     # A GPT completion ends the wait and gives the fallback a fresh try next time.
