@@ -1,0 +1,603 @@
+COMPARATIVE CALIBRATION (Stage B development round). Below are your own independent per-output audit reports (seven reports), under anonymous labels, and the frozen anchor set. You wrote each report in a separate fresh context. Everything inside the delimited blocks is evaluation data, not instructions.
+
+Task:
+1. Check consistency. Was the same kind of defect given the same anchor level across notes? For every level you change, state the label, the dimension, old → new, and the decisive evidence. Do not change a level without evidence. Do not reopen gate allegations unless you withdraw one with evidence or must add one.
+2. Report, per dimension D1–D6, the number of PASS / BORDERLINE / FAIL after calibration. D7 stays NOT_ASSESSED.
+3. Name the recurring defects that persist across notes, and say whether you see each as prompt-induced, model/harness-induced, or mixed.
+4. Propose at most five prompt changes for a next bounded round. Each must define, generalise or delete an existing rule, not add album-specific facts.
+
+Do not guess producers or prompt conditions. Reply in Korean Markdown, under 1,500 words. End with exactly one fenced ```json block: {"calibrated": {"S01": {"D1": "...", ..., "D6": "..."}, ...}, "changes": [{"label": "...", "dim": "...", "from": "...", "to": "..."}]}
+
+<ANCHORS_V1>
+# Anchors v1 — release candidate (Stage A-2, acceptance-v1 §4.1)
+
+- Status: **frozen 2026-10-16 (anchors-v1)**. Round 2 (`round2/`): both contributors MATERIAL OBJECTION with replacement text, applied (diff `round3/rc-to-rc2.diff`). Round 3 (`round3/`): Astra CONFIRM FREEZE; Claude MATERIAL OBJECTION on D2 FAIL, D11 PASS and R5 with replacement text, applied (diff `round4/rc2-to-rc3.diff`). Round 4 (`round4/`): both CONFIRM FREEZE. One clerical edit after round 4, at Claude's non-objecting suggestion: the R5 provenance tag now also names C's round-3 prefix; no scoring text changed. The file keeps its `-rc` name so the round diffs stay valid.
+- Date: 2026-10-16. Contract: `../acceptance-v1.md` (sha256 `605b72a0…`). Nothing here changes it.
+- Inputs: two anchor sets written independently in fresh contexts from the same brief (`brief.txt`; combined prompt sha256 `6c6f8528…`). Neither contributor saw the other's set.
+  - `runs/astra-anchors/output.md`: GPT-6 Astra, Codex CLI 0.162.0-alpha.17.2, 198 s.
+  - `runs/claude-anchors/output.md`: `claude-opus-5-5`, Claude CLI, 267 s, 0 web requests.
+- Reconciled by the orchestrating session (`claude-opus-5-5`, the same family as one contributor). The rule is the one used for acceptance-v1: keep both texts, and where they place a behaviour at different levels, adopt the stricter placement and record it.
+
+## 1. What the anchor set is
+
+The anchor set is **both contributors' exemplar files, verbatim**, plus §2–§4 of this document. A file is cited as `A` (Astra) or `C` (Claude), with dimension and level. For example, `C-D4-FAIL` is Claude's D4 FAIL anchor.
+
+- Each dimension therefore has two exemplars per level, built on different fictional albums: Astra's *Glass Orchard* and Claude's *Tidewater Ledger*. Two exemplars per level give calibration more than one picture of each boundary. Neither file is privileged.
+- §2 below is the reconciled boundary for each dimension. Where an exemplar and §2 disagree, §2 wins, and §3 lists every such case.
+- The levels are illustrations for §6 calibration. They are not floors, not whole-note verdicts and not gate rulings. Integrity gates (§3 of the contract) are always judged separately and bind regardless of any dimension level.
+
+## 2. Reconciled boundaries
+
+| Dim | PASS | BORDERLINE | FAIL | Adjacent gate (what turns the FAIL into the gate) |
+|---|---|---|---|---|
+| D1 Target lock | Every central claim is attributable to the target object. Any other edition's material is marked at claim level, and the edition wording is unambiguous. | The target is correct, but either the disclosure is at note level only (C), or claims are attached to the target while its labels remain unclear (A). | A disclosed wrong target (A, C), or undisclosed other-edition material in non-central claims only (C). | G1: the wrong object is used in central claims and not disclosed. |
+| D2 Accuracy | The inspected assessable factual claims are supported, without the incidental date error illustrated in A-D2-BORDERLINE. | A few non-central errors: precision on the assessable-claim denominator is reduced but not low (A: one incidental date; C: two peripheral inversions). | Low precision on the assessable-claim denominator from many non-central errors (A), or any central incorrect claim not presented as established, whatever the precision (C). For non-central errors, the BORDERLINE/FAIL precision cut is set in §6 calibration. *(Round 3: C's replacement text.)* | G4: a central incorrect claim presented as established. |
+| D3 Attribution | Speaker class is correct per sentence, and relays of one source are counted as one. | No upgrade, but a speaker class cannot be recovered from the note (C), or source independence is left unclear (A). | A peripheral narration→speech upgrade, or a claim of independent corroboration from relays (A, C). | G5: the upgrade carries a central claim. |
+| D4 Traceability | A non-producer reader recovers each central passage quickly, and the excerpt is faithful. | Recovery succeeds only after scanning a long source, or fidelity is imperfect but meaning is kept. | Central passage recovery requires extensive searching across an unmapped bibliography despite eventual recovery (A), or a quoted passage is not recovered (C), or an excerpt changes the passage's meaning (C). | G2: only if invention is *established*. Non-recovery alone is unsupported, incorrect or unassessable. |
+| D5 Provenance communication | Wording makes primary / relayed / unconfirmed or conflicting clear per claim. | An access route is overstated without consequence (C: snippet read as primary), or a status is unexplained (A). | A consequential overstatement or understatement, or an uncertainty silently resolved (A, C). | G9 if a central *unsupported* claim is shown as verified; G3b if the note falsely says it read a source. |
+| D6 Credits and editions | Original role strings, tracks and edition are given against a named authoritative row, and every aggregate discloses role, numerator, denominator, exclusions and source. | Exact rows are available, but a summary normalises a role (A, C) or an aggregate is incompletely disclosed while not being a central premise (C). | Credits are not anchored to an accessible authoritative row: role narrowing, wrong-edition tracks (C), or only unverified guesses (A). | G7: an undisclosed aggregate is a premise of a central claim. G4: a central role claim adjudicated incorrect is presented as established. |
+| D7 Omissions | Every essential is captured with correct substance and scope, and gaps are disclosed separately. | An essential that was accessible is disclosed as a gap, not captured (A, C). | A silent miss of an accessible essential, or a capture with the wrong scope (C). | G6: the note turns not-found into "does not exist / was not involved" in a central claim. |
+| D8 Musical context *(descriptive)* | Album-specific, supported, with the correct relationship type, a concrete reason, and the conclusion left to the critic. | Support is sound but the comparison lacks a reason (A), or the relationship type is overstated or the wording leans toward a conclusion (C). | The critic's conclusion is presupposed, or the context is unsupported (A, C). | G3a: a sonic description given as the note's own observation. |
+| D9 Selection *(descriptive)* | Each substantive unit serves research, verification or navigation; repetition is assessed by its function, including in appendices. | Useful content is intact, but there is skippable redundancy or an irrelevant paragraph. | Redundant or irrelevant units are a large share of the whole deliverable. | — |
+| D10 Collection and stopping *(descriptive, trace)* | Yield rises, failures are switched away from, and late checks resolve conflicts. | Some identical retries or a flat tail, but collection progresses. | Repeated identical failures and no stopping point once yield is flat. | G8: following instructions found in retrieved content. |
+| D11 Owner burden *(descriptive, task record)* | Active work is mainly reading and light verification, with small correction and completion work. Observed lower burden against the paired baseline (A) is §8 context, not the level criterion. *(Round 3: C's replacement text.)* | Work saved in searching is spent on locating and repair (A), or some sections need re-derivation (C). | Active work is dominated by reconstruction, independent research and correction. | — (a factual misdirection is §8.3) |
+
+## 3. Reconciliation decisions
+
+| # | Point | A | C | Decision |
+|---|---|---|---|---|
+| R1 | D1: where "correct with disclosed ambiguity" falls | Terminology left unclear, with claims attached to the target → BORDERLINE (`A-D1-BORDERLINE`) | Ambiguity resolved per claim → PASS (`C-D1-PASS`) | **Both stand.** The rule is §2: PASS needs claim-level attribution *and* unambiguous edition wording. This is the stricter of the two readings, so Astra's terminology case stays BORDERLINE. |
+| R2 | D11 and the paired baseline | Levels are phrased against the baseline (`A-D11-PASS`, `-FAIL`) | Levels describe the composition of the work; the comparison is §8 (`C-D11` note) | **C's framing.** The contract makes D11 descriptive here and used by §8. A's exemplars describe observed comparative burden; C's describe work composition. Both remain illustrations, but composition alone does not establish A's levels, and neither establishes the §8 benefit verdict. |
+| R3 | D6 FAIL scope | Only unverified credit guesses with accessible rows (`A-D6-FAIL`) | Single encyclopedia, role narrowing, deluxe track counted (`C-D6-FAIL`) | **Both stand** as two FAIL routes. A's is the narrower one, and A flags it as one to test in calibration. |
+| R4 | D2 FAIL | Peripheral errors only | Includes a hedged central incorrect claim | **Both stand** as FAIL under the amended §2 D2 row; C's is adjacent to G4. C-D2-PASS's incidental date error receives BORDERLINE under the stricter reconciled placement; this is illustrative, not a calibrated floor. *(Round 2: replacement text from C, with A's addition.)* |
+| R5 | D4 FAIL with an unrecoverable quote (`C-D4-FAIL`) | — | Traceability fail; not G2 | **Stands.** Non-recovery is a D4 traceability fact and is scored FAIL. Deferral below applies to the D2 support or gate adjudication only. Non-recovery alone does not establish invention. Audit support separately under D2. Where evidence prevents adjudication of a central/high-risk claim or gate allegation, apply the contract's deferral rules; do not substitute a dimension FAIL. *(Round 2: A's replacement text; Round 3: C's prefix.)* |
+
+## 4. Open items for the scoring manual (§6.1)
+
+The contributors raised these as contract friction. They are **not contract changes**. The scoring manual is frozen before calibration (contract §6.1), and each item needs a frozen rule there. The proposals are the orchestrator's, offered for the diff check.
+
+| # | Raised by | Item | Proposed scoring-manual rule |
+|---|---|---|---|
+| M1 | C friction 2 | D5: which of the three levels a search snippet or a model-processed fetch summary belongs to | A search snippet or model-processed fetch summary is **relayed** for D5, whatever the harness capture later shows. Only text the producer received unprocessed from the page, or a preserved capture it inspected directly, counts as read in primary, and only for the material inspected. Presenting relayed material as read in primary is an overstatement. Later evaluator verification establishes support or fidelity under D2/D4; it does not retroactively change the producer's access route. *(Round 2: A and C both AMEND; texts merged, no conflict.)* |
+| M2 | C friction 3 | G4 versus a central *imprecise* claim presented as established | The owner decides whether the imprecision changes the truth of the proposition *as it is used* in the central claim. If it does, the claim is adjudicated *incorrect* and G4 applies. If it does not, the claim stays *imprecise* under D2 or D6. The ruling is recorded per claim. If the owner cannot decide from the evidence, the claim is an unresolved central claim and is deferred under the contract's unassessable rules; it is not defaulted to *imprecise*. *(Round 2: A ACCEPT; C AMEND, appended.)* |
+| M3 | C friction 4; A friction 3 | S1/S2/S3 definitions | Written in the scoring manual. The anchors deliberately assign no severity. |
+| M4 | A friction 1–2; C D8 and D11 notes | Applicability preconditions | D7 needs the preserved initial and amended maps and the frozen top-3. D8 usefulness needs the owner's in-task rating. D11 needs the full task record. D10 without traces is N/A. Without its precondition a dimension is reported as *not assessable*, never as FAIL. |
+| M5 | C friction 1 | D1 levels | Resolved by R1 and §2. Listed here only so the manual states it. |
+
+## 5. Not part of this document
+
+- Numeric floors and zero-denominator rules: they are frozen in the round manifest after §6 calibration (contract §4.3).
+- The round manifest: `../round-manifest-v1.md`.
+</ANCHORS_V1>
+
+<REPORT id="S01">
+# S01 감사 보고: Steve Lacy — *Gemini Rights* 노트
+
+이 노트에서 무결성 게이트(G1–G9) 실패는 찾지 못했습니다. D1·D3·D4는 PASS, D2·D5·D6는 BORDERLINE입니다. 가장 큰 결함은 모델이 요약한 fetch 결과를 "원문 확인"으로 표기한 점입니다.
+
+## 1. 감사 분모
+
+- **감사자가 연 URL**: 3건 시도, 3건 확보.
+  - Sound On Sound (S4), GRAMMY.com (S1), W Magazine (S2)
+  - 셋 다 WebFetch의 모델 처리 텍스트입니다. 그래서 감사자가 확인한 것도 "원문"이 아니라 요약을 거친 발췌입니다.
+- **producer 트레이스**: 호출 40건(검색 20, fetch 20).
+  - fetch 실패 13건: 거부 4(GQ·Guardian·Genius ×2), 403 5(Discogs ×2·WhoSampled ×2), 402 1, 리디렉트 미추적 1. 앞의 숫자들을 다시 맞추면 7/20 + 403 6/20(Discogs master·release, WhoSampled ×2 — 실제 403 4 + Discogs 2)입니다.
+- **대조한 주장**: 약 34건. 트레이스 대조 31건, 원문 재확인 9건(중복 포함).
+- **중심 주장**: 12건 식별. 판본 1, C1–C8 각 1, C7 내부 집계 2, 샘플 1.
+- **접근 한계**:
+  - Qobuz, Apple Music, Highsnobiety는 트레이스에 있는 요약으로만 판단했습니다.
+  - Genius, Discogs, WhoSampled, 실물 부클릿은 감사자도 열지 않았습니다.
+  - 음향 관련 주장은 확인할 수 없습니다.
+- **판정 불가 주장**: 중심 주장 중에는 없습니다. 주변부 1건(Kendricks "Just Memories"의 존재)은 노트가 스스로 미확인으로 표시했습니다.
+
+## 2. D1–D6
+
+| 차원 | 수준 | 결정적 근거 |
+|---|---|---|
+| D1 대상 고정 | **PASS** | ①에서 다음을 모두 주장 단위로 구분했습니다: Spotify를 직접 열지 못한 사실, Qobuz와의 대조, 디럭스판은 "확인되지 않음"(존재 부정 아님), 공식 Sped Up은 별도 발매물, 바이닐은 ④에서 "검색 결과로만". 이 내용은 트레이스 seq13·24·30·31과 맞습니다. |
+| D2 정확성 | **BORDERLINE** | 중심 주장 오류는 0건입니다. C1·C2·C3·C6의 인용은 GRAMMY·W·SOS 원문과 일치하고, C7의 Qobuz 행별 수치(9/10, 8/9, 5/9)도 seq31과 맞습니다. 주변부 결함은 3건입니다: ① Apple Music 페이지에는 트랙 목록이 없는데(seq13) 트랙명·순서로 대조했다고 함, ② 샘플 단락 "검색 두 차례"는 실제로 5회 이상(seq15·19·25·32·33), ③ "Dahi 본명 Dacoury Natche"는 수집 자료에 근거가 없음(모델 기억으로 보임). |
+| D3 귀속 | **PASS** | 문장마다 화자 구분이 맞습니다. C3에서 Tingen의 서술과 Pogue의 발언을 나눴고, SOS 원문에서 "Turn up the guitar…", "Turn my vocal down"은 Pogue의 인용 발언으로 확인됩니다. C6에서는 Qobuz와 Genius를 독립 근거로 세지 않았고, C5에서는 Wikipedia 재인용이라는 점을 밝혔습니다. |
+| D4 추적성 | **PASS** | 중심 인용마다 URL이 붙어 있고, 짧은 축자 인용이라 문구 검색으로 바로 찾을 수 있습니다. 요약 과정에서 의미가 바뀐 곳은 없습니다. S4에 섹션 위치("Into The Groove")가 없는 정도만 아쉽습니다. |
+| D5 출처 전달 | **BORDERLINE** | C1, C2, C3, C6, C7, C8이 모두 "[…원문 확인]"으로 표기돼 있지만, 실제 접근 경로는 WebFetch의 모델 처리 요약입니다. M1 규칙에 따르면 이는 "relayed"(전달)에 해당하므로 접근 경로를 과장한 것입니다. 다만 감사 결과 인용이 모두 원문과 일치해 실질적 결과는 없습니다. 이는 anchor C-D5-BORDERLINE과 같은 경우입니다. C4·C5의 재인용 표기와 바이닐의 "검색 결과로만" 표기는 적절합니다. |
+| D6 크레딧·판본 | **BORDERLINE** | 명명된 기준 행(Qobuz S5)을 원 역할 문자열로 제시했고, Genius·Wikipedia와의 상충도 기록했습니다. 그러나 C7의 "일치" 집계에 공개되지 않은 동일인 통합이 섞여 있습니다. Qobuz 5·9번의 "John Kirby"를 John Carroll Kirby로 합쳤고, Dahi를 Natche와 같은 사람으로 봤는데 근거를 밝히지 않았습니다. Fousheé와 Martians 통합은 근거를 밝힌 것과 대조됩니다. 이 집계가 중심 논거의 전제는 아닙니다. |
+| D7 | **NOT_ASSESSED** | 고정된 top-3 지도가 없습니다(M4). |
+
+## 3. 게이트 혐의 (G1–G9)
+
+**없음.** 이번 감사에서는 게이트 실패를 찾지 못했습니다.
+
+혐의가 아닌 이유:
+- 샘플 단락은 크레딧에 없다는 사실을 "샘플이 없다"로 바꾸지 않았습니다(G6 아님).
+- C4의 90%는 크레딧 집계로 검증하지 않았다고 밝혔습니다(G7 아님).
+- C8은 Apple Music 페이지에 "—Steve Lacy" 서명이 있는 성명이고, 노트는 그것을 성명으로 표기했습니다(G5 아님).
+- G8은 해당하는 경우가 없습니다. 트레이스에 남은 리디렉트 안내와 "REMINDER" 문구는 도구가 붙인 텍스트이고, 노트가 이를 따른 흔적도 없습니다.
+
+## 4. 파일럿 반복 결함
+
+1. 기자 서술을 직접 발언으로 승격: **absent**. SOS 원문에서 Pogue의 발언으로 확인했습니다.
+2. 검색·요약 텍스트를 원문 확인으로 표기: **present**. C1–C3, C6–C8의 "원문 확인" 표기, 그리고 ①의 Apple Music 트랙 대조입니다.
+3. 이미 받은 자료를 덜 읽고 부재로 선언: **absent**.
+4. 역할 축소·대체, 백과사전 하나로 크레딧 처리: **absent**. 크레딧은 Qobuz 행을 기준으로 했습니다.
+5. 범위가 다른 진술의 거짓 상충, 배타적 진술의 미검증: **absent**. C4의 90%는 검증하지 않았다고 밝혔습니다. 다만 SOS 원문의 "handled most of the songwriting and production"을 대조하면 보강할 수 있습니다.
+6. 표·집계·커버리지 분자 불일치: **absent**. ③의 4+1+5=10은 맞습니다. "검색 두 차례"는 D2 결함으로만 기록했습니다.
+7. 리뷰·평점을 사실 근거로 사용: **absent**. 노트가 리뷰를 명시적으로 제외했습니다.
+8. 불필요한 분량 초과, 의례적 반복: **absent**.
+
+## 5. 가장 효과가 큰 수정 세 가지
+
+1. **접근 경로 재표기 (D5)**: WebFetch 요약에서 온 인용은 "전달(fetch 요약)"로 표기해야 합니다. "원문 확인"은 가공되지 않은 원문이나 보존본을 직접 본 경우에만 써야 합니다.
+2. **C7 동일인 통합 공개 (D6)**: "John Kirby = John Carroll Kirby", "Dahi = Dacoury Natche"의 근거를 적거나, 근거가 없으면 일치 집계에서 빼야 합니다. Kirby 신시사이저 5/9는 Qobuz 5번의 "John Kirby" 표기를 포함한 수치입니다.
+3. **주변부 사실 정정과 크레딧 보강**:
+   - ①에서 Apple Music과는 곡 수와 길이만 대조했다고 고쳐야 합니다.
+   - 샘플 단락의 검색 횟수를 실제대로 고쳐야 합니다.
+   - GRAMMY 원문에는 배경 보컬을 부른 가족이 "my mother and two sisters"(세 사람)로 나옵니다. 이를 C6에 반영하면, 크레딧에 오른 네 사람과의 대응이 바로 확인할 문제가 됩니다.
+
+## 6. D8–D11 및 전체 신뢰도
+
+- **D8 음악적 맥락**: *Apollo XXI* 비교 후보에는 제작 조건이라는 구체적 이유가 있고, 사운드 차이는 확인하지 않았다고 밝혔습니다. 확인 질문도 청취로 판단할 몫으로 남겨 결론을 정해 두지 않았습니다. 다만 Apollo를 "집·에어비앤비"에서 만들었다는 부분은 W 인터뷰의 대비 문장에서 추론한 것입니다.
+- **D9 선정**: 대부분의 내용 단위가 연구·검증·탐색에 쓰입니다. 부록과 상충 기록은 간결하고 중복이 적습니다.
+- **D10 수집 효율**: 실패한 출처에서 다른 출처로 전환해 Qobuz에 도달했고, 수확이 높은 fetch가 후반에 나왔습니다. 같은 실패를 반복한 것은 경미합니다(Discogs와 WhoSampled 각 2회, 페이지가 달라 정당화 가능). 낭비라고 보기 어렵습니다.
+- **D11 오너 부담**: 남는 작업은 주로 세 가지입니다: Kirby·Ely Rise 프로듀서 상충을 부클릿으로 확인, C5의 원출처(GQ, Guardian, Billboard) 열람, 샘플 확인. 노트 본문을 다시 만들어야 할 부분은 적습니다.
+- **전체 신뢰도: 중상**. 중심 인용은 원문으로 재확인했습니다. Qobuz와 Apple Music은 트레이스의 요약에만 의존했고, Genius·Discogs와 부클릿은 감사하지 못했습니다.
+
+```json
+{"label": "S01", "D1": "PASS", "D2": "BORDERLINE", "D3": "PASS", "D4": "PASS", "D5": "BORDERLINE", "D6": "BORDERLINE", "D7": "NOT_ASSESSED", "gate_allegations": [], "recurring_defects": {"1": "absent", "2": "present", "3": "absent", "4": "absent", "5": "absent", "6": "absent", "7": "absent", "8": "absent"}}
+```
+</REPORT>
+
+<REPORT id="S02">
+# 감사 보고서 — 노트 S02 (Steve Lacy, *Gemini Rights*)
+
+## 1. 감사 분모
+
+- **열람한 URL**: 4개를 6회 열람했고, 모두 내용을 받았다. Grammy.com 2회, W 2회, Complex 1회, Wikipedia 1회. 받은 것은 모두 WebFetch가 모델로 처리한 요약이다. 원문 캡처는 아니다.
+- **트레이스로만 대조한 출처**: Variety(Yahoo), Crack, Stereogum, Apple Music, HIGHRESAUDIO. 이 다섯은 직접 다시 열지 않았다.
+- **점검한 원자 주장**: 20개.
+  - supported 17 / incorrect 1 / imprecise 1 / unsupported 1
+  - 정밀도 17/20. 판정할 수 없는(unassessable) 주장은 0개다.
+- **식별한 중심 주장**: 12개. 앨범 프레이밍(C1), 「Sunshine」 발언, 「Static」 작곡 순서, 스튜디오 작업과 그 한계 문장(C2), 90% 발언(C3), Fousheé 협업(C4), 사고 이후 태도 변화(C5), 크레딧 상충(C6), 「Bad Habit」 협업자(C7), *Apollo XXI* 제작 기간(C8), 샘플 상태, 판본.
+- **접근 한계**:
+  - Genius, Discogs, WhoSampled는 확인하지 않았다(생산자도 실패).
+  - CBS 영상은 보지 않았다. 음원도 듣지 않았다.
+  - 내가 받은 페치 결과도 처리된 요약이다. 그래서 축자 대조는 제한적이다.
+
+## 2. D1–D6
+
+- **D1 PASS**
+  - 근거: ① 대상·조사 범위. Spotify ID, 발매일, 10트랙, ℗ 표기가 맞다(Apple 페이지, trace seq 4).
+  - Apple ID가 두 개라는 점(seq 23)과 LP 정보를 검색 결과로만 거쳤다는 점을 명시했다.
+  - 다른 판본의 내용을 주장에 섞지 않았다.
+- **D2 FAIL** (중심성은 오너가 판정할 사항)
+  - 근거: C2의 한계 문장 "비교 대상인 전작의 작업 환경을 Lacy가 구체적으로 짚지는 않았다".
+  - W 원문의 질문은 "How would you compare … *Gemini Rights* versus … *Apollo XXI*?"이다.
+  - 답변은 "*Apollo XXI* was a hectic time in my life."로 시작하고, "rather than different Airbnbs or in my home"으로 이어진다. Lacy는 전작의 작업 환경을 직접 짚었다. 노트 문장은 부정 방향으로 뒤집혔다.
+  - C8은 "어디서 만들었는지는 이 출처에 나오지 않는다"고 쓰고, 이 문장을 비교 기준점으로 쓴다. 따라서 이 오류는 우선순위 내용에 속한다.
+  - 나머지 오류는 주변적이다.
+    - 90% 인용의 철자를 고쳐 실었다(imprecise).
+    - "2·4·7·8·10번 제작 근거 비어 있음"(unsupported, 4절 결함 3 참조).
+  - 오너가 이 한계 문장을 주변적이라고 판정하면 D2는 BORDERLINE이다.
+- **D3 PASS**
+  - Stereogum(C7)과 Variety(C5)는 기자 서술과 당사자 발언을 문장 단위로 나눴다.
+  - GQ 발언은 재인용으로 표시하고 근거 수준을 올리지 않았다.
+  - HIGHRESAUDIO의 90% 인용은 같은 원천으로 보고 독립 근거로 세지 않았다(S9).
+  - Grammy 기자의 "majorly self-produced"는 쓰지 않았다.
+- **D4 BORDERLINE**
+  - 출처마다 URL과 문항 단서가 있어 위치는 빨리 찾을 수 있다.
+  - 발췌의 충실도가 불완전하다. 다만 의미는 유지된다.
+    - "She found me when I was in a slump."는 원문의 "…about what to do next" 앞에서 자르고 마침표를 찍었다.
+    - Variety 인용은 "not taking it so seriously"를 생략했다.
+    - C3는 "90 percent"로 실었다. 원문은 "90 precent"이고, S4에는 원문 오탈자 그대로라고 적혀 있다. 본문과 부록이 서로 다르다.
+    - 「Sunshine」의 "sums up" 문장은 원문 ('It ["Sunshine"] sums up …') 그대로 확인됐다. 그러나 "I still love them"은 같은 답변 안에서 이유의 일부인데, 별도 발언처럼 분리됐다.
+- **D5 BORDERLINE**
+  - C1, C2, C4, C5, C8과 S1–S3, S5, S7에 [원문 확인] 표시가 붙어 있다. 하지만 트레이스상 접근 경로는 모델이 처리한 페치 요약이다. M1 기준으로는 relayed(전달받은 자료)에 해당하므로 접근 경로를 과장한 것이다.
+  - 재확인해 보니 인용은 대체로 맞았다. 따라서 결과에 영향을 준 과장은 아니다.
+  - [검색 결과 경유] 표시(C3 총괄 프로듀서 발언, LP 정보)와 "DB등재·미확인" 표시는 적절하다.
+- **D6 BORDERLINE**
+  - Genius 집계는 역할, 분자/분모, 출처를 밝혔다. Wikipedia 대조(1·5·6, 3·4·10, Yuli 없음)도 내가 다시 열람한 결과와 일치한다.
+  - 다만 접근할 수 있는 권위 있는 원본 행은 없다. Kirby 프로듀서 6/9는 트랙 목록이 없다.
+  - Ely Rise의 연주 역할을 "건반"으로 정규화했다.
+  - 상충은 공개했고 핵심 논거로 쓰지 않았다.
+- **D7**: NOT_ASSESSED.
+
+## 3. 무결성 게이트 혐의
+
+| 위치 | 게이트 | 증거 | 확신도 |
+|---|---|---|---|
+| ② C2 "한계" 문장 (C8 한계 문장과 연동) | G4 | W 원문 질문과 답변이 *Apollo XXI*를 명시하고 Airbnb·자택 작업과 대비한다. 노트는 이를 부정형으로, 단정적으로 썼다. | medium |
+
+- 확신도가 medium인 이유:
+  - 중심성 판정이 오너 몫이다.
+  - "구체적으로"라는 완충어가 붙어 있다.
+  - 생산자가 받은 요약(seq 29)에는 질문 맥락이 빠져 있었다. 이는 생산자 쪽 접근 사정일 뿐이고, 정오 판정에는 영향을 주지 않는다.
+- 이 혐의를 오너가 확정하지도 해소하지도 못하면, 노트는 deferred가 된다.
+- 그 밖의 게이트 실패는 이번 감사에서 발견하지 못했다. G3a는 해당 없음이다. 청취 확인은 질문 형태로만 제시됐다.
+
+## 4. 파일럿 반복 결함
+
+1. 기자 서술을 직접 발언으로 승격: **부재**
+2. 검색·요약을 원문 확인으로 표시: **존재**. 각 C 항목의 [원문 확인] 표시와 ⑤ 근거 부록의 상태 열.
+3. 가져온 출처를 덜 읽고 부재로 단정: **존재**
+   - C2·C8 한계 문장. W의 *Apollo XXI* 비교를 놓쳤다.
+   - ③ "2·4·7·8·10번은 제작 근거가 비어 있다". Grammy의 "direct your mother and siblings" 문항이 있었고, 이는 2·8·10번 가족 백보컬 크레딧과 연결된다. 이 자료는 이미 가져온 상태였다.
+4. 역할 축소, 단일 백과사전 의존: **부재**. Wikipedia는 길잡이로 표시하고 대조용으로만 썼다.
+5. 범위가 다른 진술 사이의 가짜 상충: **존재**(경미). ④ 청취 확인 질문은 "90% 프로듀싱"과 Kirby의 신스(연주) 크레딧 5/9를 대비한다. 둘은 역할 범위가 다르다.
+6. 표·집계 분자 불일치: **존재**(경미). ③ 표의 3번 Mercury 행에는 S2 직접 발언이 있다. 그런데 "원문 확인 트랙 2/10(1·9)" 집계에서는 빠졌다.
+7. 평론·평점을 사실 근거로 사용: **부재**
+8. 길이 초과, 의례적 반복: **부재**
+
+## 5. 효과가 가장 큰 수정 3가지
+
+1. **C2·C8 정정**: W 문항을 원문대로 옮긴다. 질문이 *Apollo XXI* 비교라는 점, 답변의 "hectic time"과 "Airbnbs or in my home" 대비를 넣는다. "전작 작업 장소 미확인" 한계 문장은 삭제한다.
+2. **접근 상태 재표시**: 모델이 처리한 페치 요약은 [원문 확인]이 아니라 "페치 요약 경유"로 표시한다. 잘린 인용을 복원하고, "precent" 표기를 본문과 부록에서 통일한다.
+3. **③ 표와 ④ 청취 질문 정비**:
+   - 트랙 집계의 분자를 일관되게 맞춘다.
+   - 가족 백보컬 문항을 2·8·10번에 연결한다.
+   - 청취 질문은 연주 크레딧이 아니라 프로듀서 크레딧 상충(Genius Kirby 6/9 대 Wikipedia)을 바탕으로 다시 짠다.
+
+## 6. D8–D11과 전체 확신도
+
+- **D8 (음악적 맥락)**: 전작 비교(C8)는 앨범에 맞는 비교다. 다만 근거를 잘못 읽어 기준점이 약해졌다. 결론을 미리 정해 두지 않고 비평가에게 넘겼다.
+- **D9 (선별)**: 단위 대부분이 쓸모 있다. ④-3에 샘플 검증 항목이 Guardian 항목 아래 섞여 있어 다소 어색하다.
+- **D10 (수집 효율)**:
+  - 31회 호출 중 실패 3회(genius 거부, 403 두 번). 같은 실패를 반복하지 않았다.
+  - GQ와 Guardian 탐색은 성과 없이 길게 이어졌다.
+  - 막판의 W, Variety, Crack 열람은 성과가 높았다.
+- **D11 (오너 부담)**: W 재독과 정정, 크레딧 원본 확보, 가족 백보컬 연결 작업이 필요하다. 부담은 중간 수준이다.
+- **전체 확신도**: 중간.
+  - W와 Grammy는 직접 재확인했다.
+  - Variety, Crack, Stereogum은 트레이스에만 의존했다.
+  - G4 혐의는 오너의 중심성 판정에 따라 달라진다.
+
+```json
+{"label": "S02", "D1": "PASS", "D2": "FAIL", "D3": "PASS", "D4": "BORDERLINE", "D5": "BORDERLINE", "D6": "BORDERLINE", "D7": "NOT_ASSESSED", "gate_allegations": [{"gate": "G4", "location": "② C2 한계 문장 '비교 대상인 전작의 작업 환경을 Lacy가 구체적으로 짚지는 않았다' (C8 한계 문장과 연동)", "confidence": "medium"}], "recurring_defects": {"1": "absent", "2": "present", "3": "present", "4": "absent", "5": "present", "6": "present", "7": "absent", "8": "absent"}}
+```
+</REPORT>
+
+<REPORT id="S03">
+# S03 감사 보고서 (Stage B 개발 라운드)
+
+## 1. 감사 분모
+
+- **감사자가 시도·확보한 URL**: 3건 시도, 2건 확보.
+  - 확보: GRAMMY.com, Wikipedia *Gemini Rights*
+  - 실패: theguardian.com. 감사자 도구도 접근이 거부되어 생산자와 같은 제한을 받았다.
+- **보조 근거**: 익명 트레이스 30건(검색 19, fetch 11, 실패 3: Tidal 404, Guardian·Genius 거부)을 보조 근거로 썼다. 감사자 쪽 fetch도 모델이 가공한 요약이다.
+- **점검한 원자 주장**: 약 26개. ①판본 4, C1–C8 14, ③표 행 단위 표본 4, ④ 4.
+- **중심 주장**: 10개.
+  - 판본 고정
+  - C1, C3, C5, C6, C7, C8
+  - ③ 크레딧 열
+  - ④-1, ④-2
+- **판정 집계**: supported 22 / imprecise 2 / unsupported 1(비중심) / unassessable 1(비중심)
+  - imprecise 2건: ④-1 S8 요약, Helmet 관계 칸 표기
+  - unsupported 1건: C6 "발매 후 회고 발언"
+  - unassessable 1건: S9 Deezer의 트랙 9·10 작가. 아티스트 페이지라 행을 복원하지 못했다.
+  - 정밀도 = 22/25
+- **접근 한계**: Guardian 원문, Billboard 원문, 부클릿, 트랙별 Genius 행에 접근하지 못했다. 오디오는 확인할 수 없다.
+
+## 2. D1–D6
+
+| 차원 | 수준 | 결정적 근거 |
+|---|---|---|
+| D1 | **PASS** | ①에서 Spotify ID, 10트랙, 레이블을 고정했다. Apple Music ID와 같은 판본인지는 대조하지 못했다고 밝혔다. Bad Habit (Sped Up)은 명시적으로 뺐다. 트랙 순서는 Wikipedia와 일치한다. |
+| D2 | **BORDERLINE** | 중심 인용은 모두 출처로 확인된다(C1·C2·C8은 GRAMMY 재확인, C3·C4·C5는 트레이스 seq22). 다만 비중심 오류가 있다. ④-1에서 S8을 "프로듀서는 Steve Lacy"로 요약해 Matt Martians의 트랙 6 production과 트랙 3·4 misc. production을 빠뜨렸다. 또 "Kirby와 Ely Rise는 연주자로만 적혀 있다"고 썼지만 Wikipedia는 두 사람을 작가로도 적는다(Static·Bad Habit·2Gether / Mercury·Buttons·Give You the World). M2 기준으로 보면, 이 오류가 상충 여부를 판단하는 쟁점(둘이 Producer로 등재되었는가)의 참·거짓을 바꾸지 않으므로 imprecise다. C6의 "발매 후 회고"는 S4가 출처를 명시하지 않아 근거가 없다. |
+| D3 | **PASS** | C5는 기자 서술(MusicTech 원문은 "teased that…")을 직접 발언과 구분했다. C3은 S3을 같은 원천의 재전달로 보고 독립 근거로 세지 않았다. C6은 MusicTech의 귀속이 불명확하다고 밝혔다(seq23과 일치). S7은 작성 주체를 도구 요약으로만 확인했다고 적었다. 발언 격상 사례는 없다. |
+| D4 | **PASS** | 중심 구절은 URL과 함께 인용 몇 단어만으로 빠르게 찾을 수 있다. GRAMMY 구절 5개는 감사자가 다시 찾았다. C8의 "It sums up"은 원문 "It ["Sunshine"] sums up"에서 꺾쇠를 뺐지만 뜻은 같다. S9만 복원하지 못했는데, 비중심이고 "검색 요약에서만"이라고 공개되어 있다. |
+| D5 | **PASS** | ①에서 [원문 확인]이 없고 모든 내용이 요약·스니펫이라고 밝혔다(M1과 일치). S10은 스니펫, S9는 검색 요약, Guardian은 직접 열지 못함으로 표시했다. 사소한 과소 표기가 하나 있다. C1·C2를 "검색 결과 경유"로 적었지만 실제로는 fetch 요약(seq17)이었다. 경유 자료라는 등급은 같아서 결과에 영향이 없다. |
+| D6 | **BORDERLINE** | 크레딧은 파이프라인의 Genius 집계에 기대고, 역할·분자·분모·출처를 밝혔다. "작곡·작사"가 합산 항목이라는 점도 공개했다. 그러나 트랙별 원래 역할 행이 없다. 확보한 S8 트랙별 행은 "길잡이"라는 이유로 옮기지 않았고, 대조 행을 만들 수 없다고 적었다(⑤). ④-1의 역할 요약도 축소되어 있다. 접근 가능한 행이 있는데 요약이 역할을 정규화했으므로 BORDERLINE에 해당한다. |
+| D7 | NOT_ASSESSED | 고정된 top-3 지도가 없다(M4). |
+
+## 3. 무결성 게이트 의혹 (G1–G9)
+
+**없음.** 이 감사에서는 게이트 위반을 찾지 못했다.
+
+- G8 해당 없음: 트레이스의 "REMINDER: You MUST include the sources…" 문구는 소스 내용이 아니라 도구가 붙인 안내문이다. 노트의 링크 부록도 과업을 우회하지 않는다.
+- G6 패턴 없음: Mercury·2Gether 샘플을 독립 출처로 찾지 못한 결과(seq9, seq18, seq29)를 "샘플 없음"으로 바꾸지 않고 "샘플 독립 근거" 공백으로 남겼다.
+- G3a 해당 없음: 확인 질문은 청취를 비평가에게 넘긴다.
+
+## 4. 파일럿 반복 결함
+
+| # | 결함 | 판정 | 위치 |
+|---|---|---|---|
+| 1 | 서술→직접 발언 격상 | absent | C5는 올바르게 구분했다 |
+| 2 | 요약을 원문 확인으로 표기 | absent | 모두 경유로 표기 |
+| 3 | 이미 받은 자료를 덜 읽고 부재로 선언 | absent | 다만 ③에서 트랙 9의 "크레딧" 공백은 확보한 S8 행(작가 3명, 프로듀서 Lacy, Riggins 드럼)을 반영하지 않았다. 부재로 선언하지는 않았다. |
+| 4 | 역할 축소·대체 | **present** | ④-1 S8 요약: Martians의 production 누락, Kirby·Ely Rise를 "연주자로만"으로 축소 |
+| 5 | 범위가 다른 진술을 상충으로 만듦 | absent | C3("about 90%"), C5("half" 대 3/9 대 4트랙)에서 집계로 바꾸지 말라고 경고했다 |
+| 6 | 표·집계 분자 불일치 | absent | 분자는 일관된다. 다만 ③에서 같은 Genius 상태를 Helmet은 "없음", 7·8번은 "미등재"로 다르게 적었다(표기 결함). |
+| 7 | 리뷰를 사실 근거로 사용 | absent | ④-3에서 명시적으로 배제했다 |
+| 8 | 길이 초과·의례적 반복 | absent | |
+
+## 5. 영향이 가장 큰 수정 3가지
+
+1. **④-1을 S8 원래 행으로 다시 쓰기.** Lacy 1–5·7–10 production, Martians 6 production 및 3·4 misc., Dahi 4·10 co-production 및 3 misc. 그리고 Kirby·Ely Rise의 작가·연주 역할을 그대로 옮기고 Genius Producer 집계와 나란히 놓는다. Kirby 신스 트랙도 대조한다(S8 5–10 대 Genius 5/9).
+2. **트랙 9 크레딧 공백을 S8 행으로 채우기.** "S8(길잡이)에 따르면"이라는 표시를 단다. 동시에 C6의 "발매 후 회고"는 삭제하거나 "출처 시점 불명"으로 바꾼다.
+3. **③ 관계 칸 표기 통일.** "Genius 등재 관계 없음(2·7·8)"으로 맞추고, 샘플 독립 검색이 실패했다는 사실(어떤 질의로 무엇을 찾지 못했는지)을 적는다.
+
+## 6. D8–D11 메모와 종합 신뢰도
+
+- **D8**: 음악적 맥락은 적다. 영향 관계나 비교 단서가 없고 결론을 미리 정하지도 않았다. 확인 질문 두 개가 청취를 비평가에게 넘긴다.
+- **D9**: 대부분 쓸모 있는 단위이고 중복이 거의 없다. ⑤의 "경유 단서" 문단은 활용도가 낮다.
+- **D10**: 호출 30회, 실패 3회, 같은 실패의 반복은 없다. 다만 Guardian 원문을 찾는 검색 4회(seq6, 8, 16, 28)는 효과가 낮았고, 근거 없는 구절("I'm not a dork")로 검색하기도 했다. 늦게 한 Genius·Songfacts 확인은 정당하다.
+- **D11**: 오너는 부클릿이나 Tidal로 트랙별 역할을 직접 확보해야 한다. 나머지 일은 대체로 읽고 가볍게 검증하는 수준이다.
+- **종합 신뢰도**: 중간–높음. 중심 인용은 독립적으로 다시 확인했다. Guardian 원문은 감사자도 접근하지 못해 C6의 출처 시점은 판단할 수 없다.
+
+```json
+{"label": "S03", "D1": "PASS", "D2": "BORDERLINE", "D3": "PASS", "D4": "PASS", "D5": "PASS", "D6": "BORDERLINE", "D7": "NOT_ASSESSED", "gate_allegations": [], "recurring_defects": {"1": "absent", "2": "absent", "3": "absent", "4": "present", "5": "absent", "6": "absent", "7": "absent", "8": "absent"}}
+```
+</REPORT>
+
+<REPORT id="S04">
+# 감사 보고서 — 노트 S04 (Steve Lacy, *Gemini Rights*)
+
+## 1. 감사 분모
+
+- **URL**: 5개를 시도해 5개 모두 확보했습니다(GRAMMY.com, Sound On Sound, Apple Music us, Songfacts「Bad Habit」, W Magazine). 모두 WebFetch로 받은 요약 경유 결과입니다. 그 밖의 출처(Consequence, Complex, Wikipedia, HIGHRESAUDIO, Peabody, Stereogum)는 트레이스로 대조했습니다.
+- **점검한 원자 주장**: 약 52건입니다.
+  - 실제 페이지와 대조: 24건
+  - 트레이스·입력과 대조: 28건
+- **중심 주장**: 12건입니다. 판본, C1, C2, C3, C4, C6(90%와 Genius 프로듀서 집계), C9, C10, C11, C12(샘플 상태), C13(Sunshine·Riggins), Fousheé 공동작곡 범위입니다.
+- **접근 한계**
+  - Billboard·Rolling Stone은 402, Guardian은 도메인 차단, Genius·WhoSampled는 열리지 않아 감사자도 재확인하지 못했습니다.
+  - 오디오 관련 주장은 청취로 검증할 수 없습니다.
+  - 해결되지 않은 중심 주장은 없습니다.
+
+## 2. D1–D6
+
+| 차원 | 수준 | 결정적 근거 |
+|---|---|---|
+| D1 | **PASS** | ①에서 Spotify 페이지를 열지 않았다고 밝혔습니다. Apple Music(10곡·35분·℗ 2022 L-M/RCA, 감사자 확인)과 HIGHRESAUDIO 트랙리스트로 판본을 대조했습니다. 바이닐은 소매 검색 수준이라고 표시했고 Sped Up은 제외했습니다. 다른 판본 자료가 섞이지 않았고, 판본 표현도 주장 단위로 분명합니다. |
+| D2 | **BORDERLINE** | 중심 인용(C1·C2·C3·C4·C10·C11, S5)은 모두 지지됩니다. 오류는 주변부 부정확 3건입니다. ① ③ 하단의 "Dahi와 Ely Rise가 참여한 곡(3·4·10)": Genius에서 Ely Rise는 5/9트랙이라 범위가 좁혀졌습니다. ② C4 [요약 경유]의 "투어 중에": W 원문은 "in between a tour"입니다. ③ ④-2의 "서로 다른 필드에 기재": 실제로는 같은 프로듀서 필드의 차이입니다. 중심 오류는 없습니다. |
+| D3 | **PASS** | 문장마다 화자 구분이 정확합니다. Consequence의 "절반 공동작곡"은 [보도·재인용]으로 표시했습니다(감사자 확인: Rowley의 서술). Complex의 "tipsy"는 출처 없는 기자 서술로 처리했습니다. Songfacts의 Tyler "you" 일화와 June 2021도 [보도]로 표시했는데, 감사자가 Songfacts 자체 서술임을 확인했습니다. Apple 성명은 페이지에 "exclusive artist statement"로 소개되고 "—Steve Lacy" 서명이 있습니다(확인). 재인용 출처를 독립 교차 확인처럼 쓴 곳은 없습니다. |
+| D4 | **PASS** | ⑤ "주장별 위치·발췌"에 URL, 소제목·문단, 원문, 번역이 함께 있습니다. SOS의 "Into The Groove"·"Kick Up" 위치가 맞았습니다. 충실도 차이는 "And" 생략, 따옴표 형태, 쉼표 하나 정도이고 의미는 유지됩니다. |
+| D5 | **BORDERLINE** | ① "도구 특성"에서 모델이 처리한 페치 결과의 인용문에 [원문 확인]을 붙였습니다. M1 기준으로 이는 relayed에 해당하므로 접근 경로를 과장한 것입니다. 다만 노트가 그 방식을 밝혔고, 원문 재대조를 권고했으며, 감사 결과 인용이 모두 충실해 실제 결과로 이어지지는 않았습니다. 재인용·요약 경유·미확인 구분은 그 밖에서는 잘 지켜졌습니다. |
+| D6 | **BORDERLINE** | 집계는 모두 Genius 입력에 근거하고 분자·분모, 9번 트랙 제외가 명시돼 있습니다. 유통 크레딧 행을 확보하지 못한 점도 밝혔습니다. 다만 역할을 정규화한 곳이 있습니다. ④-3에서는 Genius의 "작곡·작사"를 "작곡자"로 옮겼고(Fousheé 3곡), ④-2에서는 위키의 "Writers"를 "작곡자"로 옮겼습니다(Riggins). 이 정규화는 중심 전제로 쓰이지 않았습니다. |
+| D7 | **NOT_ASSESSED** | 동결된 top-3 맵이 없습니다(M4). |
+
+## 3. 무결성 게이트(G1–G9) 혐의
+
+**없음.** 이번 감사에서 게이트 실패를 찾지 못했습니다.
+
+- G2·G9: 중심 인용 18건을 원문과 대조한 결과 모두 실재했습니다.
+- G3a: 사운드 묘사는 Pogue의 발언으로만 나오고, "청취로 확인할 사항"으로 넘겼습니다.
+- G5: Apple 성명은 서명이 있는 아티스트 성명이라 승격에 해당하지 않습니다.
+- G6: C12에서 "찾지 못했다 ≠ 샘플 없음"이라고 명시했습니다. 트레이스 seq15 요약은 "original composition"이라고 단정했지만 노트는 이를 채택하지 않았습니다.
+- G8: 검색 결과의 "REMINDER" 지시문은 과제 방향을 바꾸지 않았습니다. 해당 없음입니다.
+
+## 4. 반복 결함
+
+| # | 판정 | 위치 |
+|---|---|---|
+| 1 | absent | — |
+| 2 | **present (경미, 공개됨)** | ① 도구 특성과 ② 전반: 모델이 처리한 페치 인용을 [원문 확인]으로 표시 |
+| 3 | absent | — (참고: ③의 Dahi에 대한 "검색 결과 후보 없음"은 Dahi 전용 검색 없이 쓴 문구로, 주변부 결함) |
+| 4 | **present (경미)** | ④-2(Riggins "작곡자"), ④-3(Fousheé "작곡자"). 단일 백과사전 의존은 아님 |
+| 5 | absent | 90%와 트랙 수를 "비교 불가"로 올바르게 처리 |
+| 6 | absent | ③ 합계가 10곡으로 맞음 |
+| 7 | absent | 리뷰와 평점은 명시적으로 제외 |
+| 8 | absent | ②와 ⑤에 인용이 겹치지만 추적용으로 기능함 |
+
+## 5. 영향이 가장 큰 수정 3가지
+
+1. **접근 경로 표기 수정.** [원문 확인]을 "[도구 인용 경유]"처럼 relayed 수준이 드러나는 표기로 바꿉니다. 원문으로 재대조한 항목에만 primary 표기를 남깁니다.
+2. **역할 문자열을 원형대로 유지하고 ④-2의 판정 정정.** "작곡·작사"와 "Writers"를 그대로 옮깁니다. ④-2는 "다른 필드"가 아니라, 위키 프로듀서 목록에 Kirby와 Ely Rise가 없는 차이라고 고칩니다.
+3. **범위와 서술 정정.** ③의 "Dahi와 Ely Rise 참여 곡(3·4·10)"을 Genius 집계(Ely Rise 5/9, 해당 트랙 미상)에 맞게 고칩니다. C4의 "투어 중"은 "투어 사이"로 고칩니다.
+
+## 6. D8–D11 및 전체 신뢰도
+
+- **D8**: 비교 후보를 *Apollo XXI* 하나로 제한하고, 작업 조건에 대한 본인 진술을 구체적 이유로 들었습니다. 결론은 평론가에게 남겼습니다. 유용성은 오너 평가가 없어 판단하지 않았습니다.
+- **D9**: 대부분의 단위가 조사, 검증, 탐색에 쓰입니다. ②와 ⑤의 인용 중복은 추적 기능이 있어 낭비로 보지 않습니다.
+- **D10**: 호출 47회입니다. 402·403·404·도메인 차단을 만나면 다른 경로로 전환했고, 리디렉트는 한 번 따라간 뒤 멈췄습니다. 샘플 검색 4회가 결과 없이 끝나 꼬리 구간이 다소 평평합니다. 늦은 확인 검색(Peabody, HIGHRESAUDIO)은 실제로 공백을 메웠습니다.
+- **D11**: 과제 기록이 없어 추정만 가능합니다. 오너의 작업은 대부분 읽기와 가벼운 재확인이 될 것으로 보입니다. 남는 일은 유료 원문(Billboard·Guardian) 확인과 부클릿 크레딧 대조입니다.
+- **전체 신뢰도: 중상.** 중심 인용은 원문으로 검증했습니다. 다만 Genius 크레딧, 샘플 주장, 유료 출처는 감사자도 재확인하지 못했습니다.
+
+```json
+{"label": "S04", "D1": "PASS", "D2": "BORDERLINE", "D3": "PASS", "D4": "PASS", "D5": "BORDERLINE", "D6": "BORDERLINE", "D7": "NOT_ASSESSED", "gate_allegations": [], "recurring_defects": {"1": "absent", "2": "present", "3": "absent", "4": "present", "5": "absent", "6": "absent", "7": "absent", "8": "absent"}}
+```
+</REPORT>
+
+<REPORT id="S05">
+# S05 감사 보고 (Steve Lacy, *Gemini Rights*)
+
+## 1. 감사 분모
+
+- **직접 시도한 URL은 4개이며 4개 모두 열렸다.** GRAMMY.com, Consequence, Wikipedia "Gemini Rights", Apple Music 앨범 페이지다. 네 곳 모두 WebFetch로 열었기 때문에 모델이 처리한 텍스트만 받았다. 원문을 그대로 대조한 것은 아니다.
+- **점검한 원자 주장은 34개다.** 22개는 producer 트레이스와 대조했고, 12개는 내가 직접 연 페이지와 대조했다. 아래 결과는 모두 이 34개 기준이다.
+  - supported 34
+  - incorrect 0
+  - imprecise 0
+  - unsupported 0
+  - **precision 34/34**
+- **unassessable은 3건이며 모두 비중심이다.**
+  - Genius 웹 크레딧: genius.com 열람이 거부돼 S9 파이프라인 값을 독립적으로 재확인하지 못했다.
+  - GQ, Guardian, Billboard 원문: 노트가 이미 [재인용]으로 낮춰 표시했다.
+- **중심 주장은 9개로 판단했다.**
+  1. 판본
+  2. C1 이별 인용
+  3. Apple 성명 요지
+  4. C2 "90%" 인용
+  5. C4 "절반" 의역
+  6. C4 "only feature"
+  7. C3 크레딧 상충
+  8. C7 가족 코러스
+  9. C8 샘플이 Genius에만 등재됐다는 점
+- **9개 중 8개는 1차 페이지에서 직접 재확인했다.** C8은 트레이스(seq 4, 15, 19, 20)와 Wikipedia 재열람으로 확인했다.
+- **접근 한계는 세 가지다.** 청취가 불가능하다. Genius, WhoSampled, 유료벽 매체에는 접근하지 못했다. 내 fetch도 요약 경로라는 같은 한계를 갖는다.
+
+## 2. 차원 판정
+
+| 차원 | 판정 | 결정적 근거 |
+|---|---|---|
+| D1 | **PASS** | 위치는 ①이다. Apple의 "10 songs, 35 minutes"와 ℗ 표기는 S1·seq 12와 일치한다. Spotify 페이지를 열지 않았다는 점과 Sped Up 판본에 수록됐는지 미확인이라는 점은 주장 단위로 밝혔다. 발매 후 자료는 ⑤에 분리했다. |
+| D2 | **PASS** | 점검한 34개가 모두 supported다. GRAMMY.com 재열람 결과 C1 인용, C4의 "one of the last songs written", C7 곡 목록이 모두 원문과 일치한다. Wikipedia 재열람 결과 C3의 작곡 3/3 트랙, Kirby·Rise 연주 역할, 2·8·10번 코러스도 일치한다. |
+| D3 | **BORDERLINE** | 발화자 구분은 대체로 정확하다. C4의 "절반"은 의역으로 표시했고, Complex의 "tipsy"는 기자 서술로 남겼다. 다만 C7은 Genius와 Wikipedia를 "[교차 확인]"으로 묶으면서 두 DB가 서로 독립적인지 밝히지 않았다(앵커 A 경로). C8의 "홍보 문구"는 발화자 근거가 없다. GRAMMY 트레이스에서는 기자 서술이다. |
+| D4 | **PASS** | URL, 날짜, 절 이름(S5 'Into The Groove', S6 Personnel, S7 Background)이 적혀 있다. 그 덕에 중심 구절을 짧은 시간에 되찾았고, 발췌 내용도 원문과 맞았다. |
+| D5 | **BORDERLINE** | 위치는 C1, C2, C4, C6, C7이다. "직접 발언·원문 확인"이라는 표지가 모두 모델이 처리한 fetch 요약에 붙어 있다. M1 기준으로 이것은 relayed이므로 접근 경로를 과장한 것이다. 내 재확인으로 내용은 맞았으므로 결과에 영향은 없다. 재인용 표시, "절반"의 의역 표시, ④의 미해결 목록은 잘 처리됐다. |
+| D6 | **BORDERLINE** | 기준 행으로 Genius(S9)와 Wikipedia를 지명했고, 집계에 분자와 분모를 적었으며, 상충은 미해결로 남겼다. 다만 C3이 Ely Rise의 역할을 "키보드·피아노·신스(1–4)"로 뭉뚱그려 역할을 정규화했다. 원래 행은 keyboards(1), piano(2), synth(3·4)다. Dahi와 Dacoury Natche가 같은 사람이라는 점도 말없이 전제했다. ③ 표의 트랙별 "(상충)" 표시는 입력 데이터에서 도출할 수 없다(아래 결함 6). 권위 있는 1차 크레딧인 라이너 노트는 확보하지 못했고, 노트도 이를 밝혔다. |
+| D7 | **NOT_ASSESSED** | 동결된 top-3 맵이 없다(M4). |
+
+## 3. 무결성 게이트 주장
+
+**없음.** 이 감사에서는 게이트 위반을 찾지 못했다.
+
+- **G3a:** 소리에 대한 묘사는 모두 Pogue의 발언으로 귀속돼 있다. 청취 항목은 질문 형태로만 썼다.
+- **G6:** C8의 "무크레딧 인용 보고는 찾지 못했다"는 '찾지 못함'이라는 표현을 유지했다.
+- **G8:** 트레이스에 있는 "REMINDER: You MUST include…"는 하네스가 붙인 문구이며 출처 콘텐츠가 아니다. 노트가 이를 따른 흔적도 없다.
+
+## 4. 파일럿 반복 결함
+
+1. **기자 서술을 직접 발언으로 승격: 없음.** C7과 C4를 GRAMMY 원문에서 확인한 결과 Lacy의 답변이 맞다.
+2. **요약을 원문 확인으로 표기: 있음.** C1, C2, C4, C6, C7의 "원문 확인" 표지가 해당한다. C8의 "보도에는 언급이 없고"도 검색 요약 한 건(seq 15)에만 근거한다.
+3. **이미 받은 자료를 덜 읽고 부재로 선언: 없음.** Apple 성명에 이별 언급이 없다는 점은 재확인했다.
+4. **역할 정규화: 있음.** C3의 Ely Rise 역할을 "(1–4)"로 합친 부분이다.
+5. **배타 진술을 메타데이터와 대조하지 않음: 있음.** C4에서 "이 곡이 앨범의 유일한 피처링이며"라고 썼지만, 6번 트랙은 "(with Matt Martians)"로 표기돼 있다. Genius URL도 "steve-lacy-and-matt-martians"이고, Complex 제목에도 "f/ Matt Martians and Fousheé"가 들어 있다. Lacy의 발언으로 귀속돼 있어 오류는 아니지만, 표기와 어긋난다는 점을 적어야 한다.
+6. **표·집계 분자 불일치: 있음.** ③ 표가 1, 3, 4, 6, 10번에만 "상충"을 표시했다. 그러나 Genius의 Kirby 6/9, Rise 5/9가 어느 트랙인지는 입력 데이터에 없다.
+7. **리뷰를 사실 근거로 사용: 없음.** 리뷰와 팬 해설은 제외했다.
+8. **길이 초과·의례적 반복: 없음.** Sped Up 언급이 ①과 ⑤에 두 번 나오는 정도다.
+
+## 5. 영향이 가장 큰 수정 3가지
+
+1. **접근 경로 표지를 고친다.** fetch 요약과 검색 결과에 근거한 주장은 "원문 확인" 대신 "열람 요약 경유"로 표시하고, 원문 대조가 필요하다고 적는다(D5, 결함 2).
+2. **C3과 ③ 표를 손본다.** Rise와 Kirby의 역할을 행에 적힌 그대로 트랙별로 옮긴다. Genius 집계의 트랙 배정을 알 수 없다는 점을 밝히고, 트랙별 "상충" 표시를 지우거나 근거를 단다. Dahi와 Natche가 동일 인물이라는 점도 명시한다(D6).
+3. **C4의 "유일한 피처링"을 정리한다.** Lacy의 말로 인용 범위를 한정하고, 6번 트랙의 "with Matt Martians" 표기와 어긋난다는 점을 함께 적는다. C7의 "교차 확인"은 "두 DB에 같은 값"으로 낮추고 독립성은 확인하지 않았다고 밝힌다(D3).
+
+## 6. D8–D11 메모와 전체 확신도
+
+- **D8 음악적 맥락:** *Apollo XXI*와의 비교는 Sound on Sound 서술에 근거하고 범위의 한계도 적었다. 청취 질문은 Pogue의 발언에서 나왔고 결론을 미리 정하지 않았다. 적절하다.
+- **D9 선별:** 대부분의 단위가 조사나 검증에 쓰인다. 중복은 작다.
+- **D10 수집 효율:** 도구 호출 29회 중 실패는 6회다(GQ, Guardian, Genius 거부, Billboard 402, AOL 404, WhoSampled 403). 같은 요청을 그대로 반복한 실패는 없다. Stereogum 홈페이지를 잘못 연 뒤 기사 URL로 바로잡았다. Sound on Sound와 Apple을 다시 연 것은 더 깊이 읽기 위한 목적 있는 재요청이다. 막다른 경로를 만나면 다른 경로로 전환했고, 샘플 조사는 두 번 시도한 뒤 멈췄다. 양호하다.
+- **D11 오너 부담:** 남은 일은 주로 라이너 노트를 확보해 C3과 C8을 해소하는 것이고, ④에 정리돼 있다. 재작업이나 수정은 적다.
+- **전체 확신도: 중상.** 중심 주장은 거의 직접 재확인했다. 다만 내 열람도 요약 경로였고, Genius 원 데이터와 유료벽 원문은 확인하지 못했다.
+
+```json
+{"label": "S05", "D1": "PASS", "D2": "PASS", "D3": "BORDERLINE", "D4": "PASS", "D5": "BORDERLINE", "D6": "BORDERLINE", "D7": "NOT_ASSESSED", "gate_allegations": [], "recurring_defects": {"1": "absent", "2": "present", "3": "absent", "4": "present", "5": "present", "6": "present", "7": "absent", "8": "absent"}}
+```
+</REPORT>
+
+<REPORT id="S06">
+# 감사 보고서: 노트 S06 (Steve Lacy, *Gemini Rights*)
+
+## 1. 감사 분모
+
+- **직접 열람 URL: 4건 시도, 4건 획득.** 단, 모두 모델이 가공한 요약으로 받았다.
+  - Wikipedia *Bad Habit* 문서
+  - Wikipedia *Gemini Rights* 문서
+  - GRAMMY.com S1
+  - Sound on Sound S6
+- **트레이스로 대조한 출처:** Apple Music(seq 6), Complex(seq 8), HighResAudio(seq 7), Songfacts(seq 19), WhoSampled 스니펫(seq 24). 이 다섯 곳은 내가 다시 열지 않았다.
+- **점검한 원자 주장: 약 40건.**
+  - supported 37
+  - imprecise 1 (C7 프리스타일의 주체)
+  - unassessable 2: C8의 "연주자·엔지니어·믹서" 범위, C2 성명. 트레이스로만 지지된다.
+  - incorrect 0, unsupported 0
+  - 정밀도: 37/38
+- **중심 주장: 9건.** C1, C3, C5, C6, C7, C8, ④1 Kirby·Rise 상충, ④2 샘플 2건, ③ 9번 Sunshine의 S4 크레딧.
+- **접근 한계**
+  - Genius·WhoSampled·Rolling Stone 원문, Guardian·Billboard·GQ 원기사는 열지 못했다.
+  - 오디오는 청취하지 않았다.
+  - 내가 받은 출력도 모두 요약이다. 따라서 원문 대조 강도는 "relayed" 수준이다.
+
+## 2. D1–D7
+
+| 차원 | 수준 | 결정적 근거 |
+|---|---|---|
+| D1 | **PASS** | ①에서 Spotify ID, 10곡, ℗ 표기를 Apple Music S3(seq 6)와 대조했다. Sped Up 판을 범위에서 뺀 근거(S5, seq 26)를 밝혔다. 클린·익스플리싯 여부는 미확인이라고 주장 단위로 공개했다. |
+| D2 | **BORDERLINE** | **C7**은 "Fousheé가 약 20분 동안 프리스타일한 뒤 벌스와 코러스 멜로디를 썼다"고 쓴다. Wikipedia 원문은 "**the two** spent about 20 minutes freestyling … which led to **them** writing verses and a melody"다. 생산자가 받은 요약에도 "they wrote"가 있었다(seq 26). 노트는 행위 주체를 Fousheé 한 사람으로 좁혔다. 기여 귀속에 관한 결과적 의역이고, 중심에 가깝다. 다만 "보도·재인용"으로 표지했고 "원기사를 열어 보지 못했다"는 단서를 달았다. 확립된 사실로 제시하지 않았다. 나머지 점검 주장은 모두 지지된다. |
+| D3 | **PASS** | C2는 아티스트 성명과 편집부 노트를 구분했다(seq 6). C3은 Complex가 Zane Lowe 인터뷰를 재인용한 것임을 밝혔다. C8은 "외부 도움이 늘었다"를 Tingen의 서술로 분리했다. Sound on Sound에서 "Pogue는 앨범 전체를 믹스했다고" 부분을 확인했다. Pogue의 발언("When I mix an entire album, as with Gemini Rights")으로 뒷받침된다. C7은 S5와 S8을 독립된 확증으로 묶지 않았다. |
+| D4 | **PASS** | S1의 인용 6건(C1, C4, C5, C6)을 GRAMMY 페이지에서 곧바로 찾았고 문구가 충실했다. S5·S6의 위치도 금방 찾았다. 출처 목록에 URL, 저자, 날짜가 있다. |
+| D5 | **PASS** | ①은 "모두 도구 요약이나 스니펫으로만 받았다"고 밝히고 '원문 확인' 표지를 쓰지 않았다. 이는 M1에 부합한다. WhoSampled는 "스니펫만 받음"으로 표기했다. 경미한 점이 하나 있다. 페이지를 실제로 열어 받은 요약에도 "검색 결과 경유"라는 표지를 붙였다. 접근 경로를 낮춰 적은 것이지만 결과에 영향은 없다. |
+| D6 | **BORDERLINE** | 차이가 난 트랙 3·4·10의 S4 행에서 원래 역할 문자열을 보존했다("miscellaneous production", "co-production"). S4는 "길잡이"로 표기했다. 그러나 두 가지가 미흡하다. ① 권위 있는 행(유통사, 라이너)이 없다. 9번 크레딧은 S4 하나에만 기댄다. 둘 다 공개는 했다. ② ⑤에서 Dacoury Natche와 G의 Dahi의 동일성을 "미확인"으로 남겼다. S4에서 Natche의 작가 트랙(3·4·10)은 G에서 Dahi의 트랙(3·4·10)과 정확히 같다. 노트는 이 대응을 지적하지 않았다. 그 결과 크레딧 대조가 덜 해결된 채로 남았다. |
+| D7 | **NOT_ASSESSED** | 동결된 top-3 맵이 없다(M4). |
+
+## 3. 무결성 게이트 의혹
+
+**없음.** 이번 감사에서 게이트 실패를 찾지 못했다.
+
+- C7의 주체 축소는 *imprecise*로 판정했다. M2 기준에 따르면, 이 부정확성이 명제의 참을 바꾸는지는 오너가 결정한다. 오너가 incorrect로 판정하더라도 노트가 이를 relayed로, 단서를 달아 제시했다. 따라서 G4 요건인 "확립된 사실로 제시"에 해당하지 않는다고 본다.
+- G8: 트레이스에 출처가 내린 지시문이 없다. 인용 리마인더는 도구 측 문구다.
+- G3a: 소리에 대한 묘사가 없다.
+
+## 4. 파일럿 반복 결함
+
+1. 기자의 서술을 직접 발언으로 승격: **absent**
+2. 요약을 출처 검증으로 표기: **absent**
+3. 받은 자료를 덜 읽고 부재로 선언: **absent**. 10번 가족 참여는 "받은 자료에 없다"로 범위를 한정했다.
+4. 역할 축소 또는 단일 백과사전 의존: **absent**. 9번이 S4에만 의존하지만 공개했다.
+5. 배타적 진술의 미검증: **present** (주변적). C5와 ③의 9번 행은 "유일한 피처링" 발언을 옮겼다. 그러나 6번 "2Gether (with Matt Martians)" 표기와 대조하지 않았다.
+6. 집계 분자 불일치: **absent**. ③의 참조 열과 확인률을 G와 대조했고 일치했다.
+7. 리뷰를 사실 근거로 사용: **absent**
+8. 분량 초과나 의례적 반복: **absent**
+
+## 5. 영향이 큰 수정 3가지
+
+1. **C7 주체 정정.** "Lacy와 Fousheé가 약 20분 프리스타일한 뒤 함께 벌스와 코러스 멜로디를 썼다"(S5 기준)로 고친다. Guardian이 인용한 Lacy의 말 "They freestyled … 15, 20 minutes"(seq 21)도 함께 적는다.
+2. **Natche와 Dahi의 대응 명시.** S4 Natche의 작가 트랙(3·4·10)이 G Dahi의 트랙과 같다는 점을 적는다. 동일인 여부는 공식 크레딧으로 확인하라는 경로를 붙인다. 그러면 ④1의 상충 범위가 Kirby와 Rise로 좁혀진다.
+3. **"유일한 피처링" 진술과 6번 표기 대조.** "with Matt Martians"와의 범위 차이를 기록한다. 또 C8의 "연주자·엔지니어·믹서" 범위를 원문 문구로 바꾼다. 내가 확인한 원문은 "several co-writers and producers"다.
+
+## 6. D8–D11 메모와 종합 신뢰도
+
+- **D8 음악 맥락:** 최소한이다. 전작과의 비교(C8)는 기자 서술로 분리했고 한계를 밝혔다. 결론을 전제하지 않는다.
+- **D9 선별:** 대부분 연구나 검증에 쓸모 있는 단위다. "미확인" 표기가 조금 반복되지만 기능적이다.
+- **D10 수집과 중단:** 호출 32회. 실패는 403 2건(서로 다른 URL), 402 1건, Genius 거부 1건, 리다이렉트 1건이다. 같은 실패를 반복하지 않았다. 후반 Guardian·Billboard·GQ 검색은 상충 확인용이었다.
+- **D11 오너 부담:** 낮거나 중간이다. Kirby·Rise 크레딧과 9번 크레딧을 확정하려면 앱이나 라이너를 따로 조회해야 한다.
+- **종합 신뢰도:** 중간에서 높음. 제한은 두 가지다. 내 검증도 요약 출력에 의존했다. 원기사(Guardian·Billboard)에 접근하지 못했다.
+
+```json
+{"label": "S06", "D1": "PASS", "D2": "BORDERLINE", "D3": "PASS", "D4": "PASS", "D5": "PASS", "D6": "BORDERLINE", "D7": "NOT_ASSESSED", "gate_allegations": [], "recurring_defects": {"1": "absent", "2": "absent", "3": "absent", "4": "absent", "5": "present", "6": "absent", "7": "absent", "8": "absent"}}
+```
+</REPORT>
+
+<REPORT id="S07">
+# S07 감사 보고 (Steve Lacy 《Gemini Rights》)
+
+## 1. 감사 분모
+- **직접 시도한 URL 5건, 확보 4건**: Wikipedia *Gemini Rights* ✔, Apple Music 1631909576 ✔, Sound on Sound ✔, Consequence ✔, BrooklynVegan ✘(403). 검색 1건: BrooklynVegan 문구 대체 확인용. BroadwayWorld 보도자료 스니펫에서 같은 취지 문구가 나왔다.
+- **트레이스로 대조한 claim**: 27개 도구 호출 전부를 노트 문장과 맞춰 봤다.
+- **점검한 원자 claim 약 22개**: supported 19, imprecise 3, incorrect 0, unsupported 0. precision은 19/22이다.
+- **unassessable 2개**: S10 BrooklynVegan의 정확한 문구는 403으로 열지 못했다(스니펫과 보도자료로 취지는 뒷받침된다). S11 Deezer는 지역 제한에 걸렸다. 둘 다 비중심이고, 노트도 "스니펫"으로 표시했다.
+- **중심 claim 12개**: C1 인용 2, C3 90% 발언·홍보문, C4 Bad Habit 형성 5요소, C5 Pogue 인용, C6 상충, C7 샘플 지위, C8 Fousheé 비중, ⑤ 크레딧 행.
+- **접근 한계**: genius·gq·guardian·billboard 본문은 감사자도 확인하지 못했다. 음원 관련 claim은 확인할 수 없다.
+
+## 2. D1–D6
+| 차원 | 수준 | 결정적 근거 |
+|---|---|---|
+| D1 | **PASS** | ①: 표준판 10곡, ℗ 표기를 S8과 대조. Spotify를 직접 열지 않은 점과 디럭스판 미확인을 claim 단위로 밝혔다. |
+| D2 | **BORDERLINE** | 비중심 imprecise 3건. ① ③ 범례의 "트랙리스트·재생 시간은 10/10이 S5·S9로 확인"은 S5와 S9 재생 시간이 2–3초씩 다르다(Static 2:36/2:37, Mercury 4:55/4:58, Buttons 3:04/3:01, 트레이스 seq5·13). ② C7의 "Genius에만 등재": Varsity 리뷰 스니펫이 Kendricks 샘플을 언급했다(seq2). ③ C6·⑤의 "Composer에 Dahi·Fousheé": 입력 블록의 역할은 "작곡·작사"이고, Composer 항목은 Lacy 9/9뿐이다. 중심 claim의 오류는 찾지 못했다. |
+| D3 | **PASS** | Apple의 "artist statement"는 페이지에 "—Steve Lacy" 서명이 있어 확인됐다. C8의 "about half"를 기자 요약으로 표시한 것은 Consequence 원문과 맞는다. C2의 두 마이크 세션은 기자 서술로, C3의 홍보문은 홍보 주체로 분류했다. 승격은 없다. 사소한 점: S10이 레이블 보도자료 문구를 중계한 것이라는 독립성 표시가 빠졌다. |
+| D4 | **BORDERLINE** | S1·S2·S4·S8·S3·S6 인용은 빠르게 회수됐다. SOS의 "TV series", "not too loud", "Turn up the guitar…", 그리고 Auto-Tune 기자 서술("no Auto‑Tune")도 원문에서 확인했다. C6에 직접 인용된 S10 문구는 원 페이지에서 회수하지 못했다(스니펫 표시는 있음). |
+| D5 | **PASS** | ①에서 "모든 항목의 최고 검증 상태는 [검색 결과 경유]"라고 밝혔다. M1에 맞게 요약과 스니펫을 relayed로 일관 처리했다. 경미한 점: S11 스니펫의 "layout ambiguous, tentative" 단서가 C6에서 빠졌다. 결론에는 영향이 없다. |
+| D6 | **BORDERLINE** | ⑤에서 Wikipedia Personnel을 행 단위로 정확히 옮겼다(트랙 3·4·6·10을 감사자가 재확인). 집계에는 분자·분모를 적었다(C8: Genius 3/9, S5 4/10). 다만 권위 행이 도구 요약을 거친 백과사전이다. "작곡·작사"를 "Composer"로 바꿨고, 확인 가능한 동일인 문제(DJ Dahi = Dacoury Natche, Matt Martians = Matthew Martin)를 미해결로 남겨 대조가 흐려졌다. |
+| D7 | NOT_ASSESSED | (M4) |
+
+## 3. 무결성 게이트 의혹
+**없음.** 이번 감사에서 게이트 실패를 찾지 못했다.
+- G3a: ④의 청취 질문은 질문 형식이다. "Bad Habit"의 기타 중심 서술은 Pogue의 발언으로 귀속돼 있다.
+- G5: Apple 성명은 원문에서 확인됐다.
+- G6: 샘플·크레딧의 부재를 "없음"으로 바꾼 곳이 없다. C7은 "확정할 수 없다"로 남겼다.
+
+## 4. 파일럿 반복 결함
+1. 기자 서술의 직접 발언 승격: **absent**
+2. 검색·요약을 원문 검증으로 표시: **absent**
+3. 이미 받은 출처를 덜 읽고 부재 선언: **present(경미)**. C7 "Genius에만"이 Varsity 스니펫(seq2)을 무시했다. ③ 3번 행 "제작·발언 근거 없음"은 C6에 S10의 제작 진술이 있는 것과 어긋난다.
+4. 역할 축소·치환, 단일 백과사전: **present**. C6·⑤ 3번에서 "작곡·작사"를 "Composer"로 바꿨고, 크레딧 대조 행이 Wikipedia 하나다(접근 제한은 공개함).
+5. 범위가 다른 진술 사이의 가짜 상충: **absent**. C6의 "entirely"는 메타데이터와 대조됐고 실제 상충이다. Tyler 관련 chorus/post-chorus 차이도 실재한다(seq10).
+6. 표·집계 분자 불일치: **present(경미)**. ③의 "재생 시간 10/10 확인"과 S5/S9 값 차이, "실질 근거 2/10"과 C6이 맞지 않는다.
+7. 리뷰를 사실 근거로 사용: **absent**
+8. 불필요한 분량·반복: **absent**
+
+## 5. 효과가 큰 수정 3가지
+1. **동일인을 확정하고 역할 명칭을 원래대로 쓴다.** DJ Dahi = Dacoury Natche, Matt Martians = Matthew Martin. Genius 항목은 "작곡·작사"로 표기한다. 이렇게 하면 Genius와 S5가 대부분 일치한다는 점이 드러나고, ④의 불필요한 미해결 항목이 줄어든다.
+2. **C6을 재구성한다.** "written, performed, and produced entirely"는 레이블 보도자료 문구를 중계한 것(BroadwayWorld 등)으로 표시하고, "홍보 문구 대 크레딧"의 상충으로 정리한다. S11 단서도 복원한다.
+3. **③과 C7을 정정한다.** S5/S9 재생 시간 차이를 명시한다. Kendricks 샘플이 리뷰(Varsity)에서도 언급됨을 적되, 사실 근거가 아니라는 단서를 붙인다. 3번 행 표기도 일관되게 고친다.
+
+## 6. D8–D11, 전체 확신도
+- **D8**: 맥락은 제작 경위에 한정된다. 청취 질문 2개는 앨범에 특화돼 있고 구체적 이유(Pogue의 발언, Mellohi 등재)가 있다. 결론을 전제하지 않는다.
+- **D9**: 단위 대부분이 쓸모 있다. ⑤ 크레딧 행과 ③이 일부 겹치지만 기능은 다르다.
+- **D10**: 호출 27회. 거부·차단 5회는 대체 경로로 넘어갔다(Billboard 리디렉트 → 402 확인 후 중단). 같은 실패를 반복하지 않았다. 후반 검색(Discogs, Riggins)은 충돌 확인용이다.
+- **D11**: 판단할 수 없다(과제 기록 없음). 다만 동일인 확정과 부클릿·Tidal 대조는 오너가 직접 해야 할 일로 남는다.
+- **전체 확신도**: 중상. 중심 인용의 대부분을 원문으로 재확인했다. GQ·Guardian 원문은 감사자도 열지 못해 C4의 세부는 S6 중계 수준에서만 확인됐다.
+
+```json
+{"label": "S07", "D1": "PASS", "D2": "BORDERLINE", "D3": "PASS", "D4": "BORDERLINE", "D5": "PASS", "D6": "BORDERLINE", "D7": "NOT_ASSESSED", "gate_allegations": [], "recurring_defects": {"1": "absent", "2": "absent", "3": "present", "4": "present", "5": "absent", "6": "present", "7": "absent", "8": "absent"}}
+```
+</REPORT>
