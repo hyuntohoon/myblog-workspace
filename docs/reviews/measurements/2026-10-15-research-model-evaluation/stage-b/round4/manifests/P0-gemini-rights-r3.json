@@ -1,0 +1,16 @@
+{
+  "description": "Stage B round 4: prompt P0 on gemini-rights, run r3. Claude CLI lane only (ROUND.md \u00a72). One dispatch, no retry except one rerun for a harness failure (new id, both records kept). Claude CLI 2.1.303 with --safe-mode.",
+  "artifact_dir": "../runs",
+  "shared_db_src": "/Users/park_hyun/.local/share/myblog-research/shared-db-guard/src",
+  "timeout_s": 1500,
+  "expected_prompt_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+  "models": [
+    {
+      "id": "cl-P0-gemini-rights-r3",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}

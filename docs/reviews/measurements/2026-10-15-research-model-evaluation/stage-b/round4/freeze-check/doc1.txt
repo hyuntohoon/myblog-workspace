@@ -1,0 +1,52 @@
+DOCUMENT 1 — round-3 findings, overlap and the round-4 change list
+
+## What the round shows
+
+1. **The remaining blocker in the Claude lane is length, not failures.**
+   - P3 cut FAIL marks from 5 to 2 and removed scope conflicts.
+   - But P3 · r1 ran to 10,070 chars, and both P3 runs carry Claude's length/repetition mark.
+   - The edits that define things worked. The edit that adds a counting rule (3) produced a new defect.
+2. **Removing the Codex lane removes the one environment that was already clean.** Every Codex output in rounds 2 and 3 has at most one FAIL mark, mostly zero. The owner's cost decision stands; the Claude lane now has to reach that level on its own.
+3. **The no-web Astra lane is cheap but blunt on D6.** It costs about 15–20 % of a web audit, and its D5 still discriminates. Its D6 FAILs nearly everything because it cannot open the authoritative row. Next round: either exclude D6 from Astra's agreed-FAIL counting, or give D6 to the Claude reviewer alone.
+
+## Proposed direction for a round 4 (needs predeclaration and owner confirmation)
+
+Claude CLI lane only (§10). Points where both round-3 comparatives overlap, each a definition, generalisation or deletion:
+
+1. **Access label, by actual tool output** (Astra 1, Claude 1). Claude's version adds a distinct `[가공 요약 경유]` status for model-processed fetches. That is a new label and would need its own check.
+2. **Attribution per claim to the document actually received** (Astra 2, Claude 4). A medium named only by a search summary is "the summary attributes this to X", not X. Scope qualifiers ("part of", track vs album) stay verbatim.
+3. **Credit role strings verbatim, including in summary columns and legends** (Astra 3, Claude 3).
+4. **Delete repeated access/verification explanations and memory-based access counts** (Astra 5, Claude 5).
+
+Plus, from this round's data rather than the comparatives:
+
+5. **Revert edit 3.** Return to P2's numerator wording.
+6. **Length.** P3 keeps P2's checklist and gains text. Round 4 needs a deletion large enough to bring the median back under 1.10× P0, judged in the same pass.
+
+Open for the owner, not decided here:
+- whether the annotation arm continues: one real lead gained (Vulture, followed to the original once, in the Codex lane) against longer notes and more FAIL marks in the Claude lane;
+- how D6 is counted for a no-web Astra.
+
+
+P4 = round-3 P3 with these changes (`prompts/P3-to-P4.diff`; P3 14,710 → P4 16,042 bytes, P0 12,650; full contrast `prompts/P0-to-P4.diff`):
+
+1. **Revert edit 3 (§6).** Delete "모든 집계와 확인률의 분자는 ③ 점검표에서 센다. 요약과 본문의 수치는 점검표와 같아야 한다." This returns §6 to P2's numerator wording. In round 3, numerator inconsistency (defect 6) was absent from both P0 runs and present in both P3 runs.
+2. **Attribution per claim to the document actually received (§4 B).** Both comparatives proposed this (Astra 2, Claude 4). A claim's source is the document whose text this run actually received. When that document names another outlet, the received document stays the source, and the note says the outlet is relayed ("X에 실렸다고 전함"). Each claim carries its own source, never one bundle for several claims. Scope qualifiers ("part of", track vs album) keep the received document's wording. In round 3, the defect-2 marks on P3 · r1 were mis-attributions of this kind (S07: a quotation bundled onto S2 and S3; timing attributed to the Guardian through S8 and S6), not access-label promotions.
+3. **Credit role strings verbatim, including summary columns, legends and aggregates (§6).** Both comparatives proposed this (Astra 3, Claude 3). It generalises P2's "원래 역할 필드를 보존한다".
+4. **Delete repeated access explanations and memory-based counts (§4 A, §8).**
+   - Access limits and the received tool-output kinds are written once, in ①, and ④'s gap items refer to ①. There is no separate access-failure list. §4 A's per-source failure record becomes "반영한다 in ①", so it no longer rebuilds one. Both comparatives proposed this deletion (Astra 5, Claude 5).
+   - Search and fetch counts and response status codes are not written, and a stopped branch names the materials checked rather than a count. This comes from Claude 5 alone, which still allowed counts copied from tool logs, plus round-3 data: S07 wrote "검색 2회", and Claude's audit counted 4 relevant searches in the trace.
+5. **Length cut (§8, §10).** Orchestrator-derived from round-3 data, not a reviewer proposal.
+   - The length rule now covers the whole note: "노트 전체는 부록과 URL을 포함해 6,000자를 넘기지 않는다". The count includes spaces, tables, markdown symbols and URLs, which is how (e) measures it. This replaces "URL과 부록을 제외하고 1,800~3,000자를 목표로 한다".
+   - Why: round-3 Claude-lane notes ran 6,696–10,070 characters, with ⑤ at about 1,800–3,670. The old target excluded ⑤, so it never applied to the part that grew most. Bodies without ⑤ also overshot the 3,000 target by 1.7–2.1×.
+   - The cap does not guarantee (e). If P0 behaves as in round 3, the bar is 1.10 × 7,150 = 7,865, so P4 may overshoot 6,000 by about 1.3×. If P0's median falls near round-2 P0 · r2 (5,431), the bar is about 5,974, below the cap itself. "이는 채워야 할 할당량이 아니다" stays.
+   - A cut order was added to the final checklist: ⑤ excerpts first, then ②'s limitation text, then ④. ③ and the credit role strings are never cut. Length pressure must not land on the rows D6 is judged on.
+   - Deleted: "상한을 넘길 때는 핵심 근거가 왜 추가로 필요한지 설명한다." It was an escape clause, and an explanation adds text.
+   - ⑤ is redefined. It holds a one-line-per-source list (ID, markdown hyperlink, author/outlet, date), positions and excerpts not already in the body, and the **whole row** (per §6) of every track whose credits differ between sources. It does not hold a restatement of body content or a list of excluded or deferred items. Round-3 S07 carried a "제외·보류" table, and also a trailing "Sources:" list repeating ⑤-1's links (938 chars; Astra defect 8). That list answers the WebSearch tool's own result text ("REMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks", 13 times in one round-3 run). P4 therefore does not forbid it; ⑤'s hyperlinked list is declared to satisfy it.
+
+Considered and not taken:
+- **Access label by actual tool output (both comparatives, point 1).** P3 edit 1 already defines `원문 확인` by unprocessed text received in this run, and round 3's remaining defect-2 marks were attribution errors, which change 2 targets. No further label text.
+- Claude's new `[가공 요약 경유]` status: a new label, and one reviewer only.
+- Claude's quotation-excerpt rule (original-language passage plus translation, portable positions) and Astra's absence/aggregate cross-check: one reviewer each.
+- The per-track checklist stays, as in round 3.
+
