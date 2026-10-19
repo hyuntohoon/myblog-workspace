@@ -27,8 +27,9 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   refresh re-fired on its own at 24 h). **Step 2A** — home playback discovery with
   direct lyrics, and automatic next-track lyrics — is deployed in all three parts (front #447, #448,
   #449, follow-ups #450, #451, #453) and the viewer cases passed the 2026-10-06/07 real-device run;
-  phones are untested. **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency
-  quota (owner), then 2A Exit. Step 3: inspect real user journeys.
+  phones are untested. Lambda concurrency raised to 1000 (closed 2026-10-20). **Next:** owner runs
+  the 2A Exit phone/member checklist P1–P6 (P3 settles item 4), then 2A Exit. Step 3: inspect real
+  user journeys.
   → `docs/rfcs/OPS-project-stabilization.md`
 
 - **FEAT-lyrics-listening-experience** — in-progress; **Steps 1–4 complete and production-verified; Step 5 deployed and running but NOT complete** (2026-09-30 audit).
