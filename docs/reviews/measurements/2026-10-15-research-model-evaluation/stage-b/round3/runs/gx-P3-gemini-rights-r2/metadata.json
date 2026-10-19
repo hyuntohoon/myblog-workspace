@@ -1,0 +1,62 @@
+{
+  "id": "gx-P3-gemini-rights-r2",
+  "provider": "gpt",
+  "requested_model": "gpt-6-astra",
+  "model_config": {
+    "id": "gx-P3-gemini-rights-r2",
+    "provider": "gpt",
+    "model": "gpt-6-astra",
+    "availability": "available",
+    "reasoning_effort": "medium"
+  },
+  "prompt_sha256": "49063e18eaa0f3cdc95ad77107278c77b06520944f5e47bd6f33a816bf0e49a1",
+  "started_at": "2026-10-19T14:12:05.070582+00:00",
+  "status": "success",
+  "dispatch_count": 1,
+  "orchestration_retry_policy": "none",
+  "orchestration_fallback_policy": "none",
+  "isolated_cwd": "/private/tmp/research-benchmark-z8puy2hm",
+  "argv": [
+    "codex",
+    "--search",
+    "--ask-for-approval",
+    "never",
+    "exec",
+    "--model",
+    "gpt-6-astra",
+    "--sandbox",
+    "read-only",
+    "--json",
+    "--ephemeral",
+    "--skip-git-repo-check",
+    "--output-last-message",
+    "/private/tmp/myblog-r3/docs/reviews/measurements/2026-10-15-research-model-evaluation/stage-b/round3/runs/gx-P3-gemini-rights-r2/output.md",
+    "-c",
+    "model_reasoning_effort=\"medium\"",
+    "-"
+  ],
+  "resolved_models": [],
+  "resolution_evidence": "not_exposed_by_cli",
+  "cli_errors": [],
+  "usage_reported": [
+    {
+      "input_tokens": 1267676,
+      "cached_input_tokens": 1132800,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 6662,
+      "reasoning_output_tokens": 890
+    }
+  ],
+  "tool_counts": {
+    "web_search": 14
+  },
+  "event_count": 35,
+  "hook_event_count": 0,
+  "memory_paths": {},
+  "cli_init": null,
+  "non_json_line_count": 0,
+  "returncode": 0,
+  "process_wall_s": 276.098,
+  "finished_at": "2026-10-19T14:16:41.224131+00:00",
+  "wall_s": 276.115
+}

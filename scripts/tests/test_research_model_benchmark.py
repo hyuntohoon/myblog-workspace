@@ -244,6 +244,17 @@ class BenchmarkTest(unittest.TestCase):
         self.assertNotIn("--ignore-rules", argv)
         self.assertNotIn("--ignore-user-config", argv)
 
+    def test_no_web_reviewer_closes_every_web_route_after_exec(self):
+        argv = runner.command({**self.model, "web_search": False}, self.root / "output", self.root / "mcp")
+        self.assertNotIn("--search", argv)
+        after = argv[argv.index("exec") + 1:]
+        for flag in ('web_search="disabled"', "mcp_servers.chrome-devtools.enabled=false",
+                     "mcp_servers.node_repl.enabled=false"):
+            self.assertEqual(after[after.index(flag) - 1], "-c")
+        self.assertIn("apps", after[after.index("--disable") + 1:])
+        self.assertIn("plugins", after)
+        self.assertEqual(argv[argv.index("--sandbox") + 1], "read-only")
+
     def test_dry_run_has_no_artifacts_or_dispatch(self):
         manifest = self.root / "manifest.json"
         manifest.write_text(json.dumps({"artifact_dir": "runs", "models": [self.model]}))
