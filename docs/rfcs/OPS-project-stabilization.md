@@ -681,6 +681,12 @@ throttles fell on the 10-05 and 10-06 test days; since front #453 (one ▶ = one
 been 0 in 4 days. Headroom is still thin (peak 8 of 10). **Owner decided to request the raise** in
 Service Quotas (owner action; `claude_aws_manager` has no Service Quotas access). Until the new
 limit shows in `aws lambda get-account-settings`, this item stays open.
+**Closed 2026-10-20 (read-only).** `aws lambda get-account-settings` now shows
+ConcurrentExecutions **1000** (unreserved 1000). The raise landed after 2026-10-19 13Z: account
+throttles still fell at concurrency 10 on 10-19 at 01Z (3), 07Z (2) and 13Z (1), and per function
+since 10-14 `ratemymusic-api` drew 12 and `musicApi` 3. Peak concurrency since the raise is 8, so
+no load above the old limit has been observed yet. That is absence of load, not a measured
+headroom test.
 
 **Found: the in-page player (rung 2, "Buckit") could not start in any browser.**
 
@@ -771,6 +777,8 @@ limit shows in `aws lambda get-account-settings`, this item stays open.
    unimplemented. Mobile browsers keep today's behaviour: they fall back to Buckit. Nothing on a
    phone has been measured yet. Do not implement this and do not ask again unprompted; wait for the
    owner to raise it.
+   **Owner decision 2026-10-20: phone test first.** Run it inside the 2A Exit phone session below
+   (row P3). Implement nothing until that result is in.
 5. **Silent ▶ on a live desktop app — fixed 2026-10-09 (front #454, merge `fce0cd9`).**
    - *Owner report (desktop Chrome):* ▶ changed the song in the bar; nothing sounded. A second
      report: with the app quit, the browser played, but the bar did not appear right away.
@@ -826,6 +834,26 @@ limit shows in `aws lambda get-account-settings`, this item stays open.
      - A mirror tab's forwarded ⏯/⏭ during the window is dropped without a notice, because
        pending is not broadcast.
      - Hardware media keys bypass the session; this predates the fix.
+
+#### Step 2A Exit — what is left (2026-10-20)
+
+**Owner decision 2026-10-20:** close Exit only after a phone and member session. Lambda quota is
+closed (above). Against the required acceptance cases, the 2026-10-06/07 device run plus
+front #450–#454 cover: case 1 for the owner on desktop, 2, 3, 4, external skip and viewer ⏭ in
+5, and lyrics-less songs in 7. Case 6 rests on suites and stubs only. Still unrun on a real
+device:
+
+| # | Case | Who / where |
+|---|---|---|
+| P1 | 1 — Spotify already playing → open home on a **phone browser** → bar and direct lyrics | owner, phone |
+| P2 | 1 — same on desktop with a **connected member** account | owner provides the account |
+| P3 | Item 4 — on the phone browser, ▶ with no active Connect device: does Buckit start and sound? Note `autoplay_failed` if the notice says so | owner, phone |
+| P4 | 5 — rapid A → B → C from the source device; viewer ends on C | owner |
+| P5 | 7 — manual scroll and the queue view while the song changes | owner or Claude (desktop) |
+| P6 | 8 — repeat-one, background tab return, two tabs, account switch, Spotify ↔ YouTube | owner or Claude (desktop) |
+
+Claude can run P5 and P6 on desktop with the owner's Chrome. P1–P4 need the owner's hands.
+After they pass, `FEAT-lyrics-listening-experience` records the corrected evidence and 2A exits.
 
 ---
 
@@ -1333,3 +1361,4 @@ content.
 | 2026-10-11 | Owner follow-ups for 2A. Front #454 confirmed normal by the owner on a real device. Lambda concurrency rechecked read-only: still 10, 0 throttles in the 4 days since front #453, peak 8/10. Owner will request the raise. Item 4 reconfirm: no preference given, so it stays undecided and unimplemented. Record under Step 2A. | 2A |
 | 2026-10-18 | Owner approved, in-session, activating the held Step 2C work at the 2026-10-01 scope (24 h refresh, back-catalogue at popularity ≥ 20), plus worker INFO logs. Shipped as worker #124 and #125, deployed 08:18Z. Observed in production: refresh reachable with no new follow, back-catalogue ingest resolving jobs (387 → 425 follow jobs resolved). The actual 24 h interval is still to be observed. Open for the owner: the catalog-cap timing (~6 weeks) and a Michael Korstick exclusion. Record under Step 2C. | 2C |
 | 2026-10-19 | Step 2C actual interval observed read-only: the refresh re-enqueued itself at 08:39Z, 24 h after the previous pass with no new follow, and completed (47 pages, 0 deferred). Back-catalogue drained (863 follow jobs resolved, 0 `album_not_in_catalog`). **Step 2C closed.** Catalog-cap timing and the Korstick exclusion stay open for the owner. | 2C |
+| 2026-10-20 | Lambda account concurrency read back as 1000 — the 2A quota item closes. Owner chose to close 2A Exit only after a phone and member session (checklist P1–P6 under Step 2A), and for item 4 a phone test first (P3). | 2A |
