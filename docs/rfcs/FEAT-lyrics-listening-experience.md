@@ -1348,6 +1348,73 @@ them at all. It is unrelated to translation need.
 now bounded by the popularity gate (372 resting), not by the cap. The cases that need the owner
 are unchanged: a joint unfollow, a re-import and a grant without the scope.
 
+#### Step 5 smoke (2026-10-20): re-run after worker #125 — every case production can show now passes
+
+This re-runs the 10-18 smoke after worker #125 (deployed 2026-10-18 08:18Z), using the same method:
+production only, no writes and no code change. Every SQL statement ran inside
+`BEGIN READ ONLY … ROLLBACK` on 2026-10-19 19:13–19:17Z (10-20 KST). CloudWatch
+`/aws/lambda/blogWorkerLambda` was read over the preceding 50 hours. The population is unchanged:
+one connected member, no new follow origin and no new registration since 2026-10-10.
+
+**Result: the two failures of 10-18 are gone.** Steady-state new-release pickup now works.
+Coverage of the eligible catalog is complete at the job level: no follow job is waiting on
+`album_not_in_catalog`. Every case that production can show now passes. The step is still
+**not fully verified**. Three cases need the owner, and two are suite-only (below). The
+"production-verified" claim is not restored here.
+
+**Control.** The authenticated production suite ran in the same window: **PASSED: 32, FAILED: 0,
+elapsed: 6.6s**. The known-answer rows behave as before. Both excluded artists, Debussy
+(09-19) and Korstick (10-19), have 0 follow demand. The 66 enumerated pairs without
+demand are exactly Korstick's 53 plus the unconsumed Rude John registration's 13. The job split
+below (816 + 369 + 1) sums to the 1,186 distinct follow jobs.
+
+| Case | Production evidence (2026-10-19 19:13Z) | Verdict (10-18 → now) |
+|---|---|---|
+| Multi-page discography | 8 registrations have `album_total` > 50 (largest: David Bowie, 166). All are `complete` and 7 of 8 hold exactly `album_total` rows. Korstick holds 53 of 54, as before. Across 36 registrations: 1,273 rows for Σ`album_total` 1,274. The two refreshes re-read every page: 18 / 11 / 13 / 5 pages per batch, with 0 `deferred`. | pass → pass |
+| Multi-page follows (`/me/following` > 50) | The member still follows about 11 artists, which fits on one page. | not exercisable — **not attempted** |
+| Already-known artists | 6 `manual+spotify_follow` edges and no duplicate edge. The count fell from 7 to 6 because the Korstick exclusion removed the follow origin and kept the manual one (*Owner decisions (2026-10-20)*). | pass → pass |
+| Joint manual/Spotify origins | Union: 27 `manual`, 6 joint, 3 `spotify_follow`-only, and 0 edges without an origin. Removal on a joint *unfollow* has still not happened in production. The Korstick exclusion is a different path (an exclusion, not an unfollow). | union pass; removal not observed |
+| Unfollow | Unchanged since 10-18: Rude John has no edge and no follow demand. Its registration is the only one the two refreshes did **not** re-open (`last_complete_at` stays 10-10 05:09Z, 35 of 36 re-opened), so the `_CONSUMED` fence held twice. | pass → pass |
+| Exclusion / re-import | Debussy: still 0 demand and still not registered. Korstick: 0 demand, all 53 jobs cancelled, registration kept and fenced. *Re-import* still needs a production write. | exclusion pass (2 artists); re-import not exercised |
+| Missing scope | The only grant includes `user-follow-read`. | not exercisable without owner action |
+| Partial enumeration retry | 0 registrations carry `last_reason`. All 8 enumeration metric lines in the window show `deferred: 0`. | not observed; suite-only |
+| New release arrival | **Now passes in steady state.** With no new follow since 10-10, `discography refresh re-opened 35 completed artist(s)` ran at **10-18 08:24Z**, six minutes after the deploy, from the new `refresh_due_count` nudge (`requested: 0`). It ran again **24 h later, at 10-19 08:39Z**, with nothing else happening. The first pass enumerated the two 10-16 releases that 10-18 had flagged (스카이민혁 *2MC*, Olivia Rodrigo *expectations*) at 08:24Z. Both got follow demand and both are resolved. The same pass found three uncatalogued pairs (2 David Bowie, 1 Yu Su). The back-catalogue job read them, and they rest below the popularity gate. The 10-19 pass found no new pair. | **fail → pass** (two cycles observed) |
+| Complete eligible coverage | **Now passes at the job level.** 846 jobs were waiting on `album_not_in_catalog` on 10-18. The back-catalogue job drained them from 08:24Z to 13:39Z on 10-18 in 22 runs of ≤ 40 albums: `failed` 0, `unavailable` 0, `capped` 0. Follow jobs now: **816 resolved** (477 of them on albums created since the deploy), **369 below the popularity gate** (resting to 2026-11-17), 1 `album_has_no_tracks`, **0 `album_not_in_catalog`**. "Eligible" means at or above `ALBUM_POP_MIN`, per the owner decision of 2026-10-01. The 369 are outside that set by policy, not by a defect. |
+
+*Against the OPS Step 2C record (10-19: 863 resolved, 372 below gate).* That count predates the Korstick exclusion. His 53 jobs (50 resolved, 3 below gate) left the follow scope at 10-19 19:09Z. That accounts for 369, and for 813 of the 816. The remaining +3 resolved were not traced. **fail → pass** |
+
+**What the resolved jobs hold now** (4,544 tracks in 816 resolved follow jobs; 3,186 in 387 on 10-18):
+
+| Outcome | Tracks |
+|---|---|
+| `linked` to translation work | 1,739 (281 `done`, 1,458 `ready`) |
+| `not_required`: `already_translated` | 954 |
+| `not_required`: `korean_source` / `already_korean` / `no_lyrics` | 114 / 16 / 97 |
+| `source_pending`: `not_found` (LRCLIB, on the retry ladder) | 1,622 |
+| `source_pending`: `review_required` | 2 |
+
+Coverage is now bounded by translation throughput, not by discovery. Catalog-wide, the queue holds
+1,797 `ready` items. The local GPT worker marked 269 and 301 items `done` on 10-18 and 10-19, so
+draining it would take about a week if that rate holds. That is an estimate, not a measurement.
+The `not_found` share is again recorded **without interpretation** (see the 10-18 note).
+
+**Logging note, closed.** The 10-18 smoke found no `[INFO]` line in CloudWatch. Since worker #124
+the window holds 3,106 `[INFO]` lines and 0 `[ERROR]` lines. The refresh and enumeration lines
+quoted above are among them. `backcatalogue_ingest metrics` logs at WARNING by design.
+
+**Housekeeping.** The non-follow job that `docs/plan.md` listed as stuck on `album_not_in_catalog`
+is no longer in that state. Of any origin, 0 uncancelled jobs carry the reason; the 8 cancelled
+ones are Rude John's 10-10 unfollow.
+
+**What remains before Step 5 can be called verified**, unchanged from 10-18. Each of these needs the owner:
+- unfollow a joint (`manual+spotify_follow`) artist on Spotify, and expect the manual edge to survive;
+- lift an exclusion by an explicit site add (re-import), and expect the artist to re-enter the universe at zero provider cost;
+- reconnect with a grant lacking `user-follow-read`, and expect the follow origin to be left untouched and the #446 prompt to appear.
+
+Multi-page follows and partial enumeration retry stay suite-only for a one-member population.
+Whether suite coverage is enough for those two is part of the owner's Status decision. This
+smoke does not make that call.
+
 #### The cost is roughly 7x what the pre-measurement projected, and the projection's error is instructive
 
 > **Superseded 2026-09-19 — kept as written, do not act on it.** Both the 7x figure and the
