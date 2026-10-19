@@ -285,6 +285,12 @@ front #498, #500, #501.
   note sits in an overlay inside `.lyv-body`, so the cached offsets and `boxH` never change; and
   annotations ride the same lyrics GET as the segments, so no load can land late. `전체 가사` carries a
   count, and a sheet opened from the viewer closes back into it.
+- **Touch targets (front #503, 2026-10-20).** On touch devices every viewer head control and sheet
+  toolbar control now has a hit box at least 44px tall. Before, they measured 26–30px at 390px. The
+  visible pills keep their size (owner choice), because six head controls at 44×44 do not fit a
+  phone's 358px row. Each hit box grows through an invisible `::after`, and the `<select>` becomes its
+  own 44px box with its pill drawn by a wrapper `::before`. The commentary chip went 36 → 44px.
+  The docked ContextPanel sheet had a clickthrough in the same pass and showed no defect.
 
 ## Where this lands
 
