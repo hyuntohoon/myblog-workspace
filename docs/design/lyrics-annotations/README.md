@@ -25,7 +25,7 @@ so a Korean sheet reads thin by design rather than by defect. RFC §6.6.
 | Korean tracks are **out of scope** — not annotating them may simply be the efficient answer | No design needs a Korean-coverage fallback. The empty-annotation state stays a plain empty state |
 | **Show every annotation** — no editorial selection | No relevance score, no ranking. Order is position in the lyrics |
 | **Always translate the commentary into Korean** | The body a reader sees is Korean; the original language is secondary and collapsible |
-| Host is the **static** reader, not the immersive viewer | `LyricsSheet.tsx` — see "Where this lands" below |
+| ~~Host is the **static** reader, not the immersive viewer~~ — **reversed 2026-10-19** (owner): the live viewer shows commentary too | `LyricsSheet.tsx` stays the full reader; `LyricsViewer.tsx` marks lines and opens one note at a time — see "Amendments, 2026-10-19" |
 
 ## Constraints measured from real data — a design that breaks one is wrong
 
@@ -152,14 +152,17 @@ picking a worse one.
 
 | Axis | Decision | Why it is settled or not |
 |---|---|---|
-| Highlight treatment | **Setting**, default `M0` | Density varies 6× per track; no fixed answer is correct across it |
+| Highlight treatment | **Setting**, default **by density** (`M0` ≤ 40% marked lines, `M1` above; amended 2026-10-19) | Density varies 6× per track; no fixed answer is correct across it |
 | Long spans | **Fixed: A2**, threshold 4 segments | One shape reads best at 12 lines and the alternatives each lose something |
 | Overlapping lines | **Fixed: B2** + containment fallback | The current behaviour can make an annotation unreachable; B2 cannot |
 | Repeats, unmatched, disputed, ordering | **Fixed** | Owner decisions or direct consequences of the measurement |
 
-### Highlight treatment — `lys:anno-style`, default `M0`
+### Highlight treatment — `lys:anno-style`, default by density
 
 Persisted beside the existing typographic mode (`lys:mode`, doc/liner) in `localStorage`, same pattern.
+**Amended 2026-10-19:** a reader who never chose gets `M0` up to 40% marked lines and `M1` above it
+(`autoAnnoStyle`); an explicit choice wins, and the `자동` option clears it. 40% is a judgement between
+the measured album average (34.1%) and dense end (64.7%), not a measured edge.
 
 - **`M0` — fill (default).** The chosen Genius house: a yellow block whose length is the range, a
   margin bracket, an `N행` tail. Correct at the album average.
@@ -235,6 +238,8 @@ Not a token swap. The body ink is near-white and near-white on the highlight yel
 
 Two things the implementation added to this rule, both found by measuring the built page:
 
+- *(2026-10-19: the fill no longer reaches `.lys-ko` at all — see Amendments — so only the lyric
+  figures below still apply.)*
 - **Naming the marked line is not enough.** `.lys-orig` and `.lys-ko` each set their own `color`, so
   inverting the parent inherited to nothing: in dark mode the lyric sat on amber at **1.63:1** and the
   Korean line at 1.73:1. The children have to be named, guarded by exactly the conditions where the
@@ -255,7 +260,36 @@ above are the Genius direction's; only the hue is the product's.
 - Everything here was judged on **synthetic data matched to the measured properties**, not on real
   lyrics. Density, span length, body length and vote distribution are reproduced; the words are not.
 
+## Amendments, 2026-10-19 — the lyrics translation UX pass
+
+The owner reported the Genius translation screens as hard to use. A clickthrough on prod data (Steve Lacy
+*Helmet*: 31 lyric lines, 20 marked = 65%, 18 annotations) found the problems below. Fixes shipped in
+front #498, #500, #501.
+
+- **The fill marks the original line only.** Filling the whole line block took the Korean translation
+  with it, and at 65% density the page read as one yellow slab. Every treatment now lands on
+  `.lys-orig`. The bracket still spans the block.
+- **Default treatment by density** (above), as Round four already suggested ("points at a density-adaptive
+  rule").
+- **The open annotation gets an accent bracket** in every treatment. Under `M0` the fill alone could not
+  show which mark was open.
+- **Tails ride inside the original line.** `N행` used to open a line of its own between the lyric and its
+  translation. The repeat chip reads `곡에서 N번`. The `반복` wording stays reserved for *later*
+  occurrences, which are not marked.
+- **Plain words for the controls.** One `해설 표시` select (자동 / 노란 칠 / 밑줄 / 왼쪽 괄호만 / 연 해설만 칠)
+  replaces the four chips. A hint line names the mark the reader is looking at, counts the in-text
+  annotations, and jumps to the drawer. Drawer rows preview the Korean body.
+- **Reversal: the live viewer shows commentary (owner decision 2026-10-19).** Each objection in
+  "Where this lands" below is met as follows: the mark is a text decoration on an inline span, not a
+  control inside the line `<button>`; one chip outside the lines opens the focused line's note; that
+  note sits in an overlay inside `.lyv-body`, so the cached offsets and `boxH` never change; and
+  annotations ride the same lyrics GET as the segments, so no load can land late. `전체 가사` carries a
+  count, and a sheet opened from the viewer closes back into it.
+
 ## Where this lands
+
+*(The reasons below were the 2026-07-26 case for a sheet-only host. They are kept as history, and the
+amendment above records how each one is met.)*
 
 The host is **`myblog_front/src/components/member/lyrics/LyricsSheet.tsx`** — the static reader that
 already shipped (FEAT-lyrics-sheet, 2026-07-08), not `LyricsViewer.tsx`:
