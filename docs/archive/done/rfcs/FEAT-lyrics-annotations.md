@@ -1103,7 +1103,7 @@ alone, which errors. §10 carries the bridge query.
 | 2026-07-26 | **Korean tracks are out of scope** for the annotation viewer — not annotating them may simply be the efficient answer | 1 |
 | 2026-07-26 | **Show every annotation**, ordered by position in the lyrics. No editorial selection, no relevance score, **no vote sorting** | 1 |
 | 2026-07-26 | The body a reader sees is **always Korean**; the original language is secondary and collapsible | 1 |
-| 2026-07-26 | Host is the static reader **`LyricsSheet.tsx`**, not `LyricsViewer.tsx` (§6.6) | 1 |
+| 2026-07-26 | Host is the static reader **`LyricsSheet.tsx`**, not `LyricsViewer.tsx` (§6.6). **Reversed 2026-10-19 by the owner**: the live viewer marks lines and opens one note at a time (front #501; `docs/design/lyrics-annotations/README.md` → "Amendments, 2026-10-19") | 1 |
 | 2026-07-26 | Visual direction: the **Genius house style** (`docs/design/lyrics-annotations/README.md`) | 1 |
 | 2026-07-26 | Storage: **two track-scoped tables**, translation as a column on the annotation row, one existing read route (§6.9) | 1 |
 | 2026-07-26 | Public-cache concerns for the music service are **deferred** — "지금은 걱정하지 말자" | 1 |
