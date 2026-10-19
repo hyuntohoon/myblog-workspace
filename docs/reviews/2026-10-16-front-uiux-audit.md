@@ -58,6 +58,7 @@ The design is capability composition, not inheritance: `shared/AlbumCard.tsx` / 
 12. No `word-break: keep-all` — Korean breaks mid-word.
 13. Floating POCKET pill + gear overlap footer theme select (desktop) and bucket cards (mobile); POCKET has two entry points.
 14. Member without Spotify sees "라이브러리를 아직 불러오지 못했습니다 + 다시 동기화" instead of a connect CTA.
+    - *Shipped 2026-10-19 — front #490 (owner-approved change of approach):* a connect CTA would not have helped. The library mirror is owner-only end to end (`spotify-library/state` and `/sync` both depend on `provisioned_owner_id`; `useSpotifyLibrary` never syncs for a non-owner), so every non-owner board showed the failure line and a dead 다시 동기화, connected or not. The Spotify 라이브러리 section now renders only on the owner's board; it returns when the member library opens. Prod smoke 32/0; the prod bundle carries the gate. A logged-in non-owner board in prod was not clicked (no member credentials); unit tests plus a local stubbed clickthrough at 1440/390 cover it.
 15. Collection blank ~0.8 s (`/api/buckets/public` 809 ms), no skeleton; year truncates before artist.
 16. `/releases`, `/members`, `/radar`, `/search` not in nav; releases lists 265/month with no filter.
 17. Mobile profile tabs (6) overflow with no scroll affordance.
