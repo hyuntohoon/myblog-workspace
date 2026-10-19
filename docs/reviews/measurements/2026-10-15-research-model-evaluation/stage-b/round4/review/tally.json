@@ -1,0 +1,675 @@
+{
+ "levels": {
+  "cl-P0-gemini-rights-r2": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "BORDERLINE",
+    "D4": "BORDERLINE",
+    "D5": "FAIL",
+    "D6": "BORDERLINE"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "FAIL",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "BORDERLINE"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "FAIL",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P4-gemini-rights-r1": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "FAIL",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "PASS",
+    "D6": "BORDERLINE"
+   }
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "BORDERLINE"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "BORDERLINE",
+    "D4": "BORDERLINE",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "BORDERLINE",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P4-gemini-rights-r2": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "PASS",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P4-gemini-rights-r3": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "BORDERLINE",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "FAIL",
+    "D5": "PASS",
+    "D6": "BORDERLINE"
+   }
+  }
+ },
+ "lengths": {
+  "cl-P0-gemini-rights-r2": 9084,
+  "cl-P0-gemini-rights-r3": 6369,
+  "cl-P4-gemini-rights-r1": 6074,
+  "cl-P0-gemini-rights-r1": 6952,
+  "cl-P4-gemini-rights-r2": 7342,
+  "cl-P4-gemini-rights-r3": 6988
+ },
+ "gates": {
+  "cl-P0-gemini-rights-r2": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": [
+    {
+     "gate": "G4",
+     "location": "③ 실질 근거 커버리지 2/10 및 재인용 포함 3/10",
+     "confidence": "medium"
+    }
+   ],
+   "claude": [
+    {
+     "gate": "G4",
+     "location": "② C2 한계 문장 '비교 대상인 전작의 작업 환경을 Lacy가 구체적으로 짚지는 않았다' (C8 한계 문장과 연동)",
+     "confidence": "medium"
+    }
+   ]
+  },
+  "cl-P4-gemini-rights-r1": {
+   "astra": [
+    {
+     "gate": "G4",
+     "location": "④-1: Kirby와 Ely Rise는 연주자로만 적혀 있다",
+     "confidence": "medium"
+    }
+   ],
+   "claude": []
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P4-gemini-rights-r2": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P4-gemini-rights-r3": {
+   "astra": [],
+   "claude": []
+  }
+ },
+ "defects": {
+  "cl-P0-gemini-rights-r2": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "present",
+    "4": "absent",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P4-gemini-rights-r1": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "present",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P4-gemini-rights-r2": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "absent",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P4-gemini-rights-r3": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "present",
+    "4": "present",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  }
+ },
+ "tokens": {
+  "astra-S01": {
+   "input_tokens": 47412,
+   "cached_input_tokens": 12160,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2871,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S02": {
+   "input_tokens": 44631,
+   "cached_input_tokens": 12160,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3266,
+   "reasoning_output_tokens": 785
+  },
+  "astra-S03": {
+   "input_tokens": 42541,
+   "cached_input_tokens": 12160,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2874,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S04": {
+   "input_tokens": 54058,
+   "cached_input_tokens": 12160,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2825,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S05": {
+   "input_tokens": 41769,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2823,
+   "reasoning_output_tokens": 389
+  },
+  "astra-S06": {
+   "input_tokens": 44143,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2817,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S07": {
+   "input_tokens": 40313,
+   "cached_input_tokens": 12160,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2947,
+   "reasoning_output_tokens": 516
+  },
+  "claude-S01": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 64153,
+   "cache_read_input_tokens": 62617,
+   "output_tokens": 12013,
+   "output_tokens_details": {
+    "thinking_tokens": 7183
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 64153,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 5824,
+     "cache_read_input_tokens": 59756,
+     "cache_creation_input_tokens": 7258,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 7258
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S02": {
+   "input_tokens": 8,
+   "cache_creation_input_tokens": 61823,
+   "cache_read_input_tokens": 184239,
+   "output_tokens": 14667,
+   "output_tokens_details": {
+    "thinking_tokens": 9215
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 61823,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6935,
+     "cache_read_input_tokens": 63714,
+     "cache_creation_input_tokens": 970,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 970
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S03": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 57371,
+   "cache_read_input_tokens": 54307,
+   "output_tokens": 11814,
+   "output_tokens_details": {
+    "thinking_tokens": 7388
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 57371,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 4238,
+     "cache_read_input_tokens": 51446,
+     "cache_creation_input_tokens": 8786,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 8786
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S04": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 77853,
+   "cache_read_input_tokens": 73381,
+   "output_tokens": 13502,
+   "output_tokens_details": {
+    "thinking_tokens": 8602
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 77853,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 5361,
+     "cache_read_input_tokens": 70520,
+     "cache_creation_input_tokens": 10194,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 10194
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S05": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 54759,
+   "cache_read_input_tokens": 108801,
+   "output_tokens": 12379,
+   "output_tokens_details": {
+    "thinking_tokens": 7579
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 54759,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6779,
+     "cache_read_input_tokens": 55932,
+     "cache_creation_input_tokens": 1688,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 1688
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S06": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 59997,
+   "cache_read_input_tokens": 57144,
+   "output_tokens": 12225,
+   "output_tokens_details": {
+    "thinking_tokens": 7811
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 59997,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6158,
+     "cache_read_input_tokens": 54283,
+     "cache_creation_input_tokens": 8575,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 8575
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S07": {
+   "input_tokens": 8,
+   "cache_creation_input_tokens": 55934,
+   "cache_read_input_tokens": 162453,
+   "output_tokens": 13536,
+   "output_tokens_details": {
+    "thinking_tokens": 9174
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 55934,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 5613,
+     "cache_read_input_tokens": 56594,
+     "cache_creation_input_tokens": 2201,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 2201
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  }
+ },
+ "cells": {
+  "cl-P0": {
+   "fails": 5,
+   "agreed": [
+    "r3 D2"
+   ],
+   "single": [
+    "r2 D5 astra",
+    "r3 D5 astra",
+    "r1 D5 astra"
+   ],
+   "runs": [
+    "cl-P0-gemini-rights-r2",
+    "cl-P0-gemini-rights-r3",
+    "cl-P0-gemini-rights-r1"
+   ],
+   "median_len": 6952,
+   "lengths": {
+    "cl-P0-gemini-rights-r1": 6952,
+    "cl-P0-gemini-rights-r2": 9084,
+    "cl-P0-gemini-rights-r3": 6369
+   }
+  },
+  "cl-P4": {
+   "fails": 3,
+   "agreed": [],
+   "single": [
+    "r1 D2 astra",
+    "r3 D4 claude",
+    "r3 D5 astra"
+   ],
+   "runs": [
+    "cl-P4-gemini-rights-r1",
+    "cl-P4-gemini-rights-r2",
+    "cl-P4-gemini-rights-r3"
+   ],
+   "median_len": 6988,
+   "lengths": {
+    "cl-P4-gemini-rights-r1": 6074,
+    "cl-P4-gemini-rights-r2": 7342,
+    "cl-P4-gemini-rights-r3": 6988
+   }
+  }
+ }
+}
