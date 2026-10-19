@@ -1132,8 +1132,7 @@ At 2 calls per 15 minutes the remaining ~770 take about 5 h. Releases under the 
   returned release reaches album demand; fresh or unconsumed rows trigger no reads (Rude John;
   the quiet 08:39Z tick); the switches stop scheduling and consumption (by code and tests,
   not thrown in production).
-- **Pending:** one *actual interval*, meaning the next refresh at about 2026-10-19 08:25Z,
-  observed without a new follow.
+- **Met 2026-10-19 (see below):** one *actual interval*, observed without a new follow.
 
 *New, for the owner (not acted on).*
 - **Catalog cap timing.** The catalog grows ~305 albums/week (10-05 to 10-17), up from the ~190
@@ -1142,6 +1141,38 @@ At 2 calls per 15 minutes the remaining ~770 take about 5 h. Releases under the 
 - **Michael Korstick.** 913 of 925 follow tracks are `not_found`, on a 16-day LRCLIB ladder.
   This is the Debussy shape. An exclusion would stop it with no code change. It was measured
   2026-10-18; see the lyrics RFC's *Step 5 smoke*.
+
+**Execution record (2026-10-19): actual interval observed — Step 2C closed.**
+
+Read-only: CloudWatch `/aws/lambda/blogWorkerLambda` and a `BEGIN READ ONLY` session against
+production, no manual invoke, no new follow. Runtime unchanged since the #125 deploy:
+`blogWorkerLambda` LastModified 2026-10-18 08:18:35Z; `LYRICS_DISCOGRAPHY_REFRESH_HOURS` is not
+set on the function, so the code default of 24 h applies.
+
+- **The refresh fired on its own.** The previous pass finished 2026-10-18 08:25:59Z. The 08:24Z
+  tick on 10-19 was about two minutes early and stayed quiet. The next tick, 08:39:00Z, logged
+  `0 artist(s) due, 35 refresh(es) due — enqueuing` and `re-opened 35 completed artist(s)`.
+  There was no other `refresh(es) due` line between 10-18 09:00Z and 10-19 08:30Z.
+- **The pass completed.** Four chained runs: 18 + 11 + 13 + 5 = **47 Spotify pages**, 1,260
+  album rows enumerated, `completed` 35, `deferred` 0, `pruned` 0, `remaining` 0 by 08:41:01Z.
+  No ERROR line in 08:30–09:30Z. The 47 pages are higher than the 42 measured on 2026-10-01
+  because one more artist is registered and the discographies grew.
+- **Registrations:** 36/36 `complete`; 35 have `last_complete_at` from 08:39–08:41Z. The 36th is
+  Rude John (10-10). It is still fenced as unconsumed and correctly was not re-opened.
+- **No new release** came up in this pass: 0 `lyrics_artist_albums` rows have `first_seen_at`
+  ≥ 08:38Z. That is plausible at ≈ 2 releases a week. Pickup of new releases was already shown
+  on 10-18, when the pass found the two 10-16 releases.
+- **The back-catalogue drained** on 10-18 at 13:39Z. 22 runs read 849 and ingested 477; 372 were
+  below the gate, 0 unavailable, 0 failed, 0 capped. Follow jobs now: **863 resolved**,
+  372 `album_below_popularity_gate` (resting 30 days, as decided), 3
+  `album_partially_ingested`, 1 `album_has_no_tracks`, and **0 `album_not_in_catalog`** (was
+  846). `albums` is 6,173.
+
+Every item on this step's Verification list is now met. The kill switches were verified in code
+and tests, but not thrown in production. The Step 5 smoke ran on 2026-10-18 (lyrics RFC).
+**Step 2C is closed.** The two owner items above are still open: the catalog-cap timing, now
+6,173 of 8,000, and the Michael Korstick exclusion. They are decisions, not part of 2C's
+verification.
 
 ---
 
@@ -1301,3 +1332,4 @@ content.
 | 2026-10-09 | Owner reported a silent ▶ (the bar changed, no sound) and a late bar on cold start. Root cause measured: a running desktop app as the active Connect device accepted `PUT /play` 204 and played nothing; rung 1 trusted the 204. Owner chose the read-back with automatic Buckit fallback, and an immediate "재생 준비 중" bar. Delivered as front #454; record under Step 2A item 5. Item 4 (mobile → app) is still to be reconfirmed. | 2A |
 | 2026-10-11 | Owner follow-ups for 2A. Front #454 confirmed normal by the owner on a real device. Lambda concurrency rechecked read-only: still 10, 0 throttles in the 4 days since front #453, peak 8/10. Owner will request the raise. Item 4 reconfirm: no preference given, so it stays undecided and unimplemented. Record under Step 2A. | 2A |
 | 2026-10-18 | Owner approved, in-session, activating the held Step 2C work at the 2026-10-01 scope (24 h refresh, back-catalogue at popularity ≥ 20), plus worker INFO logs. Shipped as worker #124 and #125, deployed 08:18Z. Observed in production: refresh reachable with no new follow, back-catalogue ingest resolving jobs (387 → 425 follow jobs resolved). The actual 24 h interval is still to be observed. Open for the owner: the catalog-cap timing (~6 weeks) and a Michael Korstick exclusion. Record under Step 2C. | 2C |
+| 2026-10-19 | Step 2C actual interval observed read-only: the refresh re-enqueued itself at 08:39Z, 24 h after the previous pass with no new follow, and completed (47 pages, 0 deferred). Back-catalogue drained (863 follow jobs resolved, 0 `album_not_in_catalog`). **Step 2C closed.** Catalog-cap timing and the Korstick exclusion stay open for the owner. | 2C |
