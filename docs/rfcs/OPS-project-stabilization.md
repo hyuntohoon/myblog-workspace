@@ -1134,7 +1134,7 @@ At 2 calls per 15 minutes the remaining ~770 take about 5 h. Releases under the 
   not thrown in production).
 - **Met 2026-10-19 (see below):** one *actual interval*, observed without a new follow.
 
-*New, for the owner (not acted on).*
+*New, for the owner.* Both items below were decided on 2026-10-20 (cap → 12,000 via worker #126; Korstick excluded); record → lyrics RFC *Owner decisions (2026-10-20)*.
 - **Catalog cap timing.** The catalog grows ~305 albums/week (10-05 to 10-17), up from the ~190
   measured on 10-01. With roughly 460 back-catalogue albums on top, `albums` reaches 8,000 in
   about six weeks, around early December. Reaching the cap stops the daily new-release sweep.
