@@ -23,9 +23,8 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
 
 - **OPS-project-stabilization** — **in-progress (Step 2A) since 2026-09-30 (owner); previous first planned priority, superseded by the 2026-10-15 override.**
   <!-- rfc: docs/rfcs/OPS-project-stabilization.md | status: in-progress -->
-  Steps 1, 2B and 2D are closed (record per step in the RFC). **2C was re-opened and activated
-  2026-10-18** (worker #124, #125: refresh + gated back-catalogue). It closes after one
-  self-triggered 24 h refresh is observed. **Step 2A** — home playback discovery with
+  Steps 1, 2B, 2C and 2D are closed (record per step in the RFC; 2C closed 2026-10-19 after the
+  refresh re-fired on its own at 24 h). **Step 2A** — home playback discovery with
   direct lyrics, and automatic next-track lyrics — is deployed in all three parts (front #447, #448,
   #449, follow-ups #450, #451, #453) and the viewer cases passed the 2026-10-06/07 real-device run;
   phones are untested. **Next:** reconfirm item 4 (mobile → app) with the owner, Lambda concurrency
@@ -36,14 +35,13 @@ Active workspace tracker for cross-repo work. Each row carries `Scope / Order (i
   <!-- rfc: docs/rfcs/FEAT-lyrics-listening-experience.md | status: in-progress -->
   Step 4 delivery, its security review, and the measurements that sized Step 5 → the RFC. Step 5
   shipped 2026-09-18; *Step 5 delivery* and the 2026-09-30 audit in the RFC are what this row tracks.
-  - **Back-catalogue ingest and the 24 h refresh are live** (worker #125, 2026-10-18, owner).
-    Back-catalogue is gated at popularity ≥ 20. The first refresh with no new follow ran at 08:24Z
-    and picked up the two missed 10-16 releases. Follow jobs resolved went 387 → 425 within two
-    ticks; ~770 are still being read at 2 `GET /albums` per 15 min. **Still to observe:** the
-    refresh firing on its own 24 h later (~10-19 08:25Z). Record → `OPS-project-stabilization`
-    *Step 2C execution record (2026-10-18)*.
-  - **Owner decisions, open:** the catalog cap of 8,000 is about six weeks away at ~305
-    albums/week plus the back-catalogue, and reaching it stops the daily new-release sweep.
+  - **Back-catalogue ingest and the 24 h refresh are live and verified** (worker #125,
+    2026-10-18; OPS Step 2C closed 2026-10-19). The refresh re-fired on its own at 10-19 08:39Z.
+    Back-catalogue drained 10-18 13:39Z: follow jobs 863 resolved, 372 below the popularity gate
+    (resting 30 days), 0 `album_not_in_catalog`. → `OPS-project-stabilization`
+    *Step 2C execution record (2026-10-19)*.
+  - **Owner decisions, open:** the catalog cap of 8,000 (`albums` 6,173 on 10-19) is about six
+    weeks away at ~305 albums/week, and reaching it stops the daily new-release sweep.
     Michael Korstick is 913 of 925 tracks `not_found` (classical, the Debussy shape); an
     exclusion would stop the LRCLIB retries.
   - **Step 5 verification is not met — smoke run 2026-10-18, read-only.** Unfollow, exclusion,
