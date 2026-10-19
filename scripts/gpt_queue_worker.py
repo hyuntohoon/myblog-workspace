@@ -93,6 +93,15 @@ WITH candidates AS (
  AND btrim(coalesce(a.body_source,''))<>''
 ) SELECT * FROM candidates WHERE key>:cursor AND spotify_id IS NOT NULL ORDER BY key LIMIT 30
 """
+# The owner's explicit track requests, oldest first. Their 'lyrics:' keys sort after every
+# 'album:' and 'genius:' key, so the cursor alone reaches them only at the end of a lap.
+REQUESTS = """
+SELECT 'lyrics:' || t.id::text AS key, t.spotify_id, 'lyrics' AS kind,
+ NULL::bigint AS annotation_id, true AS manual_requested, NULL::uuid AS job_id,
+ t.id AS track_id, x.requested_at::text AS requested_at
+ FROM tracks t JOIN track_lyrics_translations x ON x.track_id=t.id
+ WHERE x.status='requested' AND t.spotify_id IS NOT NULL ORDER BY x.requested_at, t.id
+"""
 
 
 def fallback_config(settings):
@@ -233,44 +242,75 @@ class QueueWorker:
             scan = self.state.read('scan.json', {'cursor': ''})
             skipped = self.state.read('fallback-skip.json', {}) if self.mode == 'fallback' else {}
             with Session(self.engine) as db:
+                requested = list(db.execute(text(REQUESTS)).mappings())
                 rows = list(db.execute(text(CANDIDATES), {'cursor': scan['cursor']}).mappings())
+            # An owner's track request gets one attempt ahead of the backlog per requested_at;
+            # after that it waits its turn in the cursor scan, so a poison request cannot
+            # take every claim. Requests no longer pending (or re-requested) are forgotten.
+            pending = {r['key']: r['requested_at'] for r in requested}
+            tried = {k: v for k, v in scan.get('requests', {}).items() if pending.get(k) == v}
+            for row in requested:
+                if row['key'] in tried or row['key'] in skipped:
+                    continue
+                tried[row['key']] = row['requested_at']
+                scan['requests'] = tried
+                self.state.write('scan.json', scan)
+                admitted = self._admit(row)
+                if admitted == 'daily_budget':
+                    # No budget is not this request's failure: it keeps its priority attempt.
+                    del tried[row['key']]
+                    self.state.write('scan.json', scan)
+                if admitted is not None:
+                    return admitted
             if not rows and scan['cursor']:
                 scan['cursor'] = ''
                 self.state.write('scan.json', scan)
                 return 'scan_wrap'
             for row in rows:
+                previous = scan['cursor']
                 scan['cursor'] = row['key']
                 self.state.write('scan.json', scan)
                 if row['key'] in skipped:
                     continue
-                try:
-                    if row['job_id']:
-                        with Session(self.engine) as db:
-                            needed = bind_album(db, row)
-                            db.commit()
-                        if not needed:
-                            continue
-                    with Session(self.engine) as db:
-                        claim = self.store.prepare(db, row['spotify_id'], row['kind'], row['annotation_id'],
-                                                   manual_requested=row['manual_requested'])
-                        db.commit()
-                except StaleDiscovery:
-                    continue
-                except HTTPException as error:
-                    if error.status_code == 429:
-                        return 'daily_budget'
-                    if error.status_code not in (404, 409, 422):
-                        raise
-                    continue
-                if claim['status'] != 'ready':
-                    # Korean explicit requests need a visible terminal status; never inference.
-                    if row['manual_requested'] and row['kind'] == 'lyrics' and claim.get('reason') == 'already_korean':
-                        with self.engine.begin() as connection:
-                            connection.execute(text("""UPDATE track_lyrics_translations SET status='failed',
-                                error='korean_source',updated_at=now() WHERE track_id=:id AND status='requested'"""), {'id': row['track_id']})
-                    continue
-                return row, claim
+                admitted = self._admit(row)
+                if admitted == 'daily_budget':
+                    # The cursor stays before this row: a budget refusal says nothing about
+                    # the row, and moving on would skip every row the exhausted day touches.
+                    scan['cursor'] = previous
+                    self.state.write('scan.json', scan)
+                if admitted is not None:
+                    return admitted
             return 'idle' if not rows else 'scanned'
+
+    def _admit(self, row):
+        """(row, claim) when ready, 'daily_budget' on a budget refusal, None to move on."""
+        try:
+            if row['job_id']:
+                with Session(self.engine) as db:
+                    needed = bind_album(db, row)
+                    db.commit()
+                if not needed:
+                    return None
+            with Session(self.engine) as db:
+                claim = self.store.prepare(db, row['spotify_id'], row['kind'], row['annotation_id'],
+                                           manual_requested=row['manual_requested'])
+                db.commit()
+        except StaleDiscovery:
+            return None
+        except HTTPException as error:
+            if error.status_code == 429:
+                return 'daily_budget'
+            if error.status_code not in (404, 409, 422):
+                raise
+            return None
+        if claim['status'] != 'ready':
+            # Korean explicit requests need a visible terminal status; never inference.
+            if row['manual_requested'] and row['kind'] == 'lyrics' and claim.get('reason') == 'already_korean':
+                with self.engine.begin() as connection:
+                    connection.execute(text("""UPDATE track_lyrics_translations SET status='failed',
+                        error='korean_source',updated_at=now() WHERE track_id=:id AND status='requested'"""), {'id': row['track_id']})
+            return None
+        return row, claim
 
     def _infer(self, model, row, claim, claimed_at=None):
         from scripts.gpt_plan_client import PlanInferenceError
