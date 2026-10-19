@@ -129,6 +129,12 @@ Owner decisions, 2026-10-12: budget **300 per UTC day** (set in `settings.json`,
   - **Owner controls still apply.** Stop (`pause_reason`) and the admin page's site pause are checked before every fallback claim and call. The heartbeat `details` gain `engine` (`gpt` | `claude_fallback`) and `fallback` (switch, model, cap, today's counts).
 - **Model choice.** Opus, from the 2026-10-08 comparison: Sonnet refused the test song 4/4, Opus passed 2/2, and Haiku passed but was literal. The cap of 50 a day is a starting value. The owner's Claude subscription is also used by interactive sessions, which the guard does not see.
 
+**Observation, 2026-10-19 — the fallback has not run yet.** Read from the worker's local state and `worker.log` at 22:50 KST.
+- **The limit lifted before the fallback could matter.** The last limit event was 2026-10-18 04:20 KST. When the changed worker was installed and re-enabled (16:39 KST), the first GPT probe succeeded. That is about four days before the reset Codex reported (10-22 20:08 KST), so Codex's reset time is not a reliable predictor for this API.
+- **Claude fallback calls: 0.** No limit event has occurred since the change, so `resume_at` was never set. `fallback-usage.json` was never created, and `fallback-skip.json` is `{}`. The refusal rate is therefore unmeasured (denominator 0), not zero.
+- **GPT since recovery:** 10-18 UTC 162 saved, 14 `invalid_output` (of 176 attempts, 8%); 10-19 UTC 300 saved of 300 attempts. On both days the queue hit the 300/day admission budget, so throughput is budget-bound, not limit-bound.
+- **Still open:** the fallback's refusal rate and Claude usage. They are measured at the next plan usage-limit event, from `fallback-usage.json`, `fallback-skip.json` and the heartbeat `fallback` counts.
+
 ## Authentication and inference
 
 Fresh dedicated dynamic client, stable opaque host ID, loopback 127.0.0.1 callback, state/nonce/PKCE, verified ID-token signature/issuer/audience/expiry/nonce and returned plan-use scopes. Credentials in owner-only local files (0600 in a 0700 directory), refreshed without log disclosure. Never a token copied from Codex or a browser cookie.
