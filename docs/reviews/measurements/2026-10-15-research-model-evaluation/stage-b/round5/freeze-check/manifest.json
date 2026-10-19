@@ -1,0 +1,23 @@
+{
+  "description": "Stage B round 5 pre-freeze fidelity check of P5 (P4 + three round-4 comparative points; see ROUND.md \u00a71) by both reviewers. Fresh context each; one dispatch each; no retry. Astra via ChatGPT.app codex-cli 0.163.0-alpha.10.2 with no web tool; Claude CLI 2.1.303 with --safe-mode.",
+  "artifact_dir": "runs",
+  "shared_db_src": "/Users/park_hyun/.local/share/myblog-research/shared-db-guard/src",
+  "timeout_s": 900,
+  "models": [
+    {
+      "id": "astra-p5-fidelity",
+      "provider": "gpt",
+      "model": "gpt-6-astra",
+      "availability": "available",
+      "reasoning_effort": "medium",
+      "web_search": false
+    },
+    {
+      "id": "claude-p5-fidelity",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}
