@@ -1,0 +1,37 @@
+{
+  "skipped": [],
+  "identity_hits": {},
+  "trace_identity_hits": {
+    "S08": [
+      "codex"
+    ]
+  },
+  "note_redactions": {
+    "S01": 1
+  },
+  "astra_input_sha256": {
+    "S01": "962333a43d93e4afc0c66a2ce99f6a9a3378eb9601dd6c0b7e2a9fbd55b18da3",
+    "S02": "f3197f196b178f4885268ee010daa7f11123d40c509c9a0b86a5f0b3258e832d",
+    "S07": "25a13ee8360d5c191cba893b3c2d9c5aacc2c7a30db3df43fa10eca687bd501a",
+    "S08": "c4fb04d18a6cd083eb101e5b46d1559474bb866bd3aeda3635d016d0557e2dfc",
+    "S11": "53bcde622019ae015fc507855892f331062ddc8ab87e7dbcbb2c9b8403a422d5",
+    "S12": "bdecf545ad37b7d2c32e1e1b3dd22f7e75aefe1847227f45c32ce757c6babe49",
+    "S13": "962e9de5cafd3dad160aa01609263ee3d17aecbb04a0c6a10992c19513c511bb"
+  },
+  "input_sha256": {
+    "S01": "a7c0f514e14133108e49bf7caa4a0ebab5bd5b8b981404797f7ef0c981baa48a",
+    "S02": "456eb7af338afc4aaad4d54151cf136fc8f897a318638c38e560a713d7bbf293",
+    "S03": "78a03547bf17998955d3c412ca106c424d601a9b1897291f99ff42da6bb893a7",
+    "S04": "22eaafd8a38b48b207ced2ac59028a8b72654f1426fdefde24fc54c30dbd93f5",
+    "S05": "9879bf69c416fc5a1f949bd5cd69631773c189abe289b9f3c257e94a835307ac",
+    "S06": "77fd9ddfddc3908a44479efbf031894a206f5d714a58bd1c292eee20ef3223c5",
+    "S07": "b603e98f7917bee537a95be66dda5f50fac4118368b2535144014450d9484f1c",
+    "S08": "7cb9c864efd42257b519bb249557b2231b83f6f0006a5b8ebc62643a8ca1c641",
+    "S09": "dafc6550437ff3f08f3c7b1aaad6a2cd66e943906731594d766ad140fc964f17",
+    "S10": "18b8ac246ec3de27e4dfc9ad92523610184e353e83455d800ea3e9fe4c71615c",
+    "S11": "240747aa5b9d457ae74c9cb00fe82af5cb98dd2264b8f958f2cb7475ab551bd3",
+    "S12": "1e714a4520e205dbe24dbd2a9f72e3ade17f3b403f86c1b70f9788fdecf08736",
+    "S13": "ff9ee5be2bbf3d3df4c829e13e8dafd05a870114c7196f562dc420b299136035"
+  },
+  "blinding_limit": "Trace structure differs by harness (Claude WebSearch/WebFetch vs Codex web_search), so a reviewer can infer the producer family from a trace. The prompt condition is not included, but the share of fetch-based [원문 확인] labels and the ① tool-output line can reveal P3/P3G, and the annotation block in a packet's shared input reveals P3G."
+}

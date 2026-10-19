@@ -85,8 +85,16 @@ def command(model: dict[str, Any], output: Path, mcp_config: Path) -> list[str]:
         if effort:
             argv.extend(["--effort", effort])
         return argv
+    # "web_search": false (Stage B round 3 §10 reviewer lane) runs Codex with no web tool.
+    # The override must follow `exec`: placed before it, the web tool stayed available (probe 2026-10-19).
+    web = model.get("web_search", True)
     argv = [
-        "codex", "--search", "--ask-for-approval", "never", "exec",
+        "codex", *(["--search"] if web else []), "--ask-for-approval", "never", "exec",
+        # With web_search disabled Codex still searched through the ChatGPT apps connector
+        # (codex_apps search_service.web_run), so apps and plugins go off too, and the
+        # operator's browser-capable MCP servers (~/.codex/config.toml; `mcp_servers={}` does not clear them).
+        *([] if web else ["-c", 'web_search="disabled"', "-c", "mcp_servers.chrome-devtools.enabled=false",
+                    "-c", "mcp_servers.node_repl.enabled=false", "--disable", "apps", "--disable", "plugins"]),
         "--model", model["model"], "--sandbox", "read-only", "--json",
         "--ephemeral", "--skip-git-repo-check", "--output-last-message", str(output),
     ]

@@ -1,0 +1,1047 @@
+{
+ "levels": {
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": {
+    "D1": "BORDERLINE",
+    "D2": "FAIL",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "FAIL",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P3-gemini-rights-r1": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "PASS",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "PASS",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P3G-gemini-rights-r2": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "PASS",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P3-gemini-rights-r2": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "PASS",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "BORDERLINE",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "BORDERLINE"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "PASS"
+   }
+  },
+  "cl-P3G-gemini-rights-r1": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "BORDERLINE",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "FAIL",
+    "D5": "PASS",
+    "D6": "BORDERLINE"
+   }
+  },
+  "gx-P3G-gemini-rights-r1": {
+   "claude": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "PASS",
+    "D6": "PASS"
+   }
+  },
+  "gx-P3G-gemini-rights-r2": {
+   "claude": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "PASS",
+    "D6": "PASS"
+   }
+  },
+  "gx-P0-gemini-rights-r2": {
+   "claude": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "PASS",
+    "D6": "PASS"
+   }
+  },
+  "gx-P3-gemini-rights-r1": {
+   "claude": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "PASS"
+   }
+  },
+  "gx-P3-gemini-rights-r2": {
+   "claude": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "PASS",
+    "D6": "PASS"
+   }
+  },
+  "gx-P0-gemini-rights-r1": {
+   "claude": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "PASS",
+    "D6": "PASS"
+   }
+  }
+ },
+ "lengths": {
+  "cl-P0-gemini-rights-r1": 7604,
+  "gx-P3G-gemini-rights-r1": 6461,
+  "gx-P3G-gemini-rights-r2": 6041,
+  "gx-P0-gemini-rights-r2": 6258,
+  "gx-P3-gemini-rights-r1": 7230,
+  "cl-P3-gemini-rights-r1": 10070,
+  "cl-P3G-gemini-rights-r2": 8839,
+  "gx-P3-gemini-rights-r2": 7738,
+  "gx-P0-gemini-rights-r1": 6803,
+  "cl-P3-gemini-rights-r2": 7775,
+  "cl-P0-gemini-rights-r2": 6696,
+  "cl-P3G-gemini-rights-r1": 9792
+ },
+ "gates": {
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": [
+    {
+     "gate": "G9",
+     "location": "④-2 및 ⑤ C13: 서로 다른 필드이므로 상충이 아니라 차이라는 판정",
+     "confidence": "medium"
+    }
+   ],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": [
+    {
+     "gate": "G4",
+     "location": "③ 전곡 점검표: Buttons의 참조 관계 ‘없음’",
+     "confidence": "high"
+    }
+   ],
+   "claude": [
+    {
+     "gate": "G5",
+     "location": "② C5c (Diana Gordon ending, labelled [직접 발언·재인용] S7)",
+     "confidence": "low"
+    }
+   ]
+  },
+  "cl-P3-gemini-rights-r1": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P3G-gemini-rights-r2": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P3-gemini-rights-r2": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P3G-gemini-rights-r1": {
+   "astra": [],
+   "claude": []
+  },
+  "gx-P3G-gemini-rights-r1": {
+   "claude": []
+  },
+  "gx-P3G-gemini-rights-r2": {
+   "claude": []
+  },
+  "gx-P0-gemini-rights-r2": {
+   "claude": []
+  },
+  "gx-P3-gemini-rights-r1": {
+   "claude": []
+  },
+  "gx-P3-gemini-rights-r2": {
+   "claude": []
+  },
+  "gx-P0-gemini-rights-r1": {
+   "claude": []
+  }
+ },
+ "defects": {
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "present",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "present",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P3-gemini-rights-r1": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "present",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P3G-gemini-rights-r2": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P3-gemini-rights-r2": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P3G-gemini-rights-r1": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "gx-P3G-gemini-rights-r1": {
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "gx-P3G-gemini-rights-r2": {
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "gx-P0-gemini-rights-r2": {
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "present",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "gx-P3-gemini-rights-r1": {
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "gx-P3-gemini-rights-r2": {
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "gx-P0-gemini-rights-r1": {
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  }
+ },
+ "tokens": {
+  "astra-S01": {
+   "input_tokens": 54056,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2821,
+   "reasoning_output_tokens": 357
+  },
+  "astra-S02": {
+   "input_tokens": 47006,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3439,
+   "reasoning_output_tokens": 906
+  },
+  "astra-S07": {
+   "input_tokens": 43462,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2843,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S08": {
+   "input_tokens": 44412,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2788,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S11": {
+   "input_tokens": 43415,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2840,
+   "reasoning_output_tokens": 513
+  },
+  "astra-S12": {
+   "input_tokens": 48071,
+   "cached_input_tokens": 0,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2806,
+   "reasoning_output_tokens": 349
+  },
+  "astra-S13": {
+   "input_tokens": 46624,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3392,
+   "reasoning_output_tokens": 955
+  },
+  "claude-S01": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 72708,
+   "cache_read_input_tokens": 73380,
+   "output_tokens": 10755,
+   "output_tokens_details": {
+    "thinking_tokens": 6980
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 72708,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6957,
+     "cache_read_input_tokens": 70519,
+     "cache_creation_input_tokens": 5050,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 5050
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S02": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 65237,
+   "cache_read_input_tokens": 61575,
+   "output_tokens": 13427,
+   "output_tokens_details": {
+    "thinking_tokens": 8827
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 65237,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6149,
+     "cache_read_input_tokens": 58714,
+     "cache_creation_input_tokens": 9384,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 9384
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S03": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 76365,
+   "cache_read_input_tokens": 150532,
+   "output_tokens": 8920,
+   "output_tokens_details": {
+    "thinking_tokens": 3542
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 76365,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6792,
+     "cache_read_input_tokens": 76250,
+     "cache_creation_input_tokens": 2976,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 2976
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S04": {
+   "input_tokens": 8,
+   "cache_creation_input_tokens": 73480,
+   "cache_read_input_tokens": 215609,
+   "output_tokens": 11132,
+   "output_tokens_details": {
+    "thinking_tokens": 5180
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 73480,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 7353,
+     "cache_read_input_tokens": 74761,
+     "cache_creation_input_tokens": 1580,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 1580
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S05": {
+   "input_tokens": 10,
+   "cache_creation_input_tokens": 63673,
+   "cache_read_input_tokens": 252144,
+   "output_tokens": 11563,
+   "output_tokens_details": {
+    "thinking_tokens": 4984
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 63673,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 8206,
+     "cache_read_input_tokens": 65788,
+     "cache_creation_input_tokens": 746,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 746
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S06": {
+   "input_tokens": 8,
+   "cache_creation_input_tokens": 68466,
+   "cache_read_input_tokens": 206328,
+   "output_tokens": 7822,
+   "output_tokens_details": {
+    "thinking_tokens": 2761
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 68466,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 4987,
+     "cache_read_input_tokens": 69498,
+     "cache_creation_input_tokens": 1829,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 1829
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S07": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 54995,
+   "cache_read_input_tokens": 55385,
+   "output_tokens": 11170,
+   "output_tokens_details": {
+    "thinking_tokens": 6424
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 54995,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6645,
+     "cache_read_input_tokens": 52524,
+     "cache_creation_input_tokens": 5332,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 5332
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S08": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 58102,
+   "cache_read_input_tokens": 57127,
+   "output_tokens": 11931,
+   "output_tokens_details": {
+    "thinking_tokens": 7200
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 58102,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6098,
+     "cache_read_input_tokens": 54266,
+     "cache_creation_input_tokens": 6697,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 6697
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S09": {
+   "input_tokens": 12,
+   "cache_creation_input_tokens": 90829,
+   "cache_read_input_tokens": 446514,
+   "output_tokens": 10481,
+   "output_tokens_details": {
+    "thinking_tokens": 4689
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 90829,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6992,
+     "cache_read_input_tokens": 92775,
+     "cache_creation_input_tokens": 915,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 915
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S10": {
+   "input_tokens": 8,
+   "cache_creation_input_tokens": 65488,
+   "cache_read_input_tokens": 195334,
+   "output_tokens": 9199,
+   "output_tokens_details": {
+    "thinking_tokens": 3886
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 65488,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 5117,
+     "cache_read_input_tokens": 67392,
+     "cache_creation_input_tokens": 957,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 957
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S11": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 58625,
+   "cache_read_input_tokens": 116433,
+   "output_tokens": 12931,
+   "output_tokens_details": {
+    "thinking_tokens": 8470
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 58625,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6333,
+     "cache_read_input_tokens": 60965,
+     "cache_creation_input_tokens": 521,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 521
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S12": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 71745,
+   "cache_read_input_tokens": 136547,
+   "output_tokens": 15141,
+   "output_tokens_details": {
+    "thinking_tokens": 10065
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 71745,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 4772,
+     "cache_read_input_tokens": 72763,
+     "cache_creation_input_tokens": 1843,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 1843
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S13": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 63333,
+   "cache_read_input_tokens": 60354,
+   "output_tokens": 12605,
+   "output_tokens_details": {
+    "thinking_tokens": 8341
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 63333,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 5814,
+     "cache_read_input_tokens": 57493,
+     "cache_creation_input_tokens": 8701,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 8701
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  }
+ },
+ "cells": {
+  "cl-P0": {
+   "fails": 5,
+   "agreed": [],
+   "runs": [
+    "cl-P0-gemini-rights-r1",
+    "cl-P0-gemini-rights-r2"
+   ],
+   "median_len": 7150.0
+  },
+  "cl-P3": {
+   "fails": 2,
+   "agreed": [],
+   "runs": [
+    "cl-P3-gemini-rights-r1",
+    "cl-P3-gemini-rights-r2"
+   ],
+   "median_len": 8922.5
+  },
+  "cl-P3G": {
+   "fails": 4,
+   "agreed": [],
+   "runs": [
+    "cl-P3G-gemini-rights-r2",
+    "cl-P3G-gemini-rights-r1"
+   ],
+   "median_len": 9315.5
+  },
+  "gx-P3G": {
+   "fails": 0,
+   "agreed": [],
+   "runs": [
+    "gx-P3G-gemini-rights-r1",
+    "gx-P3G-gemini-rights-r2"
+   ],
+   "median_len": 6251.0
+  },
+  "gx-P0": {
+   "fails": 0,
+   "agreed": [],
+   "runs": [
+    "gx-P0-gemini-rights-r2",
+    "gx-P0-gemini-rights-r1"
+   ],
+   "median_len": 6530.5
+  },
+  "gx-P3": {
+   "fails": 0,
+   "agreed": [],
+   "runs": [
+    "gx-P3-gemini-rights-r1",
+    "gx-P3-gemini-rights-r2"
+   ],
+   "median_len": 7484.0
+  }
+ }
+}

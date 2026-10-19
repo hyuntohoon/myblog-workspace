@@ -1,0 +1,356 @@
+{
+  "date": "2026-10-20",
+  "replaced": {
+    "owner_collection_line": "### 오너 컬렉션 신호: [redacted: owner bucket names] — 이미 담아둔 것이므로, 오너가 아는 맥락은 다시 설명하지 말 것.",
+    "annotation_block": "[redacted: Genius community-annotation block, sha256 c0e757d2c1f475a4d9cdf0636adce0974418bf83005b70156f8e0f94aa4decb5; rebuild with build_annotation_block.py]"
+  },
+  "files": {
+    "freeze-check/doc4.txt": {
+      "original_sha256": "39f87089dc848d46533be6a3dc2a2c2ee55889101c79441f6d577d02fbe3e7e4",
+      "occurrences": {
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "freeze-check/runs/astra-p3-fidelity/input.txt": {
+      "original_sha256": "27a1edf29d3bd9004e0945976b5b662ff20a659b12155bd18ebeddaa3808dedf",
+      "occurrences": {
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "freeze-check/runs/claude-p3-fidelity/input.txt": {
+      "original_sha256": "27a1edf29d3bd9004e0945976b5b662ff20a659b12155bd18ebeddaa3808dedf",
+      "occurrences": {
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/inputs/S01.txt": {
+      "original_sha256": "a7c0f514e14133108e49bf7caa4a0ebab5bd5b8b981404797f7ef0c981baa48a",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S02.txt": {
+      "original_sha256": "456eb7af338afc4aaad4d54151cf136fc8f897a318638c38e560a713d7bbf293",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S03.txt": {
+      "original_sha256": "78a03547bf17998955d3c412ca106c424d601a9b1897291f99ff42da6bb893a7",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/inputs/S04.txt": {
+      "original_sha256": "22eaafd8a38b48b207ced2ac59028a8b72654f1426fdefde24fc54c30dbd93f5",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/inputs/S05.txt": {
+      "original_sha256": "9879bf69c416fc5a1f949bd5cd69631773c189abe289b9f3c257e94a835307ac",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S06.txt": {
+      "original_sha256": "77fd9ddfddc3908a44479efbf031894a206f5d714a58bd1c292eee20ef3223c5",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S07.txt": {
+      "original_sha256": "b603e98f7917bee537a95be66dda5f50fac4118368b2535144014450d9484f1c",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S08.txt": {
+      "original_sha256": "7cb9c864efd42257b519bb249557b2231b83f6f0006a5b8ebc62643a8ca1c641",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/inputs/S09.txt": {
+      "original_sha256": "dafc6550437ff3f08f3c7b1aaad6a2cd66e943906731594d766ad140fc964f17",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S10.txt": {
+      "original_sha256": "18b8ac246ec3de27e4dfc9ad92523610184e353e83455d800ea3e9fe4c71615c",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S11.txt": {
+      "original_sha256": "240747aa5b9d457ae74c9cb00fe82af5cb98dd2264b8f958f2cb7475ab551bd3",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S12.txt": {
+      "original_sha256": "1e714a4520e205dbe24dbd2a9f72e3ade17f3b403f86c1b70f9788fdecf08736",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs/S13.txt": {
+      "original_sha256": "ff9ee5be2bbf3d3df4c829e13e8dafd05a870114c7196f562dc420b299136035",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/inputs-astra/S01.txt": {
+      "original_sha256": "962333a43d93e4afc0c66a2ce99f6a9a3378eb9601dd6c0b7e2a9fbd55b18da3",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs-astra/S02.txt": {
+      "original_sha256": "f3197f196b178f4885268ee010daa7f11123d40c509c9a0b86a5f0b3258e832d",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs-astra/S07.txt": {
+      "original_sha256": "25a13ee8360d5c191cba893b3c2d9c5aacc2c7a30db3df43fa10eca687bd501a",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs-astra/S08.txt": {
+      "original_sha256": "c4fb04d18a6cd083eb101e5b46d1559474bb866bd3aeda3635d016d0557e2dfc",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/inputs-astra/S11.txt": {
+      "original_sha256": "53bcde622019ae015fc507855892f331062ddc8ab87e7dbcbb2c9b8403a422d5",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs-astra/S12.txt": {
+      "original_sha256": "bdecf545ad37b7d2c32e1e1b3dd22f7e75aefe1847227f45c32ce757c6babe49",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/inputs-astra/S13.txt": {
+      "original_sha256": "962e9de5cafd3dad160aa01609263ee3d17aecbb04a0c6a10992c19513c511bb",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/runs/astra-review-S01/input.txt": {
+      "original_sha256": "962333a43d93e4afc0c66a2ce99f6a9a3378eb9601dd6c0b7e2a9fbd55b18da3",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/astra-review-S02/input.txt": {
+      "original_sha256": "f3197f196b178f4885268ee010daa7f11123d40c509c9a0b86a5f0b3258e832d",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/astra-review-S07/input.txt": {
+      "original_sha256": "25a13ee8360d5c191cba893b3c2d9c5aacc2c7a30db3df43fa10eca687bd501a",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/astra-review-S08/input.txt": {
+      "original_sha256": "c4fb04d18a6cd083eb101e5b46d1559474bb866bd3aeda3635d016d0557e2dfc",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/runs/astra-review-S11/input.txt": {
+      "original_sha256": "53bcde622019ae015fc507855892f331062ddc8ab87e7dbcbb2c9b8403a422d5",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/astra-review-S12/input.txt": {
+      "original_sha256": "bdecf545ad37b7d2c32e1e1b3dd22f7e75aefe1847227f45c32ce757c6babe49",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/astra-review-S13/input.txt": {
+      "original_sha256": "962e9de5cafd3dad160aa01609263ee3d17aecbb04a0c6a10992c19513c511bb",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/runs/claude-review-S01/input.txt": {
+      "original_sha256": "a7c0f514e14133108e49bf7caa4a0ebab5bd5b8b981404797f7ef0c981baa48a",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S02/input.txt": {
+      "original_sha256": "456eb7af338afc4aaad4d54151cf136fc8f897a318638c38e560a713d7bbf293",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S03/input.txt": {
+      "original_sha256": "78a03547bf17998955d3c412ca106c424d601a9b1897291f99ff42da6bb893a7",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/runs/claude-review-S04/input.txt": {
+      "original_sha256": "22eaafd8a38b48b207ced2ac59028a8b72654f1426fdefde24fc54c30dbd93f5",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/runs/claude-review-S05/input.txt": {
+      "original_sha256": "9879bf69c416fc5a1f949bd5cd69631773c189abe289b9f3c257e94a835307ac",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S06/input.txt": {
+      "original_sha256": "77fd9ddfddc3908a44479efbf031894a206f5d714a58bd1c292eee20ef3223c5",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S07/input.txt": {
+      "original_sha256": "b603e98f7917bee537a95be66dda5f50fac4118368b2535144014450d9484f1c",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S08/input.txt": {
+      "original_sha256": "7cb9c864efd42257b519bb249557b2231b83f6f0006a5b8ebc62643a8ca1c641",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "review/runs/claude-review-S09/input.txt": {
+      "original_sha256": "dafc6550437ff3f08f3c7b1aaad6a2cd66e943906731594d766ad140fc964f17",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S10/input.txt": {
+      "original_sha256": "18b8ac246ec3de27e4dfc9ad92523610184e353e83455d800ea3e9fe4c71615c",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S11/input.txt": {
+      "original_sha256": "240747aa5b9d457ae74c9cb00fe82af5cb98dd2264b8f958f2cb7475ab551bd3",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S12/input.txt": {
+      "original_sha256": "1e714a4520e205dbe24dbd2a9f72e3ade17f3b403f86c1b70f9788fdecf08736",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "review/runs/claude-review-S13/input.txt": {
+      "original_sha256": "ff9ee5be2bbf3d3df4c829e13e8dafd05a870114c7196f562dc420b299136035",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "runs/cl-P0-gemini-rights-r1/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/cl-P0-gemini-rights-r2/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/cl-P3-gemini-rights-r1/input.txt": {
+      "original_sha256": "49063e18eaa0f3cdc95ad77107278c77b06520944f5e47bd6f33a816bf0e49a1",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/cl-P3-gemini-rights-r2/input.txt": {
+      "original_sha256": "49063e18eaa0f3cdc95ad77107278c77b06520944f5e47bd6f33a816bf0e49a1",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/cl-P3G-gemini-rights-r1/input.txt": {
+      "original_sha256": "2186a15ab455cca3ca4e55ba003122d5c63f8119234eb9d41ba38f8856e8ba1e",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "runs/cl-P3G-gemini-rights-r2/input.txt": {
+      "original_sha256": "2186a15ab455cca3ca4e55ba003122d5c63f8119234eb9d41ba38f8856e8ba1e",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "runs/gx-P0-gemini-rights-r1/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/gx-P0-gemini-rights-r2/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/gx-P3-gemini-rights-r1/input.txt": {
+      "original_sha256": "49063e18eaa0f3cdc95ad77107278c77b06520944f5e47bd6f33a816bf0e49a1",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/gx-P3-gemini-rights-r2/input.txt": {
+      "original_sha256": "49063e18eaa0f3cdc95ad77107278c77b06520944f5e47bd6f33a816bf0e49a1",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/gx-P3G-gemini-rights-r1/input.txt": {
+      "original_sha256": "2186a15ab455cca3ca4e55ba003122d5c63f8119234eb9d41ba38f8856e8ba1e",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    },
+    "runs/gx-P3G-gemini-rights-r2/input.txt": {
+      "original_sha256": "2186a15ab455cca3ca4e55ba003122d5c63f8119234eb9d41ba38f8856e8ba1e",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1,
+        "## Genius 커뮤니티 주석 (파이프라인": 1
+      }
+    }
+  },
+  "token_scan_hits_after": 0
+}

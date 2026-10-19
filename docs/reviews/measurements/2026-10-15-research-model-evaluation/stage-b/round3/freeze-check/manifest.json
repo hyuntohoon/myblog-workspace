@@ -1,0 +1,10 @@
+{
+  "description": "Stage B round 3 pre-freeze fidelity check of P3 (P2 + four overlapping round-2 comparative points + one declared deletion) and P3G (P3 + Genius-annotation rule) by both reviewers. Fresh context each; one dispatch each; no retry. Astra via ChatGPT.app codex-cli 0.163.0-alpha.10.2; Claude CLI 2.1.303 with --safe-mode.",
+  "artifact_dir": "runs",
+  "shared_db_src": "/Users/park_hyun/.local/share/myblog-research/shared-db-guard/src",
+  "timeout_s": 900,
+  "models": [
+    {"id": "astra-p3-fidelity", "provider": "gpt", "model": "gpt-6-astra", "availability": "available", "reasoning_effort": "medium"},
+    {"id": "claude-p3-fidelity", "provider": "claude", "model": "claude-opus-5-5", "availability": "available", "reasoning_effort": "medium"}
+  ]
+}

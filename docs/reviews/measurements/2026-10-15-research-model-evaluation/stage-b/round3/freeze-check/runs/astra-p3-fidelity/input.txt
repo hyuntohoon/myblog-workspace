@@ -1,0 +1,188 @@
+You are one of two reviewers (GPT-6 Astra and Claude) of a music-critic pre-review research prompt. In Stage B round 2, a candidate P2 (control P0 plus four definition/deletion edits) did not advance. After round 2 each reviewer wrote a comparative calibration with prompt-change proposals (DOCUMENTS 2 and 3). DOCUMENT 1 records the round-2 findings, the four points on which both proposals overlap, and the round-3 plan. DOCUMENT 4 holds (a) a unified diff from P2 to the round-3 candidate P3, meant to implement exactly those four overlapping points and nothing else (one orchestrator-derived deletion is declared in DOCUMENT 1), (b) a diff from P3 to P3G, which adds one rule for a new input block of Genius community annotations, and (c) the head of that block. A per-track checklist deletion proposed by one reviewer only was deliberately NOT applied. Added recording duties lengthened notes in round 1, so edits are meant to be definitions or deletions.
+
+Task — fidelity check before P3 and P3G are frozen for a bounded development round. Answer:
+(1) For each of the four overlapping points: applied faithfully / applied with a material distortion / missing. Quote the diff line for any distortion or omission.
+(2) Does the P2→P3 diff introduce anything that is NOT one of the four or the declared deletion (scope creep), or name an album-specific outlet, service or fact?
+(3) Does any edit, including the P3G annotation rule, create a new material defect: a contradiction with an unchanged rule, an instruction a producer cannot follow in a headless web-search run, a duty likely to lengthen notes, or a route to a known defect (status inflation, attribution upgrade of relayed quotes, quota-filling, spurious conflicts, ritual repetition)?
+For every objection give exact replacement text in Korean. Do not propose changes beyond these; note them in one line at the end as "out of scope" if you must. Do not browse the web; everything you need is below. Reply in English Markdown, under 400 words. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+
+DOCUMENT 1 — round-2 findings, overlap and round-3 plan
+
+## What the round shows
+
+1. **The environment separates the outputs more than the prompt does.** Codex-lane outputs carry 2 of the 32 FAIL marks, both on P0 and each from one reviewer only. The four Codex · P2 outputs have no FAIL, no gate allegation and at most one recurring defect each. The Claude CLI lane carries 30 FAILs, every agreed FAIL and every P2 gate allegation, under both prompts.
+2. **P2's edits help where they target labels and transcription, not scope.** Defect 2 fell in the Claude lane from 4/4 P0 outputs to 2/4 P2 outputs (both Gemini P2 runs are free of it). Numerator inconsistency (6) fell from 4/4 to 1/4. Scope and conflict errors (5) stayed at 4/4. Both reviewers trace them to the missing definition of a comparison unit, which the scope test in edit 2 did not supply. P2 also lengthened Claude-lane notes (1.135× per-cell median) and added under-reading (3) in three of four Claude-lane P2 outputs.
+3. **The Claude-lane harness confound is still the main suspect for defects 2 and 3.** WebFetch returns model-processed text. Both comparatives classify these defects as mixed harness/model, and both name truncated or summarised fetches, not read further, as the route to "absent" claims. Safe mode removed the instruction contamination (§2), not this.
+4. **The reviewers still differ in strictness, and the sentinel now measures it.** Astra gave 27 of 32 FAILs and failed the sentinel on D6. Claude passed the control only at BORDERLINE and gave the sentinel no FAIL anywhere. Under the round-1 rule (any reviewer's FAIL counts), P0 itself would have failed in all four cells.
+
+## Proposed direction for a round 3 (needs predeclaration and owner confirmation)
+
+These are the points where both comparatives' proposals overlap. Each defines, generalises or deletes an existing rule:
+
+1. **Access label, tightened again.** `원문 확인` only for unprocessed page text the producer received; summarised fetches and snippets get the relay label; the note states the tool output kind once at the top (Astra 1, Claude 1).
+2. **Conflict definition.** `상충` only between statements about the same role field, scope (track / album / edition) and time; an absence taken from a truncated snippet or filtered aggregate is "scope difference" or "unconfirmed", never conflict or absence (Astra 3–4, Claude 2).
+3. **Numerators derived from one list.** Every coverage or aggregate numerator is counted from the same listed track numbers (Astra 3, Claude 4).
+4. **Compression by deletion.** Drop the per-track checklist and the run-metadata lines; list only tracks with gaps or exceptions; write detailed evidence and open status once and reference it (Astra 5, Claude 4).
+
+Not overlapping, so not proposed: Astra's quotation-trace rule (2), Claude's role-string rule for headings and tables (3) and its quotation-context rule (5).
+
+Two questions are outside a prompt round and are recorded for the owner, not decided here:
+- **Producer environment.** In both rounds, the strongest configurations ran in the Codex lane (round 1: Codex · P0; round 2: Codex · P2 with zero FAILs). The 2026-10-16 owner decision to confirm in both environments stands; whether the Claude CLI lane's WebFetch confound should be addressed before a round 3, or the lanes judged separately, is for the round-3 predeclaration.
+- **Scoring-manual gaps** raised by Claude's comparative (acceptance-v1 §6.1, not prompt matters): how a reviewer-side access block differs from an R5 "retrieval failure"; the D5 level of an understatement with no downstream effect; whether Genius and Wikipedia rows count as an "authoritative row" for D6.
+
+
+## 1. Prompts
+
+| Role | File | sha256 |
+|---|---|---|
+| Control P0 | `prompts/P0.md` (byte copy of round-1/2 P0) | `f6c3a6277f4d6e4a5b7a1a978820e5c592e2a24151bc022c87d2f9cb290a8d2f` |
+| Candidate P3 | `prompts/P3.md` (rc0, before the fidelity check) | `225ec41c57e20bd8fbf9a8675c8133ca4d869e2a8e5e98f5d82a5d34d6cf77b5` |
+
+P3 = P2 with these edits (`prompts/P2-to-P3.diff`; P2 14,119 → P3 14,710 bytes, P0 12,650):
+
+1. **Access label, tightened (definition, §5).** `원문 확인` only for unprocessed page text received *in this run*. Summarised fetches and snippets stay `검색 결과 경유` (no new label; Claude's comparative called it "중계"). New: ① states once which kinds of tool output the run received (unprocessed text / tool summary / snippet); the §10 ① line names it too.
+2. **Conflict definition (definition, §5).** `상충` only when statements about the same subject's same role field, scope (track / album / edition) and time cannot both be true. Otherwise "범위 차이" in prose, stated in P3 as not a new status label; each statement keeps its own status. Absence from a truncated or filtered source is `미확인`, never conflict or absence.
+3. **Numerators from the table (definition, §6).** Every aggregate and coverage numerator is counted from the ③ checklist; summary and body figures must match it (Astra 3 "집계는 표의 동일한 포함 기준으로 재계산"; Claude 4's numerator half).
+4. **Compression by deletion (§8, §10, header).**
+   - The "write once, reference elsewhere" rule extends from gaps/access limits to detailed evidence and open status (Astra 5, Claude 4).
+   - The run-metadata duty (prompt revision ID, hash, runner commit, collection time) is deleted (Astra 5 "근거 없는 … 실행 이력은 삭제", Claude 4).
+   - The header line `제안일: 2026-10-15` is deleted. Orchestrator-derived, not a reviewer proposal: Astra flagged an unsupported "proposal date" in S03/S06, and those notes cite the prompt header (`../round2/runs/gx-P0-gemini-rights-r2-resume/output.md:76`, `gx-P0-2000-tape-r2-resume/output.md:73`). Both are P0 outputs, so P0 still carries the line and (d) will show the contrast.
+   - **The per-track checklist stays** (P2's one-line-legend rule unchanged). Deleting it was Claude 4 only; Astra 3 presupposes the table, and reviewers use it for D6 row linkage. Under this round's own overlap rule it is excluded.
+
+Not included (one reviewer only): Astra's quotation-trace rule; Claude's role-string-in-headings rule, quotation-context rule and checklist deletion.
+
+
+## 3b. Genius annotations as input (OWNER, raised 2026-10-19)
+
+Owner view: use the per-song Genius annotations we already hold, possibly in their own section of the note. Today's input carries Genius credits, matches and sample relations, but **no annotation text**. Prod DB, read-only, Gemini Rights (2026-10-19):
+- 100 annotations on 8 of 10 tracks (Mercury 27, Helmet 18, Cody Freestyle 17; 2Gether and Sunshine 0); 95 have `body_ko`; 9 tracks have a song description.
+- **0 verified** (`is_verified`): all are community-written. A quotation inside one is relayed by the community, never the artist's speech (G5 risk).
+- 10 mention an interview or statement; 1 carries a URL. Source text 27,686 chars, about 3.7× the current 7,484-char input.
+
+Options:
+- **(A) Separate later round.** Round 3 stays prompt-only; an annotation input arm follows. Cleanest attribution, slowest.
+- **(B, recommended) Third arm in this round: P3 + annotation block.** Cells become P0 / P3 / P3+G per environment. P3 vs P0 stays prompt-only, and P3+G vs P3 isolates the annotation effect. Cost: 12 generations, (12 + 1) × 2 + 2 = 28 review dispatches; a ChatGPT limit is more likely to cut the Codex lane short (then §4's halt rule applies).
+- (C) Give the block to both P0 and P3. Rejected: it changes the control and mixes the input change into P3's edits.
+
+Block design for (B), to freeze before dispatch: original-language `body_source`, not our machine translation, so translation errors cannot become evidence. Per track: song description, plus top annotations by votes and every one that mentions a statement, capped so the block stays under about 8,000 chars. The header labels the block as "Genius 커뮤니티 주석 — 미인증 등재 기록, 인용은 커뮤니티 경유". P3+G adds one rule: annotations are leads and `DB등재` material. A statement quoted in one counts as `재인용` until the original is found, and the note may give them their own subsection. No production renderer change; the block is rendered offline into the round's inputs.
+
+
+
+DOCUMENT 2 — Astra round-2 comparative (cause classification and proposals)
+
+### 다음 bounded round의 프롬프트 변경안
+
+1. **기존 ‘원문 확인’ 규칙 정의:** 생산자가 실제 받은 비가공 본문 또는 직접 검사한 보존본의 해당 구절에만 적용한다. 검색·가공 요약·재전달은 별도 상태로 표시하고, 감사자의 사후 회수와 구분한다.
+2. **기존 인용·추적 규칙 일반화:** 중심 인용마다 원 출처 URL, 구획·검색 가능한 문구, 실제 수신 발췌와 접근 유형을 연결한다. 원 구절 미회수와 내용 진위 미판정을 별도 기록한다.
+3. **기존 공백·커버리지 규칙 정의:** ‘수신 자료에서 미확인’, ‘원문에서 미발견’, ‘존재하지 않음’을 구분한다. 집계는 표의 동일한 포함 기준으로 재계산하며, ‘만·유일·없음’도 그 범위 안에서만 사용한다.
+4. **기존 크레딧·상충 규칙 일반화:** 원래 역할명·트랙·판본·권위 있는 행을 유지하고, 대상·역할·단위·시점이 같고 명제가 양립 불가능할 때만 ‘상충’으로 분류한다. 미등재와 불참, 녹음 시도와 최종 사용도 구분한다.
+5. **기존 선택·반복 규칙 정의:** 상세 근거와 미해결 상태는 한곳에 두고 다른 구획에서는 참조한다. 실행 메타데이터에도 일반 사실과 같은 근거 요건을 적용하며, 근거 없는 제안일·실행 이력은 삭제한다.
+
+
+
+DOCUMENT 3 — Claude round-2 comparative (defects and proposals)
+
+## 3. 반복되는 결함과 원인 추정
+
+| 결함 | 해당 노트 | 원인 판단 |
+|---|---|---|
+| 요약·중계 자료를 "원문 확인"으로 표기 (#2) | S04·S06·S07·S08·S10·S11·S13·S17 | **혼합.** 하네스마다 fetch 출력이 다릅니다(요약 vs 행 단위 원문). 그런데 프롬프트의 라벨 체계는 도구 출력 종류를 구분하지 않습니다. |
+| 범위가 다른 진술을 상충으로 처리, 배타적 진술 미점검 (#5) | S04·S08·S09·S10·S11·S13·S15·S17 | **주로 프롬프트.** "상충하면 상충으로 기록" 지시는 있지만 비교 단위(필드·범위·판본)가 정의돼 있지 않습니다. 잘린 스니펫(S11)과 걸러진 집계(S15)가 이를 증폭합니다. |
+| 중심 인용의 범위를 좁히거나 옮김 | S03·S09·S15·S17 | **혼합.** 요약이 잘린 경우(S09·S15)와 덜 읽은 경우(S17)가 겹칩니다. 질문 맥락을 보존하라는 규칙도 없습니다. |
+| 집계·커버리지 분자 불일치 (#6) | S08·S11·S13·S17 | **주로 프롬프트.** 곡별 점검표와 요약 분자를 따로 쓰게 하면서, 분자를 표에서 유도하라는 요구가 없습니다. |
+| 제목·요약에서 역할 정규화 (#4) | S04·S10·S14·S17 | **모델.** 본문의 원래 역할 문자열은 지켰고, 표제에서만 정규화가 일어났습니다. |
+| 정보량이 낮은 곡별 표와 실행 메타데이터 (#8) | S02·S03·S06·S12·S17 | **프롬프트.** 산출 형식이 요구한 결과입니다. |
+| 확보한 출처를 덜 읽음 (#3) | S09·S13·S15 | **하네스 쪽 혼합.** 잘린 fetch 결과를 이어 읽지 않았습니다. |
+
+## 4. 다음 제한 라운드를 위한 프롬프트 변경 (5건)
+
+1. **접근 라벨 정의 (정의).** "원문 확인"은 도구가 가공하지 않은 페이지 텍스트를 받았을 때만 붙입니다. 모델이 처리한 fetch 요약과 검색 스니펫은 "중계"로 표기합니다. 노트 첫머리에 사용한 도구의 출력 종류를 한 번 밝히고, 그에 맞춰 주장별 라벨을 적용합니다(M1을 생산자용 규칙으로 옮긴 것).
+2. **상충 정의 (정의).** "상충"은 같은 역할 필드, 같은 범위(곡/앨범/판본), 같은 시점에 대한 진술끼리만 성립합니다. 잘린 스니펫이나 걸러진 집계에서 나온 부재로는 상충이나 부재를 확정할 수 없고, 이런 경우는 "범위 차이" 또는 "미확인"으로 적습니다.
+3. **역할 문자열 규칙 확대 (일반화).** 원래 역할 문자열 규칙을 본문뿐 아니라 제목, 요약, 표 머리에도 적용합니다. 출처 행에 해당 문자열이 없으면 "프로듀서", "송라이팅" 같은 상위어를 쓰지 않습니다.
+4. **곡별 점검표와 실행 메타데이터 줄 삭제 (삭제).** 대신 공백과 예외가 있는 곡만 번호를 나열하고, 모든 분자는 그 번호 목록에서 셉니다.
+5. **인용 발췌 규칙 확대 (일반화).** 직접 발언 발췌에는 원어 구절과 그 발언이 답한 질문 또는 범위(앨범 전반/특정 곡)를 함께 남깁니다. 번역만으로 된 발췌는 허용하지 않습니다.
+
+**프롬프트가 아니라 채점 매뉴얼에서 정할 공백 (오너 판단 필요)**
+- 감사자 쪽 접근 차단을 R5의 "회수 실패"와 구분하는 규칙
+- 결과적 영향이 없는 과소 진술의 D5 등급 (S01, S08)
+- Genius와 Wikipedia 행이 D6의 "권위 있는 행"에 해당하는지
+
+
+
+DOCUMENT 4 — diffs and annotation block head
+
+(a) P2 → P3
+--- round2/prompts/P2.md	2026-10-19 22:41:24
++++ round3/prompts/P3.md	2026-10-19 22:48:41
+@@ -1,5 +1,4 @@
+ 음악 평론 사전조사 도우미 — 핵심 근거 우선 개정안
+-제안일: 2026-10-15
+ 
+ [역할과 목표]
+ 
+@@ -101,7 +100,7 @@
+ 필요한 유형과 상태를 함께 사용한다.
+ 예: [직접 발언·원문 확인], [DB등재·상충].
+ 
+-‘원문 확인’은 도구가 가공하지 않고 돌려준 페이지 텍스트에서 해당 문장을 직접 읽었다는 뜻이다. 도구가 요약·가공해 돌려준 내용과 검색 스니펫은 ‘검색 결과 경유’다. 가공 여부를 알 수 없으면 가공된 것으로 본다.
++‘원문 확인’은 이번 실행에서 받은, 도구가 가공하지 않은 페이지 텍스트에서 해당 문장을 직접 읽었을 때만 쓴다. 도구가 요약·가공해 돌려준 내용과 검색 스니펫은 ‘검색 결과 경유’다. 가공 여부를 알 수 없으면 가공된 것으로 본다. 이번 실행에서 받은 도구 출력의 종류(가공하지 않은 본문, 도구 요약, 검색 스니펫)를 ①에 한 번 적는다.
+ ‘원문 확인’은 해당 출처가 그렇게 말한다는 뜻이다. 모든 현실적 사실이 독립 검증됐다는 뜻으로 확대하지 않는다.
+ 같은 원문을 옮긴 기사나 같은 메타데이터를 공유하는 서비스는 독립 근거로 세지 않는다.
+ 
+@@ -109,6 +108,7 @@
+ 여러 스니펫도 독립성을 확인하지 못하면 검증 수준이 올라가지 않는다.
+ “이번 조사에서 찾지 못했다”를 “존재하지 않는다”로 바꾸지 않는다.
+ ‘유일하다’, ‘없다’, ‘상충 없음’도 같다. 비교한 자료의 범위를 확인하고 그 밖을 단정하지 않는다. 자료나 조사 경로에 관한 주장(“확인할 수 있는 경로는 이것뿐”)에도 적용한다.
++‘상충’은 같은 대상의 같은 역할 필드, 같은 범위(곡·앨범·판본), 같은 시점에 관한 진술이 함께 참일 수 없을 때만 쓴다. 역할·범위·판본·시점이 다르면 상충이 아니라 범위 차이로 설명한다(새 상태 표지가 아니며, 각 진술은 자기 검증 상태를 유지한다). 잘리거나 걸러진 자료에 없다는 사실은 상충이나 부재의 근거가 아니며 ‘미확인’이다.
+ 
+ 6. 크레딧은 역할과 판본을 검증한다
+ 
+@@ -128,6 +128,7 @@
+ - 역할 구분이 모호하거나 집계가 이상할 경우
+ 
+ 집계에는 역할, 분자, 분모, 제외 트랙과 출처를 적는다.
++모든 집계와 확인률의 분자는 ③ 점검표에서 센다. 요약과 본문의 수치는 점검표와 같아야 한다.
+ 9개 트랙에서 얻은 집계를 10곡 앨범 전체의 결과로 표현하지 않는다.
+ 잘리거나 일부만 전달된 입력에서는 전체 집계를 만들지 않는다.
+ 
+@@ -190,7 +191,7 @@
+ 이는 채워야 할 할당량이 아니다. 자료가 적으면 짧게 끝낸다.
+ 상한을 넘길 때는 핵심 근거가 왜 추가로 필요한지 설명한다.
+ 부록에도 중복과 저가치 자료를 쌓지 않는다.
+-같은 공백과 접근 제한은 한 곳에만 적고 다른 절에서는 그곳을 참조한다.
++상세 근거, 미해결 상태, 공백, 접근 제한은 한 곳에만 적고 다른 절에서는 그곳을 참조한다.
+ 
+ 9. 전곡 편중을 점검한다
+ 
+@@ -208,7 +209,7 @@
+ 
+ 순서는 다음과 같다.
+ 
+-① 대상·조사 범위: 판본, 기준일, 중요한 접근 제한
++① 대상·조사 범위: 판본, 기준일, 받은 도구 출력의 종류, 중요한 접근 제한
+ ② 핵심 근거: 중요도순, 주장 ID·내용·근거 유형·관련성·한계
+ ③ 전곡 점검표: 메타데이터와 실질 근거를 분리
+ ④ 미해결·추가 확인: 결과를 바꿀 항목만 최대 3개
+@@ -226,6 +227,3 @@
+ 각 수치의 분모, 역할, 제외 범위를 확인한다.
+ 직접 발언·기자 서술·DB등재·추측을 뒤섞지 않았는지 확인한다.
+ 누락과 상충을 숨기지 않는다.
+-
+-실행 메타데이터를 제공받았다면 프롬프트 개정 ID·내용 해시·실행기 커밋·입력 수집 시각을 기록한다.
+-제공받지 못한 값은 만들어내지 않는다.
+
+(b) P3 → P3G
+--- prompts/P3.md	2026-10-19 22:48:41
++++ prompts/P3G.md	2026-10-19 22:52:12
+@@ -114,6 +114,7 @@
+ 
+ Genius 등 API 데이터는 해당 서비스의 등재 기록이다.
+ API가 공식 경로라는 사실과 등재 내용의 정확성을 구분한다.
++Genius 커뮤니티 주석은 이용자가 쓴 미인증 등재 기록이다. [DB등재]로 다루고, 주석이 옮긴 발언은 원문을 찾기 전까지 [재인용]이다. 주석은 원문을 찾는 단서와 곡별 공백을 메울 후보로 쓰며, 필요하면 곡별로 한데 모아 둔다.
+ 
+ 트랙 식별, 판본, 수집 시각, 원래 역할 필드를 보존한다.
+ 부클릿·유통사·판매처 페이지 등 출처를 밝힌 크레딧 행을 점검표나 근거 부록에 옮길 때는 대상 트랙에 대해 그 행의 인물과 역할을 모두 옮긴다. 일부만 옮기면 선별 전사라고 밝히고 빠진 역할의 종류를 적는다. 선별은 역할 단위로만 한다. 옮기는 역할은 그 역할을 맡은 인물을 모두, 함께 맡은 것으로 옮긴다.
+
+(c) Annotation block, first lines
+[redacted: Genius community-annotation block, sha256 c0e757d2c1f475a4d9cdf0636adce0974418bf83005b70156f8e0f94aa4decb5; rebuild with build_annotation_block.py]
