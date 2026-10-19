@@ -62,6 +62,7 @@ The design is capability composition, not inheritance: `shared/AlbumCard.tsx` / 
 15. Collection blank ~0.8 s (`/api/buckets/public` 809 ms), no skeleton; year truncates before artist.
 16. `/releases`, `/members`, `/radar`, `/search` not in nav; releases lists 265/month with no filter.
 17. Mobile profile tabs (6) overflow with no scroll affordance.
+    - *Shipped 2026-10-19 — front #491:* the self-dashboard tab nav fades whichever edge still has tabs past it (HomeStrip's edge mask) and snaps to tab starts. At 390px the member row is 402/350px (설정 ↗ hidden) and the owner row 629/350px; at 1440px it fits and nothing fades. The CSS ships inline with the nav because `styles/member.css` loads only once the lazy SelfDashboard mounts. The existing phone rule `.lf-tab-btn { min-height: 44px }` there has the same gap on the default 평가 view, which is pre-existing and left as is. Prod smoke 32/0; the prod `MemberProfile` chunk carries the class. Checked by a local stubbed CDP run at 390/1440, not by a real touch swipe or a logged-in prod view.
 18. Home "0개 장르" (review-derived) contradicts "13 genres · 8,391 albums" right above; a playlist-like entry appears in "오늘, 이 앨범들".
 
 Also seen: English uppercase LOGIN/LOGOUT; faux-italic Korean headings; inconsistent page-header styles; mobile drawer lacks close button / current-page indicator; logged-out cards still `draggable=true`; footer links lack trailing slash. Contrast passed; Lighthouse `/releases` mobile: a11y 96, BP 100, SEO 100.
