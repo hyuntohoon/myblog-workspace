@@ -1,0 +1,22 @@
+{
+  "drawn_at": "2026-10-20T04:39:24.002987+00:00",
+  "method": "secrets.SystemRandom().shuffle",
+  "key": {
+    "D01": "cl-P0-gemini-rights-r1",
+    "D02": "m2-old",
+    "D03": "m3-b",
+    "D04": "cl-P0-gemini-rights-r2",
+    "D05": "m1-a",
+    "D06": "cl-P0-gemini-rights-r3",
+    "D07": "cl-P5-gemini-rights-r2",
+    "D08": "sentinel:round1/cl-P1-gemini-rights",
+    "D09": "m3-a",
+    "D10": "m2-b",
+    "D11": "cl-P5-gemini-rights-r3",
+    "D12": "m1-b",
+    "D13": "m3-old",
+    "D14": "cl-P5-gemini-rights-r1",
+    "D15": "m1-old",
+    "D16": "m2-a"
+  }
+}
