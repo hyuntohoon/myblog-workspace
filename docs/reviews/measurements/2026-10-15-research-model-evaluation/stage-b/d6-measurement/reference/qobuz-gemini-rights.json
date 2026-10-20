@@ -1,0 +1,140 @@
+{
+ "retrieved_at": "2026-10-20T04:38:09.782260+00:00",
+ "method": "curl, static HTML, credits from track__infos",
+ "authoritative": {
+  "id": "zbylnavz5biaa",
+  "url": "https://www.qobuz.com/us-en/album/gemini-rights-steve-lacy/zbylnavz5biaa",
+  "html_sha256": "113c88bbd1695a042457b8df8996ffe2c719b9ff0834c6cebf5b01f69b6c2a22",
+  "explicit_markers": 6,
+  "tracks": [
+   {
+    "n": 1,
+    "title": "Static",
+    "duration": "00:02:36",
+    "credits": "Ely Rise, Keyboards - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Steve Lacy, Composer, Lyricist, Producer, MainArtist, AssociatedPerformer - John Carroll Kirby, Composer, Lyricist - Karl Wingate, Engineer"
+   },
+   {
+    "n": 2,
+    "title": "Helmet",
+    "duration": "00:03:21",
+    "credits": "Ely Rise, Piano - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Diana Gordon, Composer, Lyricist - Steve Lacy, Composer, Lyricist, Producer, MainArtist, AssociatedPerformer - Karl Wingate, Engineer - Asia Lacy, Background Vocal - Valerie Lacy, Background Vocal - Valyn Spottsville, Background Vocal - Vage Webb, Background Vocal"
+   },
+   {
+    "n": 3,
+    "title": "Mercury",
+    "duration": "00:04:55",
+    "credits": "Ely Rise, Composer, Lyricist, Synthesizer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Steve Lacy, Composer, Lyricist, Producer, Guitar, Bass, MainArtist, AssociatedPerformer - Dacoury Natche, Composer, Lyricist - Crystal Torres, Horn - John Carroll Kirby, Organ - Karl Wingate, Engineer - Dahi, Producer - Britanny Foushee, Composer, Lyricist"
+   },
+   {
+    "n": 4,
+    "title": "Buttons",
+    "duration": "00:03:04",
+    "credits": "Ely Rise, Composer, Lyricist, Synthesizer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Steve Lacy, Composer, Lyricist, Producer, MainArtist, AssociatedPerformer - Dacoury Natche, Composer, Lyricist - Karl Wingate, Engineer - Dahi, Producer"
+   },
+   {
+    "n": 5,
+    "title": "Bad Habit",
+    "duration": "00:03:52",
+    "credits": "Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Diana Gordon, Composer, Lyricist - Steve Lacy, Composer, Lyricist, Producer, Bass, MainArtist, AssociatedPerformer - John Kirby, Synthesizer - John Carroll Kirby, Composer, Lyricist - Karl Wingate, Engineer - Britanny Foushee, Composer, Lyricist - Matthew Castellanos, Composer, Lyricist"
+   },
+   {
+    "n": 6,
+    "title": "2Gether (Enterlude)",
+    "duration": "00:00:50",
+    "credits": "Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Steve Lacy, Composer, Lyricist, MainArtist, AssociatedPerformer - Matt Martians, Producer, MainArtist, AssociatedPerformer - Matthew Martin, Composer, Lyricist - John Carroll Kirby, Composer, Lyricist, Synthesizer - Karl Wingate, Engineer - Steve Lacy & Matt Martians, AssociatedPerformer"
+   },
+   {
+    "n": 7,
+    "title": "Cody Freestyle",
+    "duration": "00:04:00",
+    "credits": "Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Steve Lacy, Composer, Lyricist, Producer, MainArtist, AssociatedPerformer - John Carroll Kirby, Synthesizer - Karl Wingate, Engineer - Britanny Foushee, Composer, Lyricist"
+   },
+   {
+    "n": 8,
+    "title": "Amber",
+    "duration": "00:02:53",
+    "credits": "Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Steve Lacy, Composer, Lyricist, Producer, MainArtist, AssociatedPerformer - John Carroll Kirby, Synthesizer - Karl Wingate, Engineer - Asia Lacy, Background Vocal - Valerie Lacy, Background Vocal - Valyn Spottsville, Background Vocal - Vage Webb, Background Vocal"
+   },
+   {
+    "n": 9,
+    "title": "Sunshine",
+    "duration": "00:04:53",
+    "credits": "Karriem Riggins, Composer, Lyricist, Drums - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Steve Lacy, Composer, Lyricist, Producer, MainArtist, AssociatedPerformer - John Kirby, Synthesizer - Karl Wingate, Engineer - Britanny Foushee, Composer, Lyricist - Fousheé, FeaturedArtist, AssociatedPerformer - Steve Lacy feat. Fousheé, AssociatedPerformer"
+   },
+   {
+    "n": 10,
+    "title": "Give You the World",
+    "duration": "00:04:33",
+    "credits": "Ely Rise, Composer, Lyricist - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Steve Lacy, Composer, Lyricist, Producer, MainArtist, AssociatedPerformer - Dacoury Natche, Composer, Lyricist - Denise Stoudmire, Background Vocal - John Carroll Kirby, Synthesizer - Karl Wingate, Engineer - Margaux Alexis Roselena Whitney, Composer, Lyricist - Dahi, Producer - Asia Lacy, Background Vocal - Valerie Lacy, Background Vocal - Valyn Spottsville, Background Vocal - Vage Webb, Background Vocal"
+   }
+  ]
+ },
+ "other_edition": {
+  "id": "v9b6d7bh8muhl",
+  "url": "https://www.qobuz.com/us-en/album/gemini-rights-steve-lacy/v9b6d7bh8muhl",
+  "html_sha256": "c7ef7ba777a90b61d5beda678b45163631ea2e5248dc78cc36418d3bc2da2208",
+  "explicit_markers": 0,
+  "tracks": [
+   {
+    "n": 1,
+    "title": "Static",
+    "duration": "00:02:36",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Composer, Lyricist, Producer - Ely Rise, Keyboards - John Carroll Kirby, Composer, Lyricist - Karl Wingate, Engineer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer"
+   },
+   {
+    "n": 2,
+    "title": "Helmet",
+    "duration": "00:03:21",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Composer, Lyricist, Producer - Ely Rise, Piano - Valerie Lacy, Background Vocal - Valyn Spottsville, Background Vocal - Vage Webb, Background Vocal - Asia Lacy, Background Vocal - Diana Gordon, Composer, Lyricist - Karl Wingate, Engineer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer"
+   },
+   {
+    "n": 3,
+    "title": "Mercury",
+    "duration": "00:04:55",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Bass, Guitar, Composer, Lyricist, Producer - Ely Rise, Synthesizer, Composer, Lyricist - John Carroll Kirby, Organ - Crystal Torres, Horn - Dacoury Natche, Composer, Lyricist - Britanny Foushee, Composer, Lyricist - Karl Wingate, Engineer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Dahi, AdditionalStudioProducer"
+   },
+   {
+    "n": 4,
+    "title": "Buttons",
+    "duration": "00:03:04",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Composer, Lyricist, Producer - Ely Rise, Synthesizer, Composer, Lyricist - Dacoury Natche, Composer, Lyricist - Karl Wingate, Engineer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Dahi, Producer"
+   },
+   {
+    "n": 5,
+    "title": "Bad Habit",
+    "duration": "00:03:52",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Bass, Composer, Lyricist, Producer - John Kirby, Synthesizer - Matthew Castellanos, Composer, Lyricist - Diana Gordon, Composer, Lyricist - Britanny Foushee, Composer, Lyricist - John Carroll Kirby, Composer, Lyricist - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Karl Wingate, Engineer"
+   },
+   {
+    "n": 6,
+    "title": "2Gether (Enterlude)",
+    "duration": "00:00:50",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Composer, Lyricist - Matt Martians, MainArtist, AssociatedPerformer, Producer - Steve Lacy & Matt Martians, AssociatedPerformer - John Carroll Kirby, Synthesizer, Composer, Lyricist - Matthew Martin, Composer, Lyricist - Karl Wingate, Engineer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer"
+   },
+   {
+    "n": 7,
+    "title": "Cody Freestyle",
+    "duration": "00:04:00",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Composer, Lyricist, Producer - John Carroll Kirby, Synthesizer - Britanny Foushee, Composer, Lyricist - Karl Wingate, Engineer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer"
+   },
+   {
+    "n": 8,
+    "title": "Amber",
+    "duration": "00:02:53",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Composer, Lyricist, Producer - John Carroll Kirby, Synthesizer - Valerie Lacy, Background Vocal - Valyn Spottsville, Background Vocal - Vage Webb, Background Vocal - Asia Lacy, Background Vocal - Karl Wingate, Engineer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer"
+   },
+   {
+    "n": 9,
+    "title": "Sunshine",
+    "duration": "00:04:53",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Composer, Lyricist, Producer - Fousheé, FeaturedArtist, AssociatedPerformer - Steve Lacy feat. Fousheé, AssociatedPerformer - Karriem Riggins, Drums, Composer, Lyricist - John Kirby, Synthesizer - Britanny Foushee, Composer, Lyricist - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Karl Wingate, Engineer"
+   },
+   {
+    "n": 10,
+    "title": "Give You the World",
+    "duration": "00:04:33",
+    "credits": "Steve Lacy, MainArtist, AssociatedPerformer, Composer, Lyricist, Producer - John Carroll Kirby, Synthesizer - Valerie Lacy, Background Vocal - Valyn Spottsville, Background Vocal - Vage Webb, Background Vocal - Asia Lacy, Background Vocal - Denise Stoudmire, Background Vocal - Dacoury Natche, Composer, Lyricist - Ely Rise, Composer, Lyricist - Margaux Alexis Roselena Whitney, Composer, Lyricist - Karl Wingate, Engineer - Neal Pogue, Mixing Engineer - Mike Bozzi, Mastering Engineer - Dahi, Producer"
+   }
+  ]
+ }
+}

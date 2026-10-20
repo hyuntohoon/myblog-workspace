@@ -1,0 +1,336 @@
+{
+  "rows": {
+    "D01": {
+      "item": "cl-P0-gemini-rights-r1",
+      "source": "cl-P0-gemini-rights-r1",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "PASS",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "PASS",
+        "D5": "BORDERLINE",
+        "D6": "FAIL"
+      },
+      "gates": []
+    },
+    "D02": {
+      "item": "m2-old",
+      "source": "m2",
+      "packet": "old",
+      "status": "success",
+      "D6": "BORDERLINE",
+      "levels": {
+        "D1": "PASS",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "PASS",
+        "D6": "BORDERLINE"
+      },
+      "gates": []
+    },
+    "D03": {
+      "item": "m3-b",
+      "source": "m3",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "BORDERLINE",
+        "D2": "FAIL",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "BORDERLINE",
+        "D6": "FAIL"
+      },
+      "gates": []
+    },
+    "D04": {
+      "item": "cl-P0-gemini-rights-r2",
+      "source": "cl-P0-gemini-rights-r2",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "PASS",
+        "D2": "PASS",
+        "D3": "BORDERLINE",
+        "D4": "PASS",
+        "D5": "BORDERLINE",
+        "D6": "FAIL"
+      },
+      "gates": []
+    },
+    "D05": {
+      "item": "m1-a",
+      "source": "m1",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "BORDERLINE",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "PASS",
+        "D6": "FAIL"
+      },
+      "gates": [
+        {
+          "gate": "G4",
+          "location": "⑤ S5 크레딧 행 전체, 9번 Sunshine 행 (Karriem Riggins Composer/Lyricist 누락, '생략한 내용은 없습니다')",
+          "confidence": "low"
+        }
+      ]
+    },
+    "D06": {
+      "item": "cl-P0-gemini-rights-r3",
+      "source": "cl-P0-gemini-rights-r3",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "BORDERLINE",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "PASS",
+        "D5": "BORDERLINE",
+        "D6": "FAIL"
+      },
+      "gates": [
+        {
+          "gate": "G4",
+          "location": "② C1 third bullet (Apple Music artist statement paraphrase: 'easy and fun' causally attached to unconditional love)",
+          "confidence": "low"
+        }
+      ]
+    },
+    "D07": {
+      "item": "cl-P5-gemini-rights-r2",
+      "source": "cl-P5-gemini-rights-r2",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "PASS",
+        "D2": "PASS",
+        "D3": "BORDERLINE",
+        "D4": "PASS",
+        "D5": "PASS",
+        "D6": "FAIL"
+      },
+      "gates": []
+    },
+    "D08": {
+      "item": "sentinel:round1/cl-P1-gemini-rights",
+      "source": "sentinel:round1/cl-P1-gemini-rights",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "PASS",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "PASS",
+        "D5": "BORDERLINE",
+        "D6": "FAIL"
+      },
+      "gates": []
+    },
+    "D09": {
+      "item": "m3-a",
+      "source": "m3",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "PASS",
+        "D2": "FAIL",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "BORDERLINE",
+        "D6": "FAIL"
+      },
+      "gates": []
+    },
+    "D10": {
+      "item": "m2-b",
+      "source": "m2",
+      "packet": "new",
+      "status": "success",
+      "D6": "PASS",
+      "levels": {
+        "D1": "BORDERLINE",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "PASS",
+        "D6": "PASS"
+      },
+      "gates": []
+    },
+    "D11": {
+      "item": "cl-P5-gemini-rights-r3",
+      "source": "cl-P5-gemini-rights-r3",
+      "packet": "new",
+      "status": "success",
+      "D6": "PASS",
+      "levels": {
+        "D1": "BORDERLINE",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "PASS",
+        "D6": "PASS"
+      },
+      "gates": []
+    },
+    "D12": {
+      "item": "m1-b",
+      "source": "m1",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "BORDERLINE",
+        "D2": "FAIL",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "PASS",
+        "D6": "FAIL"
+      },
+      "gates": [
+        {
+          "gate": "G4",
+          "location": "⑤ S5 크레딧 행 전체 — 9 Sunshine 행(Karriem Riggins Composer, Lyricist 누락) 및 머리말 '생략한 내용은 없습니다'",
+          "confidence": "medium"
+        }
+      ]
+    },
+    "D13": {
+      "item": "m3-old",
+      "source": "m3",
+      "packet": "old",
+      "status": "success",
+      "D6": "BORDERLINE",
+      "levels": {
+        "D1": "PASS",
+        "D2": "FAIL",
+        "D3": "PASS",
+        "D4": "PASS",
+        "D5": "PASS",
+        "D6": "BORDERLINE"
+      },
+      "gates": []
+    },
+    "D14": {
+      "item": "cl-P5-gemini-rights-r1",
+      "source": "cl-P5-gemini-rights-r1",
+      "packet": "new",
+      "status": "success",
+      "D6": "FAIL",
+      "levels": {
+        "D1": "PASS",
+        "D2": "PASS",
+        "D3": "PASS",
+        "D4": "PASS",
+        "D5": "BORDERLINE",
+        "D6": "FAIL"
+      },
+      "gates": []
+    },
+    "D15": {
+      "item": "m1-old",
+      "source": "m1",
+      "packet": "old",
+      "status": "success",
+      "D6": "BORDERLINE",
+      "levels": {
+        "D1": "PASS",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "PASS",
+        "D6": "BORDERLINE"
+      },
+      "gates": []
+    },
+    "D16": {
+      "item": "m2-a",
+      "source": "m2",
+      "packet": "new",
+      "status": "success",
+      "D6": "PASS",
+      "levels": {
+        "D1": "BORDERLINE",
+        "D2": "BORDERLINE",
+        "D3": "PASS",
+        "D4": "BORDERLINE",
+        "D5": "PASS",
+        "D6": "PASS"
+      },
+      "gates": []
+    }
+  },
+  "mutants": {
+    "m1": {
+      "new_D6": [
+        "FAIL",
+        "FAIL"
+      ],
+      "old_D6": [
+        "BORDERLINE"
+      ],
+      "new_gates": [
+        [
+          {
+            "gate": "G4",
+            "location": "⑤ S5 크레딧 행 전체, 9번 Sunshine 행 (Karriem Riggins Composer/Lyricist 누락, '생략한 내용은 없습니다')",
+            "confidence": "low"
+          }
+        ],
+        [
+          {
+            "gate": "G4",
+            "location": "⑤ S5 크레딧 행 전체 — 9 Sunshine 행(Karriem Riggins Composer, Lyricist 누락) 및 머리말 '생략한 내용은 없습니다'",
+            "confidence": "medium"
+          }
+        ]
+      ],
+      "reading": "detected"
+    },
+    "m2": {
+      "new_D6": [
+        "PASS",
+        "PASS"
+      ],
+      "old_D6": [
+        "BORDERLINE"
+      ],
+      "new_gates": [
+        [],
+        []
+      ],
+      "reading": "missed"
+    },
+    "m3": {
+      "new_D6": [
+        "FAIL",
+        "FAIL"
+      ],
+      "old_D6": [
+        "BORDERLINE"
+      ],
+      "new_gates": [
+        [],
+        []
+      ],
+      "reading": "detected"
+    }
+  },
+  "negative_control_D6": "PASS",
+  "usable": false
+}

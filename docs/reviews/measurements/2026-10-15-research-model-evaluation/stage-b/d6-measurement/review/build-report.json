@@ -1,0 +1,116 @@
+{
+  "input_sha256": {
+    "D01": "52c4403872d25500bdf663eae20177e38634961457f1a0d495eae42f900429ad",
+    "D02": "84f51a0b37bbc138ba366dfa75b1604c4ec96da7e39bdf7bb4f727197e6ec9a4",
+    "D03": "25e6735a5dfa80f149228ec453731424386aac376ada2722711323042abe754d",
+    "D04": "f5e27ee1842332a0ea1ceadd7144e3cd1054cd168cc25e05062172f02daa72bb",
+    "D05": "b659a93cd9fc7fa5ce3cc5626f80b86baee40c2f38669fe63016fe06b2c1266b",
+    "D06": "2d7b97f7c2b41027b6074427bdde040009bea92a93e8dddf029c7632a894d269",
+    "D07": "635aec05d722b07651beea982ee2305d492132b9ad4e1f0d0535b84b504a5c3e",
+    "D08": "132902a413863c5f9ded528d86ac522a6e04031da749ab1d15e428bf350d16fd",
+    "D09": "4c561cafff449eada2865f186efd2e063341950985d5c4e458e7928515f1926d",
+    "D10": "122e8fab2dbb122b938ba365cfc40b0953e6460f6a226aae2804794835a511ca",
+    "D11": "c39c6fd5c1f2fa0c1c5422632fbfe62f9b56e5fdc0202debfa1913c5619ed002",
+    "D12": "ed654da7c50b062aad97968c5d60a48bec65b5701e95fd2f5149c1aec755f1b2",
+    "D13": "77ec5eca1d06070339cfb9cffcdb8aa67246650c433ee59c4f8bb9ba0e936f5c",
+    "D14": "e43da5620b4eec5de64b5b39995e9d17af4b8a2bd88f9c8c8f206db6226c0b69",
+    "D15": "392694125e3ae18fce28843f2d6455c81ddbfb7767c8c1d59d82d849bef1d03a",
+    "D16": "3c92322f9c060671a6ca87991d21f0c641235a70969e3047396127bc4216d762"
+  },
+  "items": {
+    "D01": {
+      "item": "cl-P0-gemini-rights-r1",
+      "source": "cl-P0-gemini-rights-r1",
+      "packet": "new"
+    },
+    "D02": {
+      "item": "m2-old",
+      "source": "m2",
+      "packet": "old"
+    },
+    "D03": {
+      "item": "m3-b",
+      "source": "m3",
+      "packet": "new"
+    },
+    "D04": {
+      "item": "cl-P0-gemini-rights-r2",
+      "source": "cl-P0-gemini-rights-r2",
+      "packet": "new"
+    },
+    "D05": {
+      "item": "m1-a",
+      "source": "m1",
+      "packet": "new"
+    },
+    "D06": {
+      "item": "cl-P0-gemini-rights-r3",
+      "source": "cl-P0-gemini-rights-r3",
+      "packet": "new"
+    },
+    "D07": {
+      "item": "cl-P5-gemini-rights-r2",
+      "source": "cl-P5-gemini-rights-r2",
+      "packet": "new"
+    },
+    "D08": {
+      "item": "sentinel:round1/cl-P1-gemini-rights",
+      "source": "sentinel:round1/cl-P1-gemini-rights",
+      "packet": "new"
+    },
+    "D09": {
+      "item": "m3-a",
+      "source": "m3",
+      "packet": "new"
+    },
+    "D10": {
+      "item": "m2-b",
+      "source": "m2",
+      "packet": "new"
+    },
+    "D11": {
+      "item": "cl-P5-gemini-rights-r3",
+      "source": "cl-P5-gemini-rights-r3",
+      "packet": "new"
+    },
+    "D12": {
+      "item": "m1-b",
+      "source": "m1",
+      "packet": "new"
+    },
+    "D13": {
+      "item": "m3-old",
+      "source": "m3",
+      "packet": "old"
+    },
+    "D14": {
+      "item": "cl-P5-gemini-rights-r1",
+      "source": "cl-P5-gemini-rights-r1",
+      "packet": "new"
+    },
+    "D15": {
+      "item": "m1-old",
+      "source": "m1",
+      "packet": "old"
+    },
+    "D16": {
+      "item": "m2-a",
+      "source": "m2",
+      "packet": "new"
+    }
+  },
+  "mutant_diffs": {
+    "m1": {
+      "old": "9. L - Karriem Riggins, Composer, Lyricist, Drums - John Kirby, Synthesizer",
+      "new": "9. L - Karriem Riggins, Drums - John Kirby, Synthesizer"
+    },
+    "m2": {
+      "old": "- **메타데이터 확인률**: G 매칭 9/10, S5 크레딧 행 10/10입니다.",
+      "new": "- **메타데이터 확인률**: G 매칭 9/10, S5 크레딧 행 11/11입니다(같은 S5 판매 목록의 'Bad Habit (Sped Up)' 행 포함)."
+    },
+    "m3": {
+      "old": "   - Wikipedia에는 Matt Martians와 DJ Dahi의 miscellaneous production 표기가 있는데, 이는 미확인 단서입니다.\n",
+      "new": "   - Wikipedia에는 Matt Martians와 DJ Dahi의 miscellaneous production 표기가 있는데, 이는 미확인 단서입니다.\n   - Sunshine의 드럼은 Lacy 본인이 연주한 것으로 보입니다(추정).\n"
+    }
+  }
+}
