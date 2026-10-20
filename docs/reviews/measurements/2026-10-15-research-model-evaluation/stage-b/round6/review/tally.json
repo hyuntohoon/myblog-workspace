@@ -1,0 +1,693 @@
+{
+ "levels": {
+  "cl-P6-gemini-rights-r1": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "BORDERLINE",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   }
+  },
+  "cl-P6-gemini-rights-r3": {
+   "astra": {
+    "D1": "BORDERLINE",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "FAIL",
+    "D6": "BORDERLINE"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "FAIL",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   }
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": {
+    "D1": "BORDERLINE",
+    "D2": "FAIL",
+    "D3": "FAIL",
+    "D4": "BORDERLINE",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   }
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": {
+    "D1": "BORDERLINE",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   }
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "FAIL",
+    "D3": "FAIL",
+    "D4": "BORDERLINE",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "BORDERLINE",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   }
+  },
+  "cl-P6-gemini-rights-r2": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "PASS",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "BORDERLINE",
+    "D4": "FAIL",
+    "D5": "BORDERLINE",
+    "D6": "FAIL"
+   }
+  }
+ },
+ "lengths": {
+  "cl-P6-gemini-rights-r1": 6493,
+  "cl-P6-gemini-rights-r3": 7025,
+  "cl-P0-gemini-rights-r3": 7986,
+  "cl-P0-gemini-rights-r2": 8232,
+  "cl-P0-gemini-rights-r1": 7026,
+  "cl-P6-gemini-rights-r2": 6465
+ },
+ "gates": {
+  "cl-P6-gemini-rights-r1": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P6-gemini-rights-r3": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": [
+    {
+     "gate": "G5",
+     "location": "④ 비교 후보: 〈4ever〉에서 가족 보컬을 처음 썼다고 라시가 직접 밝혔다는 문장",
+     "confidence": "medium"
+    }
+   ],
+   "claude": []
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": [
+    {
+     "gate": "G4",
+     "location": "C5: 약 절반·3/9·4/10을 상충으로 단정",
+     "confidence": "high"
+    },
+    {
+     "gate": "G4",
+     "location": "C8: Mercury의 서로 다른 샘플 등재를 상충으로 단정",
+     "confidence": "medium"
+    },
+    {
+     "gate": "G5",
+     "location": "C4 두 번째 항목: 협업자 호출 서술의 직접 발언 귀속",
+     "confidence": "medium"
+    }
+   ],
+   "claude": [
+    {
+     "gate": "G4",
+     "location": "② C7 '일치하는 항목' — 'Lacy 프로듀싱(6번 제외 8곡)', 'Martians(6번)'",
+     "confidence": "low"
+    }
+   ]
+  },
+  "cl-P6-gemini-rights-r2": {
+   "astra": [],
+   "claude": [
+    {
+     "gate": "G4",
+     "location": "④-1 프로듀서 크레딧 차이: '요약된 자료에 이름이 빠진 것이므로 상충이 아니라 [미확인]'",
+     "confidence": "low"
+    }
+   ]
+  }
+ },
+ "defects": {
+  "cl-P6-gemini-rights-r1": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P6-gemini-rights-r3": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "absent",
+    "4": "absent",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "present",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "present",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": {
+    "1": "present",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": {
+    "1": "present",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "present",
+    "4": "present",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P6-gemini-rights-r2": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "present",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  }
+ },
+ "tokens": {
+  "astra-S01": {
+   "input_tokens": 37807,
+   "cached_input_tokens": 0,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3158,
+   "reasoning_output_tokens": 825
+  },
+  "astra-S02": {
+   "input_tokens": 41920,
+   "cached_input_tokens": 0,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2587,
+   "reasoning_output_tokens": 307
+  },
+  "astra-S03": {
+   "input_tokens": 44591,
+   "cached_input_tokens": 0,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3002,
+   "reasoning_output_tokens": 494
+  },
+  "astra-S04": {
+   "input_tokens": 42501,
+   "cached_input_tokens": 0,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2801,
+   "reasoning_output_tokens": 430
+  },
+  "astra-S05": {
+   "input_tokens": 55615,
+   "cached_input_tokens": 4992,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2903,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S06": {
+   "input_tokens": 53291,
+   "cached_input_tokens": 5632,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3531,
+   "reasoning_output_tokens": 888
+  },
+  "astra-S07": {
+   "input_tokens": 37605,
+   "cached_input_tokens": 0,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3459,
+   "reasoning_output_tokens": 1023
+  },
+  "claude-S01": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 49719,
+   "cache_read_input_tokens": 46128,
+   "output_tokens": 14252,
+   "output_tokens_details": {
+    "thinking_tokens": 10231
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 49719,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6133,
+     "cache_read_input_tokens": 43267,
+     "cache_creation_input_tokens": 9313,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 9313
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S02": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 57178,
+   "cache_read_input_tokens": 53453,
+   "output_tokens": 13373,
+   "output_tokens_details": {
+    "thinking_tokens": 9165
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 57178,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 5594,
+     "cache_read_input_tokens": 50592,
+     "cache_creation_input_tokens": 9447,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 9447
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S03": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 60702,
+   "cache_read_input_tokens": 57569,
+   "output_tokens": 11757,
+   "output_tokens_details": {
+    "thinking_tokens": 7362
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 60702,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 5613,
+     "cache_read_input_tokens": 54708,
+     "cache_creation_input_tokens": 8855,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 8855
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S04": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 57791,
+   "cache_read_input_tokens": 53961,
+   "output_tokens": 12944,
+   "output_tokens_details": {
+    "thinking_tokens": 8319
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 57791,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 4342,
+     "cache_read_input_tokens": 51100,
+     "cache_creation_input_tokens": 9552,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 9552
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S05": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 79080,
+   "cache_read_input_tokens": 157388,
+   "output_tokens": 13774,
+   "output_tokens_details": {
+    "thinking_tokens": 8002
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 79080,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 7421,
+     "cache_read_input_tokens": 81444,
+     "cache_creation_input_tokens": 497,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 497
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S06": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 79798,
+   "cache_read_input_tokens": 152702,
+   "output_tokens": 19959,
+   "output_tokens_details": {
+    "thinking_tokens": 14738
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 79798,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 9072,
+     "cache_read_input_tokens": 80639,
+     "cache_creation_input_tokens": 2020,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 2020
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S07": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 49323,
+   "cache_read_input_tokens": 96652,
+   "output_tokens": 12875,
+   "output_tokens_details": {
+    "thinking_tokens": 8335
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 49323,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6529,
+     "cache_read_input_tokens": 50488,
+     "cache_creation_input_tokens": 1696,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 1696
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  }
+ },
+ "cells": {
+  "cl-P6": {
+   "fails": 2,
+   "agreed": [],
+   "single": [
+    "r3 D5 astra",
+    "r2 D4 claude"
+   ],
+   "runs": [
+    "cl-P6-gemini-rights-r1",
+    "cl-P6-gemini-rights-r3",
+    "cl-P6-gemini-rights-r2"
+   ],
+   "median_len": 6493,
+   "lengths": {
+    "cl-P6-gemini-rights-r1": 6493,
+    "cl-P6-gemini-rights-r2": 6465,
+    "cl-P6-gemini-rights-r3": 7025
+   }
+  },
+  "cl-P0": {
+   "fails": 8,
+   "agreed": [],
+   "single": [
+    "r3 D2 astra",
+    "r3 D5 astra",
+    "r2 D2 astra",
+    "r2 D3 astra",
+    "r2 D5 astra",
+    "r1 D2 astra",
+    "r1 D3 astra",
+    "r1 D5 astra"
+   ],
+   "runs": [
+    "cl-P0-gemini-rights-r3",
+    "cl-P0-gemini-rights-r2",
+    "cl-P0-gemini-rights-r1"
+   ],
+   "median_len": 7986,
+   "lengths": {
+    "cl-P0-gemini-rights-r1": 7026,
+    "cl-P0-gemini-rights-r2": 8232,
+    "cl-P0-gemini-rights-r3": 7986
+   }
+  }
+ }
+}
