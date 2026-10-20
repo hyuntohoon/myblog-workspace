@@ -47,6 +47,8 @@
   - (c) accept D6 as measurable for the role/track routes (R-b, R-c, A-route) and unmeasured for the edition route.
 - R-a to R-c stay adopted for development rounds (owner decision 2), whatever is chosen above.
 
+**Owner decision, 2026-10-20 (chat): (a).** The predeclared outcome stands. D6 falls to owner calibration (Stage C, acceptance-v1 §6); in development rounds it is scored under R-a–R-c and reported descriptively, without binding a round rule. (b) and (c) are not taken.
+
 ## Publication
 
 Review packets embed the Gemini Rights input. The owner-collection line was redacted in every review file (`PUBLICATION-REDACTIONS.json`, original hashes kept), and a token scan found 0 hits. `review/build-report.json` keeps the hashes of the bytes actually dispatched.
