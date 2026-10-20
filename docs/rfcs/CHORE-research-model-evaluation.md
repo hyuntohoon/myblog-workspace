@@ -119,6 +119,8 @@ Before candidate tuning, reserve an unseen panel spanning source-rich/source-poo
 
 **Gate**: frozen acceptance contract passes on the predeclared panel, with reviewer agreement or evidence-resolved disputes and actual critic-use evidence. Report small-sample limits; do not claim universal superiority.
 
+**Owner replacement, 2026-10-20.** After stopping Stage B at round 7, the owner replaced the acceptance-v1 confirmation with a light owner-use trial: P6, two of the four round-manifest-v1 confirmation albums (HABIBTI (FOMO), 안개 속의 JDL), one run each, the owner's real rating task first, then a single Claude critical-failure check (`docs/reviews/measurements/2026-10-15-research-model-evaluation/stage-c/TRIAL.md`). The Goal's acceptance-v1 endpoint is therefore not claimed by this stage; the round-manifest-v1 confirmation stays unrun, and a full one would need two new albums and a new allocation draw. Stage D delivers P6 with the trial evidence and its limits. Production adoption stays separate.
+
 ### D — Deliver the passing prompt
 
 Provide exact version/hash, tested model/tool conditions, prompt diff, sample note, pass/fail matrix and remaining limits. Preserve the criterion version and evidence supporting every completion claim. Keep the plan item active while any required criterion, joint review or validation remains outstanding.
@@ -138,6 +140,7 @@ Provide exact version/hash, tested model/tool conditions, prompt diff, sample no
 | 2026-10-15 | Owner clarification: subscription-included models only; exclude separately billed Fable models. | 1–2 |
 | 2026-10-15 | Owner: final goal is a prompt passing jointly designed GPT/Claude criteria for efficient research useful to a critic; structure and wording are free. Model selection is supporting evidence, not the endpoint. | A–D |
 | 2026-10-15 | RFC Status remains draft; direct chat authorizes the bounded experiment, no production/status promotion inferred. | All |
+| 2026-10-20 | Owner: stop Stage B development rounds (round 7 stopped before review); replace the acceptance-v1 confirmation with a light owner-use trial — 2 albums, candidate P6 (`stage-c/TRIAL.md`). | C |
 | 2026-10-16 | Owner (chat): confirmation panel = 2 calibration + 4 untouched albums, about 30–60 owner hours; run **both** Claude CLI and Codex environments (32 confirmatory calls); baseline = the owner's usual research; time-saving and quality-improvement claims judged separately. | A, C |
 | 2026-10-20 | Owner (chat): after the D6 instrument check, accept the predeclared "not usable" outcome. D6 goes to §6 owner calibration (Stage C); development rounds report it descriptively under R-a–R-c. | B, C |
 
