@@ -1,0 +1,15 @@
+{
+  "artifact_dir": "../runs",
+  "shared_db_src": "/Users/park_hyun/.local/share/myblog-research/shared-db-guard/src",
+  "timeout_s": 1500,
+  "models": [
+    {
+      "id": "astra-review-S05",
+      "provider": "gpt",
+      "model": "gpt-6-astra",
+      "availability": "available",
+      "reasoning_effort": "medium",
+      "web_search": false
+    }
+  ]
+}

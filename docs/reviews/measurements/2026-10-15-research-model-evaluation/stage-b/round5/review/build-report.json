@@ -1,0 +1,27 @@
+{
+  "skipped": [],
+  "identity_hits": {},
+  "trace_identity_hits": {},
+  "astra_input_sha256": {
+    "S01": "50292c8de045cc41f664ea66c5a5f784c0ce3c0351ba19966d8cae117dc01832",
+    "S02": "2bf5fb5b124b9a8ea532183f53873b5fb14dd8e9f3973818af48566693e89a74",
+    "S03": "e158ee63bd151e1e48240363d03826614b0181d9220bc727345595bbe8e5331a",
+    "S04": "90a3df275341de249c96f311855d279f7f2697f4c8dc3269c79f830ff7252401",
+    "S05": "acc7470bd12485bcf00cd51d8fb968838058bc227cc12aff58fbde32e058e6a6",
+    "S06": "6e3ebbfb0daeee974bcc087e2954d05e0c3213863bc39023ee620cedaf84f498",
+    "S07": "8a12799543c3f8568daac51e0980a5f73a33161224e012bdb91f66e5b3ae0a73"
+  },
+  "note_redactions": {
+    "S03": 1
+  },
+  "input_sha256": {
+    "S01": "486b302d7950eb2a5c02c467397c8c17d40ea920fc994159ada76f8663a99f56",
+    "S02": "463e588efd0a6e2be09469fdeb1fa923498dd1384e29cf129d55afc924f68355",
+    "S03": "a552fffc4074c902a561439a9cf73e30bfc9392b60fe9c6d7c685fc0dad73267",
+    "S04": "90d7f6577ebe268c11d635b5da68869c143fc7cb962fee14873bce09f9f2c204",
+    "S05": "74103e784a0da836af21e24907a1764bdf1d4cfb1c8b540a40a347fd7573ec59",
+    "S06": "65f82c239103812377daa006940dacba083e292241000740e6285724b79fd26c",
+    "S07": "814dd7eca1dac1eb64d8851df144ee71913b8fea986086f0dc8a16e0735ef13a"
+  },
+  "blinding_limit": "Trace structure differs by harness (Claude WebSearch/WebFetch vs Codex web_search), so a reviewer can infer the producer family from a trace. The prompt condition is not included, but the ① tool-output line, the absence of a separate access-failure list (both from P4) and original-first role strings can reveal P5."
+}

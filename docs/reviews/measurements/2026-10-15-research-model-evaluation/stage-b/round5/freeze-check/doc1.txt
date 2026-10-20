@@ -1,0 +1,51 @@
+DOCUMENT 1 — round-4 findings, proposed direction and the round-5 change list
+
+## What the round shows
+
+1. **P4 fixes the round-3 blocker.**
+   - Length is back at P0 (1.005×).
+   - FAIL marks are below P0 (3 vs 5).
+   - Defect 2 is eliminated, and defect 6 is back down.
+   - What stops it is one confirmed D5 FAIL: a qualifier the producer received and dropped. That is a narrow, nameable failure, not a regression.
+2. **The confirmed FAIL points at the cut.** The new cut order tells the producer to shorten "②의 중복 한계 서술" and "⑤의 불필요한 발췌". It forbids deleting the *sole* evidence or limitation of a kept claim. The fidelity check added that clause, and the producer still dropped a source's own "tentative" from a corroborating line. Whether the cap caused this cannot be shown from one instance. P0 r1–r3 have D5 FAILs too (Astra, all three runs; not confirmed, since P0 is the control).
+3. **D6 is unmeasured in this design.**
+   - Claude's D6 has no FAIL in 37 audits.
+   - Claude's sentinel control has failed three rounds running.
+   - Astra's D6 FAILed all three P4 outputs but not the sentinel.
+   - Under owner decision 2, P4's credit handling, which both comparatives criticise (defect 4), cannot block it. A later round has to decide this before any pass is trusted, because D6 is acceptance-critical in acceptance-v1.
+
+## Proposed direction for a round 5 (needs predeclaration and owner confirmation)
+
+Claude CLI lane only. Start from P4, which meets (c) and (e). Points where both round-4 comparatives overlap:
+
+1. **Role strings: original first, translation only in parentheses**, everywhere they appear (Astra 2, Claude 2). This targets defect 4, which change 3 did not move.
+2. **Keep a source's own uncertainty marker next to the claim** ("tentative", "ambiguous", "reportedly"), and never resolve a mismatch whose cause is unchecked (Astra 3 and 5, Claude 4). This targets the confirmed D5 FAIL. It is also a guard on the cut order: such markers are not "중복 한계 서술".
+3. **Exclusive and negative statements** ("only", "entirely", "~에만", "언급하지 않음") are checked against material already received before they are written (Claude 4, Astra 3). The r1 ④-1 sentence is this kind of claim.
+
+Not overlapping, so not proposed: Claude's alias rule (3) and derivability rule (5); Astra's aggregate rule (4). The access-label redefinition (both 1) is already P3 edit 1. The D5 data shows that label promotion, which edit 1 targets, is gone from P4: Astra's P4 D5 marks are B, B, F, and the F is the dropped qualifier.
+
+Open for the owner, not decided here:
+- How D6 is measured. In rounds 2–4 neither reviewer gives a D6 that separates the sentinel. The owner's 2026-10-20 decision stands and is not re-asked; this is a measured consequence to weigh before Stage C.
+- Whether the r1 G4 allegation (M2: is the ④-1 sentence central?) is adjudicated or deferred. It cannot change this verdict.
+
+## Round-5 change list (from the predeclared scope)
+
+P5 is round-4 P4 with the changes below. They are in `prompts/P4-to-P5.diff`; the full contrast with P0 is `prompts/P0-to-P5.diff`. Sizes: P4 16,444 bytes, P5 rc 17,593, P0 12,650. Every change is a definition or a generalisation of a rule P4 already has. None adds a section or a recording list.
+
+1. **Role strings: original language first, translation only in parentheses, everywhere (§6, and the language line in the intro).** Astra proposed this as point 2 and Claude as point 2. The rule now covers the body, the checklist's summary columns and legend, aggregates and check questions. "Narrowing" joins "merging" and "renaming" as forbidden. The intro's "모든 출력은 한국어로 작성한다" gets one exception sentence, which names role strings and change 2's uncertainty markers.
+   - Target: defect 4. Change 3 of P4 did not move it (P0 4 marks, P4 5). Claude's round-4 comparative traced it to the Korean-output instruction, and S07 turned a source role string into a different field.
+   - **Orchestrator addition, declared:** the translation of a given string is attached only at its first occurrence in the note. A parenthetical on every occurrence would add length to the checklist, which the cut order forbids shortening. Neither comparative asked for this.
+   - Not taken: Claude's "if you merge or narrow, say so in place". P4 already forbids merging, and the stricter wording is kept.
+2. **A source's own uncertainty marker stays next to the claim (§5, and a guard in §10's cut order).** Astra proposed this in points 3 and 5. Claude's comparative saw the same dropped qualifier (its §1, D5) but proposed no rule, so `../round4/RESULTS.md`'s "Claude 4" attribution for this point is corrected here. The change is taken on the orchestrator-confirmed D5 FAIL, not on reviewer overlap. That is the only exception to the one-reviewer exclusion below. Markers such as "tentative", "ambiguous", "reportedly" and "~로 알려진" stay beside the claim in the original wording. That includes cases where the claim is written together with other evidence or used to cross-check something. When two statements about the same object, role, scope and time disagree and the cause has not been checked, the note does not pick one: it marks them `[상충]`. A scope difference is still explained under the existing `상충` definition, so this adds no new conflict route.
+   - In the cut order, "출처의 불확실성 표지" is added to what may never be deleted, so a marker cannot be cut as "②의 중복 한계 서술".
+   - Target: the round-4 confirmed D5 FAIL (P4 r3, C6).
+3. **Exclusive and negative statements are checked against material already received before they are written (§5).** Claude proposed this as point 4 and Astra in point 3. P4's line "‘유일하다’, ‘없다’, ‘상충 없음’도 같다 …" is generalised. The list becomes ‘유일하다’, ‘~만’, ‘전부’, ‘없다’, ‘언급하지 않는다’, ‘~로만 적혀 있다’, ‘상충 없음’. Before writing such a statement, the producer compares it with what it has already received: the input block, opened pages and search results. The statement is written only within that range, and the range is named in the sentence, briefly, by source ID. Claims about sources, credits and research paths are all covered.
+   - Claude's version asked the producer to "적는다 what was compared" as a separate record. P5 asks only for the range inside the sentence, so no recording duty is added.
+   - Target: the r1 ④-1 sentence ("연주자로만 적혀 있다") and defect 5 (unchecked exclusives).
+
+Considered and not taken:
+- Points from one reviewer only: Claude's alias rule (3), derivability rule (5), and its audit-side D6 wording (5, a reviewer-packet change that would move the measurement mid-series); Astra's aggregate rule (4).
+- The access-label redefinition (both reviewers' point 1). It is already P3 edit 1, kept in P4. Label promotion is gone from P4's D5 marks.
+
+**Length.** The three changes add 1,149 bytes of prompt and ask for slightly more text in the note: parenthetical translations, a range phrase, a kept marker. The 6,000-character cap and the cut order are unchanged. Round-4 P4 runs were 6,074 / 7,342 / 6,988 against a bar of 7,647 (1.10 × 6,952). That leaves about 9 % headroom at the median, so (e) is the condition most at risk. It is judged in the same pass as everything else.
+
