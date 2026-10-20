@@ -1,0 +1,16 @@
+{
+  "description": "Stage C owner-use trial (TRIAL.md \u00a73): P6 on jdl, one run. Claude CLI with --safe-mode.",
+  "artifact_dir": "../runs",
+  "shared_db_src": "/Users/park_hyun/.local/share/myblog-research/shared-db-guard/src",
+  "timeout_s": 1500,
+  "expected_prompt_sha256": "9c24ed50b004cef96fba792b0ea1c1fba4be3d9ccf8df597a586915b94d012e0",
+  "models": [
+    {
+      "id": "cl-P6-jdl",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "availability": "available",
+      "reasoning_effort": "medium"
+    }
+  ]
+}
