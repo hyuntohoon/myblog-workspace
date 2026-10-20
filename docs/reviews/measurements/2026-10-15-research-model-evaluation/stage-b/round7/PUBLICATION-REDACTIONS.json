@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-20",
+  "replaced": {
+    "owner_collection_line": "### 오너 컬렉션 신호: [redacted: owner bucket names] — 이미 담아둔 것이므로, 오너가 아는 맥락은 다시 설명하지 말 것."
+  },
+  "files": {
+    "runs/cl-P0-gemini-rights-r1/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/cl-P0-gemini-rights-r2/input.txt": {
+      "original_sha256": "9d2202d366c252907c178277fee5662f50f795ac3c482b39fe52b5604c93f70b",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/cl-P7-gemini-rights-r1/input.txt": {
+      "original_sha256": "13d5142cd13fa3365fa9f4e8317d11bfb170dc853bf790fec47a6c292e903722",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    },
+    "runs/cl-P7-gemini-rights-r2/input.txt": {
+      "original_sha256": "13d5142cd13fa3365fa9f4e8317d11bfb170dc853bf790fec47a6c292e903722",
+      "occurrences": {
+        "### 오너 컬렉션 신호: Spotify 라": 1
+      }
+    }
+  },
+  "token_scan_hits_after": 0
+}

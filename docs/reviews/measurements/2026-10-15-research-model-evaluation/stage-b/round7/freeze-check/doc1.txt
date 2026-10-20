@@ -1,0 +1,70 @@
+DOCUMENT 1 — round-6 findings and the round-7 change list
+
+## Verdict: P6 does not advance, on one orchestrator-confirmed D4 FAIL
+
+| Condition (§6) | P6 | |
+|---|---|---|
+| (a) no agreed D1–D5 FAIL after calibration | **fails** | No dimension is FAILed by both reviewers. Of the two single-reviewer FAILs on P6, the orchestrator confirmed one against sources: Claude's D4 on r2 (below). |
+| (b) no unresolved gate allegation on P6 | **holds** | The only allegation on a P6 output (Claude G4, low, r2 ④-1) was withdrawn with evidence in Claude's own comparative. |
+| (c) P6 FAIL marks ≤ P0's | **holds** | **2 vs 8** |
+| (d) pilot defects listed | table below | Change 1's target row is 0 contradicted absence values on every P6 output, against 1 on P0. |
+| (e) median length ≤ 1.10 × P0 | **holds** | **6,493 vs 7,986 chars = 0.813×** |
+
+**What decides it.** P6 r2 (S07) quotes Lacy in ② K6: "The drums were different, the chorus was different." It cites S6, which is Wikipedia's "Bad Habit" article, marked "검색 스니펫만", with the claim labelled `[검색 결과 경유]`. The check:
+- The quote reached the producer verbatim in one search result (trace seq 12, query "Steve Lacy "Bad Habit" made how interview…"). That result is a summary over nine links, among them the Wikipedia article and Songfacts.
+- The orchestrator fetched the Wikipedia article's current wikitext (52 KB, "Gemini Rights" ×12). It paraphrases the June 2021 origin ("its drums, and its chorus") and has no such quote.
+- Songfacts' Bad Habit page has the sentence verbatim ("drums were different, the chorus was different," Lacy recalled to…). The Claude reviewer reached the same finding: Songfacts relaying a Billboard interview.
+- So a reader who follows the citation does not recover the quoted passage. Anchors R5 / `C-D4-FAIL`: "Non-recovery is a D4 traceability fact and is scored FAIL." **Confirmed.** It is not a G2: the passage exists, and it was received.
+- The counter-reading, recorded rather than taken: the note discloses that S6 is a snippet and the status is relayed, and the passage is recoverable one link away in the same search. Round 5 had a similar slip, P5 r2 filing a Riggins snippet under another S8 URL. It was marked defect 2 there, and neither reviewer gave D4 FAIL. Under the anchors' wording, non-recovery at the cited source is FAIL, and the predeclared rule turns one confirmed single FAIL into an agreed FAIL.
+
+This is the same shape as round 4's stop: one confirmed, narrow failure in a candidate that otherwise meets every other condition.
+
+### The single-reviewer FAILs on P6, checked against sources
+
+| Output | FAIL | Check | Result |
+|---|---|---|---|
+| r2 (S07) | Claude D4. The K6 quote is not in cited S6. K7's "the album's only guest feature" is not verbatim in S2. | K6: as above. K7: S2 (GRAMMY.com) reached the producer as a fetch summary that labels the phrase "journalist narration", so the quote marks sit on summary text (D4 BORDERLINE-type). Astra (no web) gave D4 BORDERLINE. | **K6 confirmed → agreed FAIL under §6 (a)** |
+| r3 (S02) | Astra D5. C7 records the Qobuz / Genius producer difference but calls it "미확인" rather than `[상충]`; ⑤ calls Mercury's Matt Martians difference "범위 차이". | C7's text says "크레딧 집계가 서로 맞지 않는다", keeps it unresolved, and hands it to ④-1. Nothing is resolved silently. The Mercury line is in the appendix and supports no claim. Claude read the same two spots and gave D5 BORDERLINE ("본문에 '맞지 않는다'고 적어 결과적 왜곡은 없다"). The anchors' D5 FAIL needs a *consequential* misstatement or a silent resolution. This is the round-5 r2 C7 case again. | **Not confirmed** |
+
+**Gate allegation.** Claude's per-output G4 (low) on r2 ④-1 ("요약된 자료에 이름이 빠진 것이므로 상충이 아니라 [미확인]") was withdrawn in its comparative: "결론을 [미확인]으로 남기고 핵심 논거에서 뺐다는 S07 자체 기록 때문에 '확정된 것으로 제시' 요건이 성립하지 않습니다". The wrong *cause* statement is real: neither Wikipedia's Technical list nor the Qobuz row credits Kirby or Rise as producers. It sits in Claude's D2, calibrated FAIL → BORDERLINE as non-central. P0 carries G4/G5 allegations (r1: Astra ×3, Claude ×1; r2: Astra G5). They do not enter §6 and were not adjudicated.
+
+## What the round shows
+
+1. **Change 1 did what it was aimed at, on this evidence.** 0 contradicted absence values in P6's tables against 1 on P0, and round 5's two failure sites did not recur. Every P6 ③ legend states its comparison range.
+2. **P6 keeps P5's gains.**
+   - FAIL marks 2 vs 8.
+   - Length 0.813×, the lowest ratio so far.
+   - Defects 1, 2 and 5 down.
+   - No dropped markers.
+   - No allegation left open.
+3. **What stopped it is an attribution slip in prose, not in the tables.** A quote received in a multi-link search summary was filed under the first link, which does not contain it.
+   - Both reviewers proposed rules for this independently: Astra's point 5 ("통합 요약을 개별 매체에 임의 배정하지 않고") and Claude's point 1 (quotes only of wording actually received from that source).
+   - P4's per-claim attribution rule ("받은 문서가 다른 매체를 지목하면…") does not cover a summary that names no document.
+4. **D6 now reads cleanly as a producer behaviour.** Under R-a–R-c both reviewers, the comparatives and the sentinel agree on one line: the run that opened the Qobuz row is BORDERLINE, and every run that did not is FAIL. It binds nothing in this phase (owner, (a)). If the owner wants D6 to move, it is now clearly a producer-side question.
+   - Both comparatives propose putting R-a–R-c into the producer prompt: Astra's point 2 and Claude's point 3.
+5. **Remaining overlaps in the two comparatives, not taken here:** a conflict rule that keeps "observed difference" and "cause unknown" apart (Astra 3, Claude 2), and disclosure of name merges in aggregates (Astra 4, Claude 5).
+
+## Round-7 change list
+
+**Change 1 — content received only in a search tool's summary is attributed to that summary, not to one of its links.**
+- **The harness fact.** A Claude CLI WebSearch result is a list of links followed by one summary text. The summary does not say which link each sentence came from, and there are no per-link snippets (`../round6/runs/cl-P6-gemini-rights-r2/stdout.jsonl`, the seq-12 result: 9 links, then the summary holding the quote).
+- **(a) §4 B, after the per-claim attribution rule.** Content received only in that summary is cited to the search summary, not assigned to any listed link. A link is cited only when the producer opened it and received the same content. A passage the summary prints in quote marks may keep its quote marks only after it is received that way from a link. If it is not, it is written without quote marks, as what the summary relays.
+- **(b) §10 ⑤, one clause in the source-list line.** A search summary gets its own line: ID, "검색 요약", the query, access date. Without this, (a) leaves the producer no way to list the source in ⑤'s required one-line format (ID, hyperlink, author/outlet, date), and the cheapest repair is to put a link's URL back on it.
+- **Why this shape.** P4's rule ("받은 문서가 다른 매체를 지목하면 … 받은 문서를 출처로 적고") covers a document that names an outlet. It does not cover a summary that names nothing. The new sentence says what the received document is in that case, and ties quote marks to receipt from a link. It does not ask for any recording beyond the citation.
+- **Reviewer support.** Astra's round-6 comparative point 5: "통합 요약을 개별 매체에 임의 배정하지 않고". Claude's point 1: "따옴표 안에는 원문 문구만 넣고, 요약만 받았다면 따옴표 없이 의역으로 표시합니다." Change 1 takes the overlap of the two: attribution of summary content (Astra 5) and quote marks on summary content (Claude 1, narrowed to search summaries).
+- **Orchestrator extension, declared:** part (b), and the narrowing of Claude's point 1 to search summaries. Claude's point covers WebFetch summaries too. That half concerns the `[원문 확인]` label (Claude's defect B), which is P4's access-label rule and a different failure from the one that stopped round 6.
+- **Prevalence, measured before freeze.** `summary_quote_scan.py` (sha256 `a2e768fc…`) over rounds 4–6 found candidate units (a quoted passage present in a search summary and in no fetch result) in 4 of 18 Claude-lane outputs. Their citing lines were not re-read against the §6 (d) unit definition: round-4 P4 r3, round-5 P0 r2 and P5 r2, round-6 P6 r2. One more hit (round-6 P0 r1) is a page title, not a quote. The scan reproduces the round-6 hit from the blind packets (S07) as well as from the run traces. So the target is an event of about one output in five. A clean P7 arm will show that change 1 does no harm more than that it works, and RESULTS will say so.
+- **Known risks.**
+  - Extra fetches to recover a quote raise tokens and time, and could lengthen ⑤. (e) is unchanged and watched.
+  - The untaken WebFetch half of Claude's point 1 leaves round 6's K7 shape reachable in P7: quote marks on text received only in a fetch summary (r2, D4 BORDERLINE there).
+- §4 A still asks for a direct URL per source and sends sources that could not be opened to ①. A producer may list every search summary as an access limit there. Watched, not edited.
+- A quote written without quote marks loses verbatim fidelity. That is the intended trade (Claude 1), and D4's BORDERLINE "fidelity imperfect but meaning kept" is the level it should land at, not FAIL.
+  - "Cited to the search summary" may still read as non-recoverable to a reviewer, since a reader cannot replay the search exactly. The ⑤ line keeps the query, so recovery takes one search.
+
+Considered and not taken:
+- **R-a–R-c as a producer rule** (Astra 2, Claude 3). It is aimed at D6, which binds nothing, and would confound change 1. It is the second option in round 6's "Open for the owner", left for its own round.
+- **Access-route definitions** (Astra 1, Claude 1's WebFetch half): P4's `[원문 확인]` rule already defines it. Defect B sits mostly on P0 and the sentinel.
+- **Conflict rule** keeping "observed difference" and "cause unknown" apart (Astra 3, Claude 2). It is a real overlap, but it changes §5's `상충` definition, which P3/P4 tuned against spurious conflicts (defect 5). It needs its own round.
+- **Aggregate disclosure of name merges** (Astra 4, Claude 5). It overlaps, but it is a recording duty on every aggregate, the shape that lengthened notes in rounds 1–3.
+- **Edition rule** (Claude 4) and the unscoped "partial information vs remaining gap" half of Astra 5: single-reviewer.
+
