@@ -1,0 +1,695 @@
+{
+ "levels": {
+  "cl-P5-gemini-rights-r2": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "BORDERLINE",
+    "D4": "PASS",
+    "D5": "PASS",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P5-gemini-rights-r1": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "PASS",
+    "D6": "BORDERLINE"
+   }
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "BORDERLINE"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P5-gemini-rights-r3": {
+   "astra": {
+    "D1": "BORDERLINE",
+    "D2": "FAIL",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "PASS",
+    "D6": "PASS"
+   }
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "FAIL",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "FAIL",
+    "D4": "BORDERLINE",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "FAIL",
+    "D3": "PASS",
+    "D4": "FAIL",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "BORDERLINE",
+    "D5": "FAIL",
+    "D6": "BORDERLINE"
+   }
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": {
+    "D1": "PASS",
+    "D2": "FAIL",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "FAIL",
+    "D6": "FAIL"
+   },
+   "claude": {
+    "D1": "PASS",
+    "D2": "BORDERLINE",
+    "D3": "PASS",
+    "D4": "PASS",
+    "D5": "BORDERLINE",
+    "D6": "BORDERLINE"
+   }
+  }
+ },
+ "lengths": {
+  "cl-P5-gemini-rights-r2": 7366,
+  "cl-P5-gemini-rights-r1": 5808,
+  "cl-P5-gemini-rights-r3": 7857,
+  "cl-P0-gemini-rights-r2": 6929,
+  "cl-P0-gemini-rights-r3": 8382,
+  "cl-P0-gemini-rights-r1": 8533
+ },
+ "gates": {
+  "cl-P5-gemini-rights-r2": {
+   "astra": [],
+   "claude": [
+    {
+     "gate": "G4",
+     "location": "② C5 — '기자의 서술이며 Lacy의 발언이 아니다' (Consequence: 'the singer also teased…')",
+     "confidence": "low"
+    }
+   ]
+  },
+  "cl-P5-gemini-rights-r1": {
+   "astra": [],
+   "claude": []
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P5-gemini-rights-r3": {
+   "astra": [
+    {
+     "gate": "G4",
+     "location": "③ 제작 과정 근거: 실제로 제작 과정까지 다룬 곡은 Bad Habit 1곡",
+     "confidence": "medium"
+    }
+   ],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": [],
+   "claude": []
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": [
+    {
+     "gate": "G4",
+     "location": "C1: Apple Music 성명의 '이 점을 이해한 뒤 작업이 쉽고 즐거워졌다'",
+     "confidence": "medium"
+    },
+    {
+     "gate": "G9",
+     "location": "C5: Genius·Wikipedia·그래미 작가 명단이 모두 일치한다는 교차 확인 선언",
+     "confidence": "high"
+    }
+   ],
+   "claude": [
+    {
+     "gate": "G4",
+     "location": "② C1 third bullet (S2 Apple Music artist-statement paraphrase linking 'unconditional love' to the album becoming easy/fun)",
+     "confidence": "medium"
+    }
+   ]
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": [
+    {
+     "gate": "G4",
+     "location": "③ 전곡 점검표: Buttons의 참조 관계 ‘등재 없음’",
+     "confidence": "high"
+    }
+   ],
+   "claude": []
+  }
+ },
+ "defects": {
+  "cl-P5-gemini-rights-r2": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P5-gemini-rights-r1": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "present",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "absent",
+    "3": "present",
+    "4": "absent",
+    "5": "absent",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "sentinel:round1/cl-P1-gemini-rights": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P5-gemini-rights-r3": {
+   "astra": {
+    "1": "absent",
+    "2": "absent",
+    "3": "present",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "present",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r2": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "present",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r3": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "absent",
+    "7": "absent",
+    "8": "absent"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "absent",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  },
+  "cl-P0-gemini-rights-r1": {
+   "astra": {
+    "1": "absent",
+    "2": "present",
+    "3": "present",
+    "4": "present",
+    "5": "absent",
+    "6": "present",
+    "7": "absent",
+    "8": "present"
+   },
+   "claude": {
+    "1": "absent",
+    "2": "present",
+    "3": "absent",
+    "4": "present",
+    "5": "present",
+    "6": "present",
+    "7": "absent",
+    "8": "absent"
+   }
+  }
+ },
+ "tokens": {
+  "astra-S01": {
+   "input_tokens": 37123,
+   "cached_input_tokens": 12160,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2927,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S02": {
+   "input_tokens": 40001,
+   "cached_input_tokens": 4480,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2841,
+   "reasoning_output_tokens": 516
+  },
+  "astra-S03": {
+   "input_tokens": 54056,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2860,
+   "reasoning_output_tokens": 405
+  },
+  "astra-S04": {
+   "input_tokens": 39206,
+   "cached_input_tokens": 12160,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3517,
+   "reasoning_output_tokens": 1034
+  },
+  "astra-S05": {
+   "input_tokens": 42943,
+   "cached_input_tokens": 12160,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 2755,
+   "reasoning_output_tokens": 383
+  },
+  "astra-S06": {
+   "input_tokens": 49314,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3306,
+   "reasoning_output_tokens": 912
+  },
+  "astra-S07": {
+   "input_tokens": 45805,
+   "cached_input_tokens": 9600,
+   "cache_write_input_tokens": 0,
+   "output_tokens": 3527,
+   "reasoning_output_tokens": 1036
+  },
+  "claude-S01": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 44170,
+   "cache_read_input_tokens": 45022,
+   "output_tokens": 10401,
+   "output_tokens_details": {
+    "thinking_tokens": 5943
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 44170,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6415,
+     "cache_read_input_tokens": 42161,
+     "cache_creation_input_tokens": 4870,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 4870
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S02": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 49187,
+   "cache_read_input_tokens": 49939,
+   "output_tokens": 10262,
+   "output_tokens_details": {
+    "thinking_tokens": 6169
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 49187,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6583,
+     "cache_read_input_tokens": 47078,
+     "cache_creation_input_tokens": 4970,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 4970
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S03": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 77557,
+   "cache_read_input_tokens": 73381,
+   "output_tokens": 14102,
+   "output_tokens_details": {
+    "thinking_tokens": 9382
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 77557,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 5306,
+     "cache_read_input_tokens": 70520,
+     "cache_creation_input_tokens": 9898,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 9898
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S04": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 50288,
+   "cache_read_input_tokens": 101432,
+   "output_tokens": 12040,
+   "output_tokens_details": {
+    "thinking_tokens": 7425
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 50288,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6772,
+     "cache_read_input_tokens": 52401,
+     "cache_creation_input_tokens": 748,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 748
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S05": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 56042,
+   "cache_read_input_tokens": 54841,
+   "output_tokens": 11662,
+   "output_tokens_details": {
+    "thinking_tokens": 6915
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 56042,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 6248,
+     "cache_read_input_tokens": 51980,
+     "cache_creation_input_tokens": 6923,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 6923
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S06": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 66483,
+   "cache_read_input_tokens": 65480,
+   "output_tokens": 12544,
+   "output_tokens_details": {
+    "thinking_tokens": 7748
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 66483,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 7234,
+     "cache_read_input_tokens": 62619,
+     "cache_creation_input_tokens": 6725,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 6725
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "claude-S07": {
+   "input_tokens": 4,
+   "cache_creation_input_tokens": 60849,
+   "cache_read_input_tokens": 59397,
+   "output_tokens": 14412,
+   "output_tokens_details": {
+    "thinking_tokens": 9524
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 60849,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "global",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 8446,
+     "cache_read_input_tokens": 56536,
+     "cache_creation_input_tokens": 7174,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 7174
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  }
+ },
+ "cells": {
+  "cl-P5": {
+   "fails": 3,
+   "agreed": [],
+   "single": [
+    "r2 D5 astra",
+    "r1 D5 astra",
+    "r3 D2 astra"
+   ],
+   "runs": [
+    "cl-P5-gemini-rights-r2",
+    "cl-P5-gemini-rights-r1",
+    "cl-P5-gemini-rights-r3"
+   ],
+   "median_len": 7366,
+   "lengths": {
+    "cl-P5-gemini-rights-r1": 5808,
+    "cl-P5-gemini-rights-r2": 7366,
+    "cl-P5-gemini-rights-r3": 7857
+   }
+  },
+  "cl-P0": {
+   "fails": 9,
+   "agreed": [
+    "r2 D3",
+    "r3 D5"
+   ],
+   "single": [
+    "r2 D5 astra",
+    "r3 D2 astra",
+    "r3 D4 astra",
+    "r1 D2 astra",
+    "r1 D5 astra"
+   ],
+   "runs": [
+    "cl-P0-gemini-rights-r2",
+    "cl-P0-gemini-rights-r3",
+    "cl-P0-gemini-rights-r1"
+   ],
+   "median_len": 8382,
+   "lengths": {
+    "cl-P0-gemini-rights-r1": 8533,
+    "cl-P0-gemini-rights-r2": 6929,
+    "cl-P0-gemini-rights-r3": 8382
+   }
+  }
+ }
+}
