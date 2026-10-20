@@ -1,0 +1,13 @@
+{
+  "drawn_at": "2026-10-20T09:42:12.415492+00:00",
+  "method": "secrets.SystemRandom().shuffle",
+  "key": {
+    "S01": "cl-P6-gemini-rights-r1",
+    "S02": "cl-P6-gemini-rights-r3",
+    "S03": "cl-P0-gemini-rights-r3",
+    "S04": "cl-P0-gemini-rights-r2",
+    "S05": "sentinel:round1/cl-P1-gemini-rights",
+    "S06": "cl-P0-gemini-rights-r1",
+    "S07": "cl-P6-gemini-rights-r2"
+  }
+}

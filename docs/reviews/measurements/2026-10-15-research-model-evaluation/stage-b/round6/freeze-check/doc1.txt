@@ -1,0 +1,41 @@
+DOCUMENT 1 — round-5 findings and the round-6 change list
+
+## What the round shows
+
+1. **P5 keeps P4's gains and clears the round-4 blocker.**
+   - FAIL marks are 3 against 9, length is 0.879×, and defects 6 and 8 stay down.
+   - No dropped uncertainty marker was found in any output.
+   - Every P5 FAIL was one reviewer's, and none survived the source check.
+2. **Change 1 is the first edit to move defect 4.** The evidence is the defect table, plus Claude's D6 at PASS on one P5 output (it was BORDERLINE on all six outputs in round 4). No gate measures it.
+3. **Change 3 did not stop unchecked negative statements.** Two of three P5 runs wrote "없음" / "받지 못했다" against material they had received. One of these is r3's ③ coverage line, which the owner judged peripheral. If a later round targets this, the likely shape is a check tied to the table cells. The current wording sits in §5's prose, far from ③.
+4. **D6 is still unmeasured.** This is now the main thing standing between P5 and the Stage B gate.
+   - Claude has given 0 D6 FAILs in 44 audits, and its sentinel control has failed four rounds running.
+   - Astra's no-web D6 FAILs nearly everything except the sentinel.
+   - Round-5 P0 also ran about 20 % longer than round-4 P0 on identical bytes, which is a reminder that (e) has run-to-run noise of that size.
+
+
+## Round-6 change list (from the predeclaration)
+
+P6 is round-5 P5 (`prompts/P5.md`, `eec6451a…`, byte copy) with one change, in two places. The diff is `prompts/P5-to-P6-rc.diff`. Sizes: P5 17,753 bytes, P6 rc 18,431 (+678). After freeze, `prompts/P0-to-P6.diff` gives the full contrast with P0. It adds no section and no recording list.
+
+**Change 1 — the exclusive/negative check moves to where the table values are written.**
+- **(a) §9, one sentence after the ③ column list.** Before a ③ cell or a line under the table gets an absence or exclusive value ('없음', '0', '~곡뿐' and the like), the producer compares it with what it already received about that track (for a line under the table, those tracks): input block, opened pages, search results, ③'s other cells, and ② and ⑤. If an item is there, the value is not written; the item or its location is. The comparison range follows §5: once in a column head or the legend for cells, in the sentence itself for a line under the table.
+- **(b) §6, one clause in the selective-transcription rule.** Before writing that a missing role was "받지 못했다", the producer compares with material already received. If the role is there, it is transcribed or its location is given.
+- Targets, from `../round5/RESULTS.md`:
+  - P5 r3: ③ "참조 관계 없음" on Static and Buttons while the input's G block lists a remix and samples of Static and a remix of Buttons; and the line under ③, "실제로 제작 과정까지 다룬 곡은 5번 Bad Habit 1곡", while ③'s own evidence column lists C6 on tracks 2, 3, 8 and 10.
+  - P5 r1: ⑤ "연주·엔지니어링 역할은 받지 못했다", contradicted by the run's own seq-4 fetch.
+- **Why this shape.** P5's change 3 is a general rule in §5's prose, far from ③. All three failures sit in a table or in the sentence that introduces one. The rule is restated where those values are written, and §5's general rule stays as it is.
+- **Reviewer support.** Astra's round-5 comparative point 4 ends "부재 보고 전에는 이미 제공된 자료를 재대조한다". Claude's comparative lists "받은 자료를 '받지 못함/없음'으로 기록" (S02, S04, both P5) as a model-side recurring defect but proposes no rule for it. So this is one reviewer's proposal plus a defect both saw, the same footing as round 5's change 3.
+- **Orchestrator extension, declared:** part (b). The handover named the ③ cells. r1's failure is in ⑤, and leaving it out would leave one of the three observed cases untargeted.
+- **Known risk.** Round 3's edit 3 ("numerators from the checklist") created defect 6. Change 1 adds no counting rule and asks for no recount. It does make a '~곡뿐' line under ③ agree with ③'s own cells, which is close to that territory, so defect 6 is watched in (d).
+
+Considered and not taken:
+- **A producer rule built from R-a–R-c** ("prefer a distributor or store credit row"). D6 does not bind this round, and a second change aimed at a non-binding dimension would confound change 1. P5 §6 already asks for a booklet / distributor comparison in the cases that matter. The D6 table (§6) reports how often each arm used the authoritative row.
+- **Round-5 comparative proposals.**
+  - Both reviewers' point 1, the `[원문 확인]` label. On P5 it is already moot: all three P5 outputs declared no `[원문 확인]`, and the defect in Claude's table sits on P0 and the sentinel.
+  - Role strings (Astra 2, Claude 5) are P5's change 1, already in.
+  - Aggregates: Astra 3, inclusion rules and a recount from the final table; Claude 3, no unit-level claims from an aggregate without unit rows. The two overlap only in topic. Astra's recount is the shape of round 3's edit 3, which created defect 6.
+  - Single-reviewer points: Claude's quote-mark rule (2) and speaker classes (4); Astra's de-duplication (5), and the conflict-test half of its point 4 (the absence half is change 1).
+
+**Length.** The change asks for no new text in the note. If anything, a contradicted "없음" becomes an item or a pointer. Round-5 P5 ran 5,808 / 7,366 / 7,857 against round-5 P0's median 8,382. Round-5 P0 also ran about 20 % longer than round-4 P0 on identical bytes, so (e) carries run-to-run noise of that size. The rule is unchanged.
+

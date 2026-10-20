@@ -1,0 +1,124 @@
+You are one of two reviewers (GPT-6 Astra and Claude) of a music-critic pre-review research prompt. In Stage B round 5, candidate P5 advanced under the round rule in the Claude CLI lane (FAIL marks 3 vs 9, median length 0.879× the control P0, no confirmed single-reviewer FAIL), but its rule that exclusive/negative statements be checked against already-received material (P5 §5) did not stop unchecked absence claims: two of three P5 outputs wrote "없음" / "받지 못했다" in the per-track checklist (③), in the line under it, or in a selective-transcription note in the appendix (⑤), against material they had received. After round 5 each reviewer wrote a comparative calibration with defects and proposals (DOCUMENTS 2 and 3). DOCUMENT 1 records the round-5 findings and the round-6 change list: one change, in two places — (a) the check restated in §9 where ③ values are written, and (b) a clause in §6's selective-transcription rule, (b) being a declared orchestrator extension. Other proposals were deliberately NOT applied, as listed there. DOCUMENT 4 is the unified diff from P5 to the round-6 candidate P6. Added recording duties lengthened notes in earlier rounds, so edits are meant to be definitions or generalisations; the whole-note 6,000-character cap and cut order are unchanged, and the per-track checklist and credit role strings must not be cut. A rule asking to recompute numerators from the checklist created numerator inconsistencies in round 3.
+
+Task — fidelity check before P6 is frozen for a bounded development round. Answer:
+(1) For each part of the change, (a) and (b): applied faithfully / applied with a material distortion / missing. Quote the diff line for any distortion or omission.
+(2) Does the diff introduce anything that is NOT in the declared change list (scope creep), or name an album-specific outlet, service or fact?
+(3) Does any edit create a new material defect: a contradiction with an unchanged rule, an instruction a producer cannot follow in a headless web-search run, a duty likely to lengthen notes, a cut likely to remove evidence an auditor needs, or a route to a known defect (status inflation, attribution upgrade of relayed quotes, quota-filling, spurious conflicts, ritual repetition)?
+For every objection give exact replacement text in Korean. Do not propose changes beyond these; note them in one line at the end as "out of scope" if you must. Do not browse the web; everything you need is below. Reply in English Markdown, under 400 words. The first line must be exactly one of: CONFIRM FREEZE / MATERIAL OBJECTION.
+
+
+DOCUMENT 1 — round-5 findings and the round-6 change list
+
+## What the round shows
+
+1. **P5 keeps P4's gains and clears the round-4 blocker.**
+   - FAIL marks are 3 against 9, length is 0.879×, and defects 6 and 8 stay down.
+   - No dropped uncertainty marker was found in any output.
+   - Every P5 FAIL was one reviewer's, and none survived the source check.
+2. **Change 1 is the first edit to move defect 4.** The evidence is the defect table, plus Claude's D6 at PASS on one P5 output (it was BORDERLINE on all six outputs in round 4). No gate measures it.
+3. **Change 3 did not stop unchecked negative statements.** Two of three P5 runs wrote "없음" / "받지 못했다" against material they had received. One of these is r3's ③ coverage line, which the owner judged peripheral. If a later round targets this, the likely shape is a check tied to the table cells. The current wording sits in §5's prose, far from ③.
+4. **D6 is still unmeasured.** This is now the main thing standing between P5 and the Stage B gate.
+   - Claude has given 0 D6 FAILs in 44 audits, and its sentinel control has failed four rounds running.
+   - Astra's no-web D6 FAILs nearly everything except the sentinel.
+   - Round-5 P0 also ran about 20 % longer than round-4 P0 on identical bytes, which is a reminder that (e) has run-to-run noise of that size.
+
+
+## Round-6 change list (from the predeclaration)
+
+P6 is round-5 P5 (`prompts/P5.md`, `eec6451a…`, byte copy) with one change, in two places. The diff is `prompts/P5-to-P6-rc.diff`. Sizes: P5 17,753 bytes, P6 rc 18,431 (+678). After freeze, `prompts/P0-to-P6.diff` gives the full contrast with P0. It adds no section and no recording list.
+
+**Change 1 — the exclusive/negative check moves to where the table values are written.**
+- **(a) §9, one sentence after the ③ column list.** Before a ③ cell or a line under the table gets an absence or exclusive value ('없음', '0', '~곡뿐' and the like), the producer compares it with what it already received about that track (for a line under the table, those tracks): input block, opened pages, search results, ③'s other cells, and ② and ⑤. If an item is there, the value is not written; the item or its location is. The comparison range follows §5: once in a column head or the legend for cells, in the sentence itself for a line under the table.
+- **(b) §6, one clause in the selective-transcription rule.** Before writing that a missing role was "받지 못했다", the producer compares with material already received. If the role is there, it is transcribed or its location is given.
+- Targets, from `../round5/RESULTS.md`:
+  - P5 r3: ③ "참조 관계 없음" on Static and Buttons while the input's G block lists a remix and samples of Static and a remix of Buttons; and the line under ③, "실제로 제작 과정까지 다룬 곡은 5번 Bad Habit 1곡", while ③'s own evidence column lists C6 on tracks 2, 3, 8 and 10.
+  - P5 r1: ⑤ "연주·엔지니어링 역할은 받지 못했다", contradicted by the run's own seq-4 fetch.
+- **Why this shape.** P5's change 3 is a general rule in §5's prose, far from ③. All three failures sit in a table or in the sentence that introduces one. The rule is restated where those values are written, and §5's general rule stays as it is.
+- **Reviewer support.** Astra's round-5 comparative point 4 ends "부재 보고 전에는 이미 제공된 자료를 재대조한다". Claude's comparative lists "받은 자료를 '받지 못함/없음'으로 기록" (S02, S04, both P5) as a model-side recurring defect but proposes no rule for it. So this is one reviewer's proposal plus a defect both saw, the same footing as round 5's change 3.
+- **Orchestrator extension, declared:** part (b). The handover named the ③ cells. r1's failure is in ⑤, and leaving it out would leave one of the three observed cases untargeted.
+- **Known risk.** Round 3's edit 3 ("numerators from the checklist") created defect 6. Change 1 adds no counting rule and asks for no recount. It does make a '~곡뿐' line under ③ agree with ③'s own cells, which is close to that territory, so defect 6 is watched in (d).
+
+Considered and not taken:
+- **A producer rule built from R-a–R-c** ("prefer a distributor or store credit row"). D6 does not bind this round, and a second change aimed at a non-binding dimension would confound change 1. P5 §6 already asks for a booklet / distributor comparison in the cases that matter. The D6 table (§6) reports how often each arm used the authoritative row.
+- **Round-5 comparative proposals.**
+  - Both reviewers' point 1, the `[원문 확인]` label. On P5 it is already moot: all three P5 outputs declared no `[원문 확인]`, and the defect in Claude's table sits on P0 and the sentinel.
+  - Role strings (Astra 2, Claude 5) are P5's change 1, already in.
+  - Aggregates: Astra 3, inclusion rules and a recount from the final table; Claude 3, no unit-level claims from an aggregate without unit rows. The two overlap only in topic. Astra's recount is the shape of round 3's edit 3, which created defect 6.
+  - Single-reviewer points: Claude's quote-mark rule (2) and speaker classes (4); Astra's de-duplication (5), and the conflict-test half of its point 4 (the absence half is change 1).
+
+**Length.** The change asks for no new text in the note. If anything, a contradicted "없음" becomes an item or a pointer. Round-5 P5 ran 5,808 / 7,366 / 7,857 against round-5 P0's median 8,382. Round-5 P0 also ran about 20 % longer than round-4 P0 on identical bytes, so (e) carries run-to-run noise of that size. The rule is unchanged.
+
+
+
+DOCUMENT 2 — Astra round-5 comparative (defects and proposals)
+
+## 3. 지속되는 반복 결함과 원인 해석
+
+실제 프롬프트가 없으므로 아래 분류는 **원인 가설**입니다. 특정 규칙이나 생산 조건이 존재했다고 단정하지 않습니다.
+
+| 반복 결함 | 관찰 사례 | 원인 해석 |
+|---|---|---|
+| 가공 요약을 원문 검증으로 표시 | S03·S05·S06·S07 | **혼합.** 요약을 반환하는 하네스와 그 내용을 원문 열람으로 재분류하는 모델 행동이 함께 관련된다. |
+| 권위 있는 곡별 행 없이 크레딧 구성 | S01·S02·S05·S06·S07 | **모델/하네스 유발.** 접근 제한과 반환 자료의 한계가 반복되며, 모델이 대체 자료를 크레딧 근거로 사용한다. |
+| 이미 받은 정보의 누락·부재 오보고 | S02·S04·S07 | **모델/하네스 유발 중 모델 측.** 보고서상 필요한 정보는 이미 제공돼 있었다. |
+| 집계 범주·횟수·포함 기준 불일치 | S03·S04·S05·S07 | **모델/하네스 유발 중 모델 측.** 근거 목록과 요약 집계 사이의 내부 대조가 실패했다. |
+| 비교 범위가 다른 자료의 충돌 오판 또는 성급한 해소 | S01·S03·S06 | **혼합.** 이질적인 자료 구조와 모델의 비교 판단이 함께 작용한다. S02의 독점 표현 미대조도 범위 확인 부족과 관련된다. |
+| 같은 인용·한계·미해결 사항의 반복 | S03·S05·S07 | **혼합 가능성.** 문서 구성 규칙과 모델의 반복 작성 모두 후보지만, 프롬프트 유발 여부는 확인할 수 없다. |
+
+기자 서술의 직접 인용문 조작이나 리뷰 평가의 사실 근거 전용은 반복 결함으로 확인되지 않았습니다. **프롬프트 단독 유발이라고 판정할 증거도 없습니다.**
+
+## 4. 다음 제한된 라운드의 프롬프트 변경안
+
+1. **출처 상태 규칙 정의:** 검색 스니펫·가공 fetch 요약·직접 검사한 비가공 원문을 구분한다. “원문 확인”은 마지막 경우의 실제 검사 범위에만 사용하며, 각 주장의 표시에 적용한다.
+2. **크레딧 규칙 일반화:** 원래 역할 문자열·곡·판본·권위 있는 행을 연결한다. 미확인 상태는 표와 청취 질문에도 유지하고, 한 역할의 등재를 다른 역할 참여로 전환하지 않는다.
+3. **집계 규칙 일반화:** 모든 집계에 포함 기준·분자·분모·제외·근거 행을 연결한다. 직접 발언·기자 서술·제작 과정 등의 범주를 먼저 정의하고 최종 표에서 재계산한다.
+4. **불일치 판정 규칙 정의:** 역할·판본·시점·측정 단위가 같은지 확인한 뒤 충돌 여부를 판단한다. 대응 관계가 불명확하면 “미해결”로 유지하며, 부재 보고 전에는 이미 제공된 자료를 재대조한다.
+5. **선택·중복 규칙 일반화:** 인용과 공통 접근 한계는 기준 위치에 한 번 제시하고 다른 절에서는 참조한다. 다만 주장별 불확실성 표시는 삭제하지 않는다.
+
+
+DOCUMENT 3 — Claude round-5 comparative (defects and proposals)
+
+## 3. 여러 노트에 반복되는 결함
+
+| 결함 | 해당 노트 | 원인 판단 |
+|---|---|---|
+| WebFetch 요약에 [원문 확인] 표기 | S03, S05, S06, S07 | **혼합.** 하니스는 가공된 요약만 돌려주므로 1차 열람이 불가능합니다. 그런데 프롬프트는 [원문 확인] 라벨을 선택지로 줍니다. S01·S02·S04는 스스로 "없음"이라고 밝혔습니다. |
+| 트랙 목록이 없는 집계에서 트랙 단위 일치·상충을 추론 | S03, S06, S07 | **혼합.** 파이프라인 집계 입력에 트랙 목록이 없는데, 프롬프트는 트랙별 점검표를 요구합니다. |
+| 자기 보고 수치 오류(검색·실패 횟수, 점검표 분자) | S03, S04, S06, S07 | **주로 모델.** 프롬프트의 집계 요구가 이 오류가 생길 자리를 만듭니다. |
+| 접근 실패 사유를 잘못 서술(리다이렉트 미추적을 "유료벽"으로, 402 횟수, 차단 범위) | S03, S06, S07 | **하니스·모델 혼합.** 도구가 307 리다이렉트를 따라가지 않습니다. |
+| 요약에서 역할 정규화·축소(한국어 번역 포함) | S03, S05, S07 | **혼합.** 한국어 출력 요구와 원 문자열 보존 규칙이 충돌합니다. |
+| 화자 경계 오류(간접화법↔기자 서술) | S01, S05 | **모델.** |
+| 받은 자료를 "받지 못함/없음"으로 기록 | S02, S04 | **모델.** |
+
+## 4. 다음 라운드 프롬프트 변경안 (5개)
+
+1. **[원문 확인] 라벨 정의를 좁힙니다.** 이 라벨은 보존된 원문 캡처를 직접 대조한 경우에만 씁니다. 그 밖의 fetch 요약과 검색 스니펫은 모두 "요약 열람(relayed)"으로 표기합니다. M1을 생산자 규칙으로 일반화하는 변경입니다. 원문 캡처 도구가 없는 환경에서는 라벨 자체를 삭제합니다.
+2. **인용부호 규칙을 정의합니다.** 따옴표는 받은 텍스트에 그대로 있는 문자열에만 씁니다. 의역은 따옴표 없이 쓰고, 원문의 지시어, 인과 관계, 시점을 바꾸지 않습니다.
+3. **집계 사용 규칙을 일반화합니다.** 단위별 행이 없는 집계로는 개별 단위의 일치나 상충을 주장하지 않습니다. 그런 경우 "집계만 있음, 단위 미확인"으로 표기합니다.
+4. **화자 분류를 정의합니다.** 분류는 직접 인용, 간접 전달(기자가 전한 창작자 발언), 기자 서술의 세 가지입니다. "X의 발언이 아니다" 같은 부정 단정은 출처가 그렇게 보여 줄 때만 씁니다.
+5. **수치·실패·역할 기록 규칙을 일반화합니다.** 횟수와 실패 사유는 트레이스의 호출 단위 결과(오류 코드, 리다이렉트 미추적)를 그대로 옮깁니다. 역할 문자열은 원어 그대로 쓰고, 번역은 괄호 안에 병기합니다.
+
+참고로 프롬프트 변경은 아니지만 매뉴얼 공백 두 가지를 기록해 둡니다. 하나는 D4 "excerpt"에 의역이 포함되는지이고, 다른 하나는 D5 "consequential"의 정의입니다.
+
+
+DOCUMENT 4 — unified diff from P5 to the round-6 candidate P6 (rc)
+
+--- prompts/P5.md	2026-10-20 18:00:51
++++ freeze-check/P6-rc.md	2026-10-20 18:06:49
+@@ -120,7 +120,7 @@
+ 
+ 트랙 식별, 판본, 수집 시각, 원래 역할 필드를 보존한다.
+ 역할은 출처에 적힌 역할 문자열을 원어 그대로 쓴다. 번역이 필요하면 원어 뒤 괄호 안에만 두고, 같은 문자열의 번역은 노트 전체에서 처음 한 번만 단다(예: 출처가 ‘Mixing Engineer’면 Mixing Engineer(믹싱 엔지니어)). 본문, 점검표의 요약 열과 범례, 집계, 확인 질문 어디서든 같다. 역할을 합치거나 좁히거나 다른 이름(번역어 포함)으로 바꾸지 않는다.
+-부클릿·유통사·판매처 페이지 등 출처를 밝힌 크레딧 행을 점검표나 근거 부록에 옮길 때는 대상 트랙에 대해 그 행의 인물과 역할을 모두 옮긴다. 일부만 옮기면 선별 전사라고 밝히고 빠진 역할의 종류를 적는다. 선별은 역할 단위로만 한다. 옮기는 역할은 그 역할을 맡은 인물을 모두, 함께 맡은 것으로 옮긴다.
++부클릿·유통사·판매처 페이지 등 출처를 밝힌 크레딧 행을 점검표나 근거 부록에 옮길 때는 대상 트랙에 대해 그 행의 인물과 역할을 모두 옮긴다. 일부만 옮기면 선별 전사라고 밝히고 빠진 역할의 종류를 적는다. 빠진 역할을 ‘받지 못했다’고 적기 전에 이미 받은 자료와 대조하고, 거기에 있으면 그 역할을 옮기거나 위치를 적는다. 선별은 역할 단위로만 한다. 옮기는 역할은 그 역할을 맡은 인물을 모두, 함께 맡은 것으로 옮긴다.
+ 작사·작곡·프로듀싱·연주·엔지니어링을 합치지 않는다.
+ 동명이인과 예명은 근거를 확인한 뒤 통합한다.
+ 
+@@ -201,6 +201,7 @@
+ 표준판의 모든 트랙을 점검표에 올린다.
+ 모든 트랙의 값이 같은 열은 표 위 한 줄 범례로 대신하고 표에서 뺀다.
+ 각 트랙의 크레딧 확인 상태, 제작·인터뷰 근거, 참조 관계, 공백을 구분한다.
++③의 칸과 표 아래 줄에 부재·배타 값(‘없음’, ‘0’, ‘~곡뿐’ 등)을 쓰기 전에, 그 트랙(표 아래 줄이면 해당 트랙들)에 관해 이미 받은 자료(입력 블록, 열람한 페이지, 검색 결과)와 ③의 다른 칸, ②·⑤를 대조한다. 거기에 해당 항목이 있으면 그 값을 쓰지 않고 항목이나 그 위치를 적는다. 대조 범위는 5의 규칙대로 칸이면 열 머리나 범례에 한 번, 표 아래 줄이면 그 문장에 밝힌다.
+ 
+ 기본 메타데이터 확인률과 실질적인 제작·맥락 근거 확보율을 따로 보고한다.
+ 크레딧만 확보한 트랙을 심층 조사 완료로 세지 않는다.
