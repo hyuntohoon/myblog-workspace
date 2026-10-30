@@ -133,6 +133,7 @@ Owner decisions, 2026-10-12: budget **300 per UTC day** (set in `settings.json`,
 - **The limit lifted before the fallback could matter.** The last limit event was 2026-10-18 04:20 KST. When the changed worker was installed and re-enabled (16:39 KST), the first GPT probe succeeded. That is about four days before the reset Codex reported (10-22 20:08 KST), so Codex's reset time is not a reliable predictor for this API.
 - **Claude fallback calls: 0.** No limit event has occurred since the change, so `resume_at` was never set. `fallback-usage.json` was never created, and `fallback-skip.json` is `{}`. The refusal rate is therefore unmeasured (denominator 0), not zero.
 - **GPT since recovery:** 10-18 UTC 162 saved, 14 `invalid_output` (of 176 attempts, 8%); 10-19 UTC 300 saved of 300 attempts. On both days the queue hit the 300/day admission budget, so throughput is budget-bound, not limit-bound.
+- **Re-read 2026-10-30 16:30 KST:** still no limit event since 10-18 04:20 KST; `fallback-skip.json` is `{}` and `fallback-usage.json` does not exist, so the fallback has still made 0 calls. GPT requests per UTC day 10-20..10-29: 223, 182, 106, 173, 262, 300, 300, 295, 298, 298 — at or near the 300 budget since 10-25 without hitting the plan limit.
 - **Still open:** the fallback's refusal rate and Claude usage. They are measured at the next plan usage-limit event, from `fallback-usage.json`, `fallback-skip.json` and the heartbeat `fallback` counts.
 
 ## Authentication and inference
